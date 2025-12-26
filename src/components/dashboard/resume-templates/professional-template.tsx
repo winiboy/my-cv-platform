@@ -193,42 +193,42 @@ export function ProfessionalTemplate({
         }}
       >
           {/* HEADER: CV Title and Contact Info */}
-          <div className="mb-8 border-b-2 pb-6" style={{ borderColor: 'oklch(0.25 0.05 240)', position: 'relative' }}>
-            <h1 className="mb-2 font-bold uppercase tracking-tight" style={{ color: 'oklch(0.25 0.05 240)', fontSize: `${titleFontSize}px` }}>
+          <div className="mb-8 border-b-2 pb-6" style={{ borderColor: 'oklch(0.25 0.05 240)' }}>
+            <h1 className="mb-2 font-bold uppercase tracking-tight" style={{ color: 'oklch(0.25 0.05 240)', fontSize: `${titleFontSize}px`, position: 'relative' }}>
               {resume.title || 'CV TITLE'}
-            </h1>
 
-            {/* Font Size Slider - Positioned outside CV to the right */}
-            {setTitleFontSize && (
-              <div
-                className="print:hidden"
-                style={{
-                  position: 'absolute',
-                  left: '100%',
-                  top: '-10px',
-                  marginLeft: '48px',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                <div className="text-xs text-slate-600 font-medium mb-0.5">
-                  {dict.resumes?.sliders?.title || 'Title'}
+              {/* Font Size Slider - Positioned outside CV to the right */}
+              {setTitleFontSize && (
+                <div
+                  className="print:hidden"
+                  style={{
+                    position: 'absolute',
+                    left: '100%',
+                    bottom: 0,
+                    marginLeft: '48px',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  <div className="text-xs text-slate-600 font-medium mb-0.5">
+                    {dict.resumes?.sliders?.title || 'Title'}
+                  </div>
+                  <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-1 shadow-sm">
+                    <input
+                      type="range"
+                      min="16"
+                      max="48"
+                      step="2"
+                      value={titleFontSize}
+                      onChange={(e) => setTitleFontSize(Number(e.target.value))}
+                      className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                    />
+                    <span className="text-xs text-slate-600 font-mono">
+                      {titleFontSize}px
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-1 shadow-sm">
-                  <input
-                    type="range"
-                    min="16"
-                    max="48"
-                    step="2"
-                    value={titleFontSize}
-                    onChange={(e) => setTitleFontSize(Number(e.target.value))}
-                    className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
-                  />
-                  <span className="text-xs text-slate-600 font-mono">
-                    {titleFontSize}px
-                  </span>
-                </div>
-              </div>
-            )}
+              )}
+            </h1>
 
             {/* Contact Information */}
             <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'oklch(0.4 0 0)', fontSize: `${contactFontSize}px`, position: 'relative' }}>
@@ -322,7 +322,7 @@ export function ProfessionalTemplate({
                     style={{
                       position: 'absolute',
                       left: '100%',
-                      top: '-10px',
+                      bottom: 0,
                       marginLeft: '48px',
                       whiteSpace: 'nowrap'
                     }}
