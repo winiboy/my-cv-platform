@@ -1,0 +1,143 @@
+{
+  "hero": {
+    "headline": "Land Your Dream Job with AI",
+    "subheadline": "Create professional resumes, track your applications, and optimize your job search with our AI-powered all-in-one platform.",
+    "ctaPrimary": "Get Started Free",
+    "ctaSecondary": "See How It Works",
+    "trustedBy": "Trusted by over 100,000 job seekers"
+  },
+  "features": {
+    "title": "All the Tools You Need",
+    "subtitle": "A complete platform to manage your career",
+    "items": [
+      {
+        "title": "AI Resume Builder",
+        "description": "Create professional resumes in minutes with our smart editor and 100+ ATS-friendly templates."
+      },
+      {
+        "title": "Resume Analyzer",
+        "description": "Get an instant ATS score with 15+ checks and personalized recommendations to improve your resume."
+      },
+      {
+        "title": "Job Tracker",
+        "description": "Manage all your applications in one place with our intuitive Kanban tracker. Notes, deadlines, and more."
+      },
+      {
+        "title": "AI Cover Letters",
+        "description": "Generate personalized cover letters tailored to each job posting in seconds."
+      },
+      {
+        "title": "LinkedIn Optimization",
+        "description": "Improve your LinkedIn profile with AI-powered suggestions to attract recruiters."
+      },
+      {
+        "title": "Career Path",
+        "description": "Plan your professional evolution with clear goals and milestones. Track your progress."
+      }
+    ]
+  },
+  "howItWorks": {
+    "title": "How It Works",
+    "steps": [
+      {
+        "title": "Create Your Resume",
+        "description": "Choose a template and fill in your information. Our AI guides you through every step."
+      },
+      {
+        "title": "Analyze and Optimize",
+        "description": "Get an ATS score and recommendations to improve your resume before applying."
+      },
+      {
+        "title": "Track Your Applications",
+        "description": "Keep track of all your applications and never miss an opportunity."
+      }
+    ]
+  },
+  "testimonials": {
+    "title": "What Our Users Say",
+    "items": [
+      {
+        "quote": "Thanks to this platform, I landed my dream job in less than 3 weeks. The resume analyzer really helped me optimize my profile.",
+        "author": "Marie Dubois",
+        "role": "Frontend Developer",
+        "company": "TechCorp"
+      },
+      {
+        "quote": "The job tracker is a game-changer. I can finally manage all my applications in one place.",
+        "author": "Thomas Schmidt",
+        "role": "Project Manager",
+        "company": "InnovateLab"
+      },
+      {
+        "quote": "The resume templates are beautiful and professional. I've received many more responses since using this platform.",
+        "author": "Sarah Johnson",
+        "role": "UX Designer",
+        "company": "CreativeStudio"
+      }
+    ]
+  },
+  "pricing": {
+    "title": "Choose Your Plan",
+    "subtitle": "Start free, upgrade to Premium when you're ready",
+    "free": {
+      "name": "Free",
+      "price": "0 CHF",
+      "period": "forever",
+      "features": [
+        "1 Resume",
+        "Unlimited job tracking",
+        "Basic templates",
+        "Basic resume analysis",
+        "PDF export"
+      ],
+      "cta": "Get Started Free"
+    },
+    "premium": {
+      "name": "Premium",
+      "price": "29 CHF",
+      "period": "per month",
+      "features": [
+        "Unlimited resumes",
+        "100+ premium templates",
+        "Advanced AI analysis with Match Score",
+        "Unlimited cover letters",
+        "LinkedIn optimization",
+        "Chrome extension",
+        "Priority support"
+      ],
+      "cta": "Try Premium",
+      "badge": "Popular"
+    }
+  },
+  "faq": {
+    "title": "Frequently Asked Questions",
+    "items": [
+      {
+        "question": "Is it really free?",
+        "answer": "Yes! Our free plan allows you to create 1 resume, track unlimited applications, and use our basic templates. No credit card required."
+      },
+      {
+        "question": "What is an ATS score?",
+        "answer": "ATS (Applicant Tracking Systems) are used by 98% of large companies to filter resumes. Our ATS score tells you if your resume will pass these automatic filters."
+      },
+      {
+        "question": "Can I cancel my subscription anytime?",
+        "answer": "Absolutely. You can cancel your Premium subscription anytime from your profile. No commitment."
+      },
+      {
+        "question": "Is my data secure?",
+        "answer": "Yes, we use bank-level encryption to protect your data. Your personal information is never shared with third parties."
+      },
+      {
+        "question": "Can I export my resume as PDF?",
+        "answer": "Yes, all plans (free and premium) include PDF export of your resumes."
+      }
+    ]
+  },
+  "cta": {
+    "title": "Ready to Land Your Next Job?",
+    "subtitle": "Join over 100,000 job seekers who found their dream job with our platform.",
+    "button": "Get Started Free",
+    "note": "No credit card required"
+  }
+}

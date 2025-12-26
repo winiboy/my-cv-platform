@@ -1,0 +1,143 @@
+{
+  "hero": {
+    "headline": "Décrochez votre job de rêve avec l'IA",
+    "subheadline": "Créez des CV professionnels, suivez vos candidatures et optimisez votre recherche d'emploi avec notre plateforme tout-en-un alimentée par l'IA.",
+    "ctaPrimary": "Commencer gratuitement",
+    "ctaSecondary": "Voir comment ça marche",
+    "trustedBy": "Approuvé par plus de 100 000 chercheurs d'emploi"
+  },
+  "features": {
+    "title": "Tous les outils dont vous avez besoin",
+    "subtitle": "Une plateforme complète pour gérer votre carrière",
+    "items": [
+      {
+        "title": "CV Builder IA",
+        "description": "Créez des CV professionnels en quelques minutes avec notre éditeur intelligent et nos 100+ templates ATS-friendly."
+      },
+      {
+        "title": "Analyseur de CV",
+        "description": "Obtenez un score ATS instantané avec 15+ vérifications et des recommandations personnalisées pour améliorer votre CV."
+      },
+      {
+        "title": "Suivi de candidatures",
+        "description": "Gérez toutes vos candidatures en un seul endroit avec notre tracker Kanban intuitif. Notes, deadlines, et plus encore."
+      },
+      {
+        "title": "Lettres de motivation IA",
+        "description": "Générez des lettres personnalisées adaptées à chaque offre d'emploi en quelques secondes."
+      },
+      {
+        "title": "Optimisation LinkedIn",
+        "description": "Améliorez votre profil LinkedIn avec des suggestions basées sur l'IA pour attirer les recruteurs."
+      },
+      {
+        "title": "Parcours de carrière",
+        "description": "Planifiez votre évolution professionnelle avec des objectifs et étapes claires. Suivez vos progrès."
+      }
+    ]
+  },
+  "howItWorks": {
+    "title": "Comment ça marche",
+    "steps": [
+      {
+        "title": "Créez votre CV",
+        "description": "Choisissez un template et remplissez vos informations. Notre IA vous guide à chaque étape."
+      },
+      {
+        "title": "Analysez et optimisez",
+        "description": "Obtenez un score ATS et des recommandations pour améliorer votre CV avant de postuler."
+      },
+      {
+        "title": "Suivez vos candidatures",
+        "description": "Gardez une trace de toutes vos candidatures et ne manquez jamais une opportunité."
+      }
+    ]
+  },
+  "testimonials": {
+    "title": "Ce que disent nos utilisateurs",
+    "items": [
+      {
+        "quote": "Grâce à cette plateforme, j'ai décroché mon job de rêve en moins de 3 semaines. L'analyseur de CV m'a vraiment aidé à optimiser mon profil.",
+        "author": "Marie Dubois",
+        "role": "Développeuse Frontend",
+        "company": "TechCorp"
+      },
+      {
+        "quote": "Le suivi de candidatures est un game-changer. Je peux enfin gérer toutes mes candidatures en un seul endroit.",
+        "author": "Thomas Schmidt",
+        "role": "Chef de projet",
+        "company": "InnovateLab"
+      },
+      {
+        "quote": "Les templates de CV sont magnifiques et professionnels. J'ai reçu beaucoup plus de réponses depuis que j'utilise cette plateforme.",
+        "author": "Sarah Johnson",
+        "role": "Designer UX",
+        "company": "CreativeStudio"
+      }
+    ]
+  },
+  "pricing": {
+    "title": "Choisissez votre plan",
+    "subtitle": "Commencez gratuitement, passez à Premium quand vous êtes prêt",
+    "free": {
+      "name": "Gratuit",
+      "price": "0 CHF",
+      "period": "pour toujours",
+      "features": [
+        "1 CV",
+        "Suivi illimité de candidatures",
+        "Templates de base",
+        "Analyse de CV basique",
+        "Exportation PDF"
+      ],
+      "cta": "Commencer gratuitement"
+    },
+    "premium": {
+      "name": "Premium",
+      "price": "29 CHF",
+      "period": "par mois",
+      "features": [
+        "CV illimités",
+        "100+ templates premium",
+        "Analyse IA avancée avec Match Score",
+        "Lettres de motivation illimitées",
+        "Optimisation LinkedIn",
+        "Extension Chrome",
+        "Support prioritaire"
+      ],
+      "cta": "Essayer Premium",
+      "badge": "Populaire"
+    }
+  },
+  "faq": {
+    "title": "Questions fréquentes",
+    "items": [
+      {
+        "question": "Est-ce vraiment gratuit ?",
+        "answer": "Oui ! Notre plan gratuit vous permet de créer 1 CV, suivre un nombre illimité de candidatures et utiliser nos templates de base. Aucune carte bancaire requise."
+      },
+      {
+        "question": "Qu'est-ce qu'un score ATS ?",
+        "answer": "Les ATS (Applicant Tracking Systems) sont utilisés par 98% des grandes entreprises pour filtrer les CV. Notre score ATS vous indique si votre CV passera ces filtres automatiques."
+      },
+      {
+        "question": "Puis-je annuler mon abonnement à tout moment ?",
+        "answer": "Absolument. Vous pouvez annuler votre abonnement Premium à tout moment depuis votre profil. Aucun engagement."
+      },
+      {
+        "question": "Mes données sont-elles sécurisées ?",
+        "answer": "Oui, nous utilisons un cryptage de niveau bancaire pour protéger vos données. Vos informations personnelles ne sont jamais partagées avec des tiers."
+      },
+      {
+        "question": "Puis-je exporter mon CV en PDF ?",
+        "answer": "Oui, tous les plans (gratuit et premium) incluent l'exportation PDF de vos CV."
+      }
+    ]
+  },
+  "cta": {
+    "title": "Prêt à décrocher votre prochain job ?",
+    "subtitle": "Rejoignez plus de 100 000 chercheurs d'emploi qui ont trouvé leur job de rêve avec notre plateforme.",
+    "button": "Commencer gratuitement",
+    "note": "Aucune carte bancaire requise"
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "hero": {
+    "headline": "Finden Sie Ihren Traumjob mit KI",
+    "subheadline": "Erstellen Sie professionelle Lebensläufe, verfolgen Sie Ihre Bewerbungen und optimieren Sie Ihre Jobsuche mit unserer KI-gestützten All-in-One-Plattform.",
+    "ctaPrimary": "Kostenlos starten",
+    "ctaSecondary": "Wie es funktioniert",
+    "trustedBy": "Vertraut von über 100.000 Jobsuchenden"
+  },
+  "features": {
+    "title": "Alle Tools, die Sie brauchen",
+    "subtitle": "Eine vollständige Plattform für Ihr Karrieremanagement",
+    "items": [
+      {
+        "title": "KI Lebenslauf-Generator",
+        "description": "Erstellen Sie in wenigen Minuten professionelle Lebensläufe mit unserem intelligenten Editor und über 100 ATS-freundlichen Vorlagen."
+      },
+      {
+        "title": "Lebenslauf-Analyse",
+        "description": "Erhalten Sie sofort einen ATS-Score mit über 15 Prüfungen und personalisierten Empfehlungen zur Verbesserung Ihres Lebenslaufs."
+      },
+      {
+        "title": "Bewerbungs-Tracker",
+        "description": "Verwalten Sie alle Ihre Bewerbungen an einem Ort mit unserem intuitiven Kanban-Tracker. Notizen, Fristen und mehr."
+      },
+      {
+        "title": "KI Anschreiben",
+        "description": "Generieren Sie in Sekunden personalisierte Anschreiben, die auf jede Stellenanzeige zugeschnitten sind."
+      },
+      {
+        "title": "LinkedIn-Optimierung",
+        "description": "Verbessern Sie Ihr LinkedIn-Profil mit KI-basierten Vorschlägen, um Recruiter anzuziehen."
+      },
+      {
+        "title": "Karriereweg",
+        "description": "Planen Sie Ihre berufliche Entwicklung mit klaren Zielen und Schritten. Verfolgen Sie Ihren Fortschritt."
+      }
+    ]
+  },
+  "howItWorks": {
+    "title": "Wie es funktioniert",
+    "steps": [
+      {
+        "title": "Erstellen Sie Ihren Lebenslauf",
+        "description": "Wählen Sie eine Vorlage und füllen Sie Ihre Informationen aus. Unsere KI führt Sie durch jeden Schritt."
+      },
+      {
+        "title": "Analysieren und optimieren",
+        "description": "Erhalten Sie einen ATS-Score und Empfehlungen zur Verbesserung Ihres Lebenslaufs vor der Bewerbung."
+      },
+      {
+        "title": "Verfolgen Sie Ihre Bewerbungen",
+        "description": "Behalten Sie den Überblick über alle Ihre Bewerbungen und verpassen Sie nie eine Gelegenheit."
+      }
+    ]
+  },
+  "testimonials": {
+    "title": "Was unsere Nutzer sagen",
+    "items": [
+      {
+        "quote": "Dank dieser Plattform habe ich meinen Traumjob in weniger als 3 Wochen gefunden. Die Lebenslauf-Analyse hat mir wirklich geholfen, mein Profil zu optimieren.",
+        "author": "Marie Dubois",
+        "role": "Frontend-Entwicklerin",
+        "company": "TechCorp"
+      },
+      {
+        "quote": "Der Bewerbungs-Tracker ist ein Game-Changer. Ich kann endlich alle meine Bewerbungen an einem Ort verwalten.",
+        "author": "Thomas Schmidt",
+        "role": "Projektleiter",
+        "company": "InnovateLab"
+      },
+      {
+        "quote": "Die Lebenslauf-Vorlagen sind wunderschön und professionell. Ich habe viel mehr Antworten erhalten, seit ich diese Plattform nutze.",
+        "author": "Sarah Johnson",
+        "role": "UX-Designerin",
+        "company": "CreativeStudio"
+      }
+    ]
+  },
+  "pricing": {
+    "title": "Wählen Sie Ihren Plan",
+    "subtitle": "Starten Sie kostenlos, upgraden Sie auf Premium, wenn Sie bereit sind",
+    "free": {
+      "name": "Kostenlos",
+      "price": "0 CHF",
+      "period": "für immer",
+      "features": [
+        "1 Lebenslauf",
+        "Unbegrenzte Bewerbungsverfolgung",
+        "Basis-Vorlagen",
+        "Basis-Lebenslauf-Analyse",
+        "PDF-Export"
+      ],
+      "cta": "Kostenlos starten"
+    },
+    "premium": {
+      "name": "Premium",
+      "price": "29 CHF",
+      "period": "pro Monat",
+      "features": [
+        "Unbegrenzte Lebensläufe",
+        "100+ Premium-Vorlagen",
+        "Erweiterte KI-Analyse mit Match Score",
+        "Unbegrenzte Anschreiben",
+        "LinkedIn-Optimierung",
+        "Chrome-Erweiterung",
+        "Prioritäts-Support"
+      ],
+      "cta": "Premium testen",
+      "badge": "Beliebt"
+    }
+  },
+  "faq": {
+    "title": "Häufig gestellte Fragen",
+    "items": [
+      {
+        "question": "Ist es wirklich kostenlos?",
+        "answer": "Ja! Unser kostenloser Plan ermöglicht es Ihnen, 1 Lebenslauf zu erstellen, unbegrenzt Bewerbungen zu verfolgen und unsere Basis-Vorlagen zu nutzen. Keine Kreditkarte erforderlich."
+      },
+      {
+        "question": "Was ist ein ATS-Score?",
+        "answer": "ATS (Applicant Tracking Systems) werden von 98% der großen Unternehmen verwendet, um Lebensläufe zu filtern. Unser ATS-Score zeigt Ihnen, ob Ihr Lebenslauf diese automatischen Filter besteht."
+      },
+      {
+        "question": "Kann ich mein Abonnement jederzeit kündigen?",
+        "answer": "Absolut. Sie können Ihr Premium-Abonnement jederzeit über Ihr Profil kündigen. Keine Verpflichtung."
+      },
+      {
+        "question": "Sind meine Daten sicher?",
+        "answer": "Ja, wir verwenden eine Verschlüsselung auf Bankniveau, um Ihre Daten zu schützen. Ihre persönlichen Informationen werden niemals mit Dritten geteilt."
+      },
+      {
+        "question": "Kann ich meinen Lebenslauf als PDF exportieren?",
+        "answer": "Ja, alle Pläne (kostenlos und premium) beinhalten den PDF-Export Ihrer Lebensläufe."
+      }
+    ]
+  },
+  "cta": {
+    "title": "Bereit für Ihren nächsten Job?",
+    "subtitle": "Schließen Sie sich über 100.000 Jobsuchenden an, die ihren Traumjob mit unserer Plattform gefunden haben.",
+    "button": "Kostenlos starten",
+    "note": "Keine Kreditkarte erforderlich"
+  }
+}
