@@ -234,22 +234,22 @@ export function ProfessionalTemplate({
               )}
             </h1>
 
-            {/* Title Gap Slider - Positioned outside CV to the right, aligned with gap */}
+            {/* Title Gap Slider - Vertical slider to the right of Title and Contact sliders */}
             {setTitleGap && (
               <div
                 className="print:hidden"
                 style={{
                   position: 'absolute',
                   left: '100%',
-                  top: `${titleFontSize}px`,
-                  marginLeft: '48px',
-                  whiteSpace: 'nowrap'
+                  top: 0,
+                  marginLeft: '260px',
+                  zIndex: 10
                 }}
               >
-                <div className="text-xs text-slate-600 font-medium mb-0.5">
-                  Title Gap
-                </div>
-                <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-1 shadow-sm">
+                <div className="flex flex-col items-center gap-2 bg-white rounded-lg border border-slate-200 px-2 py-3 shadow-sm">
+                  <div className="text-xs text-slate-600 font-medium whitespace-nowrap" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+                    Title Gap
+                  </div>
                   <input
                     type="range"
                     min="0"
@@ -257,7 +257,13 @@ export function ProfessionalTemplate({
                     step="2"
                     value={titleGap}
                     onChange={(e) => setTitleGap(Number(e.target.value))}
-                    className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                    className="h-32 appearance-none cursor-pointer accent-slate-600"
+                    style={{
+                      writingMode: 'vertical-lr',
+                      width: '1.5rem',
+                      background: 'linear-gradient(to top, oklch(0.85 0 0) 0%, oklch(0.85 0 0) 100%)',
+                      borderRadius: '0.5rem'
+                    }}
                   />
                   <span className="text-xs text-slate-600 font-mono">
                     {titleGap}px
