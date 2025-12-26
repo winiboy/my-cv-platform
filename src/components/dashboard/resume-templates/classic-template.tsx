@@ -16,9 +16,10 @@ interface ClassicTemplateProps {
   locale: Locale
   dict: any
   titleFontSize?: number
+  setTitleFontSize?: (size: number) => void
 }
 
-export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36 }: ClassicTemplateProps) {
+export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36, setTitleFontSize }: ClassicTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
@@ -33,9 +34,27 @@ export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36 }: Cl
       <div className="space-y-5 p-12 print:p-8">
         {/* Header: CV Title */}
         <div className="border-b-2 border-slate-900 pb-4 text-center">
-          <h1 className="mb-3 font-serif font-bold uppercase tracking-wide text-slate-900" style={{ fontSize: `${titleFontSize}px` }}>
-            {resume.title || 'CV TITLE'}
-          </h1>
+          <div className="mb-3 flex items-center justify-center gap-4">
+            <h1 className="font-serif font-bold uppercase tracking-wide text-slate-900" style={{ fontSize: `${titleFontSize}px` }}>
+              {resume.title || 'CV TITLE'}
+            </h1>
+            {setTitleFontSize && (
+              <div className="flex items-center gap-2 print:hidden">
+                <input
+                  type="range"
+                  min="16"
+                  max="48"
+                  step="2"
+                  value={titleFontSize}
+                  onChange={(e) => setTitleFontSize(Number(e.target.value))}
+                  className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                />
+                <span className="text-xs text-slate-500 font-mono w-10">
+                  {titleFontSize}px
+                </span>
+              </div>
+            )}
+          </div>
           {/* Contact Information */}
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-slate-700">
             {contact.email && (
