@@ -14,6 +14,7 @@ interface ProfessionalTemplateProps {
   locale: Locale
   dict: any
   titleFontSize?: number
+  setTitleFontSize?: (size: number) => void
 }
 
 /**
@@ -41,6 +42,7 @@ export function ProfessionalTemplate({
   locale,
   dict,
   titleFontSize = 24,
+  setTitleFontSize,
 }: ProfessionalTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
@@ -179,10 +181,37 @@ export function ProfessionalTemplate({
         }}
       >
           {/* HEADER: CV Title and Contact Info */}
-          <div className="mb-8 border-b-2 pb-6" style={{ borderColor: 'oklch(0.25 0.05 240)' }}>
+          <div className="mb-8 border-b-2 pb-6" style={{ borderColor: 'oklch(0.25 0.05 240)', position: 'relative' }}>
             <h1 className="mb-2 font-bold uppercase tracking-tight" style={{ color: 'oklch(0.25 0.05 240)', fontSize: `${titleFontSize}px` }}>
               {resume.title || 'CV TITLE'}
             </h1>
+
+            {/* Font Size Slider - Positioned outside CV to the right */}
+            {setTitleFontSize && (
+              <div
+                className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                style={{
+                  position: 'absolute',
+                  left: '100%',
+                  top: 0,
+                  marginLeft: '24px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <input
+                  type="range"
+                  min="16"
+                  max="48"
+                  step="2"
+                  value={titleFontSize}
+                  onChange={(e) => setTitleFontSize(Number(e.target.value))}
+                  className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                />
+                <span className="text-xs text-slate-600 font-mono">
+                  {titleFontSize}px
+                </span>
+              </div>
+            )}
 
             {/* Contact Information */}
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: 'oklch(0.4 0 0)' }}>

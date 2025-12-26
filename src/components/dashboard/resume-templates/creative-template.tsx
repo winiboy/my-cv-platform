@@ -16,9 +16,10 @@ interface CreativeTemplateProps {
   locale: Locale
   dict: any
   titleFontSize?: number
+  setTitleFontSize?: (size: number) => void
 }
 
-export function CreativeTemplate({ resume, locale, dict, titleFontSize = 48 }: CreativeTemplateProps) {
+export function CreativeTemplate({ resume, locale, dict, titleFontSize = 48, setTitleFontSize }: CreativeTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
@@ -31,11 +32,40 @@ export function CreativeTemplate({ resume, locale, dict, titleFontSize = 48 }: C
   return (
     <div className="mx-auto bg-white shadow-lg print:shadow-none" style={{ width: '8.5in' }}>
       {/* Header with gradient background */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 p-10 text-white print:p-8">
+      <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 p-10 text-white print:p-8" style={{ position: 'relative' }}>
         <div className="relative z-10">
           <h1 className="mb-3 font-black uppercase tracking-tight" style={{ fontSize: `${titleFontSize}px` }}>
             {resume.title || contact.name || 'Your Name'}
           </h1>
+
+          {/* Font Size Slider - Positioned outside CV to the right */}
+          {setTitleFontSize && (
+            <div
+              className="print:hidden flex items-center gap-2 bg-white/90 rounded-lg border border-white px-3 py-2 shadow-lg"
+              style={{
+                position: 'absolute',
+                left: '100%',
+                top: '40px',
+                marginLeft: '24px',
+                whiteSpace: 'nowrap',
+                zIndex: 20
+              }}
+            >
+              <input
+                type="range"
+                min="16"
+                max="48"
+                step="2"
+                value={titleFontSize}
+                onChange={(e) => setTitleFontSize(Number(e.target.value))}
+                className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+              />
+              <span className="text-xs text-slate-700 font-mono">
+                {titleFontSize}px
+              </span>
+            </div>
+          )}
+
           {resume.summary && (
             <div className="mb-4 max-w-2xl text-base leading-relaxed text-white/90 text-justify">
               {formatText(resume.summary)}
