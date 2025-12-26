@@ -15,9 +15,10 @@ interface CreativeTemplateProps {
   resume: Resume
   locale: Locale
   dict: any
+  titleFontSize?: number
 }
 
-export function CreativeTemplate({ resume, locale, dict }: CreativeTemplateProps) {
+export function CreativeTemplate({ resume, locale, dict, titleFontSize = 48 }: CreativeTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
@@ -32,8 +33,8 @@ export function CreativeTemplate({ resume, locale, dict }: CreativeTemplateProps
       {/* Header with gradient background */}
       <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 p-10 text-white print:p-8">
         <div className="relative z-10">
-          <h1 className="mb-3 text-5xl font-black uppercase tracking-tight">
-            {contact.name || 'Your Name'}
+          <h1 className="mb-3 font-black uppercase tracking-tight" style={{ fontSize: `${titleFontSize}px` }}>
+            {resume.title || contact.name || 'Your Name'}
           </h1>
           {resume.summary && (
             <div className="mb-4 max-w-2xl text-base leading-relaxed text-white/90 text-justify">

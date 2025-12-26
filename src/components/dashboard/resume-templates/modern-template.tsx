@@ -15,9 +15,10 @@ interface ModernTemplateProps {
   resume: Resume
   locale: Locale
   dict: any
+  titleFontSize?: number
 }
 
-export function ModernTemplate({ resume, locale, dict }: ModernTemplateProps) {
+export function ModernTemplate({ resume, locale, dict, titleFontSize = 36 }: ModernTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
@@ -153,8 +154,8 @@ export function ModernTemplate({ resume, locale, dict }: ModernTemplateProps) {
         <div className="w-[65%] p-8 print:p-6">
           {/* Header */}
           <div className="mb-6 border-b-4 border-teal-600 pb-4">
-            <h1 className="mb-2 text-4xl font-bold text-slate-900">
-              {contact.name || 'Your Name'}
+            <h1 className="mb-2 font-bold text-slate-900" style={{ fontSize: `${titleFontSize}px` }}>
+              {resume.title || contact.name || 'Your Name'}
             </h1>
             {resume.summary && (
               <div className="text-sm leading-relaxed text-slate-700 text-justify">{formatText(resume.summary)}</div>

@@ -12,23 +12,24 @@ interface ResumePreviewProps {
   resume: Resume
   locale: Locale
   dict: any
+  titleFontSize?: number
 }
 
-export function ResumePreview({ resume, locale, dict }: ResumePreviewProps) {
+export function ResumePreview({ resume, locale, dict, titleFontSize = 24 }: ResumePreviewProps) {
   // Render the appropriate template based on the resume's template field
   switch (resume.template) {
     case 'modern':
-      return <ModernTemplate resume={resume} locale={locale} dict={dict} />
+      return <ModernTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} />
     case 'classic':
-      return <ClassicTemplate resume={resume} locale={locale} dict={dict} />
+      return <ClassicTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} />
     case 'minimal':
-      return <MinimalTemplate resume={resume} locale={locale} dict={dict} />
+      return <MinimalTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} />
     case 'creative':
-      return <CreativeTemplate resume={resume} locale={locale} dict={dict} />
+      return <CreativeTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} />
     case 'professional':
-      return <ProfessionalTemplate resume={resume} locale={locale} dict={dict} />
+      return <ProfessionalTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} />
     default:
       // Default to Modern template if no template is specified
-      return <ModernTemplate resume={resume} locale={locale} dict={dict} />
+      return <ModernTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} />
   }
 }

@@ -22,6 +22,7 @@ export function ResumePreviewWrapper({
 }: ResumePreviewWrapperProps) {
   const [resume, setResume] = useState<Resume>(initialResume)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [titleFontSize, setTitleFontSize] = useState(24) // Default: text-2xl = 24px
 
   useEffect(() => {
     // Check for draft in localStorage
@@ -55,7 +56,29 @@ export function ResumePreviewWrapper({
           </div>
         </div>
       )}
-      <ResumePreview resume={resume} locale={locale} dict={dict} />
+
+      {/* CV Title Font Size Control */}
+      <div className="bg-slate-50 border-b border-slate-200 px-6 py-3 print:hidden">
+        <div className="mx-auto max-w-7xl flex items-center gap-4">
+          <label className="text-sm font-medium text-slate-700">
+            CV Title Font Size:
+          </label>
+          <input
+            type="range"
+            min="16"
+            max="48"
+            step="2"
+            value={titleFontSize}
+            onChange={(e) => setTitleFontSize(Number(e.target.value))}
+            className="w-48 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+          />
+          <span className="text-sm text-slate-600 font-mono w-12">
+            {titleFontSize}px
+          </span>
+        </div>
+      </div>
+
+      <ResumePreview resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} />
     </>
   )
 }

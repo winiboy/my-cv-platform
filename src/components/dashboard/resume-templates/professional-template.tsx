@@ -13,6 +13,7 @@ interface ProfessionalTemplateProps {
   resume: Resume
   locale: Locale
   dict: any
+  titleFontSize?: number
 }
 
 /**
@@ -39,6 +40,7 @@ export function ProfessionalTemplate({
   resume,
   locale,
   dict,
+  titleFontSize = 24,
 }: ProfessionalTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
@@ -178,7 +180,7 @@ export function ProfessionalTemplate({
       >
           {/* HEADER: CV Title and Contact Info */}
           <div className="mb-8 border-b-2 pb-6" style={{ borderColor: 'oklch(0.25 0.05 240)' }}>
-            <h1 className="mb-2 text-2xl font-bold uppercase tracking-tight" style={{ color: 'oklch(0.25 0.05 240)' }}>
+            <h1 className="mb-2 font-bold uppercase tracking-tight" style={{ color: 'oklch(0.25 0.05 240)', fontSize: `${titleFontSize}px` }}>
               {resume.title || 'CV TITLE'}
             </h1>
 

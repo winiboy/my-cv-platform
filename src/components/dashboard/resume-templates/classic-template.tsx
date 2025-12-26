@@ -15,9 +15,10 @@ interface ClassicTemplateProps {
   resume: Resume
   locale: Locale
   dict: any
+  titleFontSize?: number
 }
 
-export function ClassicTemplate({ resume, locale, dict }: ClassicTemplateProps) {
+export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36 }: ClassicTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
@@ -32,7 +33,7 @@ export function ClassicTemplate({ resume, locale, dict }: ClassicTemplateProps) 
       <div className="space-y-5 p-12 print:p-8">
         {/* Header: CV Title */}
         <div className="border-b-2 border-slate-900 pb-4 text-center">
-          <h1 className="mb-3 text-4xl font-serif font-bold uppercase tracking-wide text-slate-900">
+          <h1 className="mb-3 font-serif font-bold uppercase tracking-wide text-slate-900" style={{ fontSize: `${titleFontSize}px` }}>
             {resume.title || 'CV TITLE'}
           </h1>
           {/* Contact Information */}

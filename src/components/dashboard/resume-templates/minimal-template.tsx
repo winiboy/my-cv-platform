@@ -15,9 +15,10 @@ interface MinimalTemplateProps {
   resume: Resume
   locale: Locale
   dict: any
+  titleFontSize?: number
 }
 
-export function MinimalTemplate({ resume, locale, dict }: MinimalTemplateProps) {
+export function MinimalTemplate({ resume, locale, dict, titleFontSize = 48 }: MinimalTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
@@ -32,7 +33,7 @@ export function MinimalTemplate({ resume, locale, dict }: MinimalTemplateProps) 
       <div className="space-y-10 p-16 print:p-10">
         {/* Header: CV Title and Contact */}
         <div className="space-y-4 pb-6 border-b border-slate-300">
-          <h1 className="text-5xl font-light tracking-tight text-slate-900 text-center">
+          <h1 className="font-light tracking-tight text-slate-900 text-center" style={{ fontSize: `${titleFontSize}px` }}>
             {resume.title || 'CV TITLE'}
           </h1>
 
