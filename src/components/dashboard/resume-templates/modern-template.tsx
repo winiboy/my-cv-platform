@@ -167,7 +167,7 @@ export function ModernTemplate({ resume, locale, dict, titleFontSize = 36, setTi
                   position: 'absolute',
                   left: '100%',
                   top: 0,
-                  marginLeft: '24px',
+                  marginLeft: '48px',
                   whiteSpace: 'nowrap'
                 }}
               >

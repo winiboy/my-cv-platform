@@ -194,7 +194,7 @@ export function ProfessionalTemplate({
                   position: 'absolute',
                   left: '100%',
                   top: 0,
-                  marginLeft: '24px',
+                  marginLeft: '48px',
                   whiteSpace: 'nowrap'
                 }}
               >

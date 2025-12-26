@@ -46,7 +46,7 @@ export function CreativeTemplate({ resume, locale, dict, titleFontSize = 48, set
                 position: 'absolute',
                 left: '100%',
                 top: '40px',
-                marginLeft: '24px',
+                marginLeft: '48px',
                 whiteSpace: 'nowrap',
                 zIndex: 20
               }}
