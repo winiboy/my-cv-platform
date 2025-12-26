@@ -239,7 +239,7 @@ export function ProfessionalTemplate({
                   style={{
                     position: 'absolute',
                     left: '100%',
-                    top: 0,
+                    top: '70px',
                     marginLeft: '48px',
                     whiteSpace: 'nowrap'
                   }}
@@ -322,7 +322,7 @@ export function ProfessionalTemplate({
                     style={{
                       position: 'absolute',
                       left: '100%',
-                      top: 0,
+                      top: '140px',
                       marginLeft: '48px',
                       whiteSpace: 'nowrap'
                     }}
@@ -365,7 +365,7 @@ export function ProfessionalTemplate({
                     style={{
                       position: 'absolute',
                       left: '100%',
-                      top: 0,
+                      top: '210px',
                       marginLeft: '48px',
                       whiteSpace: 'nowrap'
                     }}
