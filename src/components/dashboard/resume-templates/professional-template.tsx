@@ -243,10 +243,11 @@ export function ProfessionalTemplate({
                   left: '100%',
                   top: 0,
                   marginLeft: '260px',
-                  zIndex: 10
+                  zIndex: 10,
+                  width: '48px'
                 }}
               >
-                <div className="flex flex-col items-center gap-2 bg-white rounded-lg border border-slate-200 px-2 py-3 shadow-sm">
+                <div className="flex flex-col items-center gap-2 bg-white rounded-lg border border-slate-200 px-2 py-3 shadow-sm" style={{ height: `${96 + titleGap}px` }}>
                   <div className="text-xs text-slate-600 font-medium whitespace-nowrap" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
                     Title Gap
                   </div>
@@ -257,10 +258,11 @@ export function ProfessionalTemplate({
                     step="2"
                     value={titleGap}
                     onChange={(e) => setTitleGap(Number(e.target.value))}
-                    className="h-32 appearance-none cursor-pointer accent-slate-600"
+                    className="appearance-none cursor-pointer accent-slate-600"
                     style={{
                       writingMode: 'vertical-lr',
                       width: '1.5rem',
+                      height: `${titleGap + 48}px`,
                       background: 'linear-gradient(to top, oklch(0.85 0 0) 0%, oklch(0.85 0 0) 100%)',
                       borderRadius: '0.5rem'
                     }}
