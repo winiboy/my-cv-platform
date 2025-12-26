@@ -17,9 +17,15 @@ interface ModernTemplateProps {
   dict: any
   titleFontSize?: number
   setTitleFontSize?: (size: number) => void
+  contactFontSize?: number
+  setContactFontSize?: (size: number) => void
+  sectionTitleFontSize?: number
+  setSectionTitleFontSize?: (size: number) => void
+  sectionDescFontSize?: number
+  setSectionDescFontSize?: (size: number) => void
 }
 
-export function ModernTemplate({ resume, locale, dict, titleFontSize = 36, setTitleFontSize }: ModernTemplateProps) {
+export function ModernTemplate({ resume, locale, dict, titleFontSize = 36, setTitleFontSize, contactFontSize = 12, setContactFontSize, sectionTitleFontSize = 16, setSectionTitleFontSize, sectionDescFontSize = 14, setSectionDescFontSize }: ModernTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
@@ -39,7 +45,33 @@ export function ModernTemplate({ resume, locale, dict, titleFontSize = 36, setTi
             <h2 className="mb-4 border-b-2 border-teal-400 pb-2 text-lg font-bold uppercase tracking-wide">
               {dict.resumes?.editor?.sections?.contact || 'Contact'}
             </h2>
-            <div className="space-y-3 text-sm">
+            <div className="space-y-3" style={{ fontSize: `${contactFontSize}px`, position: 'relative' }}>
+              {/* Font Size Slider for Contact - Positioned outside CV to the right */}
+              {setContactFontSize && (
+                <div
+                  className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                  style={{
+                    position: 'absolute',
+                    left: '100%',
+                    top: 0,
+                    marginLeft: '48px',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  <input
+                    type="range"
+                    min="10"
+                    max="18"
+                    step="1"
+                    value={contactFontSize}
+                    onChange={(e) => setContactFontSize(Number(e.target.value))}
+                    className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                  />
+                  <span className="text-xs text-slate-600 font-mono">
+                    {contactFontSize}px
+                  </span>
+                </div>
+              )}
               {contact.email && (
                 <div>
                   <p className="text-xs text-teal-200">Email</p>
@@ -186,16 +218,43 @@ export function ModernTemplate({ resume, locale, dict, titleFontSize = 36, setTi
               </div>
             )}
             {resume.summary && (
-              <div className="text-sm leading-relaxed text-slate-700 text-justify">{formatText(resume.summary)}</div>
+              <div className="leading-relaxed text-slate-700 text-justify" style={{ fontSize: `${sectionDescFontSize}px` }}>{formatText(resume.summary)}</div>
             )}
           </div>
 
           {/* Experience */}
           {experiences.length > 0 && (
             <div className="mb-6">
-              <h2 className="mb-4 flex items-center gap-2 text-xl font-bold text-teal-700">
+              <h2 className="mb-4 flex items-center gap-2 font-bold text-teal-700" style={{ fontSize: `${sectionTitleFontSize}px`, position: 'relative' }}>
                 <div className="h-1 w-8 bg-teal-600"></div>
                 {dict.resumes?.editor?.sections?.experience || 'Experience'}
+
+                {/* Font Size Slider for Section Titles - Positioned outside CV to the right */}
+                {setSectionTitleFontSize && (
+                  <div
+                    className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                    style={{
+                      position: 'absolute',
+                      left: '100%',
+                      top: 0,
+                      marginLeft: '48px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <input
+                      type="range"
+                      min="12"
+                      max="24"
+                      step="1"
+                      value={sectionTitleFontSize}
+                      onChange={(e) => setSectionTitleFontSize(Number(e.target.value))}
+                      className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                    />
+                    <span className="text-xs text-slate-600 font-mono">
+                      {sectionTitleFontSize}px
+                    </span>
+                  </div>
+                )}
               </h2>
               <div className="space-y-4">
                 {experiences.map((exp, index) => (
@@ -227,7 +286,32 @@ export function ModernTemplate({ resume, locale, dict, titleFontSize = 36, setTi
                       </div>
                     </div>
                     {exp.achievements && exp.achievements.length > 0 ? (
-                      <ul className="mt-2 space-y-1 text-sm text-slate-700">
+                      <ul className="mt-2 space-y-1 text-slate-700" style={{ fontSize: `${sectionDescFontSize}px`, position: index === 0 ? 'relative' : undefined }}>
+                        {index === 0 && setSectionDescFontSize && (
+                          <div
+                            className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                            style={{
+                              position: 'absolute',
+                              left: '100%',
+                              top: 0,
+                              marginLeft: '48px',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            <input
+                              type="range"
+                              min="10"
+                              max="18"
+                              step="1"
+                              value={sectionDescFontSize}
+                              onChange={(e) => setSectionDescFontSize(Number(e.target.value))}
+                              className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                            />
+                            <span className="text-xs text-slate-600 font-mono">
+                              {sectionDescFontSize}px
+                            </span>
+                          </div>
+                        )}
                         {exp.achievements.map((achievement, i) => (
                           <li key={i} className="flex gap-2">
                             <span className="text-teal-600">▸</span>
@@ -236,7 +320,32 @@ export function ModernTemplate({ resume, locale, dict, titleFontSize = 36, setTi
                         ))}
                       </ul>
                     ) : exp.description ? (
-                      <div className="mt-2 text-sm leading-relaxed text-slate-700 text-justify">
+                      <div className="mt-2 leading-relaxed text-slate-700 text-justify" style={{ fontSize: `${sectionDescFontSize}px`, position: index === 0 ? 'relative' : undefined }}>
+                        {index === 0 && setSectionDescFontSize && (
+                          <div
+                            className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                            style={{
+                              position: 'absolute',
+                              left: '100%',
+                              top: 0,
+                              marginLeft: '48px',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            <input
+                              type="range"
+                              min="10"
+                              max="18"
+                              step="1"
+                              value={sectionDescFontSize}
+                              onChange={(e) => setSectionDescFontSize(Number(e.target.value))}
+                              className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                            />
+                            <span className="text-xs text-slate-600 font-mono">
+                              {sectionDescFontSize}px
+                            </span>
+                          </div>
+                        )}
                         {formatText(exp.description)}
                       </div>
                     ) : null}
@@ -249,7 +358,7 @@ export function ModernTemplate({ resume, locale, dict, titleFontSize = 36, setTi
           {/* Projects */}
           {projects.length > 0 && (
             <div className="mb-6">
-              <h2 className="mb-4 flex items-center gap-2 text-xl font-bold text-teal-700">
+              <h2 className="mb-4 flex items-center gap-2 font-bold text-teal-700" style={{ fontSize: `${sectionTitleFontSize}px` }}>
                 <div className="h-1 w-8 bg-teal-600"></div>
                 {dict.resumes?.editor?.sections?.projects || 'Projects'}
               </h2>
@@ -259,7 +368,7 @@ export function ModernTemplate({ resume, locale, dict, titleFontSize = 36, setTi
                     <div className="absolute left-0 top-2 h-2 w-2 rounded-full bg-teal-600"></div>
                     <h3 className="text-lg font-bold text-slate-900">{project.name}</h3>
                     {project.description && (
-                      <p className="mt-1 text-sm leading-relaxed text-slate-700">
+                      <p className="mt-1 leading-relaxed text-slate-700" style={{ fontSize: `${sectionDescFontSize}px` }}>
                         {project.description}
                       </p>
                     )}
@@ -284,7 +393,7 @@ export function ModernTemplate({ resume, locale, dict, titleFontSize = 36, setTi
           {/* Education */}
           {education.length > 0 && (
             <div>
-              <h2 className="mb-4 flex items-center gap-2 text-xl font-bold text-teal-700">
+              <h2 className="mb-4 flex items-center gap-2 font-bold text-teal-700" style={{ fontSize: `${sectionTitleFontSize}px` }}>
                 <div className="h-1 w-8 bg-teal-600"></div>
                 {dict.resumes?.editor?.sections?.education || 'Education'}
               </h2>

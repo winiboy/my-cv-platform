@@ -23,6 +23,9 @@ export function ResumePreviewWrapper({
   const [resume, setResume] = useState<Resume>(initialResume)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [titleFontSize, setTitleFontSize] = useState(24) // Default: text-2xl = 24px
+  const [contactFontSize, setContactFontSize] = useState(12) // Default: text-xs = 12px
+  const [sectionTitleFontSize, setSectionTitleFontSize] = useState(16) // Default: text-base = 16px
+  const [sectionDescFontSize, setSectionDescFontSize] = useState(14) // Default: text-sm = 14px
 
   useEffect(() => {
     // Check for draft in localStorage
@@ -63,6 +66,12 @@ export function ResumePreviewWrapper({
         dict={dict}
         titleFontSize={titleFontSize}
         setTitleFontSize={setTitleFontSize}
+        contactFontSize={contactFontSize}
+        setContactFontSize={setContactFontSize}
+        sectionTitleFontSize={sectionTitleFontSize}
+        setSectionTitleFontSize={setSectionTitleFontSize}
+        sectionDescFontSize={sectionDescFontSize}
+        setSectionDescFontSize={setSectionDescFontSize}
       />
     </>
   )

@@ -15,6 +15,12 @@ interface ProfessionalTemplateProps {
   dict: any
   titleFontSize?: number
   setTitleFontSize?: (size: number) => void
+  contactFontSize?: number
+  setContactFontSize?: (size: number) => void
+  sectionTitleFontSize?: number
+  setSectionTitleFontSize?: (size: number) => void
+  sectionDescFontSize?: number
+  setSectionDescFontSize?: (size: number) => void
 }
 
 /**
@@ -43,6 +49,12 @@ export function ProfessionalTemplate({
   dict,
   titleFontSize = 24,
   setTitleFontSize,
+  contactFontSize = 12,
+  setContactFontSize,
+  sectionTitleFontSize = 16,
+  setSectionTitleFontSize,
+  sectionDescFontSize = 14,
+  setSectionDescFontSize,
 }: ProfessionalTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
@@ -214,7 +226,33 @@ export function ProfessionalTemplate({
             )}
 
             {/* Contact Information */}
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: 'oklch(0.4 0 0)' }}>
+            <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'oklch(0.4 0 0)', fontSize: `${contactFontSize}px`, position: 'relative' }}>
+              {/* Font Size Slider for Contact - Positioned outside CV to the right */}
+              {setContactFontSize && (
+                <div
+                  className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                  style={{
+                    position: 'absolute',
+                    left: '100%',
+                    top: 0,
+                    marginLeft: '48px',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  <input
+                    type="range"
+                    min="10"
+                    max="18"
+                    step="1"
+                    value={contactFontSize}
+                    onChange={(e) => setContactFontSize(Number(e.target.value))}
+                    className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                  />
+                  <span className="text-xs text-slate-600 font-mono">
+                    {contactFontSize}px
+                  </span>
+                </div>
+              )}
               {contact.email && (
                 <div className="flex items-center gap-1.5">
                   <span>✉️</span>
@@ -262,20 +300,75 @@ export function ProfessionalTemplate({
           {resume.summary && (
             <div className="mb-8">
               <h2
-                className="mb-3 text-base font-bold uppercase tracking-wide pb-2 border-b"
-                style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.7 0.05 240)' }}
+                className="mb-3 font-bold uppercase tracking-wide pb-2 border-b"
+                style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.7 0.05 240)', fontSize: `${sectionTitleFontSize}px`, position: 'relative' }}
               >
                 {dict.resumes.template.summary}
+
+                {/* Font Size Slider for Section Titles - Positioned outside CV to the right */}
+                {setSectionTitleFontSize && (
+                  <div
+                    className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                    style={{
+                      position: 'absolute',
+                      left: '100%',
+                      top: 0,
+                      marginLeft: '48px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <input
+                      type="range"
+                      min="12"
+                      max="24"
+                      step="1"
+                      value={sectionTitleFontSize}
+                      onChange={(e) => setSectionTitleFontSize(Number(e.target.value))}
+                      className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                    />
+                    <span className="text-xs text-slate-600 font-mono">
+                      {sectionTitleFontSize}px
+                    </span>
+                  </div>
+                )}
               </h2>
               <div
                 className="leading-relaxed text-justify"
                 style={{
-                  fontSize: '14px',
+                  fontSize: `${sectionDescFontSize}px`,
                   color: 'oklch(0.3 0 0)',
                   lineHeight: '1.6',
+                  position: 'relative'
                 }}
               >
                 {formatText(resume.summary)}
+
+                {/* Font Size Slider for Section Descriptions - Positioned outside CV to the right */}
+                {setSectionDescFontSize && (
+                  <div
+                    className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                    style={{
+                      position: 'absolute',
+                      left: '100%',
+                      top: 0,
+                      marginLeft: '48px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <input
+                      type="range"
+                      min="10"
+                      max="18"
+                      step="1"
+                      value={sectionDescFontSize}
+                      onChange={(e) => setSectionDescFontSize(Number(e.target.value))}
+                      className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                    />
+                    <span className="text-xs text-slate-600 font-mono">
+                      {sectionDescFontSize}px
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -284,8 +377,8 @@ export function ProfessionalTemplate({
           {experiences.length > 0 && (
             <div className="mb-8">
               <h2
-                className="mb-4 text-base font-bold uppercase tracking-wide pb-2 border-b"
-                style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.7 0.05 240)' }}
+                className="mb-4 font-bold uppercase tracking-wide pb-2 border-b"
+                style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.7 0.05 240)', fontSize: `${sectionTitleFontSize}px` }}
               >
                 {dict.resumes.template.experience}
               </h2>
@@ -325,7 +418,7 @@ export function ProfessionalTemplate({
                             key={i}
                             className="flex gap-2"
                             style={{
-                              fontSize: '13px',
+                              fontSize: `${sectionDescFontSize}px`,
                               color: 'oklch(0.3 0 0)',
                               lineHeight: '1.5',
                             }}
@@ -339,7 +432,7 @@ export function ProfessionalTemplate({
                       <div
                         className="mb-2 leading-relaxed text-justify"
                         style={{
-                          fontSize: '13px',
+                          fontSize: `${sectionDescFontSize}px`,
                           color: 'oklch(0.3 0 0)',
                           lineHeight: '1.5',
                         }}
@@ -357,8 +450,8 @@ export function ProfessionalTemplate({
           {education.length > 0 && (
             <div>
               <h2
-                className="mb-4 text-base font-bold uppercase tracking-wide pb-2 border-b"
-                style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.7 0.05 240)' }}
+                className="mb-4 font-bold uppercase tracking-wide pb-2 border-b"
+                style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.7 0.05 240)', fontSize: `${sectionTitleFontSize}px` }}
               >
                 {dict.resumes.template.education}
               </h2>

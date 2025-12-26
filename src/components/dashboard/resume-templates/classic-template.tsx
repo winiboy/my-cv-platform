@@ -17,9 +17,27 @@ interface ClassicTemplateProps {
   dict: any
   titleFontSize?: number
   setTitleFontSize?: (size: number) => void
+  contactFontSize?: number
+  setContactFontSize?: (size: number) => void
+  sectionTitleFontSize?: number
+  setSectionTitleFontSize?: (size: number) => void
+  sectionDescFontSize?: number
+  setSectionDescFontSize?: (size: number) => void
 }
 
-export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36, setTitleFontSize }: ClassicTemplateProps) {
+export function ClassicTemplate({
+  resume,
+  locale,
+  dict,
+  titleFontSize = 36,
+  setTitleFontSize,
+  contactFontSize = 12,
+  setContactFontSize,
+  sectionTitleFontSize = 16,
+  setSectionTitleFontSize,
+  sectionDescFontSize = 14,
+  setSectionDescFontSize
+}: ClassicTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
@@ -65,7 +83,7 @@ export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36, setT
             </div>
           )}
           {/* Contact Information */}
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm text-slate-700">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-slate-700" style={{ position: 'relative', fontSize: `${contactFontSize}px` }}>
             {contact.email && (
               <>
                 <span>✉️ {contact.email}</span>
@@ -84,9 +102,36 @@ export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36, setT
                 {(contact.linkedin || contact.github || contact.website) && <span>•</span>}
               </>
             )}
+
+            {/* Contact Font Size Slider */}
+            {setContactFontSize && (
+              <div
+                className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                style={{
+                  position: 'absolute',
+                  left: '100%',
+                  top: 0,
+                  marginLeft: '48px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <input
+                  type="range"
+                  min="10"
+                  max="18"
+                  step="1"
+                  value={contactFontSize}
+                  onChange={(e) => setContactFontSize(Number(e.target.value))}
+                  className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                />
+                <span className="text-xs text-slate-600 font-mono">
+                  {contactFontSize}px
+                </span>
+              </div>
+            )}
           </div>
           {(contact.linkedin || contact.github || contact.website) && (
-            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 text-xs text-slate-600">
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 text-slate-600" style={{ fontSize: `${contactFontSize}px` }}>
               {contact.linkedin && (
                 <>
                   <span>🔗 {contact.linkedin}</span>
@@ -107,17 +152,44 @@ export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36, setT
         {/* Summary */}
         {resume.summary && (
           <div>
-            <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif text-lg font-bold uppercase text-slate-900">
+            <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif font-bold uppercase text-slate-900" style={{ position: 'relative', fontSize: `${sectionTitleFontSize}px` }}>
               {dict.resumes?.editor?.sections?.summary || 'Professional Summary'}
+
+              {/* Section Title Font Size Slider */}
+              {setSectionTitleFontSize && (
+                <div
+                  className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                  style={{
+                    position: 'absolute',
+                    left: '100%',
+                    top: 0,
+                    marginLeft: '48px',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  <input
+                    type="range"
+                    min="12"
+                    max="24"
+                    step="1"
+                    value={sectionTitleFontSize}
+                    onChange={(e) => setSectionTitleFontSize(Number(e.target.value))}
+                    className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                  />
+                  <span className="text-xs text-slate-600 font-mono">
+                    {sectionTitleFontSize}px
+                  </span>
+                </div>
+              )}
             </h2>
-            <div className="text-sm leading-relaxed text-slate-800 text-justify">{formatText(resume.summary)}</div>
+            <div className="leading-relaxed text-slate-800 text-justify" style={{ fontSize: `${sectionDescFontSize}px` }}>{formatText(resume.summary)}</div>
           </div>
         )}
 
         {/* Experience */}
         {experiences.length > 0 && (
           <div>
-            <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif text-lg font-bold uppercase text-slate-900">
+            <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif font-bold uppercase text-slate-900" style={{ fontSize: `${sectionTitleFontSize}px` }}>
               {dict.resumes?.editor?.sections?.experience || 'Professional Experience'}
             </h2>
             <div className="space-y-4">
@@ -147,14 +219,68 @@ export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36, setT
                     {exp.location && <p className="text-sm text-slate-600">{exp.location}</p>}
                   </div>
                   {exp.achievements && exp.achievements.length > 0 ? (
-                    <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-slate-800">
+                    <ul className="mt-2 list-inside list-disc space-y-1 text-slate-800" style={{ position: index === 0 ? 'relative' : undefined, fontSize: `${sectionDescFontSize}px` }}>
                       {exp.achievements.map((achievement, i) => (
                         <li key={i}>{formatText(achievement)}</li>
                       ))}
+
+                      {/* Description Font Size Slider - on first experience */}
+                      {index === 0 && setSectionDescFontSize && (
+                        <div
+                          className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                          style={{
+                            position: 'absolute',
+                            left: '100%',
+                            top: 0,
+                            marginLeft: '48px',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          <input
+                            type="range"
+                            min="10"
+                            max="18"
+                            step="1"
+                            value={sectionDescFontSize}
+                            onChange={(e) => setSectionDescFontSize(Number(e.target.value))}
+                            className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                          />
+                          <span className="text-xs text-slate-600 font-mono">
+                            {sectionDescFontSize}px
+                          </span>
+                        </div>
+                      )}
                     </ul>
                   ) : exp.description ? (
-                    <div className="mt-2 text-sm leading-relaxed text-slate-800 text-justify">
+                    <div className="mt-2 leading-relaxed text-slate-800 text-justify" style={{ position: index === 0 ? 'relative' : undefined, fontSize: `${sectionDescFontSize}px` }}>
                       {formatText(exp.description)}
+
+                      {/* Description Font Size Slider - on first experience */}
+                      {index === 0 && setSectionDescFontSize && (
+                        <div
+                          className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                          style={{
+                            position: 'absolute',
+                            left: '100%',
+                            top: 0,
+                            marginLeft: '48px',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          <input
+                            type="range"
+                            min="10"
+                            max="18"
+                            step="1"
+                            value={sectionDescFontSize}
+                            onChange={(e) => setSectionDescFontSize(Number(e.target.value))}
+                            className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                          />
+                          <span className="text-xs text-slate-600 font-mono">
+                            {sectionDescFontSize}px
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ) : null}
                 </div>
@@ -166,7 +292,7 @@ export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36, setT
         {/* Education */}
         {education.length > 0 && (
           <div>
-            <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif text-lg font-bold uppercase text-slate-900">
+            <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif font-bold uppercase text-slate-900" style={{ fontSize: `${sectionTitleFontSize}px` }}>
               {dict.resumes?.editor?.sections?.education || 'Education'}
             </h2>
             <div className="space-y-3">
@@ -189,17 +315,17 @@ export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36, setT
                         : 'Present'}
                     </span>
                   </div>
-                  <p className="text-sm italic text-slate-700">
+                  <p className="italic text-slate-700" style={{ fontSize: `${sectionDescFontSize}px` }}>
                     {edu.school}
                     {edu.field && ` - ${edu.field}`}
                   </p>
                   {edu.gpa && (
-                    <p className="text-sm text-slate-600">
+                    <p className="text-slate-600" style={{ fontSize: `${sectionDescFontSize}px` }}>
                       GPA: <span className="font-semibold">{edu.gpa}</span>
                     </p>
                   )}
                   {edu.description && (
-                    <p className="mt-1 text-sm text-slate-800">{edu.description}</p>
+                    <p className="mt-1 text-slate-800" style={{ fontSize: `${sectionDescFontSize}px` }}>{edu.description}</p>
                   )}
                 </div>
               ))}
@@ -210,14 +336,14 @@ export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36, setT
         {/* Skills */}
         {skills.length > 0 && (
           <div>
-            <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif text-lg font-bold uppercase text-slate-900">
+            <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif font-bold uppercase text-slate-900" style={{ fontSize: `${sectionTitleFontSize}px` }}>
               {dict.resumes?.editor?.sections?.skills || 'Skills'}
             </h2>
             <div className="space-y-2">
               {skills.map((skillCategory, index) => (
                 <div key={index}>
                   <span className="font-bold text-slate-900">{skillCategory.category}: </span>
-                  <span className="text-sm text-slate-800">
+                  <span className="text-slate-800" style={{ fontSize: `${sectionDescFontSize}px` }}>
                     {skillCategory.items.join(', ')}
                   </span>
                 </div>
@@ -229,7 +355,7 @@ export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36, setT
         {/* Projects */}
         {projects.length > 0 && (
           <div>
-            <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif text-lg font-bold uppercase text-slate-900">
+            <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif font-bold uppercase text-slate-900" style={{ fontSize: `${sectionTitleFontSize}px` }}>
               {dict.resumes?.editor?.sections?.projects || 'Projects'}
             </h2>
             <div className="space-y-3">
@@ -237,10 +363,10 @@ export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36, setT
                 <div key={index}>
                   <h3 className="font-bold text-slate-900">{project.name}</h3>
                   {project.description && (
-                    <p className="mt-1 text-sm text-slate-800">{project.description}</p>
+                    <p className="mt-1 text-slate-800" style={{ fontSize: `${sectionDescFontSize}px` }}>{project.description}</p>
                   )}
                   {project.technologies && project.technologies.length > 0 && (
-                    <p className="mt-1 text-sm text-slate-700">
+                    <p className="mt-1 text-slate-700" style={{ fontSize: `${sectionDescFontSize}px` }}>
                       <span className="font-semibold">Technologies:</span>{' '}
                       {project.technologies.join(', ')}
                     </p>
@@ -257,12 +383,12 @@ export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36, setT
             {/* Languages */}
             {languages.length > 0 && (
               <div>
-                <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif text-lg font-bold uppercase text-slate-900">
+                <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif font-bold uppercase text-slate-900" style={{ fontSize: `${sectionTitleFontSize}px` }}>
                   {dict.resumes?.editor?.sections?.languages || 'Languages'}
                 </h2>
                 <div className="space-y-1">
                   {languages.map((lang, index) => (
-                    <div key={index} className="flex justify-between text-sm">
+                    <div key={index} className="flex justify-between" style={{ fontSize: `${sectionDescFontSize}px` }}>
                       <span className="font-semibold text-slate-900">{lang.language}</span>
                       <span className="text-slate-700">
                         {dict.resumes?.editor?.levels?.[lang.level.toLowerCase()] || lang.level}
@@ -276,16 +402,16 @@ export function ClassicTemplate({ resume, locale, dict, titleFontSize = 36, setT
             {/* Certifications */}
             {certifications.length > 0 && (
               <div>
-                <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif text-lg font-bold uppercase text-slate-900">
+                <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif font-bold uppercase text-slate-900" style={{ fontSize: `${sectionTitleFontSize}px` }}>
                   {dict.resumes?.editor?.sections?.certifications || 'Certifications'}
                 </h2>
                 <div className="space-y-2">
                   {certifications.map((cert, index) => (
                     <div key={index}>
-                      <h3 className="text-sm font-bold text-slate-900">{cert.name}</h3>
-                      <p className="text-xs text-slate-700">{cert.issuer}</p>
+                      <h3 className="font-bold text-slate-900" style={{ fontSize: `${sectionDescFontSize}px` }}>{cert.name}</h3>
+                      <p className="text-slate-700" style={{ fontSize: `${sectionDescFontSize}px` }}>{cert.issuer}</p>
                       {cert.date && (
-                        <p className="text-xs italic text-slate-600">
+                        <p className="italic text-slate-600" style={{ fontSize: `${sectionDescFontSize}px` }}>
                           {new Date(cert.date + '-01').toLocaleDateString(locale, {
                             month: 'short',
                             year: 'numeric',
