@@ -16,10 +16,9 @@ interface MinimalTemplateProps {
   locale: Locale
   dict: any
   titleFontSize?: number
-  setTitleFontSize?: (size: number) => void
 }
 
-export function MinimalTemplate({ resume, locale, dict, titleFontSize = 48, setTitleFontSize }: MinimalTemplateProps) {
+export function MinimalTemplate({ resume, locale, dict, titleFontSize = 48 }: MinimalTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
@@ -34,27 +33,9 @@ export function MinimalTemplate({ resume, locale, dict, titleFontSize = 48, setT
       <div className="space-y-10 p-16 print:p-10">
         {/* Header: CV Title and Contact */}
         <div className="space-y-4 pb-6 border-b border-slate-300">
-          <div className="flex items-center justify-center gap-4">
-            <h1 className="font-light tracking-tight text-slate-900 text-center" style={{ fontSize: `${titleFontSize}px` }}>
-              {resume.title || 'CV TITLE'}
-            </h1>
-            {setTitleFontSize && (
-              <div className="flex items-center gap-2 print:hidden">
-                <input
-                  type="range"
-                  min="16"
-                  max="48"
-                  step="2"
-                  value={titleFontSize}
-                  onChange={(e) => setTitleFontSize(Number(e.target.value))}
-                  className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
-                />
-                <span className="text-xs text-slate-500 font-mono w-10">
-                  {titleFontSize}px
-                </span>
-              </div>
-            )}
-          </div>
+          <h1 className="font-light tracking-tight text-slate-900 text-center" style={{ fontSize: `${titleFontSize}px` }}>
+            {resume.title || 'CV TITLE'}
+          </h1>
 
           {/* Contact Information */}
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-slate-500">

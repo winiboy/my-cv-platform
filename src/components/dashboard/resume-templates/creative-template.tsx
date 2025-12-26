@@ -16,10 +16,9 @@ interface CreativeTemplateProps {
   locale: Locale
   dict: any
   titleFontSize?: number
-  setTitleFontSize?: (size: number) => void
 }
 
-export function CreativeTemplate({ resume, locale, dict, titleFontSize = 48, setTitleFontSize }: CreativeTemplateProps) {
+export function CreativeTemplate({ resume, locale, dict, titleFontSize = 48 }: CreativeTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
@@ -34,27 +33,9 @@ export function CreativeTemplate({ resume, locale, dict, titleFontSize = 48, set
       {/* Header with gradient background */}
       <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 p-10 text-white print:p-8">
         <div className="relative z-10">
-          <div className="mb-3 flex items-center gap-4">
-            <h1 className="font-black uppercase tracking-tight" style={{ fontSize: `${titleFontSize}px` }}>
-              {resume.title || contact.name || 'Your Name'}
-            </h1>
-            {setTitleFontSize && (
-              <div className="flex items-center gap-2 print:hidden">
-                <input
-                  type="range"
-                  min="16"
-                  max="48"
-                  step="2"
-                  value={titleFontSize}
-                  onChange={(e) => setTitleFontSize(Number(e.target.value))}
-                  className="w-32 h-1.5 bg-white/30 rounded-lg appearance-none cursor-pointer accent-white"
-                />
-                <span className="text-xs text-white/80 font-mono w-10">
-                  {titleFontSize}px
-                </span>
-              </div>
-            )}
-          </div>
+          <h1 className="mb-3 font-black uppercase tracking-tight" style={{ fontSize: `${titleFontSize}px` }}>
+            {resume.title || contact.name || 'Your Name'}
+          </h1>
           {resume.summary && (
             <div className="mb-4 max-w-2xl text-base leading-relaxed text-white/90 text-justify">
               {formatText(resume.summary)}
