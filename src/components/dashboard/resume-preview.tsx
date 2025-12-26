@@ -14,6 +14,8 @@ interface ResumePreviewProps {
   dict: any
   titleFontSize?: number
   setTitleFontSize?: (size: number) => void
+  titleGap?: number
+  setTitleGap?: (gap: number) => void
   contactFontSize?: number
   setContactFontSize?: (size: number) => void
   sectionTitleFontSize?: number
@@ -28,6 +30,8 @@ export function ResumePreview({
   dict,
   titleFontSize = 24,
   setTitleFontSize,
+  titleGap = 8,
+  setTitleGap,
   contactFontSize = 12,
   setContactFontSize,
   sectionTitleFontSize = 16,
@@ -46,7 +50,7 @@ export function ResumePreview({
     case 'creative':
       return <CreativeTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} />
     case 'professional':
-      return <ProfessionalTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} />
+      return <ProfessionalTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} titleGap={titleGap} setTitleGap={setTitleGap} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} />
     default:
       return <ModernTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} />
   }

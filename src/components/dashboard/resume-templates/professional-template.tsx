@@ -15,6 +15,8 @@ interface ProfessionalTemplateProps {
   dict: any
   titleFontSize?: number
   setTitleFontSize?: (size: number) => void
+  titleGap?: number
+  setTitleGap?: (gap: number) => void
   contactFontSize?: number
   setContactFontSize?: (size: number) => void
   sectionTitleFontSize?: number
@@ -49,6 +51,8 @@ export function ProfessionalTemplate({
   dict,
   titleFontSize = 24,
   setTitleFontSize,
+  titleGap = 8,
+  setTitleGap,
   contactFontSize = 12,
   setContactFontSize,
   sectionTitleFontSize = 16,
@@ -193,8 +197,8 @@ export function ProfessionalTemplate({
         }}
       >
           {/* HEADER: CV Title and Contact Info */}
-          <div className="mb-8 border-b-2 pb-6" style={{ borderColor: 'oklch(0.25 0.05 240)' }}>
-            <h1 className="mb-2 font-bold uppercase tracking-tight" style={{ color: 'oklch(0.25 0.05 240)', fontSize: `${titleFontSize}px`, position: 'relative' }}>
+          <div className="mb-8 border-b-2 pb-6" style={{ borderColor: 'oklch(0.25 0.05 240)', position: 'relative' }}>
+            <h1 className="font-bold uppercase tracking-tight" style={{ color: 'oklch(0.25 0.05 240)', fontSize: `${titleFontSize}px`, marginBottom: `${titleGap}px`, position: 'relative' }}>
               {resume.title || 'CV TITLE'}
 
               {/* Font Size Slider - Positioned outside CV to the right */}
@@ -229,6 +233,38 @@ export function ProfessionalTemplate({
                 </div>
               )}
             </h1>
+
+            {/* Title Gap Slider - Positioned outside CV to the right, aligned with gap */}
+            {setTitleGap && (
+              <div
+                className="print:hidden"
+                style={{
+                  position: 'absolute',
+                  left: '100%',
+                  top: `${titleFontSize}px`,
+                  marginLeft: '48px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <div className="text-xs text-slate-600 font-medium mb-0.5">
+                  Title Gap
+                </div>
+                <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-1 shadow-sm">
+                  <input
+                    type="range"
+                    min="0"
+                    max="32"
+                    step="2"
+                    value={titleGap}
+                    onChange={(e) => setTitleGap(Number(e.target.value))}
+                    className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                  />
+                  <span className="text-xs text-slate-600 font-mono">
+                    {titleGap}px
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Contact Information */}
             <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'oklch(0.4 0 0)', fontSize: `${contactFontSize}px`, position: 'relative' }}>
