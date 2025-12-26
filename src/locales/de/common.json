@@ -253,6 +253,12 @@
       "present": "Heute",
       "gpa": "Notendurchschnitt",
       "in": "in"
+    },
+    "sliders": {
+      "title": "Titel",
+      "contactDetails": "Kontaktdaten",
+      "sectionTitle": "Abschnittstitel",
+      "description": "Beschreibung"
     }
   },
   "common": {

@@ -253,6 +253,12 @@
       "present": "Présent",
       "gpa": "Moyenne",
       "in": "en"
+    },
+    "sliders": {
+      "title": "Titre",
+      "contactDetails": "Coordonnées",
+      "sectionTitle": "Titre de section",
+      "description": "Description"
     }
   },
   "common": {

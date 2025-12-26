@@ -201,7 +201,7 @@ export function ProfessionalTemplate({
             {/* Font Size Slider - Positioned outside CV to the right */}
             {setTitleFontSize && (
               <div
-                className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                className="print:hidden"
                 style={{
                   position: 'absolute',
                   left: '100%',
@@ -210,18 +210,23 @@ export function ProfessionalTemplate({
                   whiteSpace: 'nowrap'
                 }}
               >
-                <input
-                  type="range"
-                  min="16"
-                  max="48"
-                  step="2"
-                  value={titleFontSize}
-                  onChange={(e) => setTitleFontSize(Number(e.target.value))}
-                  className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
-                />
-                <span className="text-xs text-slate-600 font-mono">
-                  {titleFontSize}px
-                </span>
+                <div className="text-xs text-slate-600 font-medium mb-1">
+                  {dict.resumes?.sliders?.title || 'Title'}
+                </div>
+                <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm">
+                  <input
+                    type="range"
+                    min="16"
+                    max="48"
+                    step="2"
+                    value={titleFontSize}
+                    onChange={(e) => setTitleFontSize(Number(e.target.value))}
+                    className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                  />
+                  <span className="text-xs text-slate-600 font-mono">
+                    {titleFontSize}px
+                  </span>
+                </div>
               </div>
             )}
 
@@ -230,7 +235,7 @@ export function ProfessionalTemplate({
               {/* Font Size Slider for Contact - Positioned outside CV to the right */}
               {setContactFontSize && (
                 <div
-                  className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                  className="print:hidden"
                   style={{
                     position: 'absolute',
                     left: '100%',
@@ -239,18 +244,23 @@ export function ProfessionalTemplate({
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  <input
-                    type="range"
-                    min="10"
-                    max="18"
-                    step="1"
-                    value={contactFontSize}
-                    onChange={(e) => setContactFontSize(Number(e.target.value))}
-                    className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
-                  />
-                  <span className="text-xs text-slate-600 font-mono">
-                    {contactFontSize}px
-                  </span>
+                  <div className="text-xs text-slate-600 font-medium mb-1">
+                    {dict.resumes?.sliders?.contactDetails || 'Contact details'}
+                  </div>
+                  <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm">
+                    <input
+                      type="range"
+                      min="10"
+                      max="18"
+                      step="1"
+                      value={contactFontSize}
+                      onChange={(e) => setContactFontSize(Number(e.target.value))}
+                      className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                    />
+                    <span className="text-xs text-slate-600 font-mono">
+                      {contactFontSize}px
+                    </span>
+                  </div>
                 </div>
               )}
               {contact.email && (
@@ -308,7 +318,7 @@ export function ProfessionalTemplate({
                 {/* Font Size Slider for Section Titles - Positioned outside CV to the right */}
                 {setSectionTitleFontSize && (
                   <div
-                    className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                    className="print:hidden"
                     style={{
                       position: 'absolute',
                       left: '100%',
@@ -317,18 +327,23 @@ export function ProfessionalTemplate({
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    <input
-                      type="range"
-                      min="12"
-                      max="24"
-                      step="1"
-                      value={sectionTitleFontSize}
-                      onChange={(e) => setSectionTitleFontSize(Number(e.target.value))}
-                      className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
-                    />
-                    <span className="text-xs text-slate-600 font-mono">
-                      {sectionTitleFontSize}px
-                    </span>
+                    <div className="text-xs text-slate-600 font-medium mb-1">
+                      {dict.resumes?.sliders?.sectionTitle || 'Section title'}
+                    </div>
+                    <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm">
+                      <input
+                        type="range"
+                        min="12"
+                        max="24"
+                        step="1"
+                        value={sectionTitleFontSize}
+                        onChange={(e) => setSectionTitleFontSize(Number(e.target.value))}
+                        className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                      />
+                      <span className="text-xs text-slate-600 font-mono">
+                        {sectionTitleFontSize}px
+                      </span>
+                    </div>
                   </div>
                 )}
               </h2>
@@ -346,7 +361,7 @@ export function ProfessionalTemplate({
                 {/* Font Size Slider for Section Descriptions - Positioned outside CV to the right */}
                 {setSectionDescFontSize && (
                   <div
-                    className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                    className="print:hidden"
                     style={{
                       position: 'absolute',
                       left: '100%',
@@ -355,18 +370,23 @@ export function ProfessionalTemplate({
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    <input
-                      type="range"
-                      min="10"
-                      max="18"
-                      step="1"
-                      value={sectionDescFontSize}
-                      onChange={(e) => setSectionDescFontSize(Number(e.target.value))}
-                      className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
-                    />
-                    <span className="text-xs text-slate-600 font-mono">
-                      {sectionDescFontSize}px
-                    </span>
+                    <div className="text-xs text-slate-600 font-medium mb-1">
+                      {dict.resumes?.sliders?.description || 'Description'}
+                    </div>
+                    <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm">
+                      <input
+                        type="range"
+                        min="10"
+                        max="18"
+                        step="1"
+                        value={sectionDescFontSize}
+                        onChange={(e) => setSectionDescFontSize(Number(e.target.value))}
+                        className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
+                      />
+                      <span className="text-xs text-slate-600 font-mono">
+                        {sectionDescFontSize}px
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>

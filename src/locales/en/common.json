@@ -253,6 +253,12 @@
       "present": "Present",
       "gpa": "GPA",
       "in": "in"
+    },
+    "sliders": {
+      "title": "Title",
+      "contactDetails": "Contact details",
+      "sectionTitle": "Section title",
+      "description": "Description"
     }
   },
   "common": {

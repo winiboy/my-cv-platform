@@ -253,6 +253,12 @@
       "present": "Presente",
       "gpa": "Media",
       "in": "in"
+    },
+    "sliders": {
+      "title": "Titolo",
+      "contactDetails": "Dati di contatto",
+      "sectionTitle": "Titolo sezione",
+      "description": "Descrizione"
     }
   },
   "common": {
