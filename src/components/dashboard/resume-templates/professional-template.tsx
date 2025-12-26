@@ -107,7 +107,7 @@ export function ProfessionalTemplate({
           {/* KEY ACHIEVEMENTS SECTION */}
           {keyAchievements.length > 0 && (
             <div className="mb-8">
-              <h2 className="mb-4 text-sm font-bold uppercase tracking-wide">
+              <h2 className="mb-4 text-sm font-bold tracking-wide capitalize">
                 {dict.resumes.template.keyAchievements}
               </h2>
               <div className="space-y-4">
@@ -133,7 +133,7 @@ export function ProfessionalTemplate({
           {/* SKILLS SECTION */}
           {skills.filter(s => s.category && s.items && s.items.length > 0).length > 0 && (
             <div className="mb-8">
-              <h2 className="mb-4 text-sm font-bold uppercase tracking-wide">
+              <h2 className="mb-4 text-sm font-bold tracking-wide capitalize">
                 {dict.resumes.template.skills}
               </h2>
               <div className="text-xs leading-relaxed">
@@ -158,7 +158,7 @@ export function ProfessionalTemplate({
           {/* TRAINING / COURSES SECTION */}
           {certifications.length > 0 && (
             <div>
-              <h2 className="mb-4 text-sm font-bold uppercase tracking-wide">
+              <h2 className="mb-4 text-sm font-bold tracking-wide capitalize">
                 {dict.resumes.template.training}
               </h2>
               <div className="space-y-4">
@@ -210,10 +210,10 @@ export function ProfessionalTemplate({
                   whiteSpace: 'nowrap'
                 }}
               >
-                <div className="text-xs text-slate-600 font-medium mb-1">
+                <div className="text-xs text-slate-600 font-medium mb-0.5">
                   {dict.resumes?.sliders?.title || 'Title'}
                 </div>
-                <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm">
+                <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-1 shadow-sm">
                   <input
                     type="range"
                     min="16"
@@ -239,15 +239,15 @@ export function ProfessionalTemplate({
                   style={{
                     position: 'absolute',
                     left: '100%',
-                    top: '70px',
+                    top: 0,
                     marginLeft: '48px',
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  <div className="text-xs text-slate-600 font-medium mb-1">
+                  <div className="text-xs text-slate-600 font-medium mb-0.5">
                     {dict.resumes?.sliders?.contactDetails || 'Contact details'}
                   </div>
-                  <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm">
+                  <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-1 shadow-sm">
                     <input
                       type="range"
                       min="10"
@@ -310,7 +310,7 @@ export function ProfessionalTemplate({
           {resume.summary && (
             <div className="mb-8">
               <h2
-                className="mb-3 font-bold uppercase tracking-wide pb-2 border-b"
+                className="mb-3 font-bold tracking-wide pb-2 border-b capitalize"
                 style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.7 0.05 240)', fontSize: `${sectionTitleFontSize}px`, position: 'relative' }}
               >
                 {dict.resumes.template.summary}
@@ -322,15 +322,15 @@ export function ProfessionalTemplate({
                     style={{
                       position: 'absolute',
                       left: '100%',
-                      top: '140px',
+                      top: 0,
                       marginLeft: '48px',
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    <div className="text-xs text-slate-600 font-medium mb-1">
+                    <div className="text-xs text-slate-600 font-medium mb-0.5">
                       {dict.resumes?.sliders?.sectionTitle || 'Section title'}
                     </div>
-                    <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm">
+                    <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-1 shadow-sm">
                       <input
                         type="range"
                         min="12"
@@ -365,15 +365,15 @@ export function ProfessionalTemplate({
                     style={{
                       position: 'absolute',
                       left: '100%',
-                      top: '210px',
+                      top: 0,
                       marginLeft: '48px',
                       whiteSpace: 'nowrap'
                     }}
                   >
-                    <div className="text-xs text-slate-600 font-medium mb-1">
+                    <div className="text-xs text-slate-600 font-medium mb-0.5">
                       {dict.resumes?.sliders?.description || 'Description'}
                     </div>
-                    <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm">
+                    <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-1 shadow-sm">
                       <input
                         type="range"
                         min="10"
@@ -397,7 +397,7 @@ export function ProfessionalTemplate({
           {experiences.length > 0 && (
             <div className="mb-8">
               <h2
-                className="mb-4 font-bold uppercase tracking-wide pb-2 border-b"
+                className="mb-4 font-bold tracking-wide pb-2 border-b capitalize"
                 style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.7 0.05 240)', fontSize: `${sectionTitleFontSize}px` }}
               >
                 {dict.resumes.template.experience}
@@ -470,7 +470,7 @@ export function ProfessionalTemplate({
           {education.length > 0 && (
             <div>
               <h2
-                className="mb-4 font-bold uppercase tracking-wide pb-2 border-b"
+                className="mb-4 font-bold tracking-wide pb-2 border-b capitalize"
                 style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.7 0.05 240)', fontSize: `${sectionTitleFontSize}px` }}
               >
                 {dict.resumes.template.education}
