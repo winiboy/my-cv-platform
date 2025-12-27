@@ -244,13 +244,13 @@ export function ProfessionalTemplate({
                   top: 0,
                   marginLeft: '260px',
                   zIndex: 10,
-                  width: '40px'
+                  width: '32px'
                 }}
               >
                 <div className="text-xs text-slate-600 font-medium mb-0.5 text-center">
                   Gap
                 </div>
-                <div className="flex flex-col items-center justify-between bg-white rounded-lg border border-slate-200 px-1.5 py-2 shadow-sm" style={{ height: `${88 + titleGap}px` }}>
+                <div className="flex flex-col items-center justify-between bg-white rounded-lg border border-slate-200 px-1 py-1.5 shadow-sm" style={{ height: `${84 + titleGap}px` }}>
                   <input
                     type="range"
                     min="0"
@@ -261,13 +261,13 @@ export function ProfessionalTemplate({
                     className="appearance-none cursor-pointer accent-slate-600"
                     style={{
                       writingMode: 'vertical-lr',
-                      width: '1.25rem',
-                      height: `${titleGap + 44}px`,
+                      width: '1rem',
+                      height: `${titleGap + 42}px`,
                       background: 'linear-gradient(to top, oklch(0.85 0 0) 0%, oklch(0.85 0 0) 100%)',
                       borderRadius: '0.5rem'
                     }}
                   />
-                  <span className="text-xs text-slate-600 font-mono mt-1.5">
+                  <span className="text-xs text-slate-600 font-mono mt-1">
                     {titleGap}px
                   </span>
                 </div>
