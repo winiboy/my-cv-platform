@@ -241,7 +241,7 @@ export function ProfessionalTemplate({
                 style={{
                   position: 'absolute',
                   left: '100%',
-                  top: '40px',
+                  top: `${titleFontSize + 10}px`,
                   marginLeft: '260px',
                   zIndex: 10,
                   width: '32px'
@@ -250,7 +250,7 @@ export function ProfessionalTemplate({
                 <div className="text-xs text-slate-600 font-medium mb-0.5 text-center">
                   Gap
                 </div>
-                <div className="flex flex-col items-center justify-end bg-white rounded-lg border border-slate-200 px-1 py-1.5 shadow-sm" style={{ height: `${Math.max(titleGap + 56, 64)}px` }}>
+                <div className="flex flex-col items-center justify-end bg-white rounded-lg border border-slate-200 px-1 py-1.5 shadow-sm" style={{ height: `${Math.max(titleGap + 20, 48)}px` }}>
                   <input
                     type="range"
                     min="0"
@@ -262,7 +262,7 @@ export function ProfessionalTemplate({
                     style={{
                       writingMode: 'vertical-lr',
                       width: '1rem',
-                      height: `${Math.max(titleGap + 24, 40)}px`,
+                      height: `${Math.max(titleGap, 24)}px`,
                       background: 'linear-gradient(to top, oklch(0.85 0 0) 0%, oklch(0.85 0 0) 100%)',
                       borderRadius: '0.5rem'
                     }}
