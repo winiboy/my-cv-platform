@@ -247,10 +247,10 @@ export function ProfessionalTemplate({
                   width: '48px'
                 }}
               >
-                <div className="flex flex-col items-center gap-2 bg-white rounded-lg border border-slate-200 px-2 py-3 shadow-sm" style={{ height: `${96 + titleGap}px` }}>
-                  <div className="text-xs text-slate-600 font-medium whitespace-nowrap" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
-                    Title Gap
-                  </div>
+                <div className="text-xs text-slate-600 font-medium mb-0.5 text-center">
+                  Title Gap
+                </div>
+                <div className="flex flex-col items-center justify-between bg-white rounded-lg border border-slate-200 px-2 py-3 shadow-sm" style={{ height: `${96 + titleGap}px` }}>
                   <input
                     type="range"
                     min="0"
@@ -267,7 +267,7 @@ export function ProfessionalTemplate({
                       borderRadius: '0.5rem'
                     }}
                   />
-                  <span className="text-xs text-slate-600 font-mono">
+                  <span className="text-xs text-slate-600 font-mono mt-2">
                     {titleGap}px
                   </span>
                 </div>
