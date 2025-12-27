@@ -241,7 +241,7 @@ export function ProfessionalTemplate({
                 style={{
                   position: 'absolute',
                   left: '100%',
-                  top: `${titleFontSize}px`,
+                  top: `${titleFontSize + 14}px`,
                   marginLeft: '260px',
                   zIndex: 10,
                   width: '32px'
