@@ -241,7 +241,7 @@ export function ProfessionalTemplate({
                 style={{
                   position: 'absolute',
                   left: '100%',
-                  top: 0,
+                  top: '40px',
                   marginLeft: '260px',
                   zIndex: 10,
                   width: '32px'
@@ -250,7 +250,7 @@ export function ProfessionalTemplate({
                 <div className="text-xs text-slate-600 font-medium mb-0.5 text-center">
                   Gap
                 </div>
-                <div className="flex flex-col items-center justify-between bg-white rounded-lg border border-slate-200 px-1 py-1.5 shadow-sm" style={{ height: `${84 + titleGap}px` }}>
+                <div className="flex flex-col items-center justify-end bg-white rounded-lg border border-slate-200 px-1 py-1.5 shadow-sm" style={{ height: `${Math.max(titleGap + 20, 28)}px` }}>
                   <input
                     type="range"
                     min="0"
@@ -258,16 +258,16 @@ export function ProfessionalTemplate({
                     step="2"
                     value={titleGap}
                     onChange={(e) => setTitleGap(Number(e.target.value))}
-                    className="appearance-none cursor-pointer accent-slate-600"
+                    className="appearance-none cursor-pointer accent-slate-600 mb-1"
                     style={{
                       writingMode: 'vertical-lr',
                       width: '1rem',
-                      height: `${titleGap + 42}px`,
+                      height: `${Math.max(titleGap, 8)}px`,
                       background: 'linear-gradient(to top, oklch(0.85 0 0) 0%, oklch(0.85 0 0) 100%)',
                       borderRadius: '0.5rem'
                     }}
                   />
-                  <span className="text-xs text-slate-600 font-mono mt-1">
+                  <span className="text-xs text-slate-600 font-mono">
                     {titleGap}px
                   </span>
                 </div>
