@@ -234,7 +234,7 @@ export function ProfessionalTemplate({
               )}
             </h1>
 
-            {/* Title Gap Slider - Vertical slider to the right of Title and Contact sliders */}
+            {/* Gap Slider - Vertical slider to the right of Title and Contact sliders */}
             {setTitleGap && (
               <div
                 className="print:hidden"
@@ -244,13 +244,13 @@ export function ProfessionalTemplate({
                   top: 0,
                   marginLeft: '260px',
                   zIndex: 10,
-                  width: '48px'
+                  width: '40px'
                 }}
               >
                 <div className="text-xs text-slate-600 font-medium mb-0.5 text-center">
-                  Title Gap
+                  Gap
                 </div>
-                <div className="flex flex-col items-center justify-between bg-white rounded-lg border border-slate-200 px-2 py-3 shadow-sm" style={{ height: `${96 + titleGap}px` }}>
+                <div className="flex flex-col items-center justify-between bg-white rounded-lg border border-slate-200 px-1.5 py-2 shadow-sm" style={{ height: `${88 + titleGap}px` }}>
                   <input
                     type="range"
                     min="0"
@@ -261,13 +261,13 @@ export function ProfessionalTemplate({
                     className="appearance-none cursor-pointer accent-slate-600"
                     style={{
                       writingMode: 'vertical-lr',
-                      width: '1.5rem',
-                      height: `${titleGap + 48}px`,
+                      width: '1.25rem',
+                      height: `${titleGap + 44}px`,
                       background: 'linear-gradient(to top, oklch(0.85 0 0) 0%, oklch(0.85 0 0) 100%)',
                       borderRadius: '0.5rem'
                     }}
                   />
-                  <span className="text-xs text-slate-600 font-mono mt-2">
+                  <span className="text-xs text-slate-600 font-mono mt-1.5">
                     {titleGap}px
                   </span>
                 </div>
