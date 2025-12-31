@@ -104,6 +104,7 @@
     "title": "I miei CV",
     "subtitle": "Crea e gestisci i tuoi CV professionali",
     "createNew": "Crea CV",
+    "createFromJob": "Crea da offerta di lavoro",
     "createFirst": "Crea il tuo primo CV",
     "default": "Predefinito",
     "updated": "Aggiornato",
@@ -142,6 +143,19 @@
       "create": "Crea CV",
       "creating": "Creazione..."
     },
+    "fromJob": {
+      "title": "Crea CV da offerta di lavoro",
+      "subtitle": "Incolla un'offerta di lavoro e lascia che l'IA crei un CV personalizzato per te",
+      "jobDescriptionLabel": "Offerta di lavoro",
+      "jobDescriptionPlaceholder": "Incolla l'offerta di lavoro completa qui...\n\nEsempio:\nIngegnere Software\nCerchiamo un Ingegnere Software esperto con 5+ anni di esperienza in React, Node.js e tecnologie cloud...",
+      "analyzing": "Analisi dell'offerta di lavoro...",
+      "generating": "Generazione del tuo CV...",
+      "create": "Genera CV",
+      "titleLabel": "Titolo CV",
+      "titlePlaceholder": "es. CV Ingegnere Software per TechCorp",
+      "templateLabel": "Scegli modello",
+      "backToResumes": "Torna ai miei CV"
+    },
     "errors": {
       "titleRequired": "Il titolo del CV è richiesto",
       "createFailed": "Creazione CV fallita",
@@ -159,7 +173,7 @@
         "skills": "Competenze",
         "languages": "Lingue",
         "certifications": "Certificazioni",
-        "projects": "Progetti"
+        "projects": "Risultati chiave"
       },
       "contactHint": "Aggiungi i tuoi dettagli di contatto e link professionali",
       "summaryHint": "Scrivi una breve panoramica del tuo background professionale e risultati chiave",
@@ -222,17 +236,17 @@
       "credentialIdPlaceholder": "es. ABC123456",
       "certificationUrl": "URL certificazione",
       "certificationUrlPlaceholder": "https://www.credential.net/...",
-      "projectsHint": "Presenta progetti notevoli e lavori secondari",
-      "addProject": "Aggiungi progetto",
-      "noProjects": "Nessun progetto aggiunto",
-      "newProject": "Nuovo progetto",
-      "projectName": "Nome progetto",
-      "projectNamePlaceholder": "es. Piattaforma e-commerce",
-      "projectDescPlaceholder": "Descrivi il progetto, il tuo ruolo e i risultati chiave...",
-      "projectUrl": "URL progetto",
-      "projectUrlPlaceholder": "https://github.com/...",
-      "technologies": "Tecnologie utilizzate",
-      "addTechnology": "Aggiungi una tecnologia...",
+      "projectsHint": "Evidenzia i tuoi risultati principali e contributi notevoli",
+      "addProject": "Aggiungi risultato",
+      "noProjects": "Nessun risultato chiave aggiunto",
+      "newProject": "Nuovo risultato",
+      "projectName": "Titolo del risultato",
+      "projectNamePlaceholder": "es. Aumento delle vendite del 40%",
+      "projectDescPlaceholder": "Descrivi cosa hai raggiunto, l'impatto e i risultati chiave...",
+      "projectUrl": "URL di riferimento",
+      "projectUrlPlaceholder": "https://...",
+      "technologies": "Competenze utilizzate",
+      "addTechnology": "Aggiungi una competenza...",
       "optimizeWithAI": "Ottimizza con IA",
       "optimizing": "Ottimizzazione...",
       "translateToFrench": "Traduci in francese",
@@ -258,8 +272,26 @@
       "title": "Titolo",
       "contactDetails": "Dati di contatto",
       "sectionTitle": "Titolo sezione",
-      "description": "Descrizione"
-    }
+      "description": "Descrizione",
+      "gap": "Gap"
+    },
+    "colorWheel": {
+      "sidebarColor": "Colore barra laterale",
+      "presetColors": "Colori predefiniti",
+      "presets": {
+        "petrolBlue": "Blu petrolio",
+        "charcoal": "Antracite",
+        "forestGreen": "Verde foresta",
+        "burgundy": "Borgogna",
+        "teal": "Verde acqua",
+        "slate": "Ardesia",
+        "deepPurple": "Viola profondo",
+        "darkBrown": "Marrone scuro",
+        "wineRed": "Rosso vino",
+        "olive": "Oliva"
+      }
+    },
+    "showControls": "Mostra controlli"
   },
   "common": {
     "cancel": "Annulla",

@@ -104,6 +104,7 @@
     "title": "Meine Lebensläufe",
     "subtitle": "Erstellen und verwalten Sie Ihre professionellen Lebensläufe",
     "createNew": "Lebenslauf erstellen",
+    "createFromJob": "Aus Stellenbeschreibung erstellen",
     "createFirst": "Erstellen Sie Ihren ersten Lebenslauf",
     "default": "Standard",
     "updated": "Aktualisiert",
@@ -142,6 +143,19 @@
       "create": "Lebenslauf erstellen",
       "creating": "Wird erstellt..."
     },
+    "fromJob": {
+      "title": "Lebenslauf aus Stellenbeschreibung erstellen",
+      "subtitle": "Fügen Sie eine Stellenbeschreibung ein und lassen Sie KI einen maßgeschneiderten Lebenslauf erstellen",
+      "jobDescriptionLabel": "Stellenbeschreibung",
+      "jobDescriptionPlaceholder": "Fügen Sie die vollständige Stellenbeschreibung hier ein...\n\nBeispiel:\nSoftware-Ingenieur\nWir suchen einen erfahrenen Software-Ingenieur mit 5+ Jahren Erfahrung in React, Node.js und Cloud-Technologien...",
+      "analyzing": "Stellenbeschreibung wird analysiert...",
+      "generating": "Ihr Lebenslauf wird erstellt...",
+      "create": "Lebenslauf generieren",
+      "titleLabel": "Lebenslauf-Titel",
+      "titlePlaceholder": "z.B. Software-Ingenieur Lebenslauf für TechCorp",
+      "templateLabel": "Vorlage wählen",
+      "backToResumes": "Zurück zu meinen Lebensläufen"
+    },
     "errors": {
       "titleRequired": "Lebenslauf-Titel ist erforderlich",
       "createFailed": "Lebenslauf konnte nicht erstellt werden",
@@ -159,7 +173,7 @@
         "skills": "Fähigkeiten",
         "languages": "Sprachen",
         "certifications": "Zertifikate",
-        "projects": "Projekte"
+        "projects": "Wichtige Erfolge"
       },
       "contactHint": "Fügen Sie Ihre Kontaktdaten und professionellen Links hinzu",
       "summaryHint": "Schreiben Sie einen kurzen Überblick über Ihren beruflichen Werdegang und wichtige Erfolge",
@@ -222,17 +236,17 @@
       "credentialIdPlaceholder": "z.B. ABC123456",
       "certificationUrl": "Zertifikats-URL",
       "certificationUrlPlaceholder": "https://www.credential.net/...",
-      "projectsHint": "Präsentieren Sie bemerkenswerte Projekte und Nebenarbeiten",
-      "addProject": "Projekt hinzufügen",
-      "noProjects": "Noch keine Projekte hinzugefügt",
-      "newProject": "Neues Projekt",
-      "projectName": "Projektname",
-      "projectNamePlaceholder": "z.B. E-Commerce-Plattform",
-      "projectDescPlaceholder": "Beschreiben Sie das Projekt, Ihre Rolle und wichtige Erfolge...",
-      "projectUrl": "Projekt-URL",
-      "projectUrlPlaceholder": "https://github.com/...",
-      "technologies": "Verwendete Technologien",
-      "addTechnology": "Technologie hinzufügen...",
+      "projectsHint": "Heben Sie Ihre wichtigsten Errungenschaften und bemerkenswerte Beiträge hervor",
+      "addProject": "Erfolg hinzufügen",
+      "noProjects": "Noch keine wichtigen Erfolge hinzugefügt",
+      "newProject": "Neuer Erfolg",
+      "projectName": "Erfolgstitel",
+      "projectNamePlaceholder": "z.B. Umsatzsteigerung um 40%",
+      "projectDescPlaceholder": "Beschreiben Sie, was Sie erreicht haben, die Auswirkungen und wichtige Ergebnisse...",
+      "projectUrl": "Referenz-URL",
+      "projectUrlPlaceholder": "https://...",
+      "technologies": "Verwendete Fähigkeiten",
+      "addTechnology": "Fähigkeit hinzufügen...",
       "optimizeWithAI": "Mit KI optimieren",
       "optimizing": "Optimierung...",
       "translateToFrench": "Ins Französische übersetzen",
@@ -258,8 +272,26 @@
       "title": "Titel",
       "contactDetails": "Kontaktdaten",
       "sectionTitle": "Abschnittstitel",
-      "description": "Beschreibung"
-    }
+      "description": "Beschreibung",
+      "gap": "Gap"
+    },
+    "colorWheel": {
+      "sidebarColor": "Seitenleistenfarbe",
+      "presetColors": "Vordefinierte Farben",
+      "presets": {
+        "petrolBlue": "Petrolblau",
+        "charcoal": "Anthrazit",
+        "forestGreen": "Waldgrün",
+        "burgundy": "Burgunderrot",
+        "teal": "Blaugrün",
+        "slate": "Schiefer",
+        "deepPurple": "Tiefviolett",
+        "darkBrown": "Dunkelbraun",
+        "wineRed": "Weinrot",
+        "olive": "Olivgrün"
+      }
+    },
+    "showControls": "Steuerungen anzeigen"
   },
   "common": {
     "cancel": "Abbrechen",

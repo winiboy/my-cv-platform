@@ -1,0 +1,105 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { generateResumeFromJobDescription } from '@/lib/ai/transformations'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
+import type { ResumeInsert } from '@/types/database'
+
+export async function POST(request: NextRequest) {
+  try {
+    // Check authentication
+    const supabase = await createServerSupabaseClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Parse request body
+    const body = await request.json()
+    const { jobDescription, title, template, locale } = body
+
+    // Validate inputs
+    if (!jobDescription || typeof jobDescription !== 'string') {
+      return NextResponse.json(
+        { error: 'jobDescription is required and must be a string' },
+        { status: 400 }
+      )
+    }
+
+    if (jobDescription.trim().length < 50) {
+      return NextResponse.json(
+        { error: 'Job description is too short. Please provide a complete job description.' },
+        { status: 400 }
+      )
+    }
+
+    if (!title || typeof title !== 'string') {
+      return NextResponse.json(
+        { error: 'title is required and must be a string' },
+        { status: 400 }
+      )
+    }
+
+    const validTemplates = ['modern', 'classic', 'minimal', 'creative', 'professional']
+    if (!template || !validTemplates.includes(template)) {
+      return NextResponse.json(
+        { error: 'Invalid template. Must be one of: modern, classic, minimal, creative, professional' },
+        { status: 400 }
+      )
+    }
+
+    // Generate resume content using AI
+    const result = await generateResumeFromJobDescription({
+      jobDescription: jobDescription.trim(),
+      locale: locale || 'en',
+    })
+
+    // Create resume in database
+    const newResume: ResumeInsert = {
+      user_id: user.id,
+      title: title.trim(),
+      template: template as 'modern' | 'classic' | 'minimal' | 'creative' | 'professional',
+      contact: {},
+      summary: result.resumeData.summary || '',
+      experience: result.resumeData.experience || [],
+      education: [],
+      skills: result.resumeData.skills || [],
+      languages: [],
+      certifications: [],
+      projects: result.resumeData.projects || [],
+      custom_sections: [],
+      is_default: false,
+      is_public: false,
+    }
+
+    const { data: resume, error: insertError } = await supabase
+      .from('resumes')
+      .insert(newResume)
+      .select()
+      .single()
+
+    if (insertError) {
+      console.error('Error creating resume:', insertError)
+      return NextResponse.json(
+        { error: 'Failed to create resume in database' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      resumeId: resume.id,
+      tokensUsed: result.tokensUsed,
+    })
+  } catch (error) {
+    console.error('Error generating resume from job description:', error)
+    return NextResponse.json(
+      {
+        error: 'Failed to generate resume',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
+  }
+}

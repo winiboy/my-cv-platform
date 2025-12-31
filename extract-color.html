@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Extract OKLCH Color</title>
+<style>
+body { font-family: monospace; padding: 20px; background: white; }
+#preview { width: 200px; height: 200px; background-color: oklch(0.25 0.05 240); border: 2px solid black; margin: 20px 0; }
+canvas { display: none; }
+</style>
+</head>
+<body>
+<h1>Extraction de la couleur OKLCH → RGB</h1>
+<div id="preview"></div>
+<div id="result">Calcul en cours...</div>
+<canvas id="canvas" width="10" height="10"></canvas>
+
+<script>
+// Méthode canvas pour extraire la vraie couleur RGB
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+// Dessiner avec la couleur oklch
+ctx.fillStyle = 'oklch(0.25 0.05 240)';
+ctx.fillRect(0, 0, 10, 10);
+
+// Lire le pixel pour obtenir RGB
+const imageData = ctx.getImageData(5, 5, 1, 1);
+const r = imageData.data[0];
+const g = imageData.data[1];
+const b = imageData.data[2];
+
+// Convertir en HEX
+const hex = ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0').toUpperCase();
+
+// Afficher
+document.getElementById('result').innerHTML = `
+<h2 style="color: #${hex}">✅ Couleur extraite avec succès!</h2>
+<p><strong>HEX:</strong> <span style="font-size: 24px; color: #${hex}">#${hex}</span></p>
+<p><strong>RGB:</strong> rgb(${r}, ${g}, ${b})</p>
+<hr>
+<h3>👉 Utilisez cette valeur dans le code: <code>${hex}</code></h3>
+<p style="background: #${hex}; color: white; padding: 10px;">Aperçu de la couleur</p>
+`;
+
+console.log('HEX:', hex);
+console.log('RGB:', r, g, b);
+</script>
+</body>
+</html>

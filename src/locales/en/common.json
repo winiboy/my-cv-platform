@@ -104,6 +104,7 @@
     "title": "My Resumes",
     "subtitle": "Create and manage your professional resumes",
     "createNew": "Create Resume",
+    "createFromJob": "Create from Job Description",
     "createFirst": "Create Your First Resume",
     "default": "Default",
     "updated": "Updated",
@@ -142,6 +143,19 @@
       "create": "Create Resume",
       "creating": "Creating..."
     },
+    "fromJob": {
+      "title": "Create CV from Job Description",
+      "subtitle": "Paste a job description and let AI create a tailored CV for you",
+      "jobDescriptionLabel": "Job Description",
+      "jobDescriptionPlaceholder": "Paste the full job description here...\n\nExample:\nSoftware Engineer\nWe're looking for an experienced Software Engineer with 5+ years of experience in React, Node.js, and cloud technologies...",
+      "analyzing": "Analyzing job description...",
+      "generating": "Generating your CV...",
+      "create": "Generate CV",
+      "titleLabel": "CV Title",
+      "titlePlaceholder": "e.g., Software Engineer CV for TechCorp",
+      "templateLabel": "Choose Template",
+      "backToResumes": "Back to My Resumes"
+    },
     "errors": {
       "titleRequired": "Resume title is required",
       "createFailed": "Failed to create resume",
@@ -159,7 +173,7 @@
         "skills": "Skills",
         "languages": "Languages",
         "certifications": "Certifications",
-        "projects": "Projects"
+        "projects": "Key Achievements"
       },
       "contactHint": "Add your contact details and professional links",
       "summaryHint": "Write a brief overview of your professional background and key achievements",
@@ -222,17 +236,17 @@
       "credentialIdPlaceholder": "e.g., ABC123456",
       "certificationUrl": "Certification URL",
       "certificationUrlPlaceholder": "https://www.credential.net/...",
-      "projectsHint": "Showcase notable projects and side work",
-      "addProject": "Add Project",
-      "noProjects": "No projects added yet",
-      "newProject": "New Project",
-      "projectName": "Project Name",
-      "projectNamePlaceholder": "e.g., E-commerce Platform",
-      "projectDescPlaceholder": "Describe the project, your role, and key achievements...",
-      "projectUrl": "Project URL",
-      "projectUrlPlaceholder": "https://github.com/...",
-      "technologies": "Technologies Used",
-      "addTechnology": "Add a technology...",
+      "projectsHint": "Highlight your major accomplishments and notable contributions",
+      "addProject": "Add Achievement",
+      "noProjects": "No key achievements added yet",
+      "newProject": "New Achievement",
+      "projectName": "Achievement Title",
+      "projectNamePlaceholder": "e.g., Increased sales by 40%",
+      "projectDescPlaceholder": "Describe what you achieved, the impact, and key results...",
+      "projectUrl": "Reference URL",
+      "projectUrlPlaceholder": "https://...",
+      "technologies": "Skills Used",
+      "addTechnology": "Add a skill...",
       "optimizeWithAI": "Optimize with AI",
       "optimizing": "Optimizing...",
       "translateToFrench": "Translate to French",
@@ -258,8 +272,26 @@
       "title": "Title",
       "contactDetails": "Contact details",
       "sectionTitle": "Section title",
-      "description": "Description"
-    }
+      "description": "Description",
+      "gap": "Gap"
+    },
+    "colorWheel": {
+      "sidebarColor": "Sidebar Color",
+      "presetColors": "Preset Colors",
+      "presets": {
+        "petrolBlue": "Petrol Blue",
+        "charcoal": "Charcoal",
+        "forestGreen": "Forest Green",
+        "burgundy": "Burgundy",
+        "teal": "Teal",
+        "slate": "Slate",
+        "deepPurple": "Deep Purple",
+        "darkBrown": "Dark Brown",
+        "wineRed": "Wine Red",
+        "olive": "Olive"
+      }
+    },
+    "showControls": "Show Controls"
   },
   "common": {
     "cancel": "Cancel",

@@ -154,6 +154,92 @@
   }
 }
 
+/* ContentEditable Editor Styles - Force consistent spacing, allow inline fonts */
+[contenteditable="true"] {
+  line-height: 1.4 !important;
+}
+
+[contenteditable="true"] p,
+[contenteditable="true"] div {
+  line-height: inherit !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Don't override font properties on spans - they carry inline font styles */
+[contenteditable="true"] span {
+  line-height: inherit !important;
+}
+
+[contenteditable="true"] strong,
+[contenteditable="true"] em,
+[contenteditable="true"] u,
+[contenteditable="true"] b,
+[contenteditable="true"] i {
+  line-height: inherit !important;
+}
+
+/* List styles for contenteditable */
+[contenteditable="true"] ul {
+  list-style-type: disc !important;
+  padding-left: 2rem !important;
+  margin: 0.5rem 0 !important;
+}
+
+[contenteditable="true"] ol {
+  list-style-type: decimal !important;
+  padding-left: 2rem !important;
+  margin: 0.5rem 0 !important;
+}
+
+[contenteditable="true"] li {
+  display: list-item !important;
+  margin-left: 0 !important;
+}
+
+/* Formatted Content Styles - For Rich Text Display */
+.formatted-content {
+  line-height: 1.4 !important;
+}
+
+.formatted-content *,
+.formatted-content p,
+.formatted-content div,
+.formatted-content span,
+.formatted-content strong,
+.formatted-content em,
+.formatted-content u,
+.formatted-content b,
+.formatted-content i {
+  line-height: inherit !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.formatted-content strong,
+.formatted-content b {
+  @apply font-bold;
+}
+
+.formatted-content em,
+.formatted-content i {
+  @apply italic;
+}
+
+.formatted-content u {
+  @apply underline;
+}
+
+.formatted-content ul {
+  @apply list-disc ml-5;
+  margin-left: 1.25rem !important;
+}
+
+.formatted-content ol {
+  @apply list-decimal ml-5;
+  margin-left: 1.25rem !important;
+}
+
 /* Print Styles - For CV Download/Print */
 @media print {
   /* Remove all backgrounds, margins, and padding from page */

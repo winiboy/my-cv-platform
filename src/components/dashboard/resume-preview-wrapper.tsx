@@ -9,6 +9,7 @@ interface ResumePreviewWrapperProps {
   initialResume: Resume
   locale: Locale
   dict: any
+  showControls?: boolean
 }
 
 /**
@@ -19,14 +20,57 @@ export function ResumePreviewWrapper({
   initialResume,
   locale,
   dict,
+  showControls = true,
 }: ResumePreviewWrapperProps) {
   const [resume, setResume] = useState<Resume>(initialResume)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(false)
   const [titleFontSize, setTitleFontSize] = useState(24) // Default: text-2xl = 24px
   const [titleGap, setTitleGap] = useState(8) // Default: mb-2 = 8px gap between title and contact
   const [contactFontSize, setContactFontSize] = useState(12) // Default: text-xs = 12px
   const [sectionTitleFontSize, setSectionTitleFontSize] = useState(16) // Default: text-base = 16px
   const [sectionDescFontSize, setSectionDescFontSize] = useState(14) // Default: text-sm = 14px
+  const [sectionGap, setSectionGap] = useState(12) // Default: mb-3 = 12px gap between section title and description
+  const [headerGap, setHeaderGap] = useState(12) // Default: 12px gap between contact and summary section
+  const [sidebarColor, setSidebarColor] = useState('hsl(240, 85%, 35%)') // Default: dark blue
+
+  // Load slider settings from localStorage on mount
+  useEffect(() => {
+    const savedSettings = localStorage.getItem(`resume_slider_settings_${initialResume.id}`)
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings)
+        if (settings.titleFontSize !== undefined) setTitleFontSize(settings.titleFontSize)
+        if (settings.titleGap !== undefined) setTitleGap(settings.titleGap)
+        if (settings.contactFontSize !== undefined) setContactFontSize(settings.contactFontSize)
+        if (settings.sectionTitleFontSize !== undefined) setSectionTitleFontSize(settings.sectionTitleFontSize)
+        if (settings.sectionDescFontSize !== undefined) setSectionDescFontSize(settings.sectionDescFontSize)
+        if (settings.sectionGap !== undefined) setSectionGap(settings.sectionGap)
+        if (settings.headerGap !== undefined) setHeaderGap(settings.headerGap)
+        if (settings.sidebarColor !== undefined) setSidebarColor(settings.sidebarColor)
+      } catch (error) {
+        console.error('Failed to load slider settings:', error)
+      }
+    }
+    setIsLoaded(true)
+  }, [initialResume.id])
+
+  // Save slider settings to localStorage whenever they change (only after initial load)
+  useEffect(() => {
+    if (!isLoaded) return // Don't save until initial load is complete
+
+    const settings = {
+      titleFontSize,
+      titleGap,
+      contactFontSize,
+      sectionTitleFontSize,
+      sectionDescFontSize,
+      sectionGap,
+      headerGap,
+      sidebarColor,
+    }
+    localStorage.setItem(`resume_slider_settings_${initialResume.id}`, JSON.stringify(settings))
+  }, [isLoaded, titleFontSize, titleGap, contactFontSize, sectionTitleFontSize, sectionDescFontSize, sectionGap, headerGap, sidebarColor, initialResume.id])
 
   useEffect(() => {
     // Check for draft in localStorage
@@ -66,15 +110,21 @@ export function ResumePreviewWrapper({
         locale={locale}
         dict={dict}
         titleFontSize={titleFontSize}
-        setTitleFontSize={setTitleFontSize}
+        setTitleFontSize={showControls ? setTitleFontSize : undefined}
         titleGap={titleGap}
-        setTitleGap={setTitleGap}
+        setTitleGap={showControls ? setTitleGap : undefined}
         contactFontSize={contactFontSize}
-        setContactFontSize={setContactFontSize}
+        setContactFontSize={showControls ? setContactFontSize : undefined}
         sectionTitleFontSize={sectionTitleFontSize}
-        setSectionTitleFontSize={setSectionTitleFontSize}
+        setSectionTitleFontSize={showControls ? setSectionTitleFontSize : undefined}
         sectionDescFontSize={sectionDescFontSize}
-        setSectionDescFontSize={setSectionDescFontSize}
+        setSectionDescFontSize={showControls ? setSectionDescFontSize : undefined}
+        sectionGap={sectionGap}
+        setSectionGap={showControls ? setSectionGap : undefined}
+        headerGap={headerGap}
+        setHeaderGap={showControls ? setHeaderGap : undefined}
+        sidebarColor={sidebarColor}
+        setSidebarColor={showControls ? setSidebarColor : undefined}
       />
     </>
   )

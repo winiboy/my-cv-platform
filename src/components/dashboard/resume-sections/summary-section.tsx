@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { Sparkles, X, Check, Languages } from 'lucide-react'
 import type { Resume } from '@/types/database'
+import { RichTextEditor } from '../rich-text-editor'
+import { htmlToPlainText, migrateTextToHtml } from '@/lib/html-utils'
 
 interface SummarySectionProps {
   resume: Resume
@@ -19,20 +21,16 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
   const [targetLanguage, setTargetLanguage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Auto-resize textarea function
-  const autoResizeTextarea = (element: HTMLTextAreaElement) => {
-    element.style.height = 'auto'
-    element.style.height = element.scrollHeight + 'px'
-  }
-
-  // Handle summary change with auto-resize
-  const handleSummaryChange = (value: string, event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    updateResume({ summary: value })
-    autoResizeTextarea(event.target)
+  // Handle summary change
+  const handleSummaryChange = (html: string, plainText: string) => {
+    updateResume({ summary: html })
   }
 
   const handleOptimize = async () => {
-    if (!resume.summary || resume.summary.trim().length < 20) {
+    // Extract plain text from HTML for AI processing
+    const plainText = htmlToPlainText(resume.summary || '')
+
+    if (!plainText || plainText.trim().length < 20) {
       setError('Please write at least a brief summary before optimizing')
       return
     }
@@ -47,7 +45,7 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          rawSummary: resume.summary,
+          rawSummary: plainText,
           currentRole: resume.experience?.[0]?.position,
           yearsOfExperience: calculateYearsOfExperience(resume.experience),
           topSkills: extractTopSkills(resume.skills),
@@ -60,7 +58,9 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
       }
 
       const data = await response.json()
-      setTransformedSummary(data.transformedSummary)
+      // Convert AI response back to HTML
+      const optimizedHtml = migrateTextToHtml(data.transformedSummary)
+      setTransformedSummary(optimizedHtml)
     } catch (err) {
       console.error('Error optimizing summary:', err)
       setError('Failed to optimize summary. Please try again.')
@@ -70,7 +70,10 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
   }
 
   const handleTranslate = async (language: 'fr' | 'de' | 'en' | 'it') => {
-    if (!resume.summary || resume.summary.trim().length < 10) {
+    // Extract plain text from HTML for translation
+    const plainText = htmlToPlainText(resume.summary || '')
+
+    if (!plainText || plainText.trim().length < 10) {
       setError('Please write a summary before translating')
       return
     }
@@ -86,7 +89,7 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          summary: resume.summary,
+          summary: plainText,
           targetLanguage: language,
         }),
       })
@@ -96,7 +99,9 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
       }
 
       const data = await response.json()
-      setTranslatedSummary(data.translatedSummary)
+      // Convert translation back to HTML
+      const translatedHtml = migrateTextToHtml(data.translatedSummary)
+      setTranslatedSummary(translatedHtml)
     } catch (err) {
       console.error('Error translating summary:', err)
       setError('Failed to translate summary. Please try again.')
@@ -269,22 +274,16 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
       )}
 
       <div>
-        <textarea
+        <RichTextEditor
+          id="summary-editor"
           value={resume.summary || ''}
-          onChange={(e) => handleSummaryChange(e.target.value, e)}
-          onInput={(e) => autoResizeTextarea(e.target as HTMLTextAreaElement)}
-          rows={8}
+          onChange={handleSummaryChange}
           placeholder={
             dict.resumes?.editor?.summaryPlaceholder ||
             'e.g., Experienced software engineer with 5+ years of experience building scalable web applications...'
           }
-          className="block w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 resize-none overflow-hidden"
-          style={{ minHeight: '192px' }}
-          ref={(el) => {
-            if (el) {
-              autoResizeTextarea(el)
-            }
-          }}
+          minHeight="192px"
+          showRibbon={true}
         />
         <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
           <span>
@@ -292,7 +291,7 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
             {dict.resumes?.editor?.sentences || 'sentences'}
           </span>
           <span>
-            {resume.summary?.length || 0} {dict.resumes?.editor?.characters || 'characters'}
+            {htmlToPlainText(resume.summary || '').length || 0} {dict.resumes?.editor?.characters || 'characters'}
           </span>
         </div>
       </div>

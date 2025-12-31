@@ -3,9 +3,11 @@ import {
   buildSummaryPrompt,
   buildExperiencePrompt,
   buildTranslationPrompt,
+  buildJobDescriptionToResumePrompt,
   type TransformSummaryInput,
   type TransformExperienceInput,
   type TranslateSummaryInput,
+  type JobDescriptionToResumeInput,
 } from './prompts'
 
 /**
@@ -122,6 +124,49 @@ Provide ONLY the optimized text without any introduction or explanation.`
 
   return {
     optimizedText: result.text.trim(),
+    tokensUsed: result.usage?.total_tokens || 0,
+  }
+}
+
+/**
+ * Generate resume content from a job description
+ */
+export async function generateResumeFromJobDescription(input: JobDescriptionToResumeInput) {
+  const prompt = buildJobDescriptionToResumePrompt(input)
+
+  const result = await generateCompletion(prompt, {
+    model: MODELS.BALANCED,
+    temperature: 0.7,
+    maxTokens: 2000,
+  })
+
+  // Parse JSON response
+  let parsedContent
+  try {
+    // Try to extract JSON from the response
+    const text = result.text.trim()
+
+    // Sometimes the AI wraps JSON in markdown code blocks
+    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+    const jsonText = jsonMatch ? jsonMatch[1] : text
+
+    parsedContent = JSON.parse(jsonText)
+  } catch (error) {
+    console.error('Failed to parse JSON response:', error)
+    console.error('Raw response:', result.text)
+    throw new Error('Failed to parse AI response. Please try again.')
+  }
+
+  // Validate and sanitize the response
+  const resumeData = {
+    summary: parsedContent.summary || '',
+    experience: Array.isArray(parsedContent.experience) ? parsedContent.experience : [],
+    skills: Array.isArray(parsedContent.skills) ? parsedContent.skills : [],
+    projects: Array.isArray(parsedContent.projects) ? parsedContent.projects : [],
+  }
+
+  return {
+    resumeData,
     tokensUsed: result.usage?.total_tokens || 0,
   }
 }

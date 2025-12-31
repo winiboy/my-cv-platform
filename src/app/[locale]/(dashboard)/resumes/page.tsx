@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { FileText, Plus, Calendar, Download, Eye, Pencil, Trash2 } from 'lucide-react'
+import { FileText, Plus, Calendar, Download, Eye, Pencil, Trash2, Sparkles } from 'lucide-react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getTranslations } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n'
@@ -51,13 +51,22 @@ export default async function ResumesPage({ params }: ResumesPageProps) {
             {dict.resumes?.subtitle || 'Create and manage your professional resumes'}
           </p>
         </div>
-        <Link
-          href={`/${locale}/dashboard/resumes/new`}
-          className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700"
-        >
-          <Plus className="h-4 w-4" />
-          {dict.resumes?.createNew || 'Create Resume'}
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/${locale}/dashboard/resumes/from-job`}
+            className="flex items-center gap-2 rounded-lg border border-teal-600 bg-white px-4 py-2 text-sm font-medium text-teal-600 transition-colors hover:bg-teal-50"
+          >
+            <Sparkles className="h-4 w-4" />
+            {dict.resumes?.createFromJob || 'Create from Job Description'}
+          </Link>
+          <Link
+            href={`/${locale}/dashboard/resumes/new`}
+            className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700"
+          >
+            <Plus className="h-4 w-4" />
+            {dict.resumes?.createNew || 'Create Resume'}
+          </Link>
+        </div>
       </div>
 
       {/* Empty State */}

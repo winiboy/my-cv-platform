@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   User,
@@ -26,6 +26,7 @@ import { SkillsSection } from './resume-sections/skills-section'
 import { LanguagesSection } from './resume-sections/languages-section'
 import { CertificationsSection } from './resume-sections/certifications-section'
 import { ProjectsSection } from './resume-sections/projects-section'
+import { ProfessionalTemplate } from './resume-templates/professional-template'
 
 interface ResumeEditorProps {
   resume: Resume
@@ -63,6 +64,23 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [modifiedSections, setModifiedSections] = useState<Set<SectionId>>(new Set())
+
+  // Design settings for live preview (loaded from localStorage)
+  const [titleFontSize, setTitleFontSize] = useState(24)
+  const [titleGap, setTitleGap] = useState(8)
+  const [contactFontSize, setContactFontSize] = useState(12)
+  const [sectionTitleFontSize, setSectionTitleFontSize] = useState(16)
+  const [sectionDescFontSize, setSectionDescFontSize] = useState(14)
+  const [sectionGap, setSectionGap] = useState(12)
+  const [headerGap, setHeaderGap] = useState(12)
+  const [sidebarColor, setSidebarColor] = useState('hsl(240, 85%, 35%)')
+
+  // Resizable split pane state
+  const [splitPosition, setSplitPosition] = useState(50) // Percentage
+  const [isDragging, setIsDragging] = useState(false)
+  const [previewScale, setPreviewScale] = useState(0.85)
+  const previewContainerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -135,6 +153,77 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
     localStorage.setItem(`resume_modified_sections_${resume.id}`, JSON.stringify(Array.from(newModifiedSections)))
   }
 
+  // Handle dragging the divider
+  const handleMouseDown = useCallback(() => {
+    setIsDragging(true)
+  }, [])
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging || !containerRef.current) return
+
+      const containerRect = containerRef.current.getBoundingClientRect()
+      const offsetX = e.clientX - containerRect.left - 256 // Subtract sidebar width (w-64 = 256px)
+      const newPosition = (offsetX / (containerRect.width - 256)) * 100
+
+      // Constrain between 30% and 70%
+      setSplitPosition(Math.min(Math.max(newPosition, 30), 70))
+    },
+    [isDragging]
+  )
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  // Calculate preview scale prioritizing width (allows vertical scroll if needed)
+  const calculatePreviewScale = useCallback(() => {
+    if (!previewContainerRef.current) return
+
+    const container = previewContainerRef.current
+    const containerWidth = container.clientWidth - 64 // Subtract padding (p-8 = 32px each side)
+
+    // CV dimensions (A4 size - standard letter)
+    const cvWidth = 816
+
+    // Use full available width - allows zoom in with vertical scrolling
+    const scale = containerWidth / cvWidth
+
+    setPreviewScale(Math.max(scale, 0.1)) // Minimum 10% to avoid invisible preview
+  }, [])
+
+  // Attach mouse event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp])
+
+  // Recalculate scale when split position changes or window resizes
+  useEffect(() => {
+    calculatePreviewScale()
+
+    const handleResize = () => calculatePreviewScale()
+    window.addEventListener('resize', handleResize)
+
+    // Use ResizeObserver for more accurate container size tracking
+    const resizeObserver = new ResizeObserver(calculatePreviewScale)
+    if (previewContainerRef.current) {
+      resizeObserver.observe(previewContainerRef.current)
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      resizeObserver.disconnect()
+    }
+  }, [splitPosition, calculatePreviewScale])
+
   // Load draft from localStorage on mount
   useEffect(() => {
     const draft = localStorage.getItem(`resume_draft_${resume.id}`)
@@ -156,6 +245,24 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
         setModifiedSections(new Set(sections))
       } catch (error) {
         console.error('Failed to load modified sections:', error)
+      }
+    }
+
+    // Load design settings for live preview
+    const savedSettings = localStorage.getItem(`resume_slider_settings_${resume.id}`)
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings)
+        if (settings.titleFontSize !== undefined) setTitleFontSize(settings.titleFontSize)
+        if (settings.titleGap !== undefined) setTitleGap(settings.titleGap)
+        if (settings.contactFontSize !== undefined) setContactFontSize(settings.contactFontSize)
+        if (settings.sectionTitleFontSize !== undefined) setSectionTitleFontSize(settings.sectionTitleFontSize)
+        if (settings.sectionDescFontSize !== undefined) setSectionDescFontSize(settings.sectionDescFontSize)
+        if (settings.sectionGap !== undefined) setSectionGap(settings.sectionGap)
+        if (settings.headerGap !== undefined) setHeaderGap(settings.headerGap)
+        if (settings.sidebarColor !== undefined) setSidebarColor(settings.sidebarColor)
+      } catch (error) {
+        console.error('Failed to load design settings:', error)
       }
     }
   }, [resume.id])
@@ -244,7 +351,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
       )}
 
       {/* Editor Layout */}
-      <div className="flex flex-1 overflow-hidden">
+      <div ref={containerRef} className="flex flex-1 overflow-hidden">
         {/* Sidebar Navigation */}
         <div className="w-64 border-r border-slate-200 bg-slate-50">
           <nav className="space-y-1 p-4">
@@ -274,33 +381,80 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
           </nav>
         </div>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto bg-white p-8">
-          <div className="mx-auto max-w-3xl">
-            {activeSection === 'contact' && (
-              <ContactSection resume={resume} updateResume={updateResume} dict={dict} />
-            )}
-            {activeSection === 'summary' && (
-              <SummarySection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
-            )}
-            {activeSection === 'experience' && (
-              <ExperienceSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
-            )}
-            {activeSection === 'education' && (
-              <EducationSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
-            )}
-            {activeSection === 'skills' && (
-              <SkillsSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
-            )}
-            {activeSection === 'languages' && (
-              <LanguagesSection resume={resume} updateResume={updateResume} dict={dict} />
-            )}
-            {activeSection === 'certifications' && (
-              <CertificationsSection resume={resume} updateResume={updateResume} dict={dict} />
-            )}
-            {activeSection === 'projects' && (
-              <ProjectsSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
-            )}
+        {/* Split Content Area: Editor (Left) + Live Preview (Right) */}
+        <div className="flex flex-1 overflow-hidden relative">
+          {/* Left: Editor */}
+          <div
+            className="overflow-y-auto bg-white p-8"
+            style={{ width: `${splitPosition}%` }}
+          >
+            <div className="mx-auto max-w-xl">
+              {activeSection === 'contact' && (
+                <ContactSection resume={resume} updateResume={updateResume} dict={dict} />
+              )}
+              {activeSection === 'summary' && (
+                <SummarySection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
+              )}
+              {activeSection === 'experience' && (
+                <ExperienceSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
+              )}
+              {activeSection === 'education' && (
+                <EducationSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
+              )}
+              {activeSection === 'skills' && (
+                <SkillsSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
+              )}
+              {activeSection === 'languages' && (
+                <LanguagesSection resume={resume} updateResume={updateResume} dict={dict} />
+              )}
+              {activeSection === 'certifications' && (
+                <CertificationsSection resume={resume} updateResume={updateResume} dict={dict} />
+              )}
+              {activeSection === 'projects' && (
+                <ProjectsSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
+              )}
+            </div>
+          </div>
+
+          {/* Draggable Divider */}
+          <div
+            onMouseDown={handleMouseDown}
+            className={`w-1 bg-slate-300 hover:bg-teal-500 cursor-col-resize transition-colors ${
+              isDragging ? 'bg-teal-500' : ''
+            }`}
+            style={{ flexShrink: 0 }}
+          />
+
+          {/* Right: Live Preview */}
+          <div
+            ref={previewContainerRef}
+            className="overflow-y-auto bg-slate-100 p-8"
+            style={{ width: `${100 - splitPosition}%` }}
+          >
+            <div className="flex items-start justify-center min-h-full">
+              <div
+                style={{
+                  width: '816px',
+                  transformOrigin: 'top center',
+                  transform: `scale(${previewScale})`,
+                  transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                }}
+              >
+                <ProfessionalTemplate
+                  resume={resume}
+                  locale={locale}
+                  dict={dict}
+                  titleFontSize={titleFontSize}
+                  titleGap={titleGap}
+                  contactFontSize={contactFontSize}
+                  sectionTitleFontSize={sectionTitleFontSize}
+                  sectionDescFontSize={sectionDescFontSize}
+                  sectionGap={sectionGap}
+                  headerGap={headerGap}
+                  sidebarColor={sidebarColor}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>

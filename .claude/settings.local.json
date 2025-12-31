@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm build:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm dev)",
+      "WebFetch(domain:www.tealhq.com)",
+      "WebSearch",
+      "Bash(pnpm tsc:*)",
+      "Bash(pnpm tsc:check:*)",
+      "Bash(pnpm run build:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(node -e:*)",
+      "Bash(pnpm run:*)",
+      "Bash(cat:*)",
+      "WebFetch(domain:oklch.net)",
+      "WebFetch(domain:oklch.com)",
+      "Bash(grep:*)",
+      "Bash(wc:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git tag:*)",
+      "Bash(git reset:*)"
+    ]
+  }
+}

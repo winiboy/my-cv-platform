@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { Plus, Trash2, GripVertical, Sparkles, Languages, X, Check, Eye, EyeOff } from 'lucide-react'
 import type { Resume, ResumeExperience } from '@/types/database'
+import { RichTextEditor } from '../rich-text-editor'
+import { htmlToPlainText, migrateTextToHtml } from '@/lib/html-utils'
 
 interface ExperienceSectionProps {
   resume: Resume
@@ -53,21 +55,17 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
     updateResume({ experience: updated as any })
   }
 
-  // Auto-resize textarea function
-  const autoResizeTextarea = (element: HTMLTextAreaElement) => {
-    element.style.height = 'auto'
-    element.style.height = element.scrollHeight + 'px'
-  }
-
-  // Handle description change with auto-resize
-  const handleDescriptionChange = (index: number, value: string, event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    updateExperience(index, { description: value })
-    autoResizeTextarea(event.target)
+  // Handle description change
+  const handleDescriptionChange = (index: number, html: string, plainText: string) => {
+    updateExperience(index, { description: html })
   }
 
   const handleOptimize = async (index: number) => {
     const exp = experiences[index]
-    if (!exp.description || exp.description.trim().length < 10) {
+    // Extract plain text from HTML for AI processing
+    const plainText = htmlToPlainText(exp.description || '')
+
+    if (!plainText || plainText.trim().length < 10) {
       setError('Please add a description (at least 10 characters) before optimizing')
       return
     }
@@ -82,7 +80,7 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          text: exp.description,
+          text: plainText,
           context: `${exp.position} at ${exp.company}`,
           locale,
         }),
@@ -93,7 +91,9 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
       }
 
       const data = await response.json()
-      setOptimizedDescriptions({ ...optimizedDescriptions, [index]: data.optimizedText })
+      // Convert AI response back to HTML
+      const optimizedHtml = migrateTextToHtml(data.optimizedText)
+      setOptimizedDescriptions({ ...optimizedDescriptions, [index]: optimizedHtml })
     } catch (err) {
       console.error('Error optimizing description:', err)
       setError('Failed to optimize description. Please try again.')
@@ -104,7 +104,10 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
 
   const handleTranslate = async (index: number, language: 'fr' | 'de' | 'en' | 'it') => {
     const exp = experiences[index]
-    if (!exp.description || exp.description.trim().length < 10) {
+    // Extract plain text from HTML for translation
+    const plainText = htmlToPlainText(exp.description || '')
+
+    if (!plainText || plainText.trim().length < 10) {
       setError('Please write a description before translating')
       return
     }
@@ -119,7 +122,7 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          summary: exp.description,
+          summary: plainText,
           targetLanguage: language,
         }),
       })
@@ -129,9 +132,11 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
       }
 
       const data = await response.json()
+      // Convert translation back to HTML
+      const translatedHtml = migrateTextToHtml(data.translatedSummary)
       setTranslatedDescriptions({
         ...translatedDescriptions,
-        [index]: { text: data.translatedSummary, language }
+        [index]: { text: translatedHtml, language }
       })
     } catch (err) {
       console.error('Error translating description:', err)
@@ -367,23 +372,19 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
                 <label className="block text-sm font-medium text-slate-900">
                   {dict.resumes?.editor?.description || 'Description'}
                 </label>
-                <textarea
-                  value={exp.description || ''}
-                  onChange={(e) => handleDescriptionChange(index, e.target.value, e)}
-                  onInput={(e) => autoResizeTextarea(e.target as HTMLTextAreaElement)}
-                  rows={3}
-                  placeholder={
-                    dict.resumes?.editor?.descriptionPlaceholder ||
-                    'Describe your responsibilities and achievements...'
-                  }
-                  className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 resize-none overflow-hidden"
-                  style={{ minHeight: '72px' }}
-                  ref={(el) => {
-                    if (el) {
-                      autoResizeTextarea(el)
+                <div className="mt-1">
+                  <RichTextEditor
+                    id={`experience-description-${index}`}
+                    value={exp.description || ''}
+                    onChange={(html, plainText) => handleDescriptionChange(index, html, plainText)}
+                    placeholder={
+                      dict.resumes?.editor?.descriptionPlaceholder ||
+                      'Describe your responsibilities and achievements...'
                     }
-                  }}
-                />
+                    minHeight="72px"
+                    showRibbon={true}
+                  />
+                </div>
               </div>
 
               {/* Current Achievements Display */}

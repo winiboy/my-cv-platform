@@ -1,9 +1,11 @@
 /**
  * Utility functions for formatting text in CV templates
  * Preserves line breaks, bullet points, and numbered lists
+ * Supports both plain text and HTML formatted content
  */
 
 import React from 'react'
+import { sanitizeHtml, migrateTextToHtml } from './html-utils'
 
 /**
  * Formats text content for CV display, preserving structure
@@ -83,4 +85,30 @@ export function formatSimpleText(text: string | null | undefined): React.ReactNo
       {index < array.length - 1 && <br />}
     </React.Fragment>
   ))
+}
+
+/**
+ * Renders formatted text - supports both HTML and plain text
+ * This is the main function to use in templates for all text content
+ * - For HTML content: sanitizes and renders HTML
+ * - For plain text: uses formatText() for backward compatibility
+ */
+export function renderFormattedText(text: string | null | undefined): React.ReactNode {
+  if (!text) return null
+
+  // Check if content is HTML (contains tags)
+  const isHtml = /<[^>]+>/.test(text)
+
+  if (!isHtml) {
+    // Legacy plain text - use existing formatText logic
+    return formatText(text)
+  }
+
+  // HTML content - sanitize and render
+  return (
+    <div
+      className="formatted-content"
+      dangerouslySetInnerHTML={{ __html: sanitizeHtml(text) }}
+    />
+  )
 }

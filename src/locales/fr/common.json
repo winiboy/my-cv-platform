@@ -104,6 +104,7 @@
     "title": "Mes CV",
     "subtitle": "Créez et gérez vos CV professionnels",
     "createNew": "Créer un CV",
+    "createFromJob": "Créer depuis une offre d'emploi",
     "createFirst": "Créer Votre Premier CV",
     "default": "Par défaut",
     "updated": "Mis à jour",
@@ -142,6 +143,19 @@
       "create": "Créer le CV",
       "creating": "Création..."
     },
+    "fromJob": {
+      "title": "Créer un CV depuis une offre d'emploi",
+      "subtitle": "Collez une offre d'emploi et laissez l'IA créer un CV personnalisé pour vous",
+      "jobDescriptionLabel": "Offre d'emploi",
+      "jobDescriptionPlaceholder": "Collez l'offre d'emploi complète ici...\n\nExemple:\nIngénieur Logiciel\nNous recherchons un Ingénieur Logiciel expérimenté avec 5+ ans d'expérience en React, Node.js et technologies cloud...",
+      "analyzing": "Analyse de l'offre d'emploi...",
+      "generating": "Génération de votre CV...",
+      "create": "Générer le CV",
+      "titleLabel": "Titre du CV",
+      "titlePlaceholder": "ex: CV Ingénieur Logiciel pour TechCorp",
+      "templateLabel": "Choisir un modèle",
+      "backToResumes": "Retour à mes CV"
+    },
     "errors": {
       "titleRequired": "Le titre du CV est requis",
       "createFailed": "Échec de la création du CV",
@@ -159,7 +173,7 @@
         "skills": "Compétences",
         "languages": "Langues",
         "certifications": "Certifications",
-        "projects": "Projets"
+        "projects": "Réalisations clés"
       },
       "contactHint": "Ajoutez vos coordonnées et liens professionnels",
       "summaryHint": "Rédigez un bref aperçu de votre parcours professionnel et réalisations clés",
@@ -222,17 +236,17 @@
       "credentialIdPlaceholder": "ex: ABC123456",
       "certificationUrl": "URL de la certification",
       "certificationUrlPlaceholder": "https://www.credential.net/...",
-      "projectsHint": "Présentez vos projets notables et travaux annexes",
-      "addProject": "Ajouter un projet",
-      "noProjects": "Aucun projet ajouté",
-      "newProject": "Nouveau projet",
-      "projectName": "Nom du projet",
-      "projectNamePlaceholder": "ex: Plateforme e-commerce",
-      "projectDescPlaceholder": "Décrivez le projet, votre rôle et réalisations clés...",
-      "projectUrl": "URL du projet",
-      "projectUrlPlaceholder": "https://github.com/...",
-      "technologies": "Technologies utilisées",
-      "addTechnology": "Ajouter une technologie...",
+      "projectsHint": "Mettez en avant vos accomplissements majeurs et contributions notables",
+      "addProject": "Ajouter une réalisation",
+      "noProjects": "Aucune réalisation clé ajoutée",
+      "newProject": "Nouvelle réalisation",
+      "projectName": "Titre de la réalisation",
+      "projectNamePlaceholder": "ex: Augmentation des ventes de 40%",
+      "projectDescPlaceholder": "Décrivez ce que vous avez accompli, l'impact et les résultats clés...",
+      "projectUrl": "URL de référence",
+      "projectUrlPlaceholder": "https://...",
+      "technologies": "Compétences utilisées",
+      "addTechnology": "Ajouter une compétence...",
       "optimizeWithAI": "Optimiser avec IA",
       "optimizing": "Optimisation...",
       "translateToFrench": "Traduire en français",
@@ -258,8 +272,26 @@
       "title": "Titre",
       "contactDetails": "Coordonnées",
       "sectionTitle": "Titre de section",
-      "description": "Description"
-    }
+      "description": "Description",
+      "gap": "Gap"
+    },
+    "colorWheel": {
+      "sidebarColor": "Couleur de la barre latérale",
+      "presetColors": "Couleurs prédéfinies",
+      "presets": {
+        "petrolBlue": "Bleu pétrole",
+        "charcoal": "Anthracite",
+        "forestGreen": "Vert forêt",
+        "burgundy": "Bordeaux",
+        "teal": "Bleu canard",
+        "slate": "Ardoise",
+        "deepPurple": "Violet profond",
+        "darkBrown": "Marron foncé",
+        "wineRed": "Rouge vin",
+        "olive": "Olive"
+      }
+    },
+    "showControls": "Afficher les contrôles"
   },
   "common": {
     "cancel": "Annuler",

@@ -221,3 +221,118 @@ IMPORTANT: Preserve ALL formatting, line breaks, and bullet points exactly as sh
 
 **Translated Summary (${languageNames[targetLanguage]}):**`
 }
+
+export interface JobDescriptionToResumeInput {
+  jobDescription: string
+  locale?: string
+}
+
+/**
+ * Generate prompt for creating a resume from a job description
+ */
+export function buildJobDescriptionToResumePrompt(input: JobDescriptionToResumeInput): string {
+  const { jobDescription, locale } = input
+
+  // Map locale to language name
+  const languageMap: Record<string, string> = {
+    'en': 'English',
+    'fr': 'French',
+    'de': 'German',
+    'it': 'Italian',
+  }
+
+  const targetLanguage = locale && languageMap[locale] ? languageMap[locale] : 'English'
+
+  return `You are an expert CV writer and career consultant. Analyze the following job description and create a tailored CV/resume structure optimized for this specific role.
+
+**CRITICAL - LANGUAGE REQUIREMENT:**
+- Write your ENTIRE response in ${targetLanguage}
+- All sections, content, and text must be in ${targetLanguage}
+- Use professional ${targetLanguage} business language and terminology
+- Maintain ${targetLanguage} throughout the JSON values
+
+**CRITICAL - OUTPUT FORMAT:**
+You MUST respond with VALID JSON ONLY. No other text, explanations, or comments.
+The JSON structure must be EXACTLY as shown below.
+
+**Job Description:**
+"""
+${jobDescription}
+"""
+
+**Instructions:**
+1. Analyze the job description carefully
+2. Extract key requirements, skills, and responsibilities
+3. Create a professional CV structure tailored to this role
+4. Generate 2-3 relevant work experience entries that match the job requirements
+5. Include all technical and soft skills mentioned in the job description
+6. Create 3-5 key achievements that demonstrate relevant capabilities
+7. ALL text content must be in ${targetLanguage}
+
+**Output Structure (JSON):**
+{
+  "summary": "<Professional summary in HTML format (60-100 words) highlighting relevant experience and skills for this role. Use <strong>, <em>, <ul>, <li> tags for formatting. Must be in ${targetLanguage}>",
+  "experience": [
+    {
+      "position": "<Job title in ${targetLanguage}>",
+      "company": "<Company name>",
+      "location": "<City, Country in ${targetLanguage}>",
+      "startDate": "<YYYY-MM>",
+      "endDate": "<YYYY-MM or 'Present'>",
+      "current": <boolean>,
+      "description": "<HTML formatted description of responsibilities and achievements using <p>, <strong>, <em>, <ul>, <li> tags. Must be in ${targetLanguage}>",
+      "visible": true
+    }
+  ],
+  "skills": [
+    {
+      "category": "<Skill category name in ${targetLanguage}>",
+      "items": ["<skill1>", "<skill2>", "<skill3>"]
+    }
+  ],
+  "projects": [
+    {
+      "name": "<Achievement title in ${targetLanguage}>",
+      "description": "<HTML formatted description using <p>, <strong>, <em> tags. Must be in ${targetLanguage}>",
+      "technologies": ["<skill1>", "<skill2>"],
+      "visible": true
+    }
+  ]
+}
+
+**Important Requirements:**
+1. **Experience Section:**
+   - Create 2-3 realistic work experience entries
+   - Each position should align with the job requirements
+   - Descriptions should be in HTML format with proper formatting
+   - Use bullet points (<ul><li>) for achievements
+   - Include quantifiable results where appropriate
+   - Dates should be in YYYY-MM format
+
+2. **Summary Section:**
+   - Must be 60-100 words
+   - In HTML format with <p>, <strong>, <em> tags
+   - Highlight skills and experience relevant to the job description
+   - Include keywords from the job description for ATS optimization
+
+3. **Skills Section:**
+   - Organize skills into logical categories (e.g., "Programming Languages", "Frameworks", "Tools", "Soft Skills")
+   - Include ALL technical skills mentioned in the job description
+   - Add relevant soft skills
+   - Categories must be in ${targetLanguage}
+
+4. **Projects/Key Achievements Section:**
+   - Create 3-5 achievements that demonstrate capabilities for this role
+   - Each achievement should be concrete and specific
+   - Use HTML formatting for descriptions
+   - Link achievements to skills mentioned in the job description
+
+5. **Language Consistency:**
+   - ALL content must be in ${targetLanguage}
+   - Use professional business language
+   - Maintain consistent terminology throughout
+
+**Response:**
+Return ONLY the JSON object. No additional text, explanations, or formatting.`
+}
+
