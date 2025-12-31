@@ -98,7 +98,29 @@
     },
     "welcome": "Benvenuto",
     "logout": "Esci",
-    "account": "Il mio account"
+    "account": "Il mio account",
+    "overview": "Ecco una panoramica del tuo percorso professionale",
+    "viewAll": "Vedi tutto",
+    "quickActions": "Azioni rapide",
+    "actions": {
+      "createResume": {
+        "title": "Crea CV",
+        "description": "Nuovo CV professionale"
+      },
+      "addJob": {
+        "title": "Aggiungi candidatura",
+        "description": "Traccia una nuova posizione"
+      },
+      "setGoal": {
+        "title": "Imposta un obiettivo",
+        "description": "Pianifica il tuo percorso professionale"
+      }
+    },
+    "gettingStarted": {
+      "title": "Inizia",
+      "description": "Crea il tuo primo CV per iniziare a candidarti per lavori che corrispondono alle tue competenze e obiettivi.",
+      "cta": "Crea il mio primo CV"
+    }
   },
   "resumes": {
     "title": "I miei CV",
@@ -148,6 +170,7 @@
       "subtitle": "Incolla un'offerta di lavoro e lascia che l'IA crei un CV personalizzato per te",
       "jobDescriptionLabel": "Offerta di lavoro",
       "jobDescriptionPlaceholder": "Incolla l'offerta di lavoro completa qui...\n\nEsempio:\nIngegnere Software\nCerchiamo un Ingegnere Software esperto con 5+ anni di esperienza in React, Node.js e tecnologie cloud...",
+      "jobDescriptionHint": "Incolla la descrizione completa del lavoro inclusi requisiti, responsabilità e qualifiche.",
       "analyzing": "Analisi dell'offerta di lavoro...",
       "generating": "Generazione del tuo CV...",
       "create": "Genera CV",

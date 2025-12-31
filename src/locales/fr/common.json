@@ -98,7 +98,29 @@
     },
     "welcome": "Bienvenue",
     "logout": "Déconnexion",
-    "account": "Mon compte"
+    "account": "Mon compte",
+    "overview": "Voici un aperçu de votre parcours professionnel",
+    "viewAll": "Voir tout",
+    "quickActions": "Actions rapides",
+    "actions": {
+      "createResume": {
+        "title": "Créer un CV",
+        "description": "Nouveau CV professionnel"
+      },
+      "addJob": {
+        "title": "Ajouter une candidature",
+        "description": "Suivre une nouvelle offre"
+      },
+      "setGoal": {
+        "title": "Définir un objectif",
+        "description": "Planifier votre carrière"
+      }
+    },
+    "gettingStarted": {
+      "title": "Commencez votre parcours",
+      "description": "Créez votre premier CV pour commencer à postuler aux offres d'emploi qui vous correspondent.",
+      "cta": "Créer mon premier CV"
+    }
   },
   "resumes": {
     "title": "Mes CV",
@@ -148,6 +170,7 @@
       "subtitle": "Collez une offre d'emploi et laissez l'IA créer un CV personnalisé pour vous",
       "jobDescriptionLabel": "Offre d'emploi",
       "jobDescriptionPlaceholder": "Collez l'offre d'emploi complète ici...\n\nExemple:\nIngénieur Logiciel\nNous recherchons un Ingénieur Logiciel expérimenté avec 5+ ans d'expérience en React, Node.js et technologies cloud...",
+      "jobDescriptionHint": "Collez la description complète du poste incluant les exigences, responsabilités et qualifications.",
       "analyzing": "Analyse de l'offre d'emploi...",
       "generating": "Génération de votre CV...",
       "create": "Générer le CV",

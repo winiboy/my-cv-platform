@@ -82,11 +82,7 @@ export default async function DashboardPage({
           {t.dashboard.welcome}, {userName}!
         </h1>
         <p className="mt-2 text-slate-600">
-          {params.locale === 'fr'
-            ? 'Voici un aperçu de votre parcours professionnel'
-            : params.locale === 'de'
-              ? 'Hier ist eine Übersicht über Ihren beruflichen Werdegang'
-              : 'Here\'s an overview of your career journey'}
+          {t.dashboard.overview}
         </p>
       </div>
 
@@ -111,11 +107,7 @@ export default async function DashboardPage({
               </div>
               <div className="mt-4 flex items-center text-sm text-slate-500 group-hover:text-teal-600">
                 <span>
-                  {params.locale === 'fr'
-                    ? 'Voir tout'
-                    : params.locale === 'de'
-                      ? 'Alle anzeigen'
-                      : 'View all'}
+                  {t.dashboard.viewAll}
                 </span>
                 <svg
                   className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1"
@@ -139,11 +131,7 @@ export default async function DashboardPage({
       {/* Quick actions */}
       <div className="rounded-xl border border-slate-200 bg-white p-6">
         <h2 className="text-lg font-semibold text-slate-900">
-          {params.locale === 'fr'
-            ? 'Actions rapides'
-            : params.locale === 'de'
-              ? 'Schnellaktionen'
-              : 'Quick Actions'}
+          {t.dashboard.quickActions}
         </h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Link
@@ -155,18 +143,10 @@ export default async function DashboardPage({
             </div>
             <div>
               <p className="font-medium text-slate-900">
-                {params.locale === 'fr'
-                  ? 'Créer un CV'
-                  : params.locale === 'de'
-                    ? 'Lebenslauf erstellen'
-                    : 'Create Resume'}
+                {t.dashboard.actions.createResume.title}
               </p>
               <p className="text-xs text-slate-500">
-                {params.locale === 'fr'
-                  ? 'Nouveau CV professionnel'
-                  : params.locale === 'de'
-                    ? 'Neuer professioneller Lebenslauf'
-                    : 'New professional resume'}
+                {t.dashboard.actions.createResume.description}
               </p>
             </div>
           </Link>
@@ -180,18 +160,10 @@ export default async function DashboardPage({
             </div>
             <div>
               <p className="font-medium text-slate-900">
-                {params.locale === 'fr'
-                  ? 'Ajouter une candidature'
-                  : params.locale === 'de'
-                    ? 'Bewerbung hinzufügen'
-                    : 'Add Job Application'}
+                {t.dashboard.actions.addJob.title}
               </p>
               <p className="text-xs text-slate-500">
-                {params.locale === 'fr'
-                  ? 'Suivre une nouvelle offre'
-                  : params.locale === 'de'
-                    ? 'Neue Stelle verfolgen'
-                    : 'Track a new position'}
+                {t.dashboard.actions.addJob.description}
               </p>
             </div>
           </Link>
@@ -205,18 +177,10 @@ export default async function DashboardPage({
             </div>
             <div>
               <p className="font-medium text-slate-900">
-                {params.locale === 'fr'
-                  ? 'Définir un objectif'
-                  : params.locale === 'de'
-                    ? 'Ziel setzen'
-                    : 'Set a Goal'}
+                {t.dashboard.actions.setGoal.title}
               </p>
               <p className="text-xs text-slate-500">
-                {params.locale === 'fr'
-                  ? 'Planifier votre carrière'
-                  : params.locale === 'de'
-                    ? 'Planen Sie Ihre Karriere'
-                    : 'Plan your career path'}
+                {t.dashboard.actions.setGoal.description}
               </p>
             </div>
           </Link>
@@ -232,28 +196,16 @@ export default async function DashboardPage({
             </div>
             <div className="flex-1">
               <h3 className="text-lg font-semibold text-slate-900">
-                {params.locale === 'fr'
-                  ? 'Commencez votre parcours'
-                  : params.locale === 'de'
-                    ? 'Starten Sie Ihre Reise'
-                    : 'Get Started'}
+                {t.dashboard.gettingStarted.title}
               </h3>
               <p className="mt-1 text-sm text-slate-600">
-                {params.locale === 'fr'
-                  ? 'Créez votre premier CV pour commencer à postuler aux offres d\'emploi qui vous correspondent.'
-                  : params.locale === 'de'
-                    ? 'Erstellen Sie Ihren ersten Lebenslauf, um sich auf passende Stellenangebote zu bewerben.'
-                    : 'Create your first resume to start applying to jobs that match your skills and goals.'}
+                {t.dashboard.gettingStarted.description}
               </p>
               <Link
                 href={`/${params.locale}/dashboard/resumes`}
                 className="mt-4 inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-teal-700"
               >
-                {params.locale === 'fr'
-                  ? 'Créer mon premier CV'
-                  : params.locale === 'de'
-                    ? 'Meinen ersten Lebenslauf erstellen'
-                    : 'Create My First Resume'}
+                {t.dashboard.gettingStarted.cta}
                 <svg
                   className="h-4 w-4"
                   fill="none"

@@ -98,7 +98,29 @@
     },
     "welcome": "Welcome",
     "logout": "Logout",
-    "account": "My Account"
+    "account": "My Account",
+    "overview": "Here's an overview of your career journey",
+    "viewAll": "View all",
+    "quickActions": "Quick Actions",
+    "actions": {
+      "createResume": {
+        "title": "Create Resume",
+        "description": "New professional resume"
+      },
+      "addJob": {
+        "title": "Add Job Application",
+        "description": "Track a new position"
+      },
+      "setGoal": {
+        "title": "Set a Goal",
+        "description": "Plan your career path"
+      }
+    },
+    "gettingStarted": {
+      "title": "Get Started",
+      "description": "Create your first resume to start applying to jobs that match your skills and goals.",
+      "cta": "Create My First Resume"
+    }
   },
   "resumes": {
     "title": "My Resumes",
@@ -148,6 +170,7 @@
       "subtitle": "Paste a job description and let AI create a tailored CV for you",
       "jobDescriptionLabel": "Job Description",
       "jobDescriptionPlaceholder": "Paste the full job description here...\n\nExample:\nSoftware Engineer\nWe're looking for an experienced Software Engineer with 5+ years of experience in React, Node.js, and cloud technologies...",
+      "jobDescriptionHint": "Paste the complete job description including requirements, responsibilities, and qualifications.",
       "analyzing": "Analyzing job description...",
       "generating": "Generating your CV...",
       "create": "Generate CV",

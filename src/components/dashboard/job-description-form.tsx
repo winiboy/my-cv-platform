@@ -140,7 +140,7 @@ export function JobDescriptionForm({ locale, dict, userId }: JobDescriptionFormP
           required
         />
         <p className="mt-2 text-xs text-slate-500">
-          Paste the complete job description including requirements, responsibilities, and qualifications.
+          {dict.resumes?.fromJob?.jobDescriptionHint || 'Paste the complete job description including requirements, responsibilities, and qualifications.'}
         </p>
       </div>
 

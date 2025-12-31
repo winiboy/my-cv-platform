@@ -98,7 +98,29 @@
     },
     "welcome": "Willkommen",
     "logout": "Abmelden",
-    "account": "Mein Konto"
+    "account": "Mein Konto",
+    "overview": "Hier ist eine Übersicht über Ihren beruflichen Werdegang",
+    "viewAll": "Alle anzeigen",
+    "quickActions": "Schnellaktionen",
+    "actions": {
+      "createResume": {
+        "title": "Lebenslauf erstellen",
+        "description": "Neuer professioneller Lebenslauf"
+      },
+      "addJob": {
+        "title": "Bewerbung hinzufügen",
+        "description": "Neue Stelle verfolgen"
+      },
+      "setGoal": {
+        "title": "Ziel setzen",
+        "description": "Planen Sie Ihre Karriere"
+      }
+    },
+    "gettingStarted": {
+      "title": "Starten Sie Ihre Reise",
+      "description": "Erstellen Sie Ihren ersten Lebenslauf, um sich auf passende Stellenangebote zu bewerben.",
+      "cta": "Meinen ersten Lebenslauf erstellen"
+    }
   },
   "resumes": {
     "title": "Meine Lebensläufe",
@@ -148,6 +170,7 @@
       "subtitle": "Fügen Sie eine Stellenbeschreibung ein und lassen Sie KI einen maßgeschneiderten Lebenslauf erstellen",
       "jobDescriptionLabel": "Stellenbeschreibung",
       "jobDescriptionPlaceholder": "Fügen Sie die vollständige Stellenbeschreibung hier ein...\n\nBeispiel:\nSoftware-Ingenieur\nWir suchen einen erfahrenen Software-Ingenieur mit 5+ Jahren Erfahrung in React, Node.js und Cloud-Technologien...",
+      "jobDescriptionHint": "Fügen Sie die vollständige Stellenbeschreibung einschließlich Anforderungen, Verantwortlichkeiten und Qualifikationen ein.",
       "analyzing": "Stellenbeschreibung wird analysiert...",
       "generating": "Ihr Lebenslauf wird erstellt...",
       "create": "Lebenslauf generieren",
