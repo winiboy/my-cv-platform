@@ -79,7 +79,7 @@ export interface Database {
           id?: string
           user_id: string
           title?: string
-          template?: 'modern' | 'classic' | 'minimal' | 'creative'
+          template?: 'modern' | 'classic' | 'minimal' | 'creative' | 'professional'
           contact?: Json
           summary?: string | null
           experience?: Json
@@ -99,7 +99,7 @@ export interface Database {
           id?: string
           user_id?: string
           title?: string
-          template?: 'modern' | 'classic' | 'minimal' | 'creative'
+          template?: 'modern' | 'classic' | 'minimal' | 'creative' | 'professional'
           contact?: Json
           summary?: string | null
           experience?: Json

@@ -48,7 +48,7 @@ export function ContactSection({ resume, updateResume, dict }: ContactSectionPro
             <input
               type={field.type}
               id={field.key}
-              value={contact[field.key as keyof ResumeContact] || ''}
+              value={(contact[field.key as keyof ResumeContact] as string) || ''}
               onChange={(e) => updateContact(field.key as keyof ResumeContact, e.target.value)}
               placeholder={field.placeholder}
               className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"

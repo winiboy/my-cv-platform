@@ -56,10 +56,10 @@ export async function POST(request: NextRequest) {
     })
 
     // Create resume in database
-    const newResume: ResumeInsert = {
+    const newResume = {
       user_id: user.id,
       title: title.trim(),
-      template: template as 'modern' | 'classic' | 'minimal' | 'creative' | 'professional',
+      template,
       contact: {},
       summary: result.resumeData.summary || '',
       experience: result.resumeData.experience || [],
@@ -71,16 +71,16 @@ export async function POST(request: NextRequest) {
       custom_sections: [],
       is_default: false,
       is_public: false,
-    }
+    } as const
 
-    const { data: resume, error: insertError } = await supabase
+    const result2: any = await (supabase
       .from('resumes')
-      .insert(newResume)
+      .insert(newResume as any)
       .select()
-      .single()
+      .single())
 
-    if (insertError) {
-      console.error('Error creating resume:', insertError)
+    if (result2.error) {
+      console.error('Error creating resume:', result2.error)
       return NextResponse.json(
         { error: 'Failed to create resume in database' },
         { status: 500 }
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      resumeId: resume.id,
+      resumeId: result2.data.id,
       tokensUsed: result.tokensUsed,
     })
   } catch (error) {

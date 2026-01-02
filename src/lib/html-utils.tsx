@@ -51,7 +51,7 @@ export function sanitizeHtml(html: string): string {
 
         // For <font> tags, also check the deprecated 'face' attribute
         if (element.tagName === 'FONT' && element.hasAttribute('face') && !fontFamily) {
-          fontFamily = element.getAttribute('face')
+          fontFamily = element.getAttribute('face') || undefined
         }
 
         let cleanStyle = ''

@@ -44,7 +44,7 @@ type SectionId =
   | 'certifications'
   | 'projects'
 
-const sections = [
+const SECTIONS = [
   { id: 'contact' as const, label: 'Contact', icon: User },
   { id: 'summary' as const, label: 'Summary', icon: FileText },
   { id: 'experience' as const, label: 'Experience', icon: Briefcase },
@@ -54,6 +54,17 @@ const sections = [
   { id: 'certifications' as const, label: 'Certifications', icon: Award },
   { id: 'projects' as const, label: 'Projects', icon: FolderGit2 },
 ]
+
+const SECTION_MAPPING: Record<string, SectionId> = {
+  contact: 'contact',
+  summary: 'summary',
+  experience: 'experience',
+  education: 'education',
+  skills: 'skills',
+  languages: 'languages',
+  certifications: 'certifications',
+  projects: 'projects',
+}
 
 export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEditorProps) {
   const router = useRouter()
@@ -122,7 +133,10 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
     }
   }
 
-  const updateResume = (updates: Partial<Resume>) => {
+  // Debounced localStorage save
+  const saveToLocalStorageDebounced = useRef<NodeJS.Timeout | undefined>(undefined)
+
+  const updateResume = useCallback((updates: Partial<Resume>) => {
     const updatedResume = { ...resume, ...updates }
     setResume(updatedResume)
     setHasUnsavedChanges(true)
@@ -130,28 +144,22 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
     // Track which sections were modified
     const newModifiedSections = new Set(modifiedSections)
     Object.keys(updates).forEach((key) => {
-      // Map resume fields to section IDs
-      const sectionMapping: Record<string, SectionId> = {
-        contact: 'contact',
-        summary: 'summary',
-        experience: 'experience',
-        education: 'education',
-        skills: 'skills',
-        languages: 'languages',
-        certifications: 'certifications',
-        projects: 'projects',
-      }
-      const sectionId = sectionMapping[key]
+      const sectionId = SECTION_MAPPING[key]
       if (sectionId) {
         newModifiedSections.add(sectionId)
       }
     })
     setModifiedSections(newModifiedSections)
 
-    // Save to localStorage for preview with unsaved changes
-    localStorage.setItem(`resume_draft_${resume.id}`, JSON.stringify(updatedResume))
-    localStorage.setItem(`resume_modified_sections_${resume.id}`, JSON.stringify(Array.from(newModifiedSections)))
-  }
+    // Debounce localStorage writes (500ms)
+    if (saveToLocalStorageDebounced.current) {
+      clearTimeout(saveToLocalStorageDebounced.current)
+    }
+    saveToLocalStorageDebounced.current = setTimeout(() => {
+      localStorage.setItem(`resume_draft_${resume.id}`, JSON.stringify(updatedResume))
+      localStorage.setItem(`resume_modified_sections_${resume.id}`, JSON.stringify(Array.from(newModifiedSections)))
+    }, 500)
+  }, [resume, modifiedSections])
 
   // Handle dragging the divider
   const handleMouseDown = useCallback(() => {
@@ -355,7 +363,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
         {/* Sidebar Navigation */}
         <div className="w-64 border-r border-slate-200 bg-slate-50">
           <nav className="space-y-1 p-4">
-            {sections.map((section) => {
+            {SECTIONS.map((section) => {
               const Icon = section.icon
               const isActive = activeSection === section.id
               const isModified = modifiedSections.has(section.id)

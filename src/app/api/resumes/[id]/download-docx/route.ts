@@ -51,18 +51,19 @@ export async function GET(
     }
 
     // Fetch resume
-    const { data: resume, error } = await supabase
+    const result: any = await supabase
       .from('resumes')
       .select('*')
       .eq('id', id)
       .eq('user_id', user.id)
       .single()
 
-    if (error || !resume) {
+    if (result.error || !result.data) {
       return NextResponse.json({ error: 'Resume not found' }, { status: 404 })
     }
 
-    const contact = resume.contact_info || {}
+    const resume = result.data
+    const contact = resume.contact || {}
     const experiences = resume.experience || []
     const education = resume.education || []
     const skills = resume.skills || []
@@ -141,7 +142,7 @@ export async function GET(
           new Paragraph({
             children: [
               new TextRun({
-                text: dict.resumes.template.keyAchievements.toUpperCase(),
+                text: ((dict as any).resumes?.template?.keyAchievements || 'KEY ACHIEVEMENTS').toUpperCase(),
                 bold: true,
                 size: 20,
                 color: CYAN_ACCENT,
@@ -172,7 +173,8 @@ export async function GET(
                 children: [
                   new TextRun({ text: achievement.description, size: 12, color: WHITE }),
                 ],
-                spacing: { after: 100, left: convertInchesToTwip(0.15) },
+                spacing: { after: 100 },
+                indent: { left: convertInchesToTwip(0.15) },
               })
             ] : []
           ),
@@ -182,7 +184,7 @@ export async function GET(
             new Paragraph({
               children: [
                 new TextRun({
-                  text: dict.resumes.template.skills.toUpperCase(),
+                  text: ((dict as any).resumes?.template?.skills || 'SKILLS').toUpperCase(),
                   bold: true,
                   size: 20,
                   color: CYAN_ACCENT,
@@ -227,7 +229,7 @@ export async function GET(
             new Paragraph({
               children: [
                 new TextRun({
-                  text: dict.resumes.template.training.toUpperCase(),
+                  text: ((dict as any).resumes?.template?.training || 'TRAINING').toUpperCase(),
                   bold: true,
                   size: 20,
                   color: CYAN_ACCENT,
@@ -279,7 +281,7 @@ export async function GET(
             new Paragraph({
               children: [
                 new TextRun({
-                  text: dict.resumes.template.summary.toUpperCase(),
+                  text: ((dict as any).resumes?.template?.summary || 'SUMMARY').toUpperCase(),
                   bold: true,
                   size: 24,
                   color: DARK_TEXT,
@@ -312,7 +314,7 @@ export async function GET(
             new Paragraph({
               children: [
                 new TextRun({
-                  text: dict.resumes.template.experience.toUpperCase(),
+                  text: ((dict as any).resumes?.template?.experience || 'EXPERIENCE').toUpperCase(),
                   bold: true,
                   size: 24,
                   color: DARK_TEXT,
@@ -386,7 +388,7 @@ export async function GET(
             new Paragraph({
               children: [
                 new TextRun({
-                  text: dict.resumes.template.education.toUpperCase(),
+                  text: ((dict as any).resumes?.template?.education || 'EDUCATION').toUpperCase(),
                   bold: true,
                   size: 24,
                   color: DARK_TEXT,
@@ -413,7 +415,7 @@ export async function GET(
                     color: DARK_TEXT,
                   }),
                   ...(edu.field ? [
-                    new TextRun({ text: ` ${dict.resumes.template.in} ${edu.field}`, size: 22 }),
+                    new TextRun({ text: ` ${(dict as any).resumes?.template?.in || 'in'} ${edu.field}`, size: 22 }),
                   ] : []),
                   new TextRun({
                     text: '\t' + formatDateRange(edu.startDate, edu.endDate, false, locale, dict),
@@ -443,7 +445,7 @@ export async function GET(
                     new TextRun({ text: edu.location, size: 20 }),
                   ] : []),
                   ...(edu.gpa ? [
-                    new TextRun({ text: ` | ${dict.resumes.template.gpa}: ${edu.gpa}`, size: 18 }),
+                    new TextRun({ text: ` | ${(dict as any).resumes?.template?.gpa || 'GPA'}: ${edu.gpa}`, size: 18 }),
                   ] : []),
                 ],
                 spacing: { after: 150 },
@@ -514,7 +516,7 @@ export async function GET(
     const buffer = await Packer.toBuffer(doc)
 
     // Return as downloadable file
-    return new NextResponse(buffer, {
+    return new NextResponse(buffer as any, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'Content-Disposition': `attachment; filename="${resume.title || 'resume'}.docx"`,
@@ -596,13 +598,13 @@ function formatDateRange(
   })
 
   const end = isCurrent
-    ? dict.resumes.template.present
+    ? (dict as any).resumes?.template?.present || 'Present'
     : endDate
       ? new Date(endDate + '-01').toLocaleDateString(locale, {
           month: '2-digit',
           year: 'numeric',
         })
-      : dict.resumes.template.present
+      : (dict as any).resumes?.template?.present || 'Present'
 
   return end ? `${start} - ${end}` : start
 }

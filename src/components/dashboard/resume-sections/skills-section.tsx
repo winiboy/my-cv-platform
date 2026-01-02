@@ -128,7 +128,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
       if (colonIndex > -1) {
         const category = optimizedText.substring(0, colonIndex).trim()
         const itemsText = optimizedText.substring(colonIndex + 1).trim()
-        const items = itemsText.split(',').map(s => s.trim()).filter(s => s.length > 0)
+        const items = itemsText.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0)
 
         setOptimizedCategories({ ...optimizedCategories, [index]: { category, items } })
       } else {

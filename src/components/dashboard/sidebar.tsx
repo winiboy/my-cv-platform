@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Home, FileText, Briefcase, Target, Settings } from 'lucide-react'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import type { Locale } from '@/lib/i18n'
+import { useMemo } from 'react'
 
 interface DashboardSidebarProps {
   locale: Locale
@@ -14,7 +15,7 @@ export function DashboardSidebar({ locale }: DashboardSidebarProps) {
   const { t } = useTranslation('common')
   const pathname = usePathname()
 
-  const navigation = [
+  const navigation = useMemo(() => [
     {
       name: t('dashboard.nav.home'),
       href: `/${locale}/dashboard`,
@@ -40,7 +41,7 @@ export function DashboardSidebar({ locale }: DashboardSidebarProps) {
       href: `/${locale}/dashboard/settings`,
       icon: Settings,
     },
-  ]
+  ], [locale, t])
 
   return (
     <aside className="w-64 border-r border-slate-200 bg-white">

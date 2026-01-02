@@ -5,7 +5,7 @@ import { useTranslation } from '@/lib/hooks/use-translation'
 import { LanguageSwitcher } from '@/components/shared/language-switcher'
 import { Button } from '@/components/ui/button'
 import { Menu, X, LogOut, UserPlus, ChevronDown } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -17,17 +17,18 @@ export function Header() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
 
   // Dynamic navigation based on auth status
-  const navigation = [
+  const navigation = useMemo(() => [
     ...(isLoggedIn ? [{ name: t('nav.dashboard'), href: `/${locale}/dashboard` }] : []),
     { name: t('nav.tools'), href: `/${locale}/tools` },
     { name: t('nav.resources'), href: `/${locale}/resources` },
     { name: t('nav.pricing'), href: `/${locale}/pricing` },
-  ]
+  ], [isLoggedIn, locale, t])
 
   // Check if user is logged in
   useEffect(() => {
+    const supabase = createClient()
+
     const checkAuth = async () => {
-      const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       setIsLoggedIn(!!user)
     }
@@ -35,7 +36,6 @@ export function Header() {
     checkAuth()
 
     // Listen for auth changes
-    const supabase = createClient()
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsLoggedIn(!!session?.user)
     })

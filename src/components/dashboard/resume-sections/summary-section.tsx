@@ -46,9 +46,9 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
         },
         body: JSON.stringify({
           rawSummary: plainText,
-          currentRole: resume.experience?.[0]?.position,
-          yearsOfExperience: calculateYearsOfExperience(resume.experience),
-          topSkills: extractTopSkills(resume.skills),
+          currentRole: (resume.experience as any)?.[0]?.position,
+          yearsOfExperience: calculateYearsOfExperience(resume.experience as any),
+          topSkills: extractTopSkills(resume.skills as any),
           locale,
         }),
       })

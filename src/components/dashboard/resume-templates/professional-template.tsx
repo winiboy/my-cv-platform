@@ -690,12 +690,12 @@ export function ProfessionalTemplate({
                       >
                         {edu.school}
                       </a>
-                      {edu.location && (
+                      {(edu as any).location && (
                         <span
                           className="text-sm"
                           style={{ color: 'oklch(0.5 0 0)' }}
                         >
-                          {edu.location}
+                          {(edu as any).location}
                         </span>
                       )}
                     </div>
