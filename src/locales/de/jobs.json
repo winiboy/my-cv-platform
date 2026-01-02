@@ -1,0 +1,30 @@
+{
+  "title": "Stellensuche",
+  "subtitle": "Finden Sie Ihre nächste Gelegenheit in der Schweiz",
+  "emptyState": "Keine Stellen gefunden",
+  "noJobsFound": "Keine Stellen gefunden",
+  "tryDifferentFilters": "Versuchen Sie, Ihre Filter anzupassen",
+  "postedOn": "Veröffentlicht am",
+  "filters": {
+    "searchPlaceholder": "Stellen suchen...",
+    "allLocations": "Alle Städte",
+    "allTypes": "Alle Typen",
+    "clearFilters": "Filter löschen"
+  },
+  "employmentTypes": {
+    "full-time": "Vollzeit",
+    "part-time": "Teilzeit",
+    "contract": "Vertrag",
+    "internship": "Praktikum",
+    "temporary": "Zeitarbeit"
+  },
+  "save": "Speichern",
+  "saved": "Gespeichert",
+  "unsave": "Entfernen",
+  "track": "Verfolgen",
+  "tracked": "Verfolgt",
+  "apply": "Bewerben",
+  "jobDescription": "Stellenbeschreibung",
+  "requirements": "Anforderungen",
+  "locationNote": "Diese Position befindet sich in der Schweiz und erfordert eine gesetzliche Arbeitserlaubnis in der Schweiz."
+}

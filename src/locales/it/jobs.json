@@ -1,0 +1,30 @@
+{
+  "title": "Ricerca lavoro",
+  "subtitle": "Trova la tua prossima opportunità in Svizzera",
+  "emptyState": "Nessuna offerta trovata",
+  "noJobsFound": "Nessuna offerta trovata",
+  "tryDifferentFilters": "Prova a modificare i filtri",
+  "postedOn": "Pubblicato il",
+  "filters": {
+    "searchPlaceholder": "Cerca lavori...",
+    "allLocations": "Tutte le città",
+    "allTypes": "Tutti i tipi",
+    "clearFilters": "Cancella filtri"
+  },
+  "employmentTypes": {
+    "full-time": "Tempo pieno",
+    "part-time": "Part-time",
+    "contract": "Contratto",
+    "internship": "Stage",
+    "temporary": "Temporaneo"
+  },
+  "save": "Salva",
+  "saved": "Salvato",
+  "unsave": "Rimuovi",
+  "track": "Traccia",
+  "tracked": "Tracciato",
+  "apply": "Candidati",
+  "jobDescription": "Descrizione del lavoro",
+  "requirements": "Requisiti",
+  "locationNote": "Questa posizione si trova in Svizzera e richiede l'autorizzazione legale a lavorare in Svizzera."
+}

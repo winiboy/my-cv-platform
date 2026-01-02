@@ -1,0 +1,30 @@
+{
+  "title": "Job Search",
+  "subtitle": "Find your next opportunity in Switzerland",
+  "emptyState": "No jobs found",
+  "noJobsFound": "No jobs found",
+  "tryDifferentFilters": "Try adjusting your filters",
+  "postedOn": "Posted on",
+  "filters": {
+    "searchPlaceholder": "Search jobs...",
+    "allLocations": "All Cities",
+    "allTypes": "All Types",
+    "clearFilters": "Clear filters"
+  },
+  "employmentTypes": {
+    "full-time": "Full-time",
+    "part-time": "Part-time",
+    "contract": "Contract",
+    "internship": "Internship",
+    "temporary": "Temporary"
+  },
+  "save": "Save",
+  "saved": "Saved",
+  "unsave": "Unsave",
+  "track": "Track",
+  "tracked": "Tracked",
+  "apply": "Apply",
+  "jobDescription": "Job Description",
+  "requirements": "Requirements",
+  "locationNote": "This position is located in Switzerland and requires legal authorization to work in Switzerland."
+}
