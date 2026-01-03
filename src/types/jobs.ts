@@ -11,6 +11,7 @@ export interface JobListing {
   company: string
   location_city: string
   location_country: 'CH' // Switzerland only
+  location_full?: string // Full location string (e.g., "Zürich, Zürich, Switzerland")
   employment_type: EmploymentType
   description: string
   requirements?: string

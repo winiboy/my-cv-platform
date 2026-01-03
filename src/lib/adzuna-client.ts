@@ -77,10 +77,15 @@ function formatSalaryRange(job: AdzunaJobResult): string | undefined {
 
 /**
  * Clean and format job description from Adzuna
+ * Preserves all content without truncation
  */
 function cleanDescription(html: string): string {
-  // Remove HTML tags
-  let clean = html.replace(/<[^>]*>/g, '')
+  // Remove HTML tags but preserve line breaks
+  let clean = html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
 
   // Decode HTML entities
   clean = clean
@@ -90,15 +95,16 @@ function cleanDescription(html: string): string {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
 
-  // Remove excessive whitespace
-  clean = clean.replace(/\s+/g, ' ').trim()
+  // Remove excessive whitespace but preserve paragraph breaks
+  clean = clean
+    .replace(/[ \t]+/g, ' ') // Multiple spaces/tabs to single space
+    .replace(/\n\s+\n/g, '\n\n') // Clean up paragraph breaks
+    .replace(/\n{3,}/g, '\n\n') // Max 2 newlines
+    .trim()
 
-  // Truncate if too long (keep first 2000 chars)
-  if (clean.length > 2000) {
-    clean = clean.substring(0, 2000) + '...'
-  }
-
+  // NO TRUNCATION - return full description
   return clean
 }
 
@@ -112,6 +118,7 @@ export function transformAdzunaJob(adzunaJob: AdzunaJobResult): JobListing {
     company: adzunaJob.company.display_name,
     location_city: extractCity(adzunaJob.location),
     location_country: 'CH',
+    location_full: adzunaJob.location.display_name || extractCity(adzunaJob.location), // Full location string
     employment_type: mapContractType(adzunaJob),
     description: cleanDescription(adzunaJob.description),
     requirements: undefined, // Adzuna doesn't separate requirements

@@ -14,6 +14,7 @@ export const mockSwissJobs: JobListing[] = [
     company: 'SwissTech Solutions AG',
     location_city: 'Zürich',
     location_country: 'CH',
+    location_full: 'Zürich, Zürich, Switzerland',
     employment_type: 'full-time',
     description: `SwissTech Solutions is a leading software development company based in Zürich, specializing in enterprise web applications and digital transformation projects for Fortune 500 companies across Europe. We are looking for an experienced Senior Frontend Engineer to join our growing engineering team and help shape the future of our flagship products.
 
@@ -119,6 +120,7 @@ We are an equal opportunity employer and value diversity at our company. We do n
     company: 'FinanceHub AG',
     location_city: 'Genève',
     location_country: 'CH',
+    location_full: 'Genève, Genève, Switzerland',
     employment_type: 'full-time',
     description: `FinanceHub AG is a rapidly growing fintech company headquartered in Geneva, revolutionizing the way businesses and individuals manage their finances in Switzerland and across Europe. We are seeking an experienced Product Manager to join our product team and drive innovation in our financial services platform.
 
@@ -206,6 +208,7 @@ Since our founding in 2018, FinanceHub has grown to serve over 50,000 customers 
     company: 'Design Studio Lausanne',
     location_city: 'Lausanne',
     location_country: 'CH',
+    location_full: 'Lausanne, Vaud, Switzerland',
     employment_type: 'full-time',
     description: `Design Studio Lausanne is an award-winning digital design agency specializing in creating exceptional user experiences for web and mobile applications. We work with clients ranging from innovative startups to established enterprises across various industries. We are looking for a talented Senior UX/UI Designer to join our creative team.
 
@@ -299,6 +302,7 @@ As a Senior UX/UI Designer, you will lead design projects from initial concept t
     company: 'CloudBase Systems AG',
     location_city: 'Bern',
     location_country: 'CH',
+    location_full: 'Bern, Bern, Switzerland',
     employment_type: 'full-time',
     description: `CloudBase Systems is a Swiss cloud infrastructure company providing enterprise-grade hosting and managed services to businesses across Europe. We are looking for a skilled Backend Engineer to join our platform engineering team and help build the next generation of our cloud infrastructure.
 
@@ -386,6 +390,7 @@ You will design, develop, and maintain scalable backend systems and APIs that po
     company: 'SwissCloud Infrastructure AG',
     location_city: 'Basel',
     location_country: 'CH',
+    location_full: 'Basel, Basel-Stadt, Switzerland',
     employment_type: 'full-time',
     description: `SwissCloud Infrastructure is a leading provider of cloud hosting and managed services in Switzerland. We are seeking an experienced Senior DevOps Engineer to join our infrastructure team and help operate and scale our cloud platform serving thousands of customers.
 
@@ -477,6 +482,7 @@ As a Senior DevOps Engineer, you will be responsible for maintaining and improvi
     company: 'StartupHub Zürich',
     location_city: 'Zürich',
     location_country: 'CH',
+    location_full: 'Zürich, Zürich, Switzerland',
     employment_type: 'full-time',
     description: `StartupHub is an early-stage technology startup building innovative SaaS products for small and medium-sized businesses. We are looking for a versatile Full Stack Developer who is passionate about building great products and thrives in a fast-paced startup environment.
 
@@ -561,6 +567,7 @@ We are a venture-backed startup founded in 2024 by experienced entrepreneurs. Ou
     company: 'SwissBrand GmbH',
     location_city: 'Luzern',
     location_country: 'CH',
+    location_full: 'Luzern, Luzern, Switzerland',
     employment_type: 'full-time',
     description: `SwissBrand GmbH is a growing consumer brand company with a portfolio of products sold across Switzerland and Europe. We are looking for an experienced Marketing Manager to lead our digital marketing efforts and drive customer acquisition and retention.
 
@@ -649,6 +656,7 @@ As Marketing Manager for Digital Growth, you will own our digital marketing stra
     company: 'AI Research Lab Zürich',
     location_city: 'Zürich',
     location_country: 'CH',
+    location_full: 'Zürich, Zürich, Switzerland',
     employment_type: 'full-time',
     description: `AI Research Lab Zürich is a cutting-edge research organization focused on advancing machine learning and artificial intelligence. We collaborate with universities, research institutions, and industry partners on groundbreaking AI projects. We are seeking a talented Machine Learning Engineer to join our research team.
 
@@ -727,6 +735,7 @@ You will work on challenging machine learning problems, develop novel algorithms
     company: 'SecureNet Solutions AG',
     location_city: 'Genève',
     location_country: 'CH',
+    location_full: 'Genève, Genève, Switzerland',
     employment_type: 'full-time',
     description: `SecureNet Solutions is a leading cybersecurity firm in Geneva, providing security consulting, penetration testing, and managed security services to clients across Switzerland and Europe. We are looking for a Cybersecurity Specialist to join our security operations team.
 
@@ -798,6 +807,7 @@ As a Cybersecurity Specialist, you will be responsible for protecting client sys
     company: 'TechAcademy Zürich',
     location_city: 'Zürich',
     location_country: 'CH',
+    location_full: 'Zürich, Zürich, Switzerland',
     employment_type: 'full-time',
     description: `TechAcademy Zürich is a software development company with a focus on training and mentoring junior developers. We are looking for recent graduates or career changers who are passionate about software development and eager to learn.
 
@@ -865,6 +875,7 @@ This is an entry-level position perfect for those starting their career in softw
     company: 'Analytics Pro Switzerland',
     location_city: 'Zürich',
     location_country: 'CH',
+    location_full: 'Zürich, Zürich, Switzerland',
     employment_type: 'part-time',
     description: `Analytics Pro is a data analytics consultancy helping businesses make data-driven decisions. We are seeking a Part-Time Data Analyst to support our growing client base.
 
@@ -933,6 +944,7 @@ Work 60% (3 days per week) analyzing data, creating visualizations, and deliveri
     company: 'Digital Agency Basel',
     location_city: 'Basel',
     location_country: 'CH',
+    location_full: 'Basel, Basel-Stadt, Switzerland',
     employment_type: 'part-time',
     description: `We are a digital agency creating websites and web applications for small and medium-sized businesses. We're looking for a Part-Time Frontend Developer to join our development team.
 
@@ -997,6 +1009,7 @@ Work 50% (2.5 days per week) building modern web interfaces using React and Type
     company: 'User Insights Lab',
     location_city: 'Lausanne',
     location_country: 'CH',
+    location_full: 'Lausanne, Vaud, Switzerland',
     employment_type: 'part-time',
     description: `User Insights Lab specializes in user research and usability testing for digital products. We're seeking a Part-Time UX Researcher to conduct research studies and deliver actionable insights to clients.
 
@@ -1061,6 +1074,7 @@ Work 60% conducting user research, analyzing findings, and presenting insights. 
     company: 'MobileFirst Solutions AG',
     location_city: 'St. Gallen',
     location_country: 'CH',
+    location_full: 'St. Gallen, St. Gallen, Switzerland',
     employment_type: 'contract',
     description: `We are seeking an experienced iOS Developer for a 6-month contract to build a new mobile banking application for one of Switzerland's leading banks.
 
@@ -1140,6 +1154,7 @@ Develop a native iOS banking application from scratch with features including ac
     company: 'Mobile Commerce GmbH',
     location_city: 'Zürich',
     location_country: 'CH',
+    location_full: 'Zürich, Zürich, Switzerland',
     employment_type: 'contract',
     description: `We need an experienced React Native Developer for a 4-month contract to build a cross-platform e-commerce mobile application.
 
@@ -1202,6 +1217,7 @@ Develop a React Native app for iOS and Android that allows users to browse produ
     company: 'CloudConsult AG',
     location_city: 'Bern',
     location_country: 'CH',
+    location_full: 'Bern, Bern, Switzerland',
     employment_type: 'contract',
     description: `We are looking for a Cloud Migration Specialist for a 8-month contract to lead the migration of on-premises infrastructure to AWS for a large enterprise client.
 
@@ -1266,6 +1282,7 @@ Plan and execute migration of legacy applications and databases from on-premises
     company: 'CRM Solutions GmbH',
     location_city: 'Genève',
     location_country: 'CH',
+    location_full: 'Genève, Genève, Switzerland',
     employment_type: 'contract',
     description: `We need a Salesforce Developer for a 5-month contract to implement custom solutions for a financial services client.
 
@@ -1328,6 +1345,7 @@ Customize Salesforce Sales Cloud and Service Cloud, develop custom Lightning com
     company: 'Tech Innovators AG',
     location_city: 'Zürich',
     location_country: 'CH',
+    location_full: 'Zürich, Zürich, Switzerland',
     employment_type: 'internship',
     description: `Tech Innovators is offering a 6-month internship for computer science students or recent graduates interested in software engineering.
 
@@ -1402,6 +1420,7 @@ Join our engineering team and work on real projects while learning from experien
     company: 'DesignHub Lausanne',
     location_city: 'Lausanne',
     location_country: 'CH',
+    location_full: 'Lausanne, Vaud, Switzerland',
     employment_type: 'internship',
     description: `DesignHub Lausanne is a digital design agency seeking a UX Design Intern to join our design team for a 4-6 month internship.
 
@@ -1475,6 +1494,7 @@ Work alongside experienced UX designers on client projects, learning the full de
     company: 'DataInsights GmbH',
     location_city: 'Basel',
     location_country: 'CH',
+    location_full: 'Basel, Basel-Stadt, Switzerland',
     employment_type: 'internship',
     description: `DataInsights is offering a 6-month Data Science internship for students interested in machine learning and data analytics.
 
@@ -1547,6 +1567,7 @@ Work with our data science team on real-world data problems, applying machine le
     company: 'Marketing Agency Zürich',
     location_city: 'Zürich',
     location_country: 'CH',
+    location_full: 'Zürich, Zürich, Switzerland',
     employment_type: 'internship',
     description: `We are seeking a Digital Marketing Intern to support our marketing campaigns for diverse clients.
 
@@ -1620,6 +1641,7 @@ Gain hands-on experience in digital marketing across social media, content creat
     company: 'WebSolutions AG',
     location_city: 'Winterthur',
     location_country: 'CH',
+    location_full: 'Winterthur, Zürich, Switzerland',
     employment_type: 'temporary',
     description: `We need a Frontend Developer for a 12-month temporary position to cover maternity leave.
 
@@ -1690,6 +1712,7 @@ Join our development team to maintain and enhance our web applications during ou
     company: 'Infrastructure Services GmbH',
     location_city: 'Biel/Bienne',
     location_country: 'CH',
+    location_full: 'Biel/Bienne, Bern, Switzerland',
     employment_type: 'temporary',
     description: `We are looking for a Project Manager for a 9-month temporary assignment to lead a major IT infrastructure upgrade project.
 
@@ -1759,6 +1782,7 @@ Manage the upgrade of data center infrastructure including server replacement, n
     company: 'Quality Assurance Solutions',
     location_city: 'Thun',
     location_country: 'CH',
+    location_full: 'Thun, Bern, Switzerland',
     employment_type: 'temporary',
     description: `We need a QA Engineer for a 6-month temporary position to test a new enterprise software application before launch.
 
@@ -1828,6 +1852,7 @@ Join the quality assurance team for intensive testing phase of a new SaaS applic
     company: 'Business Consulting AG',
     location_city: 'Neuchâtel',
     location_country: 'CH',
+    location_full: 'Neuchâtel, Neuchâtel, Switzerland',
     employment_type: 'temporary',
     description: `We are seeking a Business Analyst for a 10-month temporary role supporting a digital transformation initiative.
 
@@ -1900,6 +1925,7 @@ Work with a manufacturing company to analyze current processes, identify improve
     company: 'Software Documentation Services',
     location_city: 'Lugano',
     location_country: 'CH',
+    location_full: 'Lugano, Ticino, Switzerland',
     employment_type: 'temporary',
     description: `We need a Technical Writer for a 5-month temporary assignment to create documentation for a new software platform.
 

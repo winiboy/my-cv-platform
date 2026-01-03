@@ -43,7 +43,7 @@ export function JobCard({ job, isSelected, onClick, dict }: JobCardProps) {
           <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-600">
             <div className="flex items-center gap-1">
               <MapPin className="h-3 w-3" />
-              <span>{job.location_city}, CH</span>
+              <span>{job.location_full || `${job.location_city}, Switzerland`}</span>
             </div>
             <div className="flex items-center gap-1">
               <Briefcase className="h-3 w-3" />

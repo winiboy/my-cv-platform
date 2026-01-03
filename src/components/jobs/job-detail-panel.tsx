@@ -47,7 +47,7 @@ export function JobDetailPanel({ job, dict }: JobDetailPanelProps) {
         <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-slate-600">
           <div className="flex items-center gap-1.5">
             <MapPin className="h-4 w-4" />
-            <span>{job.location_city}, Switzerland</span>
+            <span>{job.location_full || `${job.location_city}, Switzerland`}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Briefcase className="h-4 w-4" />
