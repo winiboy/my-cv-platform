@@ -2,15 +2,29 @@
 
 import type { JobListing } from '@/types/jobs'
 import { JobCard } from './job-card'
+import { Loader2 } from 'lucide-react'
 
 interface JobListProps {
   jobs: JobListing[]
   selectedJobId: string | null
   onSelectJob: (jobId: string) => void
   dict: any
+  observerTarget?: React.RefObject<HTMLDivElement>
+  isLoadingMore?: boolean
+  hasMore?: boolean
+  totalJobs?: number
 }
 
-export function JobList({ jobs, selectedJobId, onSelectJob, dict }: JobListProps) {
+export function JobList({
+  jobs,
+  selectedJobId,
+  onSelectJob,
+  dict,
+  observerTarget,
+  isLoadingMore = false,
+  hasMore = true,
+  totalJobs = 0,
+}: JobListProps) {
   if (jobs.length === 0) {
     return (
       <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 p-8">
@@ -38,6 +52,30 @@ export function JobList({ jobs, selectedJobId, onSelectJob, dict }: JobListProps
             dict={dict}
           />
         ))}
+
+        {/* Loading indicator at bottom */}
+        {isLoadingMore && (
+          <div className="flex items-center justify-center gap-2 p-6">
+            <Loader2 className="h-5 w-5 animate-spin text-teal-600" />
+            <p className="text-sm text-slate-600">
+              {dict?.loadingMore || 'Loading more jobs...'}
+            </p>
+          </div>
+        )}
+
+        {/* Intersection Observer target */}
+        {hasMore && !isLoadingMore && (
+          <div ref={observerTarget} className="h-4" />
+        )}
+
+        {/* "All jobs loaded" message */}
+        {!hasMore && jobs.length > 0 && (
+          <div className="p-6 text-center">
+            <p className="text-sm text-slate-500">
+              {dict?.allJobsLoaded || `All ${totalJobs.toLocaleString()} jobs loaded`}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )

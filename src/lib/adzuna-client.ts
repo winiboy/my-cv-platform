@@ -176,8 +176,9 @@ export async function fetchSwissJobs(params: {
     }
   }
 
-  // Make API request
-  const url = `${ADZUNA_BASE_URL}/${COUNTRY_CODE}/search/1?${queryParams.toString()}`
+  // Make API request (page number in URL path)
+  const pageNumber = params.page || 1
+  const url = `${ADZUNA_BASE_URL}/${COUNTRY_CODE}/search/${pageNumber}?${queryParams.toString()}`
 
   console.log('[Adzuna] Fetching jobs from:', url.replace(appKey, 'REDACTED'))
 

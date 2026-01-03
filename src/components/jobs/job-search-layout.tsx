@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import type { JobListing, JobSearchFilters } from '@/types/jobs'
 import type { Locale } from '@/lib/i18n'
 import { JobFilters } from './job-filters'
@@ -17,8 +17,12 @@ interface JobSearchLayoutProps {
 export function JobSearchLayout({ initialJobs, dict, locale }: JobSearchLayoutProps) {
   const [jobs, setJobs] = useState<JobListing[]>(initialJobs)
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dataSource, setDataSource] = useState<'mock' | 'adzuna'>('mock')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalJobs, setTotalJobs] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
 
   const [selectedJobId, setSelectedJobId] = useState<string | null>(
     initialJobs.length > 0 ? initialJobs[0].id : null
@@ -29,50 +33,109 @@ export function JobSearchLayout({ initialJobs, dict, locale }: JobSearchLayoutPr
     employment_type: undefined,
   })
 
-  // Fetch jobs from API
-  useEffect(() => {
-    const fetchJobs = async () => {
+  // Fetch jobs from API (reset on filter change)
+  const fetchJobs = useCallback(async (page: number = 1, append: boolean = false) => {
+    if (append) {
+      setIsLoadingMore(true)
+    } else {
       setIsLoading(true)
-      setError(null)
+      setCurrentPage(1)
+      setHasMore(true)
+    }
+    setError(null)
 
-      try {
-        const params = new URLSearchParams()
-        if (filters.query) params.append('query', filters.query)
-        if (filters.location_city) params.append('location', filters.location_city)
-        if (filters.employment_type) params.append('employmentType', filters.employment_type)
+    try {
+      const params = new URLSearchParams()
+      if (filters.query) params.append('query', filters.query)
+      if (filters.location_city) params.append('location', filters.location_city)
+      if (filters.employment_type) params.append('employmentType', filters.employment_type)
+      params.append('page', String(page))
+      params.append('resultsPerPage', '20')
 
-        const response = await fetch(`/api/jobs?${params.toString()}`)
+      const response = await fetch(`/api/jobs?${params.toString()}`)
 
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status}`)
-        }
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
 
-        const data = await response.json()
-        setJobs(data.jobs || [])
-        setDataSource(data.source)
+      const data = await response.json()
+      const newJobs = data.jobs || []
 
+      setDataSource(data.source)
+      setTotalJobs(data.total || 0)
+
+      if (append) {
+        // Append new jobs to existing list
+        setJobs(prev => [...prev, ...newJobs])
+      } else {
+        // Replace jobs (new search)
+        setJobs(newJobs)
         // Select first job if none selected
-        if (data.jobs && data.jobs.length > 0 && !selectedJobId) {
-          setSelectedJobId(data.jobs[0].id)
+        if (newJobs.length > 0 && !selectedJobId) {
+          setSelectedJobId(newJobs[0].id)
         }
+      }
 
-        // If there's an error message but we got data (fallback scenario)
-        if (data.error) {
-          setError(data.message || 'Using mock data due to API error')
-        }
-      } catch (err) {
-        console.error('Error fetching jobs:', err)
-        setError('Failed to load jobs. Displaying sample data.')
+      // Check if there are more jobs to load
+      const loadedCount = append ? jobs.length + newJobs.length : newJobs.length
+      setHasMore(loadedCount < (data.total || 0) && newJobs.length > 0)
+
+      // If there's an error message but we got data (fallback scenario)
+      if (data.error) {
+        setError(data.message || 'Using mock data due to API error')
+      }
+    } catch (err) {
+      console.error('Error fetching jobs:', err)
+      setError('Failed to load jobs. Displaying sample data.')
+      if (!append) {
         // Keep initial mock jobs on error
         setJobs(initialJobs)
         setDataSource('mock')
-      } finally {
-        setIsLoading(false)
+      }
+    } finally {
+      setIsLoading(false)
+      setIsLoadingMore(false)
+    }
+  }, [filters, jobs.length, selectedJobId, initialJobs])
+
+  // Initial fetch and re-fetch when filters change
+  useEffect(() => {
+    fetchJobs(1, false)
+  }, [filters]) // Re-fetch when filters change
+
+  // Load more jobs (for infinite scroll)
+  const loadMoreJobs = useCallback(() => {
+    if (!isLoadingMore && hasMore && !isLoading) {
+      const nextPage = currentPage + 1
+      setCurrentPage(nextPage)
+      fetchJobs(nextPage, true)
+    }
+  }, [isLoadingMore, hasMore, isLoading, currentPage, fetchJobs])
+
+  // Intersection Observer for infinite scroll
+  const observerTarget = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const target = observerTarget.current
+    if (!target) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !isLoading) {
+          loadMoreJobs()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    observer.observe(target)
+
+    return () => {
+      if (target) {
+        observer.unobserve(target)
       }
     }
-
-    fetchJobs()
-  }, [filters, initialJobs]) // Re-fetch when filters change
+  }, [hasMore, isLoadingMore, isLoading, loadMoreJobs])
 
   // Filter jobs client-side (for better UX when using mock data)
   const filteredJobs = useMemo(() => {
@@ -185,6 +248,10 @@ export function JobSearchLayout({ initialJobs, dict, locale }: JobSearchLayoutPr
               selectedJobId={selectedJobId}
               onSelectJob={setSelectedJobId}
               dict={dict}
+              observerTarget={observerTarget}
+              isLoadingMore={isLoadingMore}
+              hasMore={hasMore}
+              totalJobs={totalJobs}
             />
           </div>
 
