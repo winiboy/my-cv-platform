@@ -68,7 +68,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch from Adzuna API
-    console.log('Fetching jobs from Adzuna API')
+    console.log('[API Route] Fetching jobs from Adzuna API')
+    console.log('[API Route] Params:', { query, location, employmentType, page, resultsPerPage })
 
     const { jobs, total } = await fetchSwissJobs({
       query,
@@ -78,6 +79,8 @@ export async function GET(request: NextRequest) {
       resultsPerPage,
     })
 
+    console.log('[API Route] Successfully fetched', jobs.length, 'jobs from Adzuna')
+
     return NextResponse.json({
       jobs,
       total,
@@ -86,7 +89,11 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error in jobs API route:', error)
+    console.error('[API Route] Error in jobs API route:', error)
+    console.error('[API Route] Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    })
 
     // Fallback to mock data on error
     console.log('Falling back to mock data due to error')

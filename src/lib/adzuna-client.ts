@@ -180,22 +180,27 @@ export async function fetchSwissJobs(params: {
   // Make API request
   const url = `${ADZUNA_BASE_URL}/${COUNTRY_CODE}/search/1?${queryParams.toString()}`
 
+  console.log('[Adzuna] Fetching jobs from:', url.replace(appKey, 'REDACTED'))
+
   try {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
       },
-      next: {
-        revalidate: 300, // Cache for 5 minutes
-      },
+      cache: 'no-store', // Disable caching for now to avoid issues
     })
 
+    console.log('[Adzuna] Response status:', response.status, response.statusText)
+
     if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[Adzuna] API error response:', errorText)
       throw new Error(`Adzuna API error: ${response.status} ${response.statusText}`)
     }
 
     const data: AdzunaSearchResponse = await response.json()
+    console.log('[Adzuna] Successfully fetched', data.results?.length, 'jobs (total:', data.count, ')')
 
     // Transform results
     let jobs = data.results.map(transformAdzunaJob)
