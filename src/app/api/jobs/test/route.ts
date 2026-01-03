@@ -80,7 +80,10 @@ export async function GET() {
           title: responseData.results[0].title,
           company: responseData.results[0].company?.display_name,
           location: responseData.results[0].location?.display_name,
+          descriptionLength: responseData.results[0].description?.length || 0,
+          descriptionPreview: responseData.results[0].description?.substring(0, 300) + '...',
         } : null,
+        fullFirstJob: responseData.results?.[0] || null, // Return complete first job object
       },
     })
 

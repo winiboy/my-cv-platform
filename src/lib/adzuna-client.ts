@@ -209,6 +209,13 @@ export async function fetchSwissJobs(params: {
     const data: AdzunaSearchResponse = await response.json()
     console.log('[Adzuna] Successfully fetched', data.results?.length, 'jobs (total:', data.count, ')')
 
+    // Log first job description length to debug truncation
+    if (data.results && data.results.length > 0) {
+      const firstJob = data.results[0]
+      console.log('[Adzuna] First job description length:', firstJob.description?.length || 0)
+      console.log('[Adzuna] First job description preview:', firstJob.description?.substring(0, 200))
+    }
+
     // Transform results
     let jobs = data.results.map(transformAdzunaJob)
 

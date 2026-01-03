@@ -94,15 +94,37 @@ export function JobDetailPanel({ job, dict }: JobDetailPanelProps) {
 
       {/* Job Description */}
       <div className="p-6">
-        <h3 className="text-lg font-semibold text-slate-900">
-          {dict?.jobDescription || 'Job Description'}
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-900">
+            {dict?.jobDescription || 'Job Description'}
+          </h3>
+          <span className="text-xs text-slate-500">
+            {dict?.preview || 'Preview'}
+          </span>
+        </div>
 
         <div className="mt-4 space-y-4 text-slate-700 whitespace-pre-wrap">
           {descriptionParagraphs.map((paragraph, index) => (
             <p key={index}>{paragraph}</p>
           ))}
         </div>
+
+        {/* View Full Details CTA */}
+        {job.application_url && job.application_url !== '#' && (
+          <div className="mt-6 rounded-lg border-2 border-teal-200 bg-teal-50 p-6 text-center">
+            <p className="mb-4 text-sm font-medium text-teal-900">
+              {dict?.fullDetailsNote || 'The complete job description with all details is available on the employer\'s website.'}
+            </p>
+            <Button
+              onClick={() => window.open(job.application_url, '_blank')}
+              className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700"
+              size="lg"
+            >
+              <ExternalLink className="h-5 w-5" />
+              {dict?.viewFullDetails || 'View Full Job Details'}
+            </Button>
+          </div>
+        )}
 
         {/* Requirements Section (if present in description) */}
         {job.requirements && (
