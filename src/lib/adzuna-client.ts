@@ -146,7 +146,6 @@ export async function fetchSwissJobs(params: {
     app_id: appId,
     app_key: appKey,
     results_per_page: String(params.resultsPerPage || 20),
-    page: String(params.page || 1),
     sort_by: 'date',
   })
 
