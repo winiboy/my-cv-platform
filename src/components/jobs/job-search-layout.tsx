@@ -80,23 +80,22 @@ export function JobSearchLayout({ initialJobs, dict, locale }: JobSearchLayoutPr
       const loadedCount = append ? jobs.length + newJobs.length : newJobs.length
       setHasMore(loadedCount < (data.total || 0) && newJobs.length > 0)
 
-      // If there's an error message but we got data (fallback scenario)
+      // If there's an error message but we got data
       if (data.error) {
-        setError(data.message || 'Using mock data due to API error')
+        setError(data.message || 'API error occurred')
       }
     } catch (err) {
       console.error('Error fetching jobs:', err)
-      setError('Failed to load jobs. Displaying sample data.')
+      setError('Failed to load jobs from API. Please check your connection and try again.')
       if (!append) {
-        // Keep initial mock jobs on error
-        setJobs(initialJobs)
-        setDataSource('mock')
+        setJobs([])
+        setDataSource('adzuna')
       }
     } finally {
       setIsLoading(false)
       setIsLoadingMore(false)
     }
-  }, [filters, jobs.length, selectedJobId, initialJobs])
+  }, [filters, jobs.length, selectedJobId])
 
   // Initial fetch and re-fetch when filters change
   useEffect(() => {
@@ -137,34 +136,8 @@ export function JobSearchLayout({ initialJobs, dict, locale }: JobSearchLayoutPr
     }
   }, [hasMore, isLoadingMore, isLoading, loadMoreJobs])
 
-  // Filter jobs client-side (for better UX when using mock data)
-  const filteredJobs = useMemo(() => {
-    // If using real API, jobs are already filtered server-side
-    if (dataSource === 'adzuna') {
-      return jobs
-    }
-
-    // For mock data, filter client-side
-    return jobs.filter((job) => {
-      if (filters.query) {
-        const searchLower = filters.query.toLowerCase()
-        const matchesQuery =
-          job.title.toLowerCase().includes(searchLower) ||
-          job.company.toLowerCase().includes(searchLower)
-        if (!matchesQuery) return false
-      }
-
-      if (filters.location_city && job.location_city !== filters.location_city) {
-        return false
-      }
-
-      if (filters.employment_type && job.employment_type !== filters.employment_type) {
-        return false
-      }
-
-      return true
-    })
-  }, [jobs, filters, dataSource])
+  // Jobs are filtered server-side by the API
+  const filteredJobs = jobs
 
   const selectedJob = filteredJobs.find((job) => job.id === selectedJobId) || filteredJobs[0]
 
@@ -189,18 +162,10 @@ export function JobSearchLayout({ initialJobs, dict, locale }: JobSearchLayoutPr
 
           {/* Data Source Indicator */}
           <div className="text-sm text-slate-500">
-            {dataSource === 'adzuna' && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-green-700">
-                <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                Live Data
-              </span>
-            )}
-            {dataSource === 'mock' && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-amber-700">
-                <span className="h-2 w-2 rounded-full bg-amber-500"></span>
-                Sample Data
-              </span>
-            )}
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-green-700">
+              <span className="h-2 w-2 rounded-full bg-green-500"></span>
+              Live Data
+            </span>
           </div>
         </div>
 

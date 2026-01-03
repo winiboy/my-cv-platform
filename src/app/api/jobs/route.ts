@@ -1,11 +1,10 @@
 /**
  * Jobs API Route
- * Fetches real Swiss jobs from Adzuna API or returns mock data as fallback
+ * Fetches real Swiss jobs from Adzuna API
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchSwissJobs } from '@/lib/adzuna-client'
-import { mockSwissJobs } from '@/lib/mock-jobs'
 import type { EmploymentType } from '@/types/jobs'
 
 export const dynamic = 'force-dynamic'
@@ -20,51 +19,22 @@ export async function GET(request: NextRequest) {
     const employmentType = searchParams.get('employmentType') as EmploymentType | undefined
     const page = parseInt(searchParams.get('page') || '1')
     const resultsPerPage = parseInt(searchParams.get('resultsPerPage') || '20')
-    const useMockData = searchParams.get('useMock') === 'true'
 
     // Check if Adzuna API is configured
     const hasAdzunaCredentials = process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY
 
-    // Use mock data if:
-    // 1. Explicitly requested via query param
-    // 2. Adzuna credentials are not configured
-    if (useMockData || !hasAdzunaCredentials) {
-      console.log('Using mock job data')
-
-      // Filter mock jobs based on parameters
-      let filteredJobs = [...mockSwissJobs]
-
-      if (query) {
-        const searchLower = query.toLowerCase()
-        filteredJobs = filteredJobs.filter(
-          job =>
-            job.title.toLowerCase().includes(searchLower) ||
-            job.company.toLowerCase().includes(searchLower) ||
-            job.description.toLowerCase().includes(searchLower)
-        )
-      }
-
-      if (location) {
-        filteredJobs = filteredJobs.filter(job => job.location_city === location)
-      }
-
-      if (employmentType) {
-        filteredJobs = filteredJobs.filter(job => job.employment_type === employmentType)
-      }
-
-      // Paginate
-      const startIndex = (page - 1) * resultsPerPage
-      const endIndex = startIndex + resultsPerPage
-      const paginatedJobs = filteredJobs.slice(startIndex, endIndex)
-
-      return NextResponse.json({
-        jobs: paginatedJobs,
-        total: filteredJobs.length,
-        source: 'mock',
-        message: hasAdzunaCredentials
-          ? 'Using mock data (requested via query param)'
-          : 'Using mock data (Adzuna API credentials not configured)',
-      })
+    if (!hasAdzunaCredentials) {
+      console.error('[API Route] Adzuna API credentials not configured')
+      return NextResponse.json(
+        {
+          jobs: [],
+          total: 0,
+          source: 'none',
+          error: 'Adzuna API credentials not configured',
+          message: 'Please configure ADZUNA_APP_ID and ADZUNA_APP_KEY in .env.local',
+        },
+        { status: 500 }
+      )
     }
 
     // Fetch from Adzuna API
@@ -95,18 +65,15 @@ export async function GET(request: NextRequest) {
       stack: error instanceof Error ? error.stack : undefined,
     })
 
-    // Fallback to mock data on error
-    console.log('Falling back to mock data due to error')
-
     return NextResponse.json(
       {
-        jobs: mockSwissJobs.slice(0, 20),
-        total: mockSwissJobs.length,
-        source: 'mock',
+        jobs: [],
+        total: 0,
+        source: 'none',
         error: error instanceof Error ? error.message : 'Unknown error',
-        message: 'Using mock data (API error occurred)',
+        message: 'Failed to fetch jobs from Adzuna API',
       },
-      { status: 200 } // Return 200 with mock data instead of error
+      { status: 500 }
     )
   }
 }
