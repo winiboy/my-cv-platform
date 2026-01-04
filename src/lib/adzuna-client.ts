@@ -218,19 +218,8 @@ export async function fetchSwissJobs(params: {
     // Transform results
     let jobs = data.results.map(transformAdzunaJob)
 
-    // Client-side filtering for canton (Adzuna doesn't support canton-level filtering)
-    if (params.location) {
-      const cantonFilter = params.location.toLowerCase()
-      console.log('[Adzuna Client] Applying client-side canton filter:', cantonFilter)
-      jobs = jobs.filter(job => {
-        // Check if location_full contains the canton name
-        const locationFull = (job.location_full || '').toLowerCase()
-        const locationCity = (job.location_city || '').toLowerCase()
-        const match = locationFull.includes(cantonFilter) || locationCity.includes(cantonFilter)
-        return match
-      })
-      console.log('[Adzuna Client] Jobs after canton filtering:', jobs.length)
-    }
+    // Canton filtering is now handled server-side via swiss_localities table
+    // No client-side location filtering needed
 
     // Additional filtering for employment types not supported by Adzuna API
     if (params.employmentType === 'internship') {

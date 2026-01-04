@@ -5,7 +5,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchSwissJobs } from '@/lib/adzuna-client'
-import type { EmploymentType } from '@/types/jobs'
+import type { EmploymentType, JobListing } from '@/types/jobs'
+import { normalizeLocality } from '@/lib/location-normalizer'
+import { batchResolveCantons } from '@/lib/supabase-localities'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,8 +54,48 @@ export async function GET(request: NextRequest) {
 
     console.log('[API Route] Successfully fetched', jobs.length, 'jobs from Adzuna')
 
+    // Resolve cantons from swiss_localities table
+    const normalizedCities = jobs.map(job => normalizeLocality(job.location_city))
+    const uniqueCities = [...new Set(normalizedCities)]
+    const cantonMap = await batchResolveCantons(uniqueCities)
+
+    console.log('[API Route] Resolved cantons for', cantonMap.size, 'unique localities')
+
+    // Enrich jobs with resolved canton data
+    const enrichedJobs: JobListing[] = jobs.map(job => {
+      const normalized = normalizeLocality(job.location_city)
+      const match = cantonMap.get(normalized)
+
+      if (match) {
+        return {
+          ...job,
+          location_city_normalized: normalized,
+          location_canton: match.canton,
+          location_canton_normalized: match.canton_normalized,
+          location_unresolved: false,
+        }
+      } else {
+        return {
+          ...job,
+          location_city_normalized: normalized,
+          location_unresolved: true,
+        }
+      }
+    })
+
+    // Filter by canton if requested (only include resolved jobs)
+    let filteredJobs = enrichedJobs
+    if (location) {
+      const cantonFilterNormalized = normalizeLocality(location)
+      filteredJobs = enrichedJobs.filter(job =>
+        !job.location_unresolved &&
+        job.location_canton_normalized === cantonFilterNormalized
+      )
+      console.log('[API Route] Canton filter applied:', location, '→', filteredJobs.length, 'jobs')
+    }
+
     return NextResponse.json({
-      jobs,
+      jobs: filteredJobs,
       total,
       source: 'adzuna',
       message: 'Successfully fetched jobs from Adzuna API',
