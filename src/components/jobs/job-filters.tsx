@@ -2,15 +2,15 @@
 
 import { Search } from 'lucide-react'
 import type { JobSearchFilters, EmploymentType } from '@/types/jobs'
+import { SWISS_CANTONS } from '@/types/jobs'
 
 interface JobFiltersProps {
   filters: JobSearchFilters
   onFiltersChange: (filters: JobSearchFilters) => void
-  availableCities: string[]
   dict: any
 }
 
-export function JobFilters({ filters, onFiltersChange, availableCities, dict }: JobFiltersProps) {
+export function JobFilters({ filters, onFiltersChange, dict }: JobFiltersProps) {
   const employmentTypes: EmploymentType[] = ['full-time', 'part-time', 'contract', 'internship', 'temporary']
 
   return (
@@ -27,22 +27,22 @@ export function JobFilters({ filters, onFiltersChange, availableCities, dict }: 
         />
       </div>
 
-      {/* Location Filter */}
+      {/* Canton Filter */}
       <div className="w-full sm:w-auto">
         <select
-          value={filters.location_city || ''}
+          value={filters.location_canton || ''}
           onChange={(e) =>
             onFiltersChange({
               ...filters,
-              location_city: e.target.value || undefined,
+              location_canton: e.target.value || undefined,
             })
           }
           className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 sm:w-auto"
         >
-          <option value="">{dict?.filters?.allLocations || 'All Cities'}</option>
-          {availableCities.sort().map((city) => (
-            <option key={city} value={city}>
-              {city}
+          <option value="">{dict?.filters?.allCantons || 'All Cantons'}</option>
+          {SWISS_CANTONS.map((canton) => (
+            <option key={canton} value={canton}>
+              {canton}
             </option>
           ))}
         </select>
@@ -70,10 +70,10 @@ export function JobFilters({ filters, onFiltersChange, availableCities, dict }: 
       </div>
 
       {/* Clear Filters */}
-      {(filters.query || filters.location_city || filters.employment_type) && (
+      {(filters.query || filters.location_canton || filters.employment_type) && (
         <button
           onClick={() =>
-            onFiltersChange({ query: '', location_city: undefined, employment_type: undefined })
+            onFiltersChange({ query: '', location_canton: undefined, employment_type: undefined })
           }
           className="text-sm text-slate-600 hover:text-slate-900 underline"
         >

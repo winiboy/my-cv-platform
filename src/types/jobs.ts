@@ -23,6 +23,36 @@ export interface JobListing {
 
 export interface JobSearchFilters {
   query: string
-  location_city?: string
+  location_canton?: string // Swiss canton for filtering
   employment_type?: EmploymentType
 }
+
+// Swiss Cantons (26 total)
+export const SWISS_CANTONS = [
+  'Aargau',
+  'Appenzell Ausserrhoden',
+  'Appenzell Innerrhoden',
+  'Basel-Landschaft',
+  'Basel-Stadt',
+  'Bern',
+  'Fribourg',
+  'Genève',
+  'Glarus',
+  'Graubünden',
+  'Jura',
+  'Luzern',
+  'Neuchâtel',
+  'Nidwalden',
+  'Obwalden',
+  'Schaffhausen',
+  'Schwyz',
+  'Solothurn',
+  'St. Gallen',
+  'Thurgau',
+  'Ticino',
+  'Uri',
+  'Vaud',
+  'Valais',
+  'Zug',
+  'Zürich',
+] as const

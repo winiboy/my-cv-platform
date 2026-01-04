@@ -29,7 +29,7 @@ export function JobSearchLayout({ initialJobs, dict, locale }: JobSearchLayoutPr
   )
   const [filters, setFilters] = useState<JobSearchFilters>({
     query: '',
-    location_city: undefined,
+    location_canton: undefined,
     employment_type: undefined,
   })
 
@@ -47,7 +47,7 @@ export function JobSearchLayout({ initialJobs, dict, locale }: JobSearchLayoutPr
     try {
       const params = new URLSearchParams()
       if (filters.query) params.append('query', filters.query)
-      if (filters.location_city) params.append('location', filters.location_city)
+      if (filters.location_canton) params.append('location', filters.location_canton)
       if (filters.employment_type) params.append('employmentType', filters.employment_type)
       params.append('page', String(page))
       params.append('resultsPerPage', '20')
@@ -186,7 +186,6 @@ export function JobSearchLayout({ initialJobs, dict, locale }: JobSearchLayoutPr
         <JobFilters
           filters={filters}
           onFiltersChange={setFilters}
-          availableCities={Array.from(new Set(jobs.map((j) => j.location_city)))}
           dict={dict}
         />
       </div>
