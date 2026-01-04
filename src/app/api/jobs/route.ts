@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
     // Fetch from Adzuna API
     console.log('[API Route] Fetching jobs from Adzuna API')
     console.log('[API Route] Params:', { query, location, employmentType, page, resultsPerPage })
+    console.log('[API Route] Location filter (canton):', location || 'NONE')
 
     const { jobs, total } = await fetchSwissJobs({
       query,
