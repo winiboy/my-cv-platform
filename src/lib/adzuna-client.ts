@@ -141,6 +141,7 @@ export async function fetchSwissJobs(params: {
   employmentType?: EmploymentType
   page?: number
   resultsPerPage?: number
+  whereCities?: string[] // Array of city names for Adzuna's where parameter
 }): Promise<{ jobs: JobListing[]; total: number }> {
   const appId = process.env.ADZUNA_APP_ID
   const appKey = process.env.ADZUNA_APP_KEY
@@ -164,9 +165,14 @@ export async function fetchSwissJobs(params: {
     queryParams.append('what', params.query)
   }
 
-  // Note: We don't send location to Adzuna API because it doesn't support canton-level filtering
-  // Instead, we fetch all Swiss jobs and filter client-side based on location_full
-  // This ensures we get all jobs in the canton, not just those in a specific city
+  // Add location filter (where parameter) - search through ALL Swiss jobs
+  // When canton filtering is active, we pass the main city for that canton
+  // Note: Adzuna doesn't support "OR" syntax, so we only use the first/main city
+  if (params.whereCities && params.whereCities.length > 0) {
+    const mainCity = params.whereCities[0] // Use only the main city
+    queryParams.append('where', mainCity)
+    console.log('[Adzuna] Location filter (where):', mainCity)
+  }
 
   // Add employment type filter
   if (params.employmentType) {

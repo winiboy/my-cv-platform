@@ -8,6 +8,7 @@ import { fetchSwissJobs } from '@/lib/adzuna-client'
 import type { EmploymentType, JobListing } from '@/types/jobs'
 import { normalizeLocality } from '@/lib/location-normalizer'
 import { batchResolveCantons } from '@/lib/supabase-localities'
+import { getMajorCitiesForCanton } from '@/lib/canton-cities'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,46 +45,27 @@ export async function GET(request: NextRequest) {
     console.log('[API Route] Params:', { query, location, employmentType, page, resultsPerPage })
     console.log('[API Route] Location filter (canton):', location || 'NONE')
 
-    let jobs: JobListing[] = []
-    let total = 0
-
-    // When canton filter is applied, fetch multiple pages to find jobs in that canton
-    // Adzuna limits to ~50 results per page, so we need to fetch multiple pages
+    // When canton filter is applied, use Adzuna's location filter to search ALL jobs
+    let whereCities: string[] | undefined
     if (location) {
-      const pagesToFetch = 4 // Fetch 4 pages = ~200 jobs total
-      console.log('[API Route] Canton filter active - fetching', pagesToFetch, 'pages to find jobs in', location)
+      const cantonNormalized = normalizeLocality(location)
+      whereCities = getMajorCitiesForCanton(cantonNormalized)
 
-      for (let pageNum = 1; pageNum <= pagesToFetch; pageNum++) {
-        const { jobs: pageJobs, total: pageTotal } = await fetchSwissJobs({
-          query,
-          location,
-          employmentType,
-          page: pageNum,
-          resultsPerPage: 50,
-        })
-
-        jobs.push(...pageJobs)
-        total = pageTotal
-
-        console.log('[API Route] Fetched page', pageNum, ':', pageJobs.length, 'jobs (total so far:', jobs.length, ')')
-
-        // Stop if we got fewer results than requested (last page)
-        if (pageJobs.length < 50) {
-          break
-        }
+      if (whereCities.length > 0) {
+        console.log('[API Route] Canton filter:', location, '→ Major cities:', whereCities.join(', '))
+      } else {
+        console.log('[API Route] Warning: No major cities found for canton:', location)
       }
-    } else {
-      // No canton filter - fetch single page as requested
-      const result = await fetchSwissJobs({
-        query,
-        location,
-        employmentType,
-        page,
-        resultsPerPage,
-      })
-      jobs = result.jobs
-      total = result.total
     }
+
+    const { jobs, total } = await fetchSwissJobs({
+      query,
+      location,
+      employmentType,
+      page,
+      resultsPerPage,
+      whereCities,
+    })
 
     console.log('[API Route] Successfully fetched', jobs.length, 'jobs from Adzuna')
 
@@ -154,15 +136,11 @@ export async function GET(request: NextRequest) {
         console.log('[DEBUG] Available cantons in results:', uniqueCantons)
         console.log('[DEBUG] Looking for canton:', cantonFilterNormalized)
       }
-
-      // Limit to requested number of results
-      filteredJobs = filteredJobs.slice(0, resultsPerPage)
-      console.log('[API Route] Returning', filteredJobs.length, 'jobs (requested:', resultsPerPage, ')')
     }
 
     return NextResponse.json({
       jobs: filteredJobs,
-      total: location ? filteredJobs.length : total, // When filtering, return filtered count as total
+      total, // Adzuna's total count (already filtered if using where parameter)
       source: 'adzuna',
       message: 'Successfully fetched jobs from Adzuna API',
     })
