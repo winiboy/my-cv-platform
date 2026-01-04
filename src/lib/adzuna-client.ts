@@ -40,19 +40,22 @@ function mapContractType(adzunaJob: AdzunaJobResult): EmploymentType {
  * Extract city name from Adzuna location
  */
 function extractCity(location: AdzunaJobResult['location']): string {
-  // Adzuna location.area is an array like ["Zürich", "Zürich", "Switzerland"]
-  // or location.display_name like "Zürich, Zürich"
+  // Adzuna location.area is an array like:
+  // ["Schweiz", "Kanton Zürich", "Zürich", "Zürich"]
+  // The last element is the city name
 
-  if (location.area && location.area.length > 0) {
-    return location.area[0]
-  }
-
+  // Try display_name first (most reliable)
   if (location.display_name) {
     const parts = location.display_name.split(',')
     return parts[0].trim()
   }
 
-  return 'Zürich' // Default fallback
+  // Fallback to last element of area array (the city)
+  if (location.area && location.area.length > 0) {
+    return location.area[location.area.length - 1]
+  }
+
+  return 'Schweiz' // Default fallback
 }
 
 /**
