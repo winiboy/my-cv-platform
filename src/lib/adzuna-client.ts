@@ -248,7 +248,7 @@ export async function fetchSwissJobs(params: {
 
     return {
       jobs,
-      total: jobs.length, // Return filtered count, not total API count
+      total: data.count, // Return API total for infinite scroll to work
     }
   } catch (error) {
     console.error('Error fetching jobs from Adzuna:', error)
