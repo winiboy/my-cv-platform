@@ -44,13 +44,46 @@ export async function GET(request: NextRequest) {
     console.log('[API Route] Params:', { query, location, employmentType, page, resultsPerPage })
     console.log('[API Route] Location filter (canton):', location || 'NONE')
 
-    const { jobs, total } = await fetchSwissJobs({
-      query,
-      location,
-      employmentType,
-      page,
-      resultsPerPage,
-    })
+    let jobs: JobListing[] = []
+    let total = 0
+
+    // When canton filter is applied, fetch multiple pages to find jobs in that canton
+    // Adzuna limits to ~50 results per page, so we need to fetch multiple pages
+    if (location) {
+      const pagesToFetch = 4 // Fetch 4 pages = ~200 jobs total
+      console.log('[API Route] Canton filter active - fetching', pagesToFetch, 'pages to find jobs in', location)
+
+      for (let pageNum = 1; pageNum <= pagesToFetch; pageNum++) {
+        const { jobs: pageJobs, total: pageTotal } = await fetchSwissJobs({
+          query,
+          location,
+          employmentType,
+          page: pageNum,
+          resultsPerPage: 50,
+        })
+
+        jobs.push(...pageJobs)
+        total = pageTotal
+
+        console.log('[API Route] Fetched page', pageNum, ':', pageJobs.length, 'jobs (total so far:', jobs.length, ')')
+
+        // Stop if we got fewer results than requested (last page)
+        if (pageJobs.length < 50) {
+          break
+        }
+      }
+    } else {
+      // No canton filter - fetch single page as requested
+      const result = await fetchSwissJobs({
+        query,
+        location,
+        employmentType,
+        page,
+        resultsPerPage,
+      })
+      jobs = result.jobs
+      total = result.total
+    }
 
     console.log('[API Route] Successfully fetched', jobs.length, 'jobs from Adzuna')
 
@@ -111,7 +144,7 @@ export async function GET(request: NextRequest) {
         job.location_canton_normalized === cantonFilterNormalized
       )
 
-      console.log('[API Route] Canton filter applied:', location, '→', filteredJobs.length, 'jobs')
+      console.log('[API Route] Canton filter applied:', location, '→', filteredJobs.length, 'jobs found')
 
       // Debug: Show why no matches if result is empty
       if (filteredJobs.length === 0 && resolvedCount > 0) {
@@ -121,11 +154,15 @@ export async function GET(request: NextRequest) {
         console.log('[DEBUG] Available cantons in results:', uniqueCantons)
         console.log('[DEBUG] Looking for canton:', cantonFilterNormalized)
       }
+
+      // Limit to requested number of results
+      filteredJobs = filteredJobs.slice(0, resultsPerPage)
+      console.log('[API Route] Returning', filteredJobs.length, 'jobs (requested:', resultsPerPage, ')')
     }
 
     return NextResponse.json({
       jobs: filteredJobs,
-      total,
+      total: location ? filteredJobs.length : total, // When filtering, return filtered count as total
       source: 'adzuna',
       message: 'Successfully fetched jobs from Adzuna API',
     })
