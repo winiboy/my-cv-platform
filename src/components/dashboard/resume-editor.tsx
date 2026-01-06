@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   User,
   FileText,
@@ -14,10 +14,11 @@ import {
   Save,
   Eye,
   ArrowLeft,
+  Sparkles,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n'
-import type { Resume } from '@/types/database'
+import type { Resume, ResumeSkillCategory } from '@/types/database'
 import { ContactSection } from './resume-sections/contact-section'
 import { SummarySection } from './resume-sections/summary-section'
 import { ExperienceSection } from './resume-sections/experience-section'
@@ -27,6 +28,8 @@ import { LanguagesSection } from './resume-sections/languages-section'
 import { CertificationsSection } from './resume-sections/certifications-section'
 import { ProjectsSection } from './resume-sections/projects-section'
 import { ProfessionalTemplate } from './resume-templates/professional-template'
+import { CVAdaptationModal } from './cv-adaptation-modal'
+import type { CVAdaptationPatch } from '@/types/cv-adaptation'
 
 interface ResumeEditorProps {
   resume: Resume
@@ -68,6 +71,7 @@ const SECTION_MAPPING: Record<string, SectionId> = {
 
 export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEditorProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [resume, setResume] = useState(initialResume)
   const [activeSection, setActiveSection] = useState<SectionId>('contact')
   const [isSaving, setIsSaving] = useState(false)
@@ -75,6 +79,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [modifiedSections, setModifiedSections] = useState<Set<SectionId>>(new Set())
+  const [showAdaptationModal, setShowAdaptationModal] = useState(false)
 
   // Design settings for live preview (loaded from localStorage)
   const [titleFontSize, setTitleFontSize] = useState(24)
@@ -160,6 +165,105 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
       localStorage.setItem(`resume_modified_sections_${resume.id}`, JSON.stringify(Array.from(newModifiedSections)))
     }, 500)
   }, [resume, modifiedSections])
+
+  // Handle CV adaptation from job description
+  const handleApplyChanges = useCallback((patch: CVAdaptationPatch, selectedPatches: string[]) => {
+    const updates: Partial<Resume> = {}
+
+    console.log('Applying changes:', { patch, selectedPatches }) // Debug log
+
+    // Apply summary patch if selected
+    if (selectedPatches.includes('summary') && patch.patches.summary) {
+      updates.summary = patch.patches.summary.proposed
+      console.log('Updating summary:', updates.summary) // Debug log
+    }
+
+    // Apply experience description patch if selected
+    if (selectedPatches.includes('experienceDescription') && patch.patches.experienceDescription) {
+      const experienceArray = Array.isArray(resume.experience) ? [...resume.experience] : []
+      const index = patch.patches.experienceDescription.experienceIndex
+      if (experienceArray[index]) {
+        experienceArray[index] = {
+          ...experienceArray[index],
+          description: patch.patches.experienceDescription.proposed,
+        }
+        updates.experience = experienceArray
+        console.log('Updating experience:', experienceArray[index].description) // Debug log
+      }
+    }
+
+    // Apply skills patches if selected
+    let skillsModified = false
+    const skillsArray = Array.isArray(resume.skills) ? [...resume.skills] : []
+
+    // Add new skill categories
+    patch.patches.skillsToAdd?.forEach((skillPatch, index) => {
+      if (selectedPatches.includes(`skillsToAdd-${index}`)) {
+        skillsArray.push({
+          category: skillPatch.category,
+          items: skillPatch.items,
+          visible: true,
+        })
+        skillsModified = true
+        console.log('Adding skill category:', skillPatch.category) // Debug log
+      }
+    })
+
+    // Enhance existing skill categories
+    patch.patches.skillsToEnhance?.forEach((skillPatch, index) => {
+      if (selectedPatches.includes(`skillsToEnhance-${index}`)) {
+        const existingCategory = skillsArray.find((cat) => cat.category === skillPatch.category)
+        if (existingCategory) {
+          // Merge skills, avoiding duplicates
+          const existingSkillsLower = existingCategory.items.map((s) => s.toLowerCase())
+          const newSkills = skillPatch.itemsToAdd.filter(
+            (skill) => !existingSkillsLower.includes(skill.toLowerCase())
+          )
+          if (newSkills.length > 0) {
+            existingCategory.items = [...existingCategory.items, ...newSkills]
+            skillsModified = true
+            console.log('Enhancing skill category:', skillPatch.category, newSkills) // Debug log
+          }
+        }
+      }
+    })
+
+    if (skillsModified) {
+      updates.skills = skillsArray
+    }
+
+    // Apply all updates
+    console.log('Final updates:', updates) // Debug log
+    if (Object.keys(updates).length > 0) {
+      updateResume(updates)
+
+      // Show success message
+      setTimeout(() => {
+        alert(dict?.cvAdaptation?.successMessage || 'CV adapted successfully. Review and save when ready.')
+      }, 100)
+    } else {
+      console.log('No updates to apply') // Debug log
+    }
+
+    setShowAdaptationModal(false)
+  }, [resume, updateResume, dict])
+
+  // Check for adaptation data in URL on mount
+  useEffect(() => {
+    const adaptationData = searchParams.get('adaptation')
+    if (adaptationData) {
+      try {
+        const { patch, selectedPatches } = JSON.parse(decodeURIComponent(adaptationData))
+        console.log('Loading adaptation from URL:', { patch, selectedPatches }) // Debug log
+        // Apply changes immediately
+        handleApplyChanges(patch, selectedPatches)
+        // Clean up URL
+        router.replace(`/${locale}/dashboard/resumes/${resume.id}/edit`)
+      } catch (error) {
+        console.error('Error parsing adaptation data:', error)
+      }
+    }
+  }, [searchParams, handleApplyChanges, router, locale, resume.id])
 
   // Handle dragging the divider
   const handleMouseDown = useCallback(() => {
@@ -335,6 +439,13 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
             {dict.resumes?.preview || 'Preview'}
           </button>
           <button
+            onClick={() => setShowAdaptationModal(true)}
+            className="flex items-center gap-2 rounded-lg border border-purple-600 bg-white px-4 py-2 text-sm font-medium text-purple-600 transition-colors hover:bg-purple-50"
+          >
+            <Sparkles className="h-4 w-4" />
+            {dict?.cvAdaptation?.adaptToJob || 'Adapt to Job'}
+          </button>
+          <button
             onClick={handleSave}
             disabled={isSaving}
             className={`relative flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -466,6 +577,16 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
           </div>
         </div>
       </div>
+
+      {/* CV Adaptation Modal */}
+      <CVAdaptationModal
+        isOpen={showAdaptationModal}
+        onClose={() => setShowAdaptationModal(false)}
+        resumeId={resume.id}
+        locale={locale}
+        onApplyChanges={handleApplyChanges}
+        dict={dict?.cvAdaptation}
+      />
     </div>
   )
 }

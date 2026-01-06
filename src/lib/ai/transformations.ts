@@ -4,11 +4,15 @@ import {
   buildExperiencePrompt,
   buildTranslationPrompt,
   buildJobDescriptionToResumePrompt,
+  buildResumeAdaptationPrompt,
   type TransformSummaryInput,
   type TransformExperienceInput,
   type TranslateSummaryInput,
   type JobDescriptionToResumeInput,
+  type ResumeAdaptationInput,
 } from './prompts'
+import type { CVAdaptationPatch } from '@/types/cv-adaptation'
+import type { Resume } from '@/types/database'
 
 /**
  * Transform a resume summary using AI
@@ -167,6 +171,96 @@ export async function generateResumeFromJobDescription(input: JobDescriptionToRe
 
   return {
     resumeData,
+    tokensUsed: result.usage?.total_tokens || 0,
+  }
+}
+
+/**
+ * Input for adapting an existing resume to a job description
+ */
+export interface AdaptResumeInput {
+  currentResume: Resume
+  jobDescription: string
+  jobTitle: string
+  company: string
+  locale: string
+}
+
+/**
+ * Adapt an existing resume to a specific job description
+ * Creates targeted patches (not full rewrites) with confidence scoring
+ */
+export async function adaptResumeToJobDescription(input: AdaptResumeInput) {
+  const { currentResume, jobDescription, jobTitle, company, locale } = input
+
+  // Extract current CV content
+  const currentSummary = currentResume.summary || ''
+  const currentExperience = Array.isArray(currentResume.experience) ? currentResume.experience : []
+  const currentSkills = Array.isArray(currentResume.skills) ? currentResume.skills : []
+
+  // Build the prompt
+  const prompt = buildResumeAdaptationPrompt({
+    currentSummary,
+    currentExperience,
+    currentSkills,
+    jobDescription,
+    jobTitle,
+    company,
+    locale,
+  })
+
+  // Call AI
+  const result = await generateCompletion(prompt, {
+    model: MODELS.BALANCED,
+    temperature: 0.7,
+    maxTokens: 2000,
+  })
+
+  // Parse JSON response
+  let parsedContent
+  try {
+    // Try to extract JSON from the response
+    const text = result.text.trim()
+
+    // Sometimes the AI wraps JSON in markdown code blocks
+    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+    const jsonText = jsonMatch ? jsonMatch[1] : text
+
+    parsedContent = JSON.parse(jsonText)
+  } catch (error) {
+    console.error('Failed to parse JSON response:', error)
+    console.error('Raw response:', result.text)
+    throw new Error('Failed to parse AI response. Please try again.')
+  }
+
+  // Construct the patch with validation
+  const patch: CVAdaptationPatch = {
+    jobTitle,
+    company,
+    jobDescription,
+    createdAt: new Date().toISOString(),
+    locale,
+    patches: {
+      summary: parsedContent.patches?.summary || undefined,
+      experienceDescription: parsedContent.patches?.experienceDescription || undefined,
+      skillsToAdd: Array.isArray(parsedContent.patches?.skillsToAdd)
+        ? parsedContent.patches.skillsToAdd
+        : undefined,
+      skillsToEnhance: Array.isArray(parsedContent.patches?.skillsToEnhance)
+        ? parsedContent.patches.skillsToEnhance
+        : undefined,
+    },
+    analysis: {
+      matchScore: parsedContent.analysis?.matchScore || 0,
+      keyGaps: Array.isArray(parsedContent.analysis?.keyGaps) ? parsedContent.analysis.keyGaps : [],
+      strengths: Array.isArray(parsedContent.analysis?.strengths)
+        ? parsedContent.analysis.strengths
+        : [],
+    },
+  }
+
+  return {
+    patch,
     tokensUsed: result.usage?.total_tokens || 0,
   }
 }

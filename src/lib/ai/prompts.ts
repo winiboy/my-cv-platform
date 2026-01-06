@@ -336,3 +336,188 @@ ${jobDescription}
 Return ONLY the JSON object. No additional text, explanations, or formatting.`
 }
 
+export interface ResumeAdaptationInput {
+  currentSummary: string
+  currentExperience: {
+    position: string
+    company: string
+    startDate: string
+    endDate?: string
+    current: boolean
+    location?: string
+    description?: string
+    achievements?: string[]
+  }[]
+  currentSkills: {
+    category: string
+    items: string[]
+  }[]
+  jobDescription: string
+  jobTitle: string
+  company: string
+  locale: string
+}
+
+/**
+ * Generate prompt for adapting an existing resume to a job description
+ * This creates targeted patches (not full rewrites) with confidence scoring
+ */
+export function buildResumeAdaptationPrompt(input: ResumeAdaptationInput): string {
+  const {
+    currentSummary,
+    currentExperience,
+    currentSkills,
+    jobDescription,
+    jobTitle,
+    company,
+    locale,
+  } = input
+
+  // Map locale to language name
+  const languageMap: Record<string, string> = {
+    'en': 'English',
+    'fr': 'French',
+    'de': 'German',
+    'it': 'Italian',
+  }
+
+  const targetLanguage = locale && languageMap[locale] ? languageMap[locale] : 'English'
+
+  // Format current experience for prompt
+  const currentExpFormatted = currentExperience
+    .slice(0, 1) // Only use most recent experience
+    .map(exp => `
+Position: ${exp.position}
+Company: ${exp.company}
+Duration: ${exp.startDate} - ${exp.current ? 'Present' : (exp.endDate || 'N/A')}
+Description: ${exp.description || 'No description provided'}
+`)
+    .join('\n')
+
+  // Format current skills for prompt
+  const currentSkillsFormatted = currentSkills
+    .map(cat => `${cat.category}: ${cat.items.join(', ')}`)
+    .join('\n')
+
+  return `You are an expert CV consultant specializing in tailoring resumes to specific job opportunities.
+
+**CRITICAL - ANTI-COPY RULES (MANDATORY):**
+1. NEVER copy sentences verbatim from the job description
+2. NEVER mirror the bullet point structure from the job posting
+3. NEVER use exact phrases from the requirements section
+4. ALL content must be:
+   - Abstracted and synthesized
+   - Rewritten in CV-appropriate language
+   - Focused on demonstrating relevant experience/skills
+   - Original and professional
+
+**TASK:**
+Analyze the job description and suggest TARGETED adaptations to the candidate's existing CV.
+
+**JOB DESCRIPTION:**
+"""
+${jobDescription}
+"""
+
+**TARGET ROLE:**
+Position: ${jobTitle}
+Company: ${company}
+
+**CURRENT CV CONTENT:**
+
+Summary:
+${currentSummary || 'No summary provided'}
+
+Most Recent Experience:
+${currentExpFormatted || 'No experience provided'}
+
+Current Skills:
+${currentSkillsFormatted || 'No skills provided'}
+
+**ADAPTATION STRATEGY:**
+
+1. **Summary Adaptation:**
+   - Rewrite to emphasize relevant experience for THIS specific role
+   - Highlight transferable skills that match job requirements
+   - Reference domain-relevant achievements
+   - Use keywords from job description (abstracted, not copied)
+   - Keep 60-100 words
+   - Write in ${targetLanguage}
+
+2. **Experience Description Adaptation:**
+   - Adapt the MOST RECENT role to align with job requirements
+   - Emphasize responsibilities matching the job posting
+   - Reframe achievements to show relevant capabilities
+   - DO NOT invent new facts or achievements
+   - DO NOT copy job description text
+   - Write in ${targetLanguage}
+
+3. **Skills Analysis:**
+   - Identify hard skills mentioned in job description (if not already present)
+   - Identify inferred soft skills (e.g., "team collaboration" if job mentions "cross-functional teams")
+   - Suggest new skill categories if needed
+   - NEVER remove existing skills
+   - Write skill names in ${targetLanguage}
+
+4. **Confidence Scoring:**
+   - HIGH: Change is clearly justified and well-aligned with current experience
+   - MEDIUM: Change is reasonable but requires judgment, involves transferable skills
+   - LOW: Uncertain or speculative change, significant gaps in qualifications
+
+**CRITICAL - LANGUAGE REQUIREMENT:**
+- ALL proposed text must be in ${targetLanguage}
+- Maintain professional business language
+- Use industry-appropriate terminology
+
+**OUTPUT FORMAT (JSON ONLY):**
+{
+  "patches": {
+    "summary": {
+      "original": "<current summary text>",
+      "proposed": "<adapted summary in ${targetLanguage}>",
+      "confidence": "high" | "medium" | "low",
+      "reasoning": "<brief explanation of why this change was suggested>"
+    },
+    "experienceDescription": {
+      "original": "<current description text>",
+      "proposed": "<adapted description in ${targetLanguage}>",
+      "confidence": "high" | "medium" | "low",
+      "reasoning": "<brief explanation>",
+      "experienceIndex": 0
+    },
+    "skillsToAdd": [
+      {
+        "category": "<category name in ${targetLanguage}>",
+        "items": ["<skill1>", "<skill2>"],
+        "confidence": "high" | "medium" | "low",
+        "reasoning": "<brief explanation>"
+      }
+    ],
+    "skillsToEnhance": [
+      {
+        "category": "<existing category name>",
+        "itemsToAdd": ["<skill1>", "<skill2>"],
+        "confidence": "high" | "medium" | "low",
+        "reasoning": "<brief explanation>"
+      }
+    ]
+  },
+  "analysis": {
+    "matchScore": <number 0-100>,
+    "keyGaps": ["<gap1>", "<gap2>"],
+    "strengths": ["<strength1>", "<strength2>"]
+  }
+}
+
+**IMPORTANT CONSTRAINTS:**
+- If a section cannot be improved or is already well-aligned, OMIT that patch from the output
+- Only include patches where you have high or medium confidence
+- Low confidence patches should be omitted unless critically important
+- If the CV already aligns well with the job, you may return minimal or no patches
+- DO NOT invent facts, achievements, or experiences not present in the current CV
+- Focus on REFRAMING and EMPHASIZING existing content, not creating new content
+
+**Response:**
+Return ONLY the JSON object. No additional text, explanations, or formatting.`
+}
+

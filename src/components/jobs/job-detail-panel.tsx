@@ -1,10 +1,15 @@
 'use client'
 
-import { MapPin, Briefcase, DollarSign, Calendar, Bookmark, ExternalLink, CheckCircle } from 'lucide-react'
+import { MapPin, Briefcase, DollarSign, Calendar, Bookmark, ExternalLink, CheckCircle, Sparkles } from 'lucide-react'
 import type { JobListing } from '@/types/jobs'
 import type { Locale } from '@/lib/i18n'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { CVAdaptationModal } from '@/components/dashboard/cv-adaptation-modal'
+import { ResumeSelectorModal } from './resume-selector-modal'
+import { createClient } from '@/lib/supabase/client'
+import type { CVAdaptationPatch } from '@/types/cv-adaptation'
+import { useRouter } from 'next/navigation'
 
 interface JobDetailPanelProps {
   job: JobListing
@@ -12,9 +17,14 @@ interface JobDetailPanelProps {
   locale: Locale
 }
 
-export function JobDetailPanel({ job, dict }: JobDetailPanelProps) {
+export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
+  const router = useRouter()
   const [isSaved, setIsSaved] = useState(job.is_saved || false)
   const [isTracked, setIsTracked] = useState(false)
+  const [showAdaptationModal, setShowAdaptationModal] = useState(false)
+  const [showResumeSelector, setShowResumeSelector] = useState(false)
+  const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string>('')
 
   const handleSave = () => {
     setIsSaved(!isSaved)
@@ -31,6 +41,68 @@ export function JobDetailPanel({ job, dict }: JobDetailPanelProps) {
       window.open(job.application_url, '_blank')
     }
     // TODO: Track application
+  }
+
+  const handleAdaptCV = async () => {
+    try {
+      // Get current user
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        // Redirect to login
+        router.push(`/${locale}/auth/signin`)
+        return
+      }
+
+      setUserId(user.id)
+
+      // Fetch user's resumes
+      const { data: resumes, error } = await supabase
+        .from('resumes')
+        .select('id')
+        .eq('user_id', user.id)
+
+      if (error) {
+        console.error('Error fetching resumes:', error)
+        alert(dict?.cvAdaptation?.noResumesError || 'Failed to load resumes')
+        return
+      }
+
+      if (!resumes || resumes.length === 0) {
+        // No resumes found
+        alert(dict?.cvAdaptation?.noResumesError || 'Please create a CV first before adapting it to a job.')
+        return
+      }
+
+      if (resumes.length === 1) {
+        // Only one resume, auto-select and show adaptation modal
+        setSelectedResumeId(resumes[0].id)
+        setShowAdaptationModal(true)
+      } else {
+        // Multiple resumes, show selector
+        setShowResumeSelector(true)
+      }
+    } catch (error) {
+      console.error('Error in handleAdaptCV:', error)
+      alert('An error occurred. Please try again.')
+    }
+  }
+
+  const handleResumeSelected = (resumeId: string) => {
+    setSelectedResumeId(resumeId)
+    setShowResumeSelector(false)
+    setShowAdaptationModal(true)
+  }
+
+  const handleApplyChanges = (patch: CVAdaptationPatch, selectedPatches: string[]) => {
+    // Redirect to resume editor with adaptation data in URL query
+    // The resume editor will handle applying the changes
+    const adaptationData = encodeURIComponent(JSON.stringify({
+      patch,
+      selectedPatches
+    }))
+    router.push(`/${locale}/dashboard/resumes/${selectedResumeId}/edit?adaptation=${adaptationData}`)
   }
 
   // Parse description into paragraphs
@@ -89,6 +161,15 @@ export function JobDetailPanel({ job, dict }: JobDetailPanelProps) {
             <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-current' : ''}`} />
             {isSaved ? (dict?.saved || 'Saved') : (dict?.save || 'Save')}
           </Button>
+
+          <Button
+            onClick={handleAdaptCV}
+            variant="outline"
+            className="flex items-center gap-2 border-purple-600 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
+          >
+            <Sparkles className="h-4 w-4" />
+            {dict?.cvAdaptation?.adaptCV || 'Adapt My CV'}
+          </Button>
         </div>
       </div>
 
@@ -145,6 +226,30 @@ export function JobDetailPanel({ job, dict }: JobDetailPanelProps) {
           </p>
         </div>
       </div>
+
+      {/* Resume Selector Modal */}
+      <ResumeSelectorModal
+        isOpen={showResumeSelector}
+        onClose={() => setShowResumeSelector(false)}
+        onSelectResume={handleResumeSelected}
+        userId={userId}
+        dict={dict?.cvAdaptation}
+      />
+
+      {/* CV Adaptation Modal */}
+      {selectedResumeId && (
+        <CVAdaptationModal
+          isOpen={showAdaptationModal}
+          onClose={() => setShowAdaptationModal(false)}
+          resumeId={selectedResumeId}
+          initialJobDescription={job.description}
+          initialJobTitle={job.title}
+          initialCompany={job.company}
+          locale={locale}
+          onApplyChanges={handleApplyChanges}
+          dict={dict?.cvAdaptation}
+        />
+      )}
     </div>
   )
 }
