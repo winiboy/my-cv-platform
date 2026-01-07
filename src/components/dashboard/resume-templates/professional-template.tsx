@@ -184,7 +184,7 @@ export function ProfessionalTemplate({
             {/* Professional Title - Cyan Accent */}
             <p
               className="mb-2 text-sm leading-snug"
-              style={{ color: 'oklch(0.7 0.15 200)' }}
+              style={{ color: 'oklch(0.7 0.15 200)', textAlign: 'justify' }}
             >
               {contact.name ? (resume.title || 'Professional Title') : ''}
             </p>
@@ -206,7 +206,7 @@ export function ProfessionalTemplate({
                       </h3>
                     </div>
                     {achievement.description && (
-                      <div className="ml-4 text-xs leading-relaxed opacity-90">
+                      <div className="ml-4 text-xs leading-relaxed opacity-90" style={{ textAlign: 'justify' }}>
                         {renderFormattedText(achievement.description)}
                       </div>
                     )}
@@ -231,10 +231,10 @@ export function ProfessionalTemplate({
                   )
                   .map((skillCategory, index) => (
                     <div key={index} className="mb-3">
-                      <p className="mb-1 font-semibold opacity-90">
+                      <p className="mb-1 font-semibold opacity-90" style={{ textAlign: 'justify' }}>
                         {skillCategory.category}:
                       </p>
-                      <p className="opacity-80">{skillCategory.items.join(' • ')}</p>
+                      <p className="opacity-80" style={{ textAlign: 'justify' }}>{skillCategory.items.join(' • ')}</p>
                     </div>
                   ))}
               </div>
@@ -250,12 +250,12 @@ export function ProfessionalTemplate({
               <div className="space-y-4">
                 {certifications.slice(0, 3).map((cert, index) => (
                   <div key={index}>
-                    <h3 className="mb-1 text-sm font-bold leading-snug">
+                    <h3 className="mb-1 text-sm font-bold leading-snug" style={{ textAlign: 'justify' }}>
                       {cert.name}
                     </h3>
-                    <p className="text-xs opacity-90">{cert.issuer}</p>
+                    <p className="text-xs opacity-90" style={{ textAlign: 'justify' }}>{cert.issuer}</p>
                     {cert.date && (
-                      <p className="text-xs opacity-75">
+                      <p className="text-xs opacity-75" style={{ textAlign: 'justify' }}>
                         {new Date(cert.date + '-01').toLocaleDateString(locale, {
                           month: 'long',
                           year: 'numeric',
