@@ -206,9 +206,9 @@ export function ProfessionalTemplate({
                       </h3>
                     </div>
                     {achievement.description && (
-                      <p className="ml-4 text-xs leading-relaxed opacity-90">
-                        {achievement.description}
-                      </p>
+                      <div className="ml-4 text-xs leading-relaxed opacity-90">
+                        {renderFormattedText(achievement.description)}
+                      </div>
                     )}
                   </div>
                 ))}
