@@ -12,7 +12,7 @@ import {
   type ResumeAdaptationInput,
 } from './prompts'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
-import type { Resume } from '@/types/database'
+import type { Resume, ResumeExperience, ResumeSkillCategory } from '@/types/database'
 
 /**
  * Transform a resume summary using AI
@@ -195,8 +195,8 @@ export async function adaptResumeToJobDescription(input: AdaptResumeInput) {
 
   // Extract current CV content
   const currentSummary = currentResume.summary || ''
-  const currentExperience = Array.isArray(currentResume.experience) ? currentResume.experience : []
-  const currentSkills = Array.isArray(currentResume.skills) ? currentResume.skills : []
+  const currentExperience = (Array.isArray(currentResume.experience) ? currentResume.experience : []) as unknown as ResumeExperience[]
+  const currentSkills = (Array.isArray(currentResume.skills) ? currentResume.skills : []) as unknown as ResumeSkillCategory[]
 
   // Build the prompt
   const prompt = buildResumeAdaptationPrompt({

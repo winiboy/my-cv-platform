@@ -3,6 +3,8 @@
 import { Plus, Trash2, ChevronDown, ChevronUp, X, Sparkles, Languages, Check, Eye, EyeOff } from 'lucide-react'
 import { useState } from 'react'
 import type { Resume, ResumeProject } from '@/types/database'
+import { RichTextEditor } from '../rich-text-editor'
+import { htmlToPlainText, migrateTextToHtml } from '@/lib/html-utils'
 
 interface ProjectsSectionProps {
   resume: Resume
@@ -79,25 +81,17 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
     updateResume({ projects: updated as any })
   }
 
-  // Auto-resize textarea function
-  const autoResizeTextarea = (element: HTMLTextAreaElement) => {
-    element.style.height = 'auto'
-    element.style.height = element.scrollHeight + 'px'
-  }
-
-  // Handle description change with auto-resize
-  const handleDescriptionChange = (
-    index: number,
-    value: string,
-    event: React.ChangeEvent<HTMLTextAreaElement>
-  ) => {
-    updateProject(index, { description: value })
-    autoResizeTextarea(event.target)
+  // Handle description change
+  const handleDescriptionChange = (index: number, html: string, plainText: string) => {
+    updateProject(index, { description: html })
   }
 
   const handleOptimize = async (index: number) => {
     const project = projects[index]
-    if (!project.description || project.description.trim().length < 10) {
+    // Extract plain text from HTML for AI processing
+    const plainText = htmlToPlainText(project.description || '')
+
+    if (!plainText || plainText.trim().length < 10) {
       setError('Please add a description (at least 10 characters) before optimizing')
       return
     }
@@ -112,7 +106,7 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          text: project.description,
+          text: plainText,
           context: `Project: ${project.name}${
             project.technologies && project.technologies.length > 0
               ? ` (Technologies: ${project.technologies.join(', ')})`
@@ -127,7 +121,9 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
       }
 
       const data = await response.json()
-      setOptimizedDescriptions({ ...optimizedDescriptions, [index]: data.optimizedText })
+      // Convert AI response back to HTML
+      const optimizedHtml = migrateTextToHtml(data.optimizedText)
+      setOptimizedDescriptions({ ...optimizedDescriptions, [index]: optimizedHtml })
     } catch (err) {
       console.error('Error optimizing description:', err)
       setError('Failed to optimize description. Please try again.')
@@ -154,7 +150,10 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
 
   const handleTranslate = async (index: number, language: 'fr' | 'de' | 'en' | 'it') => {
     const project = projects[index]
-    if (!project.description || project.description.trim().length < 10) {
+    // Extract plain text from HTML for translation
+    const plainText = htmlToPlainText(project.description || '')
+
+    if (!plainText || plainText.trim().length < 10) {
       setError('Please add a description (at least 10 characters) before translating')
       return
     }
@@ -169,7 +168,7 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          summary: project.description,
+          summary: plainText,
           targetLanguage: language,
         }),
       })
@@ -179,9 +178,11 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
       }
 
       const data = await response.json()
+      // Convert translation back to HTML
+      const translatedHtml = migrateTextToHtml(data.translatedSummary)
       setTranslatedDescriptions({
         ...translatedDescriptions,
-        [index]: { text: data.translatedSummary, language: language.toUpperCase() },
+        [index]: { text: translatedHtml, language: language.toUpperCase() },
       })
     } catch (err) {
       console.error('Error translating description:', err)
@@ -398,23 +399,19 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
                       {dict.resumes?.editor?.description || 'Description'}{' '}
                       <span className="text-red-500">*</span>
                     </label>
-                    <textarea
-                      value={project.description}
-                      onChange={(e) => handleDescriptionChange(index, e.target.value, e)}
-                      onInput={(e) => autoResizeTextarea(e.target as HTMLTextAreaElement)}
-                      placeholder={
-                        dict.resumes?.editor?.projectDescPlaceholder ||
-                        'Describe the project, your role, and key achievements...'
-                      }
-                      rows={2}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 resize-none overflow-hidden"
-                      style={{ minHeight: '60px' }}
-                      ref={(el) => {
-                        if (el) {
-                          autoResizeTextarea(el)
+                    <div className="mt-1">
+                      <RichTextEditor
+                        id={`project-description-${index}`}
+                        value={project.description || ''}
+                        onChange={(html, plainText) => handleDescriptionChange(index, html, plainText)}
+                        placeholder={
+                          dict.resumes?.editor?.projectDescPlaceholder ||
+                          'Describe the project, your role, and key achievements...'
                         }
-                      }}
-                    />
+                        minHeight="72px"
+                        showRibbon={true}
+                      />
+                    </div>
                   </div>
 
                   {/* AI-Optimized Description Preview */}
@@ -432,9 +429,10 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
                           <X className="h-4 w-4" />
                         </button>
                       </div>
-                      <div className="mb-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-900">
-                        {optimizedDescriptions[index]}
-                      </div>
+                      <div
+                        className="mb-4 text-sm leading-relaxed text-slate-900 prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: optimizedDescriptions[index] }}
+                      />
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleAcceptOptimization(index)}
@@ -468,9 +466,10 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
                           <X className="h-4 w-4" />
                         </button>
                       </div>
-                      <div className="mb-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-900">
-                        {translatedDescriptions[index].text}
-                      </div>
+                      <div
+                        className="mb-4 text-sm leading-relaxed text-slate-900 prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: translatedDescriptions[index].text }}
+                      />
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleAcceptTranslation(index)}

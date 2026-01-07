@@ -55,8 +55,8 @@ export function ResumeSelectorModal({
       setResumes(data || [])
 
       // Auto-select first resume if only one
-      if (data && data.length === 1) {
-        setSelectedResumeId(data[0].id)
+      if (data && data.length === 1 && data[0]) {
+        setSelectedResumeId((data[0] as any).id)
       }
     } catch (err) {
       console.error('Error fetching resumes:', err)

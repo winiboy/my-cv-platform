@@ -10,23 +10,31 @@ import fr_marketing from '@/locales/fr/marketing.json'
 import de_marketing from '@/locales/de/marketing.json'
 import en_marketing from '@/locales/en/marketing.json'
 import it_marketing from '@/locales/it/marketing.json'
+import fr_jobs from '@/locales/fr/jobs.json'
+import de_jobs from '@/locales/de/jobs.json'
+import en_jobs from '@/locales/en/jobs.json'
+import it_jobs from '@/locales/it/jobs.json'
 
 const translations = {
   fr: {
     common: fr_common,
     marketing: fr_marketing,
+    jobs: fr_jobs,
   },
   de: {
     common: de_common,
     marketing: de_marketing,
+    jobs: de_jobs,
   },
   en: {
     common: en_common,
     marketing: en_marketing,
+    jobs: en_jobs,
   },
   it: {
     common: it_common,
     marketing: it_marketing,
+    jobs: it_jobs,
   },
 }
 

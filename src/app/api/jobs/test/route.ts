@@ -33,7 +33,7 @@ export async function GET() {
 
   try {
     console.log('Testing Adzuna API...')
-    console.log('URL:', testUrl.replace(appKey, 'REDACTED'))
+    console.log('URL:', testUrl.replace(appKey || '', 'REDACTED'))
 
     const response = await fetch(testUrl, {
       method: 'GET',

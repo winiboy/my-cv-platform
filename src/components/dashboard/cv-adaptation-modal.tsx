@@ -379,7 +379,15 @@ export function CVAdaptationModal({
                       reasoning={patch.patches.summary.reasoning}
                       isChecked={selectedPatches.has('summary')}
                       onCheckChange={() => togglePatch('summary')}
-                      dict={dict}
+                      dict={{
+                        currentVersion: dict?.currentVersion,
+                        proposedVersion: dict?.proposedVersion,
+                        reasoning: dict?.reasoning,
+                        applyChange: dict?.applyChange,
+                        confidenceHigh: dict?.confidenceHigh,
+                        confidenceMedium: dict?.confidenceMedium,
+                        confidenceLow: dict?.confidenceLow,
+                      }}
                     />
                   )}
 
@@ -393,7 +401,15 @@ export function CVAdaptationModal({
                       reasoning={patch.patches.experienceDescription.reasoning}
                       isChecked={selectedPatches.has('experienceDescription')}
                       onCheckChange={() => togglePatch('experienceDescription')}
-                      dict={dict}
+                      dict={{
+                        currentVersion: dict?.currentVersion,
+                        proposedVersion: dict?.proposedVersion,
+                        reasoning: dict?.reasoning,
+                        applyChange: dict?.applyChange,
+                        confidenceHigh: dict?.confidenceHigh,
+                        confidenceMedium: dict?.confidenceMedium,
+                        confidenceLow: dict?.confidenceLow,
+                      }}
                     />
                   )}
 

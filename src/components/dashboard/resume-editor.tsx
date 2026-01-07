@@ -182,13 +182,14 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
     if (selectedPatches.includes('experienceDescription') && patch.patches.experienceDescription) {
       const experienceArray = Array.isArray(resume.experience) ? [...resume.experience] : []
       const index = patch.patches.experienceDescription.experienceIndex
-      if (experienceArray[index]) {
+      const experienceItem = experienceArray[index]
+      if (experienceItem && typeof experienceItem === 'object') {
         experienceArray[index] = {
-          ...experienceArray[index],
+          ...experienceItem,
           description: patch.patches.experienceDescription.proposed,
         }
         updates.experience = experienceArray
-        console.log('Updating experience:', experienceArray[index].description) // Debug log
+        console.log('Updating experience at index:', index) // Debug log
       }
     }
 
@@ -212,10 +213,10 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
     // Enhance existing skill categories
     patch.patches.skillsToEnhance?.forEach((skillPatch, index) => {
       if (selectedPatches.includes(`skillsToEnhance-${index}`)) {
-        const existingCategory = skillsArray.find((cat) => cat.category === skillPatch.category)
-        if (existingCategory) {
+        const existingCategory = skillsArray.find((cat) => cat && typeof cat === 'object' && 'category' in cat && cat.category === skillPatch.category)
+        if (existingCategory && typeof existingCategory === 'object' && 'items' in existingCategory && Array.isArray(existingCategory.items)) {
           // Merge skills, avoiding duplicates
-          const existingSkillsLower = existingCategory.items.map((s) => s.toLowerCase())
+          const existingSkillsLower = existingCategory.items.map((s) => String(s).toLowerCase())
           const newSkills = skillPatch.itemsToAdd.filter(
             (skill) => !existingSkillsLower.includes(skill.toLowerCase())
           )

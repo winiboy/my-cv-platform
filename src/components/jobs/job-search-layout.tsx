@@ -112,7 +112,7 @@ export function JobSearchLayout({ initialJobs, dict, locale }: JobSearchLayoutPr
   }, [isLoadingMore, hasMore, isLoading, currentPage, fetchJobs])
 
   // Intersection Observer for infinite scroll
-  const observerTarget = useRef<HTMLDivElement>(null)
+  const observerTarget = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const target = observerTarget.current

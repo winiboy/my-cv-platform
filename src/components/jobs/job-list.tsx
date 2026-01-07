@@ -9,7 +9,7 @@ interface JobListProps {
   selectedJobId: string | null
   onSelectJob: (jobId: string) => void
   dict: any
-  observerTarget?: React.RefObject<HTMLDivElement>
+  observerTarget?: React.RefObject<HTMLDivElement | null>
   isLoadingMore?: boolean
   hasMore?: boolean
   totalJobs?: number

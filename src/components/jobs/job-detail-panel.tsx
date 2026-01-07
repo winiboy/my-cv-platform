@@ -61,7 +61,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
       const { data: resumes, error } = await supabase
         .from('resumes')
         .select('id')
-        .eq('user_id', user.id)
+        .eq('user_id', user.id) as { data: { id: string }[] | null; error: any }
 
       if (error) {
         console.error('Error fetching resumes:', error)
@@ -75,7 +75,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
         return
       }
 
-      if (resumes.length === 1) {
+      if (resumes.length === 1 && resumes[0]) {
         // Only one resume, auto-select and show adaptation modal
         setSelectedResumeId(resumes[0].id)
         setShowAdaptationModal(true)
