@@ -199,14 +199,11 @@ export function ProfessionalTemplate({
               <div className="space-y-4">
                 {keyAchievements.map((achievement, index) => (
                   <div key={index}>
-                    <div className="mb-1 flex items-start gap-2">
-                      <span className="mt-0.5 text-xs opacity-70">▸</span>
-                      <h3 className="text-sm font-bold leading-snug">
-                        {achievement.title}
-                      </h3>
-                    </div>
+                    <h3 className="mb-1 text-sm font-bold leading-snug">
+                      {achievement.title}
+                    </h3>
                     {achievement.description && (
-                      <div className="ml-4 text-xs leading-relaxed opacity-90" style={{ textAlign: 'justify' }}>
+                      <div className="ml-2 text-xs leading-relaxed opacity-90" style={{ textAlign: 'justify' }}>
                         {renderFormattedText(achievement.description)}
                       </div>
                     )}
