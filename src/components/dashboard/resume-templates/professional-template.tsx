@@ -175,7 +175,7 @@ export function ProfessionalTemplate({
         }}
       >
           {/* PROFESSIONAL TITLE SECTION */}
-          <div style={{ marginBottom: `${24 + headerGap + Math.round(titleFontSize * 1.25) + titleGap - 19}px` }}>
+          <div style={{ marginBottom: `${24 + headerGap + Math.round(titleFontSize * 1.25) + titleGap + Math.round(contactFontSize * 2.8)}px` }}>
             {/* Professional Title - Cyan Accent */}
             <p
               className="text-sm leading-snug"
@@ -188,7 +188,7 @@ export function ProfessionalTemplate({
           {/* KEY ACHIEVEMENTS SECTION */}
           {keyAchievements.length > 0 && (
             <div className="mb-8">
-              <h2 className="mb-4 pb-1 border-b border-white/20 font-bold tracking-wide capitalize" style={{ fontSize: `${sectionTitleFontSize}px` }}>
+              <h2 className="mb-4 pb-1 border-b border-white/20 text-sm font-bold tracking-wide capitalize">
                 {dict.resumes.template.keyAchievements}
               </h2>
               <div className="space-y-4">
