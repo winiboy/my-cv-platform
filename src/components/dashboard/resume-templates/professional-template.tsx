@@ -175,24 +175,13 @@ export function ProfessionalTemplate({
         }}
       >
           {/* CONTACT NAME SECTION */}
-          <div style={{ marginBottom: `${24 + headerGap}px` }}>
-            {/* Contact Name - Cyan Accent */}
+          <div style={{ marginBottom: `${Math.round(titleFontSize * 1.25) + titleGap + Math.round(contactFontSize * 2.6) - 2}px` }}>
+            {/* Contact Name */}
             <p
-              className="text-sm leading-snug"
-              style={{ color: 'oklch(0.7 0.15 200)', textAlign: 'justify' }}
-            >
-              {contact.name || 'Your Name'}
-            </p>
-          </div>
-
-          {/* PROFESSIONAL TITLE SECTION */}
-          <div style={{ marginBottom: `${Math.round(titleFontSize * 1.25) + titleGap + Math.round(contactFontSize * 2.8) + 6}px` }}>
-            {/* Professional Title */}
-            <p
-              className="text-xs leading-snug"
+              className="text-base font-semibold leading-snug"
               style={{ textAlign: 'justify' }}
             >
-              {resume.title || 'Professional Title'}
+              {contact.name || 'Your Name'}
             </p>
           </div>
 
