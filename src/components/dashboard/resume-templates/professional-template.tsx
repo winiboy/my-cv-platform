@@ -174,16 +174,11 @@ export function ProfessionalTemplate({
           backgroundColor: sidebarColor
         }}
       >
-          {/* NAME AND TITLE SECTION */}
-          <div className="mb-8 border-b border-white/20 pb-6">
-            {/* Name - Large, Uppercase, Bold */}
-            <h2 className="mb-2 text-2xl font-bold uppercase leading-tight tracking-tight">
-              {contact.name || 'YOUR NAME'}
-            </h2>
-
+          {/* PROFESSIONAL TITLE SECTION */}
+          <div className="mb-8">
             {/* Professional Title - Cyan Accent */}
             <p
-              className="mb-2 text-sm leading-snug"
+              className="text-sm leading-snug"
               style={{ color: 'oklch(0.7 0.15 200)', textAlign: 'justify' }}
             >
               {contact.name ? (resume.title || 'Professional Title') : ''}
@@ -192,11 +187,11 @@ export function ProfessionalTemplate({
 
           {/* KEY ACHIEVEMENTS SECTION */}
           {keyAchievements.length > 0 && (
-            <div className="mb-8">
+            <div className="mb-8 pb-1 border-b border-white/20">
               <h2 className="mb-4 text-sm font-bold tracking-wide capitalize">
                 {dict.resumes.template.keyAchievements}
               </h2>
-              <div className="space-y-4">
+              <div className="space-y-4 mb-4">
                 {keyAchievements.map((achievement, index) => (
                   <div key={index}>
                     <h3 className="mb-1 text-sm font-bold leading-snug">
@@ -215,11 +210,11 @@ export function ProfessionalTemplate({
 
           {/* SKILLS SECTION */}
           {skills.filter(s => s.category && s.items && s.items.length > 0).length > 0 && (
-            <div className="mb-8">
+            <div className="mb-8 pb-1 border-b border-white/20">
               <h2 className="mb-4 text-sm font-bold tracking-wide capitalize">
                 {dict.resumes.template.skills}
               </h2>
-              <div className="text-xs leading-relaxed">
+              <div className="text-xs leading-relaxed mb-4">
                 {skills
                   .filter(skillCategory =>
                     skillCategory.category &&
@@ -240,11 +235,11 @@ export function ProfessionalTemplate({
 
           {/* TRAINING / COURSES SECTION */}
           {certifications.length > 0 && (
-            <div>
+            <div className="pb-1 border-b border-white/20">
               <h2 className="mb-4 text-sm font-bold tracking-wide capitalize">
                 {dict.resumes.template.training}
               </h2>
-              <div className="space-y-4">
+              <div className="space-y-4 mb-4">
                 {certifications.slice(0, 3).map((cert, index) => (
                   <div key={index}>
                     <h3 className="mb-1 text-sm font-bold leading-snug" style={{ textAlign: 'justify' }}>
