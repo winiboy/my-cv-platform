@@ -174,14 +174,25 @@ export function ProfessionalTemplate({
           backgroundColor: sidebarColor
         }}
       >
-          {/* PROFESSIONAL TITLE SECTION */}
-          <div style={{ marginBottom: `${24 + headerGap + Math.round(titleFontSize * 1.25) + titleGap + Math.round(contactFontSize * 2.8)}px` }}>
-            {/* Professional Title - Cyan Accent */}
+          {/* CONTACT NAME SECTION */}
+          <div style={{ marginBottom: `${24 + headerGap}px` }}>
+            {/* Contact Name - Cyan Accent */}
             <p
               className="text-sm leading-snug"
               style={{ color: 'oklch(0.7 0.15 200)', textAlign: 'justify' }}
             >
-              {contact.name ? (resume.title || 'Professional Title') : ''}
+              {contact.name || 'Your Name'}
+            </p>
+          </div>
+
+          {/* PROFESSIONAL TITLE SECTION */}
+          <div style={{ marginBottom: `${Math.round(titleFontSize * 1.25) + titleGap + Math.round(contactFontSize * 2.8) + 6}px` }}>
+            {/* Professional Title */}
+            <p
+              className="text-xs leading-snug"
+              style={{ textAlign: 'justify' }}
+            >
+              {resume.title || 'Professional Title'}
             </p>
           </div>
 
@@ -270,10 +281,10 @@ export function ProfessionalTemplate({
           zIndex: 1
         }}
       >
-          {/* HEADER: Name and Contact Info */}
+          {/* HEADER: Professional Title and Contact Info */}
           <div className="pb-6" style={{ marginBottom: `${headerGap}px`, position: 'relative' }}>
             <h1 className="font-bold tracking-tight" style={{ color: sidebarColor, fontSize: `${titleFontSize}px`, marginBottom: `${titleGap}px`, position: 'relative' }}>
-              {contact.name || 'YOUR NAME'}
+              {resume.title || 'PROFESSIONAL TITLE'}
 
               {/* Font Size Slider - Positioned outside CV to the right */}
               {setTitleFontSize && (
