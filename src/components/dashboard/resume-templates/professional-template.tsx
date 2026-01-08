@@ -175,7 +175,7 @@ export function ProfessionalTemplate({
         }}
       >
           {/* PROFESSIONAL TITLE SECTION */}
-          <div className="mb-8">
+          <div style={{ marginBottom: `${24 + headerGap + Math.round(titleFontSize * 1.25) + titleGap - 19}px` }}>
             {/* Professional Title - Cyan Accent */}
             <p
               className="text-sm leading-snug"
@@ -188,7 +188,7 @@ export function ProfessionalTemplate({
           {/* KEY ACHIEVEMENTS SECTION */}
           {keyAchievements.length > 0 && (
             <div className="mb-8">
-              <h2 className="mb-4 pb-1 border-b border-white/20 text-sm font-bold tracking-wide capitalize">
+              <h2 className="mb-4 pb-1 border-b border-white/20 font-bold tracking-wide capitalize" style={{ fontSize: `${sectionTitleFontSize}px` }}>
                 {dict.resumes.template.keyAchievements}
               </h2>
               <div className="space-y-4">
@@ -270,10 +270,10 @@ export function ProfessionalTemplate({
           zIndex: 1
         }}
       >
-          {/* HEADER: CV Title and Contact Info */}
+          {/* HEADER: Name and Contact Info */}
           <div className="pb-6" style={{ marginBottom: `${headerGap}px`, position: 'relative' }}>
             <h1 className="font-bold tracking-tight" style={{ color: sidebarColor, fontSize: `${titleFontSize}px`, marginBottom: `${titleGap}px`, position: 'relative' }}>
-              {resume.title || 'CV TITLE'}
+              {contact.name || 'YOUR NAME'}
 
               {/* Font Size Slider - Positioned outside CV to the right */}
               {setTitleFontSize && (
