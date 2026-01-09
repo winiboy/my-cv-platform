@@ -175,7 +175,7 @@ export function ProfessionalTemplate({
         }}
       >
           {/* CONTACT NAME SECTION */}
-          <div style={{ marginBottom: `${Math.round(titleFontSize * 1.25) + titleGap + Math.round(contactFontSize * 2.5) + 24 + headerGap + Math.round(sectionTitleFontSize * 1.2) + 4 - 5}px` }}>
+          <div style={{ marginBottom: `${Math.round(titleFontSize * 1.25) + titleGap + Math.round(contactFontSize * 2.5) + 24 + headerGap + Math.round((sectionTitleFontSize - 14) * 1.2) - 5}px` }}>
             {/* Contact Name */}
             <p
               className="text-base font-semibold leading-snug"
