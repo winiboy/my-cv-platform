@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import type {
   Resume,
   ResumeContact,
@@ -9,29 +8,22 @@ import type {
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
 import { renderFormattedText } from '@/lib/format-text'
-import { ColorWheel } from '../ColorWheel'
 
 interface ProfessionalTemplateProps {
   resume: Resume
   locale: Locale
   dict: any
-  titleFontSize?: number
-  setTitleFontSize?: (size: number) => void
-  titleGap?: number
-  setTitleGap?: (gap: number) => void
-  contactFontSize?: number
-  setContactFontSize?: (size: number) => void
-  sectionTitleFontSize?: number
-  setSectionTitleFontSize?: (size: number) => void
-  sectionDescFontSize?: number
-  setSectionDescFontSize?: (size: number) => void
-  sectionGap?: number
-  setSectionGap?: (gap: number) => void
-  headerGap?: number
-  setHeaderGap?: (gap: number) => void
-  sidebarColor?: string
-  setSidebarColor?: (color: string) => void
 }
+
+// Fixed font sizes and spacing
+const TITLE_FONT_SIZE = 24
+const TITLE_GAP = 8
+const CONTACT_FONT_SIZE = 12
+const SECTION_TITLE_FONT_SIZE = 16
+const SECTION_DESC_FONT_SIZE = 14
+const SECTION_GAP = 12
+const HEADER_GAP = 12
+const SIDEBAR_COLOR = 'hsl(240, 85%, 35%)'
 
 /**
  * Professional Template - Faithful to reference CV design with header modification
@@ -57,22 +49,6 @@ export function ProfessionalTemplate({
   resume,
   locale,
   dict,
-  titleFontSize = 24,
-  setTitleFontSize,
-  titleGap = 8,
-  setTitleGap,
-  contactFontSize = 12,
-  setContactFontSize,
-  sectionTitleFontSize = 16,
-  setSectionTitleFontSize,
-  sectionDescFontSize = 14,
-  setSectionDescFontSize,
-  sectionGap = 12,
-  setSectionGap,
-  headerGap = 12,
-  setHeaderGap,
-  sidebarColor = 'hsl(240, 85%, 35%)',
-  setSidebarColor,
 }: ProfessionalTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
@@ -88,45 +64,6 @@ export function ProfessionalTemplate({
     description: project.description || ''
   }))
 
-  // Calculate maximum title font size to keep title on one line
-  const [maxTitleFontSize, setMaxTitleFontSize] = useState(48)
-
-  useEffect(() => {
-    // Calculate max font size that keeps title on one line
-    const availableWidth = 507 // CV main content width (816px * 0.7 - 64px padding)
-    const titleText = resume.title || 'CV TITLE'
-
-    // Create canvas to measure text
-    const canvas = document.createElement('canvas')
-    const context = canvas.getContext('2d')
-    if (!context) return
-
-    // Find max font size that fits (search from 48px down to 16px)
-    let maxSize = 16
-    for (let size = 48; size >= 16; size -= 2) {
-      // Use bold font - system font stack
-      context.font = `bold ${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`
-      const metrics = context.measureText(titleText.toUpperCase())
-      const textWidth = metrics.width
-
-      // Account for font rendering being potentially wider than canvas measurement
-      // Apply safety factor: multiply measured width by 1.4 to account for rendering differences
-      const adjustedWidth = textWidth * 1.4
-
-      if (adjustedWidth <= availableWidth) {
-        maxSize = size
-        break
-      }
-    }
-
-    setMaxTitleFontSize(maxSize)
-
-    // Automatically reduce titleFontSize if it exceeds the calculated max
-    if (setTitleFontSize && titleFontSize > maxSize) {
-      setTitleFontSize(maxSize)
-    }
-  }, [resume.title, titleFontSize, setTitleFontSize])
-
   return (
     <div
       className="professional-template mx-auto shadow-lg print:shadow-none print:bg-transparent"
@@ -137,31 +74,6 @@ export function ProfessionalTemplate({
         backgroundColor: 'white'
       }}
     >
-      {/* Color Wheel - Positioned to the left of sidebar aligned with name */}
-      {setSidebarColor && (
-        <div
-          className="print:hidden"
-          style={{
-            position: 'absolute',
-            left: '-220px',
-            top: '24px',
-            zIndex: 50
-          }}
-        >
-          <div className="bg-white rounded-lg shadow-lg p-4 border border-slate-200">
-            <h3 className="text-sm font-semibold text-slate-800 mb-3 text-center">
-              {dict.resumes?.colorWheel?.sidebarColor || 'Sidebar Color'}
-            </h3>
-            <ColorWheel
-              onColorChange={(color) => setSidebarColor(`hsl(${color.hue}, 85%, ${color.lightness}%)`)}
-              size={150}
-              initialHue={extractHueFromOklch(sidebarColor)}
-              initialLightness={35}
-              dict={dict}
-            />
-          </div>
-        </div>
-      )}
       {/* Sidebar - Full height from top to bottom */}
       <div
         className="p-6 text-white print:p-5"
@@ -171,11 +83,11 @@ export function ProfessionalTemplate({
           bottom: 0,
           left: 0,
           width: '30%',
-          backgroundColor: sidebarColor
+          backgroundColor: SIDEBAR_COLOR
         }}
       >
           {/* CONTACT NAME SECTION */}
-          <div style={{ marginBottom: `${Math.round(titleFontSize * 1.25) + titleGap + Math.round(contactFontSize * 2.5) + 24 + headerGap + Math.round((sectionTitleFontSize - 14) * 1.2)}px` }}>
+          <div className="mb-16">
             {/* Contact Name */}
             <p
               className="text-base font-semibold leading-snug"
@@ -271,144 +183,13 @@ export function ProfessionalTemplate({
         }}
       >
           {/* HEADER: Professional Title and Contact Info */}
-          <div className="pb-6" style={{ marginBottom: `${headerGap}px`, position: 'relative' }}>
-            <h1 className="font-bold tracking-tight" style={{ color: sidebarColor, fontSize: `${titleFontSize}px`, marginBottom: `${titleGap}px`, position: 'relative' }}>
+          <div className="pb-6" style={{ marginBottom: `${HEADER_GAP}px` }}>
+            <h1 className="font-bold tracking-tight" style={{ color: SIDEBAR_COLOR, fontSize: `${TITLE_FONT_SIZE}px`, marginBottom: `${TITLE_GAP}px` }}>
               {resume.title || 'PROFESSIONAL TITLE'}
-
-              {/* Font Size Slider - Positioned outside CV to the right */}
-              {setTitleFontSize && (
-                <div
-                  className="print:hidden"
-                  style={{
-                    position: 'absolute',
-                    left: '100%',
-                    top: '-18px',
-                    marginLeft: '48px',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  <div style={{ fontSize: '9px' }} className="text-slate-600 font-medium mb-0.5">
-                    {dict.resumes?.sliders?.title || 'Title'}
-                  </div>
-                  <div className="flex items-center gap-1 bg-white rounded-lg border border-slate-200 shadow-sm" style={{ padding: '3px 8px' }}>
-                    <input
-                      type="range"
-                      min="16"
-                      max={maxTitleFontSize}
-                      step="2"
-                      value={titleFontSize}
-                      onChange={(e) => setTitleFontSize(Number(e.target.value))}
-                      className="bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
-                      style={{ width: '90px', height: '4px' }}
-                    />
-                  </div>
-                </div>
-              )}
             </h1>
 
-            {/* Gap Slider (gap1) - Vertical slider between sidebar and main title */}
-            {setTitleGap && (
-              <div
-                className="print:hidden"
-                style={{
-                  position: 'absolute',
-                  left: '-22px',
-                  top: `${titleFontSize - 56}px`,
-                  zIndex: 10,
-                  width: '12px'
-                }}
-              >
-                <div style={{ fontSize: '9px' }} className="text-slate-600 font-medium mb-0.5 text-center">
-                  {dict.resumes?.sliders?.gap || 'Gap'}
-                </div>
-                <div className="flex flex-col items-center bg-white rounded-lg border border-slate-200 shadow-sm" style={{ height: '44px', padding: '3px' }}>
-                  <input
-                    type="range"
-                    min="-4"
-                    max="20"
-                    step="1"
-                    value={titleGap}
-                    onChange={(e) => setTitleGap(Number(e.target.value))}
-                    className="appearance-none cursor-pointer accent-slate-600"
-                    style={{
-                      writingMode: 'vertical-lr',
-                      width: '5px',
-                      height: '38px',
-                      background: 'linear-gradient(to top, oklch(0.85 0 0) 0%, oklch(0.85 0 0) 100%)',
-                      borderRadius: '0.35rem'
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
             {/* Contact Information */}
-            <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'oklch(0.4 0 0)', fontSize: `${contactFontSize}px`, position: 'relative' }}>
-              {/* Font Size Slider for Contact - Positioned outside CV to the right */}
-              {setContactFontSize && (
-                <div
-                  className="print:hidden"
-                  style={{
-                    position: 'absolute',
-                    left: '100%',
-                    top: `${Math.max(Math.min(0, headerGap), 8 - titleFontSize - titleGap)}px`,
-                    marginLeft: '48px',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  <div style={{ fontSize: '9px' }} className="text-slate-600 font-medium mb-0.5">
-                    {dict.resumes?.sliders?.contactDetails || 'Contact details'}
-                  </div>
-                  <div className="flex items-center gap-1 bg-white rounded-lg border border-slate-200 shadow-sm" style={{ padding: '3px 8px' }}>
-                    <input
-                      type="range"
-                      min="8"
-                      max="12"
-                      step="0.5"
-                      value={contactFontSize}
-                      onChange={(e) => setContactFontSize(Number(e.target.value))}
-                      className="bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
-                      style={{ width: '90px', height: '4px' }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Header Gap Slider (gap2) - Vertical slider below gap1 */}
-              {setHeaderGap && (
-                <div
-                  className="print:hidden"
-                  style={{
-                    position: 'absolute',
-                    left: '-22px',
-                    bottom: '-45px',
-                    zIndex: 10,
-                    width: '12px'
-                  }}
-                >
-                  <div style={{ fontSize: '9px' }} className="text-slate-600 font-medium mb-0.5 text-center">
-                    Gap
-                  </div>
-                  <div className="flex flex-col items-center bg-white rounded-lg border border-slate-200 shadow-sm" style={{ height: '44px', padding: '3px' }}>
-                    <input
-                      type="range"
-                      min="-25"
-                      max="32"
-                      step="1"
-                      value={headerGap}
-                      onChange={(e) => setHeaderGap(Number(e.target.value))}
-                      className="appearance-none cursor-pointer accent-slate-600"
-                      style={{
-                        writingMode: 'vertical-lr',
-                        width: '5px',
-                        height: '38px',
-                        background: 'linear-gradient(to top, oklch(0.85 0 0) 0%, oklch(0.85 0 0) 100%)',
-                        borderRadius: '0.35rem'
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
+            <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'oklch(0.4 0 0)', fontSize: `${CONTACT_FONT_SIZE}px` }}>
               {contact.email && (
                 <div className="flex items-center gap-1.5">
                   <span>✉️</span>
@@ -457,116 +238,19 @@ export function ProfessionalTemplate({
             <div className="mb-8">
               <h2
                 className="font-bold tracking-wide pb-1 border-b capitalize"
-                style={{ color: 'oklch(0.2 0 0)', borderColor: lightenHslColor(sidebarColor, 30), fontSize: `${sectionTitleFontSize}px`, marginBottom: `${sectionGap}px`, position: 'relative' }}
+                style={{ color: 'oklch(0.2 0 0)', borderColor: lightenHslColor(SIDEBAR_COLOR, 30), fontSize: `${SECTION_TITLE_FONT_SIZE}px`, marginBottom: `${SECTION_GAP}px` }}
               >
                 {dict.resumes.template.summary}
-
-                {/* Font Size Slider for Section Titles - Positioned outside CV to the right */}
-                {setSectionTitleFontSize && (
-                  <div
-                    className="print:hidden"
-                    style={{
-                      position: 'absolute',
-                      left: '100%',
-                      bottom: 0,
-                      marginLeft: '48px',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    <div style={{ fontSize: '9px' }} className="text-slate-600 font-medium mb-0.5">
-                      {dict.resumes?.sliders?.sectionTitle || 'Section title'}
-                    </div>
-                    <div className="flex items-center gap-1 bg-white rounded-lg border border-slate-200 shadow-sm" style={{ padding: '3px 8px' }}>
-                      <input
-                        type="range"
-                        min="12"
-                        max="24"
-                        step="1"
-                        value={sectionTitleFontSize}
-                        onChange={(e) => setSectionTitleFontSize(Number(e.target.value))}
-                        className="bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
-                        style={{ width: '90px', height: '4px' }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Section Gap Slider (gap3) - Vertical slider aligned with Summary title */}
-                {setSectionGap && (
-                  <div
-                    className="print:hidden"
-                    style={{
-                      position: 'absolute',
-                      left: '-22px',
-                      top: `${Math.max(-14, 41 - headerGap)}px`,
-                      zIndex: 10,
-                      width: '12px'
-                    }}
-                  >
-                    <div style={{ fontSize: '9px' }} className="text-slate-600 font-medium mb-0.5 text-center">
-                      Gap
-                    </div>
-                    <div className="flex flex-col items-center bg-white rounded-lg border border-slate-200 shadow-sm" style={{ height: '44px', padding: '3px' }}>
-                      <input
-                        type="range"
-                        min="0"
-                        max="32"
-                        step="2"
-                        value={sectionGap}
-                        onChange={(e) => setSectionGap(Number(e.target.value))}
-                        className="appearance-none cursor-pointer accent-slate-600"
-                        style={{
-                          writingMode: 'vertical-lr',
-                          width: '5px',
-                          height: '38px',
-                          background: 'linear-gradient(to top, oklch(0.85 0 0) 0%, oklch(0.85 0 0) 100%)',
-                          borderRadius: '0.35rem'
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
               </h2>
               <div
                 className="leading-relaxed text-justify"
                 style={{
-                  fontSize: `${sectionDescFontSize}px`,
+                  fontSize: `${SECTION_DESC_FONT_SIZE}px`,
                   color: 'oklch(0.3 0 0)',
-                  lineHeight: '1.6',
-                  position: 'relative'
+                  lineHeight: '1.6'
                 }}
               >
                 {renderFormattedText(resume.summary)}
-
-                {/* Font Size Slider for Section Descriptions - Positioned outside CV to the right */}
-                {setSectionDescFontSize && (
-                  <div
-                    className="print:hidden"
-                    style={{
-                      position: 'absolute',
-                      left: '100%',
-                      top: 0,
-                      marginLeft: '48px',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    <div style={{ fontSize: '9px' }} className="text-slate-600 font-medium mb-0.5">
-                      {dict.resumes?.sliders?.description || 'Description'}
-                    </div>
-                    <div className="flex items-center gap-1 bg-white rounded-lg border border-slate-200 shadow-sm" style={{ padding: '3px 8px' }}>
-                      <input
-                        type="range"
-                        min="10"
-                        max="18"
-                        step="1"
-                        value={sectionDescFontSize}
-                        onChange={(e) => setSectionDescFontSize(Number(e.target.value))}
-                        className="bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600"
-                        style={{ width: '90px', height: '4px' }}
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -576,7 +260,7 @@ export function ProfessionalTemplate({
             <div className="mb-8">
               <h2
                 className="font-bold tracking-wide pb-1 border-b capitalize"
-                style={{ color: 'oklch(0.2 0 0)', borderColor: lightenHslColor(sidebarColor, 30), fontSize: `${sectionTitleFontSize}px`, marginBottom: `${sectionGap}px` }}
+                style={{ color: 'oklch(0.2 0 0)', borderColor: lightenHslColor(SIDEBAR_COLOR, 30), fontSize: `${SECTION_TITLE_FONT_SIZE}px`, marginBottom: `${SECTION_GAP}px` }}
               >
                 {dict.resumes.template.experience}
               </h2>
@@ -616,7 +300,7 @@ export function ProfessionalTemplate({
                             key={i}
                             className="flex gap-2"
                             style={{
-                              fontSize: `${sectionDescFontSize}px`,
+                              fontSize: `${SECTION_DESC_FONT_SIZE}px`,
                               color: 'oklch(0.3 0 0)',
                               lineHeight: '1.5',
                             }}
@@ -630,7 +314,7 @@ export function ProfessionalTemplate({
                       <div
                         className="mb-2 leading-relaxed text-justify"
                         style={{
-                          fontSize: `${sectionDescFontSize}px`,
+                          fontSize: `${SECTION_DESC_FONT_SIZE}px`,
                           color: 'oklch(0.3 0 0)',
                           lineHeight: '1.5',
                         }}
@@ -649,7 +333,7 @@ export function ProfessionalTemplate({
             <div>
               <h2
                 className="font-bold tracking-wide pb-1 border-b capitalize"
-                style={{ color: 'oklch(0.2 0 0)', borderColor: lightenHslColor(sidebarColor, 30), fontSize: `${sectionTitleFontSize}px`, marginBottom: `${sectionGap}px` }}
+                style={{ color: 'oklch(0.2 0 0)', borderColor: lightenHslColor(SIDEBAR_COLOR, 30), fontSize: `${SECTION_TITLE_FONT_SIZE}px`, marginBottom: `${SECTION_GAP}px` }}
               >
                 {dict.resumes.template.education}
               </h2>
@@ -714,23 +398,6 @@ export function ProfessionalTemplate({
 // ========================================
 // HELPER FUNCTIONS
 // ========================================
-
-/**
- * Extract hue from color string (supports both HSL and OKLCH)
- * HSL example: "hsl(240, 70%, 25%)" -> 240
- * OKLCH example: "oklch(0.25 0.15 240)" -> 240
- */
-function extractHueFromOklch(colorString: string): number {
-  // Try HSL format first: hsl(240, 70%, 25%)
-  const hslMatch = colorString.match(/hsl\(([\d.]+)/)
-  if (hslMatch) return parseFloat(hslMatch[1])
-
-  // Try OKLCH format: oklch(0.25 0.15 240)
-  const oklchMatch = colorString.match(/oklch\([^)]*\s+([\d.]+)\)/)
-  if (oklchMatch) return parseFloat(oklchMatch[1])
-
-  return 240 // Default to 240 if parsing fails
-}
 
 /**
  * Lighten an HSL color by increasing its lightness
