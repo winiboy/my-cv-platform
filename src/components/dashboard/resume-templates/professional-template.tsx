@@ -82,7 +82,8 @@ export function ProfessionalTemplate({
         width: '816px',
         minHeight: '1056px',
         position: 'relative',
-        backgroundColor: 'white'
+        backgroundColor: 'white',
+        fontFamily: 'Arial, Helvetica, sans-serif'
       }}
     >
       {/* Sidebar - Full height from top to bottom */}
