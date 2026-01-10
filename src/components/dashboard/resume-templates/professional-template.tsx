@@ -15,15 +15,26 @@ interface ProfessionalTemplateProps {
   dict: any
 }
 
-// Fixed font sizes and spacing
-const TITLE_FONT_SIZE = 24
+// Fixed font sizes based on professional CV standards
+// Using "Safe Default" preset recommended for SaaS CV builders
+const BASE_FONT_SIZE = 11 // Body text baseline (×1.0)
+const NAME_FONT_SIZE = 22 // Candidate name (×2.0)
+const PROFESSIONAL_TITLE_FONT_SIZE = 13 // Professional title (×1.2)
+const SECTION_TITLE_FONT_SIZE = 14.5 // Section titles (×1.35)
+const JOB_TITLE_FONT_SIZE = 13 // Job/role titles (×1.2)
+const BODY_FONT_SIZE = 11 // Body text, descriptions (×1.0)
+const META_FONT_SIZE = 10.5 // Dates, companies, metadata (×0.95)
+const CONTACT_FONT_SIZE = 10.5 // Contact information (×0.95)
+
+// Spacing
 const TITLE_GAP = 8
-const CONTACT_FONT_SIZE = 12
-const SECTION_TITLE_FONT_SIZE = 16
-const SECTION_DESC_FONT_SIZE = 14
 const SECTION_GAP = 12
 const HEADER_GAP = 12
 const SIDEBAR_COLOR = 'hsl(240, 85%, 35%)'
+
+// Line heights
+const BODY_LINE_HEIGHT = 1.35
+const HEADING_LINE_HEIGHT = 1.2
 
 /**
  * Professional Template - Faithful to reference CV design with header modification
@@ -88,10 +99,10 @@ export function ProfessionalTemplate({
       >
           {/* CONTACT NAME SECTION */}
           <div className="mb-16">
-            {/* Contact Name */}
+            {/* Contact Name - Candidate Name */}
             <p
-              className="text-base font-semibold leading-snug"
-              style={{ textAlign: 'justify' }}
+              className="font-semibold"
+              style={{ fontSize: `${NAME_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT, textAlign: 'justify' }}
             >
               {contact.name || 'Your Name'}
             </p>
@@ -100,17 +111,17 @@ export function ProfessionalTemplate({
           {/* KEY ACHIEVEMENTS SECTION */}
           {keyAchievements.length > 0 && (
             <div className="mb-8">
-              <h2 className="mb-4 pb-1 border-b border-white/20 text-sm font-bold tracking-wide capitalize">
+              <h2 className="mb-4 pb-1 border-b border-white/20 font-bold tracking-wide capitalize" style={{ fontSize: `${SECTION_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT }}>
                 {dict.resumes.template.keyAchievements}
               </h2>
               <div className="space-y-4">
                 {keyAchievements.map((achievement, index) => (
                   <div key={index}>
-                    <h3 className="mb-1 text-sm font-bold leading-snug">
+                    <h3 className="mb-1 font-bold" style={{ fontSize: `${JOB_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT }}>
                       {achievement.title}
                     </h3>
                     {achievement.description && (
-                      <div className="ml-2 text-xs leading-relaxed opacity-90" style={{ textAlign: 'justify' }}>
+                      <div className="ml-2 opacity-90" style={{ fontSize: `${BODY_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>
                         {renderFormattedText(achievement.description)}
                       </div>
                     )}
@@ -123,10 +134,10 @@ export function ProfessionalTemplate({
           {/* SKILLS SECTION */}
           {skills.filter(s => s.category && s.items && s.items.length > 0).length > 0 && (
             <div className="mb-8">
-              <h2 className="mb-4 pb-1 border-b border-white/20 text-sm font-bold tracking-wide capitalize">
+              <h2 className="mb-4 pb-1 border-b border-white/20 font-bold tracking-wide capitalize" style={{ fontSize: `${SECTION_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT }}>
                 {dict.resumes.template.skills}
               </h2>
-              <div className="text-xs leading-relaxed">
+              <div>
                 {skills
                   .filter(skillCategory =>
                     skillCategory.category &&
@@ -135,10 +146,10 @@ export function ProfessionalTemplate({
                   )
                   .map((skillCategory, index) => (
                     <div key={index} className="mb-3">
-                      <p className="mb-1 font-semibold opacity-90" style={{ textAlign: 'justify' }}>
+                      <p className="mb-1 font-semibold opacity-90" style={{ fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>
                         {skillCategory.category}:
                       </p>
-                      <p className="opacity-80" style={{ textAlign: 'justify' }}>{skillCategory.items.join(' • ')}</p>
+                      <p className="opacity-80" style={{ fontSize: `${BODY_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>{skillCategory.items.join(' • ')}</p>
                     </div>
                   ))}
               </div>
@@ -148,18 +159,18 @@ export function ProfessionalTemplate({
           {/* TRAINING / COURSES SECTION */}
           {certifications.length > 0 && (
             <div>
-              <h2 className="mb-4 pb-1 border-b border-white/20 text-sm font-bold tracking-wide capitalize">
+              <h2 className="mb-4 pb-1 border-b border-white/20 font-bold tracking-wide capitalize" style={{ fontSize: `${SECTION_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT }}>
                 {dict.resumes.template.training}
               </h2>
               <div className="space-y-4">
                 {certifications.slice(0, 3).map((cert, index) => (
                   <div key={index}>
-                    <h3 className="mb-1 text-sm font-bold leading-snug" style={{ textAlign: 'justify' }}>
+                    <h3 className="mb-1 font-bold" style={{ fontSize: `${JOB_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT, textAlign: 'justify' }}>
                       {cert.name}
                     </h3>
-                    <p className="text-xs opacity-90" style={{ textAlign: 'justify' }}>{cert.issuer}</p>
+                    <p className="opacity-90" style={{ fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>{cert.issuer}</p>
                     {cert.date && (
-                      <p className="text-xs opacity-75" style={{ textAlign: 'justify' }}>
+                      <p className="opacity-75" style={{ fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>
                         {new Date(cert.date + '-01').toLocaleDateString(locale, {
                           month: 'long',
                           year: 'numeric',
@@ -184,12 +195,12 @@ export function ProfessionalTemplate({
       >
           {/* HEADER: Professional Title and Contact Info */}
           <div className="pb-6" style={{ marginBottom: `${HEADER_GAP}px` }}>
-            <h1 className="font-bold tracking-tight" style={{ color: SIDEBAR_COLOR, fontSize: `${TITLE_FONT_SIZE}px`, marginBottom: `${TITLE_GAP}px` }}>
+            <h1 className="font-bold tracking-tight" style={{ color: SIDEBAR_COLOR, fontSize: `${PROFESSIONAL_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${TITLE_GAP}px` }}>
               {resume.title || 'PROFESSIONAL TITLE'}
             </h1>
 
             {/* Contact Information */}
-            <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'oklch(0.4 0 0)', fontSize: `${CONTACT_FONT_SIZE}px` }}>
+            <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'oklch(0.4 0 0)', fontSize: `${CONTACT_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT }}>
               {contact.email && (
                 <div className="flex items-center gap-1.5">
                   <span>✉️</span>
@@ -238,16 +249,16 @@ export function ProfessionalTemplate({
             <div className="mb-8">
               <h2
                 className="font-bold tracking-wide pb-1 border-b capitalize"
-                style={{ color: 'oklch(0.2 0 0)', borderColor: lightenHslColor(SIDEBAR_COLOR, 30), fontSize: `${SECTION_TITLE_FONT_SIZE}px`, marginBottom: `${SECTION_GAP}px` }}
+                style={{ color: 'oklch(0.2 0 0)', borderColor: lightenHslColor(SIDEBAR_COLOR, 30), fontSize: `${SECTION_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${SECTION_GAP}px` }}
               >
                 {dict.resumes.template.summary}
               </h2>
               <div
-                className="leading-relaxed text-justify"
+                className="text-justify"
                 style={{
-                  fontSize: `${SECTION_DESC_FONT_SIZE}px`,
+                  fontSize: `${BODY_FONT_SIZE}px`,
                   color: 'oklch(0.3 0 0)',
-                  lineHeight: '1.6'
+                  lineHeight: BODY_LINE_HEIGHT
                 }}
               >
                 {renderFormattedText(resume.summary)}
@@ -260,7 +271,7 @@ export function ProfessionalTemplate({
             <div className="mb-8">
               <h2
                 className="font-bold tracking-wide pb-1 border-b capitalize"
-                style={{ color: 'oklch(0.2 0 0)', borderColor: lightenHslColor(SIDEBAR_COLOR, 30), fontSize: `${SECTION_TITLE_FONT_SIZE}px`, marginBottom: `${SECTION_GAP}px` }}
+                style={{ color: 'oklch(0.2 0 0)', borderColor: lightenHslColor(SIDEBAR_COLOR, 30), fontSize: `${SECTION_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${SECTION_GAP}px` }}
               >
                 {dict.resumes.template.experience}
               </h2>
@@ -270,14 +281,13 @@ export function ProfessionalTemplate({
                     {/* Job Title + Dates */}
                     <div className="mb-1 flex items-start justify-between">
                       <h3
-                        className="text-base font-bold"
-                        style={{ color: 'oklch(0.2 0 0)' }}
+                        className="font-bold"
+                        style={{ color: 'oklch(0.2 0 0)', fontSize: `${JOB_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT }}
                       >
                         {exp.position}
                       </h3>
                       <span
-                        className="text-sm"
-                        style={{ color: 'oklch(0.5 0 0)' }}
+                        style={{ color: 'oklch(0.5 0 0)', fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT }}
                       >
                         {formatDateRange(exp, locale, dict)}
                       </span>
@@ -285,8 +295,8 @@ export function ProfessionalTemplate({
 
                     {/* Company Name */}
                     <p
-                      className="mb-2 text-sm"
-                      style={{ color: 'oklch(0.4 0 0)' }}
+                      className="mb-2"
+                      style={{ color: 'oklch(0.4 0 0)', fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT }}
                     >
                       {exp.company}
                       {exp.location && ` • ${exp.location}`}
@@ -300,9 +310,9 @@ export function ProfessionalTemplate({
                             key={i}
                             className="flex gap-2"
                             style={{
-                              fontSize: `${SECTION_DESC_FONT_SIZE}px`,
+                              fontSize: `${BODY_FONT_SIZE}px`,
                               color: 'oklch(0.3 0 0)',
-                              lineHeight: '1.5',
+                              lineHeight: BODY_LINE_HEIGHT,
                             }}
                           >
                             <span style={{ color: 'oklch(0.2 0 0)' }}>•</span>
@@ -312,11 +322,11 @@ export function ProfessionalTemplate({
                       </ul>
                     ) : exp.description ? (
                       <div
-                        className="mb-2 leading-relaxed text-justify"
+                        className="mb-2 text-justify"
                         style={{
-                          fontSize: `${SECTION_DESC_FONT_SIZE}px`,
+                          fontSize: `${BODY_FONT_SIZE}px`,
                           color: 'oklch(0.3 0 0)',
-                          lineHeight: '1.5',
+                          lineHeight: BODY_LINE_HEIGHT,
                         }}
                       >
                         {renderFormattedText(exp.description)}
@@ -333,7 +343,7 @@ export function ProfessionalTemplate({
             <div>
               <h2
                 className="font-bold tracking-wide pb-1 border-b capitalize"
-                style={{ color: 'oklch(0.2 0 0)', borderColor: lightenHslColor(SIDEBAR_COLOR, 30), fontSize: `${SECTION_TITLE_FONT_SIZE}px`, marginBottom: `${SECTION_GAP}px` }}
+                style={{ color: 'oklch(0.2 0 0)', borderColor: lightenHslColor(SIDEBAR_COLOR, 30), fontSize: `${SECTION_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${SECTION_GAP}px` }}
               >
                 {dict.resumes.template.education}
               </h2>
@@ -343,15 +353,14 @@ export function ProfessionalTemplate({
                     {/* Degree + Dates */}
                     <div className="mb-1 flex items-start justify-between">
                       <h3
-                        className="text-base font-bold"
-                        style={{ color: 'oklch(0.2 0 0)' }}
+                        className="font-bold"
+                        style={{ color: 'oklch(0.2 0 0)', fontSize: `${JOB_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT }}
                       >
                         {edu.degree}
                         {edu.field && ` ${dict.resumes.template.in} ${edu.field}`}
                       </h3>
                       <span
-                        className="text-sm"
-                        style={{ color: 'oklch(0.5 0 0)' }}
+                        style={{ color: 'oklch(0.5 0 0)', fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT }}
                       >
                         {formatEducationDates(edu, locale, dict)}
                       </span>
@@ -361,15 +370,14 @@ export function ProfessionalTemplate({
                     <div className="flex items-start justify-between">
                       <a
                         href="#"
-                        className="text-sm font-medium hover:underline"
-                        style={{ color: 'oklch(0.7 0.15 200)' }}
+                        className="font-medium hover:underline"
+                        style={{ color: 'oklch(0.7 0.15 200)', fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT }}
                       >
                         {edu.school}
                       </a>
                       {(edu as any).location && (
                         <span
-                          className="text-sm"
-                          style={{ color: 'oklch(0.5 0 0)' }}
+                          style={{ color: 'oklch(0.5 0 0)', fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT }}
                         >
                           {(edu as any).location}
                         </span>
@@ -379,8 +387,8 @@ export function ProfessionalTemplate({
                     {/* GPA if available */}
                     {edu.gpa && (
                       <p
-                        className="mt-1 text-xs"
-                        style={{ color: 'oklch(0.5 0 0)' }}
+                        className="mt-1"
+                        style={{ color: 'oklch(0.5 0 0)', fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT }}
                       >
                         {dict.resumes.template.gpa}: {edu.gpa}
                       </p>
