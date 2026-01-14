@@ -73,6 +73,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
   const router = useRouter()
   const searchParams = useSearchParams()
   const [resume, setResume] = useState(initialResume)
+  // Ref to always have access to the latest resume state (avoids stale closures)
+  const resumeRef = useRef(resume)
+  resumeRef.current = resume
   const [activeSection, setActiveSection] = useState<SectionId>('contact')
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -142,35 +145,48 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
   const saveToLocalStorageDebounced = useRef<NodeJS.Timeout | undefined>(undefined)
 
   const updateResume = useCallback((updates: Partial<Resume>) => {
-    const updatedResume = { ...resume, ...updates }
-    setResume(updatedResume)
+    // Use functional update to always work with latest state
+    setResume(prevResume => {
+      const updatedResume = { ...prevResume, ...updates }
+
+      // Debounce localStorage writes (500ms)
+      if (saveToLocalStorageDebounced.current) {
+        clearTimeout(saveToLocalStorageDebounced.current)
+      }
+      saveToLocalStorageDebounced.current = setTimeout(() => {
+        localStorage.setItem(`resume_draft_${initialResume.id}`, JSON.stringify(updatedResume))
+      }, 500)
+
+      return updatedResume
+    })
     setHasUnsavedChanges(true)
 
     // Track which sections were modified
-    const newModifiedSections = new Set(modifiedSections)
-    Object.keys(updates).forEach((key) => {
-      const sectionId = SECTION_MAPPING[key]
-      if (sectionId) {
-        newModifiedSections.add(sectionId)
-      }
-    })
-    setModifiedSections(newModifiedSections)
+    setModifiedSections(prevModifiedSections => {
+      const newModifiedSections = new Set(prevModifiedSections)
+      Object.keys(updates).forEach((key) => {
+        const sectionId = SECTION_MAPPING[key]
+        if (sectionId) {
+          newModifiedSections.add(sectionId)
+        }
+      })
 
-    // Debounce localStorage writes (500ms)
-    if (saveToLocalStorageDebounced.current) {
-      clearTimeout(saveToLocalStorageDebounced.current)
-    }
-    saveToLocalStorageDebounced.current = setTimeout(() => {
-      localStorage.setItem(`resume_draft_${resume.id}`, JSON.stringify(updatedResume))
-      localStorage.setItem(`resume_modified_sections_${resume.id}`, JSON.stringify(Array.from(newModifiedSections)))
-    }, 500)
-  }, [resume, modifiedSections])
+      // Debounce localStorage writes for modified sections
+      setTimeout(() => {
+        localStorage.setItem(`resume_modified_sections_${initialResume.id}`, JSON.stringify(Array.from(newModifiedSections)))
+      }, 500)
+
+      return newModifiedSections
+    })
+  }, [initialResume.id])
 
   // Handle CV adaptation from job description
   const handleApplyChanges = useCallback((patch: CVAdaptationPatch, selectedPatches: string[]) => {
+    // Use ref to get latest resume state (avoids stale closure)
+    const currentResume = resumeRef.current
     const updates: Partial<Resume> = {}
 
-    console.log('Applying changes:', { patch, selectedPatches }) // Debug log
+    console.log('Applying changes:', { patch, selectedPatches, currentResume }) // Debug log
 
     // Apply summary patch if selected
     if (selectedPatches.includes('summary') && patch.patches.summary) {
@@ -180,7 +196,11 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
 
     // Apply experience description patch if selected
     if (selectedPatches.includes('experienceDescription') && patch.patches.experienceDescription) {
-      const experienceArray = Array.isArray(resume.experience) ? [...resume.experience] : []
+      // Deep copy experience array
+      const rawExperience = currentResume.experience
+      const experienceArray: any[] = Array.isArray(rawExperience)
+        ? rawExperience.map((exp: any) => ({ ...exp }))
+        : []
       const index = patch.patches.experienceDescription.experienceIndex
       const experienceItem = experienceArray[index]
       if (experienceItem && typeof experienceItem === 'object') {
@@ -195,14 +215,21 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
 
     // Apply skills patches if selected
     let skillsModified = false
-    const skillsArray = Array.isArray(resume.skills) ? [...resume.skills] : []
+    // Deep copy skills array
+    const rawSkills = currentResume.skills
+    const skillsArray: any[] = Array.isArray(rawSkills)
+      ? rawSkills.map((skill: any) => ({
+          ...skill,
+          items: Array.isArray(skill?.items) ? [...skill.items] : []
+        }))
+      : []
 
     // Add new skill categories
     patch.patches.skillsToAdd?.forEach((skillPatch, index) => {
       if (selectedPatches.includes(`skillsToAdd-${index}`)) {
         skillsArray.push({
           category: skillPatch.category,
-          items: skillPatch.items,
+          items: [...skillPatch.items],
           visible: true,
         })
         skillsModified = true
@@ -213,10 +240,10 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
     // Enhance existing skill categories
     patch.patches.skillsToEnhance?.forEach((skillPatch, index) => {
       if (selectedPatches.includes(`skillsToEnhance-${index}`)) {
-        const existingCategory = skillsArray.find((cat) => cat && typeof cat === 'object' && 'category' in cat && cat.category === skillPatch.category)
-        if (existingCategory && typeof existingCategory === 'object' && 'items' in existingCategory && Array.isArray(existingCategory.items)) {
+        const existingCategory = skillsArray.find((cat: any) => cat?.category === skillPatch.category)
+        if (existingCategory && Array.isArray(existingCategory.items)) {
           // Merge skills, avoiding duplicates
-          const existingSkillsLower = existingCategory.items.map((s) => String(s).toLowerCase())
+          const existingSkillsLower = existingCategory.items.map((s: any) => String(s).toLowerCase())
           const newSkills = skillPatch.itemsToAdd.filter(
             (skill) => !existingSkillsLower.includes(skill.toLowerCase())
           )
@@ -247,7 +274,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
     }
 
     setShowAdaptationModal(false)
-  }, [resume, updateResume, dict])
+  }, [updateResume, dict])
 
   // Check for adaptation data in URL on mount
   useEffect(() => {
