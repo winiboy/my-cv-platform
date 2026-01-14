@@ -18,6 +18,10 @@ export function ContactSection({ resume, updateResume, dict }: ContactSectionPro
     })
   }
 
+  const updateTitle = (value: string) => {
+    updateResume({ title: value })
+  }
+
   const fields: Array<{ key: string; label: string; type: string; placeholder: string }> = [
     { key: 'name', label: 'Full Name', type: 'text', placeholder: 'John Doe' },
     { key: 'email', label: 'Email', type: 'email', placeholder: 'john@example.com' },
@@ -40,6 +44,24 @@ export function ContactSection({ resume, updateResume, dict }: ContactSectionPro
       </div>
 
       <div className="space-y-4">
+        {/* CV Name / Professional Title */}
+        <div>
+          <label htmlFor="cvName" className="block text-sm font-medium text-slate-900">
+            {dict.resumes?.editor?.cvName || 'CV Name'}
+          </label>
+          <input
+            type="text"
+            id="cvName"
+            value={resume.title || ''}
+            onChange={(e) => updateTitle(e.target.value)}
+            placeholder={dict.resumes?.editor?.cvNamePlaceholder || 'Senior Software Engineer'}
+            className="mt-1 block w-full rounded-lg border border-slate-300 px-4 py-2.5 text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            {dict.resumes?.editor?.cvNameHint || 'This appears as your professional title on the CV'}
+          </p>
+        </div>
+
         {fields.map((field) => (
           <div key={field.key}>
             <label htmlFor={field.key} className="block text-sm font-medium text-slate-900">

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Loader2, CheckCircle, AlertCircle, Sparkles } from 'lucide-react'
+import { X, Loader2, CheckCircle, AlertCircle, Sparkles, Search } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { DiffViewer } from './diff-viewer'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
 
@@ -34,6 +35,9 @@ interface CVAdaptationModalProps {
     cancel?: string
     helpText?: string
     antiCopyDisclaimer?: string
+    orDivider?: string
+    browseJobListings?: string
+    browseJobListingsHint?: string
     [key: string]: string | undefined
   }
 }
@@ -51,6 +55,7 @@ export function CVAdaptationModal({
   onApplyChanges,
   dict = {},
 }: CVAdaptationModalProps) {
+  const router = useRouter()
   const [stage, setStage] = useState<Stage>('input')
   const [jobDescription, setJobDescription] = useState(initialJobDescription)
   const [jobTitle, setJobTitle] = useState(initialJobTitle)
@@ -312,6 +317,41 @@ export function CVAdaptationModal({
                     {dict.antiCopyDisclaimer ||
                       'All suggestions are original and written in professional CV language. We never copy text from job descriptions.'}
                   </p>
+                </div>
+
+                {/* OR Divider */}
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="bg-white px-4 text-gray-500 font-medium">
+                      {dict.orDivider || 'OR'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Browse Job Listings */}
+                <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Search className="h-5 w-5 text-teal-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm text-teal-900 mb-3">
+                        {dict.browseJobListingsHint ||
+                          "Don't have a job description yet? Browse our job listings to find opportunities and adapt your CV directly."}
+                      </p>
+                      <button
+                        onClick={() => {
+                          onClose()
+                          router.push(`/${locale}/dashboard/jobs`)
+                        }}
+                        className="inline-flex items-center gap-2 bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors text-sm font-medium"
+                      >
+                        <Search className="h-4 w-4" />
+                        {dict.browseJobListings || 'Browse Job Listings'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

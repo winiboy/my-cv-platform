@@ -61,6 +61,9 @@
     "helpText": "Collez la description complète du poste, et notre IA suggérera des mises à jour ciblées pour votre CV. Vous gardez toujours le contrôle - examinez et sélectionnez les changements à appliquer.",
     "antiCopyDisclaimer": "Toutes les suggestions sont originales et rédigées dans un langage professionnel. Nous ne copions jamais le texte des descriptions de poste.",
     "loading": "Chargement de vos CV...",
-    "selectCV": "Sélectionner le CV"
+    "selectCV": "Sélectionner le CV",
+    "orDivider": "OU",
+    "browseJobListings": "Parcourir les offres d'emploi",
+    "browseJobListingsHint": "Vous n'avez pas encore de description de poste ? Parcourez nos offres d'emploi pour trouver des opportunités et adapter votre CV directement."
   }
 }

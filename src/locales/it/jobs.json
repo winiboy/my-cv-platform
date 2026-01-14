@@ -61,6 +61,9 @@
     "helpText": "Incolla la descrizione completa del lavoro e la nostra IA suggerirà aggiornamenti mirati per il tuo CV. Mantieni sempre il controllo - rivedi e seleziona le modifiche da applicare.",
     "antiCopyDisclaimer": "Tutti i suggerimenti sono originali e scritti in linguaggio professionale. Non copiamo mai il testo dalle descrizioni dei lavori.",
     "loading": "Caricamento dei tuoi CV...",
-    "selectCV": "Seleziona CV"
+    "selectCV": "Seleziona CV",
+    "orDivider": "OPPURE",
+    "browseJobListings": "Sfoglia le offerte di lavoro",
+    "browseJobListingsHint": "Non hai ancora una descrizione del lavoro? Sfoglia le nostre offerte di lavoro per trovare opportunità e adattare il tuo CV direttamente."
   }
 }

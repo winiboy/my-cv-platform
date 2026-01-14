@@ -61,6 +61,9 @@
     "helpText": "Paste the complete job description, and our AI will suggest targeted updates to your CV. You're always in control - review and select which changes to apply.",
     "antiCopyDisclaimer": "All suggestions are original and written in professional CV language. We never copy text from job descriptions.",
     "loading": "Loading your CVs...",
-    "selectCV": "Select CV"
+    "selectCV": "Select CV",
+    "orDivider": "OR",
+    "browseJobListings": "Browse Job Listings",
+    "browseJobListingsHint": "Don't have a job description yet? Browse our job listings to find opportunities and adapt your CV directly."
   }
 }
