@@ -15,8 +15,6 @@ import {
   Eye,
   ArrowLeft,
   Sparkles,
-  LayoutList,
-  GripVertical,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n'
@@ -31,7 +29,6 @@ import { CertificationsSection } from './resume-sections/certifications-section'
 import { ProjectsSection } from './resume-sections/projects-section'
 import { ProfessionalTemplate } from './resume-templates/professional-template'
 import { CVAdaptationModal } from './cv-adaptation-modal'
-import { FontCarousel3D, FONTS } from '@/components/ui/font-carousel-3d'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
 
 interface ResumeEditorProps {
@@ -49,8 +46,6 @@ type SectionId =
   | 'languages'
   | 'certifications'
   | 'projects'
-  | 'editSidebar'
-  | 'editMainContent'
 
 const SECTIONS = [
   { id: 'contact' as const, label: 'Contact', icon: User },
@@ -61,17 +56,7 @@ const SECTIONS = [
   { id: 'languages' as const, label: 'Languages', icon: Languages },
   { id: 'certifications' as const, label: 'Certifications', icon: Award },
   { id: 'projects' as const, label: 'Projects', icon: FolderGit2 },
-  { id: 'editSidebar' as const, label: 'Edit Sidebar', icon: LayoutList },
-  { id: 'editMainContent' as const, label: 'Edit Main Content', icon: LayoutList },
 ]
-
-// Sidebar section IDs for ordering
-type SidebarSectionId = 'keyAchievements' | 'skills' | 'languages' | 'training'
-const DEFAULT_SIDEBAR_ORDER: SidebarSectionId[] = ['keyAchievements', 'skills', 'languages', 'training']
-
-// Main content section IDs for ordering
-type MainContentSectionId = 'summary' | 'experience' | 'education'
-const DEFAULT_MAIN_CONTENT_ORDER: MainContentSectionId[] = ['summary', 'experience', 'education']
 
 const SECTION_MAPPING: Record<string, SectionId> = {
   contact: 'contact',
@@ -88,7 +73,6 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
   const router = useRouter()
   const searchParams = useSearchParams()
   const [resume, setResume] = useState(initialResume)
-  const resumeRef = useRef(resume) // Track latest resume to avoid stale closures
   const [activeSection, setActiveSection] = useState<SectionId>('contact')
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -105,23 +89,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
   const [sectionDescFontSize, setSectionDescFontSize] = useState(14)
   const [sectionGap, setSectionGap] = useState(12)
   const [headerGap, setHeaderGap] = useState(12)
-  const [sidebarHue, setSidebarHue] = useState(240)
-  const [sidebarBrightness, setSidebarBrightness] = useState(35)
-  const [fontScale, setFontScale] = useState(1)
-  const [sidebarOrder, setSidebarOrder] = useState<SidebarSectionId[]>(DEFAULT_SIDEBAR_ORDER)
-  const [mainContentOrder, setMainContentOrder] = useState<MainContentSectionId[]>(DEFAULT_MAIN_CONTENT_ORDER)
-  const [fontFamily, setFontFamily] = useState(FONTS[4].family) // Default to Arial
-  const [isSliderSettingsLoaded, setIsSliderSettingsLoaded] = useState(false)
-  const [draggedSection, setDraggedSection] = useState<SidebarSectionId | null>(null)
-  const [draggedMainSection, setDraggedMainSection] = useState<MainContentSectionId | null>(null)
-
-  // Compute sidebarColor from hue and brightness
-  const sidebarColor = `hsl(${sidebarHue}, 85%, ${sidebarBrightness}%)`
-
-  // Keep resumeRef in sync with resume state
-  useEffect(() => {
-    resumeRef.current = resume
-  }, [resume])
+  const [sidebarColor, setSidebarColor] = useState('hsl(240, 85%, 35%)')
 
   // Resizable split pane state
   const [splitPosition, setSplitPosition] = useState(50) // Percentage
@@ -174,45 +142,32 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
   const saveToLocalStorageDebounced = useRef<NodeJS.Timeout | undefined>(undefined)
 
   const updateResume = useCallback((updates: Partial<Resume>) => {
-    // Use functional update to avoid stale closure issues
-    setResume(prevResume => {
-      const updatedResume = { ...prevResume, ...updates }
-
-      // Debounce localStorage writes (500ms)
-      if (saveToLocalStorageDebounced.current) {
-        clearTimeout(saveToLocalStorageDebounced.current)
-      }
-      saveToLocalStorageDebounced.current = setTimeout(() => {
-        localStorage.setItem(`resume_draft_${prevResume.id}`, JSON.stringify(updatedResume))
-      }, 500)
-
-      return updatedResume
-    })
+    const updatedResume = { ...resume, ...updates }
+    setResume(updatedResume)
     setHasUnsavedChanges(true)
 
     // Track which sections were modified
-    setModifiedSections(prevModifiedSections => {
-      const newModifiedSections = new Set(prevModifiedSections)
-      Object.keys(updates).forEach((key) => {
-        const sectionId = SECTION_MAPPING[key]
-        if (sectionId) {
-          newModifiedSections.add(sectionId)
-        }
-      })
-
-      // Debounce localStorage writes for modified sections
-      setTimeout(() => {
-        localStorage.setItem(`resume_modified_sections_${initialResume.id}`, JSON.stringify(Array.from(newModifiedSections)))
-      }, 500)
-
-      return newModifiedSections
+    const newModifiedSections = new Set(modifiedSections)
+    Object.keys(updates).forEach((key) => {
+      const sectionId = SECTION_MAPPING[key]
+      if (sectionId) {
+        newModifiedSections.add(sectionId)
+      }
     })
-  }, [initialResume.id])
+    setModifiedSections(newModifiedSections)
+
+    // Debounce localStorage writes (500ms)
+    if (saveToLocalStorageDebounced.current) {
+      clearTimeout(saveToLocalStorageDebounced.current)
+    }
+    saveToLocalStorageDebounced.current = setTimeout(() => {
+      localStorage.setItem(`resume_draft_${resume.id}`, JSON.stringify(updatedResume))
+      localStorage.setItem(`resume_modified_sections_${resume.id}`, JSON.stringify(Array.from(newModifiedSections)))
+    }, 500)
+  }, [resume, modifiedSections])
 
   // Handle CV adaptation from job description
   const handleApplyChanges = useCallback((patch: CVAdaptationPatch, selectedPatches: string[]) => {
-    // Use resumeRef.current to get the latest state (avoid stale closure)
-    const currentResume = resumeRef.current
     const updates: Partial<Resume> = {}
 
     console.log('Applying changes:', { patch, selectedPatches }) // Debug log
@@ -225,10 +180,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
 
     // Apply experience description patch if selected
     if (selectedPatches.includes('experienceDescription') && patch.patches.experienceDescription) {
-      const rawExperience = currentResume.experience as any[] | null
-      const experienceArray = Array.isArray(rawExperience)
-        ? rawExperience.map(exp => ({ ...exp })) // Deep copy each item
-        : []
+      const experienceArray = Array.isArray(resume.experience) ? [...resume.experience] : []
       const index = patch.patches.experienceDescription.experienceIndex
       const experienceItem = experienceArray[index]
       if (experienceItem && typeof experienceItem === 'object') {
@@ -236,20 +188,14 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
           ...experienceItem,
           description: patch.patches.experienceDescription.proposed,
         }
-        updates.experience = experienceArray as any
+        updates.experience = experienceArray
         console.log('Updating experience at index:', index) // Debug log
       }
     }
 
     // Apply skills patches if selected
     let skillsModified = false
-    const rawSkills = currentResume.skills as any[] | null
-    const skillsArray: any[] = Array.isArray(rawSkills)
-      ? rawSkills.map(skill => ({
-          ...skill,
-          items: Array.isArray(skill?.items) ? [...skill.items] : []
-        })) // Deep copy each skill category
-      : []
+    const skillsArray = Array.isArray(resume.skills) ? [...resume.skills] : []
 
     // Add new skill categories
     patch.patches.skillsToAdd?.forEach((skillPatch, index) => {
@@ -270,7 +216,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
         const existingCategory = skillsArray.find((cat) => cat && typeof cat === 'object' && 'category' in cat && cat.category === skillPatch.category)
         if (existingCategory && typeof existingCategory === 'object' && 'items' in existingCategory && Array.isArray(existingCategory.items)) {
           // Merge skills, avoiding duplicates
-          const existingSkillsLower = existingCategory.items.map((s: unknown) => String(s).toLowerCase())
+          const existingSkillsLower = existingCategory.items.map((s) => String(s).toLowerCase())
           const newSkills = skillPatch.itemsToAdd.filter(
             (skill) => !existingSkillsLower.includes(skill.toLowerCase())
           )
@@ -301,7 +247,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
     }
 
     setShowAdaptationModal(false)
-  }, [updateResume, dict])
+  }, [resume, updateResume, dict])
 
   // Check for adaptation data in URL on mount
   useEffect(() => {
@@ -427,30 +373,11 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
         if (settings.sectionDescFontSize !== undefined) setSectionDescFontSize(settings.sectionDescFontSize)
         if (settings.sectionGap !== undefined) setSectionGap(settings.sectionGap)
         if (settings.headerGap !== undefined) setHeaderGap(settings.headerGap)
-        if (settings.sidebarHue !== undefined) setSidebarHue(settings.sidebarHue)
-        if (settings.sidebarBrightness !== undefined) setSidebarBrightness(settings.sidebarBrightness)
-        if (settings.fontScale !== undefined) setFontScale(settings.fontScale)
-        if (settings.sidebarOrder !== undefined) {
-          // Migration: Add 'languages' if missing from saved order
-          let order = settings.sidebarOrder as SidebarSectionId[]
-          if (!order.includes('languages')) {
-            // Insert 'languages' after 'skills' or at position 2
-            const skillsIndex = order.indexOf('skills')
-            if (skillsIndex >= 0) {
-              order = [...order.slice(0, skillsIndex + 1), 'languages', ...order.slice(skillsIndex + 1)]
-            } else {
-              order = [...order, 'languages']
-            }
-          }
-          setSidebarOrder(order)
-        }
-        if (settings.mainContentOrder !== undefined) setMainContentOrder(settings.mainContentOrder)
-        if (settings.fontFamily !== undefined) setFontFamily(settings.fontFamily)
+        if (settings.sidebarColor !== undefined) setSidebarColor(settings.sidebarColor)
       } catch (error) {
         console.error('Failed to load design settings:', error)
       }
     }
-    setIsSliderSettingsLoaded(true)
   }, [resume.id])
 
   // Clear localStorage after successful save
@@ -460,28 +387,6 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
       localStorage.removeItem(`resume_modified_sections_${resume.id}`)
     }
   }, [hasUnsavedChanges, lastSaved, resume.id])
-
-  // Save slider settings (sidebarHue, sidebarBrightness, fontScale) to localStorage whenever they change
-  useEffect(() => {
-    if (!isSliderSettingsLoaded) return // Don't save until initial load is complete
-
-    const savedSettings = localStorage.getItem(`resume_slider_settings_${resume.id}`)
-    let settings: Record<string, any> = {}
-    if (savedSettings) {
-      try {
-        settings = JSON.parse(savedSettings)
-      } catch (error) {
-        console.error('Failed to parse slider settings:', error)
-      }
-    }
-    settings.sidebarHue = sidebarHue
-    settings.sidebarBrightness = sidebarBrightness
-    settings.fontScale = fontScale
-    settings.sidebarOrder = sidebarOrder
-    settings.mainContentOrder = mainContentOrder
-    settings.fontFamily = fontFamily
-    localStorage.setItem(`resume_slider_settings_${resume.id}`, JSON.stringify(settings))
-  }, [isSliderSettingsLoaded, sidebarHue, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, resume.id])
 
   // Warn user before leaving with unsaved changes
   useEffect(() => {
@@ -628,105 +533,6 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
               {activeSection === 'projects' && (
                 <ProjectsSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
               )}
-              {activeSection === 'editSidebar' && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-900 mb-2">
-                      {dict.resumes?.editor?.editSidebar || 'Edit Sidebar'}
-                    </h2>
-                    <p className="text-sm text-slate-600 mb-4">
-                      {dict.resumes?.editor?.editSidebarDescription || 'Drag and drop to reorder sidebar sections'}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    {sidebarOrder.map((sectionId, index) => {
-                      const sectionLabels: Record<SidebarSectionId, string> = {
-                        keyAchievements: dict.resumes?.template?.keyAchievements || 'Réalisations Clés',
-                        skills: dict.resumes?.template?.skills || 'Compétences',
-                        languages: dict.resumes?.template?.languages || 'Langues',
-                        training: dict.resumes?.template?.training || 'Formation / Cours',
-                      }
-                      return (
-                        <div
-                          key={sectionId}
-                          draggable
-                          onDragStart={() => setDraggedSection(sectionId)}
-                          onDragEnd={() => setDraggedSection(null)}
-                          onDragOver={(e) => {
-                            e.preventDefault()
-                            if (draggedSection && draggedSection !== sectionId) {
-                              const newOrder = [...sidebarOrder]
-                              const draggedIndex = newOrder.indexOf(draggedSection)
-                              const targetIndex = newOrder.indexOf(sectionId)
-                              newOrder.splice(draggedIndex, 1)
-                              newOrder.splice(targetIndex, 0, draggedSection)
-                              setSidebarOrder(newOrder)
-                            }
-                          }}
-                          className={`flex items-center gap-3 p-3 bg-white border rounded-lg cursor-grab active:cursor-grabbing transition-all ${
-                            draggedSection === sectionId
-                              ? 'opacity-50 border-teal-500 bg-teal-50'
-                              : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
-                          }`}
-                        >
-                          <GripVertical className="h-5 w-5 text-slate-400" />
-                          <span className="font-medium text-slate-700">{sectionLabels[sectionId]}</span>
-                          <span className="ml-auto text-xs text-slate-400">{index + 1}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-              {activeSection === 'editMainContent' && (
-                <div className="space-y-6">
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-900 mb-2">
-                      {dict.resumes?.editor?.editMainContent || 'Edit Main Content'}
-                    </h2>
-                    <p className="text-sm text-slate-600 mb-4">
-                      {dict.resumes?.editor?.editMainContentDescription || 'Drag and drop to reorder main content sections'}
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    {mainContentOrder.map((sectionId, index) => {
-                      const sectionLabels: Record<MainContentSectionId, string> = {
-                        summary: dict.resumes?.template?.summary || 'Résumé',
-                        experience: dict.resumes?.template?.experience || 'Expérience',
-                        education: dict.resumes?.template?.education || 'Formation',
-                      }
-                      return (
-                        <div
-                          key={sectionId}
-                          draggable
-                          onDragStart={() => setDraggedMainSection(sectionId)}
-                          onDragEnd={() => setDraggedMainSection(null)}
-                          onDragOver={(e) => {
-                            e.preventDefault()
-                            if (draggedMainSection && draggedMainSection !== sectionId) {
-                              const newOrder = [...mainContentOrder]
-                              const draggedIndex = newOrder.indexOf(draggedMainSection)
-                              const targetIndex = newOrder.indexOf(sectionId)
-                              newOrder.splice(draggedIndex, 1)
-                              newOrder.splice(targetIndex, 0, draggedMainSection)
-                              setMainContentOrder(newOrder)
-                            }
-                          }}
-                          className={`flex items-center gap-3 p-3 bg-white border rounded-lg cursor-grab active:cursor-grabbing transition-all ${
-                            draggedMainSection === sectionId
-                              ? 'opacity-50 border-teal-500 bg-teal-50'
-                              : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
-                          }`}
-                        >
-                          <GripVertical className="h-5 w-5 text-slate-400" />
-                          <span className="font-medium text-slate-700">{sectionLabels[sectionId]}</span>
-                          <span className="ml-auto text-xs text-slate-400">{index + 1}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
@@ -745,95 +551,6 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
             className="overflow-y-auto bg-slate-100 p-8"
             style={{ width: `${100 - splitPosition}%` }}
           >
-            {/* Sliders Container - NOT scaled, fixed 15px gaps */}
-            <div className="flex justify-center" style={{ marginBottom: '15px' }}>
-              <div style={{ width: `${816 * previewScale}px` }} className="flex">
-                {/* Left column: Sidebar sliders (30%) - independent stacking */}
-                <div style={{ width: '30%', paddingRight: '8px' }} className="flex flex-col justify-end">
-                  {/* Brightness Slider - fixed 15px above Color slider */}
-                  <div style={{ marginBottom: '15px' }}>
-                    <div className="flex items-center gap-2">
-                      {/* Small sun icon (dim) */}
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
-                        <circle cx="12" cy="12" r="4"/>
-                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-                      </svg>
-                      <input
-                        type="range"
-                        min="20"
-                        max="50"
-                        value={sidebarBrightness}
-                        onChange={(e) => setSidebarBrightness(parseInt(e.target.value))}
-                        className="brightness-slider"
-                        style={{
-                          flex: 1,
-                          height: '20px',
-                          appearance: 'none',
-                          background: `linear-gradient(to right, hsl(${sidebarHue}, 85%, 20%), hsl(${sidebarHue}, 85%, 50%))`,
-                          borderRadius: '10px',
-                          cursor: `url('/hand-cursor.png') 16 0, pointer`,
-                        }}
-                      />
-                      {/* Large sun icon (bright) */}
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
-                        <circle cx="12" cy="12" r="4"/>
-                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-                      </svg>
-                    </div>
-                  </div>
-                  {/* Color Slider - Above sidebar */}
-                  <div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="360"
-                      value={sidebarHue}
-                      onChange={(e) => setSidebarHue(parseInt(e.target.value))}
-                      className="color-slider"
-                      style={{
-                        width: '100%',
-                        height: '24px',
-                        appearance: 'none',
-                        background: `linear-gradient(to right, hsl(0, 85%, ${sidebarBrightness}%), hsl(60, 85%, ${sidebarBrightness}%), hsl(120, 85%, ${sidebarBrightness}%), hsl(180, 85%, ${sidebarBrightness}%), hsl(240, 85%, ${sidebarBrightness}%), hsl(300, 85%, ${sidebarBrightness}%), hsl(360, 85%, ${sidebarBrightness}%))`,
-                        borderRadius: '12px',
-                        cursor: `url('/hand-cursor.png') 16 0, pointer`,
-                      }}
-                    />
-                  </div>
-                </div>
-                {/* Right column: Main content sliders (70%) - independent stacking */}
-                <div style={{ width: '70%', paddingLeft: '8px' }} className="flex flex-col justify-end">
-                  {/* 3D Font Carousel - Above Font Size slider */}
-                  <div style={{ marginBottom: '15px' }}>
-                    <FontCarousel3D
-                      selectedFont={fontFamily}
-                      onFontChange={setFontFamily}
-                    />
-                  </div>
-                  {/* Font Size Slider - Above main content */}
-                  <div>
-                    <input
-                      type="range"
-                      min="0.7"
-                      max="1.3"
-                      step="0.01"
-                      value={fontScale}
-                      onChange={(e) => setFontScale(parseFloat(e.target.value))}
-                      className="font-slider"
-                      style={{
-                        width: '100%',
-                        height: '24px',
-                        appearance: 'none',
-                        background: 'linear-gradient(to right, #e2e8f0, #64748b)',
-                        borderRadius: '12px',
-                        cursor: `url('/hand-cursor.png') 16 0, pointer`,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
             <div className="flex items-start justify-center min-h-full">
               <div
                 style={{
@@ -847,11 +564,14 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
                   resume={resume}
                   locale={locale}
                   dict={dict}
+                  titleFontSize={titleFontSize}
+                  titleGap={titleGap}
+                  contactFontSize={contactFontSize}
+                  sectionTitleFontSize={sectionTitleFontSize}
+                  sectionDescFontSize={sectionDescFontSize}
+                  sectionGap={sectionGap}
+                  headerGap={headerGap}
                   sidebarColor={sidebarColor}
-                  fontScale={fontScale}
-                  fontFamily={fontFamily}
-                  sidebarOrder={sidebarOrder}
-                  mainContentOrder={mainContentOrder}
                 />
               </div>
             </div>
