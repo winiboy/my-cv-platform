@@ -225,8 +225,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
 
     // Apply experience description patch if selected
     if (selectedPatches.includes('experienceDescription') && patch.patches.experienceDescription) {
-      const experienceArray = Array.isArray(currentResume.experience)
-        ? currentResume.experience.map(exp => ({ ...exp })) // Deep copy each item
+      const rawExperience = currentResume.experience as any[] | null
+      const experienceArray = Array.isArray(rawExperience)
+        ? rawExperience.map(exp => ({ ...exp })) // Deep copy each item
         : []
       const index = patch.patches.experienceDescription.experienceIndex
       const experienceItem = experienceArray[index]
@@ -235,17 +236,18 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
           ...experienceItem,
           description: patch.patches.experienceDescription.proposed,
         }
-        updates.experience = experienceArray
+        updates.experience = experienceArray as any
         console.log('Updating experience at index:', index) // Debug log
       }
     }
 
     // Apply skills patches if selected
     let skillsModified = false
-    const skillsArray = Array.isArray(currentResume.skills)
-      ? currentResume.skills.map(skill => ({
+    const rawSkills = currentResume.skills as any[] | null
+    const skillsArray: any[] = Array.isArray(rawSkills)
+      ? rawSkills.map(skill => ({
           ...skill,
-          items: Array.isArray((skill as any)?.items) ? [...(skill as any).items] : []
+          items: Array.isArray(skill?.items) ? [...skill.items] : []
         })) // Deep copy each skill category
       : []
 
@@ -268,7 +270,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
         const existingCategory = skillsArray.find((cat) => cat && typeof cat === 'object' && 'category' in cat && cat.category === skillPatch.category)
         if (existingCategory && typeof existingCategory === 'object' && 'items' in existingCategory && Array.isArray(existingCategory.items)) {
           // Merge skills, avoiding duplicates
-          const existingSkillsLower = existingCategory.items.map((s) => String(s).toLowerCase())
+          const existingSkillsLower = existingCategory.items.map((s: unknown) => String(s).toLowerCase())
           const newSkills = skillPatch.itemsToAdd.filter(
             (skill) => !existingSkillsLower.includes(skill.toLowerCase())
           )
