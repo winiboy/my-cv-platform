@@ -11,10 +11,47 @@ interface DownloadResumeButtonsProps {
 export function DownloadResumeButtons({ pdfLabel, wordLabel }: DownloadResumeButtonsProps) {
   const params = useParams()
   const resumeId = params?.id as string
+  const locale = params?.locale as string
 
   const handleWordDownload = async () => {
     try {
-      const response = await fetch(`/api/resumes/${resumeId}/download-docx`)
+      // Read styling settings from localStorage (same key used by resume-editor and resume-preview-wrapper)
+      const savedSettings = localStorage.getItem(`resume_slider_settings_${resumeId}`)
+
+      // Build query params
+      const queryParams = new URLSearchParams()
+      queryParams.set('locale', locale || 'fr')
+
+      if (savedSettings) {
+        try {
+          const settings = JSON.parse(savedSettings)
+
+          // Typography settings
+          if (settings.fontFamily) queryParams.set('fontFamily', settings.fontFamily)
+          if (settings.fontScale !== undefined) queryParams.set('fontScale', String(settings.fontScale))
+
+          // Color settings (pass hue and brightness separately for HSL conversion)
+          if (settings.sidebarHue !== undefined) queryParams.set('sidebarHue', String(settings.sidebarHue))
+          if (settings.sidebarBrightness !== undefined) queryParams.set('sidebarBrightness', String(settings.sidebarBrightness))
+
+          // Layout settings
+          if (settings.sidebarWidth !== undefined) queryParams.set('sidebarWidth', String(settings.sidebarWidth))
+          if (settings.sidebarTopMargin !== undefined) queryParams.set('sidebarTopMargin', String(settings.sidebarTopMargin))
+          if (settings.mainContentTopMargin !== undefined) queryParams.set('mainContentTopMargin', String(settings.mainContentTopMargin))
+
+          // Section ordering (as JSON)
+          if (settings.sidebarOrder) queryParams.set('sidebarOrder', JSON.stringify(settings.sidebarOrder))
+          if (settings.mainContentOrder) queryParams.set('mainContentOrder', JSON.stringify(settings.mainContentOrder))
+
+          // Hidden sections (as JSON)
+          if (settings.hiddenSidebarSections) queryParams.set('hiddenSidebarSections', JSON.stringify(settings.hiddenSidebarSections))
+          if (settings.hiddenMainSections) queryParams.set('hiddenMainSections', JSON.stringify(settings.hiddenMainSections))
+        } catch (e) {
+          console.error('Failed to parse saved settings:', e)
+        }
+      }
+
+      const response = await fetch(`/api/resumes/${resumeId}/download-docx?${queryParams.toString()}`)
       if (!response.ok) throw new Error('Failed to download')
 
       const blob = await response.blob()
