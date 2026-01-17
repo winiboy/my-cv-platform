@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { ChevronUp, ChevronDown } from 'lucide-react'
 import type {
   Resume,
   ResumeContact,
@@ -184,14 +185,15 @@ export function ProfessionalTemplate({
             </p>
           </div>
 
-          {/* Draggable line separator - only show when controls are available */}
+          {/* Invisible draggable area - positioned at first item below first section title */}
           {setSidebarTopMargin && (
             <div
               className="absolute print:hidden"
               style={{
                 left: '24px',
                 right: '24px',
-                top: `${24 + 30 + sidebarTopMargin - 8}px`, // padding + name height + margin - offset
+                // Position: padding + name height + margin + section title height + section title margin
+                top: `${24 + 30 + sidebarTopMargin + 20 + 16}px`,
                 height: '16px',
                 cursor: 'ns-resize',
                 display: 'flex',
@@ -200,17 +202,7 @@ export function ProfessionalTemplate({
                 zIndex: 10,
               }}
               onMouseDown={handleMouseDown}
-            >
-              <div
-                className="transition-all"
-                style={{
-                  width: '100%',
-                  height: isDragging ? '4px' : '2px',
-                  backgroundColor: isDragging ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.4)',
-                  borderRadius: '2px',
-                }}
-              />
-            </div>
+            />
           )}
 
           {/* SIDEBAR SECTIONS - Rendered in dynamic order */}
@@ -225,7 +217,28 @@ export function ProfessionalTemplate({
                   </h2>
                   <div className="space-y-4">
                     {keyAchievements.map((achievement, index) => (
-                      <div key={index}>
+                      <div key={index} className="relative group">
+                        {/* Up/Down reorder arrows - only show in edit mode */}
+                        {setSidebarTopMargin && (
+                          <div className="absolute -left-5 top-0 flex flex-col opacity-0 group-hover:opacity-100 transition-opacity print:hidden" style={{ fontSize: '10px' }}>
+                            <button
+                              type="button"
+                              className="text-white/60 hover:text-white disabled:opacity-30"
+                              disabled={index === 0}
+                              title="Move up"
+                            >
+                              <ChevronUp size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              className="text-white/60 hover:text-white disabled:opacity-30"
+                              disabled={index === keyAchievements.length - 1}
+                              title="Move down"
+                            >
+                              <ChevronDown size={12} />
+                            </button>
+                          </div>
+                        )}
                         <h3 className="mb-1 font-bold" style={{ fontSize: `${scaledJobTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
                           {achievement.title}
                         </h3>
