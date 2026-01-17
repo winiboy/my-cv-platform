@@ -252,33 +252,27 @@ export function ProfessionalTemplate({
             if (sectionId === 'keyAchievements' && keyAchievements.length > 0) {
               return (
                 <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
-                  <h2 className="mb-4 pb-1 border-b border-white font-bold tracking-wide capitalize" style={{ fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
+                  <h2 className="relative mb-4 pb-1 border-b border-white font-bold tracking-wide capitalize" style={{ fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
                     {dict.resumes.template.keyAchievements}
+                    {/* Up/Down reorder arrows - positioned at section title underline, draggable in edit mode (live preview) */}
+                    {setSidebarTopMargin && (
+                      <span
+                        className="absolute flex flex-col print:hidden cursor-ns-resize select-none"
+                        style={{
+                          left: '-20px',
+                          bottom: '0px',
+                          transform: 'translateY(50%)'
+                        }}
+                        onMouseDown={handleSidebarMouseDown}
+                      >
+                        <ChevronUp size={12} className="text-white/80" />
+                        <ChevronDown size={12} className="text-white/80" />
+                      </span>
+                    )}
                   </h2>
                   <div className="space-y-4">
                     {keyAchievements.map((achievement, index) => (
-                      <div key={index} className="relative group">
-                        {/* Up/Down reorder arrows - only show in edit mode */}
-                        {setSidebarTopMargin && (
-                          <div className="absolute -left-5 top-0 flex flex-col opacity-0 group-hover:opacity-100 transition-opacity print:hidden" style={{ fontSize: '10px' }}>
-                            <button
-                              type="button"
-                              className="text-white/60 hover:text-white disabled:opacity-30"
-                              disabled={index === 0}
-                              title="Move up"
-                            >
-                              <ChevronUp size={12} />
-                            </button>
-                            <button
-                              type="button"
-                              className="text-white/60 hover:text-white disabled:opacity-30"
-                              disabled={index === keyAchievements.length - 1}
-                              title="Move down"
-                            >
-                              <ChevronDown size={12} />
-                            </button>
-                          </div>
-                        )}
+                      <div key={index}>
                         <h3 className="mb-1 font-bold" style={{ fontSize: `${scaledJobTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
                           {achievement.title}
                         </h3>
