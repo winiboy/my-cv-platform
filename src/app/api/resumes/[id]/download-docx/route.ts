@@ -18,6 +18,7 @@ import {
   TabStopPosition,
   HeightRule,
   LineRuleType,
+  TableLayoutType,
 } from 'docx'
 
 // ============================================================
@@ -941,7 +942,8 @@ export async function GET(
       },
     })
 
-    // Create table
+    // Create table with FIXED layout to prevent Word auto-resizing
+    // This is critical for maintaining exact sidebar width parity with Preview
     const mainTable = new Table({
       rows: [
         new TableRow({
@@ -953,10 +955,15 @@ export async function GET(
           },
         }),
       ],
+      // Use fixed table width in DXA (twips) - NOT percentage
       width: {
-        size: 100,
-        type: WidthType.PERCENTAGE,
+        size: pageWidthTwips,
+        type: WidthType.DXA,
       },
+      // Explicit column widths array - required for fixed layout
+      columnWidths: [sidebarWidthTwips, mainContentWidthTwips],
+      // FIXED layout prevents Word from auto-fitting columns
+      layout: TableLayoutType.FIXED,
       borders: {
         top: { style: BorderStyle.NONE },
         bottom: { style: BorderStyle.NONE },
