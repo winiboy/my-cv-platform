@@ -13,6 +13,7 @@ import {
   FolderGit2,
   Save,
   Eye,
+  EyeOff,
   ArrowLeft,
   Sparkles,
   LayoutList,
@@ -117,6 +118,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
   const [isSliderSettingsLoaded, setIsSliderSettingsLoaded] = useState(false)
   const [draggedSection, setDraggedSection] = useState<SidebarSectionId | null>(null)
   const [draggedMainSection, setDraggedMainSection] = useState<MainContentSectionId | null>(null)
+  const [hiddenSidebarSections, setHiddenSidebarSections] = useState<SidebarSectionId[]>([])
+  const [hiddenMainSections, setHiddenMainSections] = useState<MainContentSectionId[]>([])
 
   // Compute sidebarColor from hue and brightness
   const sidebarColor = `hsl(${sidebarHue}, 85%, ${sidebarBrightness}%)`
@@ -452,6 +455,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
         if (settings.sidebarTopMargin !== undefined) setSidebarTopMargin(settings.sidebarTopMargin)
         if (settings.mainContentTopMargin !== undefined) setMainContentTopMargin(settings.mainContentTopMargin)
         if (settings.sidebarWidth !== undefined) setSidebarWidth(settings.sidebarWidth)
+        if (settings.hiddenSidebarSections !== undefined) setHiddenSidebarSections(settings.hiddenSidebarSections)
+        if (settings.hiddenMainSections !== undefined) setHiddenMainSections(settings.hiddenMainSections)
       } catch (error) {
         console.error('Failed to load design settings:', error)
       }
@@ -489,8 +494,10 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
     settings.sidebarTopMargin = sidebarTopMargin
     settings.mainContentTopMargin = mainContentTopMargin
     settings.sidebarWidth = sidebarWidth
+    settings.hiddenSidebarSections = hiddenSidebarSections
+    settings.hiddenMainSections = hiddenMainSections
     localStorage.setItem(`resume_slider_settings_${resume.id}`, JSON.stringify(settings))
-  }, [isSliderSettingsLoaded, sidebarHue, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, resume.id])
+  }, [isSliderSettingsLoaded, sidebarHue, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, hiddenSidebarSections, hiddenMainSections, resume.id])
 
   // Warn user before leaving with unsaved changes
   useEffect(() => {
@@ -655,15 +662,16 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
                         languages: dict.resumes?.template?.languages || 'Langues',
                         training: dict.resumes?.template?.training || 'Formation / Cours',
                       }
+                      const isHidden = hiddenSidebarSections.includes(sectionId)
                       return (
                         <div
                           key={sectionId}
-                          draggable
-                          onDragStart={() => setDraggedSection(sectionId)}
+                          draggable={!isHidden}
+                          onDragStart={() => !isHidden && setDraggedSection(sectionId)}
                           onDragEnd={() => setDraggedSection(null)}
                           onDragOver={(e) => {
                             e.preventDefault()
-                            if (draggedSection && draggedSection !== sectionId) {
+                            if (draggedSection && draggedSection !== sectionId && !isHidden) {
                               const newOrder = [...sidebarOrder]
                               const draggedIndex = newOrder.indexOf(draggedSection)
                               const targetIndex = newOrder.indexOf(sectionId)
@@ -672,15 +680,34 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
                               setSidebarOrder(newOrder)
                             }
                           }}
-                          className={`flex items-center gap-3 p-3 bg-white border rounded-lg cursor-grab active:cursor-grabbing transition-all ${
-                            draggedSection === sectionId
-                              ? 'opacity-50 border-teal-500 bg-teal-50'
-                              : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
+                          className={`flex items-center gap-3 p-3 bg-white border rounded-lg transition-all ${
+                            isHidden
+                              ? 'opacity-50 border-slate-200 bg-slate-50'
+                              : draggedSection === sectionId
+                                ? 'opacity-50 border-teal-500 bg-teal-50 cursor-grab active:cursor-grabbing'
+                                : 'border-slate-200 hover:border-slate-300 hover:shadow-sm cursor-grab active:cursor-grabbing'
                           }`}
                         >
-                          <GripVertical className="h-5 w-5 text-slate-400" />
-                          <span className="font-medium text-slate-700">{sectionLabels[sectionId]}</span>
-                          <span className="ml-auto text-xs text-slate-400">{index + 1}</span>
+                          <GripVertical className={`h-5 w-5 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
+                          <span className={`font-medium ${isHidden ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{sectionLabels[sectionId]}</span>
+                          <span className="ml-auto flex items-center gap-2">
+                            <span className={`text-xs ${isHidden ? 'text-slate-300' : 'text-slate-400'}`}>{index + 1}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (isHidden) {
+                                  setHiddenSidebarSections(prev => prev.filter(id => id !== sectionId))
+                                } else {
+                                  setHiddenSidebarSections(prev => [...prev, sectionId])
+                                }
+                              }}
+                              className={`p-1 rounded hover:bg-slate-100 transition-colors ${isHidden ? 'text-slate-400' : 'text-slate-500'}`}
+                              title={isHidden ? (dict.resumes?.editor?.showSection || 'Show section') : (dict.resumes?.editor?.hideSection || 'Hide section')}
+                            >
+                              {isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </span>
                         </div>
                       )
                     })}
@@ -704,15 +731,16 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
                         experience: dict.resumes?.template?.experience || 'Expérience',
                         education: dict.resumes?.template?.education || 'Formation',
                       }
+                      const isHidden = hiddenMainSections.includes(sectionId)
                       return (
                         <div
                           key={sectionId}
-                          draggable
-                          onDragStart={() => setDraggedMainSection(sectionId)}
+                          draggable={!isHidden}
+                          onDragStart={() => !isHidden && setDraggedMainSection(sectionId)}
                           onDragEnd={() => setDraggedMainSection(null)}
                           onDragOver={(e) => {
                             e.preventDefault()
-                            if (draggedMainSection && draggedMainSection !== sectionId) {
+                            if (draggedMainSection && draggedMainSection !== sectionId && !isHidden) {
                               const newOrder = [...mainContentOrder]
                               const draggedIndex = newOrder.indexOf(draggedMainSection)
                               const targetIndex = newOrder.indexOf(sectionId)
@@ -721,15 +749,34 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
                               setMainContentOrder(newOrder)
                             }
                           }}
-                          className={`flex items-center gap-3 p-3 bg-white border rounded-lg cursor-grab active:cursor-grabbing transition-all ${
-                            draggedMainSection === sectionId
-                              ? 'opacity-50 border-teal-500 bg-teal-50'
-                              : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'
+                          className={`flex items-center gap-3 p-3 bg-white border rounded-lg transition-all ${
+                            isHidden
+                              ? 'opacity-50 border-slate-200 bg-slate-50'
+                              : draggedMainSection === sectionId
+                                ? 'opacity-50 border-teal-500 bg-teal-50 cursor-grab active:cursor-grabbing'
+                                : 'border-slate-200 hover:border-slate-300 hover:shadow-sm cursor-grab active:cursor-grabbing'
                           }`}
                         >
-                          <GripVertical className="h-5 w-5 text-slate-400" />
-                          <span className="font-medium text-slate-700">{sectionLabels[sectionId]}</span>
-                          <span className="ml-auto text-xs text-slate-400">{index + 1}</span>
+                          <GripVertical className={`h-5 w-5 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
+                          <span className={`font-medium ${isHidden ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{sectionLabels[sectionId]}</span>
+                          <span className="ml-auto flex items-center gap-2">
+                            <span className={`text-xs ${isHidden ? 'text-slate-300' : 'text-slate-400'}`}>{index + 1}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (isHidden) {
+                                  setHiddenMainSections(prev => prev.filter(id => id !== sectionId))
+                                } else {
+                                  setHiddenMainSections(prev => [...prev, sectionId])
+                                }
+                              }}
+                              className={`p-1 rounded hover:bg-slate-100 transition-colors ${isHidden ? 'text-slate-400' : 'text-slate-500'}`}
+                              title={isHidden ? (dict.resumes?.editor?.showSection || 'Show section') : (dict.resumes?.editor?.hideSection || 'Hide section')}
+                            >
+                              {isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </span>
                         </div>
                       )
                     })}
@@ -867,6 +914,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
                   setMainContentTopMargin={setMainContentTopMargin}
                   sidebarWidth={sidebarWidth}
                   setSidebarWidth={setSidebarWidth}
+                  hiddenSidebarSections={hiddenSidebarSections}
+                  hiddenMainSections={hiddenMainSections}
                 />
               </div>
             </div>

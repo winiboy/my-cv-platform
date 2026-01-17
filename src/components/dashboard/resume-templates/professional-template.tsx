@@ -32,6 +32,8 @@ interface ProfessionalTemplateProps {
   setMainContentTopMargin?: (margin: number) => void
   sidebarWidth?: number
   setSidebarWidth?: (width: number) => void
+  hiddenSidebarSections?: SidebarSectionId[]
+  hiddenMainSections?: MainContentSectionId[]
 }
 
 // Fixed font sizes based on professional CV standards
@@ -91,6 +93,8 @@ export function ProfessionalTemplate({
   setMainContentTopMargin,
   sidebarWidth = 30,
   setSidebarWidth,
+  hiddenSidebarSections = [],
+  hiddenMainSections = [],
 }: ProfessionalTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
@@ -283,8 +287,10 @@ export function ProfessionalTemplate({
           </div>
 
           {/* SIDEBAR SECTIONS - Rendered in dynamic order */}
-          {sidebarOrder.map((sectionId, orderIndex) => {
-            const isLastSection = orderIndex === sidebarOrder.length - 1
+          {sidebarOrder
+            .filter(sectionId => !hiddenSidebarSections.includes(sectionId))
+            .map((sectionId, orderIndex, filteredOrder) => {
+            const isLastSection = orderIndex === filteredOrder.length - 1
 
             if (sectionId === 'keyAchievements' && keyAchievements.length > 0) {
               return (
@@ -466,8 +472,10 @@ export function ProfessionalTemplate({
           </div>
 
           {/* MAIN CONTENT SECTIONS - Rendered in dynamic order */}
-          {mainContentOrder.map((sectionId, orderIndex) => {
-            const isLastSection = orderIndex === mainContentOrder.length - 1
+          {mainContentOrder
+            .filter(sectionId => !hiddenMainSections.includes(sectionId))
+            .map((sectionId, orderIndex, filteredOrder) => {
+            const isLastSection = orderIndex === filteredOrder.length - 1
 
             if (sectionId === 'summary' && resume.summary) {
               return (

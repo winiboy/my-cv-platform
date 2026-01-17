@@ -41,6 +41,8 @@ export function ResumePreviewWrapper({
   const [sidebarTopMargin, setSidebarTopMargin] = useState(64) // Default: 64px (mb-16)
   const [mainContentTopMargin, setMainContentTopMargin] = useState(24) // Default: 24px
   const [sidebarWidth, setSidebarWidth] = useState(30) // Default: 30%
+  const [hiddenSidebarSections, setHiddenSidebarSections] = useState<('keyAchievements' | 'skills' | 'languages' | 'training')[]>([])
+  const [hiddenMainSections, setHiddenMainSections] = useState<('summary' | 'experience' | 'education')[]>([])
 
   // Compute sidebarColor from hue and brightness
   const sidebarColor = `hsl(${sidebarHue}, 85%, ${sidebarBrightness}%)`
@@ -80,6 +82,8 @@ export function ResumePreviewWrapper({
         if (settings.sidebarTopMargin !== undefined) setSidebarTopMargin(settings.sidebarTopMargin)
         if (settings.mainContentTopMargin !== undefined) setMainContentTopMargin(settings.mainContentTopMargin)
         if (settings.sidebarWidth !== undefined) setSidebarWidth(settings.sidebarWidth)
+        if (settings.hiddenSidebarSections !== undefined) setHiddenSidebarSections(settings.hiddenSidebarSections)
+        if (settings.hiddenMainSections !== undefined) setHiddenMainSections(settings.hiddenMainSections)
       } catch (error) {
         console.error('Failed to load slider settings:', error)
       }
@@ -108,9 +112,11 @@ export function ResumePreviewWrapper({
       sidebarTopMargin,
       mainContentTopMargin,
       sidebarWidth,
+      hiddenSidebarSections,
+      hiddenMainSections,
     }
     localStorage.setItem(`resume_slider_settings_${initialResume.id}`, JSON.stringify(settings))
-  }, [isLoaded, titleFontSize, titleGap, contactFontSize, sectionTitleFontSize, sectionDescFontSize, sectionGap, headerGap, sidebarHue, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, initialResume.id])
+  }, [isLoaded, titleFontSize, titleGap, contactFontSize, sectionTitleFontSize, sectionDescFontSize, sectionGap, headerGap, sidebarHue, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, hiddenSidebarSections, hiddenMainSections, initialResume.id])
 
   useEffect(() => {
     // Check for draft in localStorage
@@ -171,6 +177,8 @@ export function ResumePreviewWrapper({
         sidebarTopMargin={sidebarTopMargin}
         mainContentTopMargin={mainContentTopMargin}
         sidebarWidth={sidebarWidth}
+        hiddenSidebarSections={hiddenSidebarSections}
+        hiddenMainSections={hiddenMainSections}
       />
     </>
   )
