@@ -123,10 +123,12 @@ const LINE_HEIGHTS = {
 }
 
 // Spacing constants (in px, will be converted to twips)
+// These MUST match the Preview exactly
 const SPACING = {
   TITLE_GAP: 8,
-  SECTION_GAP: 12,
-  SECTION_MARGIN_BOTTOM: 32, // mb-8 = 32px
+  SECTION_GAP: 12,              // marginBottom on section titles
+  SECTION_MARGIN_BOTTOM: 32,    // mb-8 in Preview = 32px (2rem)
+  ITEM_SPACING: 16,             // space-y-4 between items
 }
 
 // Section type definitions
@@ -236,6 +238,25 @@ export async function GET(
 
     // Extract primary font name from font family stack
     const primaryFont = extractPrimaryFont(fontFamily)
+
+    // Calculate page dimensions for layout
+    const pageWidthTwips = convertInchesToTwip(8.5)
+    const sidebarWidthTwips = Math.round(pageWidthTwips * (sidebarWidthPercent / 100))
+    const mainContentWidthTwips = pageWidthTwips - sidebarWidthTwips
+
+    // Calculate main content cell margins (matching Preview p-8 = 32px ≈ 0.33")
+    const mainCellMargin = convertInchesToTwip(0.33)
+
+    // Calculate explicit tab stop position for right-aligned dates
+    // This prevents text from touching the right edge
+    // Tab position = cell content width - right margin buffer
+    const mainContentTextWidth = mainContentWidthTwips - (mainCellMargin * 2)
+    const rightTabPosition = mainContentTextWidth - convertInchesToTwip(0.1) // 0.1" buffer for dates
+
+    // Explicit right indentation for paragraphs in main content
+    // This ensures body text doesn't touch the right edge of the cell
+    // The cell margin alone may not be sufficient in all Word renderers
+    const mainContentRightIndent = convertInchesToTwip(0.15) // Additional 0.15" right indent
 
     // ============================================================
     // BUILD SIDEBAR CONTENT
@@ -636,6 +657,7 @@ export async function GET(
               }),
             ],
             alignment: AlignmentType.JUSTIFIED,
+            indent: { right: mainContentRightIndent },
             spacing: {
               after: sectionSpacingAfter,
               line: Math.round(240 * LINE_HEIGHTS.BODY),
@@ -693,10 +715,11 @@ export async function GET(
                 }),
               ],
               spacing: { after: pxToTwips(4) },
+              indent: { right: mainContentRightIndent },
               tabStops: [
                 {
                   type: TabStopType.RIGHT,
-                  position: TabStopPosition.MAX,
+                  position: rightTabPosition,
                 },
               ],
             })
@@ -722,6 +745,7 @@ export async function GET(
                 ] : []),
               ],
               spacing: { after: pxToTwips(8) },
+              indent: { right: mainContentRightIndent },
             })
           )
 
@@ -746,10 +770,11 @@ export async function GET(
                     }),
                   ],
                   spacing: {
-                    after: isLastAchievement ? (isLast && isLastSection ? 0 : pxToTwips(24)) : pxToTwips(4),
+                    after: isLastAchievement ? (isLast && isLastSection ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM)) : pxToTwips(4),
                     line: Math.round(240 * LINE_HEIGHTS.BODY),
                     lineRule: LineRuleType.AUTO,
                   },
+                  indent: { right: mainContentRightIndent },
                 })
               )
             })
@@ -765,19 +790,19 @@ export async function GET(
                   }),
                 ],
                 spacing: {
-                  after: isLast && isLastSection ? 0 : pxToTwips(24),
+                  after: isLast && isLastSection ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM),
                   line: Math.round(240 * LINE_HEIGHTS.BODY),
                   lineRule: LineRuleType.AUTO,
                 },
                 alignment: AlignmentType.JUSTIFIED,
+                indent: { right: mainContentRightIndent },
               })
             )
           }
         })
 
-        if (!isLastSection && experiences.length > 0) {
-          mainContentParagraphs.push(new Paragraph({ spacing: { after: sectionSpacingAfter } }))
-        }
+        // Note: Section spacing is handled by the last item's spacing.after
+        // Do NOT add an empty paragraph here - it causes double spacing
       }
 
       if (sectionId === 'education' && education.length > 0) {
@@ -837,10 +862,11 @@ export async function GET(
                 }),
               ],
               spacing: { after: pxToTwips(4) },
+              indent: { right: mainContentRightIndent },
               tabStops: [
                 {
                   type: TabStopType.RIGHT,
-                  position: TabStopPosition.MAX,
+                  position: rightTabPosition,
                 },
               ],
             })
@@ -866,10 +892,11 @@ export async function GET(
                 ] : []),
               ],
               spacing: { after: edu.gpa ? pxToTwips(4) : (isLast && isLastSection ? 0 : pxToTwips(16)) },
+              indent: { right: mainContentRightIndent },
               tabStops: [
                 {
                   type: TabStopType.RIGHT,
-                  position: TabStopPosition.MAX,
+                  position: rightTabPosition,
                 },
               ],
             })
@@ -889,6 +916,7 @@ export async function GET(
                   }),
                 ],
                 spacing: { after: isLast && isLastSection ? 0 : pxToTwips(16) },
+                indent: { right: mainContentRightIndent },
               })
             )
           }
@@ -899,12 +927,6 @@ export async function GET(
     // ============================================================
     // CREATE DOCUMENT WITH TABLE LAYOUT
     // ============================================================
-
-    // Calculate column widths based on sidebarWidth percentage
-    // US Letter = 8.5 inches = 12240 twips width
-    const pageWidthTwips = convertInchesToTwip(8.5)
-    const sidebarWidthTwips = Math.round(pageWidthTwips * (sidebarWidthPercent / 100))
-    const mainContentWidthTwips = pageWidthTwips - sidebarWidthTwips
 
     // Sidebar cell
     const sidebarCell = new TableCell({
@@ -944,14 +966,19 @@ export async function GET(
 
     // Create table with FIXED layout to prevent Word auto-resizing
     // This is critical for maintaining exact sidebar width parity with Preview
+    // Page height: US Letter = 11" but we need to account for content fitting on ONE page
+    const pageHeightTwips = convertInchesToTwip(11)
+
     const mainTable = new Table({
       rows: [
         new TableRow({
           children: [sidebarCell, mainContentCell],
           cantSplit: true,
+          // Use EXACT height matching page height to prevent overflow to page 2
+          // Content will compress to fit within this height
           height: {
-            value: convertInchesToTwip(11),
-            rule: HeightRule.ATLEAST,
+            value: pageHeightTwips,
+            rule: HeightRule.EXACT,
           },
         }),
       ],
