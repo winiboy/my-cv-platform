@@ -87,10 +87,15 @@ export function LoginForm({ locale }: LoginFormProps) {
 
     try {
       const supabase = createClient()
+
+      // Build callback URL with locale-aware redirect
+      const callbackUrl = new URL('/api/auth/callback', window.location.origin)
+      callbackUrl.searchParams.set('next', `/${locale}/dashboard`)
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/${locale}/dashboard`,
+          redirectTo: callbackUrl.toString(),
         },
       })
 
