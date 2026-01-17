@@ -57,6 +57,7 @@
     "selectResumeTitle": "Select CV to Adapt",
     "adaptToJob": "Adapt to Job",
     "adaptCV": "Adapt My CV",
+    "fetching": "Fetching job details...",
     "howItWorks": "How CV Adaptation Works",
     "helpText": "Paste the complete job description, and our AI will suggest targeted updates to your CV. You're always in control - review and select which changes to apply.",
     "antiCopyDisclaimer": "All suggestions are original and written in professional CV language. We never copy text from job descriptions.",

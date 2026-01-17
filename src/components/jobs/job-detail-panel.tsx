@@ -65,12 +65,61 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
       }
 
       setUserId(user.id)
+      setIsFetchingJob(true)
+
+      // Fetch full job description from external URL (same as handleCreateCV)
+      if (job.application_url && job.application_url !== '#') {
+        try {
+          const response = await fetch('/api/jobs/fetch-external', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: job.application_url,
+              targetLanguage: locale,
+            }),
+          })
+
+          const data = await response.json()
+
+          if (response.ok && data.success) {
+            setFetchedJobData({
+              description: data.jobDescription || job.description,
+              title: data.jobTitle || job.title,
+              company: data.company || job.company,
+            })
+          } else {
+            // Fallback to existing job data if fetch fails
+            setFetchedJobData({
+              description: job.description,
+              title: job.title,
+              company: job.company,
+            })
+          }
+        } catch (fetchError) {
+          console.error('Error fetching external job:', fetchError)
+          // Fallback to existing job data
+          setFetchedJobData({
+            description: job.description,
+            title: job.title,
+            company: job.company,
+          })
+        }
+      } else {
+        // No external URL, use existing job data
+        setFetchedJobData({
+          description: job.description,
+          title: job.title,
+          company: job.company,
+        })
+      }
 
       // Fetch user's resumes
       const { data: resumes, error } = await supabase
         .from('resumes')
         .select('id')
         .eq('user_id', user.id) as { data: { id: string }[] | null; error: any }
+
+      setIsFetchingJob(false)
 
       if (error) {
         console.error('Error fetching resumes:', error)
@@ -94,6 +143,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
       }
     } catch (error) {
       console.error('Error in handleAdaptCV:', error)
+      setIsFetchingJob(false)
       alert('An error occurred. Please try again.')
     }
   }
@@ -105,13 +155,18 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
   }
 
   const handleApplyChanges = (patch: CVAdaptationPatch, selectedPatches: string[]) => {
-    // Redirect to resume editor with adaptation data in URL query
-    // The resume editor will handle applying the changes
-    const adaptationData = encodeURIComponent(JSON.stringify({
+    // Store adaptation data in sessionStorage (avoids URL length limits)
+    // The resume editor will read and apply the changes
+    const adaptationData = {
       patch,
-      selectedPatches
-    }))
-    router.push(`/${locale}/dashboard/resumes/${selectedResumeId}/edit?adaptation=${adaptationData}`)
+      selectedPatches,
+      resumeId: selectedResumeId,
+      timestamp: Date.now(),
+    }
+    sessionStorage.setItem('cv_adaptation_pending', JSON.stringify(adaptationData))
+
+    // Navigate to editor with a flag indicating pending adaptation
+    router.push(`/${locale}/dashboard/resumes/${selectedResumeId}/edit?applyAdaptation=true`)
   }
 
   const handleCreateCV = async () => {
@@ -331,11 +386,18 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
 
           <Button
             onClick={handleAdaptCV}
+            disabled={isFetchingJob}
             variant="outline"
             className="flex items-center gap-2 border-purple-600 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
           >
-            <Sparkles className="h-4 w-4" />
-            {dict?.cvAdaptation?.adaptCV || 'Adapt My CV'}
+            {isFetchingJob ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            {isFetchingJob
+              ? (dict?.cvAdaptation?.fetching || 'Fetching job details...')
+              : (dict?.cvAdaptation?.adaptCV || 'Adapt My CV')}
           </Button>
 
           <Button
@@ -432,9 +494,9 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
           isOpen={showAdaptationModal}
           onClose={handleCloseModal}
           resumeId={selectedResumeId}
-          initialJobDescription={isCreateCVMode && fetchedJobData ? fetchedJobData.description : job.description}
-          initialJobTitle={isCreateCVMode && fetchedJobData ? fetchedJobData.title : job.title}
-          initialCompany={isCreateCVMode && fetchedJobData ? fetchedJobData.company : job.company}
+          initialJobDescription={fetchedJobData ? fetchedJobData.description : job.description}
+          initialJobTitle={fetchedJobData ? fetchedJobData.title : job.title}
+          initialCompany={fetchedJobData ? fetchedJobData.company : job.company}
           locale={locale}
           onApplyChanges={handleApplyChanges}
           dict={dict?.cvAdaptation}

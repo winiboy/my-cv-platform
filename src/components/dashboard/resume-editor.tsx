@@ -223,6 +223,12 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
 
     console.log('Applying changes:', { patch, selectedPatches }) // Debug log
 
+    // Guard: validate patch structure
+    if (!patch || !patch.patches || !Array.isArray(selectedPatches)) {
+      console.error('Invalid patch data:', { patch, selectedPatches })
+      return
+    }
+
     // Apply summary patch if selected
     if (selectedPatches.includes('summary') && patch.patches.summary) {
       updates.summary = patch.patches.summary.proposed
@@ -309,20 +315,54 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
     setShowAdaptationModal(false)
   }, [updateResume, dict])
 
-  // Check for adaptation data in URL on mount
+  // Track if adaptation has been applied to prevent re-runs
+  const adaptationAppliedRef = useRef(false)
+
+  // Check for pending adaptation data on mount
   useEffect(() => {
-    const adaptationData = searchParams?.get('adaptation')
-    if (adaptationData) {
-      try {
-        const { patch, selectedPatches } = JSON.parse(decodeURIComponent(adaptationData))
-        console.log('Loading adaptation from URL:', { patch, selectedPatches }) // Debug log
-        // Apply changes immediately
-        handleApplyChanges(patch, selectedPatches)
-        // Clean up URL
-        router.replace(`/${locale}/dashboard/resumes/${resume.id}/edit`)
-      } catch (error) {
-        console.error('Error parsing adaptation data:', error)
+    // Guard: skip if already applied
+    if (adaptationAppliedRef.current) return
+
+    // Check URL flag
+    const shouldApply = searchParams?.get('applyAdaptation') === 'true'
+    if (!shouldApply) return
+
+    // Read adaptation data from sessionStorage
+    const storedData = sessionStorage.getItem('cv_adaptation_pending')
+    if (!storedData) {
+      console.log('No adaptation data in sessionStorage')
+      return
+    }
+
+    try {
+      const { patch, selectedPatches, resumeId, timestamp } = JSON.parse(storedData)
+
+      // Validate the data is for this resume and not stale (5 min max)
+      const isStale = Date.now() - timestamp > 5 * 60 * 1000
+      if (resumeId !== resume.id || isStale) {
+        console.log('Adaptation data is for different resume or stale, clearing')
+        sessionStorage.removeItem('cv_adaptation_pending')
+        return
       }
+
+      console.log('Loading adaptation from sessionStorage:', { patch, selectedPatches })
+
+      // Mark as applied before processing to prevent re-runs
+      adaptationAppliedRef.current = true
+
+      // Clear sessionStorage
+      sessionStorage.removeItem('cv_adaptation_pending')
+
+      // Apply changes
+      handleApplyChanges(patch, selectedPatches)
+
+      // Clean up URL after a short delay
+      setTimeout(() => {
+        router.replace(`/${locale}/dashboard/resumes/${resume.id}/edit`)
+      }, 200)
+    } catch (error) {
+      console.error('Error parsing adaptation data:', error)
+      sessionStorage.removeItem('cv_adaptation_pending')
     }
   }, [searchParams, handleApplyChanges, router, locale, resume.id])
 

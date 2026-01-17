@@ -57,6 +57,7 @@
     "selectResumeTitle": "Sélectionner le CV à adapter",
     "adaptToJob": "Adapter à l'offre",
     "adaptCV": "Adapter mon CV",
+    "fetching": "Récupération des détails...",
     "howItWorks": "Comment fonctionne l'adaptation de CV",
     "helpText": "Collez la description complète du poste, et notre IA suggérera des mises à jour ciblées pour votre CV. Vous gardez toujours le contrôle - examinez et sélectionnez les changements à appliquer.",
     "antiCopyDisclaimer": "Toutes les suggestions sont originales et rédigées dans un langage professionnel. Nous ne copions jamais le texte des descriptions de poste.",
