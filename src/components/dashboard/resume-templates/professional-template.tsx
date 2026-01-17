@@ -267,8 +267,8 @@ export function ProfessionalTemplate({
             }}
             onMouseDown={handleSidebarWidthMouseDown}
           >
-            <ChevronLeft size={12} className="text-white/80" />
-            <ChevronRight size={12} className="text-white/80" />
+            <ChevronLeft size={16} className="text-gray-500" />
+            <ChevronRight size={16} className="text-gray-500" />
           </span>
         )}
           {/* CONTACT NAME SECTION */}
