@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { ChevronUp, ChevronDown } from 'lucide-react'
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import type {
   Resume,
   ResumeContact,
@@ -30,6 +30,8 @@ interface ProfessionalTemplateProps {
   setSidebarTopMargin?: (margin: number) => void
   mainContentTopMargin?: number
   setMainContentTopMargin?: (margin: number) => void
+  sidebarWidth?: number
+  setSidebarWidth?: (width: number) => void
 }
 
 // Fixed font sizes based on professional CV standards
@@ -87,6 +89,8 @@ export function ProfessionalTemplate({
   setSidebarTopMargin,
   mainContentTopMargin = 24,
   setMainContentTopMargin,
+  sidebarWidth = 30,
+  setSidebarWidth,
 }: ProfessionalTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
@@ -179,6 +183,44 @@ export function ProfessionalTemplate({
     }
   }, [isDraggingMain, handleMainMouseMove, handleMainMouseUp])
 
+  // Drag state for sidebar width (horizontal)
+  const [isDraggingSidebarWidth, setIsDraggingSidebarWidth] = useState(false)
+  const sidebarWidthDragStartX = useRef<number>(0)
+  const sidebarWidthDragStartWidth = useRef<number>(sidebarWidth)
+
+  const handleSidebarWidthMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!setSidebarWidth) return
+    e.preventDefault()
+    setIsDraggingSidebarWidth(true)
+    sidebarWidthDragStartX.current = e.clientX
+    sidebarWidthDragStartWidth.current = sidebarWidth
+  }, [sidebarWidth, setSidebarWidth])
+
+  const handleSidebarWidthMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDraggingSidebarWidth || !setSidebarWidth) return
+    const deltaX = e.clientX - sidebarWidthDragStartX.current
+    // Convert pixel delta to percentage (816px is the template width)
+    const deltaPercent = (deltaX / 816) * 100
+    const newWidth = Math.max(20, Math.min(45, sidebarWidthDragStartWidth.current + deltaPercent))
+    setSidebarWidth(newWidth)
+  }, [isDraggingSidebarWidth, setSidebarWidth])
+
+  const handleSidebarWidthMouseUp = useCallback(() => {
+    setIsDraggingSidebarWidth(false)
+  }, [])
+
+  // Add global mouse event listeners when dragging sidebar width
+  useEffect(() => {
+    if (isDraggingSidebarWidth) {
+      window.addEventListener('mousemove', handleSidebarWidthMouseMove)
+      window.addEventListener('mouseup', handleSidebarWidthMouseUp)
+      return () => {
+        window.removeEventListener('mousemove', handleSidebarWidthMouseMove)
+        window.removeEventListener('mouseup', handleSidebarWidthMouseUp)
+      }
+    }
+  }, [isDraggingSidebarWidth, handleSidebarWidthMouseMove, handleSidebarWidthMouseUp])
+
   // Scale font sizes proportionally
   const scaledNameFontSize = NAME_FONT_SIZE * fontScale
   const scaledProfessionalTitleFontSize = PROFESSIONAL_TITLE_FONT_SIZE * fontScale
@@ -210,10 +252,25 @@ export function ProfessionalTemplate({
           top: 0,
           bottom: 0,
           left: 0,
-          width: '30%',
+          width: `${sidebarWidth}%`,
           backgroundColor: activeSidebarColor
         }}
       >
+        {/* Left/Right drag arrows for sidebar width - positioned at right edge, only show in edit mode */}
+        {setSidebarWidth && (
+          <span
+            className="absolute flex flex-row print:hidden cursor-ew-resize select-none"
+            style={{
+              right: '0px',
+              top: '50%',
+              transform: 'translate(50%, -50%)'
+            }}
+            onMouseDown={handleSidebarWidthMouseDown}
+          >
+            <ChevronLeft size={12} className="text-white/80" />
+            <ChevronRight size={12} className="text-white/80" />
+          </span>
+        )}
           {/* CONTACT NAME SECTION */}
           <div style={{ marginBottom: `${sidebarTopMargin}px` }}>
             {/* Contact Name - Candidate Name */}
@@ -352,7 +409,7 @@ export function ProfessionalTemplate({
       <div
         className="p-8 print:p-6"
         style={{
-          marginLeft: '30%',
+          marginLeft: `${sidebarWidth}%`,
           position: 'relative',
           zIndex: 1
         }}

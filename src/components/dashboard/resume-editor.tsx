@@ -113,6 +113,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
   const [fontFamily, setFontFamily] = useState<string>(FONTS[4].family) // Default to Arial
   const [sidebarTopMargin, setSidebarTopMargin] = useState(64) // Default: 64px
   const [mainContentTopMargin, setMainContentTopMargin] = useState(24) // Default: 24px
+  const [sidebarWidth, setSidebarWidth] = useState(30) // Default: 30%
   const [isSliderSettingsLoaded, setIsSliderSettingsLoaded] = useState(false)
   const [draggedSection, setDraggedSection] = useState<SidebarSectionId | null>(null)
   const [draggedMainSection, setDraggedMainSection] = useState<MainContentSectionId | null>(null)
@@ -450,6 +451,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
         if (settings.fontFamily !== undefined) setFontFamily(settings.fontFamily)
         if (settings.sidebarTopMargin !== undefined) setSidebarTopMargin(settings.sidebarTopMargin)
         if (settings.mainContentTopMargin !== undefined) setMainContentTopMargin(settings.mainContentTopMargin)
+        if (settings.sidebarWidth !== undefined) setSidebarWidth(settings.sidebarWidth)
       } catch (error) {
         console.error('Failed to load design settings:', error)
       }
@@ -486,8 +488,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
     settings.fontFamily = fontFamily
     settings.sidebarTopMargin = sidebarTopMargin
     settings.mainContentTopMargin = mainContentTopMargin
+    settings.sidebarWidth = sidebarWidth
     localStorage.setItem(`resume_slider_settings_${resume.id}`, JSON.stringify(settings))
-  }, [isSliderSettingsLoaded, sidebarHue, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, resume.id])
+  }, [isSliderSettingsLoaded, sidebarHue, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, resume.id])
 
   // Warn user before leaving with unsaved changes
   useEffect(() => {
@@ -862,6 +865,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
                   setSidebarTopMargin={setSidebarTopMargin}
                   mainContentTopMargin={mainContentTopMargin}
                   setMainContentTopMargin={setMainContentTopMargin}
+                  sidebarWidth={sidebarWidth}
+                  setSidebarWidth={setSidebarWidth}
                 />
               </div>
             </div>
