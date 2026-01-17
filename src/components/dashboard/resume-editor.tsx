@@ -112,6 +112,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
   const [mainContentOrder, setMainContentOrder] = useState<MainContentSectionId[]>(DEFAULT_MAIN_CONTENT_ORDER)
   const [fontFamily, setFontFamily] = useState<string>(FONTS[4].family) // Default to Arial
   const [sidebarTopMargin, setSidebarTopMargin] = useState(64) // Default: 64px
+  const [mainContentTopMargin, setMainContentTopMargin] = useState(24) // Default: 24px
   const [isSliderSettingsLoaded, setIsSliderSettingsLoaded] = useState(false)
   const [draggedSection, setDraggedSection] = useState<SidebarSectionId | null>(null)
   const [draggedMainSection, setDraggedMainSection] = useState<MainContentSectionId | null>(null)
@@ -448,6 +449,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
         if (settings.mainContentOrder !== undefined) setMainContentOrder(settings.mainContentOrder)
         if (settings.fontFamily !== undefined) setFontFamily(settings.fontFamily)
         if (settings.sidebarTopMargin !== undefined) setSidebarTopMargin(settings.sidebarTopMargin)
+        if (settings.mainContentTopMargin !== undefined) setMainContentTopMargin(settings.mainContentTopMargin)
       } catch (error) {
         console.error('Failed to load design settings:', error)
       }
@@ -483,8 +485,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
     settings.mainContentOrder = mainContentOrder
     settings.fontFamily = fontFamily
     settings.sidebarTopMargin = sidebarTopMargin
+    settings.mainContentTopMargin = mainContentTopMargin
     localStorage.setItem(`resume_slider_settings_${resume.id}`, JSON.stringify(settings))
-  }, [isSliderSettingsLoaded, sidebarHue, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, resume.id])
+  }, [isSliderSettingsLoaded, sidebarHue, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, resume.id])
 
   // Warn user before leaving with unsaved changes
   useEffect(() => {
@@ -857,6 +860,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
                   mainContentOrder={mainContentOrder}
                   sidebarTopMargin={sidebarTopMargin}
                   setSidebarTopMargin={setSidebarTopMargin}
+                  mainContentTopMargin={mainContentTopMargin}
+                  setMainContentTopMargin={setMainContentTopMargin}
                 />
               </div>
             </div>

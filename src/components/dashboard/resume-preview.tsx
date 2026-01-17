@@ -37,6 +37,8 @@ interface ResumePreviewProps {
   mainContentOrder?: MainContentSectionId[]
   sidebarTopMargin?: number
   setSidebarTopMargin?: (margin: number) => void
+  mainContentTopMargin?: number
+  setMainContentTopMargin?: (margin: number) => void
 }
 
 export function ResumePreview({
@@ -64,7 +66,9 @@ export function ResumePreview({
   sidebarOrder = ['keyAchievements', 'skills', 'languages', 'training'],
   mainContentOrder = ['summary', 'experience', 'education'],
   sidebarTopMargin = 64,
-  setSidebarTopMargin
+  setSidebarTopMargin,
+  mainContentTopMargin = 24,
+  setMainContentTopMargin
 }: ResumePreviewProps) {
   // Render the appropriate template based on the resume's template field
   switch (resume.template) {
@@ -77,7 +81,7 @@ export function ResumePreview({
     case 'creative':
       return <CreativeTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} />
     case 'professional':
-      return <ProfessionalTemplate resume={resume} locale={locale} dict={dict} sidebarColor={sidebarColor} fontScale={fontScale} fontFamily={fontFamily} sidebarOrder={sidebarOrder} mainContentOrder={mainContentOrder} sidebarTopMargin={sidebarTopMargin} setSidebarTopMargin={setSidebarTopMargin} />
+      return <ProfessionalTemplate resume={resume} locale={locale} dict={dict} sidebarColor={sidebarColor} fontScale={fontScale} fontFamily={fontFamily} sidebarOrder={sidebarOrder} mainContentOrder={mainContentOrder} sidebarTopMargin={sidebarTopMargin} setSidebarTopMargin={setSidebarTopMargin} mainContentTopMargin={mainContentTopMargin} setMainContentTopMargin={setMainContentTopMargin} />
     default:
       return <ModernTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} />
   }

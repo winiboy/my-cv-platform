@@ -28,6 +28,8 @@ interface ProfessionalTemplateProps {
   mainContentOrder?: MainContentSectionId[]
   sidebarTopMargin?: number
   setSidebarTopMargin?: (margin: number) => void
+  mainContentTopMargin?: number
+  setMainContentTopMargin?: (margin: number) => void
 }
 
 // Fixed font sizes based on professional CV standards
@@ -83,6 +85,8 @@ export function ProfessionalTemplate({
   mainContentOrder = ['summary', 'experience', 'education'],
   sidebarTopMargin = 64,
   setSidebarTopMargin,
+  mainContentTopMargin = 24,
+  setMainContentTopMargin,
 }: ProfessionalTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
@@ -103,41 +107,77 @@ export function ProfessionalTemplate({
   const activeSidebarColor = sidebarColorProp || SIDEBAR_COLOR
 
   // Drag state for sidebar line
-  const [isDragging, setIsDragging] = useState(false)
-  const dragStartY = useRef<number>(0)
-  const dragStartMargin = useRef<number>(sidebarTopMargin)
+  const [isDraggingSidebar, setIsDraggingSidebar] = useState(false)
+  const sidebarDragStartY = useRef<number>(0)
+  const sidebarDragStartMargin = useRef<number>(sidebarTopMargin)
   const sidebarRef = useRef<HTMLDivElement>(null)
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  const handleSidebarMouseDown = useCallback((e: React.MouseEvent) => {
     if (!setSidebarTopMargin) return
     e.preventDefault()
-    setIsDragging(true)
-    dragStartY.current = e.clientY
-    dragStartMargin.current = sidebarTopMargin
+    setIsDraggingSidebar(true)
+    sidebarDragStartY.current = e.clientY
+    sidebarDragStartMargin.current = sidebarTopMargin
   }, [sidebarTopMargin, setSidebarTopMargin])
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging || !setSidebarTopMargin) return
-    const deltaY = e.clientY - dragStartY.current
-    const newMargin = Math.max(24, Math.min(200, dragStartMargin.current + deltaY))
+  const handleSidebarMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDraggingSidebar || !setSidebarTopMargin) return
+    const deltaY = e.clientY - sidebarDragStartY.current
+    const newMargin = Math.max(24, Math.min(200, sidebarDragStartMargin.current + deltaY))
     setSidebarTopMargin(newMargin)
-  }, [isDragging, setSidebarTopMargin])
+  }, [isDraggingSidebar, setSidebarTopMargin])
 
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false)
+  const handleSidebarMouseUp = useCallback(() => {
+    setIsDraggingSidebar(false)
   }, [])
 
-  // Add global mouse event listeners when dragging
+  // Drag state for main content line
+  const [isDraggingMain, setIsDraggingMain] = useState(false)
+  const mainDragStartY = useRef<number>(0)
+  const mainDragStartMargin = useRef<number>(mainContentTopMargin)
+
+  const handleMainMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!setMainContentTopMargin) return
+    e.preventDefault()
+    setIsDraggingMain(true)
+    mainDragStartY.current = e.clientY
+    mainDragStartMargin.current = mainContentTopMargin
+  }, [mainContentTopMargin, setMainContentTopMargin])
+
+  const handleMainMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDraggingMain || !setMainContentTopMargin) return
+    const deltaY = e.clientY - mainDragStartY.current
+    const newMargin = Math.max(8, Math.min(80, mainDragStartMargin.current + deltaY))
+    setMainContentTopMargin(newMargin)
+  }, [isDraggingMain, setMainContentTopMargin])
+
+  const handleMainMouseUp = useCallback(() => {
+    setIsDraggingMain(false)
+  }, [])
+
+  // Add global mouse event listeners when dragging sidebar
   useEffect(() => {
-    if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove)
-      window.addEventListener('mouseup', handleMouseUp)
+    if (isDraggingSidebar) {
+      window.addEventListener('mousemove', handleSidebarMouseMove)
+      window.addEventListener('mouseup', handleSidebarMouseUp)
       return () => {
-        window.removeEventListener('mousemove', handleMouseMove)
-        window.removeEventListener('mouseup', handleMouseUp)
+        window.removeEventListener('mousemove', handleSidebarMouseMove)
+        window.removeEventListener('mouseup', handleSidebarMouseUp)
       }
     }
-  }, [isDragging, handleMouseMove, handleMouseUp])
+  }, [isDraggingSidebar, handleSidebarMouseMove, handleSidebarMouseUp])
+
+  // Add global mouse event listeners when dragging main content
+  useEffect(() => {
+    if (isDraggingMain) {
+      window.addEventListener('mousemove', handleMainMouseMove)
+      window.addEventListener('mouseup', handleMainMouseUp)
+      return () => {
+        window.removeEventListener('mousemove', handleMainMouseMove)
+        window.removeEventListener('mouseup', handleMainMouseUp)
+      }
+    }
+  }, [isDraggingMain, handleMainMouseMove, handleMainMouseUp])
 
   // Scale font sizes proportionally
   const scaledNameFontSize = NAME_FONT_SIZE * fontScale
@@ -201,7 +241,7 @@ export function ProfessionalTemplate({
                 justifyContent: 'center',
                 zIndex: 10,
               }}
-              onMouseDown={handleMouseDown}
+              onMouseDown={handleSidebarMouseDown}
             />
           )}
 
@@ -344,7 +384,7 @@ export function ProfessionalTemplate({
         }}
       >
           {/* HEADER: Professional Title and Contact Info */}
-          <div className="pb-6" style={{ marginBottom: `${HEADER_GAP}px` }}>
+          <div className="pb-6" style={{ marginBottom: `${mainContentTopMargin}px` }}>
             <h1 className="font-bold tracking-tight" style={{ color: 'oklch(0.2 0 0)', fontSize: `${scaledProfessionalTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${TITLE_GAP}px` }}>
               {resume.title || 'PROFESSIONAL TITLE'}
             </h1>
@@ -393,6 +433,26 @@ export function ProfessionalTemplate({
               )}
             </div>
           </div>
+
+          {/* Invisible draggable area - positioned at first main content line */}
+          {setMainContentTopMargin && (
+            <div
+              className="absolute print:hidden"
+              style={{
+                left: '32px',
+                right: '32px',
+                // Position below header: padding + title height + title gap + contact height + margin
+                top: `${32 + scaledProfessionalTitleFontSize + TITLE_GAP + 20 + mainContentTopMargin - 8}px`,
+                height: '16px',
+                cursor: 'ns-resize',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10,
+              }}
+              onMouseDown={handleMainMouseDown}
+            />
+          )}
 
           {/* MAIN CONTENT SECTIONS - Rendered in dynamic order */}
           {mainContentOrder.map((sectionId, orderIndex) => {

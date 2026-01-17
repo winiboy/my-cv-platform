@@ -39,6 +39,7 @@ export function ResumePreviewWrapper({
   const [mainContentOrder, setMainContentOrder] = useState<('summary' | 'experience' | 'education')[]>(['summary', 'experience', 'education'])
   const [fontFamily, setFontFamily] = useState("Arial, Helvetica, sans-serif")
   const [sidebarTopMargin, setSidebarTopMargin] = useState(64) // Default: 64px (mb-16)
+  const [mainContentTopMargin, setMainContentTopMargin] = useState(24) // Default: 24px
 
   // Compute sidebarColor from hue and brightness
   const sidebarColor = `hsl(${sidebarHue}, 85%, ${sidebarBrightness}%)`
@@ -76,6 +77,7 @@ export function ResumePreviewWrapper({
         if (settings.mainContentOrder !== undefined) setMainContentOrder(settings.mainContentOrder)
         if (settings.fontFamily !== undefined) setFontFamily(settings.fontFamily)
         if (settings.sidebarTopMargin !== undefined) setSidebarTopMargin(settings.sidebarTopMargin)
+        if (settings.mainContentTopMargin !== undefined) setMainContentTopMargin(settings.mainContentTopMargin)
       } catch (error) {
         console.error('Failed to load slider settings:', error)
       }
@@ -102,9 +104,10 @@ export function ResumePreviewWrapper({
       mainContentOrder,
       fontFamily,
       sidebarTopMargin,
+      mainContentTopMargin,
     }
     localStorage.setItem(`resume_slider_settings_${initialResume.id}`, JSON.stringify(settings))
-  }, [isLoaded, titleFontSize, titleGap, contactFontSize, sectionTitleFontSize, sectionDescFontSize, sectionGap, headerGap, sidebarHue, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, initialResume.id])
+  }, [isLoaded, titleFontSize, titleGap, contactFontSize, sectionTitleFontSize, sectionDescFontSize, sectionGap, headerGap, sidebarHue, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, initialResume.id])
 
   useEffect(() => {
     // Check for draft in localStorage
@@ -163,6 +166,7 @@ export function ResumePreviewWrapper({
         sidebarOrder={sidebarOrder}
         mainContentOrder={mainContentOrder}
         sidebarTopMargin={sidebarTopMargin}
+        mainContentTopMargin={mainContentTopMargin}
       />
     </>
   )
