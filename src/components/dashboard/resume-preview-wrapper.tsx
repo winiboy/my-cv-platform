@@ -115,7 +115,16 @@ export function ResumePreviewWrapper({
       hiddenSidebarSections,
       hiddenMainSections,
     }
-    localStorage.setItem(`resume_slider_settings_${initialResume.id}`, JSON.stringify(settings))
+    const localStorageKey = `resume_slider_settings_${initialResume.id}`
+    localStorage.setItem(localStorageKey, JSON.stringify(settings))
+
+    // DEBUG: Log alignment values being saved
+    console.log('[Preview Save Debug] localStorage key:', localStorageKey)
+    console.log('[Preview Save Debug] Alignment values saved:', {
+      sidebarWidth,
+      sidebarTopMargin,
+      mainContentTopMargin,
+    })
   }, [isLoaded, titleFontSize, titleGap, contactFontSize, sectionTitleFontSize, sectionDescFontSize, sectionGap, headerGap, sidebarHue, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, hiddenSidebarSections, hiddenMainSections, initialResume.id])
 
   useEffect(() => {

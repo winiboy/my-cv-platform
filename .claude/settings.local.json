@@ -31,7 +31,9 @@
       "Bash(git push:*)",
       "Bash(npx tsc:*)",
       "Bash(npm run build:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(npm run dev:*)",
+      "Bash(git diff:*)"
     ]
   }
 }

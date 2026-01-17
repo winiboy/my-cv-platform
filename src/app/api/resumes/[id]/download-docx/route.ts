@@ -157,8 +157,25 @@ export async function GET(
     const sidebarHue = parseInt(searchParams.get('sidebarHue') || '240')
     const sidebarBrightness = parseInt(searchParams.get('sidebarBrightness') || '35')
     const sidebarWidthPercent = parseFloat(searchParams.get('sidebarWidth') || '30')
-    const sidebarTopMargin = parseInt(searchParams.get('sidebarTopMargin') || '64')
-    const mainContentTopMargin = parseInt(searchParams.get('mainContentTopMargin') || '24')
+    const sidebarTopMarginRaw = searchParams.get('sidebarTopMargin')
+    const mainContentTopMarginRaw = searchParams.get('mainContentTopMargin')
+
+    // Parse with defaults
+    const sidebarTopMargin = sidebarTopMarginRaw ? parseInt(sidebarTopMarginRaw) : 64
+    const mainContentTopMargin = mainContentTopMarginRaw ? parseInt(mainContentTopMarginRaw) : 24
+
+    // DEBUG: Log received alignment values to identify where data flow breaks
+    console.log('[DOCX Route Debug] Raw query params:', {
+      sidebarWidth: searchParams.get('sidebarWidth'),
+      sidebarTopMargin: sidebarTopMarginRaw,
+      mainContentTopMargin: mainContentTopMarginRaw,
+    })
+    console.log('[DOCX Route Debug] Final values used:', {
+      sidebarWidthPercent,
+      sidebarTopMargin,
+      mainContentTopMargin,
+      sidebarTopMarginTwips: pxToTwips(sidebarTopMargin),
+    })
 
     // Section ordering (JSON arrays)
     const sidebarOrderParam = searchParams.get('sidebarOrder')
@@ -263,7 +280,11 @@ export async function GET(
     // ============================================================
     const sidebarParagraphs: Paragraph[] = []
 
-    // Contact Name with top margin
+    // DEBUG: Log the actual spacing value being applied
+    const sidebarSpacingTwips = pxToTwips(sidebarTopMargin)
+    console.log('[DOCX Sidebar Debug] sidebarTopMargin px:', sidebarTopMargin, '-> twips:', sidebarSpacingTwips)
+
+    // Contact Name with sidebarTopMargin gap after
     sidebarParagraphs.push(
       new Paragraph({
         children: [
@@ -276,9 +297,7 @@ export async function GET(
           }),
         ],
         spacing: {
-          after: pxToTwips(sidebarTopMargin),
-          line: Math.round(240 * LINE_HEIGHTS.HEADING),
-          lineRule: LineRuleType.AUTO,
+          after: sidebarSpacingTwips,
         },
       })
     )
@@ -604,9 +623,10 @@ export async function GET(
         })
       )
     } else {
+      // Even without contact info, we need the same gap as Preview's pb-6 + marginBottom
       mainContentParagraphs.push(
         new Paragraph({
-          spacing: { after: pxToTwips(mainContentTopMargin) },
+          spacing: { after: pxToTwips(24 + mainContentTopMargin) },
         })
       )
     }

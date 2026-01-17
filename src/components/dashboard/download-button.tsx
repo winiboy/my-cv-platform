@@ -16,7 +16,12 @@ export function DownloadButton({ label, wordLabel }: DownloadButtonProps) {
   const handleWordDownload = async () => {
     try {
       // Read styling settings from localStorage (same key used by resume-editor and resume-preview-wrapper)
-      const savedSettings = localStorage.getItem(`resume_slider_settings_${resumeId}`)
+      const localStorageKey = `resume_slider_settings_${resumeId}`
+      const savedSettings = localStorage.getItem(localStorageKey)
+
+      // DEBUG: Log data flow for alignment verification
+      console.log('[DOCX Export Debug] localStorage key:', localStorageKey)
+      console.log('[DOCX Export Debug] savedSettings exists:', !!savedSettings)
 
       // Build query params
       const queryParams = new URLSearchParams()
@@ -25,6 +30,13 @@ export function DownloadButton({ label, wordLabel }: DownloadButtonProps) {
       if (savedSettings) {
         try {
           const settings = JSON.parse(savedSettings)
+
+          // DEBUG: Log alignment values being sent to DOCX
+          console.log('[DOCX Export Debug] Alignment values from localStorage:', {
+            sidebarWidth: settings.sidebarWidth,
+            sidebarTopMargin: settings.sidebarTopMargin,
+            mainContentTopMargin: settings.mainContentTopMargin,
+          })
 
           // Typography settings
           if (settings.fontFamily) queryParams.set('fontFamily', settings.fontFamily)
@@ -51,7 +63,9 @@ export function DownloadButton({ label, wordLabel }: DownloadButtonProps) {
         }
       }
 
-      const response = await fetch(`/api/resumes/${resumeId}/download-docx?${queryParams.toString()}`)
+      const requestUrl = `/api/resumes/${resumeId}/download-docx?${queryParams.toString()}`
+      console.log('[DOCX Export Debug] Full request URL:', requestUrl)
+      const response = await fetch(requestUrl)
       if (!response.ok) throw new Error('Failed to download')
 
       const blob = await response.blob()
