@@ -44,104 +44,43 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fetch the external page
-    const response = await fetch(parsedUrl.toString(), {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-      },
-    })
+    // Fetch the external page with redirect following
+    let html = await fetchWithRedirectHandling(parsedUrl.toString())
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: `Failed to fetch URL: ${response.status}` },
-        { status: 502 }
-      )
+    // Check if this is a redirect/interstitial page and handle it
+    const redirectResult = detectAndHandleRedirectPage(html, parsedUrl.toString())
+    if (redirectResult.isRedirect && redirectResult.targetUrl) {
+      console.log('[fetch-external] Detected redirect page, following to:', redirectResult.targetUrl)
+      try {
+        html = await fetchWithRedirectHandling(redirectResult.targetUrl)
+      } catch (redirectError) {
+        console.error('[fetch-external] Failed to follow redirect:', redirectError)
+        // Continue with original HTML if redirect fails
+      }
     }
-
-    const html = await response.text()
 
     // Extract job details from HTML
     const extractedData = extractJobDetails(html)
 
-    // Translate if source language differs from target language
-    let finalDescription = extractedData.description
-    let finalTitle = extractedData.title
-    const detectedLang = extractedData.detectedLanguage
-
-    // Only translate if target language is specified and different from detected language
-    if (targetLanguage && targetLanguage !== detectedLang && extractedData.description.length > 0) {
-      try {
-        const languageNames: Record<string, string> = {
-          en: 'English',
-          fr: 'French',
-          de: 'German',
-          it: 'Italian',
-        }
-
-        const targetLangName = languageNames[targetLanguage] || targetLanguage
-        const sourceLangName = languageNames[detectedLang] || 'the original language'
-
-        // Translate description
-        const descriptionCompletion = await groq.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a professional translator. Translate text accurately while preserving formatting and tone. Only output the translated text, nothing else.',
-            },
-            {
-              role: 'user',
-              content: `Translate the following job description from ${sourceLangName} to ${targetLangName}. Maintain the original formatting, including line breaks, bullet points, and paragraph structure.\n\nText to translate:\n${extractedData.description}`,
-            },
-          ],
-          temperature: 0.3,
-          max_tokens: 4096,
-        })
-
-        const translatedDescription = descriptionCompletion.choices[0]?.message?.content?.trim()
-        if (translatedDescription) {
-          finalDescription = translatedDescription
-        }
-
-        // Translate title if present
-        if (extractedData.title) {
-          const titleCompletion = await groq.chat.completions.create({
-            model: 'llama-3.3-70b-versatile',
-            messages: [
-              {
-                role: 'system',
-                content: 'You are a professional translator. Translate the job title accurately. Only output the translated title, nothing else.',
-              },
-              {
-                role: 'user',
-                content: `Translate this job title from ${sourceLangName} to ${targetLangName}: ${extractedData.title}`,
-              },
-            ],
-            temperature: 0.3,
-            max_tokens: 100,
-          })
-
-          const translatedTitle = titleCompletion.choices[0]?.message?.content?.trim()
-          if (translatedTitle) {
-            finalTitle = translatedTitle
+    // If extraction still looks like a redirect page, try the Adzuna land/ad URL
+    if (isLikelyRedirectContent(extractedData.description)) {
+      const landAdUrl = extractAdzunaLandUrl(html)
+      if (landAdUrl) {
+        console.log('[fetch-external] Content still looks like redirect, trying land/ad URL:', landAdUrl)
+        try {
+          const landHtml = await fetchWithRedirectHandling(landAdUrl)
+          const landData = extractJobDetails(landHtml)
+          if (!isLikelyRedirectContent(landData.description) && landData.description.length > extractedData.description.length) {
+            return processAndRespond(landData, targetLanguage)
           }
+        } catch (landError) {
+          console.error('[fetch-external] Failed to fetch land/ad URL:', landError)
         }
-      } catch (translateError) {
-        console.error('Translation error:', translateError)
-        // Continue with untranslated content if translation fails
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      jobDescription: finalDescription,
-      jobTitle: finalTitle,
-      company: extractedData.company,
-      originalLanguage: detectedLang,
-      translatedTo: targetLanguage !== detectedLang ? targetLanguage : null,
-    })
+    // Process and respond with the extracted data
+    return processAndRespond(extractedData, targetLanguage)
   } catch (error) {
     console.error('Error fetching external job:', error)
     return NextResponse.json(
@@ -152,6 +91,217 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+/**
+ * Fetch URL with proper headers and redirect handling
+ */
+async function fetchWithRedirectHandling(url: string): Promise<string> {
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5,fr;q=0.3,de;q=0.2',
+    },
+    redirect: 'follow',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch URL: ${response.status}`)
+  }
+
+  return response.text()
+}
+
+/**
+ * Detect if the HTML is a redirect/interstitial page and extract target URL
+ */
+function detectAndHandleRedirectPage(html: string, originalUrl: string): { isRedirect: boolean; targetUrl: string | null } {
+  // Patterns that indicate a redirect page
+  const redirectIndicators = [
+    /redirig[ée]/i,                           // French: "redirigé"
+    /redirect/i,                               // English: "redirect"
+    /weitergeleitet/i,                         // German: "weitergeleitet"
+    /vous allez être redirigé/i,               // French: "You will be redirected"
+    /you will be redirected/i,                 // English
+    /si vous n'êtes pas redirigé/i,            // French: "If you are not redirected"
+    /if you are not redirected/i,              // English
+    /StepStone/i,                              // StepStone specific
+    /Indeed/i,                                 // Indeed specific
+    /jobup/i,                                  // JobUp specific
+  ]
+
+  const isRedirect = redirectIndicators.some(pattern => pattern.test(html))
+
+  if (!isRedirect) {
+    return { isRedirect: false, targetUrl: null }
+  }
+
+  // Try to extract the redirect URL from various sources
+
+  // 1. Meta refresh tag
+  const metaRefreshMatch = html.match(/<meta[^>]*http-equiv=["']refresh["'][^>]*content=["'][^"']*url=([^"'\s>]+)/i)
+  if (metaRefreshMatch) {
+    return { isRedirect: true, targetUrl: metaRefreshMatch[1] }
+  }
+
+  // 2. JavaScript window.location redirect
+  const jsRedirectPatterns = [
+    /window\.location\s*=\s*["']([^"']+)["']/i,
+    /window\.location\.href\s*=\s*["']([^"']+)["']/i,
+    /location\.replace\s*\(\s*["']([^"']+)["']\s*\)/i,
+  ]
+  for (const pattern of jsRedirectPatterns) {
+    const match = html.match(pattern)
+    if (match && match[1] && !match[1].includes('javascript:')) {
+      return { isRedirect: true, targetUrl: match[1] }
+    }
+  }
+
+  // 3. Look for "see the ad here" type links
+  const linkPatterns = [
+    /voir l['']annonce ici[^<]*<a[^>]*href=["']([^"']+)["']/i,
+    /see the (?:ad|job|listing) here[^<]*<a[^>]*href=["']([^"']+)["']/i,
+    /<a[^>]*href=["']([^"']+)["'][^>]*>(?:[^<]*voir[^<]*annonce|[^<]*see[^<]*job)/i,
+  ]
+  for (const pattern of linkPatterns) {
+    const match = html.match(pattern)
+    if (match && match[1]) {
+      return { isRedirect: true, targetUrl: match[1] }
+    }
+  }
+
+  // 4. Look for Adzuna land/ad URL pattern
+  const landAdMatch = html.match(/href=["'](https?:\/\/[^"']*adzuna[^"']*\/land\/ad\/[^"']+)["']/i)
+  if (landAdMatch) {
+    return { isRedirect: true, targetUrl: landAdMatch[1] }
+  }
+
+  return { isRedirect: true, targetUrl: null }
+}
+
+/**
+ * Check if extracted content looks like a redirect page (minimal content with redirect text)
+ */
+function isLikelyRedirectContent(description: string): boolean {
+  if (!description || description.length < 50) return true
+
+  const lowerDesc = description.toLowerCase()
+  const redirectPhrases = [
+    'redirigé vers',
+    'redirected to',
+    'weitergeleitet',
+    'vous allez être redirigé',
+    'you will be redirected',
+    'si vous n\'êtes pas redirigé',
+    'if you are not redirected',
+    'tous les emplois. partout',
+    'all jobs. everywhere',
+  ]
+
+  // Check if description is very short and contains redirect phrases
+  if (description.length < 500) {
+    return redirectPhrases.some(phrase => lowerDesc.includes(phrase))
+  }
+
+  return false
+}
+
+/**
+ * Extract Adzuna land/ad URL from HTML for following external redirects
+ */
+function extractAdzunaLandUrl(html: string): string | null {
+  // Look for the "apply" link which redirects to the actual job source
+  const applyLinkMatch = html.match(/href=["'](https?:\/\/[^"']*adzuna[^"']*\/land\/ad\/[^"']+)["']/i)
+  if (applyLinkMatch) {
+    return applyLinkMatch[1]
+  }
+  return null
+}
+
+/**
+ * Process extracted data, translate if needed, and return response
+ */
+async function processAndRespond(
+  extractedData: { title: string; description: string; company: string; detectedLanguage: string },
+  targetLanguage?: string
+): Promise<NextResponse> {
+  let finalDescription = extractedData.description
+  let finalTitle = extractedData.title
+  const detectedLang = extractedData.detectedLanguage
+
+  // Only translate if target language is specified and different from detected language
+  if (targetLanguage && targetLanguage !== detectedLang && extractedData.description.length > 0) {
+    try {
+      const languageNames: Record<string, string> = {
+        en: 'English',
+        fr: 'French',
+        de: 'German',
+        it: 'Italian',
+      }
+
+      const targetLangName = languageNames[targetLanguage] || targetLanguage
+      const sourceLangName = languageNames[detectedLang] || 'the original language'
+
+      // Translate description
+      const descriptionCompletion = await groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a professional translator. Translate text accurately while preserving formatting and tone. Only output the translated text, nothing else.',
+          },
+          {
+            role: 'user',
+            content: `Translate the following job description from ${sourceLangName} to ${targetLangName}. Maintain the original formatting, including line breaks, bullet points, and paragraph structure.\n\nText to translate:\n${extractedData.description}`,
+          },
+        ],
+        temperature: 0.3,
+        max_tokens: 4096,
+      })
+
+      const translatedDescription = descriptionCompletion.choices[0]?.message?.content?.trim()
+      if (translatedDescription) {
+        finalDescription = translatedDescription
+      }
+
+      // Translate title if present
+      if (extractedData.title) {
+        const titleCompletion = await groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a professional translator. Translate the job title accurately. Only output the translated title, nothing else.',
+            },
+            {
+              role: 'user',
+              content: `Translate this job title from ${sourceLangName} to ${targetLangName}: ${extractedData.title}`,
+            },
+          ],
+          temperature: 0.3,
+          max_tokens: 100,
+        })
+
+        const translatedTitle = titleCompletion.choices[0]?.message?.content?.trim()
+        if (translatedTitle) {
+          finalTitle = translatedTitle
+        }
+      }
+    } catch (translateError) {
+      console.error('Translation error:', translateError)
+      // Continue with untranslated content if translation fails
+    }
+  }
+
+  return NextResponse.json({
+    success: true,
+    jobDescription: finalDescription,
+    jobTitle: finalTitle,
+    company: extractedData.company,
+    originalLanguage: detectedLang,
+    translatedTo: targetLanguage !== detectedLang ? targetLanguage : null,
+  })
 }
 
 /**
