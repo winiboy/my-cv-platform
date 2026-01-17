@@ -327,7 +327,7 @@ export async function GET(
                 font: primaryFont,
               }),
             ],
-            spacing: { after: pxToTwips(16) },
+            spacing: { after: pxToTwips(16) }, // mb-4 in Preview
             border: {
               bottom: {
                 color: COLORS.WHITE,
@@ -339,9 +339,14 @@ export async function GET(
           })
         )
 
-        // Achievement items
+        // Achievement items - space-y-4 (16px) in Preview
         keyAchievements.forEach((achievement: any, i: number) => {
-          const isLast = i === keyAchievements.length - 1
+          const isLastItem = i === keyAchievements.length - 1
+          // Last item of section gets section margin (32px), others get item spacing (16px)
+          const itemEndSpacing = isLastItem
+            ? (isLastSection ? 0 : sectionSpacingAfter)
+            : pxToTwips(16)
+
           sidebarParagraphs.push(
             new Paragraph({
               children: [
@@ -353,7 +358,7 @@ export async function GET(
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: achievement.description ? pxToTwips(4) : pxToTwips(16) },
+              spacing: { after: achievement.description ? pxToTwips(4) : itemEndSpacing },
             })
           )
           if (achievement.description) {
@@ -367,16 +372,12 @@ export async function GET(
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: isLast && isLastSection ? 0 : pxToTwips(16) },
+                spacing: { after: itemEndSpacing },
                 alignment: AlignmentType.JUSTIFIED,
               })
             )
           }
         })
-
-        if (!isLastSection) {
-          sidebarParagraphs.push(new Paragraph({ spacing: { after: sectionSpacingAfter } }))
-        }
       }
 
       if (sectionId === 'skills' && skills.filter((s: any) => s.category && s.items?.length > 0).length > 0) {
@@ -392,7 +393,7 @@ export async function GET(
                 font: primaryFont,
               }),
             ],
-            spacing: { after: pxToTwips(16) },
+            spacing: { after: pxToTwips(16) }, // mb-4 in Preview
             border: {
               bottom: {
                 color: COLORS.WHITE,
@@ -404,10 +405,15 @@ export async function GET(
           })
         )
 
-        // Skill categories
+        // Skill categories - mb-3 (12px) in Preview
         const validSkills = skills.filter((s: any) => s.category && s.items?.length > 0)
         validSkills.forEach((skillCat: any, i: number) => {
-          const isLast = i === validSkills.length - 1
+          const isLastItem = i === validSkills.length - 1
+          // Last item of section gets section margin (32px), others get item spacing (12px)
+          const itemEndSpacing = isLastItem
+            ? (isLastSection ? 0 : sectionSpacingAfter)
+            : pxToTwips(12)
+
           sidebarParagraphs.push(
             new Paragraph({
               children: [
@@ -419,7 +425,7 @@ export async function GET(
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: pxToTwips(4) },
+              spacing: { after: pxToTwips(4) }, // mb-1 in Preview
             })
           )
           sidebarParagraphs.push(
@@ -432,15 +438,11 @@ export async function GET(
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: isLast && isLastSection ? 0 : pxToTwips(12) },
+              spacing: { after: itemEndSpacing },
               alignment: AlignmentType.JUSTIFIED,
             })
           )
         })
-
-        if (!isLastSection) {
-          sidebarParagraphs.push(new Paragraph({ spacing: { after: sectionSpacingAfter } }))
-        }
       }
 
       if (sectionId === 'languages' && languages.length > 0) {
@@ -456,7 +458,7 @@ export async function GET(
                 font: primaryFont,
               }),
             ],
-            spacing: { after: pxToTwips(16) },
+            spacing: { after: pxToTwips(16) }, // mb-4 in Preview
             border: {
               bottom: {
                 color: COLORS.WHITE,
@@ -468,9 +470,14 @@ export async function GET(
           })
         )
 
-        // Language items with level
+        // Language items - space-y-2 (8px) in Preview
         languages.forEach((lang: any, i: number) => {
-          const isLast = i === languages.length - 1
+          const isLastItem = i === languages.length - 1
+          // Last item of section gets section margin (32px), others get item spacing (8px)
+          const itemEndSpacing = isLastItem
+            ? (isLastSection ? 0 : sectionSpacingAfter)
+            : pxToTwips(8)
+
           const levelText = (dict as any).resumes?.levels?.[lang.level] || lang.level
           sidebarParagraphs.push(
             new Paragraph({
@@ -488,7 +495,7 @@ export async function GET(
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: isLast && isLastSection ? 0 : pxToTwips(8) },
+              spacing: { after: itemEndSpacing },
               tabStops: [
                 {
                   type: TabStopType.RIGHT,
@@ -498,10 +505,6 @@ export async function GET(
             })
           )
         })
-
-        if (!isLastSection) {
-          sidebarParagraphs.push(new Paragraph({ spacing: { after: sectionSpacingAfter } }))
-        }
       }
 
       if (sectionId === 'training' && certifications.length > 0) {
@@ -517,7 +520,7 @@ export async function GET(
                 font: primaryFont,
               }),
             ],
-            spacing: { after: pxToTwips(16) },
+            spacing: { after: pxToTwips(16) }, // mb-4 in Preview
             border: {
               bottom: {
                 color: COLORS.WHITE,
@@ -529,9 +532,15 @@ export async function GET(
           })
         )
 
-        // Certification items (max 3, matching Preview)
-        certifications.slice(0, 3).forEach((cert: any, i: number) => {
-          const isLast = i === Math.min(certifications.length, 3) - 1
+        // Certification items - space-y-4 (16px) in Preview
+        const visibleCerts = certifications.slice(0, 3)
+        visibleCerts.forEach((cert: any, i: number) => {
+          const isLastItem = i === visibleCerts.length - 1
+          // Last item of section gets section margin (32px), others get item spacing (16px)
+          const itemEndSpacing = isLastItem
+            ? (isLastSection ? 0 : sectionSpacingAfter)
+            : pxToTwips(16)
+
           sidebarParagraphs.push(
             new Paragraph({
               children: [
@@ -543,7 +552,7 @@ export async function GET(
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: pxToTwips(4) },
+              spacing: { after: pxToTwips(4) }, // mb-1 in Preview
             })
           )
           sidebarParagraphs.push(
@@ -556,7 +565,7 @@ export async function GET(
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: cert.date ? pxToTwips(2) : (isLast && isLastSection ? 0 : pxToTwips(16)) },
+              spacing: { after: cert.date ? pxToTwips(2) : itemEndSpacing },
             })
           )
           if (cert.date) {
@@ -573,7 +582,7 @@ export async function GET(
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: isLast && isLastSection ? 0 : pxToTwips(16) },
+                spacing: { after: itemEndSpacing },
               })
             )
           }
