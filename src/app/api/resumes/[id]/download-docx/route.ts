@@ -298,6 +298,8 @@ export async function GET(
         ],
         spacing: {
           after: sidebarSpacingTwips,
+          line: Math.round(240 * LINE_HEIGHTS.HEADING),
+          lineRule: LineRuleType.AUTO,
         },
       })
     )
@@ -595,7 +597,11 @@ export async function GET(
             font: primaryFont,
           }),
         ],
-        spacing: { after: pxToTwips(SPACING.TITLE_GAP) },
+        spacing: {
+          after: pxToTwips(SPACING.TITLE_GAP),
+          line: Math.round(240 * LINE_HEIGHTS.HEADING),
+          lineRule: LineRuleType.AUTO,
+        },
       })
     )
 
@@ -619,7 +625,11 @@ export async function GET(
               font: primaryFont,
             }),
           ],
-          spacing: { after: pxToTwips(24 + mainContentTopMargin) },
+          spacing: {
+            after: pxToTwips(24 + mainContentTopMargin),
+            line: Math.round(240 * LINE_HEIGHTS.BODY),
+            lineRule: LineRuleType.AUTO,
+          },
         })
       )
     } else {
