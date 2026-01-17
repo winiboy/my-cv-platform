@@ -147,7 +147,7 @@ export function ProfessionalTemplate({
   const handleMainMouseMove = useCallback((e: MouseEvent) => {
     if (!isDraggingMain || !setMainContentTopMargin) return
     const deltaY = e.clientY - mainDragStartY.current
-    const newMargin = Math.max(8, Math.min(80, mainDragStartMargin.current + deltaY))
+    const newMargin = Math.max(-20, Math.min(80, mainDragStartMargin.current + deltaY))
     setMainContentTopMargin(newMargin)
   }, [isDraggingMain, setMainContentTopMargin])
 
