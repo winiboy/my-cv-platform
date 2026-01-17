@@ -19,6 +19,7 @@ import {
   HeightRule,
   LineRuleType,
   TableLayoutType,
+  PageOrientation,
 } from 'docx'
 
 // ============================================================
@@ -996,18 +997,23 @@ export async function GET(
 
     // Create table with FIXED layout to prevent Word auto-resizing
     // This is critical for maintaining exact sidebar width parity with Preview
-    // Page height: US Letter = 11" but we need to account for content fitting on ONE page
+    // Page height: US Letter = 11"
     const pageHeightTwips = convertInchesToTwip(11)
+
+    // Row height must account for the trailing paragraph that OOXML requires.
+    // Testing with large buffer to confirm root cause.
+    const trailingParagraphBuffer = 500 // ~0.35 inches - testing value
+    const rowHeightTwips = pageHeightTwips - trailingParagraphBuffer
 
     const mainTable = new Table({
       rows: [
         new TableRow({
           children: [sidebarCell, mainContentCell],
           cantSplit: true,
-          // Use EXACT height matching page height to prevent overflow to page 2
-          // Content will compress to fit within this height
+          // EXACT height ensures sidebar fills to visual page bottom
+          // The 20-twip buffer prevents overflow to a second page
           height: {
-            value: pageHeightTwips,
+            value: rowHeightTwips,
             rule: HeightRule.EXACT,
           },
         }),
@@ -1031,7 +1037,9 @@ export async function GET(
       },
     })
 
-    // Create document with font settings
+    // Create document with font settings and minimal default paragraph spacing
+    // The paragraph defaults ensure the implicit trailing paragraph (required by OOXML
+    // for section properties) takes minimal space, preventing page overflow.
     const doc = new Document({
       styles: {
         default: {
@@ -1040,6 +1048,14 @@ export async function GET(
               font: primaryFont,
               size: scaledFontSizes.body,
             },
+            paragraph: {
+              spacing: {
+                before: 0,
+                after: 0,
+                line: 240, // Single line spacing (240 twips = 1 line at 12pt)
+                lineRule: LineRuleType.AUTO,
+              },
+            },
           },
         },
       },
@@ -1047,6 +1063,11 @@ export async function GET(
         {
           properties: {
             page: {
+              size: {
+                width: convertInchesToTwip(8.5),
+                height: pageHeightTwips,
+                orientation: PageOrientation.PORTRAIT,
+              },
               margin: {
                 top: 0,
                 right: 0,
@@ -1055,7 +1076,21 @@ export async function GET(
               },
             },
           },
-          children: [mainTable],
+          children: [
+            mainTable,
+            // Explicit trailing paragraph with minimal height.
+            // OOXML requires a paragraph after table for section properties.
+            // By adding it explicitly with near-zero height, we control the overflow.
+            new Paragraph({
+              spacing: {
+                before: 0,
+                after: 0,
+                line: 1, // 1 twip - absolute minimum
+                lineRule: LineRuleType.EXACT,
+              },
+              children: [], // Empty paragraph
+            }),
+          ],
         },
       ],
     })
