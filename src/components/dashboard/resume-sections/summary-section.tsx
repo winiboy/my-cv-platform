@@ -283,7 +283,7 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
             'e.g., Experienced software engineer with 5+ years of experience building scalable web applications...'
           }
           minHeight="192px"
-          showRibbon={true}
+          showRibbon={false}
         />
         <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
           <span>

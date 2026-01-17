@@ -32,7 +32,16 @@ export function ResumePreviewWrapper({
   const [sectionDescFontSize, setSectionDescFontSize] = useState(14) // Default: text-sm = 14px
   const [sectionGap, setSectionGap] = useState(12) // Default: mb-3 = 12px gap between section title and description
   const [headerGap, setHeaderGap] = useState(12) // Default: 12px gap between contact and summary section
-  const [sidebarColor, setSidebarColor] = useState('hsl(240, 85%, 35%)') // Default: dark blue
+  const [sidebarHue, setSidebarHue] = useState(240) // Default: blue hue
+  const [sidebarBrightness, setSidebarBrightness] = useState(35) // Default: 35% lightness
+  const [fontScale, setFontScale] = useState(1) // Default: 1 (100%)
+  const [sidebarOrder, setSidebarOrder] = useState<('keyAchievements' | 'skills' | 'languages' | 'training')[]>(['keyAchievements', 'skills', 'languages', 'training'])
+  const [mainContentOrder, setMainContentOrder] = useState<('summary' | 'experience' | 'education')[]>(['summary', 'experience', 'education'])
+  const [fontFamily, setFontFamily] = useState("Arial, Helvetica, sans-serif")
+  const [sidebarTopMargin, setSidebarTopMargin] = useState(64) // Default: 64px (mb-16)
+
+  // Compute sidebarColor from hue and brightness
+  const sidebarColor = `hsl(${sidebarHue}, 85%, ${sidebarBrightness}%)`
 
   // Load slider settings from localStorage on mount
   useEffect(() => {
@@ -47,7 +56,26 @@ export function ResumePreviewWrapper({
         if (settings.sectionDescFontSize !== undefined) setSectionDescFontSize(settings.sectionDescFontSize)
         if (settings.sectionGap !== undefined) setSectionGap(settings.sectionGap)
         if (settings.headerGap !== undefined) setHeaderGap(settings.headerGap)
-        if (settings.sidebarColor !== undefined) setSidebarColor(settings.sidebarColor)
+        if (settings.sidebarHue !== undefined) setSidebarHue(settings.sidebarHue)
+        if (settings.sidebarBrightness !== undefined) setSidebarBrightness(settings.sidebarBrightness)
+        if (settings.fontScale !== undefined) setFontScale(settings.fontScale)
+        if (settings.sidebarOrder !== undefined) {
+          // Migration: Add 'languages' if missing from saved order
+          let order = settings.sidebarOrder as ('keyAchievements' | 'skills' | 'languages' | 'training')[]
+          if (!order.includes('languages')) {
+            // Insert 'languages' after 'skills' or at position 2
+            const skillsIndex = order.indexOf('skills')
+            if (skillsIndex >= 0) {
+              order = [...order.slice(0, skillsIndex + 1), 'languages', ...order.slice(skillsIndex + 1)]
+            } else {
+              order = [...order, 'languages']
+            }
+          }
+          setSidebarOrder(order)
+        }
+        if (settings.mainContentOrder !== undefined) setMainContentOrder(settings.mainContentOrder)
+        if (settings.fontFamily !== undefined) setFontFamily(settings.fontFamily)
+        if (settings.sidebarTopMargin !== undefined) setSidebarTopMargin(settings.sidebarTopMargin)
       } catch (error) {
         console.error('Failed to load slider settings:', error)
       }
@@ -67,10 +95,16 @@ export function ResumePreviewWrapper({
       sectionDescFontSize,
       sectionGap,
       headerGap,
-      sidebarColor,
+      sidebarHue,
+      sidebarBrightness,
+      fontScale,
+      sidebarOrder,
+      mainContentOrder,
+      fontFamily,
+      sidebarTopMargin,
     }
     localStorage.setItem(`resume_slider_settings_${initialResume.id}`, JSON.stringify(settings))
-  }, [isLoaded, titleFontSize, titleGap, contactFontSize, sectionTitleFontSize, sectionDescFontSize, sectionGap, headerGap, sidebarColor, initialResume.id])
+  }, [isLoaded, titleFontSize, titleGap, contactFontSize, sectionTitleFontSize, sectionDescFontSize, sectionGap, headerGap, sidebarHue, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, initialResume.id])
 
   useEffect(() => {
     // Check for draft in localStorage
@@ -124,7 +158,11 @@ export function ResumePreviewWrapper({
         headerGap={headerGap}
         setHeaderGap={showControls ? setHeaderGap : undefined}
         sidebarColor={sidebarColor}
-        setSidebarColor={showControls ? setSidebarColor : undefined}
+        fontScale={fontScale}
+        fontFamily={fontFamily}
+        sidebarOrder={sidebarOrder}
+        mainContentOrder={mainContentOrder}
+        sidebarTopMargin={sidebarTopMargin}
       />
     </>
   )

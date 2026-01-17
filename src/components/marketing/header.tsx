@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import pkg from '../../../package.json'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import { LanguageSwitcher } from '@/components/shared/language-switcher'
 import { Button } from '@/components/ui/button'
@@ -59,8 +60,9 @@ export function Header() {
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <div className="flex lg:flex-1">
-          <Link href={`/${locale}`} className="-m-1.5 p-1.5">
+          <Link href={`/${locale}`} className="-m-1.5 p-1.5 flex items-baseline gap-2">
             <span className="text-2xl font-bold text-teal-500">CV Platform</span>
+            <span className="text-xs font-medium text-slate-400">v{pkg.version}</span>
           </Link>
         </div>
 

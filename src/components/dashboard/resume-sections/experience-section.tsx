@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { Plus, Trash2, GripVertical, Sparkles, Languages, X, Check, Eye, EyeOff } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Plus, Trash2, GripVertical, Sparkles, Languages, X, Check, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react'
 import type { Resume, ResumeExperience } from '@/types/database'
 import { RichTextEditor } from '../rich-text-editor'
 import { htmlToPlainText, migrateTextToHtml } from '@/lib/html-utils'
@@ -16,12 +16,22 @@ interface ExperienceSectionProps {
 export function ExperienceSection({ resume, updateResume, dict, locale }: ExperienceSectionProps) {
   const experiences = (resume.experience as unknown as ResumeExperience[]) || []
 
+  // Expand/collapse state
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(
+    experiences.length > 0 ? 0 : null
+  )
+
   // AI state management
   const [optimizingIndex, setOptimizingIndex] = useState<number | null>(null)
   const [translatingIndex, setTranslatingIndex] = useState<number | null>(null)
   const [optimizedDescriptions, setOptimizedDescriptions] = useState<{ [key: number]: string }>({})
   const [translatedDescriptions, setTranslatedDescriptions] = useState<{ [key: number]: { text: string; language: string } }>({})
   const [error, setError] = useState<string | null>(null)
+
+  // Drag and drop state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const dragNodeRef = useRef<HTMLDivElement | null>(null)
 
   const addExperience = () => {
     const newExperience: ResumeExperience = {
@@ -36,6 +46,7 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
       visible: true, // Default to visible
     }
     updateResume({ experience: [...experiences, newExperience] as any })
+    setExpandedIndex(experiences.length) // Expand the newly added experience
   }
 
   const toggleVisibility = (index: number) => {
@@ -53,6 +64,12 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
   const removeExperience = (index: number) => {
     const updated = experiences.filter((_, i) => i !== index)
     updateResume({ experience: updated as any })
+    // Update expanded index
+    if (expandedIndex === index) {
+      setExpandedIndex(null)
+    } else if (expandedIndex !== null && expandedIndex > index) {
+      setExpandedIndex(expandedIndex - 1)
+    }
   }
 
   // Handle description change
@@ -178,6 +195,83 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
     setTranslatedDescriptions(newTranslated)
   }
 
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    setDraggedIndex(index)
+    dragNodeRef.current = e.currentTarget
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', index.toString())
+    // Add a slight delay to allow the drag image to be captured
+    setTimeout(() => {
+      if (dragNodeRef.current) {
+        dragNodeRef.current.style.opacity = '0.5'
+      }
+    }, 0)
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index)
+    }
+  }
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.preventDefault()
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index)
+    }
+  }
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    // Only clear if we're leaving the container, not entering a child
+    const relatedTarget = e.relatedTarget as HTMLElement
+    if (!e.currentTarget.contains(relatedTarget)) {
+      setDragOverIndex(null)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, dropIndex: number) => {
+    e.preventDefault()
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null)
+      setDragOverIndex(null)
+      return
+    }
+
+    // Reorder the experiences array
+    const updatedExperiences = [...experiences]
+    const [draggedItem] = updatedExperiences.splice(draggedIndex, 1)
+    updatedExperiences.splice(dropIndex, 0, draggedItem)
+
+    updateResume({ experience: updatedExperiences as any })
+
+    // Update expanded index to follow the moved item
+    if (expandedIndex === draggedIndex) {
+      setExpandedIndex(dropIndex)
+    } else if (expandedIndex !== null) {
+      if (draggedIndex < expandedIndex && dropIndex >= expandedIndex) {
+        setExpandedIndex(expandedIndex - 1)
+      } else if (draggedIndex > expandedIndex && dropIndex <= expandedIndex) {
+        setExpandedIndex(expandedIndex + 1)
+      }
+    }
+
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
+  const handleDragEnd = () => {
+    if (dragNodeRef.current) {
+      dragNodeRef.current.style.opacity = '1'
+    }
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+    dragNodeRef.current = null
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -213,83 +307,144 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
           </div>
         )}
 
-        {experiences.map((exp, index) => (
-          <div key={index} className="rounded-lg border border-slate-200 bg-white p-6">
-            <div className="mb-4 flex items-start justify-between">
-              <div className="flex items-center gap-2">
-                <GripVertical className="h-5 w-5 text-slate-400" />
-                <h3 className="font-semibold text-slate-900">
-                  {exp.position || dict.resumes?.editor?.newPosition || 'New Position'}
-                </h3>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => handleOptimize(index)}
-                    disabled={optimizingIndex === index || !exp.description || exp.description.trim().length < 10}
-                    className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-all hover:from-purple-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Sparkles className="h-3 w-3" />
-                    {optimizingIndex === index ? dict.resumes?.editor?.optimizing || 'Optimizing...' : dict.resumes?.editor?.optimizeWithAI || 'Optimize with AI'}
-                  </button>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handleTranslate(index, 'fr')}
-                      disabled={translatingIndex === index || !exp.description || exp.description.trim().length < 10}
-                      className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      title={dict.resumes?.editor?.translateToFrench || 'Translate to French'}
-                    >
-                      <Languages className="h-3 w-3" />
-                      FR
-                    </button>
-                    <button
-                      onClick={() => handleTranslate(index, 'de')}
-                      disabled={translatingIndex === index || !exp.description || exp.description.trim().length < 10}
-                      className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      title={dict.resumes?.editor?.translateToGerman || 'Translate to German'}
-                    >
-                      <Languages className="h-3 w-3" />
-                      DE
-                    </button>
-                    <button
-                      onClick={() => handleTranslate(index, 'en')}
-                      disabled={translatingIndex === index || !exp.description || exp.description.trim().length < 10}
-                      className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      title={dict.resumes?.editor?.translateToEnglish || 'Translate to English'}
-                    >
-                      <Languages className="h-3 w-3" />
-                      EN
-                    </button>
-                    <button
-                      onClick={() => handleTranslate(index, 'it')}
-                      disabled={translatingIndex === index || !exp.description || exp.description.trim().length < 10}
-                      className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      title={dict.resumes?.editor?.translateToItalian || 'Translate to Italian'}
-                    >
-                      <Languages className="h-3 w-3" />
-                      IT
-                    </button>
-                  </div>
+        {experiences.map((exp, index) => {
+          const isExpanded = expandedIndex === index
+
+          return (
+            <div
+              key={index}
+              draggable
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragEnter={(e) => handleDragEnter(e, index)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, index)}
+              onDragEnd={handleDragEnd}
+              className={`rounded-lg border bg-white transition-all ${
+                draggedIndex === index
+                  ? 'border-teal-400 opacity-50 shadow-lg'
+                  : dragOverIndex === index
+                  ? 'border-teal-500 border-2 shadow-md'
+                  : 'border-slate-200'
+              }`}
+            >
+              {/* Header - always visible */}
+              <div
+                className="flex cursor-pointer items-center justify-between p-6"
+                onClick={() => setExpandedIndex(isExpanded ? null : index)}
+              >
+                {/* Drag handle */}
+                <div
+                  className="mr-3 cursor-grab text-slate-400 hover:text-slate-600 active:cursor-grabbing"
+                  title={dict.resumes?.editor?.dragToReorder || 'Drag to reorder'}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <GripVertical className="h-5 w-5" />
                 </div>
-                <button
-                  onClick={() => toggleVisibility(index)}
+                <div className="flex-1">
+                  <h3 className="font-semibold text-slate-900">
+                    {exp.position || dict.resumes?.editor?.newPosition || 'New Position'}
+                  </h3>
+                  {exp.company && (
+                    <p className="mt-1 text-sm text-slate-600">{exp.company}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleOptimize(index)
+                      }}
+                      disabled={optimizingIndex === index || !exp.description || exp.description.trim().length < 10}
+                      className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-all hover:from-purple-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {optimizingIndex === index ? dict.resumes?.editor?.optimizing || 'Optimizing...' : dict.resumes?.editor?.optimizeWithAI || 'Optimize with AI'}
+                    </button>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleTranslate(index, 'fr')
+                        }}
+                        disabled={translatingIndex === index || !exp.description || exp.description.trim().length < 10}
+                        className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        title={dict.resumes?.editor?.translateToFrench || 'Translate to French'}
+                      >
+                        <Languages className="h-3 w-3" />
+                        FR
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleTranslate(index, 'de')
+                        }}
+                        disabled={translatingIndex === index || !exp.description || exp.description.trim().length < 10}
+                        className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        title={dict.resumes?.editor?.translateToGerman || 'Translate to German'}
+                      >
+                        <Languages className="h-3 w-3" />
+                        DE
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleTranslate(index, 'en')
+                        }}
+                        disabled={translatingIndex === index || !exp.description || exp.description.trim().length < 10}
+                        className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        title={dict.resumes?.editor?.translateToEnglish || 'Translate to English'}
+                      >
+                        <Languages className="h-3 w-3" />
+                        EN
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleTranslate(index, 'it')
+                        }}
+                        disabled={translatingIndex === index || !exp.description || exp.description.trim().length < 10}
+                        className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        title={dict.resumes?.editor?.translateToItalian || 'Translate to Italian'}
+                      >
+                        <Languages className="h-3 w-3" />
+                        IT
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleVisibility(index)
+                    }}
                   className={`transition-colors ${exp.visible ?? true ? 'text-slate-600 hover:text-slate-800' : 'text-slate-300 hover:text-slate-400'}`}
                   title={exp.visible ?? true ? 'Hide from CV' : 'Show in CV'}
                 >
                   {exp.visible ?? true ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                 </button>
                 <button
-                  onClick={() => removeExperience(index)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeExperience(index)
+                  }}
                   className="text-slate-400 hover:text-red-600"
                   title={dict.common?.delete || 'Delete'}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
+                {isExpanded ? (
+                  <ChevronUp className="h-5 w-5 text-slate-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-slate-400" />
+                )}
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+            {/* Expandable content */}
+            {isExpanded && (
+              <div className="space-y-4 border-t border-slate-200 p-6">
+                <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-slate-900">
                     {dict.resumes?.editor?.position || 'Position'}
@@ -382,7 +537,7 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
                       'Describe your responsibilities and achievements...'
                     }
                     minHeight="72px"
-                    showRibbon={true}
+                    showRibbon={false}
                   />
                 </div>
               </div>
@@ -483,9 +638,11 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
                   </div>
                 </div>
               )}
+              </div>
+            )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

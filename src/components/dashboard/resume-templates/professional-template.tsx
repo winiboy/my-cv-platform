@@ -1,3 +1,6 @@
+'use client'
+
+import { useState, useRef, useCallback, useEffect } from 'react'
 import type {
   Resume,
   ResumeContact,
@@ -5,25 +8,37 @@ import type {
   ResumeEducation,
   ResumeSkillCategory,
   ResumeCertification,
+  ResumeLanguage,
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
 import { renderFormattedText } from '@/lib/format-text'
+
+type SidebarSectionId = 'keyAchievements' | 'skills' | 'languages' | 'training'
+type MainContentSectionId = 'summary' | 'experience' | 'education'
 
 interface ProfessionalTemplateProps {
   resume: Resume
   locale: Locale
   dict: any
+  sidebarColor?: string
+  fontScale?: number
+  fontFamily?: string
+  sidebarOrder?: SidebarSectionId[]
+  mainContentOrder?: MainContentSectionId[]
+  sidebarTopMargin?: number
+  setSidebarTopMargin?: (margin: number) => void
 }
 
 // Fixed font sizes based on professional CV standards
-// Using "Safe Default" preset recommended for SaaS CV builders
 const BASE_FONT_SIZE = 11 // Body text baseline (×1.0)
 const NAME_FONT_SIZE = 22 // Candidate name (×2.0)
-const PROFESSIONAL_TITLE_FONT_SIZE = 13 // Professional title (×1.2)
+const PROFESSIONAL_TITLE_FONT_SIZE = 22 // Professional title (×2.0) - UPDATED
 const SECTION_TITLE_FONT_SIZE = 14.5 // Section titles (×1.35)
+const RESUME_SECTION_TITLE_FONT_SIZE = 14 // Résumé section title only - UPDATED
 const JOB_TITLE_FONT_SIZE = 13 // Job/role titles (×1.2)
 const BODY_FONT_SIZE = 11 // Body text, descriptions (×1.0)
-const META_FONT_SIZE = 10.5 // Dates, companies, metadata (×0.95)
+const META_FONT_SIZE = 11 // Dates, companies, metadata (×1.0) - UPDATED
+const SKILL_CATEGORY_FONT_SIZE = 13 // Skill category names - UPDATED
 const CONTACT_FONT_SIZE = 10.5 // Contact information (×0.95)
 
 // Spacing
@@ -60,6 +75,13 @@ export function ProfessionalTemplate({
   resume,
   locale,
   dict,
+  sidebarColor: sidebarColorProp,
+  fontScale = 1,
+  fontFamily = "Arial, Helvetica, sans-serif",
+  sidebarOrder = ['keyAchievements', 'skills', 'languages', 'training'],
+  mainContentOrder = ['summary', 'experience', 'education'],
+  sidebarTopMargin = 64,
+  setSidebarTopMargin,
 }: ProfessionalTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
@@ -68,12 +90,64 @@ export function ProfessionalTemplate({
   const skills = ((resume.skills as unknown as ResumeSkillCategory[]) || []).filter(skill => skill.visible !== false)
   const certifications = ((resume.certifications as unknown as ResumeCertification[]) || []).filter(cert => cert.visible !== false)
   const projects = ((resume.projects as unknown as any[]) || []).filter(project => project.visible !== false)
+  const languages = ((resume.languages as unknown as ResumeLanguage[]) || []).filter(lang => lang.visible !== false)
 
   // Key Achievements - Use projects data (renamed from Projects section)
   const keyAchievements = projects.map(project => ({
     title: project.name || '',
     description: project.description || ''
   }))
+
+  // Use prop or default sidebar color
+  const activeSidebarColor = sidebarColorProp || SIDEBAR_COLOR
+
+  // Drag state for sidebar line
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStartY = useRef<number>(0)
+  const dragStartMargin = useRef<number>(sidebarTopMargin)
+  const sidebarRef = useRef<HTMLDivElement>(null)
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!setSidebarTopMargin) return
+    e.preventDefault()
+    setIsDragging(true)
+    dragStartY.current = e.clientY
+    dragStartMargin.current = sidebarTopMargin
+  }, [sidebarTopMargin, setSidebarTopMargin])
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging || !setSidebarTopMargin) return
+    const deltaY = e.clientY - dragStartY.current
+    const newMargin = Math.max(24, Math.min(200, dragStartMargin.current + deltaY))
+    setSidebarTopMargin(newMargin)
+  }, [isDragging, setSidebarTopMargin])
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  // Add global mouse event listeners when dragging
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove)
+        window.removeEventListener('mouseup', handleMouseUp)
+      }
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp])
+
+  // Scale font sizes proportionally
+  const scaledNameFontSize = NAME_FONT_SIZE * fontScale
+  const scaledProfessionalTitleFontSize = PROFESSIONAL_TITLE_FONT_SIZE * fontScale
+  const scaledSectionTitleFontSize = SECTION_TITLE_FONT_SIZE * fontScale
+  const scaledResumeSectionTitleFontSize = RESUME_SECTION_TITLE_FONT_SIZE * fontScale
+  const scaledJobTitleFontSize = JOB_TITLE_FONT_SIZE * fontScale
+  const scaledBodyFontSize = BODY_FONT_SIZE * fontScale
+  const scaledMetaFontSize = META_FONT_SIZE * fontScale
+  const scaledSkillCategoryFontSize = SKILL_CATEGORY_FONT_SIZE * fontScale
+  const scaledContactFontSize = CONTACT_FONT_SIZE * fontScale
 
   return (
     <div
@@ -83,11 +157,12 @@ export function ProfessionalTemplate({
         minHeight: '1056px',
         position: 'relative',
         backgroundColor: 'white',
-        fontFamily: 'Arial, Helvetica, sans-serif'
+        fontFamily: fontFamily
       }}
     >
       {/* Sidebar - Full height from top to bottom */}
       <div
+        ref={sidebarRef}
         className="p-6 text-white print:p-5"
         style={{
           position: 'absolute',
@@ -95,94 +170,155 @@ export function ProfessionalTemplate({
           bottom: 0,
           left: 0,
           width: '30%',
-          backgroundColor: SIDEBAR_COLOR
+          backgroundColor: activeSidebarColor
         }}
       >
           {/* CONTACT NAME SECTION */}
-          <div className="mb-16">
+          <div style={{ marginBottom: `${sidebarTopMargin}px` }}>
             {/* Contact Name - Candidate Name */}
             <p
               className="font-semibold"
-              style={{ fontSize: `${NAME_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT, textAlign: 'justify' }}
+              style={{ fontSize: `${scaledNameFontSize}px`, lineHeight: HEADING_LINE_HEIGHT, textAlign: 'justify' }}
             >
               {contact.name || 'Your Name'}
             </p>
           </div>
 
-          {/* KEY ACHIEVEMENTS SECTION */}
-          {keyAchievements.length > 0 && (
-            <div className="mb-8">
-              <h2 className="mb-4 pb-1 border-b border-white/20 font-bold tracking-wide capitalize" style={{ fontSize: `${SECTION_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT }}>
-                {dict.resumes.template.keyAchievements}
-              </h2>
-              <div className="space-y-4">
-                {keyAchievements.map((achievement, index) => (
-                  <div key={index}>
-                    <h3 className="mb-1 font-bold" style={{ fontSize: `${JOB_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT }}>
-                      {achievement.title}
-                    </h3>
-                    {achievement.description && (
-                      <div className="ml-2 opacity-90" style={{ fontSize: `${BODY_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>
-                        {renderFormattedText(achievement.description)}
+          {/* Draggable line separator - only show when controls are available */}
+          {setSidebarTopMargin && (
+            <div
+              className="absolute print:hidden"
+              style={{
+                left: '24px',
+                right: '24px',
+                top: `${24 + 30 + sidebarTopMargin - 8}px`, // padding + name height + margin - offset
+                height: '16px',
+                cursor: 'ns-resize',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10,
+              }}
+              onMouseDown={handleMouseDown}
+            >
+              <div
+                className="transition-all"
+                style={{
+                  width: '100%',
+                  height: isDragging ? '4px' : '2px',
+                  backgroundColor: isDragging ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.4)',
+                  borderRadius: '2px',
+                }}
+              />
+            </div>
+          )}
+
+          {/* SIDEBAR SECTIONS - Rendered in dynamic order */}
+          {sidebarOrder.map((sectionId, orderIndex) => {
+            const isLastSection = orderIndex === sidebarOrder.length - 1
+
+            if (sectionId === 'keyAchievements' && keyAchievements.length > 0) {
+              return (
+                <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
+                  <h2 className="mb-4 pb-1 border-b border-white font-bold tracking-wide capitalize" style={{ fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
+                    {dict.resumes.template.keyAchievements}
+                  </h2>
+                  <div className="space-y-4">
+                    {keyAchievements.map((achievement, index) => (
+                      <div key={index}>
+                        <h3 className="mb-1 font-bold" style={{ fontSize: `${scaledJobTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
+                          {achievement.title}
+                        </h3>
+                        {achievement.description && (
+                          <p className="opacity-80" style={{ fontSize: `${scaledBodyFontSize}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>
+                            {renderInlineBullets(achievement.description)}
+                          </p>
+                        )}
                       </div>
-                    )}
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                </div>
+              )
+            }
 
-          {/* SKILLS SECTION */}
-          {skills.filter(s => s.category && s.items && s.items.length > 0).length > 0 && (
-            <div className="mb-8">
-              <h2 className="mb-4 pb-1 border-b border-white/20 font-bold tracking-wide capitalize" style={{ fontSize: `${SECTION_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT }}>
-                {dict.resumes.template.skills}
-              </h2>
-              <div>
-                {skills
-                  .filter(skillCategory =>
-                    skillCategory.category &&
-                    skillCategory.items &&
-                    skillCategory.items.length > 0
-                  )
-                  .map((skillCategory, index) => (
-                    <div key={index} className="mb-3">
-                      <p className="mb-1 font-semibold opacity-90" style={{ fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>
-                        {skillCategory.category}:
-                      </p>
-                      <p className="opacity-80" style={{ fontSize: `${BODY_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>{skillCategory.items.join(' • ')}</p>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* TRAINING / COURSES SECTION */}
-          {certifications.length > 0 && (
-            <div>
-              <h2 className="mb-4 pb-1 border-b border-white/20 font-bold tracking-wide capitalize" style={{ fontSize: `${SECTION_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT }}>
-                {dict.resumes.template.training}
-              </h2>
-              <div className="space-y-4">
-                {certifications.slice(0, 3).map((cert, index) => (
-                  <div key={index}>
-                    <h3 className="mb-1 font-bold" style={{ fontSize: `${JOB_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT, textAlign: 'justify' }}>
-                      {cert.name}
-                    </h3>
-                    <p className="opacity-90" style={{ fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>{cert.issuer}</p>
-                    {cert.date && (
-                      <p className="opacity-75" style={{ fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>
-                        {new Date(cert.date + '-01').toLocaleDateString(locale, {
-                          month: 'long',
-                          year: 'numeric',
-                        })}
-                      </p>
-                    )}
+            if (sectionId === 'skills' && skills.filter(s => s.category && s.items && s.items.length > 0).length > 0) {
+              return (
+                <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
+                  <h2 className="mb-4 pb-1 border-b border-white font-bold tracking-wide capitalize" style={{ fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
+                    {dict.resumes.template.skills}
+                  </h2>
+                  <div>
+                    {skills
+                      .filter(skillCategory =>
+                        skillCategory.category &&
+                        skillCategory.items &&
+                        skillCategory.items.length > 0
+                      )
+                      .map((skillCategory, index) => (
+                        <div key={index} className="mb-3">
+                          <p className="mb-1 font-semibold" style={{ fontSize: `${scaledSkillCategoryFontSize}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'left' }}>
+                            {skillCategory.category}:
+                          </p>
+                          <p className="opacity-80" style={{ fontSize: `${scaledBodyFontSize}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>{skillCategory.items.join(' • ')}</p>
+                        </div>
+                      ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                </div>
+              )
+            }
+
+            if (sectionId === 'languages' && languages.length > 0) {
+              return (
+                <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
+                  <h2 className="mb-4 pb-1 border-b border-white font-bold tracking-wide capitalize" style={{ fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
+                    {dict.resumes.template.languages}
+                  </h2>
+                  <div className="space-y-2">
+                    {languages.map((lang, index) => (
+                      <div key={index} className="flex justify-between items-center">
+                        <span className="font-medium" style={{ fontSize: `${scaledBodyFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}>
+                          {lang.language}
+                        </span>
+                        <span className="opacity-80" style={{ fontSize: `${scaledBodyFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}>
+                          {dict.resumes?.levels?.[lang.level] || lang.level}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            }
+
+            if (sectionId === 'training' && certifications.length > 0) {
+              return (
+                <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
+                  <h2 className="mb-4 pb-1 border-b border-white font-bold tracking-wide capitalize" style={{ fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
+                    {dict.resumes.template.training}
+                  </h2>
+                  <div className="space-y-4">
+                    {certifications.slice(0, 3).map((cert, index) => (
+                      <div key={index}>
+                        <h3 className="mb-1 font-bold" style={{ fontSize: `${scaledJobTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT, textAlign: 'justify' }}>
+                          {cert.name}
+                        </h3>
+                        <p style={{ fontSize: `${scaledMetaFontSize}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>{cert.issuer}</p>
+                        {cert.date && (
+                          <p style={{ fontSize: `${scaledMetaFontSize}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>
+                            {new Date(cert.date + '-01').toLocaleDateString(locale, {
+                              month: 'long',
+                              year: 'numeric',
+                            })}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            }
+
+            return null
+          })}
         </div>
 
       {/* Main Content - Positioned to the right of sidebar */}
@@ -196,12 +332,12 @@ export function ProfessionalTemplate({
       >
           {/* HEADER: Professional Title and Contact Info */}
           <div className="pb-6" style={{ marginBottom: `${HEADER_GAP}px` }}>
-            <h1 className="font-bold tracking-tight" style={{ color: SIDEBAR_COLOR, fontSize: `${PROFESSIONAL_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${TITLE_GAP}px` }}>
+            <h1 className="font-bold tracking-tight" style={{ color: 'oklch(0.2 0 0)', fontSize: `${scaledProfessionalTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${TITLE_GAP}px` }}>
               {resume.title || 'PROFESSIONAL TITLE'}
             </h1>
 
             {/* Contact Information */}
-            <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'oklch(0.4 0 0)', fontSize: `${CONTACT_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT }}>
+            <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'oklch(0.4 0 0)', fontSize: `${scaledContactFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}>
               {contact.email && (
                 <div className="flex items-center gap-1.5">
                   <span>✉️</span>
@@ -245,160 +381,170 @@ export function ProfessionalTemplate({
             </div>
           </div>
 
-          {/* SUMMARY SECTION */}
-          {resume.summary && (
-            <div className="mb-8">
-              <h2
-                className="font-bold tracking-wide pb-1 border-b capitalize"
-                style={{ color: 'oklch(0.2 0 0)', borderColor: lightenHslColor(SIDEBAR_COLOR, 30), fontSize: `${SECTION_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${SECTION_GAP}px` }}
-              >
-                {dict.resumes.template.summary}
-              </h2>
-              <div
-                className="text-justify"
-                style={{
-                  fontSize: `${BODY_FONT_SIZE}px`,
-                  color: 'oklch(0.3 0 0)',
-                  lineHeight: BODY_LINE_HEIGHT
-                }}
-              >
-                {renderFormattedText(resume.summary)}
-              </div>
-            </div>
-          )}
+          {/* MAIN CONTENT SECTIONS - Rendered in dynamic order */}
+          {mainContentOrder.map((sectionId, orderIndex) => {
+            const isLastSection = orderIndex === mainContentOrder.length - 1
 
-          {/* EXPERIENCE SECTION */}
-          {experiences.length > 0 && (
-            <div className="mb-8">
-              <h2
-                className="font-bold tracking-wide pb-1 border-b capitalize"
-                style={{ color: 'oklch(0.2 0 0)', borderColor: lightenHslColor(SIDEBAR_COLOR, 30), fontSize: `${SECTION_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${SECTION_GAP}px` }}
-              >
-                {dict.resumes.template.experience}
-              </h2>
-              <div className="space-y-6">
-                {experiences.map((exp, index) => (
-                  <div key={index}>
-                    {/* Job Title + Dates */}
-                    <div className="mb-1 flex items-start justify-between">
-                      <h3
-                        className="font-bold"
-                        style={{ color: 'oklch(0.2 0 0)', fontSize: `${JOB_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT }}
-                      >
-                        {exp.position}
-                      </h3>
-                      <span
-                        style={{ color: 'oklch(0.5 0 0)', fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT }}
-                      >
-                        {formatDateRange(exp, locale, dict)}
-                      </span>
-                    </div>
+            if (sectionId === 'summary' && resume.summary) {
+              return (
+                <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
+                  <h2
+                    className="font-bold tracking-wide pb-1 border-b capitalize"
+                    style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.2 0 0)', fontSize: `${scaledResumeSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${SECTION_GAP}px` }}
+                  >
+                    {dict.resumes.template.summary}
+                  </h2>
+                  <div
+                    className="text-justify"
+                    style={{
+                      fontSize: `${scaledBodyFontSize}px`,
+                      color: 'oklch(0.3 0 0)',
+                      lineHeight: BODY_LINE_HEIGHT
+                    }}
+                  >
+                    {renderFormattedText(resume.summary)}
+                  </div>
+                </div>
+              )
+            }
 
-                    {/* Company Name */}
-                    <p
-                      className="mb-2"
-                      style={{ color: 'oklch(0.4 0 0)', fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT }}
-                    >
-                      {exp.company}
-                      {exp.location && ` • ${exp.location}`}
-                    </p>
+            if (sectionId === 'experience' && experiences.length > 0) {
+              return (
+                <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
+                  <h2
+                    className="font-bold tracking-wide pb-1 border-b capitalize"
+                    style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.2 0 0)', fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${SECTION_GAP}px` }}
+                  >
+                    {dict.resumes.template.experience}
+                  </h2>
+                  <div className="space-y-6">
+                    {experiences.map((exp, index) => (
+                      <div key={index}>
+                        {/* Job Title + Dates */}
+                        <div className="mb-1 flex items-start justify-between">
+                          <h3
+                            className="font-bold"
+                            style={{ color: 'oklch(0.2 0 0)', fontSize: `${scaledJobTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}
+                          >
+                            {exp.position}
+                          </h3>
+                          <span
+                            style={{ color: 'oklch(0.5 0 0)', fontSize: `${scaledMetaFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}
+                          >
+                            {formatDateRange(exp, locale, dict)}
+                          </span>
+                        </div>
 
-                    {/* Achievements Bullets (priority) or Description */}
-                    {exp.achievements && exp.achievements.length > 0 ? (
-                      <ul className="space-y-1">
-                        {exp.achievements.map((achievement, i) => (
-                          <li
-                            key={i}
-                            className="flex gap-2"
+                        {/* Company Name */}
+                        <p
+                          className="mb-2"
+                          style={{ color: 'oklch(0.4 0 0)', fontSize: `${scaledMetaFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}
+                        >
+                          {exp.company}
+                          {exp.location && ` • ${exp.location}`}
+                        </p>
+
+                        {/* Achievements Bullets (priority) or Description */}
+                        {exp.achievements && exp.achievements.length > 0 ? (
+                          <ul className="space-y-1">
+                            {exp.achievements.map((achievement, i) => (
+                              <li
+                                key={i}
+                                className="flex gap-2"
+                                style={{
+                                  fontSize: `${scaledBodyFontSize}px`,
+                                  color: 'oklch(0.3 0 0)',
+                                  lineHeight: BODY_LINE_HEIGHT,
+                                }}
+                              >
+                                <span style={{ color: 'oklch(0.2 0 0)' }}>•</span>
+                                <span>{renderFormattedText(achievement)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : exp.description ? (
+                          <div
+                            className="mb-2 text-justify"
                             style={{
-                              fontSize: `${BODY_FONT_SIZE}px`,
+                              fontSize: `${scaledBodyFontSize}px`,
                               color: 'oklch(0.3 0 0)',
                               lineHeight: BODY_LINE_HEIGHT,
                             }}
                           >
-                            <span style={{ color: 'oklch(0.2 0 0)' }}>•</span>
-                            <span>{renderFormattedText(achievement)}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : exp.description ? (
-                      <div
-                        className="mb-2 text-justify"
-                        style={{
-                          fontSize: `${BODY_FONT_SIZE}px`,
-                          color: 'oklch(0.3 0 0)',
-                          lineHeight: BODY_LINE_HEIGHT,
-                        }}
-                      >
-                        {renderFormattedText(exp.description)}
+                            {renderFormattedText(exp.description)}
+                          </div>
+                        ) : null}
                       </div>
-                    ) : null}
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                </div>
+              )
+            }
 
-          {/* EDUCATION SECTION */}
-          {education.length > 0 && (
-            <div>
-              <h2
-                className="font-bold tracking-wide pb-1 border-b capitalize"
-                style={{ color: 'oklch(0.2 0 0)', borderColor: lightenHslColor(SIDEBAR_COLOR, 30), fontSize: `${SECTION_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${SECTION_GAP}px` }}
-              >
-                {dict.resumes.template.education}
-              </h2>
-              <div className="space-y-4">
-                {education.map((edu, index) => (
-                  <div key={index}>
-                    {/* Degree + Dates */}
-                    <div className="mb-1 flex items-start justify-between">
-                      <h3
-                        className="font-bold"
-                        style={{ color: 'oklch(0.2 0 0)', fontSize: `${JOB_TITLE_FONT_SIZE}px`, lineHeight: HEADING_LINE_HEIGHT }}
-                      >
-                        {edu.degree}
-                        {edu.field && ` ${dict.resumes.template.in} ${edu.field}`}
-                      </h3>
-                      <span
-                        style={{ color: 'oklch(0.5 0 0)', fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT }}
-                      >
-                        {formatEducationDates(edu, locale, dict)}
-                      </span>
-                    </div>
+            if (sectionId === 'education' && education.length > 0) {
+              return (
+                <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
+                  <h2
+                    className="font-bold tracking-wide pb-1 border-b capitalize"
+                    style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.2 0 0)', fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${SECTION_GAP}px` }}
+                  >
+                    {dict.resumes.template.education}
+                  </h2>
+                  <div className="space-y-4">
+                    {education.map((edu, index) => (
+                      <div key={index}>
+                        {/* Degree + Dates */}
+                        <div className="mb-1 flex items-start justify-between">
+                          <h3
+                            className="font-bold"
+                            style={{ color: 'oklch(0.2 0 0)', fontSize: `${scaledJobTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}
+                          >
+                            {edu.degree}
+                            {edu.field && ` ${dict.resumes.template.in} ${edu.field}`}
+                          </h3>
+                          <span
+                            style={{ color: 'oklch(0.5 0 0)', fontSize: `${scaledMetaFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}
+                          >
+                            {formatEducationDates(edu, locale, dict)}
+                          </span>
+                        </div>
 
-                    {/* University + Location */}
-                    <div className="flex items-start justify-between">
-                      <a
-                        href="#"
-                        className="font-medium hover:underline"
-                        style={{ color: 'oklch(0.7 0.15 200)', fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT }}
-                      >
-                        {edu.school}
-                      </a>
-                      {(edu as any).location && (
-                        <span
-                          style={{ color: 'oklch(0.5 0 0)', fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT }}
-                        >
-                          {(edu as any).location}
-                        </span>
-                      )}
-                    </div>
+                        {/* University + Location */}
+                        <div className="flex items-start justify-between">
+                          <a
+                            href="#"
+                            className="font-medium hover:underline"
+                            style={{ color: 'oklch(0.4 0 0)', fontSize: `${scaledMetaFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}
+                          >
+                            {edu.school}
+                          </a>
+                          {(edu as any).location && (
+                            <span
+                              style={{ color: 'oklch(0.5 0 0)', fontSize: `${scaledMetaFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}
+                            >
+                              {(edu as any).location}
+                            </span>
+                          )}
+                        </div>
 
-                    {/* GPA if available */}
-                    {edu.gpa && (
-                      <p
-                        className="mt-1"
-                        style={{ color: 'oklch(0.5 0 0)', fontSize: `${META_FONT_SIZE}px`, lineHeight: BODY_LINE_HEIGHT }}
-                      >
-                        {dict.resumes.template.gpa}: {edu.gpa}
-                      </p>
-                    )}
+                        {/* GPA if available */}
+                        {edu.gpa && (
+                          <p
+                            className="mt-1"
+                            style={{ color: 'oklch(0.4 0 0)', fontSize: `${scaledMetaFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}
+                          >
+                            {dict.resumes.template.gpa}: {edu.gpa}
+                          </p>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                </div>
+              )
+            }
+
+            return null
+          })}
       </div>
     </div>
   )
@@ -481,6 +627,43 @@ function formatDateRange(exp: ResumeExperience, locale: Locale, dict: any): stri
       : dict.resumes.template.present
 
   return `${startDate} - ${endDate}`
+}
+
+/**
+ * Extract list items from HTML and join them inline with bullet separators
+ * Handles both HTML lists and plain text bullet points
+ */
+function renderInlineBullets(text: string | null | undefined): string {
+  if (!text) return ''
+
+  // Check if content is HTML
+  const isHtml = /<[^>]+>/.test(text)
+
+  if (isHtml) {
+    // Extract text from <li> tags
+    const liMatches = text.match(/<li[^>]*>(.*?)<\/li>/gi)
+    if (liMatches && liMatches.length > 0) {
+      const items = liMatches.map(li =>
+        li.replace(/<li[^>]*>/gi, '').replace(/<\/li>/gi, '').replace(/<[^>]+>/g, '').trim()
+      )
+      return items.join(' • ')
+    }
+    // If no list items, strip all HTML tags
+    return text.replace(/<[^>]+>/g, '').trim()
+  }
+
+  // Plain text - check for bullet points
+  const lines = text.split('\n')
+  const bulletItems = lines
+    .filter(line => /^[\s]*[•\-*]\s+/.test(line))
+    .map(line => line.replace(/^[\s]*[•\-*]\s+/, '').trim())
+
+  if (bulletItems.length > 0) {
+    return bulletItems.join(' • ')
+  }
+
+  // No bullets found, return as-is (single line)
+  return text.replace(/\n/g, ' ').trim()
 }
 
 /**

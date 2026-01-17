@@ -65,5 +65,17 @@
     "orDivider": "ODER",
     "browseJobListings": "Stellenangebote durchsuchen",
     "browseJobListingsHint": "Haben Sie noch keine Stellenbeschreibung? Durchsuchen Sie unsere Stellenangebote, um Möglichkeiten zu finden und Ihren Lebenslauf direkt anzupassen."
+  },
+  "createCV": {
+    "button": "Lebenslauf erstellen",
+    "modalTitle": "Lebenslauf aus Stelle erstellen",
+    "fetching": "Stellendetails werden abgerufen...",
+    "noUrlError": "Keine externe URL für diese Stelle verfügbar",
+    "selectResumeTitleWithCreate": "Lebenslauf zum Anpassen auswählen oder neuen Lebenslauf erstellen",
+    "newCV": "Neuer Lebenslauf",
+    "newCVDescription": "Neuen Lebenslauf basierend auf dieser Stellenbeschreibung erstellen",
+    "createButton": "Lebenslauf erstellen",
+    "creating": "Ihr Lebenslauf wird erstellt...",
+    "helpText": "Die Stellenbeschreibung wurde vorausgefüllt. Überprüfen Sie die Details und klicken Sie auf \"Lebenslauf erstellen\", um einen neuen Lebenslauf für diese Stelle zu generieren."
   }
 }

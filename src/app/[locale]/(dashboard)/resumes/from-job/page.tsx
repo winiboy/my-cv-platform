@@ -10,10 +10,14 @@ interface FromJobPageProps {
   params: Promise<{
     locale: Locale
   }>
+  searchParams: Promise<{
+    jobData?: string
+  }>
 }
 
-export default async function FromJobPage({ params }: FromJobPageProps) {
+export default async function FromJobPage({ params, searchParams }: FromJobPageProps) {
   const { locale } = await params
+  const { jobData: jobDataParam } = await searchParams
   const dict = getTranslations(locale, 'common') as any
   const supabase = await createServerSupabaseClient()
 
@@ -24,6 +28,22 @@ export default async function FromJobPage({ params }: FromJobPageProps) {
 
   if (!user) {
     redirect(`/${locale}/login`)
+  }
+
+  // Parse job data from query parameter if available
+  let initialJobDescription = ''
+  let initialTitle = ''
+  let initialCompany = ''
+
+  if (jobDataParam) {
+    try {
+      const jobData = JSON.parse(decodeURIComponent(jobDataParam))
+      initialJobDescription = jobData.description || ''
+      initialTitle = jobData.title || ''
+      initialCompany = jobData.company || ''
+    } catch (e) {
+      console.error('Failed to parse jobData:', e)
+    }
   }
 
   return (
@@ -49,7 +69,14 @@ export default async function FromJobPage({ params }: FromJobPageProps) {
       </div>
 
       {/* Form */}
-      <JobDescriptionForm locale={locale} dict={dict} userId={user.id} />
+      <JobDescriptionForm
+        locale={locale}
+        dict={dict}
+        userId={user.id}
+        initialJobDescription={initialJobDescription}
+        initialTitle={initialTitle}
+        initialCompany={initialCompany}
+      />
     </div>
   )
 }

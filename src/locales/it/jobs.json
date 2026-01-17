@@ -65,5 +65,17 @@
     "orDivider": "OPPURE",
     "browseJobListings": "Sfoglia le offerte di lavoro",
     "browseJobListingsHint": "Non hai ancora una descrizione del lavoro? Sfoglia le nostre offerte di lavoro per trovare opportunità e adattare il tuo CV direttamente."
+  },
+  "createCV": {
+    "button": "Crea un CV",
+    "modalTitle": "Crea CV dall'offerta",
+    "fetching": "Recupero dettagli lavoro...",
+    "noUrlError": "Nessun URL esterno disponibile per questa offerta",
+    "selectResumeTitleWithCreate": "Seleziona CV da adattare o crea un nuovo CV",
+    "newCV": "Nuovo CV",
+    "newCVDescription": "Crea un nuovo CV basato su questa descrizione del lavoro",
+    "createButton": "Crea CV",
+    "creating": "Creazione del tuo CV...",
+    "helpText": "La descrizione del lavoro è stata precompilata. Rivedi i dettagli e clicca su \"Crea CV\" per generare un nuovo CV su misura per questa offerta."
   }
 }

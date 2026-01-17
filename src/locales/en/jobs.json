@@ -65,5 +65,17 @@
     "orDivider": "OR",
     "browseJobListings": "Browse Job Listings",
     "browseJobListingsHint": "Don't have a job description yet? Browse our job listings to find opportunities and adapt your CV directly."
+  },
+  "createCV": {
+    "button": "Create CV",
+    "modalTitle": "Create CV from Job",
+    "fetching": "Fetching job details...",
+    "noUrlError": "No external URL available for this job",
+    "selectResumeTitleWithCreate": "Select CV to Adapt or Create a New CV",
+    "newCV": "New CV",
+    "newCVDescription": "Create a new CV based on this job description",
+    "createButton": "Create CV",
+    "creating": "Creating your CV...",
+    "helpText": "The job description has been pre-filled. Review the details and click \"Create CV\" to generate a new CV tailored to this job."
   }
 }

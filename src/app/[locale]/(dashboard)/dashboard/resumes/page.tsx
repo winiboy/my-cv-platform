@@ -49,7 +49,7 @@ export default async function ResumesPage({
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href={`/${locale}/dashboard/resumes/from-job`}
+            href={`/${locale}/dashboard/jobs`}
             className="inline-flex items-center gap-2 px-4 py-2 border border-teal-600 bg-white text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
           >
             <Sparkles className="h-4 w-4" />

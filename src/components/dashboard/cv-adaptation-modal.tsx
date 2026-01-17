@@ -9,12 +9,15 @@ import type { CVAdaptationPatch } from '@/types/cv-adaptation'
 interface CVAdaptationModalProps {
   isOpen: boolean
   onClose: () => void
-  resumeId: string
+  resumeId?: string | null
   initialJobDescription?: string
   initialJobTitle?: string
   initialCompany?: string
   locale: string
-  onApplyChanges: (patch: CVAdaptationPatch, selectedPatches: string[]) => void
+  onApplyChanges?: (patch: CVAdaptationPatch, selectedPatches: string[]) => void
+  isCreateMode?: boolean
+  isCreateNewCV?: boolean
+  createModeTitle?: string
   dict?: {
     title?: string
     jobDescriptionLabel?: string
@@ -38,6 +41,9 @@ interface CVAdaptationModalProps {
     orDivider?: string
     browseJobListings?: string
     browseJobListingsHint?: string
+    createCVButton?: string
+    creatingCV?: string
+    createCVHelpText?: string
     [key: string]: string | undefined
   }
 }
@@ -53,6 +59,9 @@ export function CVAdaptationModal({
   initialCompany = '',
   locale,
   onApplyChanges,
+  isCreateMode = false,
+  isCreateNewCV = false,
+  createModeTitle = 'Create CV from Job',
   dict = {},
 }: CVAdaptationModalProps) {
   const router = useRouter()
@@ -122,7 +131,34 @@ export function CVAdaptationModal({
     setStage('processing')
 
     try {
-      // Show progress messages
+      // Handle "Create New CV" mode
+      if (isCreateNewCV) {
+        setProgressMessage(dict.creatingCV || 'Creating your CV...')
+
+        const response = await fetch('/api/ai/generate-from-job-description', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jobDescription: jobDescription.trim(),
+            title: company.trim() ? `CV - ${company.trim()}` : jobTitle.trim(),
+            template: 'professional',
+            locale,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || data.message || 'Failed to create CV')
+        }
+
+        // Redirect to the new CV's edit page
+        onClose()
+        router.push(`/${locale}/dashboard/resumes/${data.resumeId}/edit`)
+        return
+      }
+
+      // Standard adapt CV flow
       setProgressMessage(dict.analyzing || 'Analyzing job requirements...')
 
       // Call API
@@ -159,7 +195,7 @@ export function CVAdaptationModal({
   }
 
   const handleApply = () => {
-    if (!patch) return
+    if (!patch || !onApplyChanges) return
 
     // Convert Set to array
     const selectedPatchesArray = Array.from(selectedPatches)
@@ -220,7 +256,7 @@ export function CVAdaptationModal({
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-600" />
               <h2 className="text-xl font-semibold text-gray-900">
-                {dict.title || 'Adapt CV to Job'}
+                {isCreateMode ? createModeTitle : (dict.title || 'Adapt CV to Job')}
               </h2>
             </div>
             <button
@@ -237,10 +273,11 @@ export function CVAdaptationModal({
             {stage === 'input' && (
               <div className="space-y-6">
                 {/* Help text */}
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                  <p className="text-sm text-purple-900">
-                    {dict.helpText ||
-                      'Paste the complete job description, and our AI will suggest targeted updates to your CV. You\'re always in control - review and select which changes to apply.'}
+                <div className={`border rounded-lg p-4 ${isCreateNewCV ? 'bg-teal-50 border-teal-200' : 'bg-purple-50 border-purple-200'}`}>
+                  <p className={`text-sm ${isCreateNewCV ? 'text-teal-900' : 'text-purple-900'}`}>
+                    {isCreateNewCV
+                      ? (dict.createCVHelpText || 'The job description has been pre-filled. Review the details and click "Create CV" to generate a new CV tailored to this job.')
+                      : (dict.helpText || 'Paste the complete job description, and our AI will suggest targeted updates to your CV. You\'re always in control - review and select which changes to apply.')}
                   </p>
                 </div>
 
@@ -306,9 +343,15 @@ export function CVAdaptationModal({
                 <button
                   onClick={handleSubmit}
                   disabled={isLoading}
-                  className="w-full bg-purple-600 text-white py-3 px-4 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                  className={`w-full text-white py-3 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium ${
+                    isCreateNewCV
+                      ? 'bg-teal-600 hover:bg-teal-700 focus:ring-teal-500'
+                      : 'bg-purple-600 hover:bg-purple-700 focus:ring-purple-500'
+                  }`}
                 >
-                  {dict.analyzeButton || 'Analyze & Generate Adaptation'}
+                  {isCreateNewCV
+                    ? (dict.createCVButton || 'Create CV')
+                    : (dict.analyzeButton || 'Analyze & Generate Adaptation')}
                 </button>
 
                 {/* Anti-copy disclaimer */}
@@ -319,40 +362,44 @@ export function CVAdaptationModal({
                   </p>
                 </div>
 
-                {/* OR Divider */}
-                <div className="relative my-6">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="bg-white px-4 text-gray-500 font-medium">
-                      {dict.orDivider || 'OR'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Browse Job Listings */}
-                <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Search className="h-5 w-5 text-teal-600 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm text-teal-900 mb-3">
-                        {dict.browseJobListingsHint ||
-                          "Don't have a job description yet? Browse our job listings to find opportunities and adapt your CV directly."}
-                      </p>
-                      <button
-                        onClick={() => {
-                          onClose()
-                          router.push(`/${locale}/dashboard/jobs`)
-                        }}
-                        className="inline-flex items-center gap-2 bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors text-sm font-medium"
-                      >
-                        <Search className="h-4 w-4" />
-                        {dict.browseJobListings || 'Browse Job Listings'}
-                      </button>
+                {/* OR Divider - Hidden in create new CV mode */}
+                {!isCreateNewCV && (
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-gray-300"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="bg-white px-4 text-gray-500 font-medium">
+                        {dict.orDivider || 'OR'}
+                      </span>
                     </div>
                   </div>
-                </div>
+                )}
+
+                {/* Browse Job Listings - Hidden in create new CV mode */}
+                {!isCreateNewCV && (
+                  <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <Search className="h-5 w-5 text-teal-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm text-teal-900 mb-3">
+                          {dict.browseJobListingsHint ||
+                            "Don't have a job description yet? Browse our job listings to find opportunities and adapt your CV directly."}
+                        </p>
+                        <button
+                          onClick={() => {
+                            onClose()
+                            router.push(`/${locale}/dashboard/jobs`)
+                          }}
+                          className="inline-flex items-center gap-2 bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors text-sm font-medium"
+                        >
+                          <Search className="h-4 w-4" />
+                          {dict.browseJobListings || 'Browse Job Listings'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

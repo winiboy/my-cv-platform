@@ -1,7 +1,7 @@
 'use client'
 
-import { Plus, Trash2, X, Sparkles, Languages, Check, Pencil, Eye, EyeOff } from 'lucide-react'
-import { useState } from 'react'
+import { Plus, Trash2, X, Sparkles, Languages, Check, Pencil, Eye, EyeOff, GripVertical, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState, useRef } from 'react'
 import type { Resume, ResumeSkillCategory } from '@/types/database'
 
 interface SkillsSectionProps {
@@ -15,6 +15,11 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
   const skills = (resume.skills as unknown as ResumeSkillCategory[]) || []
   const [newSkillInputs, setNewSkillInputs] = useState<{ [key: number]: string }>({})
 
+  // Expand/collapse state
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(
+    skills.length > 0 ? 0 : null
+  )
+
   // Editing state
   const [editingSkill, setEditingSkill] = useState<{ categoryIndex: number; skillIndex: number } | null>(null)
   const [editingValue, setEditingValue] = useState<string>('')
@@ -26,6 +31,11 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
   const [translatedCategories, setTranslatedCategories] = useState<{ [key: number]: { category: string; items: string[]; language: string } }>({})
   const [error, setError] = useState<string | null>(null)
 
+  // Drag and drop state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const dragNodeRef = useRef<HTMLDivElement | null>(null)
+
   const addCategory = () => {
     const newCategory: ResumeSkillCategory = {
       category: '',
@@ -33,6 +43,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
       visible: true, // Default to visible
     }
     updateResume({ skills: [...skills, newCategory] as any })
+    setExpandedIndex(skills.length) // Expand the newly added category
   }
 
   const toggleVisibility = (index: number) => {
@@ -50,6 +61,12 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
   const removeCategory = (index: number) => {
     const updated = skills.filter((_, i) => i !== index)
     updateResume({ skills: updated as any })
+    // Update expanded index
+    if (expandedIndex === index) {
+      setExpandedIndex(null)
+    } else if (expandedIndex !== null && expandedIndex > index) {
+      setExpandedIndex(expandedIndex - 1)
+    }
   }
 
   const addSkillToCategory = (categoryIndex: number) => {
@@ -228,6 +245,83 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
     setTranslatedCategories(newTranslated)
   }
 
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    setDraggedIndex(index)
+    dragNodeRef.current = e.currentTarget
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', index.toString())
+    // Add a slight delay to allow the drag image to be captured
+    setTimeout(() => {
+      if (dragNodeRef.current) {
+        dragNodeRef.current.style.opacity = '0.5'
+      }
+    }, 0)
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index)
+    }
+  }
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.preventDefault()
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index)
+    }
+  }
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    // Only clear if we're leaving the container, not entering a child
+    const relatedTarget = e.relatedTarget as HTMLElement
+    if (!e.currentTarget.contains(relatedTarget)) {
+      setDragOverIndex(null)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, dropIndex: number) => {
+    e.preventDefault()
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null)
+      setDragOverIndex(null)
+      return
+    }
+
+    // Reorder the skills array
+    const updatedSkills = [...skills]
+    const [draggedItem] = updatedSkills.splice(draggedIndex, 1)
+    updatedSkills.splice(dropIndex, 0, draggedItem)
+
+    updateResume({ skills: updatedSkills as any })
+
+    // Update expanded index to follow the moved item
+    if (expandedIndex === draggedIndex) {
+      setExpandedIndex(dropIndex)
+    } else if (expandedIndex !== null) {
+      if (draggedIndex < expandedIndex && dropIndex >= expandedIndex) {
+        setExpandedIndex(expandedIndex - 1)
+      } else if (draggedIndex > expandedIndex && dropIndex <= expandedIndex) {
+        setExpandedIndex(expandedIndex + 1)
+      }
+    }
+
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
+  const handleDragEnd = () => {
+    if (dragNodeRef.current) {
+      dragNodeRef.current.style.opacity = '1'
+    }
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+    dragNodeRef.current = null
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -263,83 +357,151 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
           </div>
         )}
 
-        {skills.map((skillCategory, categoryIndex) => (
-          <div key={categoryIndex} className="rounded-lg border border-slate-200 bg-white p-6">
-            <div className="mb-4 flex items-start justify-between">
-              <input
-                type="text"
-                value={skillCategory.category}
-                onChange={(e) => updateCategory(categoryIndex, { category: e.target.value })}
-                placeholder={dict.resumes?.editor?.categoryName || 'Category name (e.g., Programming Languages)'}
-                className="flex-1 border-0 bg-transparent text-lg font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-0"
-              />
-              <div className="flex items-center gap-2">
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => handleOptimize(categoryIndex)}
-                    disabled={optimizingIndex === categoryIndex || !skillCategory.category || skillCategory.items.length === 0}
-                    className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-all hover:from-purple-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Sparkles className="h-3 w-3" />
-                    {optimizingIndex === categoryIndex ? dict.resumes?.editor?.optimizing || 'Optimizing...' : dict.resumes?.editor?.optimizeWithAI || 'Optimize with AI'}
-                  </button>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handleTranslate(categoryIndex, 'fr')}
-                      disabled={translatingIndex === categoryIndex || !skillCategory.category || skillCategory.items.length === 0}
-                      className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      title={dict.resumes?.editor?.translateToFrench || 'Translate to French'}
-                    >
-                      <Languages className="h-3 w-3" />
-                      FR
-                    </button>
-                    <button
-                      onClick={() => handleTranslate(categoryIndex, 'de')}
-                      disabled={translatingIndex === categoryIndex || !skillCategory.category || skillCategory.items.length === 0}
-                      className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      title={dict.resumes?.editor?.translateToGerman || 'Translate to German'}
-                    >
-                      <Languages className="h-3 w-3" />
-                      DE
-                    </button>
-                    <button
-                      onClick={() => handleTranslate(categoryIndex, 'en')}
-                      disabled={translatingIndex === categoryIndex || !skillCategory.category || skillCategory.items.length === 0}
-                      className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      title={dict.resumes?.editor?.translateToEnglish || 'Translate to English'}
-                    >
-                      <Languages className="h-3 w-3" />
-                      EN
-                    </button>
-                    <button
-                      onClick={() => handleTranslate(categoryIndex, 'it')}
-                      disabled={translatingIndex === categoryIndex || !skillCategory.category || skillCategory.items.length === 0}
-                      className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      title={dict.resumes?.editor?.translateToItalian || 'Translate to Italian'}
-                    >
-                      <Languages className="h-3 w-3" />
-                      IT
-                    </button>
-                  </div>
-                </div>
-                <button
-                  onClick={() => toggleVisibility(categoryIndex)}
-                  className={`transition-colors ${skillCategory.visible ?? true ? 'text-slate-600 hover:text-slate-800' : 'text-slate-300 hover:text-slate-400'}`}
-                  title={skillCategory.visible ?? true ? 'Hide from CV' : 'Show in CV'}
-                >
-                  {skillCategory.visible ?? true ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                </button>
-                <button
-                  onClick={() => removeCategory(categoryIndex)}
-                  className="text-slate-400 hover:text-red-600"
-                  title={dict.common?.delete || 'Delete'}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
+        {skills.map((skillCategory, categoryIndex) => {
+          const isExpanded = expandedIndex === categoryIndex
 
-            <div className="space-y-3">
+          return (
+            <div
+              key={categoryIndex}
+              draggable
+              onDragStart={(e) => handleDragStart(e, categoryIndex)}
+              onDragOver={(e) => handleDragOver(e, categoryIndex)}
+              onDragEnter={(e) => handleDragEnter(e, categoryIndex)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, categoryIndex)}
+              onDragEnd={handleDragEnd}
+              className={`rounded-lg border bg-white transition-all ${
+                draggedIndex === categoryIndex
+                  ? 'border-teal-400 opacity-50 shadow-lg'
+                  : dragOverIndex === categoryIndex
+                  ? 'border-teal-500 border-2 shadow-md'
+                  : 'border-slate-200'
+              }`}
+            >
+              {/* Header - always visible */}
+              <div
+                className="flex cursor-pointer items-center justify-between p-6"
+                onClick={() => setExpandedIndex(isExpanded ? null : categoryIndex)}
+              >
+                {/* Drag handle */}
+                <div
+                  className="mr-3 cursor-grab text-slate-400 hover:text-slate-600 active:cursor-grabbing"
+                  title={dict.resumes?.editor?.dragToReorder || 'Drag to reorder'}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <GripVertical className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={skillCategory.category}
+                    onChange={(e) => updateCategory(categoryIndex, { category: e.target.value })}
+                    onClick={(e) => e.stopPropagation()}
+                    placeholder={dict.resumes?.editor?.categoryName || 'Category name (e.g., Programming Languages)'}
+                    className="w-full border-0 bg-transparent text-lg font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-0"
+                  />
+                  {!isExpanded && skillCategory.items.length > 0 && (
+                    <p className="mt-1 text-sm text-slate-500">
+                      {skillCategory.items.slice(0, 5).join(', ')}
+                      {skillCategory.items.length > 5 && ` +${skillCategory.items.length - 5} more`}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleOptimize(categoryIndex)
+                      }}
+                      disabled={optimizingIndex === categoryIndex || !skillCategory.category || skillCategory.items.length === 0}
+                      className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-all hover:from-purple-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {optimizingIndex === categoryIndex ? dict.resumes?.editor?.optimizing || 'Optimizing...' : dict.resumes?.editor?.optimizeWithAI || 'Optimize with AI'}
+                    </button>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleTranslate(categoryIndex, 'fr')
+                        }}
+                        disabled={translatingIndex === categoryIndex || !skillCategory.category || skillCategory.items.length === 0}
+                        className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        title={dict.resumes?.editor?.translateToFrench || 'Translate to French'}
+                      >
+                        <Languages className="h-3 w-3" />
+                        FR
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleTranslate(categoryIndex, 'de')
+                        }}
+                        disabled={translatingIndex === categoryIndex || !skillCategory.category || skillCategory.items.length === 0}
+                        className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        title={dict.resumes?.editor?.translateToGerman || 'Translate to German'}
+                      >
+                        <Languages className="h-3 w-3" />
+                        DE
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleTranslate(categoryIndex, 'en')
+                        }}
+                        disabled={translatingIndex === categoryIndex || !skillCategory.category || skillCategory.items.length === 0}
+                        className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        title={dict.resumes?.editor?.translateToEnglish || 'Translate to English'}
+                      >
+                        <Languages className="h-3 w-3" />
+                        EN
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleTranslate(categoryIndex, 'it')
+                        }}
+                        disabled={translatingIndex === categoryIndex || !skillCategory.category || skillCategory.items.length === 0}
+                        className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        title={dict.resumes?.editor?.translateToItalian || 'Translate to Italian'}
+                      >
+                        <Languages className="h-3 w-3" />
+                        IT
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleVisibility(categoryIndex)
+                    }}
+                    className={`transition-colors ${skillCategory.visible ?? true ? 'text-slate-600 hover:text-slate-800' : 'text-slate-300 hover:text-slate-400'}`}
+                    title={skillCategory.visible ?? true ? 'Hide from CV' : 'Show in CV'}
+                  >
+                    {skillCategory.visible ?? true ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      removeCategory(categoryIndex)
+                    }}
+                    className="text-slate-400 hover:text-red-600"
+                    title={dict.common?.delete || 'Delete'}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                  {isExpanded ? (
+                    <ChevronUp className="h-5 w-5 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-slate-400" />
+                  )}
+                </div>
+              </div>
+
+              {/* Expandable content */}
+              {isExpanded && (
+                <div className="space-y-3 border-t border-slate-200 p-6">
               {/* Skill tags */}
               <div className="flex flex-wrap gap-2">
                 {skillCategory.items.map((skill, skillIndex) => {
@@ -515,9 +677,11 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
                   </div>
                 </div>
               )}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

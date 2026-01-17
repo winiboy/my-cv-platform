@@ -9,14 +9,24 @@ interface JobDescriptionFormProps {
   locale: Locale
   dict: any
   userId: string
+  initialJobDescription?: string
+  initialTitle?: string
+  initialCompany?: string
 }
 
 type Template = 'modern' | 'classic' | 'minimal' | 'creative' | 'professional'
 
-export function JobDescriptionForm({ locale, dict, userId }: JobDescriptionFormProps) {
+export function JobDescriptionForm({
+  locale,
+  dict,
+  userId,
+  initialJobDescription = '',
+  initialTitle = '',
+  initialCompany = '',
+}: JobDescriptionFormProps) {
   const router = useRouter()
-  const [jobDescription, setJobDescription] = useState('')
-  const [title, setTitle] = useState('')
+  const [jobDescription, setJobDescription] = useState(initialJobDescription)
+  const [title, setTitle] = useState(initialTitle || (initialCompany ? `CV - ${initialCompany}` : ''))
   const [selectedTemplate, setSelectedTemplate] = useState<Template>('professional')
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)

@@ -8,6 +8,9 @@ import { MinimalTemplate } from './resume-templates/minimal-template'
 import { CreativeTemplate } from './resume-templates/creative-template'
 import { ProfessionalTemplate } from './resume-templates/professional-template'
 
+type SidebarSectionId = 'keyAchievements' | 'skills' | 'languages' | 'training'
+type MainContentSectionId = 'summary' | 'experience' | 'education'
+
 interface ResumePreviewProps {
   resume: Resume
   locale: Locale
@@ -28,6 +31,12 @@ interface ResumePreviewProps {
   setHeaderGap?: (gap: number) => void
   sidebarColor?: string
   setSidebarColor?: (color: string) => void
+  fontScale?: number
+  fontFamily?: string
+  sidebarOrder?: SidebarSectionId[]
+  mainContentOrder?: MainContentSectionId[]
+  sidebarTopMargin?: number
+  setSidebarTopMargin?: (margin: number) => void
 }
 
 export function ResumePreview({
@@ -49,7 +58,13 @@ export function ResumePreview({
   headerGap = 12,
   setHeaderGap,
   sidebarColor = 'hsl(240, 85%, 35%)',
-  setSidebarColor
+  setSidebarColor,
+  fontScale = 1,
+  fontFamily = "Arial, Helvetica, sans-serif",
+  sidebarOrder = ['keyAchievements', 'skills', 'languages', 'training'],
+  mainContentOrder = ['summary', 'experience', 'education'],
+  sidebarTopMargin = 64,
+  setSidebarTopMargin
 }: ResumePreviewProps) {
   // Render the appropriate template based on the resume's template field
   switch (resume.template) {
@@ -62,7 +77,7 @@ export function ResumePreview({
     case 'creative':
       return <CreativeTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} />
     case 'professional':
-      return <ProfessionalTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} titleGap={titleGap} setTitleGap={setTitleGap} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} sectionGap={sectionGap} setSectionGap={setSectionGap} headerGap={headerGap} setHeaderGap={setHeaderGap} sidebarColor={sidebarColor} setSidebarColor={setSidebarColor} />
+      return <ProfessionalTemplate resume={resume} locale={locale} dict={dict} sidebarColor={sidebarColor} fontScale={fontScale} fontFamily={fontFamily} sidebarOrder={sidebarOrder} mainContentOrder={mainContentOrder} sidebarTopMargin={sidebarTopMargin} setSidebarTopMargin={setSidebarTopMargin} />
     default:
       return <ModernTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} />
   }

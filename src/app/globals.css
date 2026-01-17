@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Google Fonts are loaded via <link> in layout.tsx for better reliability */
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -238,6 +240,103 @@
 .formatted-content ol {
   @apply list-decimal ml-5;
   margin-left: 1.25rem !important;
+}
+
+/* Custom Slider Styles for CV Editor */
+.color-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  background: url('/hand-cursor.png') no-repeat center;
+  background-size: contain;
+  cursor: grab;
+  border: none;
+  border-radius: 0;
+}
+
+.color-slider::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  background: url('/hand-cursor.png') no-repeat center;
+  background-size: contain;
+  cursor: grab;
+  border: none;
+  border-radius: 0;
+}
+
+.color-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+.color-slider:active::-moz-range-thumb {
+  cursor: grabbing;
+}
+
+.font-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  background: url('/hand-cursor.png') no-repeat center;
+  background-size: contain;
+  cursor: grab;
+  border: none;
+  border-radius: 0;
+}
+
+.font-slider::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  background: url('/hand-cursor.png') no-repeat center;
+  background-size: contain;
+  cursor: grab;
+  border: none;
+  border-radius: 0;
+}
+
+.font-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+.font-slider:active::-moz-range-thumb {
+  cursor: grabbing;
+}
+
+.brightness-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  background: url('/hand-cursor.png') no-repeat center;
+  background-size: contain;
+  cursor: grab;
+  border: none;
+  border-radius: 0;
+}
+
+.brightness-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  background: url('/hand-cursor.png') no-repeat center;
+  background-size: contain;
+  cursor: grab;
+  border: none;
+  border-radius: 0;
+}
+
+.brightness-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+.brightness-slider:active::-moz-range-thumb {
+  cursor: grabbing;
+}
+
+/* Professional Template Font Inheritance - Ensure CV uses selected font */
+.professional-template,
+.professional-template * {
+  font-family: inherit;
 }
 
 /* Print Styles - For CV Download/Print */

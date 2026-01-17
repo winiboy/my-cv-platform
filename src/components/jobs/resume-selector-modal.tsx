@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, FileText, Loader2 } from 'lucide-react'
+import { X, FileText, Loader2, FilePlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Resume } from '@/types/database'
 
@@ -9,13 +9,18 @@ interface ResumeSelectorModalProps {
   isOpen: boolean
   onClose: () => void
   onSelectResume: (resumeId: string) => void
+  onCreateNewCV?: () => void
   userId: string
+  showCreateNewOption?: boolean
   dict?: {
     selectResumeTitle?: string
+    selectResumeTitleWithCreate?: string
     noResumesError?: string
     cancel?: string
     selectCV?: string
     loading?: string
+    newCV?: string
+    newCVDescription?: string
   }
 }
 
@@ -23,11 +28,14 @@ export function ResumeSelectorModal({
   isOpen,
   onClose,
   onSelectResume,
+  onCreateNewCV,
   userId,
+  showCreateNewOption = false,
   dict = {},
 }: ResumeSelectorModalProps) {
   const [resumes, setResumes] = useState<Resume[]>([])
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null)
+  const [isCreateNewSelected, setIsCreateNewSelected] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string>('')
 
@@ -67,10 +75,23 @@ export function ResumeSelectorModal({
   }
 
   const handleSelect = () => {
-    if (selectedResumeId) {
+    if (isCreateNewSelected && onCreateNewCV) {
+      onCreateNewCV()
+      onClose()
+    } else if (selectedResumeId) {
       onSelectResume(selectedResumeId)
       onClose()
     }
+  }
+
+  const handleSelectNewCV = () => {
+    setIsCreateNewSelected(true)
+    setSelectedResumeId(null)
+  }
+
+  const handleSelectExistingCV = (resumeId: string) => {
+    setSelectedResumeId(resumeId)
+    setIsCreateNewSelected(false)
   }
 
   if (!isOpen) return null
@@ -86,7 +107,9 @@ export function ResumeSelectorModal({
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <h2 className="text-xl font-semibold text-gray-900">
-              {dict.selectResumeTitle || 'Select CV to Adapt'}
+              {showCreateNewOption
+                ? (dict.selectResumeTitleWithCreate || 'Select CV to Adapt or Create a New CV')
+                : (dict.selectResumeTitle || 'Select CV to Adapt')}
             </h2>
             <button
               onClick={onClose}
@@ -107,7 +130,7 @@ export function ResumeSelectorModal({
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
                 <p className="text-sm text-red-800">{error}</p>
               </div>
-            ) : resumes.length === 0 ? (
+            ) : resumes.length === 0 && !showCreateNewOption ? (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
                 <p className="text-sm text-yellow-800">
                   {dict.noResumesError || 'Please create a CV first before adapting it to a job.'}
@@ -115,6 +138,36 @@ export function ResumeSelectorModal({
               </div>
             ) : (
               <div className="space-y-3">
+                {/* New CV Option - Only shown when showCreateNewOption is true */}
+                {showCreateNewOption && (
+                  <label
+                    className={`flex items-start gap-4 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                      isCreateNewSelected
+                        ? 'border-teal-500 bg-teal-50'
+                        : 'border-teal-200 hover:border-teal-300 hover:bg-teal-50/50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="resume"
+                      value="new"
+                      checked={isCreateNewSelected}
+                      onChange={handleSelectNewCV}
+                      className="mt-1 w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <FilePlus className="h-5 w-5 text-teal-600" />
+                        <h3 className="font-medium text-teal-900">{dict.newCV || 'Nouveau CV'}</h3>
+                      </div>
+                      <p className="mt-1 text-sm text-teal-700">
+                        {dict.newCVDescription || 'Create a new CV based on this job description'}
+                      </p>
+                    </div>
+                  </label>
+                )}
+
+                {/* Existing CVs */}
                 {resumes.map((resume) => (
                   <label
                     key={resume.id}
@@ -129,7 +182,7 @@ export function ResumeSelectorModal({
                       name="resume"
                       value={resume.id}
                       checked={selectedResumeId === resume.id}
-                      onChange={() => setSelectedResumeId(resume.id)}
+                      onChange={() => handleSelectExistingCV(resume.id)}
                       className="mt-1 w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500"
                     />
                     <div className="flex-1 min-w-0">
@@ -161,10 +214,14 @@ export function ResumeSelectorModal({
             </button>
             <button
               onClick={handleSelect}
-              disabled={!selectedResumeId}
-              className="px-6 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              disabled={!selectedResumeId && !isCreateNewSelected}
+              className={`px-6 py-2 text-white text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                isCreateNewSelected
+                  ? 'bg-teal-600 hover:bg-teal-700 focus:ring-teal-500'
+                  : 'bg-purple-600 hover:bg-purple-700 focus:ring-purple-500'
+              }`}
             >
-              {dict.selectCV || 'Select CV'}
+              {isCreateNewSelected ? (dict.newCV || 'Nouveau CV') : (dict.selectCV || 'Select CV')}
             </button>
           </div>
         </div>

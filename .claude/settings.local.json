@@ -25,7 +25,13 @@
       "Bash(timeout 120 pnpm build:*)",
       "WebFetch(domain:app.tealhq.com)",
       "WebFetch(domain:developer.adzuna.com)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(test:*)",
+      "Bash(git checkout:*)",
+      "Bash(git push:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "Bash(git stash:*)"
     ]
   }
 }

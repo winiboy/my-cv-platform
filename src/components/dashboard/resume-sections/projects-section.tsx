@@ -1,7 +1,7 @@
 'use client'
 
-import { Plus, Trash2, ChevronDown, ChevronUp, X, Sparkles, Languages, Check, Eye, EyeOff } from 'lucide-react'
-import { useState } from 'react'
+import { Plus, Trash2, ChevronDown, ChevronUp, X, Sparkles, Languages, Check, Eye, EyeOff, GripVertical } from 'lucide-react'
+import { useState, useRef } from 'react'
 import type { Resume, ResumeProject } from '@/types/database'
 import { RichTextEditor } from '../rich-text-editor'
 import { htmlToPlainText, migrateTextToHtml } from '@/lib/html-utils'
@@ -28,6 +28,11 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
   // Translation state management
   const [translatingIndex, setTranslatingIndex] = useState<number | null>(null)
   const [translatedDescriptions, setTranslatedDescriptions] = useState<{ [key: number]: { text: string; language: string } }>({})
+
+  // Drag and drop state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const dragNodeRef = useRef<HTMLDivElement | null>(null)
 
   const addProject = () => {
     const newProject: ResumeProject = {
@@ -208,6 +213,83 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
     setTranslatedDescriptions(newTranslated)
   }
 
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    setDraggedIndex(index)
+    dragNodeRef.current = e.currentTarget
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', index.toString())
+    // Add a slight delay to allow the drag image to be captured
+    setTimeout(() => {
+      if (dragNodeRef.current) {
+        dragNodeRef.current.style.opacity = '0.5'
+      }
+    }, 0)
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index)
+    }
+  }
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    e.preventDefault()
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index)
+    }
+  }
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    // Only clear if we're leaving the container, not entering a child
+    const relatedTarget = e.relatedTarget as HTMLElement
+    if (!e.currentTarget.contains(relatedTarget)) {
+      setDragOverIndex(null)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, dropIndex: number) => {
+    e.preventDefault()
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null)
+      setDragOverIndex(null)
+      return
+    }
+
+    // Reorder the projects array
+    const updatedProjects = [...projects]
+    const [draggedItem] = updatedProjects.splice(draggedIndex, 1)
+    updatedProjects.splice(dropIndex, 0, draggedItem)
+
+    updateResume({ projects: updatedProjects as any })
+
+    // Update expanded index to follow the moved item
+    if (expandedIndex === draggedIndex) {
+      setExpandedIndex(dropIndex)
+    } else if (expandedIndex !== null) {
+      if (draggedIndex < expandedIndex && dropIndex >= expandedIndex) {
+        setExpandedIndex(expandedIndex - 1)
+      } else if (draggedIndex > expandedIndex && dropIndex <= expandedIndex) {
+        setExpandedIndex(expandedIndex + 1)
+      }
+    }
+
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
+  const handleDragEnd = () => {
+    if (dragNodeRef.current) {
+      dragNodeRef.current.style.opacity = '1'
+    }
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+    dragNodeRef.current = null
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -248,11 +330,35 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
           const isExpanded = expandedIndex === index
 
           return (
-            <div key={index} className="rounded-lg border border-slate-200 bg-white">
+            <div
+              key={index}
+              draggable
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDragEnter={(e) => handleDragEnter(e, index)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, index)}
+              onDragEnd={handleDragEnd}
+              className={`rounded-lg border bg-white transition-all ${
+                draggedIndex === index
+                  ? 'border-teal-400 opacity-50 shadow-lg'
+                  : dragOverIndex === index
+                  ? 'border-teal-500 border-2 shadow-md'
+                  : 'border-slate-200'
+              }`}
+            >
               <div
                 className="flex cursor-pointer items-center justify-between p-6"
                 onClick={() => setExpandedIndex(isExpanded ? null : index)}
               >
+                {/* Drag handle */}
+                <div
+                  className="mr-3 cursor-grab text-slate-400 hover:text-slate-600 active:cursor-grabbing"
+                  title={dict.resumes?.editor?.dragToReorder || 'Drag to reorder'}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <GripVertical className="h-5 w-5" />
+                </div>
                 <div className="flex-1">
                   <h3 className="font-semibold text-slate-900">
                     {project.name || dict.resumes?.editor?.newProject || 'New Project'}
@@ -409,7 +515,7 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
                           'Describe the project, your role, and key achievements...'
                         }
                         minHeight="72px"
-                        showRibbon={true}
+                        showRibbon={false}
                       />
                     </div>
                   </div>
