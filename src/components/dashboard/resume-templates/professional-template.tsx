@@ -225,26 +225,6 @@ export function ProfessionalTemplate({
             </p>
           </div>
 
-          {/* Invisible draggable area - positioned at first item below first section title */}
-          {setSidebarTopMargin && (
-            <div
-              className="absolute print:hidden"
-              style={{
-                left: '24px',
-                right: '24px',
-                // Position: padding + name height + margin + section title height + section title margin
-                top: `${24 + 30 + sidebarTopMargin + 20 + 16}px`,
-                height: '16px',
-                cursor: 'ns-resize',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 10,
-              }}
-              onMouseDown={handleSidebarMouseDown}
-            />
-          )}
-
           {/* SIDEBAR SECTIONS - Rendered in dynamic order */}
           {sidebarOrder.map((sectionId, orderIndex) => {
             const isLastSection = orderIndex === sidebarOrder.length - 1
@@ -428,26 +408,6 @@ export function ProfessionalTemplate({
             </div>
           </div>
 
-          {/* Invisible draggable area - positioned at first main content line */}
-          {setMainContentTopMargin && (
-            <div
-              className="absolute print:hidden"
-              style={{
-                left: '32px',
-                right: '32px',
-                // Position below header: padding + title height + title gap + contact height + margin
-                top: `${32 + scaledProfessionalTitleFontSize + TITLE_GAP + 20 + mainContentTopMargin - 8}px`,
-                height: '16px',
-                cursor: 'ns-resize',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 10,
-              }}
-              onMouseDown={handleMainMouseDown}
-            />
-          )}
-
           {/* MAIN CONTENT SECTIONS - Rendered in dynamic order */}
           {mainContentOrder.map((sectionId, orderIndex) => {
             const isLastSection = orderIndex === mainContentOrder.length - 1
@@ -456,10 +416,25 @@ export function ProfessionalTemplate({
               return (
                 <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
                   <h2
-                    className="font-bold tracking-wide pb-1 border-b capitalize"
+                    className="relative font-bold tracking-wide pb-1 border-b capitalize"
                     style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.2 0 0)', fontSize: `${scaledResumeSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${SECTION_GAP}px` }}
                   >
                     {dict.resumes.template.summary}
+                    {/* Up/Down reorder arrows - positioned at section title underline, draggable in edit mode (live preview) */}
+                    {setMainContentTopMargin && (
+                      <span
+                        className="absolute flex flex-col print:hidden cursor-ns-resize select-none"
+                        style={{
+                          left: '-20px',
+                          bottom: '0px',
+                          transform: 'translateY(50%)'
+                        }}
+                        onMouseDown={handleMainMouseDown}
+                      >
+                        <ChevronUp size={12} className="text-gray-500" />
+                        <ChevronDown size={12} className="text-gray-500" />
+                      </span>
+                    )}
                   </h2>
                   <div
                     className="text-justify"
