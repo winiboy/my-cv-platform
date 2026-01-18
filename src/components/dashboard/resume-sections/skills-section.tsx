@@ -363,8 +363,8 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
           return (
             <div
               key={categoryIndex}
-              draggable
-              onDragStart={(e) => handleDragStart(e, categoryIndex)}
+              draggable={!isExpanded}
+              onDragStart={(e) => isExpanded ? e.preventDefault() : handleDragStart(e, categoryIndex)}
               onDragOver={(e) => handleDragOver(e, categoryIndex)}
               onDragEnter={(e) => handleDragEnter(e, categoryIndex)}
               onDragLeave={handleDragLeave}
@@ -501,7 +501,12 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
 
               {/* Expandable content */}
               {isExpanded && (
-                <div className="space-y-3 border-t border-slate-200 p-6">
+                <div
+                  className="space-y-3 border-t border-slate-200 p-6"
+                  draggable={false}
+                  onDragStart={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
               {/* Skill tags */}
               <div className="flex flex-wrap gap-2">
                 {skillCategory.items.map((skill, skillIndex) => {
