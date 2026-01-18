@@ -1290,6 +1290,9 @@ function parseHtmlToDocxRuns(
   // Normalize multiple consecutive newlines to single newline
   processedHtml = processedHtml.replace(/\n{2,}/g, '\n')
 
+  // Trim leading/trailing whitespace and newlines to prevent extra gaps
+  processedHtml = processedHtml.trim()
+
   // Now parse inline formatting
   // We need to handle nested tags like <strong><em>text</em></strong>
 
@@ -1384,7 +1387,11 @@ function parseHtmlToDocxRuns(
     let cleanText = segment.text.replace(/<[^>]+>/g, '')
 
     // Handle line breaks within segment
-    const lines = cleanText.split('\n')
+    // Filter out empty trailing lines to prevent extra gaps
+    let lines = cleanText.split('\n')
+    while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
+      lines.pop()
+    }
 
     for (let i = 0; i < lines.length; i++) {
       const lineText = lines[i]
@@ -1404,7 +1411,8 @@ function parseHtmlToDocxRuns(
       }
 
       // Add line break between lines (but not after last line)
-      if (i < lines.length - 1) {
+      // Only add break if there's actual content in the next line
+      if (i < lines.length - 1 && lines[i + 1].trim() !== '') {
         runs.push(
           new TextRun({
             break: 1,
