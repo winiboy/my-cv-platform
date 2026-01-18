@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Sparkles, X, Check, Languages } from 'lucide-react'
 import type { Resume } from '@/types/database'
 import { RichTextEditor } from '../rich-text-editor'
 import { htmlToPlainText, migrateTextToHtml } from '@/lib/html-utils'
+import { KeyAchievementsToolbar, KeyAchievementsFormatCommand } from '../key-achievements-toolbar'
 
 interface SummarySectionProps {
   resume: Resume
@@ -133,6 +134,65 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
     setTranslatedSummary(null)
     setTargetLanguage(null)
   }
+
+  // Handle formatting commands from toolbar
+  const handleFormat = useCallback((command: KeyAchievementsFormatCommand) => {
+    const editorId = 'summary-editor'
+    const editor = document.getElementById(editorId) as HTMLDivElement | null
+    if (!editor) return
+
+    editor.focus()
+
+    // Restore selection if needed
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) {
+      const range = document.createRange()
+      range.selectNodeContents(editor)
+      range.collapse(false)
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+    }
+
+    switch (command) {
+      case 'bold':
+        document.execCommand('bold')
+        break
+      case 'italic':
+        document.execCommand('italic')
+        break
+      case 'alignLeft':
+        document.execCommand('justifyLeft')
+        break
+      case 'alignCenter':
+        document.execCommand('justifyCenter')
+        break
+      case 'alignJustify':
+        document.execCommand('justifyFull')
+        break
+      case 'bulletList':
+        document.execCommand('insertUnorderedList')
+        break
+      case 'numberedList':
+        document.execCommand('insertOrderedList')
+        break
+      case 'dashList':
+        document.execCommand('insertUnorderedList')
+        const listElement = editor.querySelector('ul:not([style*="list-style-type"])')
+        if (listElement) {
+          (listElement as HTMLElement).style.listStyleType = 'none'
+          const items = listElement.querySelectorAll('li')
+          items.forEach(item => {
+            if (!item.textContent?.startsWith('- ')) {
+              const textContent = item.innerHTML
+              item.innerHTML = `<span style="margin-right: 0.5em;">-</span>${textContent}`
+            }
+          })
+        }
+        break
+    }
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }))
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -274,6 +334,18 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
       )}
 
       <div>
+        {/* Label with conditional toolbar for professional template */}
+        {resume.template === 'professional' && (
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium text-slate-700">
+              {dict.resumes?.editor?.yourSummary || 'Your Summary'}
+            </label>
+            <KeyAchievementsToolbar
+              editorId="summary-editor"
+              onFormat={handleFormat}
+            />
+          </div>
+        )}
         <RichTextEditor
           id="summary-editor"
           value={resume.summary || ''}

@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { Plus, Trash2, GripVertical, Sparkles, Languages, X, Check, Eye, EyeOff } from 'lucide-react'
 import type { Resume, ResumeEducation } from '@/types/database'
+import { KeyAchievementsToolbar, KeyAchievementsFormatCommand } from '../key-achievements-toolbar'
+import { RichTextEditor } from '../rich-text-editor'
+import { htmlToPlainText, migrateTextToHtml } from '@/lib/html-utils'
 
 interface EducationSectionProps {
   resume: Resume
@@ -53,21 +56,76 @@ export function EducationSection({ resume, updateResume, dict, locale }: Educati
     updateResume({ education: updated as any })
   }
 
-  // Auto-resize textarea function
-  const autoResizeTextarea = (element: HTMLTextAreaElement) => {
-    element.style.height = 'auto'
-    element.style.height = element.scrollHeight + 'px'
-  }
+  // Handle formatting commands from toolbar
+  const handleFormat = useCallback((index: number, command: KeyAchievementsFormatCommand) => {
+    const editorId = `education-description-${index}`
+    const editor = document.getElementById(editorId) as HTMLDivElement | null
+    if (!editor) return
 
-  // Handle description change with auto-resize
-  const handleDescriptionChange = (index: number, value: string, event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    updateEducation(index, { description: value })
-    autoResizeTextarea(event.target)
+    editor.focus()
+
+    // Restore selection if needed
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) {
+      const range = document.createRange()
+      range.selectNodeContents(editor)
+      range.collapse(false)
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+    }
+
+    switch (command) {
+      case 'bold':
+        document.execCommand('bold')
+        break
+      case 'italic':
+        document.execCommand('italic')
+        break
+      case 'alignLeft':
+        document.execCommand('justifyLeft')
+        break
+      case 'alignCenter':
+        document.execCommand('justifyCenter')
+        break
+      case 'alignJustify':
+        document.execCommand('justifyFull')
+        break
+      case 'bulletList':
+        document.execCommand('insertUnorderedList')
+        break
+      case 'numberedList':
+        document.execCommand('insertOrderedList')
+        break
+      case 'dashList':
+        document.execCommand('insertUnorderedList')
+        const listElement = editor.querySelector('ul:not([style*="list-style-type"])')
+        if (listElement) {
+          (listElement as HTMLElement).style.listStyleType = 'none'
+          const items = listElement.querySelectorAll('li')
+          items.forEach(item => {
+            if (!item.textContent?.startsWith('- ')) {
+              const textContent = item.innerHTML
+              item.innerHTML = `<span style="margin-right: 0.5em;">-</span>${textContent}`
+            }
+          })
+        }
+        break
+    }
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }))
+  }, [])
+
+  // Handle description change from RichTextEditor
+  const handleDescriptionChange = (index: number, html: string, plainText: string) => {
+    updateEducation(index, { description: html })
   }
 
   const handleOptimize = async (index: number) => {
     const edu = education[index]
-    if (!edu.description || edu.description.trim().length < 10) {
+    // Extract plain text from HTML for AI processing
+    const plainText = htmlToPlainText(edu.description || '')
+
+    if (!plainText || plainText.trim().length < 10) {
       setError('Please add a description (at least 10 characters) before optimizing')
       return
     }
@@ -82,7 +140,7 @@ export function EducationSection({ resume, updateResume, dict, locale }: Educati
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          text: edu.description,
+          text: plainText,
           context: `${edu.degree} in ${edu.field} at ${edu.school}`,
           locale,
         }),
@@ -93,7 +151,9 @@ export function EducationSection({ resume, updateResume, dict, locale }: Educati
       }
 
       const data = await response.json()
-      setOptimizedDescriptions({ ...optimizedDescriptions, [index]: data.optimizedText })
+      // Convert AI response back to HTML
+      const optimizedHtml = migrateTextToHtml(data.optimizedText)
+      setOptimizedDescriptions({ ...optimizedDescriptions, [index]: optimizedHtml })
     } catch (err) {
       console.error('Error optimizing description:', err)
       setError('Failed to optimize description. Please try again.')
@@ -120,7 +180,10 @@ export function EducationSection({ resume, updateResume, dict, locale }: Educati
 
   const handleTranslate = async (index: number, language: 'fr' | 'de' | 'en' | 'it') => {
     const edu = education[index]
-    if (!edu.description || edu.description.trim().length < 10) {
+    // Extract plain text from HTML for translation
+    const plainText = htmlToPlainText(edu.description || '')
+
+    if (!plainText || plainText.trim().length < 10) {
       setError('Please write a description before translating')
       return
     }
@@ -135,7 +198,7 @@ export function EducationSection({ resume, updateResume, dict, locale }: Educati
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          summary: edu.description,
+          summary: plainText,
           targetLanguage: language,
         }),
       })
@@ -145,9 +208,11 @@ export function EducationSection({ resume, updateResume, dict, locale }: Educati
       }
 
       const data = await response.json()
+      // Convert translation back to HTML
+      const translatedHtml = migrateTextToHtml(data.translatedSummary)
       setTranslatedDescriptions({
         ...translatedDescriptions,
-        [index]: { text: data.translatedSummary, language }
+        [index]: { text: translatedHtml, language }
       })
     } catch (err) {
       console.error('Error translating description:', err)
@@ -362,26 +427,31 @@ export function EducationSection({ resume, updateResume, dict, locale }: Educati
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-900">
-                  {dict.resumes?.editor?.description || 'Description'}
-                </label>
-                <textarea
-                  value={edu.description || ''}
-                  onChange={(e) => handleDescriptionChange(index, e.target.value, e)}
-                  onInput={(e) => autoResizeTextarea(e.target as HTMLTextAreaElement)}
-                  rows={2}
-                  placeholder={
-                    dict.resumes?.editor?.educationDescPlaceholder ||
-                    'Add relevant coursework, honors, activities...'
-                  }
-                  className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 resize-none overflow-hidden"
-                  style={{ minHeight: '60px' }}
-                  ref={(el) => {
-                    if (el) {
-                      autoResizeTextarea(el)
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-slate-900">
+                    {dict.resumes?.editor?.description || 'Description'}
+                  </label>
+                  {/* Rich Text Toolbar for Description field - only for professional template */}
+                  {resume.template === 'professional' && (
+                    <KeyAchievementsToolbar
+                      editorId={`education-description-${index}`}
+                      onFormat={(command) => handleFormat(index, command)}
+                    />
+                  )}
+                </div>
+                <div className="mt-1">
+                  <RichTextEditor
+                    id={`education-description-${index}`}
+                    value={edu.description || ''}
+                    onChange={(html, plainText) => handleDescriptionChange(index, html, plainText)}
+                    placeholder={
+                      dict.resumes?.editor?.educationDescPlaceholder ||
+                      'Add relevant coursework, honors, activities...'
                     }
-                  }}
-                />
+                    minHeight="60px"
+                    showRibbon={false}
+                  />
+                </div>
               </div>
 
               {/* AI-Optimized Description Preview */}
