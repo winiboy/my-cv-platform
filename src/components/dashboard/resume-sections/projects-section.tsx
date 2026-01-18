@@ -430,14 +430,6 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
                   <h3 className="font-semibold text-slate-900">
                     {project.name || dict.resumes?.editor?.newProject || 'New Project'}
                   </h3>
-                  {/* Rich Text Toolbar for Description field */}
-                  <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-                    <KeyAchievementsToolbar
-                      editorId={`project-description-${index}`}
-                      onFormat={(command) => handleFormat(index, command)}
-                      disabled={!isExpanded}
-                    />
-                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex flex-col gap-2">
@@ -576,10 +568,17 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700">
-                      {dict.resumes?.editor?.description || 'Description'}{' '}
-                      <span className="text-red-500">*</span>
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="block text-sm font-medium text-slate-700">
+                        {dict.resumes?.editor?.description || 'Description'}{' '}
+                        <span className="text-red-500">*</span>
+                      </label>
+                      {/* Rich Text Toolbar for Description field */}
+                      <KeyAchievementsToolbar
+                        editorId={`project-description-${index}`}
+                        onFormat={(command) => handleFormat(index, command)}
+                      />
+                    </div>
                     <div className="mt-1">
                       <RichTextEditor
                         id={`project-description-${index}`}
