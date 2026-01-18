@@ -1,7 +1,7 @@
 'use client'
 
 import { Plus, Trash2, X, Sparkles, Languages, Check, Pencil, Eye, EyeOff, GripVertical, ChevronDown, ChevronUp } from 'lucide-react'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import type { Resume, ResumeSkillCategory } from '@/types/database'
 import { KeyAchievementsToolbar, KeyAchievementsFormatCommand } from '../key-achievements-toolbar'
 import { RichTextEditor } from '../rich-text-editor'
@@ -37,6 +37,27 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const dragNodeRef = useRef<HTMLDivElement | null>(null)
+
+  // Auto-migrate legacy items array to skillsHtml
+  useEffect(() => {
+    const skillsNeedingMigration = skills.filter(
+      (skill) => !skill.skillsHtml && skill.items && skill.items.length > 0
+    )
+
+    if (skillsNeedingMigration.length > 0) {
+      const updatedSkills = skills.map((skill) => {
+        if (!skill.skillsHtml && skill.items && skill.items.length > 0) {
+          // Convert items array to comma-separated string
+          return {
+            ...skill,
+            skillsHtml: skill.items.join(', '),
+          }
+        }
+        return skill
+      })
+      updateResume({ skills: updatedSkills as any })
+    }
+  }, []) // Run only on mount
 
   const addCategory = () => {
     const newCategory: ResumeSkillCategory = {
