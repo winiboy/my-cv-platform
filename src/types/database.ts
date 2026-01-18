@@ -80,8 +80,8 @@ export interface ResumeEducation {
 
 export interface ResumeSkillCategory {
   category: string
-  items: string[]
-  description?: string // Optional rich text description for the category
+  items: string[] // Legacy: array of skill names (kept for backward compatibility)
+  skillsHtml?: string // Rich text HTML content for skills
   visible?: boolean // Control visibility in CV (default: true)
 }
 

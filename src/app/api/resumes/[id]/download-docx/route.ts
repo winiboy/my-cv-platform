@@ -383,7 +383,7 @@ export async function GET(
         })
       }
 
-      if (sectionId === 'skills' && skills.filter((s: any) => s.category && s.items?.length > 0).length > 0) {
+      if (sectionId === 'skills' && skills.filter((s: any) => s.category && (s.skillsHtml || s.items?.length > 0)).length > 0) {
         // Section title
         sidebarParagraphs.push(
           new Paragraph({
@@ -409,7 +409,7 @@ export async function GET(
         )
 
         // Skill categories - mb-3 (12px) in Preview
-        const validSkills = skills.filter((s: any) => s.category && s.items?.length > 0)
+        const validSkills = skills.filter((s: any) => s.category && (s.skillsHtml || s.items?.length > 0))
         validSkills.forEach((skillCat: any, i: number) => {
           const isLastItem = i === validSkills.length - 1
           // Last item of section gets section margin (32px), others get item spacing (12px)
@@ -431,20 +431,39 @@ export async function GET(
               spacing: { after: pxToTwips(4) }, // mb-1 in Preview
             })
           )
-          sidebarParagraphs.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: skillCat.items.join(' • '),
-                  size: scaledFontSizes.body,
-                  color: COLORS.WHITE,
-                  font: primaryFont,
-                }),
-              ],
-              spacing: { after: itemEndSpacing },
-              alignment: AlignmentType.JUSTIFIED,
+
+          // Use skillsHtml if available, otherwise fall back to items array
+          if (skillCat.skillsHtml) {
+            const skillsRuns = parseHtmlToDocxRuns(skillCat.skillsHtml, {
+              size: scaledFontSizes.body,
+              color: COLORS.WHITE,
+              font: primaryFont,
             })
-          )
+            const skillsAlignment = extractAlignment(skillCat.skillsHtml) || AlignmentType.LEFT
+
+            sidebarParagraphs.push(
+              new Paragraph({
+                children: skillsRuns,
+                spacing: { after: itemEndSpacing },
+                alignment: skillsAlignment,
+              })
+            )
+          } else {
+            sidebarParagraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: skillCat.items.join(' • '),
+                    size: scaledFontSizes.body,
+                    color: COLORS.WHITE,
+                    font: primaryFont,
+                  }),
+                ],
+                spacing: { after: itemEndSpacing },
+                alignment: AlignmentType.JUSTIFIED,
+              })
+            )
+          }
         })
       }
 

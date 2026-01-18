@@ -368,15 +368,19 @@ export function ProfessionalTemplate({
                     {skills
                       .filter(skillCategory =>
                         skillCategory.category &&
-                        skillCategory.items &&
-                        skillCategory.items.length > 0
+                        (skillCategory.skillsHtml || (skillCategory.items && skillCategory.items.length > 0))
                       )
                       .map((skillCategory, index) => (
                         <div key={index} className="mb-3">
                           <p className="mb-1 font-semibold" style={{ fontSize: `${scaledSkillCategoryFontSize}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'left' }}>
                             {skillCategory.category}:
                           </p>
-                          <p className="opacity-80" style={{ fontSize: `${scaledBodyFontSize}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>{skillCategory.items.join(' • ')}</p>
+                          <div className="opacity-80" style={{ fontSize: `${scaledBodyFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}>
+                            {skillCategory.skillsHtml
+                              ? renderFormattedText(skillCategory.skillsHtml)
+                              : <span style={{ textAlign: 'justify' }}>{skillCategory.items.join(' • ')}</span>
+                            }
+                          </div>
                         </div>
                       ))}
                   </div>
