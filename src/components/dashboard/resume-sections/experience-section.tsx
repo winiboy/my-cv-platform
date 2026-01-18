@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { Plus, Trash2, GripVertical, Sparkles, Languages, X, Check, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react'
 import type { Resume, ResumeExperience } from '@/types/database'
 import { RichTextEditor } from '../rich-text-editor'
 import { htmlToPlainText, migrateTextToHtml } from '@/lib/html-utils'
+import { KeyAchievementsToolbar, KeyAchievementsFormatCommand } from '../key-achievements-toolbar'
 
 interface ExperienceSectionProps {
   resume: Resume
@@ -32,6 +33,65 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const dragNodeRef = useRef<HTMLDivElement | null>(null)
+
+  // Handle formatting commands from toolbar
+  const handleFormat = useCallback((index: number, command: KeyAchievementsFormatCommand) => {
+    const editorId = `experience-description-${index}`
+    const editor = document.getElementById(editorId) as HTMLDivElement | null
+    if (!editor) return
+
+    editor.focus()
+
+    // Restore selection if needed
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) {
+      const range = document.createRange()
+      range.selectNodeContents(editor)
+      range.collapse(false)
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+    }
+
+    switch (command) {
+      case 'bold':
+        document.execCommand('bold')
+        break
+      case 'italic':
+        document.execCommand('italic')
+        break
+      case 'alignLeft':
+        document.execCommand('justifyLeft')
+        break
+      case 'alignCenter':
+        document.execCommand('justifyCenter')
+        break
+      case 'alignJustify':
+        document.execCommand('justifyFull')
+        break
+      case 'bulletList':
+        document.execCommand('insertUnorderedList')
+        break
+      case 'numberedList':
+        document.execCommand('insertOrderedList')
+        break
+      case 'dashList':
+        document.execCommand('insertUnorderedList')
+        const listElement = editor.querySelector('ul:not([style*="list-style-type"])')
+        if (listElement) {
+          (listElement as HTMLElement).style.listStyleType = 'none'
+          const items = listElement.querySelectorAll('li')
+          items.forEach(item => {
+            if (!item.textContent?.startsWith('- ')) {
+              const textContent = item.innerHTML
+              item.innerHTML = `<span style="margin-right: 0.5em;">-</span>${textContent}`
+            }
+          })
+        }
+        break
+    }
+
+    editor.dispatchEvent(new Event('input', { bubbles: true }))
+  }, [])
 
   const addExperience = () => {
     const newExperience: ResumeExperience = {
@@ -313,8 +373,8 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
           return (
             <div
               key={index}
-              draggable
-              onDragStart={(e) => handleDragStart(e, index)}
+              draggable={!isExpanded}
+              onDragStart={(e) => isExpanded ? e.preventDefault() : handleDragStart(e, index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDragEnter={(e) => handleDragEnter(e, index)}
               onDragLeave={handleDragLeave}
@@ -524,9 +584,18 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-900">
-                  {dict.resumes?.editor?.description || 'Description'}
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-slate-700">
+                    {dict.resumes?.editor?.description || 'Description'}
+                  </label>
+                  {/* Rich Text Toolbar for Description field - only for professional template */}
+                  {resume.template === 'professional' && (
+                    <KeyAchievementsToolbar
+                      editorId={`experience-description-${index}`}
+                      onFormat={(command) => handleFormat(index, command)}
+                    />
+                  )}
+                </div>
                 <div className="mt-1">
                   <RichTextEditor
                     id={`experience-description-${index}`}
