@@ -363,22 +363,41 @@ export async function GET(
             })
           )
           if (achievement.description) {
-            // Parse HTML to DOCX TextRuns with formatting preserved
-            const descriptionRuns = parseHtmlToDocxRuns(achievement.description, {
-              size: scaledFontSizes.body,
-              color: COLORS.WHITE,
-              font: primaryFont,
-            })
             // Extract alignment from HTML if present
             const descriptionAlignment = extractAlignment(achievement.description) || AlignmentType.JUSTIFIED
 
-            sidebarParagraphs.push(
-              new Paragraph({
-                children: descriptionRuns,
-                spacing: { after: itemEndSpacing },
-                alignment: descriptionAlignment,
+            // Check if description contains a list structure
+            if (isHtmlList(achievement.description)) {
+              // Parse list into separate paragraphs for proper DOCX rendering
+              const listParagraphs = parseHtmlListToParagraphs(
+                achievement.description,
+                {
+                  size: scaledFontSizes.body,
+                  color: COLORS.WHITE,
+                  font: primaryFont,
+                },
+                pxToTwips(4), // spacing between list items
+                itemEndSpacing, // spacing after last item
+                undefined, // no indent for sidebar
+                descriptionAlignment
+              )
+              sidebarParagraphs.push(...listParagraphs)
+            } else {
+              // Parse HTML to DOCX TextRuns with formatting preserved
+              const descriptionRuns = parseHtmlToDocxRuns(achievement.description, {
+                size: scaledFontSizes.body,
+                color: COLORS.WHITE,
+                font: primaryFont,
               })
-            )
+
+              sidebarParagraphs.push(
+                new Paragraph({
+                  children: descriptionRuns,
+                  spacing: { after: itemEndSpacing },
+                  alignment: descriptionAlignment,
+                })
+              )
+            }
           }
         })
       }
@@ -434,20 +453,41 @@ export async function GET(
 
           // Use skillsHtml if available, otherwise fall back to items array
           if (skillCat.skillsHtml) {
-            const skillsRuns = parseHtmlToDocxRuns(skillCat.skillsHtml, {
-              size: scaledFontSizes.body,
-              color: COLORS.WHITE,
-              font: primaryFont,
-            })
+            // Extract alignment from HTML if present
             const skillsAlignment = extractAlignment(skillCat.skillsHtml) || AlignmentType.LEFT
 
-            sidebarParagraphs.push(
-              new Paragraph({
-                children: skillsRuns,
-                spacing: { after: itemEndSpacing },
-                alignment: skillsAlignment,
+            // Check if skillsHtml contains a list structure
+            if (isHtmlList(skillCat.skillsHtml)) {
+              // Parse list into separate paragraphs for proper DOCX rendering
+              const listParagraphs = parseHtmlListToParagraphs(
+                skillCat.skillsHtml,
+                {
+                  size: scaledFontSizes.body,
+                  color: COLORS.WHITE,
+                  font: primaryFont,
+                },
+                pxToTwips(4), // spacing between list items
+                itemEndSpacing, // spacing after last item
+                undefined, // no indent for sidebar
+                skillsAlignment
+              )
+              sidebarParagraphs.push(...listParagraphs)
+            } else {
+              // Non-list content: use inline rendering
+              const skillsRuns = parseHtmlToDocxRuns(skillCat.skillsHtml, {
+                size: scaledFontSizes.body,
+                color: COLORS.WHITE,
+                font: primaryFont,
               })
-            )
+
+              sidebarParagraphs.push(
+                new Paragraph({
+                  children: skillsRuns,
+                  spacing: { after: itemEndSpacing },
+                  alignment: skillsAlignment,
+                })
+              )
+            }
           } else {
             sidebarParagraphs.push(
               new Paragraph({
@@ -707,26 +747,46 @@ export async function GET(
           })
         )
 
-        // Summary text - parse HTML to preserve formatting
-        const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
-          size: scaledFontSizes.body,
-          color: COLORS.BODY_TEXT,
-          font: primaryFont,
-        })
+        // Extract alignment from HTML if present
         const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.JUSTIFIED
 
-        mainContentParagraphs.push(
-          new Paragraph({
-            children: summaryRuns,
-            alignment: summaryAlignment,
-            indent: { right: mainContentRightIndent },
-            spacing: {
-              after: sectionSpacingAfter,
-              line: Math.round(240 * LINE_HEIGHTS.BODY),
-              lineRule: LineRuleType.AUTO,
+        // Summary text - check if it contains a list structure
+        if (isHtmlList(resume.summary)) {
+          // Parse list into separate paragraphs for proper DOCX rendering
+          const listParagraphs = parseHtmlListToParagraphs(
+            resume.summary,
+            {
+              size: scaledFontSizes.body,
+              color: COLORS.BODY_TEXT,
+              font: primaryFont,
             },
+            pxToTwips(4), // spacing between list items
+            sectionSpacingAfter, // spacing after last item
+            { right: mainContentRightIndent }, // indent
+            summaryAlignment
+          )
+          mainContentParagraphs.push(...listParagraphs)
+        } else {
+          // Non-list content: use inline rendering
+          const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
+            size: scaledFontSizes.body,
+            color: COLORS.BODY_TEXT,
+            font: primaryFont,
           })
-        )
+
+          mainContentParagraphs.push(
+            new Paragraph({
+              children: summaryRuns,
+              alignment: summaryAlignment,
+              indent: { right: mainContentRightIndent },
+              spacing: {
+                after: sectionSpacingAfter,
+                line: Math.round(240 * LINE_HEIGHTS.BODY),
+                lineRule: LineRuleType.AUTO,
+              },
+            })
+          )
+        }
       }
 
       if (sectionId === 'experience' && experiences.length > 0) {
@@ -856,14 +916,6 @@ export async function GET(
               )
             })
           } else if (exp.description) {
-            // Parse description HTML to preserve formatting
-            const descRuns = parseHtmlToDocxRuns(exp.description, {
-              size: scaledFontSizes.body,
-              color: COLORS.BODY_TEXT,
-              font: primaryFont,
-            })
-            const descAlignment = extractAlignment(exp.description) || AlignmentType.JUSTIFIED
-
             // Calculate spacing after description:
             // - Not last experience: 24px (space-y-6 between experiences)
             // - Last experience, not last section: 32px (mb-8 between sections)
@@ -874,18 +926,46 @@ export async function GET(
                 ? 0
                 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM)
 
-            mainContentParagraphs.push(
-              new Paragraph({
-                children: descRuns,
-                spacing: {
-                  after: descSpacingAfter,
-                  line: Math.round(240 * LINE_HEIGHTS.BODY),
-                  lineRule: LineRuleType.AUTO,
+            // Extract alignment from HTML if present
+            const descAlignment = extractAlignment(exp.description) || AlignmentType.JUSTIFIED
+
+            // Check if description contains a list structure
+            if (isHtmlList(exp.description)) {
+              // Parse list into separate paragraphs for proper DOCX rendering
+              const listParagraphs = parseHtmlListToParagraphs(
+                exp.description,
+                {
+                  size: scaledFontSizes.body,
+                  color: COLORS.BODY_TEXT,
+                  font: primaryFont,
                 },
-                alignment: descAlignment,
-                indent: { right: mainContentRightIndent },
+                pxToTwips(4), // spacing between list items
+                descSpacingAfter, // spacing after last item
+                { right: mainContentRightIndent }, // indent
+                descAlignment
+              )
+              mainContentParagraphs.push(...listParagraphs)
+            } else {
+              // Parse description HTML to preserve formatting
+              const descRuns = parseHtmlToDocxRuns(exp.description, {
+                size: scaledFontSizes.body,
+                color: COLORS.BODY_TEXT,
+                font: primaryFont,
               })
-            )
+
+              mainContentParagraphs.push(
+                new Paragraph({
+                  children: descRuns,
+                  spacing: {
+                    after: descSpacingAfter,
+                    line: Math.round(240 * LINE_HEIGHTS.BODY),
+                    lineRule: LineRuleType.AUTO,
+                  },
+                  alignment: descAlignment,
+                  indent: { right: mainContentRightIndent },
+                })
+              )
+            }
           }
         })
 
@@ -1242,6 +1322,72 @@ interface ParsedDocxContent {
   alignment?: typeof AlignmentType[keyof typeof AlignmentType]
 }
 
+/**
+ * Check if HTML content contains a list structure
+ */
+function isHtmlList(html: string | null | undefined): boolean {
+  if (!html) return false
+  return /<(ul|ol)[^>]*>/i.test(html)
+}
+
+/**
+ * Parse HTML list content into separate paragraphs (for proper list rendering in DOCX)
+ * Returns array of Paragraph objects for each list item
+ */
+function parseHtmlListToParagraphs(
+  html: string,
+  options: DocxTextRunOptions,
+  spacingAfterItem: number,
+  spacingAfterLast: number,
+  indent?: { right?: number; left?: number },
+  alignment?: typeof AlignmentType[keyof typeof AlignmentType]
+): Paragraph[] {
+  const { size, color, font } = options
+  const paragraphs: Paragraph[] = []
+
+  // Determine if ordered or unordered list
+  const isOrdered = /<ol[^>]*>/i.test(html)
+
+  // Extract list items
+  const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi
+  const items: string[] = []
+  let match: RegExpExecArray | null
+
+  while ((match = liRegex.exec(html)) !== null) {
+    const content = match[1].trim()
+    if (content) {
+      items.push(content)
+    }
+  }
+
+  items.forEach((itemHtml, index) => {
+    const isLast = index === items.length - 1
+    const bulletPrefix = isOrdered ? `${index + 1}. ` : '• '
+
+    // Parse the item content for inline formatting (bold, italic, etc.)
+    const itemRuns = parseHtmlToDocxRuns(itemHtml, options)
+
+    paragraphs.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: bulletPrefix,
+            size,
+            color,
+            font,
+          }),
+          ...itemRuns,
+        ],
+        spacing: { after: isLast ? spacingAfterLast : spacingAfterItem },
+        indent: indent,
+        alignment: alignment,
+      })
+    )
+  })
+
+  return paragraphs
+}
+
 function parseHtmlToDocxRuns(
   html: string | null | undefined,
   options: DocxTextRunOptions
@@ -1473,23 +1619,29 @@ function parseHtmlToDocxRuns(
 
 /**
  * Extract text alignment from HTML style attribute
+ * Uses the LAST occurrence to get the innermost/most specific alignment
  */
 function extractAlignment(html: string | null | undefined): typeof AlignmentType[keyof typeof AlignmentType] | undefined {
   if (!html) return undefined
 
-  const alignMatch = html.match(/text-align:\s*(left|center|right|justify)/i)
-  if (alignMatch) {
-    const align = alignMatch[1].toLowerCase()
-    switch (align) {
-      case 'left':
-        return AlignmentType.LEFT
-      case 'center':
-        return AlignmentType.CENTER
-      case 'right':
-        return AlignmentType.RIGHT
-      case 'justify':
-        return AlignmentType.JUSTIFIED
-    }
+  // Find ALL text-align declarations and use the last one (innermost/most specific)
+  const alignMatches = [...html.matchAll(/text-align:\s*(left|center|right|justify)/gi)]
+
+  if (alignMatches.length === 0) return undefined
+
+  // Get the last match (innermost alignment)
+  const lastMatch = alignMatches[alignMatches.length - 1]
+  const align = lastMatch[1].toLowerCase()
+
+  switch (align) {
+    case 'left':
+      return AlignmentType.LEFT
+    case 'center':
+      return AlignmentType.CENTER
+    case 'right':
+      return AlignmentType.RIGHT
+    case 'justify':
+      return AlignmentType.JUSTIFIED
   }
 
   return undefined
