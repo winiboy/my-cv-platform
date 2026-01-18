@@ -1237,12 +1237,25 @@ function parseHtmlToDocxRuns(
     .replace(/<p[^>]*>/gi, '')
     .replace(/<div[^>]*>/gi, '')
 
-  // Handle lists - convert to bullet points
+  // Handle lists - differentiate between ordered (ol) and unordered (ul) lists
+  // Process ordered lists first - replace <li> with numbered items
+  processedHtml = processedHtml.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (match, listContent) => {
+    let itemNumber = 0
+    return listContent.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (liMatch: string, liContent: string) => {
+      itemNumber++
+      return `${itemNumber}. ${liContent}\n`
+    })
+  })
+
+  // Process unordered lists - replace <li> with bullet points
+  processedHtml = processedHtml.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (match, listContent) => {
+    return listContent.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (liMatch: string, liContent: string) => {
+      return `• ${liContent}\n`
+    })
+  })
+
+  // Handle any remaining standalone list items (edge case)
   processedHtml = processedHtml
-    .replace(/<ul[^>]*>/gi, '')
-    .replace(/<\/ul>/gi, '')
-    .replace(/<ol[^>]*>/gi, '')
-    .replace(/<\/ol>/gi, '')
     .replace(/<li[^>]*>/gi, '• ')
     .replace(/<\/li>/gi, '\n')
 
