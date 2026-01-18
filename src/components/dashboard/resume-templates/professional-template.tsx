@@ -332,9 +332,9 @@ export function ProfessionalTemplate({
                           {achievement.title}
                         </h3>
                         {achievement.description && (
-                          <p className="opacity-80" style={{ fontSize: `${scaledBodyFontSize}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>
-                            {renderInlineBullets(achievement.description)}
-                          </p>
+                          <div className="opacity-80" style={{ fontSize: `${scaledBodyFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}>
+                            {renderFormattedText(achievement.description)}
+                          </div>
                         )}
                       </div>
                     ))}

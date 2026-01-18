@@ -14,8 +14,8 @@ export function sanitizeHtml(html: string): string {
   const temp = document.createElement('div')
   temp.innerHTML = html
 
-  // Allowed tags
-  const allowedTags = ['P', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'UL', 'OL', 'LI', 'SPAN', 'FONT']
+  // Allowed tags (DIV needed for text alignment)
+  const allowedTags = ['P', 'DIV', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'UL', 'OL', 'LI', 'SPAN', 'FONT']
 
   // Recursive function to clean nodes
   function cleanNode(node: Node): Node | null {
@@ -41,13 +41,14 @@ export function sanitizeHtml(html: string): string {
       // Create clean element
       const cleanElement = document.createElement(tagName)
 
-      // Handle style attributes for SPAN (and converted FONT tags)
-      if ((element.tagName === 'SPAN' || element.tagName === 'FONT') && (element.hasAttribute('style') || element.hasAttribute('face'))) {
+      // Handle style attributes
+      if (element.hasAttribute('style') || element.hasAttribute('face')) {
         const style = element.getAttribute('style') || ''
 
-        // Extract font-family and font-size from style
+        // Extract allowed styles
         let fontFamily = style.match(/font-family:\s*([^;]+)/)?.[1]
         const fontSize = style.match(/font-size:\s*([^;]+)/)?.[1]
+        const textAlign = style.match(/text-align:\s*([^;]+)/)?.[1]
 
         // For <font> tags, also check the deprecated 'face' attribute
         if (element.tagName === 'FONT' && element.hasAttribute('face') && !fontFamily) {
@@ -57,6 +58,7 @@ export function sanitizeHtml(html: string): string {
         let cleanStyle = ''
         if (fontFamily) cleanStyle += `font-family: ${fontFamily};`
         if (fontSize) cleanStyle += `font-size: ${fontSize};`
+        if (textAlign) cleanStyle += `text-align: ${textAlign};`
 
         if (cleanStyle) cleanElement.setAttribute('style', cleanStyle)
       }

@@ -1,9 +1,10 @@
 'use client'
 
 import { Plus, Trash2, ChevronDown, ChevronUp, X, Sparkles, Languages, Check, Eye, EyeOff, GripVertical } from 'lucide-react'
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import type { Resume, ResumeProject } from '@/types/database'
 import { RichTextEditor } from '../rich-text-editor'
+import { KeyAchievementsToolbar, KeyAchievementsFormatCommand } from '../key-achievements-toolbar'
 import { htmlToPlainText, migrateTextToHtml } from '@/lib/html-utils'
 
 interface ProjectsSectionProps {
@@ -33,6 +34,72 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const dragNodeRef = useRef<HTMLDivElement | null>(null)
+
+  // Editor refs for toolbar formatting
+  const editorRefs = useRef<{ [key: number]: HTMLDivElement | null }>({})
+
+  // Handle formatting commands from toolbar
+  const handleFormat = useCallback((index: number, command: KeyAchievementsFormatCommand) => {
+    const editorId = `project-description-${index}`
+    const editor = document.getElementById(editorId) as HTMLDivElement | null
+    if (!editor) return
+
+    editor.focus()
+
+    // Restore selection if needed
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) {
+      // Create a selection at the end if none exists
+      const range = document.createRange()
+      range.selectNodeContents(editor)
+      range.collapse(false)
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+    }
+
+    switch (command) {
+      case 'bold':
+        document.execCommand('bold')
+        break
+      case 'italic':
+        document.execCommand('italic')
+        break
+      case 'alignLeft':
+        document.execCommand('justifyLeft')
+        break
+      case 'alignCenter':
+        document.execCommand('justifyCenter')
+        break
+      case 'alignJustify':
+        document.execCommand('justifyFull')
+        break
+      case 'bulletList':
+        document.execCommand('insertUnorderedList')
+        break
+      case 'numberedList':
+        document.execCommand('insertOrderedList')
+        break
+      case 'dashList':
+        // Insert a custom dash list by creating an unordered list with dash markers
+        document.execCommand('insertUnorderedList')
+        // Apply dash style to the list
+        const listElement = editor.querySelector('ul:not([style*="list-style-type"])')
+        if (listElement) {
+          (listElement as HTMLElement).style.listStyleType = 'none'
+          const items = listElement.querySelectorAll('li')
+          items.forEach(item => {
+            if (!item.textContent?.startsWith('- ')) {
+              const textContent = item.innerHTML
+              item.innerHTML = `<span style="margin-right: 0.5em;">-</span>${textContent}`
+            }
+          })
+        }
+        break
+    }
+
+    // Trigger input event to sync state
+    editor.dispatchEvent(new Event('input', { bubbles: true }))
+  }, [])
 
   const addProject = () => {
     const newProject: ResumeProject = {
@@ -332,8 +399,8 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
           return (
             <div
               key={index}
-              draggable
-              onDragStart={(e) => handleDragStart(e, index)}
+              draggable={!isExpanded}
+              onDragStart={(e) => isExpanded ? e.preventDefault() : handleDragStart(e, index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDragEnter={(e) => handleDragEnter(e, index)}
               onDragLeave={handleDragLeave}
@@ -363,11 +430,14 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
                   <h3 className="font-semibold text-slate-900">
                     {project.name || dict.resumes?.editor?.newProject || 'New Project'}
                   </h3>
-                  {project.description && (
-                    <p className="mt-1 line-clamp-2 text-sm text-slate-600">
-                      {project.description}
-                    </p>
-                  )}
+                  {/* Rich Text Toolbar for Description field */}
+                  <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                    <KeyAchievementsToolbar
+                      editorId={`project-description-${index}`}
+                      onFormat={(command) => handleFormat(index, command)}
+                      disabled={!isExpanded}
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex flex-col gap-2">
@@ -482,7 +552,12 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
               </div>
 
               {isExpanded && (
-                <div className="space-y-4 border-t border-slate-200 p-6">
+                <div
+                  className="space-y-4 border-t border-slate-200 p-6"
+                  draggable={false}
+                  onDragStart={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
                   <div>
                     <label className="block text-sm font-medium text-slate-700">
                       {dict.resumes?.editor?.projectName || 'Project Name'}{' '}
