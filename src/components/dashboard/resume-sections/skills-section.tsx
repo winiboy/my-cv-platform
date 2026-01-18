@@ -29,8 +29,8 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
   // AI state management
   const [optimizingIndex, setOptimizingIndex] = useState<number | null>(null)
   const [translatingIndex, setTranslatingIndex] = useState<number | null>(null)
-  const [optimizedCategories, setOptimizedCategories] = useState<{ [key: number]: { category: string; items: string[] } }>({})
-  const [translatedCategories, setTranslatedCategories] = useState<{ [key: number]: { category: string; items: string[]; language: string } }>({})
+  const [optimizedCategories, setOptimizedCategories] = useState<{ [key: number]: { category: string; items: string[]; skillsHtml?: string } }>({})
+  const [translatedCategories, setTranslatedCategories] = useState<{ [key: number]: { category: string; items: string[]; skillsHtml?: string; language: string } }>({})
   const [error, setError] = useState<string | null>(null)
 
   // Drag and drop state
@@ -113,8 +113,9 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
 
   const handleOptimize = async (index: number) => {
     const skillCat = skills[index]
-    if (!skillCat.category || skillCat.items.length === 0) {
-      setError('Please add a category name and at least one skill before optimizing')
+    const skillsPlainText = skillCat.skillsHtml?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || ''
+    if (!skillCat.category || skillsPlainText.length < 3) {
+      setError('Please add a category name and skills before optimizing')
       return
     }
 
@@ -122,7 +123,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
     setError(null)
 
     try {
-      const text = `${skillCat.category}: ${skillCat.items.join(', ')}`
+      const text = `${skillCat.category}: ${skillsPlainText}`
       const response = await fetch('/api/ai/optimize-description', {
         method: 'POST',
         headers: {
@@ -141,15 +142,14 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
 
       const data = await response.json()
 
-      // Parse the optimized text back into category and items
+      // Parse the optimized text back into category and skillsHtml
       const optimizedText = data.optimizedText
       const colonIndex = optimizedText.indexOf(':')
       if (colonIndex > -1) {
         const category = optimizedText.substring(0, colonIndex).trim()
-        const itemsText = optimizedText.substring(colonIndex + 1).trim()
-        const items = itemsText.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0)
+        const skillsContent = optimizedText.substring(colonIndex + 1).trim()
 
-        setOptimizedCategories({ ...optimizedCategories, [index]: { category, items } })
+        setOptimizedCategories({ ...optimizedCategories, [index]: { category, items: [], skillsHtml: skillsContent } })
       } else {
         setError('Failed to parse optimized skills')
       }
@@ -164,7 +164,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
   const handleAcceptOptimization = (index: number) => {
     const optimized = optimizedCategories[index]
     if (optimized) {
-      updateCategory(index, { category: optimized.category, items: optimized.items })
+      updateCategory(index, { category: optimized.category, skillsHtml: optimized.skillsHtml })
       const newOptimized = { ...optimizedCategories }
       delete newOptimized[index]
       setOptimizedCategories(newOptimized)
@@ -179,8 +179,9 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
 
   const handleTranslate = async (index: number, language: 'fr' | 'de' | 'en' | 'it') => {
     const skillCat = skills[index]
-    if (!skillCat.category || skillCat.items.length === 0) {
-      setError('Please add a category name and at least one skill before translating')
+    const skillsPlainText = skillCat.skillsHtml?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || ''
+    if (!skillCat.category || skillsPlainText.length < 3) {
+      setError('Please add a category name and skills before translating')
       return
     }
 
@@ -188,8 +189,8 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
     setError(null)
 
     try {
-      // Format as "Category: item1, item2, item3" for translation
-      const skillsText = `${skillCat.category}: ${skillCat.items.join(', ')}`
+      // Format as "Category: skills content" for translation
+      const skillsText = `${skillCat.category}: ${skillsPlainText}`
 
       const response = await fetch('/api/ai/translate', {
         method: 'POST',
@@ -209,16 +210,15 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
       const data = await response.json()
       const translatedText = data.translatedSummary
 
-      // Parse the translated text back into category and items
+      // Parse the translated text back into category and skillsHtml
       const colonIndex = translatedText.indexOf(':')
       if (colonIndex !== -1) {
         const category = translatedText.substring(0, colonIndex).trim()
-        const itemsText = translatedText.substring(colonIndex + 1).trim()
-        const items = itemsText.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0)
+        const skillsContent = translatedText.substring(colonIndex + 1).trim()
 
         setTranslatedCategories({
           ...translatedCategories,
-          [index]: { category, items, language }
+          [index]: { category, items: [], skillsHtml: skillsContent, language }
         })
       } else {
         setError('Failed to parse translated skills')
@@ -234,7 +234,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
   const handleAcceptTranslation = (index: number) => {
     const translation = translatedCategories[index]
     if (translation) {
-      updateCategory(index, { category: translation.category, items: translation.items })
+      updateCategory(index, { category: translation.category, skillsHtml: translation.skillsHtml })
       const newTranslated = { ...translatedCategories }
       delete newTranslated[index]
       setTranslatedCategories(newTranslated)
@@ -467,10 +467,10 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
                     placeholder={dict.resumes?.editor?.categoryName || 'Category name (e.g., Programming Languages)'}
                     className="w-full border-0 bg-transparent text-lg font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-0"
                   />
-                  {!isExpanded && skillCategory.items.length > 0 && (
-                    <p className="mt-1 text-sm text-slate-500">
-                      {skillCategory.items.slice(0, 5).join(', ')}
-                      {skillCategory.items.length > 5 && ` +${skillCategory.items.length - 5} more`}
+                  {!isExpanded && skillCategory.skillsHtml && (
+                    <p className="mt-1 text-sm text-slate-500 line-clamp-1">
+                      {skillCategory.skillsHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100)}
+                      {skillCategory.skillsHtml.replace(/<[^>]+>/g, '').length > 100 && '...'}
                     </p>
                   )}
                 </div>
@@ -481,7 +481,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
                         e.stopPropagation()
                         handleOptimize(categoryIndex)
                       }}
-                      disabled={optimizingIndex === categoryIndex || !skillCategory.category || skillCategory.items.length === 0}
+                      disabled={optimizingIndex === categoryIndex || !skillCategory.category || (!skillCategory.skillsHtml || skillCategory.skillsHtml.replace(/<[^>]+>/g, '').trim().length < 3)}
                       className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-all hover:from-purple-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Sparkles className="h-3 w-3" />
@@ -493,7 +493,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
                           e.stopPropagation()
                           handleTranslate(categoryIndex, 'fr')
                         }}
-                        disabled={translatingIndex === categoryIndex || !skillCategory.category || skillCategory.items.length === 0}
+                        disabled={translatingIndex === categoryIndex || !skillCategory.category || (!skillCategory.skillsHtml || skillCategory.skillsHtml.replace(/<[^>]+>/g, '').trim().length < 3)}
                         className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                         title={dict.resumes?.editor?.translateToFrench || 'Translate to French'}
                       >
@@ -505,7 +505,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
                           e.stopPropagation()
                           handleTranslate(categoryIndex, 'de')
                         }}
-                        disabled={translatingIndex === categoryIndex || !skillCategory.category || skillCategory.items.length === 0}
+                        disabled={translatingIndex === categoryIndex || !skillCategory.category || (!skillCategory.skillsHtml || skillCategory.skillsHtml.replace(/<[^>]+>/g, '').trim().length < 3)}
                         className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                         title={dict.resumes?.editor?.translateToGerman || 'Translate to German'}
                       >
@@ -517,7 +517,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
                           e.stopPropagation()
                           handleTranslate(categoryIndex, 'en')
                         }}
-                        disabled={translatingIndex === categoryIndex || !skillCategory.category || skillCategory.items.length === 0}
+                        disabled={translatingIndex === categoryIndex || !skillCategory.category || (!skillCategory.skillsHtml || skillCategory.skillsHtml.replace(/<[^>]+>/g, '').trim().length < 3)}
                         className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                         title={dict.resumes?.editor?.translateToEnglish || 'Translate to English'}
                       >
@@ -529,7 +529,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
                           e.stopPropagation()
                           handleTranslate(categoryIndex, 'it')
                         }}
-                        disabled={translatingIndex === categoryIndex || !skillCategory.category || skillCategory.items.length === 0}
+                        disabled={translatingIndex === categoryIndex || !skillCategory.category || (!skillCategory.skillsHtml || skillCategory.skillsHtml.replace(/<[^>]+>/g, '').trim().length < 3)}
                         className="flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                         title={dict.resumes?.editor?.translateToItalian || 'Translate to Italian'}
                       >
@@ -620,16 +620,9 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
                     <p className="mb-2 text-sm font-semibold text-purple-900">
                       {optimizedCategories[categoryIndex].category}
                     </p>
-                    <div className="flex flex-wrap gap-2">
-                      {optimizedCategories[categoryIndex].items.map((skill, idx) => (
-                        <span
-                          key={idx}
-                          className="inline-flex items-center rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-900"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
+                    <p className="text-sm text-purple-800">
+                      {optimizedCategories[categoryIndex].skillsHtml}
+                    </p>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -668,16 +661,9 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
                     <p className="mb-2 text-sm font-semibold text-blue-900">
                       {translatedCategories[categoryIndex].category}
                     </p>
-                    <div className="flex flex-wrap gap-2">
-                      {translatedCategories[categoryIndex].items.map((skill, idx) => (
-                        <span
-                          key={idx}
-                          className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-900"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
+                    <p className="text-sm text-blue-800">
+                      {translatedCategories[categoryIndex].skillsHtml}
+                    </p>
                   </div>
                   <div className="flex gap-2">
                     <button
