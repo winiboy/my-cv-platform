@@ -81,6 +81,7 @@ export interface ResumeEducation {
 export interface ResumeSkillCategory {
   category: string
   items: string[]
+  description?: string // Optional rich text description for the category
   visible?: boolean // Control visibility in CV (default: true)
 }
 

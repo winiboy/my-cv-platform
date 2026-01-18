@@ -26,12 +26,14 @@ interface KeyAchievementsToolbarProps {
   editorId: string
   onFormat: (command: KeyAchievementsFormatCommand) => void
   disabled?: boolean
+  showItalic?: boolean
 }
 
 export function KeyAchievementsToolbar({
   editorId,
   onFormat,
   disabled = false,
+  showItalic = true,
 }: KeyAchievementsToolbarProps) {
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set())
 
@@ -167,16 +169,18 @@ export function KeyAchievementsToolbar({
         <Bold className="h-3.5 w-3.5" />
       </button>
 
-      <button
-        type="button"
-        onClick={() => handleButtonClick('italic')}
-        className={buttonClass('italic')}
-        title="Italique (Ctrl+I)"
-        aria-label="Italique"
-        disabled={disabled}
-      >
-        <Italic className="h-3.5 w-3.5" />
-      </button>
+      {showItalic && (
+        <button
+          type="button"
+          onClick={() => handleButtonClick('italic')}
+          className={buttonClass('italic')}
+          title="Italique (Ctrl+I)"
+          aria-label="Italique"
+          disabled={disabled}
+        >
+          <Italic className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   )
 }

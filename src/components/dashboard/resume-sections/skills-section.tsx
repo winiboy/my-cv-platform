@@ -1,8 +1,10 @@
 'use client'
 
 import { Plus, Trash2, X, Sparkles, Languages, Check, Pencil, Eye, EyeOff, GripVertical, ChevronDown, ChevronUp } from 'lucide-react'
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import type { Resume, ResumeSkillCategory } from '@/types/database'
+import { KeyAchievementsToolbar, KeyAchievementsFormatCommand } from '../key-achievements-toolbar'
+import { RichTextEditor } from '../rich-text-editor'
 
 interface SkillsSectionProps {
   resume: Resume
@@ -322,6 +324,71 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
     dragNodeRef.current = null
   }
 
+  // Handle formatting commands from toolbar
+  const handleFormat = useCallback((index: number, command: KeyAchievementsFormatCommand) => {
+    const editorId = `skill-description-${index}`
+    const editor = document.getElementById(editorId) as HTMLDivElement | null
+    if (!editor) return
+
+    editor.focus()
+
+    // Restore selection if needed
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) {
+      const range = document.createRange()
+      range.selectNodeContents(editor)
+      range.collapse(false)
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+    }
+
+    switch (command) {
+      case 'bold':
+        document.execCommand('bold')
+        break
+      case 'italic':
+        document.execCommand('italic')
+        break
+      case 'alignLeft':
+        document.execCommand('justifyLeft')
+        break
+      case 'alignCenter':
+        document.execCommand('justifyCenter')
+        break
+      case 'alignJustify':
+        document.execCommand('justifyFull')
+        break
+      case 'bulletList':
+        document.execCommand('insertUnorderedList')
+        break
+      case 'numberedList':
+        document.execCommand('insertOrderedList')
+        break
+      case 'dashList':
+        document.execCommand('insertUnorderedList')
+        const listElement = editor.querySelector('ul:not([style*="list-style-type"])')
+        if (listElement) {
+          (listElement as HTMLElement).style.listStyleType = 'none'
+          const items = listElement.querySelectorAll('li')
+          items.forEach(item => {
+            if (!item.textContent?.startsWith('- ')) {
+              const textContent = item.innerHTML
+              item.innerHTML = `<span style="margin-right: 0.5em;">-</span>${textContent}`
+            }
+          })
+        }
+        break
+    }
+
+    // Trigger input event to sync state
+    editor.dispatchEvent(new Event('input', { bubbles: true }))
+  }, [])
+
+  // Handle description change
+  const handleDescriptionChange = (index: number, html: string) => {
+    updateCategory(index, { description: html })
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -507,6 +574,36 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
                   onDragStart={(e) => e.stopPropagation()}
                   onMouseDown={(e) => e.stopPropagation()}
                 >
+              {/* Description field with rich text toolbar */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-slate-700">
+                    {dict.resumes?.editor?.description || 'Description'}{' '}
+                    <span className="text-slate-400">
+                      ({dict.resumes?.editor?.optional || 'optional'})
+                    </span>
+                  </label>
+                  <KeyAchievementsToolbar
+                    editorId={`skill-description-${categoryIndex}`}
+                    onFormat={(command) => handleFormat(categoryIndex, command)}
+                    showItalic={false}
+                  />
+                </div>
+                <div className="mt-1">
+                  <RichTextEditor
+                    id={`skill-description-${categoryIndex}`}
+                    value={skillCategory.description || ''}
+                    onChange={(html) => handleDescriptionChange(categoryIndex, html)}
+                    placeholder={
+                      dict.resumes?.editor?.skillDescPlaceholder ||
+                      'Add additional context about this skill category...'
+                    }
+                    minHeight="60px"
+                    showRibbon={false}
+                  />
+                </div>
+              </div>
+
               {/* Skill tags */}
               <div className="flex flex-wrap gap-2">
                 {skillCategory.items.map((skill, skillIndex) => {
