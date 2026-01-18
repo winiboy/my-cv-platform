@@ -362,18 +362,20 @@ export async function GET(
             })
           )
           if (achievement.description) {
+            // Parse HTML to DOCX TextRuns with formatting preserved
+            const descriptionRuns = parseHtmlToDocxRuns(achievement.description, {
+              size: scaledFontSizes.body,
+              color: COLORS.WHITE,
+              font: primaryFont,
+            })
+            // Extract alignment from HTML if present
+            const descriptionAlignment = extractAlignment(achievement.description) || AlignmentType.JUSTIFIED
+
             sidebarParagraphs.push(
               new Paragraph({
-                children: [
-                  new TextRun({
-                    text: renderInlineBullets(achievement.description),
-                    size: scaledFontSizes.body,
-                    color: COLORS.WHITE,
-                    font: primaryFont,
-                  }),
-                ],
+                children: descriptionRuns,
                 spacing: { after: itemEndSpacing },
-                alignment: AlignmentType.JUSTIFIED,
+                alignment: descriptionAlignment,
               })
             )
           }
@@ -685,18 +687,18 @@ export async function GET(
           })
         )
 
-        // Summary text
+        // Summary text - parse HTML to preserve formatting
+        const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
+          size: scaledFontSizes.body,
+          color: COLORS.BODY_TEXT,
+          font: primaryFont,
+        })
+        const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.JUSTIFIED
+
         mainContentParagraphs.push(
           new Paragraph({
-            children: [
-              new TextRun({
-                text: stripHtml(resume.summary),
-                size: scaledFontSizes.body,
-                color: COLORS.BODY_TEXT,
-                font: primaryFont,
-              }),
-            ],
-            alignment: AlignmentType.JUSTIFIED,
+            children: summaryRuns,
+            alignment: summaryAlignment,
             indent: { right: mainContentRightIndent },
             spacing: {
               after: sectionSpacingAfter,
@@ -793,6 +795,13 @@ export async function GET(
           if (exp.achievements && exp.achievements.length > 0) {
             exp.achievements.forEach((achievement: string, j: number) => {
               const isLastAchievement = j === exp.achievements.length - 1
+              // Parse achievement HTML to preserve formatting
+              const achievementRuns = parseHtmlToDocxRuns(achievement, {
+                size: scaledFontSizes.body,
+                color: COLORS.BODY_TEXT,
+                font: primaryFont,
+              })
+
               mainContentParagraphs.push(
                 new Paragraph({
                   children: [
@@ -802,12 +811,7 @@ export async function GET(
                       color: COLORS.DARK_HEADING,
                       font: primaryFont,
                     }),
-                    new TextRun({
-                      text: stripHtml(achievement),
-                      size: scaledFontSizes.body,
-                      color: COLORS.BODY_TEXT,
-                      font: primaryFont,
-                    }),
+                    ...achievementRuns,
                   ],
                   spacing: {
                     after: isLastAchievement ? (isLast && isLastSection ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM)) : pxToTwips(4),
@@ -819,22 +823,23 @@ export async function GET(
               )
             })
           } else if (exp.description) {
+            // Parse description HTML to preserve formatting
+            const descRuns = parseHtmlToDocxRuns(exp.description, {
+              size: scaledFontSizes.body,
+              color: COLORS.BODY_TEXT,
+              font: primaryFont,
+            })
+            const descAlignment = extractAlignment(exp.description) || AlignmentType.JUSTIFIED
+
             mainContentParagraphs.push(
               new Paragraph({
-                children: [
-                  new TextRun({
-                    text: stripHtml(exp.description),
-                    size: scaledFontSizes.body,
-                    color: COLORS.BODY_TEXT,
-                    font: primaryFont,
-                  }),
-                ],
+                children: descRuns,
                 spacing: {
                   after: isLast && isLastSection ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM),
                   line: Math.round(240 * LINE_HEIGHTS.BODY),
                   lineRule: LineRuleType.AUTO,
                 },
-                alignment: AlignmentType.JUSTIFIED,
+                alignment: descAlignment,
                 indent: { right: mainContentRightIndent },
               })
             )
@@ -1149,6 +1154,7 @@ function stripHtml(html: string | null | undefined): string {
 
 /**
  * Extract list items from HTML and join them inline with bullet separators
+ * @deprecated Use parseHtmlToDocxRuns for rich text support
  */
 function renderInlineBullets(text: string | null | undefined): string {
   if (!text) return ''
@@ -1176,6 +1182,222 @@ function renderInlineBullets(text: string | null | undefined): string {
   }
 
   return text.replace(/\n/g, ' ').trim()
+}
+
+/**
+ * Parse HTML content and convert to DOCX TextRun objects with formatting preserved
+ * Handles: bold, italic, underline, line breaks, paragraphs, lists, alignment
+ */
+interface DocxTextRunOptions {
+  size: number
+  color: string
+  font: string
+}
+
+interface ParsedDocxContent {
+  runs: (typeof TextRun.prototype)[]
+  alignment?: typeof AlignmentType[keyof typeof AlignmentType]
+}
+
+function parseHtmlToDocxRuns(
+  html: string | null | undefined,
+  options: DocxTextRunOptions
+): (typeof TextRun.prototype)[] {
+  if (!html) return []
+
+  const { size, color, font } = options
+
+  // Check if content is HTML
+  const isHtml = /<[^>]+>/.test(html)
+
+  if (!isHtml) {
+    // Plain text - return single TextRun
+    return [
+      new TextRun({
+        text: html.replace(/\n/g, ' ').trim(),
+        size,
+        color,
+        font,
+      }),
+    ]
+  }
+
+  const runs: (typeof TextRun.prototype)[] = []
+
+  // Parse HTML using regex (server-side compatible)
+  // We'll process the HTML sequentially to preserve formatting
+
+  // First, normalize the HTML - replace block elements with markers
+  let processedHtml = html
+    // Handle line breaks
+    .replace(/<br\s*\/?>/gi, '\n')
+    // Handle paragraphs and divs - add line breaks
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<p[^>]*>/gi, '')
+    .replace(/<div[^>]*>/gi, '')
+
+  // Handle lists - convert to bullet points
+  processedHtml = processedHtml
+    .replace(/<ul[^>]*>/gi, '')
+    .replace(/<\/ul>/gi, '')
+    .replace(/<ol[^>]*>/gi, '')
+    .replace(/<\/ol>/gi, '')
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<\/li>/gi, '\n')
+
+  // Now parse inline formatting
+  // We need to handle nested tags like <strong><em>text</em></strong>
+
+  // Tokenize the content
+  interface TextSegment {
+    text: string
+    bold: boolean
+    italic: boolean
+    underline: boolean
+  }
+
+  const segments: TextSegment[] = []
+  let currentPos = 0
+  let currentBold = false
+  let currentItalic = false
+  let currentUnderline = false
+
+  // Simple state machine to parse HTML
+  const tagPattern = /<\/?(?:strong|b|em|i|u|span)[^>]*>/gi
+  let match: RegExpExecArray | null
+
+  let lastIndex = 0
+  const tempHtml = processedHtml
+
+  // Reset regex
+  tagPattern.lastIndex = 0
+
+  while ((match = tagPattern.exec(tempHtml)) !== null) {
+    // Add text before this tag
+    if (match.index > lastIndex) {
+      const textBefore = tempHtml.substring(lastIndex, match.index)
+      if (textBefore) {
+        segments.push({
+          text: textBefore,
+          bold: currentBold,
+          italic: currentItalic,
+          underline: currentUnderline,
+        })
+      }
+    }
+
+    const tag = match[0].toLowerCase()
+
+    // Update state based on tag
+    if (tag === '<strong>' || tag === '<b>') {
+      currentBold = true
+    } else if (tag === '</strong>' || tag === '</b>') {
+      currentBold = false
+    } else if (tag === '<em>' || tag === '<i>') {
+      currentItalic = true
+    } else if (tag === '</em>' || tag === '</i>') {
+      currentItalic = false
+    } else if (tag === '<u>') {
+      currentUnderline = true
+    } else if (tag === '</u>') {
+      currentUnderline = false
+    }
+    // Ignore span tags (they're for font styles we handle elsewhere)
+
+    lastIndex = match.index + match[0].length
+  }
+
+  // Add remaining text after last tag
+  if (lastIndex < tempHtml.length) {
+    const remainingText = tempHtml.substring(lastIndex)
+    if (remainingText) {
+      segments.push({
+        text: remainingText,
+        bold: currentBold,
+        italic: currentItalic,
+        underline: currentUnderline,
+      })
+    }
+  }
+
+  // If no segments were created, the HTML had no recognized tags
+  if (segments.length === 0) {
+    const plainText = tempHtml.replace(/<[^>]+>/g, '').trim()
+    if (plainText) {
+      segments.push({
+        text: plainText,
+        bold: false,
+        italic: false,
+        underline: false,
+      })
+    }
+  }
+
+  // Convert segments to TextRuns
+  for (const segment of segments) {
+    // Clean up the text - remove any remaining HTML tags
+    let cleanText = segment.text.replace(/<[^>]+>/g, '')
+
+    // Handle line breaks within segment
+    const lines = cleanText.split('\n')
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineText = lines[i]
+
+      if (lineText) {
+        runs.push(
+          new TextRun({
+            text: lineText,
+            size,
+            color,
+            font,
+            bold: segment.bold,
+            italics: segment.italic,
+            underline: segment.underline ? {} : undefined,
+          })
+        )
+      }
+
+      // Add line break between lines (but not after last line)
+      if (i < lines.length - 1) {
+        runs.push(
+          new TextRun({
+            break: 1,
+            size,
+            color,
+            font,
+          })
+        )
+      }
+    }
+  }
+
+  return runs
+}
+
+/**
+ * Extract text alignment from HTML style attribute
+ */
+function extractAlignment(html: string | null | undefined): typeof AlignmentType[keyof typeof AlignmentType] | undefined {
+  if (!html) return undefined
+
+  const alignMatch = html.match(/text-align:\s*(left|center|right|justify)/i)
+  if (alignMatch) {
+    const align = alignMatch[1].toLowerCase()
+    switch (align) {
+      case 'left':
+        return AlignmentType.LEFT
+      case 'center':
+        return AlignmentType.CENTER
+      case 'right':
+        return AlignmentType.RIGHT
+      case 'justify':
+        return AlignmentType.JUSTIFIED
+    }
+  }
+
+  return undefined
 }
 
 /**
