@@ -130,6 +130,7 @@ const SPACING = {
   SECTION_GAP: 12,              // marginBottom on section titles
   SECTION_MARGIN_BOTTOM: 32,    // mb-8 in Preview = 32px (2rem)
   ITEM_SPACING: 16,             // space-y-4 between items
+  EXPERIENCE_ITEM_SPACING: 24,  // space-y-6 between experience items
 }
 
 // Section type definitions
@@ -802,6 +803,19 @@ export async function GET(
                 font: primaryFont,
               })
 
+              // Calculate spacing after this achievement:
+              // - Not last achievement: 4px (space-y-1)
+              // - Last achievement, not last experience: 24px (space-y-6 between experiences)
+              // - Last achievement, last experience, not last section: 32px (mb-8 between sections)
+              // - Last achievement, last experience, last section: 0
+              const achievementSpacingAfter = !isLastAchievement
+                ? pxToTwips(4)
+                : !isLast
+                  ? pxToTwips(SPACING.EXPERIENCE_ITEM_SPACING)
+                  : isLastSection
+                    ? 0
+                    : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM)
+
               mainContentParagraphs.push(
                 new Paragraph({
                   children: [
@@ -814,7 +828,7 @@ export async function GET(
                     ...achievementRuns,
                   ],
                   spacing: {
-                    after: isLastAchievement ? (isLast && isLastSection ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM)) : pxToTwips(4),
+                    after: achievementSpacingAfter,
                     line: Math.round(240 * LINE_HEIGHTS.BODY),
                     lineRule: LineRuleType.AUTO,
                   },
@@ -831,11 +845,21 @@ export async function GET(
             })
             const descAlignment = extractAlignment(exp.description) || AlignmentType.JUSTIFIED
 
+            // Calculate spacing after description:
+            // - Not last experience: 24px (space-y-6 between experiences)
+            // - Last experience, not last section: 32px (mb-8 between sections)
+            // - Last experience, last section: 0
+            const descSpacingAfter = !isLast
+              ? pxToTwips(SPACING.EXPERIENCE_ITEM_SPACING)
+              : isLastSection
+                ? 0
+                : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM)
+
             mainContentParagraphs.push(
               new Paragraph({
                 children: descRuns,
                 spacing: {
-                  after: isLast && isLastSection ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM),
+                  after: descSpacingAfter,
                   line: Math.round(240 * LINE_HEIGHTS.BODY),
                   lineRule: LineRuleType.AUTO,
                 },
