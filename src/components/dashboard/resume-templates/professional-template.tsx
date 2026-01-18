@@ -530,10 +530,21 @@ export function ProfessionalTemplate({
           </div>
 
           {/* MAIN CONTENT SECTIONS - Rendered in dynamic order */}
-          {mainContentOrder
-            .filter(sectionId => !hiddenMainSections.includes(sectionId))
-            .map((sectionId, orderIndex, filteredOrder) => {
+          {(() => {
+            // Determine which section is actually first (has data to render)
+            const visibleMainSections = mainContentOrder.filter(sectionId => !hiddenMainSections.includes(sectionId))
+            const firstRenderedMainSection = visibleMainSections.find(sectionId => {
+              if (sectionId === 'summary') return !!resume.summary
+              if (sectionId === 'experience') return experiences.length > 0
+              if (sectionId === 'education') return education.length > 0
+              return false
+            })
+
+            return visibleMainSections.map((sectionId, orderIndex, filteredOrder) => {
             const isLastSection = orderIndex === filteredOrder.length - 1
+
+            // Check if this is the first actually rendered section (for chevron placement)
+            const isFirstSection = sectionId === firstRenderedMainSection
 
             if (sectionId === 'summary' && resume.summary) {
               return (
@@ -543,8 +554,8 @@ export function ProfessionalTemplate({
                     style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.2 0 0)', fontSize: `${scaledResumeSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${SECTION_GAP}px` }}
                   >
                     {dict.resumes.template.summary}
-                    {/* Up/Down reorder arrows - positioned at section title underline, draggable in edit mode (live preview) */}
-                    {setMainContentTopMargin && (
+                    {/* Up/Down reorder arrows - only on first visible section */}
+                    {isFirstSection && setMainContentTopMargin && (
                       <span
                         className="absolute flex flex-col print:hidden cursor-ns-resize select-none"
                         style={{
@@ -577,10 +588,25 @@ export function ProfessionalTemplate({
               return (
                 <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
                   <h2
-                    className="font-bold tracking-wide pb-1 border-b capitalize"
+                    className="relative font-bold tracking-wide pb-1 border-b capitalize"
                     style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.2 0 0)', fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${SECTION_GAP}px` }}
                   >
                     {dict.resumes.template.experience}
+                    {/* Up/Down reorder arrows - only on first visible section */}
+                    {isFirstSection && setMainContentTopMargin && (
+                      <span
+                        className="absolute flex flex-col print:hidden cursor-ns-resize select-none"
+                        style={{
+                          left: '-20px',
+                          bottom: '0px',
+                          transform: 'translateY(50%)'
+                        }}
+                        onMouseDown={handleMainMouseDown}
+                      >
+                        <ChevronUp size={12} className="text-gray-500" />
+                        <ChevronDown size={12} className="text-gray-500" />
+                      </span>
+                    )}
                   </h2>
                   <div className="space-y-6">
                     {experiences.map((exp, index) => (
@@ -650,10 +676,25 @@ export function ProfessionalTemplate({
               return (
                 <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
                   <h2
-                    className="font-bold tracking-wide pb-1 border-b capitalize"
+                    className="relative font-bold tracking-wide pb-1 border-b capitalize"
                     style={{ color: 'oklch(0.2 0 0)', borderColor: 'oklch(0.2 0 0)', fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${SECTION_GAP}px` }}
                   >
                     {dict.resumes.template.education}
+                    {/* Up/Down reorder arrows - only on first visible section */}
+                    {isFirstSection && setMainContentTopMargin && (
+                      <span
+                        className="absolute flex flex-col print:hidden cursor-ns-resize select-none"
+                        style={{
+                          left: '-20px',
+                          bottom: '0px',
+                          transform: 'translateY(50%)'
+                        }}
+                        onMouseDown={handleMainMouseDown}
+                      >
+                        <ChevronUp size={12} className="text-gray-500" />
+                        <ChevronDown size={12} className="text-gray-500" />
+                      </span>
+                    )}
                   </h2>
                   <div className="space-y-4">
                     {education.map((edu, index) => (
@@ -709,7 +750,8 @@ export function ProfessionalTemplate({
             }
 
             return null
-          })}
+            })
+          })()}
       </div>
     </div>
   )
