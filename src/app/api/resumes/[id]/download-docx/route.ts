@@ -1240,24 +1240,55 @@ function parseHtmlToDocxRuns(
   // Handle lists - differentiate between ordered (ol) and unordered (ul) lists
   // Process ordered lists first - replace <li> with numbered items
   processedHtml = processedHtml.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (match, listContent) => {
+    // Collect all list items, clean them, and join with newlines
+    const items: string[] = []
     let itemNumber = 0
-    return listContent.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (liMatch: string, liContent: string) => {
-      itemNumber++
-      return `${itemNumber}. ${liContent}\n`
-    })
+    const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi
+    let liMatch: RegExpExecArray | null
+    while ((liMatch = liRegex.exec(listContent)) !== null) {
+      // Clean the content: remove HTML tags for trimming check, trim whitespace
+      const rawContent = liMatch[1]
+      const cleanedContent = rawContent.replace(/<[^>]+>/g, '').trim()
+      // Skip empty list items
+      if (cleanedContent) {
+        itemNumber++
+        // Keep original content but trim leading/trailing whitespace
+        items.push(`${itemNumber}. ${rawContent.trim()}`)
+      }
+    }
+    // Join items with single newline, no trailing newline
+    return items.length > 0 ? items.join('\n') : ''
   })
 
   // Process unordered lists - replace <li> with bullet points
   processedHtml = processedHtml.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (match, listContent) => {
-    return listContent.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (liMatch: string, liContent: string) => {
-      return `• ${liContent}\n`
-    })
+    // Collect all list items, clean them, and join with newlines
+    const items: string[] = []
+    const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi
+    let liMatch: RegExpExecArray | null
+    while ((liMatch = liRegex.exec(listContent)) !== null) {
+      // Clean the content: remove HTML tags for trimming check, trim whitespace
+      const rawContent = liMatch[1]
+      const cleanedContent = rawContent.replace(/<[^>]+>/g, '').trim()
+      // Skip empty list items
+      if (cleanedContent) {
+        // Keep original content but trim leading/trailing whitespace
+        items.push(`• ${rawContent.trim()}`)
+      }
+    }
+    // Join items with single newline, no trailing newline
+    return items.length > 0 ? items.join('\n') : ''
   })
 
   // Handle any remaining standalone list items (edge case)
   processedHtml = processedHtml
-    .replace(/<li[^>]*>/gi, '• ')
-    .replace(/<\/li>/gi, '\n')
+    .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (match, content) => {
+      const cleaned = content.replace(/<[^>]+>/g, '').trim()
+      return cleaned ? `• ${content.trim()}` : ''
+    })
+
+  // Normalize multiple consecutive newlines to single newline
+  processedHtml = processedHtml.replace(/\n{2,}/g, '\n')
 
   // Now parse inline formatting
   // We need to handle nested tags like <strong><em>text</em></strong>
