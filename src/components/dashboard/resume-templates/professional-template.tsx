@@ -287,18 +287,30 @@ export function ProfessionalTemplate({
           </div>
 
           {/* SIDEBAR SECTIONS - Rendered in dynamic order */}
-          {sidebarOrder
-            .filter(sectionId => !hiddenSidebarSections.includes(sectionId))
-            .map((sectionId, orderIndex, filteredOrder) => {
+          {(() => {
+            // Determine which section is actually first (has data to render)
+            const visibleSections = sidebarOrder.filter(sectionId => !hiddenSidebarSections.includes(sectionId))
+            const firstRenderedSidebarSection = visibleSections.find(sectionId => {
+              if (sectionId === 'keyAchievements') return keyAchievements.length > 0
+              if (sectionId === 'skills') return skills.filter(s => s.category && s.items && s.items.length > 0).length > 0
+              if (sectionId === 'languages') return languages.length > 0
+              if (sectionId === 'training') return certifications.length > 0
+              return false
+            })
+
+            return visibleSections.map((sectionId, orderIndex, filteredOrder) => {
             const isLastSection = orderIndex === filteredOrder.length - 1
+
+            // Check if this is the first actually rendered section (for chevron placement)
+            const isFirstSection = sectionId === firstRenderedSidebarSection
 
             if (sectionId === 'keyAchievements' && keyAchievements.length > 0) {
               return (
                 <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
                   <h2 className="relative mb-4 pb-1 border-b border-white font-bold tracking-wide capitalize" style={{ fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
                     {dict.resumes.template.keyAchievements}
-                    {/* Up/Down reorder arrows - positioned at section title underline, draggable in edit mode (live preview) */}
-                    {setSidebarTopMargin && (
+                    {/* Up/Down reorder arrows - only on first visible section */}
+                    {isFirstSection && setSidebarTopMargin && (
                       <span
                         className="absolute flex flex-col print:hidden cursor-ns-resize select-none"
                         style={{
@@ -334,8 +346,23 @@ export function ProfessionalTemplate({
             if (sectionId === 'skills' && skills.filter(s => s.category && s.items && s.items.length > 0).length > 0) {
               return (
                 <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
-                  <h2 className="mb-4 pb-1 border-b border-white font-bold tracking-wide capitalize" style={{ fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
+                  <h2 className="relative mb-4 pb-1 border-b border-white font-bold tracking-wide capitalize" style={{ fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
                     {dict.resumes.template.skills}
+                    {/* Up/Down reorder arrows - only on first visible section */}
+                    {isFirstSection && setSidebarTopMargin && (
+                      <span
+                        className="absolute flex flex-col print:hidden cursor-ns-resize select-none"
+                        style={{
+                          left: '-20px',
+                          bottom: '0px',
+                          transform: 'translateY(50%)'
+                        }}
+                        onMouseDown={handleSidebarMouseDown}
+                      >
+                        <ChevronUp size={12} className="text-white/80" />
+                        <ChevronDown size={12} className="text-white/80" />
+                      </span>
+                    )}
                   </h2>
                   <div>
                     {skills
@@ -360,8 +387,23 @@ export function ProfessionalTemplate({
             if (sectionId === 'languages' && languages.length > 0) {
               return (
                 <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
-                  <h2 className="mb-4 pb-1 border-b border-white font-bold tracking-wide capitalize" style={{ fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
+                  <h2 className="relative mb-4 pb-1 border-b border-white font-bold tracking-wide capitalize" style={{ fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
                     {dict.resumes.template.languages}
+                    {/* Up/Down reorder arrows - only on first visible section */}
+                    {isFirstSection && setSidebarTopMargin && (
+                      <span
+                        className="absolute flex flex-col print:hidden cursor-ns-resize select-none"
+                        style={{
+                          left: '-20px',
+                          bottom: '0px',
+                          transform: 'translateY(50%)'
+                        }}
+                        onMouseDown={handleSidebarMouseDown}
+                      >
+                        <ChevronUp size={12} className="text-white/80" />
+                        <ChevronDown size={12} className="text-white/80" />
+                      </span>
+                    )}
                   </h2>
                   <div className="space-y-2">
                     {languages.map((lang, index) => (
@@ -382,8 +424,23 @@ export function ProfessionalTemplate({
             if (sectionId === 'training' && certifications.length > 0) {
               return (
                 <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
-                  <h2 className="mb-4 pb-1 border-b border-white font-bold tracking-wide capitalize" style={{ fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
+                  <h2 className="relative mb-4 pb-1 border-b border-white font-bold tracking-wide capitalize" style={{ fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
                     {dict.resumes.template.training}
+                    {/* Up/Down reorder arrows - only on first visible section */}
+                    {isFirstSection && setSidebarTopMargin && (
+                      <span
+                        className="absolute flex flex-col print:hidden cursor-ns-resize select-none"
+                        style={{
+                          left: '-20px',
+                          bottom: '0px',
+                          transform: 'translateY(50%)'
+                        }}
+                        onMouseDown={handleSidebarMouseDown}
+                      >
+                        <ChevronUp size={12} className="text-white/80" />
+                        <ChevronDown size={12} className="text-white/80" />
+                      </span>
+                    )}
                   </h2>
                   <div className="space-y-4">
                     {certifications.slice(0, 3).map((cert, index) => (
@@ -408,7 +465,8 @@ export function ProfessionalTemplate({
             }
 
             return null
-          })}
+            })
+          })()}
         </div>
 
       {/* Main Content - Positioned to the right of sidebar */}
