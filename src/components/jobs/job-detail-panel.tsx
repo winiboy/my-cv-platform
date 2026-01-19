@@ -233,8 +233,11 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
       setIsFetchingJob(false)
 
       if (!resumes || resumes.length === 0) {
-        alert(dict?.cvAdaptation?.noResumesError || 'Please create a CV first.')
+        // No existing resumes - show the create new CV modal directly
+        // fetchedJobData is already set at this point
         setIsCreateCVMode(false)
+        setIsCreateNewCVMode(true)
+        setShowCreateNewCVModal(true)
         return
       }
 
