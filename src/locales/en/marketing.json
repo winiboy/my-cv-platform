@@ -107,6 +107,47 @@
       ],
       "cta": "Try Premium",
       "badge": "Popular"
+    },
+    "comparison": {
+      "title": "Feature Comparison",
+      "subtitle": "See exactly what's included in each plan",
+      "categories": {
+        "cvBuilder": {
+          "title": "CV Builder",
+          "features": {
+            "numberOfCVs": { "name": "Number of CVs", "free": "1", "premium": "Unlimited" },
+            "templates": { "name": "Templates", "free": "Basic", "premium": "100+ Premium" },
+            "pdfExport": { "name": "PDF Export" },
+            "customBranding": { "name": "Custom Branding" }
+          }
+        },
+        "aiFeatures": {
+          "title": "AI Features",
+          "features": {
+            "basicAnalysis": { "name": "Basic Analysis" },
+            "advancedAnalysis": { "name": "Advanced Analysis" },
+            "matchScore": { "name": "Match Score" },
+            "coverLetters": { "name": "Cover Letters", "free": "3/month", "premium": "Unlimited" }
+          }
+        },
+        "jobTracking": {
+          "title": "Job Tracking",
+          "features": {
+            "applicationTracking": { "name": "Application Tracking" },
+            "chromeExtension": { "name": "Chrome Extension" },
+            "calendarIntegration": { "name": "Calendar Integration" },
+            "emailReminders": { "name": "Email Reminders" }
+          }
+        },
+        "support": {
+          "title": "Support",
+          "features": {
+            "emailSupport": { "name": "Email Support" },
+            "prioritySupport": { "name": "Priority Support" },
+            "oneOnOneCoaching": { "name": "1-on-1 Coaching", "premium": "Add-on" }
+          }
+        }
+      }
     }
   },
   "faq": {

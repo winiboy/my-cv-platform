@@ -11,41 +11,104 @@ export default async function PricingPage({
 }) {
   const marketing = getTranslations(params.locale, "marketing") as any;
 
-  // Feature comparison data
+  // Feature comparison data built from translations
+  const comparison = marketing.pricing?.comparison;
+  const categories = comparison?.categories;
+
   const comparisonFeatures = [
     {
-      category: "CV Builder",
+      category: categories?.cvBuilder?.title || "CV Builder",
       features: [
-        { name: "Number of CVs", free: "1", premium: "Unlimited" },
-        { name: "Templates", free: "Basic", premium: "100+ Premium" },
-        { name: "PDF Export", free: true, premium: true },
-        { name: "Custom Branding", free: false, premium: true },
+        {
+          name: categories?.cvBuilder?.features?.numberOfCVs?.name || "Number of CVs",
+          free: categories?.cvBuilder?.features?.numberOfCVs?.free || "1",
+          premium: categories?.cvBuilder?.features?.numberOfCVs?.premium || "Unlimited",
+        },
+        {
+          name: categories?.cvBuilder?.features?.templates?.name || "Templates",
+          free: categories?.cvBuilder?.features?.templates?.free || "Basic",
+          premium: categories?.cvBuilder?.features?.templates?.premium || "100+ Premium",
+        },
+        {
+          name: categories?.cvBuilder?.features?.pdfExport?.name || "PDF Export",
+          free: categories?.cvBuilder?.features?.pdfExport?.free ?? true,
+          premium: categories?.cvBuilder?.features?.pdfExport?.premium ?? true,
+        },
+        {
+          name: categories?.cvBuilder?.features?.customBranding?.name || "Custom Branding",
+          free: categories?.cvBuilder?.features?.customBranding?.free ?? false,
+          premium: categories?.cvBuilder?.features?.customBranding?.premium ?? true,
+        },
       ],
     },
     {
-      category: "AI Features",
+      category: categories?.aiFeatures?.title || "AI Features",
       features: [
-        { name: "Basic Analysis", free: true, premium: true },
-        { name: "Advanced Analysis", free: false, premium: true },
-        { name: "Match Score", free: false, premium: true },
-        { name: "Cover Letters", free: "3/month", premium: "Unlimited" },
+        {
+          name: categories?.aiFeatures?.features?.basicAnalysis?.name || "Basic Analysis",
+          free: categories?.aiFeatures?.features?.basicAnalysis?.free ?? true,
+          premium: categories?.aiFeatures?.features?.basicAnalysis?.premium ?? true,
+        },
+        {
+          name: categories?.aiFeatures?.features?.advancedAnalysis?.name || "Advanced Analysis",
+          free: categories?.aiFeatures?.features?.advancedAnalysis?.free ?? false,
+          premium: categories?.aiFeatures?.features?.advancedAnalysis?.premium ?? true,
+        },
+        {
+          name: categories?.aiFeatures?.features?.matchScore?.name || "Match Score",
+          free: categories?.aiFeatures?.features?.matchScore?.free ?? false,
+          premium: categories?.aiFeatures?.features?.matchScore?.premium ?? true,
+        },
+        {
+          name: categories?.aiFeatures?.features?.coverLetters?.name || "Cover Letters",
+          free: categories?.aiFeatures?.features?.coverLetters?.free || "3/month",
+          premium: categories?.aiFeatures?.features?.coverLetters?.premium || "Unlimited",
+        },
       ],
     },
     {
-      category: "Job Tracking",
+      category: categories?.jobTracking?.title || "Job Tracking",
       features: [
-        { name: "Application Tracking", free: true, premium: true },
-        { name: "Chrome Extension", free: false, premium: true },
-        { name: "Calendar Integration", free: false, premium: true },
-        { name: "Email Reminders", free: false, premium: true },
+        {
+          name: categories?.jobTracking?.features?.applicationTracking?.name || "Application Tracking",
+          free: categories?.jobTracking?.features?.applicationTracking?.free ?? true,
+          premium: categories?.jobTracking?.features?.applicationTracking?.premium ?? true,
+        },
+        {
+          name: categories?.jobTracking?.features?.chromeExtension?.name || "Chrome Extension",
+          free: categories?.jobTracking?.features?.chromeExtension?.free ?? false,
+          premium: categories?.jobTracking?.features?.chromeExtension?.premium ?? true,
+        },
+        {
+          name: categories?.jobTracking?.features?.calendarIntegration?.name || "Calendar Integration",
+          free: categories?.jobTracking?.features?.calendarIntegration?.free ?? false,
+          premium: categories?.jobTracking?.features?.calendarIntegration?.premium ?? true,
+        },
+        {
+          name: categories?.jobTracking?.features?.emailReminders?.name || "Email Reminders",
+          free: categories?.jobTracking?.features?.emailReminders?.free ?? false,
+          premium: categories?.jobTracking?.features?.emailReminders?.premium ?? true,
+        },
       ],
     },
     {
-      category: "Support",
+      category: categories?.support?.title || "Support",
       features: [
-        { name: "Email Support", free: true, premium: true },
-        { name: "Priority Support", free: false, premium: true },
-        { name: "1-on-1 Coaching", free: false, premium: "Add-on" },
+        {
+          name: categories?.support?.features?.emailSupport?.name || "Email Support",
+          free: categories?.support?.features?.emailSupport?.free ?? true,
+          premium: categories?.support?.features?.emailSupport?.premium ?? true,
+        },
+        {
+          name: categories?.support?.features?.prioritySupport?.name || "Priority Support",
+          free: categories?.support?.features?.prioritySupport?.free ?? false,
+          premium: categories?.support?.features?.prioritySupport?.premium ?? true,
+        },
+        {
+          name: categories?.support?.features?.oneOnOneCoaching?.name || "1-on-1 Coaching",
+          free: categories?.support?.features?.oneOnOneCoaching?.free ?? false,
+          premium: categories?.support?.features?.oneOnOneCoaching?.premium || "Add-on",
+        },
       ],
     },
   ];
@@ -96,10 +159,10 @@ export default async function PricingPage({
         <div className="mx-auto max-w-7xl">
           <div className="mb-16 text-center">
             <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              Feature Comparison
+              {comparison?.title || "Feature Comparison"}
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-600">
-              See exactly what's included in each plan
+              {comparison?.subtitle || "See exactly what's included in each plan"}
             </p>
           </div>
 

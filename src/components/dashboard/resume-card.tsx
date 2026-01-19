@@ -26,7 +26,7 @@ export function ResumeCard({ resume, locale, dict }: ResumeCardProps) {
   }, [resume.id])
 
   const handleDelete = async () => {
-    if (!confirm(dict.resumes?.delete || 'Are you sure you want to delete this resume?')) return
+    if (!confirm(dict.resumes?.confirmDelete || 'Are you sure you want to delete this resume?')) return
 
     setIsDeleting(true)
     const supabase = createClient()
@@ -35,7 +35,7 @@ export function ResumeCard({ resume, locale, dict }: ResumeCardProps) {
 
     if (error) {
       console.error('Error deleting resume:', error)
-      alert('Failed to delete resume')
+      alert(dict.errors?.api?.deleteResume || 'Failed to delete resume')
       setIsDeleting(false)
       return
     }
@@ -65,7 +65,7 @@ export function ResumeCard({ resume, locale, dict }: ResumeCardProps) {
 
     if (error) {
       console.error('Error duplicating resume:', error)
-      alert('Failed to duplicate resume')
+      alert(dict.errors?.api?.duplicateResume || 'Failed to duplicate resume')
       return
     }
 
@@ -84,7 +84,7 @@ export function ResumeCard({ resume, locale, dict }: ResumeCardProps) {
 
     if (error) {
       console.error('Error setting default:', error)
-      alert('Failed to set as default')
+      alert(dict.errors?.api?.setDefault || 'Failed to set as default')
       return
     }
 
@@ -165,7 +165,7 @@ export function ResumeCard({ resume, locale, dict }: ResumeCardProps) {
               </button>
             )}
             <button
-              onClick={() => alert('PDF export coming soon!')}
+              onClick={() => alert(dict.resumes?.pdfExportComingSoon || 'PDF export coming soon!')}
               className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             >
               <Download className="h-4 w-4" />

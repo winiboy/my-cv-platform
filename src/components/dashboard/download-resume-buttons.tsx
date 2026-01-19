@@ -3,12 +3,21 @@
 import { Download, FileText } from 'lucide-react'
 import { useParams } from 'next/navigation'
 
+interface DownloadResumeButtonsDict {
+  errors?: {
+    api?: {
+      downloadDocx?: string
+    }
+  }
+}
+
 interface DownloadResumeButtonsProps {
   pdfLabel: string
   wordLabel: string
+  dict?: DownloadResumeButtonsDict
 }
 
-export function DownloadResumeButtons({ pdfLabel, wordLabel }: DownloadResumeButtonsProps) {
+export function DownloadResumeButtons({ pdfLabel, wordLabel, dict }: DownloadResumeButtonsProps) {
   const params = useParams()
   const resumeId = params?.id as string
   const locale = params?.locale as string
@@ -79,7 +88,7 @@ export function DownloadResumeButtons({ pdfLabel, wordLabel }: DownloadResumeBut
       document.body.removeChild(a)
     } catch (error) {
       console.error('Error downloading Word document:', error)
-      alert('Failed to download Word document. Please try again.')
+      alert(dict?.errors?.api?.downloadDocx || 'Failed to download Word document. Please try again.')
     }
   }
 

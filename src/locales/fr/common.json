@@ -5,7 +5,7 @@
     "pricing": "Tarifs",
     "login": "Connexion",
     "signup": "Commencer gratuitement",
-    "dashboard": "Dashboard",
+    "dashboard": "Tableau de bord",
     "switchAccount": "Changer de compte",
     "logout": "Se déconnecter"
   },
@@ -202,6 +202,20 @@
         "projects": "Réalisations clés"
       },
       "contactHint": "Ajoutez vos coordonnées et liens professionnels",
+      "fullName": "Nom complet",
+      "fullNamePlaceholder": "Jean Dupont",
+      "email": "E-mail",
+      "emailPlaceholder": "jean@exemple.com",
+      "phone": "Téléphone",
+      "phonePlaceholder": "+41 79 123 45 67",
+      "locationLabel": "Localisation",
+      "locationPlaceholder": "Genève, Suisse",
+      "linkedin": "LinkedIn",
+      "linkedinPlaceholder": "linkedin.com/in/jeandupont",
+      "github": "GitHub",
+      "githubPlaceholder": "github.com/jeandupont",
+      "website": "Site web",
+      "websitePlaceholder": "jeandupont.ch",
       "summaryHint": "Rédigez un bref aperçu de votre parcours professionnel et réalisations clés",
       "summaryPlaceholder": "ex: Ingénieur logiciel expérimenté avec 5+ ans d'expérience dans le développement d'applications web évolutives...",
       "recommended": "Recommandé",
@@ -301,7 +315,7 @@
       "contactDetails": "Coordonnées",
       "sectionTitle": "Titre de section",
       "description": "Description",
-      "gap": "Gap"
+      "gap": "Espacement"
     },
     "colorWheel": {
       "sidebarColor": "Couleur de la barre latérale",
@@ -319,14 +333,73 @@
         "olive": "Olive"
       }
     },
-    "showControls": "Afficher les contrôles"
+    "showControls": "Afficher les contrôles",
+    "pdfExportComingSoon": "Export PDF bientôt disponible !",
+    "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce CV ?"
   },
   "common": {
     "cancel": "Annuler",
     "save": "Enregistrer",
     "saving": "Enregistrement...",
     "delete": "Supprimer",
+    "deleting": "Suppression...",
     "confirm": "Confirmer",
     "back": "Retour"
+  },
+  "errors": {
+    "unauthorized": "Non autorisé",
+    "generic": "Une erreur s'est produite. Veuillez réessayer.",
+    "notFound": "Non trouvé",
+    "validation": {
+      "required": "Ce champ est obligatoire",
+      "descriptionTooShort": "Veuillez ajouter une description (au moins 10 caractères) avant d'optimiser",
+      "summaryRequired": "Veuillez écrire au moins un bref résumé avant d'optimiser",
+      "skillsRequired": "Veuillez ajouter un nom de catégorie et des compétences avant d'optimiser",
+      "descriptionRequiredTranslate": "Veuillez écrire une description avant de traduire",
+      "summaryRequiredTranslate": "Veuillez écrire un résumé avant de traduire",
+      "skillsRequiredTranslate": "Veuillez ajouter un nom de catégorie et des compétences avant de traduire",
+      "jobDescriptionRequired": "La description du poste est obligatoire",
+      "jobDescriptionTooShort": "La description du poste est trop courte. Veuillez fournir au moins 100 caractères.",
+      "jobTitleRequired": "Le titre du poste est obligatoire",
+      "invalidTemplate": "Modèle sélectionné invalide",
+      "invalidLanguage": "La langue cible doit être : français, allemand, anglais ou italien",
+      "textTooShort": "Le texte doit contenir au moins 10 caractères",
+      "loginRequired": "Vous devez être connecté pour effectuer cette action"
+    },
+    "api": {
+      "transformExperience": "Échec de la transformation de l'expérience",
+      "transformSummary": "Échec de la transformation du résumé",
+      "translateText": "Échec de la traduction du texte",
+      "optimizeDescription": "Échec de l'optimisation de la description",
+      "generateResume": "Échec de la génération du CV",
+      "createResume": "Échec de la création du CV",
+      "adaptResume": "Échec de l'adaptation du CV",
+      "downloadDocx": "Échec du téléchargement du document Word. Veuillez réessayer.",
+      "deleteResume": "Échec de la suppression du CV",
+      "duplicateResume": "Échec de la duplication du CV",
+      "setDefault": "Échec de la définition par défaut",
+      "resumeNotFound": "CV non trouvé ou vous n'avez pas la permission d'y accéder"
+    },
+    "success": {
+      "cvAdapted": "CV adapté avec succès. Vérifiez et enregistrez quand vous êtes prêt."
+    }
+  },
+  "aria": {
+    "openMainMenu": "Ouvrir le menu principal",
+    "closeMenu": "Fermer le menu",
+    "previousTestimonial": "Témoignage précédent",
+    "nextTestimonial": "Témoignage suivant",
+    "goToTestimonial": "Aller au témoignage",
+    "hideFromCV": "Masquer du CV",
+    "showInCV": "Afficher dans le CV",
+    "showSection": "Afficher la section",
+    "hideSection": "Masquer la section"
+  },
+  "translation": {
+    "translatedTo": "Traduit en",
+    "useTranslation": "Utiliser la traduction",
+    "keepOriginal": "Conserver l'original",
+    "currentAchievements": "Réalisations actuelles",
+    "clearAll": "Tout effacer"
   }
 }

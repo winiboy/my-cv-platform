@@ -140,6 +140,8 @@
     "setDefault": "Set as Default",
     "previewUnsavedTitle": "Preview with unsaved changes",
     "previewUnsavedWarning": "Changes will be lost if you do not save",
+    "pdfExportComingSoon": "PDF export coming soon!",
+    "confirmDelete": "Are you sure you want to delete this resume?",
     "empty": {
       "title": "No resumes yet",
       "description": "Create your first professional resume to start applying for jobs."
@@ -202,6 +204,20 @@
         "projects": "Key Achievements"
       },
       "contactHint": "Add your contact details and professional links",
+      "fullName": "Full Name",
+      "fullNamePlaceholder": "John Doe",
+      "email": "Email",
+      "emailPlaceholder": "john@example.com",
+      "phone": "Phone",
+      "phonePlaceholder": "+1 (555) 123-4567",
+      "locationLabel": "Location",
+      "locationPlaceholder": "San Francisco, CA",
+      "linkedin": "LinkedIn",
+      "linkedinPlaceholder": "linkedin.com/in/johndoe",
+      "github": "GitHub",
+      "githubPlaceholder": "github.com/johndoe",
+      "website": "Website",
+      "websitePlaceholder": "johndoe.com",
       "summaryHint": "Write a brief overview of your professional background and key achievements",
       "summaryPlaceholder": "e.g., Experienced software engineer with 5+ years of experience building scalable web applications...",
       "recommended": "Recommended",
@@ -326,7 +342,64 @@
     "save": "Save",
     "saving": "Saving...",
     "delete": "Delete",
+    "deleting": "Deleting...",
     "confirm": "Confirm",
     "back": "Back"
+  },
+  "errors": {
+    "unauthorized": "Unauthorized",
+    "generic": "An error occurred. Please try again.",
+    "notFound": "Not found",
+    "validation": {
+      "required": "This field is required",
+      "descriptionTooShort": "Please add a description (at least 10 characters) before optimizing",
+      "summaryRequired": "Please write at least a brief summary before optimizing",
+      "skillsRequired": "Please add a category name and skills before optimizing",
+      "descriptionRequiredTranslate": "Please write a description before translating",
+      "summaryRequiredTranslate": "Please write a summary before translating",
+      "skillsRequiredTranslate": "Please add a category name and skills before translating",
+      "jobDescriptionRequired": "Job description is required",
+      "jobDescriptionTooShort": "Job description is too short. Please provide at least 100 characters.",
+      "jobTitleRequired": "Job title is required",
+      "invalidTemplate": "Invalid template selected",
+      "invalidLanguage": "Target language must be one of: French, German, English, Italian",
+      "textTooShort": "Text must be at least 10 characters",
+      "loginRequired": "You must be logged in to perform this action"
+    },
+    "api": {
+      "transformExperience": "Failed to transform experience",
+      "transformSummary": "Failed to transform summary",
+      "translateText": "Failed to translate text",
+      "optimizeDescription": "Failed to optimize description",
+      "generateResume": "Failed to generate resume",
+      "createResume": "Failed to create resume",
+      "adaptResume": "Failed to adapt resume",
+      "downloadDocx": "Failed to download Word document. Please try again.",
+      "deleteResume": "Failed to delete resume",
+      "duplicateResume": "Failed to duplicate resume",
+      "setDefault": "Failed to set as default",
+      "resumeNotFound": "Resume not found or you do not have permission to access it"
+    },
+    "success": {
+      "cvAdapted": "CV adapted successfully. Review and save when ready."
+    }
+  },
+  "aria": {
+    "openMainMenu": "Open main menu",
+    "closeMenu": "Close menu",
+    "previousTestimonial": "Previous testimonial",
+    "nextTestimonial": "Next testimonial",
+    "goToTestimonial": "Go to testimonial",
+    "hideFromCV": "Hide from CV",
+    "showInCV": "Show in CV",
+    "showSection": "Show section",
+    "hideSection": "Hide section"
+  },
+  "translation": {
+    "translatedTo": "Translated to",
+    "useTranslation": "Use Translation",
+    "keepOriginal": "Keep Original",
+    "currentAchievements": "Current Achievements",
+    "clearAll": "Clear All"
   }
 }

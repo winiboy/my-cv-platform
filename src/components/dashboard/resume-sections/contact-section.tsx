@@ -23,13 +23,13 @@ export function ContactSection({ resume, updateResume, dict }: ContactSectionPro
   }
 
   const fields: Array<{ key: string; label: string; type: string; placeholder: string }> = [
-    { key: 'name', label: 'Full Name', type: 'text', placeholder: 'John Doe' },
-    { key: 'email', label: 'Email', type: 'email', placeholder: 'john@example.com' },
-    { key: 'phone', label: 'Phone', type: 'tel', placeholder: '+1 (555) 123-4567' },
-    { key: 'location', label: 'Location', type: 'text', placeholder: 'San Francisco, CA' },
-    { key: 'linkedin', label: 'LinkedIn', type: 'url', placeholder: 'linkedin.com/in/johndoe' },
-    { key: 'github', label: 'GitHub', type: 'url', placeholder: 'github.com/johndoe' },
-    { key: 'website', label: 'Website', type: 'url', placeholder: 'johndoe.com' },
+    { key: 'name', label: dict?.resumes?.editor?.fullName || 'Full Name', type: 'text', placeholder: dict?.resumes?.editor?.fullNamePlaceholder || 'John Doe' },
+    { key: 'email', label: dict?.resumes?.editor?.email || 'Email', type: 'email', placeholder: dict?.resumes?.editor?.emailPlaceholder || 'john@example.com' },
+    { key: 'phone', label: dict?.resumes?.editor?.phone || 'Phone', type: 'tel', placeholder: dict?.resumes?.editor?.phonePlaceholder || '+1 (555) 123-4567' },
+    { key: 'location', label: dict?.resumes?.editor?.locationLabel || 'Location', type: 'text', placeholder: dict?.resumes?.editor?.locationPlaceholder || 'San Francisco, CA' },
+    { key: 'linkedin', label: dict?.resumes?.editor?.linkedin || 'LinkedIn', type: 'url', placeholder: dict?.resumes?.editor?.linkedinPlaceholder || 'linkedin.com/in/johndoe' },
+    { key: 'github', label: dict?.resumes?.editor?.github || 'GitHub', type: 'url', placeholder: dict?.resumes?.editor?.githubPlaceholder || 'github.com/johndoe' },
+    { key: 'website', label: dict?.resumes?.editor?.website || 'Website', type: 'url', placeholder: dict?.resumes?.editor?.websitePlaceholder || 'johndoe.com' },
   ]
 
   return (

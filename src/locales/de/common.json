@@ -140,6 +140,8 @@
     "setDefault": "Als Standard festlegen",
     "previewUnsavedTitle": "Vorschau mit nicht gespeicherten Änderungen",
     "previewUnsavedWarning": "Änderungen gehen verloren, wenn Sie nicht speichern",
+    "pdfExportComingSoon": "PDF-Export kommt bald!",
+    "confirmDelete": "Sind Sie sicher, dass Sie diesen Lebenslauf löschen möchten?",
     "empty": {
       "title": "Noch keine Lebensläufe",
       "description": "Erstellen Sie Ihren ersten professionellen Lebenslauf, um sich zu bewerben."
@@ -202,6 +204,20 @@
         "projects": "Wichtige Erfolge"
       },
       "contactHint": "Fügen Sie Ihre Kontaktdaten und professionellen Links hinzu",
+      "fullName": "Vollständiger Name",
+      "fullNamePlaceholder": "Max Mustermann",
+      "email": "E-Mail",
+      "emailPlaceholder": "max@beispiel.de",
+      "phone": "Telefon",
+      "phonePlaceholder": "+41 79 123 45 67",
+      "locationLabel": "Standort",
+      "locationPlaceholder": "Zürich, Schweiz",
+      "linkedin": "LinkedIn",
+      "linkedinPlaceholder": "linkedin.com/in/maxmustermann",
+      "github": "GitHub",
+      "githubPlaceholder": "github.com/maxmustermann",
+      "website": "Website",
+      "websitePlaceholder": "maxmustermann.ch",
       "summaryHint": "Schreiben Sie einen kurzen Überblick über Ihren beruflichen Werdegang und wichtige Erfolge",
       "summaryPlaceholder": "z.B. Erfahrener Software-Ingenieur mit 5+ Jahren Erfahrung in der Entwicklung skalierbarer Webanwendungen...",
       "recommended": "Empfohlen",
@@ -301,7 +317,7 @@
       "contactDetails": "Kontaktdaten",
       "sectionTitle": "Abschnittstitel",
       "description": "Beschreibung",
-      "gap": "Gap"
+      "gap": "Abstand"
     },
     "colorWheel": {
       "sidebarColor": "Seitenleistenfarbe",
@@ -326,7 +342,64 @@
     "save": "Speichern",
     "saving": "Speichern...",
     "delete": "Löschen",
+    "deleting": "Wird gelöscht...",
     "confirm": "Bestätigen",
     "back": "Zurück"
+  },
+  "errors": {
+    "unauthorized": "Nicht autorisiert",
+    "generic": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
+    "notFound": "Nicht gefunden",
+    "validation": {
+      "required": "Dieses Feld ist erforderlich",
+      "descriptionTooShort": "Bitte fügen Sie eine Beschreibung hinzu (mindestens 10 Zeichen) vor der Optimierung",
+      "summaryRequired": "Bitte schreiben Sie mindestens eine kurze Zusammenfassung vor der Optimierung",
+      "skillsRequired": "Bitte fügen Sie einen Kategorienamen und Fähigkeiten hinzu vor der Optimierung",
+      "descriptionRequiredTranslate": "Bitte schreiben Sie eine Beschreibung vor der Übersetzung",
+      "summaryRequiredTranslate": "Bitte schreiben Sie eine Zusammenfassung vor der Übersetzung",
+      "skillsRequiredTranslate": "Bitte fügen Sie einen Kategorienamen und Fähigkeiten hinzu vor der Übersetzung",
+      "jobDescriptionRequired": "Stellenbeschreibung ist erforderlich",
+      "jobDescriptionTooShort": "Die Stellenbeschreibung ist zu kurz. Bitte geben Sie mindestens 100 Zeichen an.",
+      "jobTitleRequired": "Stellentitel ist erforderlich",
+      "invalidTemplate": "Ungültige Vorlage ausgewählt",
+      "invalidLanguage": "Zielsprache muss sein: Französisch, Deutsch, Englisch oder Italienisch",
+      "textTooShort": "Der Text muss mindestens 10 Zeichen enthalten",
+      "loginRequired": "Sie müssen angemeldet sein, um diese Aktion auszuführen"
+    },
+    "api": {
+      "transformExperience": "Erfahrung konnte nicht transformiert werden",
+      "transformSummary": "Zusammenfassung konnte nicht transformiert werden",
+      "translateText": "Text konnte nicht übersetzt werden",
+      "optimizeDescription": "Beschreibung konnte nicht optimiert werden",
+      "generateResume": "Lebenslauf konnte nicht generiert werden",
+      "createResume": "Lebenslauf konnte nicht erstellt werden",
+      "adaptResume": "Lebenslauf konnte nicht angepasst werden",
+      "downloadDocx": "Word-Dokument konnte nicht heruntergeladen werden. Bitte versuchen Sie es erneut.",
+      "deleteResume": "Lebenslauf konnte nicht gelöscht werden",
+      "duplicateResume": "Lebenslauf konnte nicht dupliziert werden",
+      "setDefault": "Konnte nicht als Standard festgelegt werden",
+      "resumeNotFound": "Lebenslauf nicht gefunden oder Sie haben keine Zugriffsberechtigung"
+    },
+    "success": {
+      "cvAdapted": "Lebenslauf erfolgreich angepasst. Überprüfen und speichern Sie, wenn Sie bereit sind."
+    }
+  },
+  "aria": {
+    "openMainMenu": "Hauptmenü öffnen",
+    "closeMenu": "Menü schließen",
+    "previousTestimonial": "Vorherige Kundenmeinung",
+    "nextTestimonial": "Nächste Kundenmeinung",
+    "goToTestimonial": "Zur Kundenmeinung gehen",
+    "hideFromCV": "Aus dem Lebenslauf ausblenden",
+    "showInCV": "Im Lebenslauf anzeigen",
+    "showSection": "Abschnitt anzeigen",
+    "hideSection": "Abschnitt ausblenden"
+  },
+  "translation": {
+    "translatedTo": "Übersetzt nach",
+    "useTranslation": "Übersetzung verwenden",
+    "keepOriginal": "Original behalten",
+    "currentAchievements": "Aktuelle Erfolge",
+    "clearAll": "Alle löschen"
   }
 }

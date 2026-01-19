@@ -110,7 +110,7 @@ export function CertificationsSection({
                       toggleVisibility(index)
                     }}
                     className={`transition-colors ${cert.visible ?? true ? 'text-slate-600 hover:text-slate-800' : 'text-slate-300 hover:text-slate-400'}`}
-                    title={cert.visible ?? true ? 'Hide from CV' : 'Show in CV'}
+                    title={cert.visible ?? true ? (dict?.aria?.hideFromCV || 'Hide from CV') : (dict?.aria?.showInCV || 'Show in CV')}
                   >
                     {cert.visible ?? true ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                   </button>

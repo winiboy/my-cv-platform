@@ -70,7 +70,7 @@ export function CreateResumeForm({ locale, dict }: CreateResumeFormProps) {
       } = await supabase.auth.getUser()
 
       if (!user) {
-        setError(dict.resumes?.errors?.createFailed || 'You must be logged in to create a resume')
+        setError(dict?.errors?.validation?.loginRequired || 'You must be logged in to create a resume')
         setIsCreating(false)
         return
       }
@@ -101,7 +101,7 @@ export function CreateResumeForm({ locale, dict }: CreateResumeFormProps) {
 
       if (insertError) {
         console.error('Error creating resume:', insertError)
-        setError(dict.resumes?.errors?.createFailed || 'Failed to create resume. Please try again.')
+        setError(dict?.errors?.api?.createResume || 'Failed to create resume. Please try again.')
         setIsCreating(false)
         return
       }
@@ -110,7 +110,7 @@ export function CreateResumeForm({ locale, dict }: CreateResumeFormProps) {
       router.push(`/${locale}/dashboard/resumes/${resume.id}/edit`)
     } catch (err) {
       console.error('Unexpected error:', err)
-      setError(dict.resumes?.errors?.createFailed || 'An unexpected error occurred. Please try again.')
+      setError(dict?.errors?.generic || 'An unexpected error occurred. Please try again.')
       setIsCreating(false)
     }
   }

@@ -136,7 +136,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
     const skillCat = skills[index]
     const skillsPlainText = skillCat.skillsHtml?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || ''
     if (!skillCat.category || skillsPlainText.length < 3) {
-      setError('Please add a category name and skills before optimizing')
+      setError(dict?.errors?.validation?.skillsRequired || 'Please add a category name and skills before optimizing')
       return
     }
 
@@ -158,7 +158,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
       })
 
       if (!response.ok) {
-        throw new Error('Failed to optimize skills')
+        throw new Error(dict?.errors?.api?.optimizeDescription || 'Failed to optimize skills')
       }
 
       const data = await response.json()
@@ -172,11 +172,11 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
 
         setOptimizedCategories({ ...optimizedCategories, [index]: { category, items: [], skillsHtml: skillsContent } })
       } else {
-        setError('Failed to parse optimized skills')
+        setError(dict?.errors?.generic || 'Failed to parse optimized skills')
       }
     } catch (err) {
       console.error('Error optimizing skills:', err)
-      setError('Failed to optimize skills. Please try again.')
+      setError(dict?.errors?.api?.optimizeDescription || 'Failed to optimize skills. Please try again.')
     } finally {
       setOptimizingIndex(null)
     }
@@ -202,7 +202,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
     const skillCat = skills[index]
     const skillsPlainText = skillCat.skillsHtml?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || ''
     if (!skillCat.category || skillsPlainText.length < 3) {
-      setError('Please add a category name and skills before translating')
+      setError(dict?.errors?.validation?.skillsRequiredTranslate || 'Please add a category name and skills before translating')
       return
     }
 
@@ -225,7 +225,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
       })
 
       if (!response.ok) {
-        throw new Error('Failed to translate skills')
+        throw new Error(dict?.errors?.api?.translateText || 'Failed to translate skills')
       }
 
       const data = await response.json()
@@ -242,11 +242,11 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
           [index]: { category, items: [], skillsHtml: skillsContent, language }
         })
       } else {
-        setError('Failed to parse translated skills')
+        setError(dict?.errors?.generic || 'Failed to parse translated skills')
       }
     } catch (err) {
       console.error('Error translating skills:', err)
-      setError('Failed to translate skills. Please try again.')
+      setError(dict?.errors?.api?.translateText || 'Failed to translate skills. Please try again.')
     } finally {
       setTranslatingIndex(null)
     }
@@ -565,7 +565,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
                       toggleVisibility(categoryIndex)
                     }}
                     className={`transition-colors ${skillCategory.visible ?? true ? 'text-slate-600 hover:text-slate-800' : 'text-slate-300 hover:text-slate-400'}`}
-                    title={skillCategory.visible ?? true ? 'Hide from CV' : 'Show in CV'}
+                    title={skillCategory.visible ?? true ? (dict?.aria?.hideFromCV || 'Hide from CV') : (dict?.aria?.showInCV || 'Show in CV')}
                   >
                     {skillCategory.visible ?? true ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                   </button>
@@ -669,7 +669,7 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
                   <div className="mb-3 flex items-center justify-between">
                     <h4 className="flex items-center gap-2 text-sm font-semibold text-blue-900">
                       <Languages className="h-4 w-4" />
-                      Translated to {translatedCategories[categoryIndex].language.toUpperCase()}
+                      {dict?.translation?.translatedTo || 'Translated to'} {translatedCategories[categoryIndex].language.toUpperCase()}
                     </h4>
                     <button
                       onClick={() => handleRejectTranslation(categoryIndex)}
@@ -692,13 +692,13 @@ export function SkillsSection({ resume, updateResume, dict, locale }: SkillsSect
                       className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
                     >
                       <Check className="h-4 w-4" />
-                      Use Translation
+                      {dict?.translation?.useTranslation || 'Use Translation'}
                     </button>
                     <button
                       onClick={() => handleRejectTranslation(categoryIndex)}
                       className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                     >
-                      {dict.resumes?.editor?.keepOriginal || 'Keep Original'}
+                      {dict?.translation?.keepOriginal || 'Keep Original'}
                     </button>
                   </div>
                 </div>

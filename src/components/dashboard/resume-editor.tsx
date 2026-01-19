@@ -743,7 +743,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
                                 }
                               }}
                               className={`p-1 rounded hover:bg-slate-100 transition-colors ${isHidden ? 'text-slate-400' : 'text-slate-500'}`}
-                              title={isHidden ? (dict.resumes?.editor?.showSection || 'Show section') : (dict.resumes?.editor?.hideSection || 'Hide section')}
+                              title={isHidden ? (dict?.aria?.showSection || 'Show section') : (dict?.aria?.hideSection || 'Hide section')}
                             >
                               {isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
@@ -812,7 +812,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
                                 }
                               }}
                               className={`p-1 rounded hover:bg-slate-100 transition-colors ${isHidden ? 'text-slate-400' : 'text-slate-500'}`}
-                              title={isHidden ? (dict.resumes?.editor?.showSection || 'Show section') : (dict.resumes?.editor?.hideSection || 'Hide section')}
+                              title={isHidden ? (dict?.aria?.showSection || 'Show section') : (dict?.aria?.hideSection || 'Hide section')}
                             >
                               {isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>

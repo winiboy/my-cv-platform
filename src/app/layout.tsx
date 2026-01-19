@@ -18,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr">
+    <html lang="en">
       <head>
         {/* Google Fonts for CV Font Carousel - loaded via link for reliability */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />

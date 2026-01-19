@@ -32,7 +32,7 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
     const plainText = htmlToPlainText(resume.summary || '')
 
     if (!plainText || plainText.trim().length < 20) {
-      setError('Please write at least a brief summary before optimizing')
+      setError(dict?.errors?.validation?.summaryRequired || 'Please write at least a brief summary before optimizing')
       return
     }
 
@@ -55,7 +55,7 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
       })
 
       if (!response.ok) {
-        throw new Error('Failed to optimize summary')
+        throw new Error(dict?.errors?.api?.optimizeDescription || 'Failed to optimize summary')
       }
 
       const data = await response.json()
@@ -64,7 +64,7 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
       setTransformedSummary(optimizedHtml)
     } catch (err) {
       console.error('Error optimizing summary:', err)
-      setError('Failed to optimize summary. Please try again.')
+      setError(dict?.errors?.api?.optimizeDescription || 'Failed to optimize summary. Please try again.')
     } finally {
       setIsOptimizing(false)
     }
@@ -75,7 +75,7 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
     const plainText = htmlToPlainText(resume.summary || '')
 
     if (!plainText || plainText.trim().length < 10) {
-      setError('Please write a summary before translating')
+      setError(dict?.errors?.validation?.summaryRequiredTranslate || 'Please write a summary before translating')
       return
     }
 
@@ -96,7 +96,7 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
       })
 
       if (!response.ok) {
-        throw new Error('Failed to translate summary')
+        throw new Error(dict?.errors?.api?.translateText || 'Failed to translate summary')
       }
 
       const data = await response.json()
@@ -105,7 +105,7 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
       setTranslatedSummary(translatedHtml)
     } catch (err) {
       console.error('Error translating summary:', err)
-      setError('Failed to translate summary. Please try again.')
+      setError(dict?.errors?.api?.translateText || 'Failed to translate summary. Please try again.')
     } finally {
       setIsTranslating(false)
     }
@@ -303,7 +303,7 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
           <div className="mb-3 flex items-center justify-between">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-blue-900">
               <Languages className="h-4 w-4" />
-              Translated to {targetLanguage.toUpperCase()}
+              {dict?.translation?.translatedTo || 'Translated to'} {targetLanguage.toUpperCase()}
             </h3>
             <button
               onClick={handleRejectTranslation}
@@ -321,13 +321,13 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
               className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               <Check className="h-4 w-4" />
-              Use Translation
+              {dict?.translation?.useTranslation || 'Use Translation'}
             </button>
             <button
               onClick={handleRejectTranslation}
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              Keep Original
+              {dict?.translation?.keepOriginal || 'Keep Original'}
             </button>
           </div>
         </div>

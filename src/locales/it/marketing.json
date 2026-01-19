@@ -107,6 +107,47 @@
       ],
       "cta": "Prova Premium",
       "badge": "Popolare"
+    },
+    "comparison": {
+      "title": "Confronto funzionalità",
+      "subtitle": "Scopri esattamente cosa è incluso in ogni piano",
+      "categories": {
+        "cvBuilder": {
+          "title": "Creatore di CV",
+          "features": {
+            "numberOfCVs": { "name": "Numero di CV", "free": "1", "premium": "Illimitato" },
+            "templates": { "name": "Template", "free": "Base", "premium": "100+ Premium" },
+            "pdfExport": { "name": "Esportazione PDF" },
+            "customBranding": { "name": "Branding personalizzato" }
+          }
+        },
+        "aiFeatures": {
+          "title": "Funzionalità IA",
+          "features": {
+            "basicAnalysis": { "name": "Analisi di base" },
+            "advancedAnalysis": { "name": "Analisi avanzata" },
+            "matchScore": { "name": "Punteggio di corrispondenza" },
+            "coverLetters": { "name": "Lettere di presentazione", "free": "3/mese", "premium": "Illimitato" }
+          }
+        },
+        "jobTracking": {
+          "title": "Tracciamento candidature",
+          "features": {
+            "applicationTracking": { "name": "Tracciamento candidature" },
+            "chromeExtension": { "name": "Estensione Chrome" },
+            "calendarIntegration": { "name": "Integrazione calendario" },
+            "emailReminders": { "name": "Promemoria via e-mail" }
+          }
+        },
+        "support": {
+          "title": "Supporto",
+          "features": {
+            "emailSupport": { "name": "Supporto via e-mail" },
+            "prioritySupport": { "name": "Supporto prioritario" },
+            "oneOnOneCoaching": { "name": "Coaching individuale", "premium": "Componente aggiuntivo" }
+          }
+        }
+      }
     }
   },
   "faq": {

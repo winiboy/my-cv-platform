@@ -107,6 +107,47 @@
       ],
       "cta": "Premium testen",
       "badge": "Beliebt"
+    },
+    "comparison": {
+      "title": "Funktionsvergleich",
+      "subtitle": "Sehen Sie genau, was in jedem Plan enthalten ist",
+      "categories": {
+        "cvBuilder": {
+          "title": "Lebenslauf-Ersteller",
+          "features": {
+            "numberOfCVs": { "name": "Anzahl der Lebensläufe", "free": "1", "premium": "Unbegrenzt" },
+            "templates": { "name": "Vorlagen", "free": "Basis", "premium": "100+ Premium" },
+            "pdfExport": { "name": "PDF-Export" },
+            "customBranding": { "name": "Eigenes Branding" }
+          }
+        },
+        "aiFeatures": {
+          "title": "KI-Funktionen",
+          "features": {
+            "basicAnalysis": { "name": "Grundanalyse" },
+            "advancedAnalysis": { "name": "Erweiterte Analyse" },
+            "matchScore": { "name": "Match-Score" },
+            "coverLetters": { "name": "Anschreiben", "free": "3/Monat", "premium": "Unbegrenzt" }
+          }
+        },
+        "jobTracking": {
+          "title": "Bewerbungsverfolgung",
+          "features": {
+            "applicationTracking": { "name": "Bewerbungsverfolgung" },
+            "chromeExtension": { "name": "Chrome-Erweiterung" },
+            "calendarIntegration": { "name": "Kalenderintegration" },
+            "emailReminders": { "name": "E-Mail-Erinnerungen" }
+          }
+        },
+        "support": {
+          "title": "Support",
+          "features": {
+            "emailSupport": { "name": "E-Mail-Support" },
+            "prioritySupport": { "name": "Prioritäts-Support" },
+            "oneOnOneCoaching": { "name": "1-zu-1-Coaching", "premium": "Zusatzoption" }
+          }
+        }
+      }
     }
   },
   "faq": {

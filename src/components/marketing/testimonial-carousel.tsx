@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from '@/lib/hooks/use-translation'
 
 interface Testimonial {
   quote: string
@@ -16,6 +17,7 @@ interface TestimonialCarouselProps {
 }
 
 export function TestimonialCarousel({ testimonials }: TestimonialCarouselProps) {
+  const { t } = useTranslation('common')
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isAutoPlaying, setIsAutoPlaying] = useState(true)
 
@@ -88,7 +90,7 @@ export function TestimonialCarousel({ testimonials }: TestimonialCarouselProps) 
             size="sm"
             onClick={goToPrevious}
             className="h-10 w-10 rounded-full p-0"
-            aria-label="Previous testimonial"
+            aria-label={t('aria.previousTestimonial') || 'Previous testimonial'}
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
@@ -104,7 +106,7 @@ export function TestimonialCarousel({ testimonials }: TestimonialCarouselProps) 
                     ? 'w-8 bg-teal-500'
                     : 'bg-slate-300 hover:bg-slate-400'
                 }`}
-                aria-label={`Go to testimonial ${index + 1}`}
+                aria-label={`${t('aria.goToTestimonial') || 'Go to testimonial'} ${index + 1}`}
               />
             ))}
           </div>
@@ -114,7 +116,7 @@ export function TestimonialCarousel({ testimonials }: TestimonialCarouselProps) 
             size="sm"
             onClick={goToNext}
             className="h-10 w-10 rounded-full p-0"
-            aria-label="Next testimonial"
+            aria-label={t('aria.nextTestimonial') || 'Next testimonial'}
           >
             <ChevronRight className="h-5 w-5" />
           </Button>

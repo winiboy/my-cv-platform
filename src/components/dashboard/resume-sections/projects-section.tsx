@@ -164,7 +164,7 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
     const plainText = htmlToPlainText(project.description || '')
 
     if (!plainText || plainText.trim().length < 10) {
-      setError('Please add a description (at least 10 characters) before optimizing')
+      setError(dict?.errors?.validation?.descriptionTooShort || 'Please add a description (at least 10 characters) before optimizing')
       return
     }
 
@@ -189,7 +189,7 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
       })
 
       if (!response.ok) {
-        throw new Error('Failed to optimize description')
+        throw new Error(dict?.errors?.api?.optimizeDescription || 'Failed to optimize description')
       }
 
       const data = await response.json()
@@ -198,7 +198,7 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
       setOptimizedDescriptions({ ...optimizedDescriptions, [index]: optimizedHtml })
     } catch (err) {
       console.error('Error optimizing description:', err)
-      setError('Failed to optimize description. Please try again.')
+      setError(dict?.errors?.api?.optimizeDescription || 'Failed to optimize description. Please try again.')
     } finally {
       setOptimizingIndex(null)
     }
@@ -226,7 +226,7 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
     const plainText = htmlToPlainText(project.description || '')
 
     if (!plainText || plainText.trim().length < 10) {
-      setError('Please add a description (at least 10 characters) before translating')
+      setError(dict?.errors?.validation?.descriptionRequiredTranslate || 'Please add a description (at least 10 characters) before translating')
       return
     }
 
@@ -246,7 +246,7 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
       })
 
       if (!response.ok) {
-        throw new Error('Failed to translate description')
+        throw new Error(dict?.errors?.api?.translateText || 'Failed to translate description')
       }
 
       const data = await response.json()
@@ -258,7 +258,7 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
       })
     } catch (err) {
       console.error('Error translating description:', err)
-      setError('Failed to translate description. Please try again.')
+      setError(dict?.errors?.api?.translateText || 'Failed to translate description. Please try again.')
     } finally {
       setTranslatingIndex(null)
     }
@@ -521,7 +521,7 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
                       toggleVisibility(index)
                     }}
                     className={`transition-colors ${project.visible ?? true ? 'text-slate-600 hover:text-slate-800' : 'text-slate-300 hover:text-slate-400'}`}
-                    title={project.visible ?? true ? 'Hide from CV' : 'Show in CV'}
+                    title={project.visible ?? true ? (dict?.aria?.hideFromCV || 'Hide from CV') : (dict?.aria?.showInCV || 'Show in CV')}
                   >
                     {project.visible ?? true ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                   </button>
@@ -637,7 +637,7 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
                       <div className="mb-3 flex items-center justify-between">
                         <h4 className="flex items-center gap-2 text-sm font-semibold text-blue-900">
                           <Languages className="h-4 w-4" />
-                          Translated Description ({translatedDescriptions[index].language})
+                          {dict?.translation?.translatedTo || 'Translated to'} {translatedDescriptions[index].language}
                         </h4>
                         <button
                           onClick={() => handleRejectTranslation(index)}
@@ -656,13 +656,13 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
                           className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
                         >
                           <Check className="h-4 w-4" />
-                          {dict.resumes?.editor?.useThisVersion || 'Use This Version'}
+                          {dict?.translation?.useTranslation || dict.resumes?.editor?.useThisVersion || 'Use This Version'}
                         </button>
                         <button
                           onClick={() => handleRejectTranslation(index)}
                           className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                         >
-                          {dict.resumes?.editor?.keepOriginal || 'Keep Original'}
+                          {dict?.translation?.keepOriginal || dict.resumes?.editor?.keepOriginal || 'Keep Original'}
                         </button>
                       </div>
                     </div>

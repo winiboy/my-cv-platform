@@ -140,6 +140,8 @@
     "setDefault": "Imposta come predefinito",
     "previewUnsavedTitle": "Anteprima con modifiche non salvate",
     "previewUnsavedWarning": "Le modifiche andranno perse se non salvi",
+    "pdfExportComingSoon": "Esportazione PDF in arrivo!",
+    "confirmDelete": "Sei sicuro di voler eliminare questo CV?",
     "empty": {
       "title": "Nessun CV ancora",
       "description": "Crea il tuo primo CV professionale per iniziare a candidarti."
@@ -202,6 +204,20 @@
         "projects": "Risultati chiave"
       },
       "contactHint": "Aggiungi i tuoi dettagli di contatto e link professionali",
+      "fullName": "Nome completo",
+      "fullNamePlaceholder": "Mario Rossi",
+      "email": "E-mail",
+      "emailPlaceholder": "mario@esempio.it",
+      "phone": "Telefono",
+      "phonePlaceholder": "+41 79 123 45 67",
+      "locationLabel": "Posizione",
+      "locationPlaceholder": "Lugano, Svizzera",
+      "linkedin": "LinkedIn",
+      "linkedinPlaceholder": "linkedin.com/in/mariorossi",
+      "github": "GitHub",
+      "githubPlaceholder": "github.com/mariorossi",
+      "website": "Sito web",
+      "websitePlaceholder": "mariorossi.ch",
       "summaryHint": "Scrivi una breve panoramica del tuo background professionale e risultati chiave",
       "summaryPlaceholder": "es. Ingegnere software esperto con 5+ anni di esperienza nello sviluppo di applicazioni web scalabili...",
       "recommended": "Consigliato",
@@ -301,7 +317,7 @@
       "contactDetails": "Dati di contatto",
       "sectionTitle": "Titolo sezione",
       "description": "Descrizione",
-      "gap": "Gap"
+      "gap": "Spaziatura"
     },
     "colorWheel": {
       "sidebarColor": "Colore barra laterale",
@@ -326,7 +342,64 @@
     "save": "Salva",
     "saving": "Salvataggio...",
     "delete": "Elimina",
+    "deleting": "Eliminazione...",
     "confirm": "Conferma",
     "back": "Indietro"
+  },
+  "errors": {
+    "unauthorized": "Non autorizzato",
+    "generic": "Si è verificato un errore. Riprova.",
+    "notFound": "Non trovato",
+    "validation": {
+      "required": "Questo campo è obbligatorio",
+      "descriptionTooShort": "Aggiungi una descrizione (almeno 10 caratteri) prima di ottimizzare",
+      "summaryRequired": "Scrivi almeno un breve riassunto prima di ottimizzare",
+      "skillsRequired": "Aggiungi un nome di categoria e competenze prima di ottimizzare",
+      "descriptionRequiredTranslate": "Scrivi una descrizione prima di tradurre",
+      "summaryRequiredTranslate": "Scrivi un riassunto prima di tradurre",
+      "skillsRequiredTranslate": "Aggiungi un nome di categoria e competenze prima di tradurre",
+      "jobDescriptionRequired": "La descrizione del lavoro è obbligatoria",
+      "jobDescriptionTooShort": "La descrizione del lavoro è troppo breve. Fornisci almeno 100 caratteri.",
+      "jobTitleRequired": "Il titolo del lavoro è obbligatorio",
+      "invalidTemplate": "Template selezionato non valido",
+      "invalidLanguage": "La lingua di destinazione deve essere: francese, tedesco, inglese o italiano",
+      "textTooShort": "Il testo deve contenere almeno 10 caratteri",
+      "loginRequired": "Devi essere connesso per eseguire questa azione"
+    },
+    "api": {
+      "transformExperience": "Impossibile trasformare l'esperienza",
+      "transformSummary": "Impossibile trasformare il riassunto",
+      "translateText": "Impossibile tradurre il testo",
+      "optimizeDescription": "Impossibile ottimizzare la descrizione",
+      "generateResume": "Impossibile generare il CV",
+      "createResume": "Impossibile creare il CV",
+      "adaptResume": "Impossibile adattare il CV",
+      "downloadDocx": "Impossibile scaricare il documento Word. Riprova.",
+      "deleteResume": "Impossibile eliminare il CV",
+      "duplicateResume": "Impossibile duplicare il CV",
+      "setDefault": "Impossibile impostare come predefinito",
+      "resumeNotFound": "CV non trovato o non hai il permesso di accedervi"
+    },
+    "success": {
+      "cvAdapted": "CV adattato con successo. Rivedi e salva quando sei pronto."
+    }
+  },
+  "aria": {
+    "openMainMenu": "Apri menu principale",
+    "closeMenu": "Chiudi menu",
+    "previousTestimonial": "Testimonianza precedente",
+    "nextTestimonial": "Testimonianza successiva",
+    "goToTestimonial": "Vai alla testimonianza",
+    "hideFromCV": "Nascondi dal CV",
+    "showInCV": "Mostra nel CV",
+    "showSection": "Mostra sezione",
+    "hideSection": "Nascondi sezione"
+  },
+  "translation": {
+    "translatedTo": "Tradotto in",
+    "useTranslation": "Usa traduzione",
+    "keepOriginal": "Mantieni originale",
+    "currentAchievements": "Risultati attuali",
+    "clearAll": "Cancella tutto"
   }
 }

@@ -114,7 +114,7 @@ export function LanguagesSection({ resume, updateResume, dict }: LanguagesSectio
                 <button
                   onClick={() => toggleVisibility(index)}
                   className={`transition-colors ${language.visible ?? true ? 'text-slate-600 hover:text-slate-800' : 'text-slate-300 hover:text-slate-400'}`}
-                  title={language.visible ?? true ? 'Hide from CV' : 'Show in CV'}
+                  title={language.visible ?? true ? (dict?.aria?.hideFromCV || 'Hide from CV') : (dict?.aria?.showInCV || 'Show in CV')}
                 >
                   {language.visible ?? true ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                 </button>

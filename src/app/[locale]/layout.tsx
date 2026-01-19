@@ -28,7 +28,7 @@ export async function generateMetadata({
 }
 
 export async function generateStaticParams() {
-  return [{ locale: "fr" }, { locale: "de" }, { locale: "en" }];
+  return [{ locale: "fr" }, { locale: "de" }, { locale: "en" }, { locale: "it" }];
 }
 
 export default function LocaleLayout({
