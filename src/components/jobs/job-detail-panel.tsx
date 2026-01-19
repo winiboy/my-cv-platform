@@ -4,6 +4,7 @@ import { MapPin, Briefcase, DollarSign, Calendar, Bookmark, ExternalLink, CheckC
 import type { JobListing } from '@/types/jobs'
 import type { Locale } from '@/lib/i18n'
 import { useState } from 'react'
+import { isRedirectContent } from '@/lib/adzuna-client'
 import { Button } from '@/components/ui/button'
 import { CVAdaptationModal } from '@/components/dashboard/cv-adaptation-modal'
 import { ResumeSelectorModal } from './resume-selector-modal'
@@ -15,6 +16,16 @@ interface JobDetailPanelProps {
   job: JobListing
   dict: any
   locale: Locale
+}
+
+/**
+ * Validate that a job description is usable (not redirect content)
+ * Returns the description if valid, or null if it's redirect/tainted content
+ */
+function getValidDescription(description: string | undefined): string | null {
+  if (!description || description.trim().length === 0) return null
+  if (isRedirectContent(description)) return null
+  return description
 }
 
 export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
@@ -81,33 +92,61 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
 
           const data = await response.json()
 
+          // Determine the best available job description
+          let finalDescription: string | null = null
+          let finalTitle = job.title
+          let finalCompany = job.company
+
           if (response.ok && data.success) {
-            setFetchedJobData({
-              description: data.jobDescription || job.description,
-              title: data.jobTitle || job.title,
-              company: data.company || job.company,
-            })
-          } else {
-            // Fallback to existing job data if fetch fails
-            setFetchedJobData({
-              description: job.description,
-              title: job.title,
-              company: job.company,
-            })
+            // API succeeded, validate the fetched description
+            finalDescription = getValidDescription(data.jobDescription)
+            finalTitle = data.jobTitle || job.title
+            finalCompany = data.company || job.company
           }
+
+          // If API failed or returned redirect content, try fallback
+          if (!finalDescription) {
+            finalDescription = getValidDescription(job.description)
+          }
+
+          // If no valid description available at all, show error and return
+          if (!finalDescription) {
+            console.error('[handleAdaptCV] No valid job description available - both fetched and fallback are redirect content')
+            alert(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
+            setIsFetchingJob(false)
+            return
+          }
+
+          setFetchedJobData({
+            description: finalDescription,
+            title: finalTitle,
+            company: finalCompany,
+          })
         } catch (fetchError) {
           console.error('Error fetching external job:', fetchError)
-          // Fallback to existing job data
+          // Fallback to existing job data, but validate it first
+          const validDescription = getValidDescription(job.description)
+          if (!validDescription) {
+            alert(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
+            setIsFetchingJob(false)
+            return
+          }
           setFetchedJobData({
-            description: job.description,
+            description: validDescription,
             title: job.title,
             company: job.company,
           })
         }
       } else {
-        // No external URL, use existing job data
+        // No external URL, use existing job data but validate it first
+        const validDescription = getValidDescription(job.description)
+        if (!validDescription) {
+          alert(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
+          setIsFetchingJob(false)
+          return
+        }
         setFetchedJobData({
-          description: job.description,
+          description: validDescription,
           title: job.title,
           company: job.company,
         })
@@ -201,20 +240,37 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
 
       const data = await response.json()
 
-      if (!response.ok || !data.success) {
-        // Fallback to existing job data if fetch fails
-        setFetchedJobData({
-          description: job.description,
-          title: job.title,
-          company: job.company,
-        })
-      } else {
-        setFetchedJobData({
-          description: data.jobDescription || job.description,
-          title: data.jobTitle || job.title,
-          company: data.company || job.company,
-        })
+      // Determine the best available job description
+      let finalDescription: string | null = null
+      let finalTitle = job.title
+      let finalCompany = job.company
+
+      if (response.ok && data.success) {
+        // API succeeded, validate the fetched description
+        finalDescription = getValidDescription(data.jobDescription)
+        finalTitle = data.jobTitle || job.title
+        finalCompany = data.company || job.company
       }
+
+      // If API failed or returned redirect content, try fallback
+      if (!finalDescription) {
+        finalDescription = getValidDescription(job.description)
+      }
+
+      // If no valid description available at all, show error
+      if (!finalDescription) {
+        console.error('[handleCreateCV] No valid job description available - both fetched and fallback are redirect content')
+        alert(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
+        setIsFetchingJob(false)
+        setIsCreateCVMode(false)
+        return
+      }
+
+      setFetchedJobData({
+        description: finalDescription,
+        title: finalTitle,
+        company: finalCompany,
+      })
 
       // Fetch user's resumes
       const { data: resumes, error } = await supabase
@@ -256,9 +312,14 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
     setShowResumeSelector(false)
 
     if (!job.application_url || job.application_url === '#') {
-      // Use existing job data if no external URL
+      // Use existing job data if no external URL, but validate it first
+      const validDescription = getValidDescription(job.description)
+      if (!validDescription) {
+        alert(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
+        return
+      }
       setFetchedJobData({
-        description: job.description,
+        description: validDescription,
         title: job.title,
         company: job.company,
       })
@@ -282,30 +343,50 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
 
       const data = await response.json()
 
-      let jobDataToUse = {
-        description: job.description,
-        title: job.title,
-        company: job.company,
-      }
+      // Determine the best available job description
+      let finalDescription: string | null = null
+      let finalTitle = job.title
+      let finalCompany = job.company
 
       if (response.ok && data.success) {
-        jobDataToUse = {
-          description: data.jobDescription || job.description,
-          title: data.jobTitle || job.title,
-          company: data.company || job.company,
-        }
+        // API succeeded, validate the fetched description
+        finalDescription = getValidDescription(data.jobDescription)
+        finalTitle = data.jobTitle || job.title
+        finalCompany = data.company || job.company
       }
 
-      setFetchedJobData(jobDataToUse)
+      // If API failed or returned redirect content, try fallback
+      if (!finalDescription) {
+        finalDescription = getValidDescription(job.description)
+      }
+
+      // If no valid description available at all, show error
+      if (!finalDescription) {
+        console.error('[handleCreateNewCVFromSelector] No valid job description available - both fetched and fallback are redirect content')
+        alert(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
+        setIsFetchingJob(false)
+        return
+      }
+
+      setFetchedJobData({
+        description: finalDescription,
+        title: finalTitle,
+        company: finalCompany,
+      })
       setIsFetchingJob(false)
       setIsCreateNewCVMode(true)
       setShowCreateNewCVModal(true)
     } catch (error) {
       console.error('Error fetching job for new CV:', error)
       setIsFetchingJob(false)
-      // Fallback: use existing job data
+      // Fallback: use existing job data, but validate it first
+      const validDescription = getValidDescription(job.description)
+      if (!validDescription) {
+        alert(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
+        return
+      }
       setFetchedJobData({
-        description: job.description,
+        description: validDescription,
         title: job.title,
         company: job.company,
       })

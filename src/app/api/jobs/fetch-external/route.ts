@@ -1,10 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import Groq from 'groq-sdk'
+import { isRedirectContent } from '@/lib/adzuna-client'
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 })
+
+/**
+ * Allowed domains for fetching job descriptions
+ * This prevents SSRF attacks by only allowing known job board domains
+ */
+const ALLOWED_DOMAINS = [
+  // Adzuna domains
+  'adzuna.ch', 'adzuna.com', 'adzuna.de', 'adzuna.fr', 'adzuna.co.uk',
+  // Swiss job boards
+  'jobs.ch', 'jobcloud.ch', 'jobup.ch', 'jobscout24.ch',
+  // International job boards
+  'indeed.com', 'indeed.ch', 'indeed.de', 'indeed.fr',
+  'linkedin.com',
+  'glassdoor.com', 'glassdoor.ch',
+  'monster.ch', 'monster.com',
+  'stepstone.ch', 'stepstone.de',
+  'xing.com',
+  'karriere.at',
+  // Swiss company career pages (common domains)
+  'join.com', 'greenhouse.io', 'lever.co', 'workday.com', 'smartrecruiters.com',
+  'breezy.hr', 'recruitee.com', 'teamtailor.com', 'personio.de', 'personio.ch',
+]
+
+/**
+ * Check if a URL's hostname is from an allowed domain
+ */
+function isAllowedDomain(url: string): boolean {
+  try {
+    const parsedUrl = new URL(url)
+    const hostname = parsedUrl.hostname.toLowerCase()
+
+    // Check if hostname matches or is a subdomain of an allowed domain
+    return ALLOWED_DOMAINS.some(domain =>
+      hostname === domain || hostname.endsWith('.' + domain)
+    )
+  } catch {
+    return false
+  }
+}
 
 /**
  * API endpoint to fetch full job description from external URL
@@ -44,18 +84,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Security: Validate that the URL is from an allowed domain to prevent SSRF
+    if (!isAllowedDomain(parsedUrl.toString())) {
+      console.log('[fetch-external] Domain not allowed:', parsedUrl.hostname)
+      return NextResponse.json(
+        { error: 'Domain not allowed for job fetching' },
+        { status: 400 }
+      )
+    }
+
     // Fetch the external page with redirect following
     let html = await fetchWithRedirectHandling(parsedUrl.toString())
 
     // Check if this is a redirect/interstitial page and handle it
     const redirectResult = detectAndHandleRedirectPage(html, parsedUrl.toString())
     if (redirectResult.isRedirect && redirectResult.targetUrl) {
-      console.log('[fetch-external] Detected redirect page, following to:', redirectResult.targetUrl)
-      try {
-        html = await fetchWithRedirectHandling(redirectResult.targetUrl)
-      } catch (redirectError) {
-        console.error('[fetch-external] Failed to follow redirect:', redirectError)
-        // Continue with original HTML if redirect fails
+      // Security: Validate redirect URL is from an allowed domain
+      if (isAllowedDomain(redirectResult.targetUrl)) {
+        console.log('[fetch-external] Detected redirect page, following to:', redirectResult.targetUrl)
+        try {
+          html = await fetchWithRedirectHandling(redirectResult.targetUrl)
+        } catch (redirectError) {
+          console.error('[fetch-external] Failed to follow redirect:', redirectError)
+          // Continue with original HTML if redirect fails
+        }
+      } else {
+        console.log('[fetch-external] Redirect URL not from allowed domain:', redirectResult.targetUrl)
       }
     }
 
@@ -63,20 +117,34 @@ export async function POST(request: NextRequest) {
     const extractedData = extractJobDetails(html)
 
     // If extraction still looks like a redirect page, try the Adzuna land/ad URL
-    if (isLikelyRedirectContent(extractedData.description)) {
+    if (isUnusableContent(extractedData.description)) {
       const landAdUrl = extractAdzunaLandUrl(html)
-      if (landAdUrl) {
+      // Security: Validate land/ad URL is from an allowed domain
+      if (landAdUrl && isAllowedDomain(landAdUrl)) {
         console.log('[fetch-external] Content still looks like redirect, trying land/ad URL:', landAdUrl)
         try {
           const landHtml = await fetchWithRedirectHandling(landAdUrl)
           const landData = extractJobDetails(landHtml)
-          if (!isLikelyRedirectContent(landData.description) && landData.description.length > extractedData.description.length) {
+          if (!isUnusableContent(landData.description) && landData.description.length > extractedData.description.length) {
             return processAndRespond(landData, targetLanguage)
           }
         } catch (landError) {
           console.error('[fetch-external] Failed to fetch land/ad URL:', landError)
         }
+      } else if (landAdUrl) {
+        console.log('[fetch-external] Land/ad URL not from allowed domain:', landAdUrl)
       }
+    }
+
+    // Final check: if extracted content is still redirect content, return error
+    // This ensures the frontend knows the fetch failed and can handle it appropriately
+    if (isUnusableContent(extractedData.description)) {
+      console.log('[fetch-external] Final content is still redirect content, returning error')
+      return NextResponse.json({
+        success: false,
+        error: 'Could not extract job description - content appears to be a redirect page',
+        isRedirectContent: true,
+      })
     }
 
     // Process and respond with the extracted data
@@ -129,6 +197,9 @@ function detectAndHandleRedirectPage(html: string, originalUrl: string): { isRed
     /StepStone/i,                              // StepStone specific
     /Indeed/i,                                 // Indeed specific
     /jobup/i,                                  // JobUp specific
+    /Jobcloud/i,                               // Jobcloud specific
+    /tous les emplois\.\s*partout/i,           // Adzuna French tagline
+    /all jobs\.\s*everywhere/i,                // Adzuna English tagline
   ]
 
   const isRedirect = redirectIndicators.some(pattern => pattern.test(html))
@@ -137,11 +208,14 @@ function detectAndHandleRedirectPage(html: string, originalUrl: string): { isRed
     return { isRedirect: false, targetUrl: null }
   }
 
+  console.log('[fetch-external] Redirect page detected, attempting to extract target URL')
+
   // Try to extract the redirect URL from various sources
 
   // 1. Meta refresh tag
   const metaRefreshMatch = html.match(/<meta[^>]*http-equiv=["']refresh["'][^>]*content=["'][^"']*url=([^"'\s>]+)/i)
   if (metaRefreshMatch) {
+    console.log('[fetch-external] Found meta refresh redirect:', metaRefreshMatch[1])
     return { isRedirect: true, targetUrl: metaRefreshMatch[1] }
   }
 
@@ -154,54 +228,135 @@ function detectAndHandleRedirectPage(html: string, originalUrl: string): { isRed
   for (const pattern of jsRedirectPatterns) {
     const match = html.match(pattern)
     if (match && match[1] && !match[1].includes('javascript:')) {
+      console.log('[fetch-external] Found JS redirect:', match[1])
       return { isRedirect: true, targetUrl: match[1] }
     }
   }
 
-  // 3. Look for "see the ad here" type links
+  // 3. Look for "see the ad here" type links (various patterns)
   const linkPatterns = [
+    // French patterns - "voir l'annonce ici" link
+    /<a[^>]*href=["']([^"']+)["'][^>]*>[^<]*voir[^<]*l['']annonce[^<]*ici/i,
+    /<a[^>]*href=["']([^"']+)["'][^>]*>[^<]*voir[^<]*annonce/i,
     /voir l['']annonce ici[^<]*<a[^>]*href=["']([^"']+)["']/i,
+    /voir l['']annonce[^<]*<a[^>]*href=["']([^"']+)["']/i,
+    // English patterns
     /see the (?:ad|job|listing) here[^<]*<a[^>]*href=["']([^"']+)["']/i,
     /<a[^>]*href=["']([^"']+)["'][^>]*>(?:[^<]*voir[^<]*annonce|[^<]*see[^<]*job)/i,
+    // German patterns
+    /<a[^>]*href=["']([^"']+)["'][^>]*>[^<]*Anzeige[^<]*ansehen/i,
   ]
   for (const pattern of linkPatterns) {
     const match = html.match(pattern)
     if (match && match[1]) {
+      const url = resolveUrl(match[1], originalUrl)
+      console.log('[fetch-external] Found "see ad here" link:', url)
+      return { isRedirect: true, targetUrl: url }
+    }
+  }
+
+  // 4. Look for Jobcloud/Swiss job board URLs directly in links
+  const jobcloudPatterns = [
+    /href=["'](https?:\/\/[^"']*(?:jobs\.ch|jobcloud\.ch|jobup\.ch|jobscout24\.ch)[^"']*)["']/i,
+    /href=["'](https?:\/\/[^"']*\.jobcloud\.[^"']*)["']/i,
+  ]
+  for (const pattern of jobcloudPatterns) {
+    const match = html.match(pattern)
+    if (match && match[1]) {
+      console.log('[fetch-external] Found Jobcloud URL:', match[1])
       return { isRedirect: true, targetUrl: match[1] }
     }
   }
 
-  // 4. Look for Adzuna land/ad URL pattern
+  // 5. Look for Adzuna land/ad URL pattern
   const landAdMatch = html.match(/href=["'](https?:\/\/[^"']*adzuna[^"']*\/land\/ad\/[^"']+)["']/i)
   if (landAdMatch) {
+    console.log('[fetch-external] Found Adzuna land/ad URL:', landAdMatch[1])
     return { isRedirect: true, targetUrl: landAdMatch[1] }
   }
 
+  // 6. Generic fallback: Find any external link that might be the job posting
+  // Look for links to common job board domains
+  const externalJobBoardPatterns = [
+    /href=["'](https?:\/\/[^"']*(?:stepstone|indeed|linkedin|monster|glassdoor|xing|karriere)[^"']*)["']/i,
+  ]
+  for (const pattern of externalJobBoardPatterns) {
+    const match = html.match(pattern)
+    if (match && match[1]) {
+      console.log('[fetch-external] Found external job board URL:', match[1])
+      return { isRedirect: true, targetUrl: match[1] }
+    }
+  }
+
+  // 7. Last resort: Find any anchor tag that looks like an external job link
+  // Exclude common non-job links like social media, terms, privacy
+  const allLinksMatch = html.matchAll(/<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([^<]*)</gi)
+  for (const match of allLinksMatch) {
+    const url = match[1]
+    const linkText = match[2].toLowerCase()
+
+    // Skip social media, navigation, and policy links
+    const excludePatterns = [
+      /facebook|twitter|linkedin\.com\/share|instagram|youtube/i,
+      /privacy|terms|conditions|cookie|legal|imprint|impressum/i,
+      /adzuna\.(?:com|ch|de|fr)/i, // Skip internal Adzuna links
+    ]
+
+    const shouldExclude = excludePatterns.some(p => p.test(url))
+
+    // Include if link text suggests it's the job link
+    const includeTextPatterns = ['voir', 'annonce', 'see', 'job', 'view', 'apply', 'postuler', 'ansehen', 'stelle']
+    const hasIncludeText = includeTextPatterns.some(t => linkText.includes(t))
+
+    if (!shouldExclude && hasIncludeText) {
+      console.log('[fetch-external] Found potential job link via text analysis:', url)
+      return { isRedirect: true, targetUrl: url }
+    }
+  }
+
+  console.log('[fetch-external] No redirect URL found in page')
   return { isRedirect: true, targetUrl: null }
 }
 
 /**
- * Check if extracted content looks like a redirect page (minimal content with redirect text)
+ * Resolve a potentially relative URL against a base URL
  */
-function isLikelyRedirectContent(description: string): boolean {
-  if (!description || description.length < 50) return true
+function resolveUrl(url: string, baseUrl: string): string {
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
 
-  const lowerDesc = description.toLowerCase()
-  const redirectPhrases = [
-    'redirigé vers',
-    'redirected to',
-    'weitergeleitet',
-    'vous allez être redirigé',
-    'you will be redirected',
-    'si vous n\'êtes pas redirigé',
-    'if you are not redirected',
-    'tous les emplois. partout',
-    'all jobs. everywhere',
-  ]
+  try {
+    const base = new URL(baseUrl)
+    if (url.startsWith('//')) {
+      return `${base.protocol}${url}`
+    }
+    if (url.startsWith('/')) {
+      return `${base.origin}${url}`
+    }
+    // Relative path
+    const basePath = base.pathname.substring(0, base.pathname.lastIndexOf('/') + 1)
+    return `${base.origin}${basePath}${url}`
+  } catch {
+    return url
+  }
+}
 
-  // Check if description is very short and contains redirect phrases
-  if (description.length < 500) {
-    return redirectPhrases.some(phrase => lowerDesc.includes(phrase))
+/**
+ * Check if extracted content is unusable (empty, too short, or redirect content)
+ * Uses the shared isRedirectContent function from adzuna-client.ts
+ */
+function isUnusableContent(description: string): boolean {
+  // Empty or very short descriptions are unusable
+  if (!description || description.length < 50) {
+    console.log('[fetch-external] Content is empty or too short')
+    return true
+  }
+
+  // Delegate redirect detection to the shared function
+  if (isRedirectContent(description)) {
+    console.log('[fetch-external] Content detected as redirect page by isRedirectContent')
+    return true
   }
 
   return false
@@ -315,7 +470,7 @@ function extractJobDetails(html: string): {
   detectedLanguage: string
 } {
   // Remove script and style tags
-  let cleanHtml = html
+  const cleanHtml = html
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<noscript[^>]*>[\s\S]*?<\/noscript>/gi, '')

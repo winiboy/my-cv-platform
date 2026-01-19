@@ -77,6 +77,7 @@
     "newCVDescription": "Neuen Lebenslauf basierend auf dieser Stellenbeschreibung erstellen",
     "createButton": "Analysieren und neuen Lebenslauf generieren",
     "creating": "Ihr Lebenslauf wird erstellt...",
-    "helpText": "Die Stellenbeschreibung wurde vorausgefüllt. Überprüfen Sie die Details und klicken Sie auf \"Lebenslauf erstellen\", um einen neuen Lebenslauf für diese Stelle zu generieren."
+    "helpText": "Die Stellenbeschreibung wurde vorausgefüllt. Überprüfen Sie die Details und klicken Sie auf \"Lebenslauf erstellen\", um einen neuen Lebenslauf für diese Stelle zu generieren.",
+    "noDescriptionError": "Stellenbeschreibung konnte nicht abgerufen werden. Bitte besuchen Sie das Stelleninserat direkt für weitere Details."
   }
 }

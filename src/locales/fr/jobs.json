@@ -77,6 +77,7 @@
     "newCVDescription": "Créer un nouveau CV basé sur cette offre d'emploi",
     "createButton": "Analyser et générer un nouveau CV",
     "creating": "Création de votre CV...",
-    "helpText": "La description du poste a été pré-remplie. Vérifiez les détails et cliquez sur \"Créer le CV\" pour générer un nouveau CV adapté à cette offre."
+    "helpText": "La description du poste a été pré-remplie. Vérifiez les détails et cliquez sur \"Créer le CV\" pour générer un nouveau CV adapté à cette offre.",
+    "noDescriptionError": "Impossible de récupérer la description du poste. Veuillez consulter l'offre d'emploi directement pour plus de détails."
   }
 }

@@ -79,8 +79,61 @@ function formatSalaryRange(job: AdzunaJobResult): string | undefined {
 }
 
 /**
+ * Detect if a description contains redirect/interstitial page content
+ * This happens when Adzuna returns a redirect page instead of actual job content
+ */
+export function isRedirectContent(description: string): boolean {
+  if (!description || description.length < 20) return false
+
+  const lowerDesc = description.toLowerCase()
+
+  // Redirect-specific phrases that indicate the content is from a redirect page
+  const redirectPhrases = [
+    'vous allez être redirigé',     // French: "You will be redirected"
+    'you will be redirected',        // English
+    'si vous n\'êtes pas redirigé', // French: "If you are not redirected"
+    "si vous n'êtes pas redirigé",  // French (alternative quote)
+    'if you are not redirected',     // English
+    'redirigé vers jobcloud',        // Jobcloud redirect
+    'redirected to jobcloud',
+    'tous les emplois. partout',     // Adzuna tagline (French)
+    'tous les emplois partout',      // Without period
+    'all jobs. everywhere',          // Adzuna tagline (English)
+    'all jobs everywhere',           // Without period
+    'dans les 5 secondes',           // "in 5 seconds"
+    'in 5 seconds',
+    'in wenigen sekunden',           // German "in a few seconds"
+    'voir l\'annonce ici',           // "see the ad here" - redirect link text
+    "voir l'annonce ici",            // Alternative quote
+    'see the ad here',
+    'anzeige ansehen',               // German "view ad"
+  ]
+
+  // Check if any redirect phrase is present
+  const hasRedirectPhrase = redirectPhrases.some(phrase => lowerDesc.includes(phrase))
+
+  if (!hasRedirectPhrase) return false
+
+  // If description is short (< 500 chars) and has redirect phrases, it's likely a redirect page
+  if (description.length < 500) return true
+
+  // For longer content, check if multiple redirect indicators are present
+  // This handles cases where there might be some padding content
+  const phraseCount = redirectPhrases.filter(phrase => lowerDesc.includes(phrase)).length
+  if (phraseCount >= 2) return true
+
+  // Check for Adzuna-specific minimal content pattern
+  if (/adzuna\s*tous les emplois/i.test(description) && description.length < 800) {
+    return true
+  }
+
+  return false
+}
+
+/**
  * Clean and format job description from Adzuna
  * Preserves all content without truncation
+ * Returns placeholder if redirect content is detected
  */
 function cleanDescription(html: string): string {
   // Remove HTML tags but preserve line breaks
@@ -106,6 +159,13 @@ function cleanDescription(html: string): string {
     .replace(/\n\s+\n/g, '\n\n') // Clean up paragraph breaks
     .replace(/\n{3,}/g, '\n\n') // Max 2 newlines
     .trim()
+
+  // Check for redirect content and return empty string if detected
+  // This prevents tainted data from being used downstream
+  if (isRedirectContent(clean)) {
+    console.log('[Adzuna] Detected redirect content in description, returning empty string')
+    return ''
+  }
 
   // NO TRUNCATION - return full description
   return clean

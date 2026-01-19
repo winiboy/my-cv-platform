@@ -77,6 +77,7 @@
     "newCVDescription": "Crea un nuovo CV basato su questa descrizione del lavoro",
     "createButton": "Analizza e genera nuovo CV",
     "creating": "Creazione del tuo CV...",
-    "helpText": "La descrizione del lavoro è stata precompilata. Rivedi i dettagli e clicca su \"Crea CV\" per generare un nuovo CV su misura per questa offerta."
+    "helpText": "La descrizione del lavoro è stata precompilata. Rivedi i dettagli e clicca su \"Crea CV\" per generare un nuovo CV su misura per questa offerta.",
+    "noDescriptionError": "Impossibile recuperare la descrizione del lavoro. Visita direttamente l'annuncio di lavoro per maggiori dettagli."
   }
 }
