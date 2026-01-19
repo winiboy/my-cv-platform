@@ -232,21 +232,11 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
 
       setIsFetchingJob(false)
 
-      if (!resumes || resumes.length === 0) {
-        // No existing resumes - show the create new CV modal directly
-        // fetchedJobData is already set at this point
-        setIsCreateCVMode(false)
-        setIsCreateNewCVMode(true)
-        setShowCreateNewCVModal(true)
-        return
-      }
-
-      if (resumes.length === 1 && resumes[0]) {
-        setSelectedResumeId(resumes[0].id)
-        setShowAdaptationModal(true)
-      } else {
-        setShowResumeSelector(true)
-      }
+      // Always show the create new CV modal for "Créer un CV" button
+      // This bypasses any existing CV comparison and creates a fresh CV
+      setIsCreateCVMode(false)
+      setIsCreateNewCVMode(true)
+      setShowCreateNewCVModal(true)
     } catch (error) {
       console.error('Error in handleCreateCV:', error)
       alert('An error occurred. Please try again.')

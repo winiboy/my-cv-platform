@@ -75,7 +75,7 @@
     "selectResumeTitleWithCreate": "Select CV to Adapt or Create a New CV",
     "newCV": "New CV",
     "newCVDescription": "Create a new CV based on this job description",
-    "createButton": "Create CV",
+    "createButton": "Analyze and generate new CV",
     "creating": "Creating your CV...",
     "helpText": "The job description has been pre-filled. Review the details and click \"Create CV\" to generate a new CV tailored to this job."
   }

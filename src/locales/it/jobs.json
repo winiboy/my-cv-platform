@@ -75,7 +75,7 @@
     "selectResumeTitleWithCreate": "Seleziona CV da adattare o crea un nuovo CV",
     "newCV": "Nuovo CV",
     "newCVDescription": "Crea un nuovo CV basato su questa descrizione del lavoro",
-    "createButton": "Crea CV",
+    "createButton": "Analizza e genera nuovo CV",
     "creating": "Creazione del tuo CV...",
     "helpText": "La descrizione del lavoro è stata precompilata. Rivedi i dettagli e clicca su \"Crea CV\" per generare un nuovo CV su misura per questa offerta."
   }

@@ -75,7 +75,7 @@
     "selectResumeTitleWithCreate": "Lebenslauf zum Anpassen auswählen oder neuen Lebenslauf erstellen",
     "newCV": "Neuer Lebenslauf",
     "newCVDescription": "Neuen Lebenslauf basierend auf dieser Stellenbeschreibung erstellen",
-    "createButton": "Lebenslauf erstellen",
+    "createButton": "Analysieren und neuen Lebenslauf generieren",
     "creating": "Ihr Lebenslauf wird erstellt...",
     "helpText": "Die Stellenbeschreibung wurde vorausgefüllt. Überprüfen Sie die Details und klicken Sie auf \"Lebenslauf erstellen\", um einen neuen Lebenslauf für diese Stelle zu generieren."
   }
