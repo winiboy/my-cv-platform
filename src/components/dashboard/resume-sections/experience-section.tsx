@@ -74,39 +74,116 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
       case 'numberedList':
         document.execCommand('insertOrderedList')
         break
-      case 'dashList':
-        // Check if we're already in a dash list (to toggle it off)
-        const existingDashList = editor.querySelector('ul[style*="list-style-type: none"]')
-        if (existingDashList) {
-          // Remove dash spans from each li before removing the list
-          const dashItems = existingDashList.querySelectorAll('li')
-          dashItems.forEach(item => {
-            // Remove the dash span at the beginning
-            const dashSpan = item.querySelector('span[style*="margin-right"]')
-            if (dashSpan && dashSpan.textContent === '-') {
+      case 'dashList': {
+        // Save selection state using range for more reliable traversal
+        const sel = window.getSelection()
+        if (!sel || sel.rangeCount === 0) break
+
+        const range = sel.getRangeAt(0)
+        let node: Node | null = range.startContainer
+        let currentList: HTMLUListElement | null = null
+
+        // Traverse up to find the parent UL element
+        while (node && node !== editor) {
+          if (node.nodeName === 'UL') {
+            currentList = node as HTMLUListElement
+            break
+          }
+          node = node.parentNode
+        }
+
+        // Detect dash list by checking ONLY for presence of dash spans (more reliable than inline styles)
+        const hasDashSpans = currentList &&
+          Array.from(currentList.querySelectorAll('li')).some(li =>
+            li.querySelector('span[data-dash="true"]') !== null
+          )
+
+        if (currentList && hasDashSpans) {
+          // TOGGLE OFF: Replace entire list with paragraphs
+          // Manual DOM manipulation is required because execCommand('insertUnorderedList')
+          // only toggles the first line when multiple lines are selected in a dash list.
+
+          // 1. Collect all list item contents (removing dash spans, filtering empty)
+          const items = currentList.querySelectorAll('li')
+          const contents: string[] = []
+
+          items.forEach(item => {
+            // Remove dash span if present
+            const dashSpan = item.querySelector('span[data-dash="true"]')
+            if (dashSpan) {
               dashSpan.remove()
             }
+            // Store non-empty content only
+            const trimmedContent = item.innerHTML.trim()
+            if (trimmedContent) {
+              contents.push(trimmedContent)
+            }
           })
-          // Remove the list-style-type style so insertUnorderedList works correctly
-          ;(existingDashList as HTMLElement).style.listStyleType = ''
-          // Now toggle off the list
-          document.execCommand('insertUnorderedList')
+
+          // 2. Create document fragment with paragraphs, tracking the last one
+          const fragment = document.createDocumentFragment()
+          let lastParagraph: HTMLParagraphElement | null = null
+
+          contents.forEach(content => {
+            const p = document.createElement('p')
+            p.innerHTML = content
+            fragment.appendChild(p)
+            lastParagraph = p
+          })
+
+          // 3. Replace the UL with the paragraphs
+          if (currentList.parentNode) {
+            currentList.parentNode.replaceChild(fragment, currentList)
+          }
+
+          // 4. Place cursor at the end of the last created paragraph
+          if (lastParagraph) {
+            const newRange = document.createRange()
+            newRange.selectNodeContents(lastParagraph)
+            newRange.collapse(false)
+            sel.removeAllRanges()
+            sel.addRange(newRange)
+          }
+        } else if (currentList) {
+          // IN BULLET LIST: Convert to dash list
+          currentList.style.listStyleType = 'none'
+          const items = currentList.querySelectorAll('li')
+          items.forEach(item => {
+            if (!item.querySelector('span[data-dash="true"]')) {
+              const content = item.innerHTML
+              item.innerHTML = `<span data-dash="true" style="margin-right: 0.5em;">-</span>${content}`
+            }
+          })
         } else {
-          // Create a new dash list
+          // NOT IN LIST: Create new dash list
           document.execCommand('insertUnorderedList')
-          const listElement = editor.querySelector('ul:not([style*="list-style-type"])')
-          if (listElement) {
-            (listElement as HTMLElement).style.listStyleType = 'none'
-            const items = listElement.querySelectorAll('li')
+
+          // Find the newly created list
+          const newSel = window.getSelection()
+          let newNode: Node | null = newSel?.anchorNode || null
+          let newList: HTMLUListElement | null = null
+
+          while (newNode && newNode !== editor) {
+            if (newNode.nodeName === 'UL') {
+              newList = newNode as HTMLUListElement
+              break
+            }
+            newNode = newNode.parentNode
+          }
+
+          if (newList) {
+            newList.style.listStyleType = 'none'
+            const items = newList.querySelectorAll('li')
             items.forEach(item => {
-              if (!item.textContent?.startsWith('- ')) {
-                const textContent = item.innerHTML
-                item.innerHTML = `<span style="margin-right: 0.5em;">-</span>${textContent}`
+              if (!item.querySelector('span[data-dash="true"]')) {
+                const content = item.innerHTML
+                item.innerHTML = `<span data-dash="true" style="margin-right: 0.5em;">-</span>${content}`
               }
             })
           }
         }
         break
+      }
     }
 
     editor.dispatchEvent(new Event('input', { bubbles: true }))
