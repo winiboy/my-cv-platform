@@ -188,6 +188,11 @@
   margin: 0.5rem 0 !important;
 }
 
+/* Allow dash lists (ul with inline list-style-type: none) to override the default */
+[contenteditable="true"] ul[style*="list-style-type: none"] {
+  list-style-type: none !important;
+}
+
 [contenteditable="true"] ol {
   list-style-type: decimal !important;
   padding-left: 2rem !important;

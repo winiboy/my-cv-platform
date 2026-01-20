@@ -298,7 +298,20 @@
       "translateToItalian": "Ins Italienische übersetzen",
       "aiOptimizedSummary": "KI-optimierte Zusammenfassung",
       "useThisVersion": "Diese Version verwenden",
-      "keepOriginal": "Original behalten"
+      "keepOriginal": "Original behalten",
+      "richTextToolbar": {
+        "bold": "Fett (Strg+B)",
+        "italic": "Kursiv (Strg+I)",
+        "underline": "Unterstrichen (Strg+U)",
+        "bulletList": "Aufzählungsliste",
+        "dashList": "Strichliste",
+        "numberedList": "Nummerierte Liste",
+        "font": "Schriftart",
+        "fontSize": "Schriftgröße",
+        "alignLeft": "Linksbündig",
+        "alignCenter": "Zentriert",
+        "alignJustify": "Blocksatz"
+      }
     },
     "template": {
       "keyAchievements": "Wichtige Erfolge",

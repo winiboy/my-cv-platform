@@ -298,7 +298,20 @@
       "translateToItalian": "Translate to Italian",
       "aiOptimizedSummary": "AI-Optimized Summary",
       "useThisVersion": "Use This Version",
-      "keepOriginal": "Keep Original"
+      "keepOriginal": "Keep Original",
+      "richTextToolbar": {
+        "bold": "Bold (Ctrl+B)",
+        "italic": "Italic (Ctrl+I)",
+        "underline": "Underline (Ctrl+U)",
+        "bulletList": "Bullet list",
+        "dashList": "Dash list",
+        "numberedList": "Numbered list",
+        "font": "Font",
+        "fontSize": "Font size",
+        "alignLeft": "Align left",
+        "alignCenter": "Center",
+        "alignJustify": "Justify"
+      }
     },
     "template": {
       "keyAchievements": "Key Achievements",

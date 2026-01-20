@@ -75,17 +75,36 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
         document.execCommand('insertOrderedList')
         break
       case 'dashList':
-        document.execCommand('insertUnorderedList')
-        const listElement = editor.querySelector('ul:not([style*="list-style-type"])')
-        if (listElement) {
-          (listElement as HTMLElement).style.listStyleType = 'none'
-          const items = listElement.querySelectorAll('li')
-          items.forEach(item => {
-            if (!item.textContent?.startsWith('- ')) {
-              const textContent = item.innerHTML
-              item.innerHTML = `<span style="margin-right: 0.5em;">-</span>${textContent}`
+        // Check if we're already in a dash list (to toggle it off)
+        const existingDashList = editor.querySelector('ul[style*="list-style-type: none"]')
+        if (existingDashList) {
+          // Remove dash spans from each li before removing the list
+          const dashItems = existingDashList.querySelectorAll('li')
+          dashItems.forEach(item => {
+            // Remove the dash span at the beginning
+            const dashSpan = item.querySelector('span[style*="margin-right"]')
+            if (dashSpan && dashSpan.textContent === '-') {
+              dashSpan.remove()
             }
           })
+          // Remove the list-style-type style so insertUnorderedList works correctly
+          ;(existingDashList as HTMLElement).style.listStyleType = ''
+          // Now toggle off the list
+          document.execCommand('insertUnorderedList')
+        } else {
+          // Create a new dash list
+          document.execCommand('insertUnorderedList')
+          const listElement = editor.querySelector('ul:not([style*="list-style-type"])')
+          if (listElement) {
+            (listElement as HTMLElement).style.listStyleType = 'none'
+            const items = listElement.querySelectorAll('li')
+            items.forEach(item => {
+              if (!item.textContent?.startsWith('- ')) {
+                const textContent = item.innerHTML
+                item.innerHTML = `<span style="margin-right: 0.5em;">-</span>${textContent}`
+              }
+            })
+          }
         }
         break
     }
@@ -593,6 +612,7 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
                     <KeyAchievementsToolbar
                       editorId={`experience-description-${index}`}
                       onFormat={(command) => handleFormat(index, command)}
+                      dict={dict}
                     />
                   )}
                 </div>
@@ -607,6 +627,7 @@ export function ExperienceSection({ resume, updateResume, dict, locale }: Experi
                     }
                     minHeight="72px"
                     showRibbon={false}
+                    dict={dict}
                   />
                 </div>
               </div>

@@ -27,6 +27,7 @@ interface KeyAchievementsToolbarProps {
   onFormat: (command: KeyAchievementsFormatCommand) => void
   disabled?: boolean
   showItalic?: boolean
+  dict?: any
 }
 
 export function KeyAchievementsToolbar({
@@ -34,7 +35,9 @@ export function KeyAchievementsToolbar({
   onFormat,
   disabled = false,
   showItalic = true,
+  dict,
 }: KeyAchievementsToolbarProps) {
+  const t = dict?.resumes?.editor?.richTextToolbar
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set())
 
   // Update active formats based on current selection
@@ -90,8 +93,8 @@ export function KeyAchievementsToolbar({
         type="button"
         onClick={() => handleButtonClick('alignLeft')}
         className={buttonClass('alignLeft')}
-        title="Aligner à gauche"
-        aria-label="Aligner à gauche"
+        title={t?.alignLeft || 'Align left'}
+        aria-label={t?.alignLeft || 'Align left'}
         disabled={disabled}
       >
         <AlignLeft className="h-3.5 w-3.5" />
@@ -101,8 +104,8 @@ export function KeyAchievementsToolbar({
         type="button"
         onClick={() => handleButtonClick('alignCenter')}
         className={buttonClass('alignCenter')}
-        title="Centrer"
-        aria-label="Centrer"
+        title={t?.alignCenter || 'Center'}
+        aria-label={t?.alignCenter || 'Center'}
         disabled={disabled}
       >
         <AlignCenter className="h-3.5 w-3.5" />
@@ -112,8 +115,8 @@ export function KeyAchievementsToolbar({
         type="button"
         onClick={() => handleButtonClick('alignJustify')}
         className={buttonClass('alignJustify')}
-        title="Justifier"
-        aria-label="Justifier"
+        title={t?.alignJustify || 'Justify'}
+        aria-label={t?.alignJustify || 'Justify'}
         disabled={disabled}
       >
         <AlignJustify className="h-3.5 w-3.5" />
@@ -126,8 +129,8 @@ export function KeyAchievementsToolbar({
         type="button"
         onClick={() => handleButtonClick('bulletList')}
         className={buttonClass('bulletList')}
-        title="Liste à puces"
-        aria-label="Liste à puces"
+        title={t?.bulletList || 'Bullet list'}
+        aria-label={t?.bulletList || 'Bullet list'}
         disabled={disabled}
       >
         <List className="h-3.5 w-3.5" />
@@ -137,8 +140,8 @@ export function KeyAchievementsToolbar({
         type="button"
         onClick={() => handleButtonClick('dashList')}
         className={buttonClass('dashList')}
-        title="Liste avec tirets"
-        aria-label="Liste avec tirets"
+        title={t?.dashList || 'Dash list'}
+        aria-label={t?.dashList || 'Dash list'}
         disabled={disabled}
       >
         <Minus className="h-3.5 w-3.5" />
@@ -148,8 +151,8 @@ export function KeyAchievementsToolbar({
         type="button"
         onClick={() => handleButtonClick('numberedList')}
         className={buttonClass('numberedList')}
-        title="Liste numérotée"
-        aria-label="Liste numérotée"
+        title={t?.numberedList || 'Numbered list'}
+        aria-label={t?.numberedList || 'Numbered list'}
         disabled={disabled}
       >
         <ListOrdered className="h-3.5 w-3.5" />
@@ -162,8 +165,8 @@ export function KeyAchievementsToolbar({
         type="button"
         onClick={() => handleButtonClick('bold')}
         className={buttonClass('bold')}
-        title="Gras (Ctrl+B)"
-        aria-label="Gras"
+        title={t?.bold || 'Bold (Ctrl+B)'}
+        aria-label={t?.bold || 'Bold (Ctrl+B)'}
         disabled={disabled}
       >
         <Bold className="h-3.5 w-3.5" />
@@ -174,8 +177,8 @@ export function KeyAchievementsToolbar({
           type="button"
           onClick={() => handleButtonClick('italic')}
           className={buttonClass('italic')}
-          title="Italique (Ctrl+I)"
-          aria-label="Italique"
+          title={t?.italic || 'Italic (Ctrl+I)'}
+          aria-label={t?.italic || 'Italic (Ctrl+I)'}
           disabled={disabled}
         >
           <Italic className="h-3.5 w-3.5" />

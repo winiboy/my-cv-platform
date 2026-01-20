@@ -14,6 +14,7 @@ interface RichTextEditorProps {
   minHeight?: string
   showRibbon?: boolean
   availableFonts?: string[]
+  dict?: any
 }
 
 export function RichTextEditor({
@@ -24,6 +25,7 @@ export function RichTextEditor({
   className = '',
   minHeight = '192px',
   showRibbon = true,
+  dict,
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
   const [currentFont, setCurrentFont] = useState(DEFAULT_FONT)
@@ -259,6 +261,7 @@ export function RichTextEditor({
           onFormat={handleFormat}
           currentFont={currentFont}
           currentFontSize={currentFontSize}
+          dict={dict}
         />
       )}
 

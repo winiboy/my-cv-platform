@@ -18,6 +18,7 @@ interface FormattingRibbonProps {
   onFormat: (command: FormatCommand, value?: string) => void
   currentFont?: string
   currentFontSize?: number
+  dict?: any
 }
 
 export function FormattingRibbon({
@@ -25,7 +26,9 @@ export function FormattingRibbon({
   onFormat,
   currentFont = 'inherit',
   currentFontSize = DEFAULT_FONT_SIZE,
+  dict,
 }: FormattingRibbonProps) {
+  const t = dict?.resumes?.editor?.richTextToolbar
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set())
 
   // Update active formats based on current selection
@@ -81,8 +84,8 @@ export function FormattingRibbon({
           type="button"
           onClick={() => handleButtonClick('bold')}
           className={buttonClass('bold')}
-          title="Gras (Ctrl+B)"
-          aria-label="Gras"
+          title={t?.bold || 'Bold (Ctrl+B)'}
+          aria-label={t?.bold || 'Bold (Ctrl+B)'}
         >
           <Bold className="h-4 w-4" />
         </button>
@@ -91,8 +94,8 @@ export function FormattingRibbon({
           type="button"
           onClick={() => handleButtonClick('italic')}
           className={buttonClass('italic')}
-          title="Italique (Ctrl+I)"
-          aria-label="Italique"
+          title={t?.italic || 'Italic (Ctrl+I)'}
+          aria-label={t?.italic || 'Italic (Ctrl+I)'}
         >
           <Italic className="h-4 w-4" />
         </button>
@@ -101,8 +104,8 @@ export function FormattingRibbon({
           type="button"
           onClick={() => handleButtonClick('underline')}
           className={buttonClass('underline')}
-          title="Souligné (Ctrl+U)"
-          aria-label="Souligné"
+          title={t?.underline || 'Underline (Ctrl+U)'}
+          aria-label={t?.underline || 'Underline (Ctrl+U)'}
         >
           <Underline className="h-4 w-4" />
         </button>
@@ -114,8 +117,8 @@ export function FormattingRibbon({
           type="button"
           onClick={() => handleButtonClick('bulletList')}
           className="p-2 rounded hover:bg-slate-100 transition-colors text-slate-600"
-          title="Liste à puces"
-          aria-label="Liste à puces"
+          title={t?.bulletList || 'Bullet list'}
+          aria-label={t?.bulletList || 'Bullet list'}
         >
           <List className="h-4 w-4" />
         </button>
@@ -124,8 +127,8 @@ export function FormattingRibbon({
           type="button"
           onClick={() => handleButtonClick('numberedList')}
           className="p-2 rounded hover:bg-slate-100 transition-colors text-slate-600"
-          title="Liste numérotée"
-          aria-label="Liste numérotée"
+          title={t?.numberedList || 'Numbered list'}
+          aria-label={t?.numberedList || 'Numbered list'}
         >
           <ListOrdered className="h-4 w-4" />
         </button>
@@ -138,7 +141,7 @@ export function FormattingRibbon({
           value={currentFont}
           onChange={(e) => handleButtonClick('font', e.target.value)}
           className="text-xs border border-slate-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-          aria-label="Police"
+          aria-label={t?.font || 'Font'}
         >
           {AVAILABLE_FONTS.map((font) => (
             <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
@@ -154,7 +157,7 @@ export function FormattingRibbon({
           value={currentFontSize}
           onChange={(e) => handleButtonClick('fontSize', e.target.value)}
           className="text-xs border border-slate-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-          aria-label="Taille de police"
+          aria-label={t?.fontSize || 'Font size'}
         >
           {FONT_SIZES.map((size) => (
             <option key={size} value={size}>

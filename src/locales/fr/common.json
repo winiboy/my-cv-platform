@@ -296,7 +296,20 @@
       "translateToItalian": "Traduire en italien",
       "aiOptimizedSummary": "Résumé optimisé par IA",
       "useThisVersion": "Utiliser cette version",
-      "keepOriginal": "Conserver l'original"
+      "keepOriginal": "Conserver l'original",
+      "richTextToolbar": {
+        "bold": "Gras (Ctrl+B)",
+        "italic": "Italique (Ctrl+I)",
+        "underline": "Souligné (Ctrl+U)",
+        "bulletList": "Liste à puces",
+        "dashList": "Liste avec tirets",
+        "numberedList": "Liste numérotée",
+        "font": "Police",
+        "fontSize": "Taille de police",
+        "alignLeft": "Aligner à gauche",
+        "alignCenter": "Centrer",
+        "alignJustify": "Justifier"
+      }
     },
     "template": {
       "keyAchievements": "Réalisations clés",
