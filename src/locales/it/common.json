@@ -92,6 +92,7 @@
     "nav": {
       "home": "Home",
       "resumes": "I miei CV",
+      "coverLetters": "Lettere di presentazione",
       "jobs": "Ricerca lavoro",
       "goals": "Obiettivi",
       "settings": "Impostazioni"
@@ -414,5 +415,139 @@
     "keepOriginal": "Mantieni originale",
     "currentAchievements": "Risultati attuali",
     "clearAll": "Cancella tutto"
+  },
+  "coverLetters": {
+    "title": "Lettere di presentazione",
+    "subtitle": "Crea e gestisci le tue lettere di presentazione",
+    "createNew": "Crea lettera",
+    "createFirst": "Crea la tua prima lettera di presentazione",
+    "updated": "Aggiornato",
+    "edit": "Modifica",
+    "delete": "Elimina",
+    "duplicate": "Duplica",
+    "downloadPDF": "Scarica PDF",
+    "confirmDelete": "Sei sicuro di voler eliminare questa lettera di presentazione?",
+    "empty": {
+      "title": "Nessuna lettera di presentazione",
+      "description": "Crea la tua prima lettera di presentazione per le tue candidature.",
+      "createFirst": "Crea la tua prima lettera di presentazione"
+    },
+    "new": {
+      "title": "Crea nuova lettera di presentazione",
+      "subtitle": "Crea una lettera di presentazione per la tua candidatura",
+      "titleLabel": "Titolo della lettera",
+      "titlePlaceholder": "es. Candidatura per Ingegnere Software",
+      "titleHint": "Dai un nome descrittivo alla tua lettera",
+      "titleRequired": "Il titolo della lettera è obbligatorio",
+      "companyLabel": "Nome azienda",
+      "companyPlaceholder": "es. Google",
+      "jobTitleLabel": "Posizione",
+      "jobTitlePlaceholder": "es. Ingegnere Software Senior",
+      "linkResumeLabel": "Collega a un CV",
+      "linkResumeHint": "Usa i dati di un CV esistente per generare il contenuto",
+      "selectResume": "Seleziona un CV...",
+      "create": "Crea lettera",
+      "creating": "Creazione..."
+    },
+    "editor": {
+      "titlePlaceholder": "Lettera senza titolo",
+      "unsavedChanges": "Modifiche non salvate",
+      "lastSaved": "Salvato",
+      "saveFailed": "Salvataggio fallito",
+      "generate": "Genera",
+      "check": "Verifica",
+      "sections": {
+        "recipient": "Destinatario",
+        "opening": "Apertura",
+        "body": "Corpo",
+        "closing": "Chiusura",
+        "signature": "Firma"
+      },
+      "recipient": {
+        "title": "Informazioni destinatario",
+        "nameLabel": "Nome del destinatario",
+        "namePlaceholder": "es. Mario Rossi",
+        "titleLabel": "Titolo del destinatario",
+        "titlePlaceholder": "es. Responsabile Risorse Umane",
+        "companyLabel": "Nome azienda",
+        "companyPlaceholder": "es. Acme Srl",
+        "addressLabel": "Indirizzo azienda",
+        "addressPlaceholder": "Via Roma 123\n00100 Roma"
+      },
+      "opening": {
+        "title": "Apertura",
+        "greetingLabel": "Saluto",
+        "greetingPlaceholder": "Gentile Responsabile,",
+        "paragraphLabel": "Paragrafo di apertura",
+        "paragraphHint": "Presentati e spiega perché scrivi. Menziona la posizione e come ne sei venuto a conoscenza.",
+        "paragraphPlaceholder": "Scrivi il tuo paragrafo di apertura..."
+      },
+      "body": {
+        "title": "Paragrafi del corpo",
+        "hint": "Spiega perché sei adatto per il ruolo. Evidenzia esperienze e risultati rilevanti.",
+        "addParagraph": "Aggiungi paragrafo",
+        "paragraphLabel": "Paragrafo",
+        "paragraphPlaceholder": "Scrivi il tuo paragrafo...",
+        "removeParagraph": "Rimuovi paragrafo",
+        "emptyState": "Nessun paragrafo del corpo",
+        "addFirst": "Aggiungi il primo paragrafo"
+      },
+      "closing": {
+        "title": "Chiusura",
+        "paragraphLabel": "Paragrafo di chiusura",
+        "paragraphHint": "Esprimi il tuo entusiasmo e includi un invito all'azione. Ringrazia il lettore per l'attenzione.",
+        "paragraphPlaceholder": "Scrivi il tuo paragrafo di chiusura..."
+      },
+      "signature": {
+        "title": "Firma",
+        "signOffLabel": "Formula di chiusura",
+        "nameLabel": "Il tuo nome",
+        "namePlaceholder": "Il tuo nome completo"
+      }
+    },
+    "generation": {
+      "title": "Genera lettera di presentazione",
+      "subtitle": "L'IA creerà una lettera personalizzata",
+      "resumeLabel": "Usa dati dal CV",
+      "selectResume": "Seleziona un CV...",
+      "jobTitleLabel": "Posizione",
+      "jobTitlePlaceholder": "es. Ingegnere Software",
+      "jobTitleRequired": "La posizione è obbligatoria",
+      "companyLabel": "Nome azienda",
+      "companyPlaceholder": "es. Google",
+      "companyRequired": "Il nome dell'azienda è obbligatorio",
+      "recipientLabel": "Nome del destinatario",
+      "recipientPlaceholder": "es. Mario Rossi",
+      "jobDescriptionLabel": "Descrizione del lavoro",
+      "jobDescriptionPlaceholder": "Incolla qui la descrizione del lavoro...",
+      "jobDescriptionRequired": "La descrizione del lavoro è obbligatoria",
+      "cancel": "Annulla",
+      "generate": "Genera",
+      "generating": "Generazione..."
+    },
+    "checker": {
+      "title": "Verifica lettera di presentazione",
+      "subtitle": "L'IA analizzerà la tua lettera",
+      "jobTitleLabel": "Posizione",
+      "jobTitlePlaceholder": "es. Ingegnere Software",
+      "jobTitleRequired": "La posizione è obbligatoria per l'analisi",
+      "jobDescriptionLabel": "Descrizione del lavoro",
+      "jobDescriptionPlaceholder": "Incolla qui la descrizione del lavoro...",
+      "jobDescriptionRequired": "La descrizione del lavoro è obbligatoria per l'analisi",
+      "contentRequired": "Aggiungi del contenuto alla tua lettera prima dell'analisi",
+      "close": "Chiudi",
+      "analyze": "Analizza",
+      "analyzing": "Analisi...",
+      "analyzeAgain": "Analizza di nuovo",
+      "scoreExcellent": "Eccellente!",
+      "scoreGood": "Buono",
+      "scoreNeedsWork": "Da migliorare",
+      "keywordCoverage": "Copertura parole chiave",
+      "matchedKeywords": "Corrispondenti",
+      "missingKeywords": "Mancanti",
+      "strengths": "Punti di forza",
+      "weaknesses": "Aree di miglioramento",
+      "suggestions": "Suggerimenti"
+    }
   }
 }

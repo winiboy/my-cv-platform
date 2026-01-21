@@ -336,6 +336,235 @@ ${jobDescription}
 Return ONLY the JSON object. No additional text, explanations, or formatting.`
 }
 
+export interface CoverLetterGenerationInput {
+  resumeSummary?: string
+  resumeExperience?: {
+    position: string
+    company: string
+    description?: string
+  }[]
+  resumeSkills?: string[]
+  jobDescription: string
+  jobTitle: string
+  companyName: string
+  recipientName?: string
+  recipientTitle?: string
+  locale?: string
+}
+
+/**
+ * Generate prompt for creating a cover letter from resume and job description
+ */
+export function buildCoverLetterGenerationPrompt(input: CoverLetterGenerationInput): string {
+  const {
+    resumeSummary,
+    resumeExperience,
+    resumeSkills,
+    jobDescription,
+    jobTitle,
+    companyName,
+    recipientName,
+    recipientTitle,
+    locale,
+  } = input
+
+  const languageMap: Record<string, string> = {
+    'en': 'English',
+    'fr': 'French',
+    'de': 'German',
+    'it': 'Italian',
+  }
+
+  const targetLanguage = locale && languageMap[locale] ? languageMap[locale] : 'English'
+
+  const experienceText = resumeExperience
+    ?.map(exp => `- ${exp.position} at ${exp.company}${exp.description ? `: ${exp.description}` : ''}`)
+    .join('\n') || 'Not provided'
+
+  const skillsText = resumeSkills?.join(', ') || 'Not provided'
+
+  return `You are an expert cover letter writer. Create a compelling, professional cover letter for a job application.
+
+**CRITICAL - LANGUAGE REQUIREMENT:**
+- Write the ENTIRE cover letter in ${targetLanguage}
+- Use professional ${targetLanguage} business language
+- Maintain ${targetLanguage} throughout
+
+**CRITICAL - ANTI-COPY RULES:**
+1. NEVER copy sentences verbatim from the job description
+2. NEVER mirror the exact bullet point structure from the job posting
+3. ALL content must be original, professional, and personalized
+4. Focus on demonstrating relevant experience without copying
+
+**JOB DETAILS:**
+Position: ${jobTitle}
+Company: ${companyName}
+${recipientName ? `Recipient: ${recipientName}` : ''}
+${recipientTitle ? `Recipient Title: ${recipientTitle}` : ''}
+
+**JOB DESCRIPTION:**
+"""
+${jobDescription}
+"""
+
+**CANDIDATE PROFILE:**
+Summary: ${resumeSummary || 'Not provided'}
+
+Experience:
+${experienceText}
+
+Skills: ${skillsText}
+
+**COVER LETTER STRUCTURE:**
+1. **Opening Paragraph (2-3 sentences):**
+   - Hook the reader with enthusiasm for the specific role
+   - Mention how you learned about the position (generic is fine)
+   - Brief statement of why you're a strong fit
+
+2. **Body Paragraphs (2-3 paragraphs, 3-4 sentences each):**
+   - Connect your experience to key job requirements
+   - Highlight 2-3 specific achievements relevant to the role
+   - Demonstrate knowledge of the company/industry
+   - Show how your skills align with their needs
+
+3. **Closing Paragraph (2-3 sentences):**
+   - Reiterate interest and enthusiasm
+   - Call to action (interview request)
+   - Professional sign-off
+
+**OUTPUT FORMAT (JSON):**
+{
+  "greeting": "<Professional greeting, e.g., 'Dear ${recipientName || 'Hiring Manager'},'>",
+  "openingParagraph": "<Opening paragraph in ${targetLanguage}>",
+  "bodyParagraphs": [
+    "<First body paragraph>",
+    "<Second body paragraph>",
+    "<Third body paragraph (optional)>"
+  ],
+  "closingParagraph": "<Closing paragraph in ${targetLanguage}>",
+  "signOff": "<Professional sign-off, e.g., 'Sincerely,' or equivalent in ${targetLanguage}>"
+}
+
+**REQUIREMENTS:**
+- Total length: 250-400 words
+- Tone: Professional, confident, enthusiastic
+- Focus on value you bring to the company
+- Be specific, not generic
+- Avoid clichés and overused phrases
+- ALL content in ${targetLanguage}
+
+**Response:**
+Return ONLY the JSON object. No additional text.`
+}
+
+export interface CoverLetterCheckerInput {
+  openingParagraph?: string
+  bodyParagraphs?: string[]
+  closingParagraph?: string
+  jobDescription: string
+  jobTitle: string
+  companyName: string
+  locale?: string
+}
+
+/**
+ * Generate prompt for analyzing and scoring a cover letter
+ */
+export function buildCoverLetterCheckerPrompt(input: CoverLetterCheckerInput): string {
+  const {
+    openingParagraph,
+    bodyParagraphs,
+    closingParagraph,
+    jobDescription,
+    jobTitle,
+    companyName,
+    locale,
+  } = input
+
+  const languageMap: Record<string, string> = {
+    'en': 'English',
+    'fr': 'French',
+    'de': 'German',
+    'it': 'Italian',
+  }
+
+  const targetLanguage = locale && languageMap[locale] ? languageMap[locale] : 'English'
+
+  const fullCoverLetter = [
+    openingParagraph,
+    ...(bodyParagraphs || []),
+    closingParagraph,
+  ].filter(Boolean).join('\n\n')
+
+  return `You are an expert career coach and cover letter reviewer. Analyze the following cover letter and provide detailed feedback.
+
+**JOB CONTEXT:**
+Position: ${jobTitle}
+Company: ${companyName}
+
+**JOB DESCRIPTION:**
+"""
+${jobDescription}
+"""
+
+**COVER LETTER TO ANALYZE:**
+"""
+${fullCoverLetter}
+"""
+
+**ANALYSIS CRITERIA:**
+
+1. **Content Alignment (0-25 points):**
+   - How well does the letter address job requirements?
+   - Are relevant skills and experiences highlighted?
+   - Is there evidence of company research?
+
+2. **Structure & Format (0-25 points):**
+   - Is the opening engaging?
+   - Are body paragraphs well-organized?
+   - Is the closing strong with a clear call to action?
+
+3. **Language & Tone (0-25 points):**
+   - Is the tone professional and confident?
+   - Is the language clear and concise?
+   - Are there any grammar or spelling issues?
+
+4. **Keyword Coverage (0-25 points):**
+   - Are key skills from the job description mentioned?
+   - Are industry-relevant terms used appropriately?
+
+**OUTPUT FORMAT (JSON):**
+{
+  "score": <number 0-100>,
+  "strengths": [
+    "<strength 1 in ${targetLanguage}>",
+    "<strength 2 in ${targetLanguage}>",
+    "<strength 3 in ${targetLanguage}>"
+  ],
+  "weaknesses": [
+    "<weakness 1 in ${targetLanguage}>",
+    "<weakness 2 in ${targetLanguage}>"
+  ],
+  "suggestions": [
+    "<actionable suggestion 1 in ${targetLanguage}>",
+    "<actionable suggestion 2 in ${targetLanguage}>",
+    "<actionable suggestion 3 in ${targetLanguage}>"
+  ],
+  "keywordCoverage": <number 0-100>,
+  "matchedKeywords": ["<keyword1>", "<keyword2>", "<keyword3>"],
+  "missingKeywords": ["<keyword1>", "<keyword2>"]
+}
+
+**REQUIREMENTS:**
+- Be specific and actionable in feedback
+- Provide at least 2-3 items for each category
+- Score fairly but honestly
+- All text output must be in ${targetLanguage}
+
+**Response:**
+Return ONLY the JSON object. No additional text.`
+}
+
 export interface ResumeAdaptationInput {
   currentSummary: string
   currentExperience: {

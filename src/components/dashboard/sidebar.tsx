@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, FileText, Briefcase, Target, Settings } from 'lucide-react'
+import { Home, FileText, Mail, Briefcase, Target, Settings } from 'lucide-react'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import type { Locale } from '@/lib/i18n'
 import { useMemo } from 'react'
@@ -25,6 +25,11 @@ export function DashboardSidebar({ locale }: DashboardSidebarProps) {
       name: t('dashboard.nav.resumes'),
       href: `/${locale}/dashboard/resumes`,
       icon: FileText,
+    },
+    {
+      name: t('dashboard.nav.coverLetters'),
+      href: `/${locale}/dashboard/cover-letters`,
+      icon: Mail,
     },
     {
       name: t('dashboard.nav.jobs'),

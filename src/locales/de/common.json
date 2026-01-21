@@ -92,6 +92,7 @@
     "nav": {
       "home": "Startseite",
       "resumes": "Meine Lebensläufe",
+      "coverLetters": "Anschreiben",
       "jobs": "Stellensuche",
       "goals": "Ziele",
       "settings": "Einstellungen"
@@ -414,5 +415,139 @@
     "keepOriginal": "Original behalten",
     "currentAchievements": "Aktuelle Erfolge",
     "clearAll": "Alle löschen"
+  },
+  "coverLetters": {
+    "title": "Anschreiben",
+    "subtitle": "Erstellen und verwalten Sie Ihre Anschreiben",
+    "createNew": "Anschreiben erstellen",
+    "createFirst": "Erstellen Sie Ihr erstes Anschreiben",
+    "updated": "Aktualisiert",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "duplicate": "Duplizieren",
+    "downloadPDF": "PDF herunterladen",
+    "confirmDelete": "Möchten Sie dieses Anschreiben wirklich löschen?",
+    "empty": {
+      "title": "Noch keine Anschreiben",
+      "description": "Erstellen Sie Ihr erstes Anschreiben für Ihre Bewerbungen.",
+      "createFirst": "Erstellen Sie Ihr erstes Anschreiben"
+    },
+    "new": {
+      "title": "Neues Anschreiben erstellen",
+      "subtitle": "Erstellen Sie ein Anschreiben für Ihre Bewerbung",
+      "titleLabel": "Titel des Anschreibens",
+      "titlePlaceholder": "z.B. Bewerbung als Software-Ingenieur",
+      "titleHint": "Geben Sie Ihrem Anschreiben einen aussagekräftigen Namen",
+      "titleRequired": "Der Titel des Anschreibens ist erforderlich",
+      "companyLabel": "Firmenname",
+      "companyPlaceholder": "z.B. Google",
+      "jobTitleLabel": "Stellenbezeichnung",
+      "jobTitlePlaceholder": "z.B. Senior Software-Ingenieur",
+      "linkResumeLabel": "Mit Lebenslauf verknüpfen",
+      "linkResumeHint": "Verwenden Sie Daten aus einem vorhandenen Lebenslauf zur Inhaltserstellung",
+      "selectResume": "Lebenslauf auswählen...",
+      "create": "Anschreiben erstellen",
+      "creating": "Wird erstellt..."
+    },
+    "editor": {
+      "titlePlaceholder": "Unbenanntes Anschreiben",
+      "unsavedChanges": "Nicht gespeicherte Änderungen",
+      "lastSaved": "Gespeichert",
+      "saveFailed": "Speichern fehlgeschlagen",
+      "generate": "Generieren",
+      "check": "Prüfen",
+      "sections": {
+        "recipient": "Empfänger",
+        "opening": "Einleitung",
+        "body": "Hauptteil",
+        "closing": "Schluss",
+        "signature": "Unterschrift"
+      },
+      "recipient": {
+        "title": "Empfängerinformationen",
+        "nameLabel": "Name des Empfängers",
+        "namePlaceholder": "z.B. Max Mustermann",
+        "titleLabel": "Titel des Empfängers",
+        "titlePlaceholder": "z.B. Personalleiter",
+        "companyLabel": "Firmenname",
+        "companyPlaceholder": "z.B. Muster GmbH",
+        "addressLabel": "Firmenadresse",
+        "addressPlaceholder": "Musterstraße 123\n12345 Musterstadt"
+      },
+      "opening": {
+        "title": "Einleitung",
+        "greetingLabel": "Anrede",
+        "greetingPlaceholder": "Sehr geehrte Damen und Herren,",
+        "paragraphLabel": "Einleitungsabsatz",
+        "paragraphHint": "Stellen Sie sich vor und erklären Sie, warum Sie schreiben. Erwähnen Sie die Position und wie Sie davon erfahren haben.",
+        "paragraphPlaceholder": "Schreiben Sie Ihren Einleitungsabsatz..."
+      },
+      "body": {
+        "title": "Hauptabsätze",
+        "hint": "Erklären Sie, warum Sie für die Stelle geeignet sind. Heben Sie relevante Erfahrungen und Erfolge hervor.",
+        "addParagraph": "Absatz hinzufügen",
+        "paragraphLabel": "Absatz",
+        "paragraphPlaceholder": "Schreiben Sie Ihren Absatz...",
+        "removeParagraph": "Absatz entfernen",
+        "emptyState": "Noch keine Hauptabsätze",
+        "addFirst": "Ersten Absatz hinzufügen"
+      },
+      "closing": {
+        "title": "Schluss",
+        "paragraphLabel": "Schlussabsatz",
+        "paragraphHint": "Drücken Sie Ihre Begeisterung aus und fügen Sie eine Handlungsaufforderung hinzu. Danken Sie dem Leser für seine Aufmerksamkeit.",
+        "paragraphPlaceholder": "Schreiben Sie Ihren Schlussabsatz..."
+      },
+      "signature": {
+        "title": "Unterschrift",
+        "signOffLabel": "Grußformel",
+        "nameLabel": "Ihr Name",
+        "namePlaceholder": "Ihr vollständiger Name"
+      }
+    },
+    "generation": {
+      "title": "Anschreiben generieren",
+      "subtitle": "KI erstellt ein personalisiertes Anschreiben",
+      "resumeLabel": "Daten aus Lebenslauf verwenden",
+      "selectResume": "Lebenslauf auswählen...",
+      "jobTitleLabel": "Stellenbezeichnung",
+      "jobTitlePlaceholder": "z.B. Software-Ingenieur",
+      "jobTitleRequired": "Stellenbezeichnung ist erforderlich",
+      "companyLabel": "Firmenname",
+      "companyPlaceholder": "z.B. Google",
+      "companyRequired": "Firmenname ist erforderlich",
+      "recipientLabel": "Name des Empfängers",
+      "recipientPlaceholder": "z.B. Max Mustermann",
+      "jobDescriptionLabel": "Stellenbeschreibung",
+      "jobDescriptionPlaceholder": "Fügen Sie die Stellenbeschreibung hier ein...",
+      "jobDescriptionRequired": "Stellenbeschreibung ist erforderlich",
+      "cancel": "Abbrechen",
+      "generate": "Generieren",
+      "generating": "Wird generiert..."
+    },
+    "checker": {
+      "title": "Anschreiben-Prüfung",
+      "subtitle": "KI analysiert Ihr Anschreiben",
+      "jobTitleLabel": "Stellenbezeichnung",
+      "jobTitlePlaceholder": "z.B. Software-Ingenieur",
+      "jobTitleRequired": "Stellenbezeichnung ist für die Analyse erforderlich",
+      "jobDescriptionLabel": "Stellenbeschreibung",
+      "jobDescriptionPlaceholder": "Fügen Sie die Stellenbeschreibung hier ein...",
+      "jobDescriptionRequired": "Stellenbeschreibung ist für die Analyse erforderlich",
+      "contentRequired": "Bitte fügen Sie vor der Analyse Inhalt zu Ihrem Anschreiben hinzu",
+      "close": "Schließen",
+      "analyze": "Analysieren",
+      "analyzing": "Wird analysiert...",
+      "analyzeAgain": "Erneut analysieren",
+      "scoreExcellent": "Ausgezeichnet!",
+      "scoreGood": "Gut",
+      "scoreNeedsWork": "Verbesserungsbedarf",
+      "keywordCoverage": "Keyword-Abdeckung",
+      "matchedKeywords": "Übereinstimmend",
+      "missingKeywords": "Fehlend",
+      "strengths": "Stärken",
+      "weaknesses": "Verbesserungspotential",
+      "suggestions": "Vorschläge"
+    }
   }
 }

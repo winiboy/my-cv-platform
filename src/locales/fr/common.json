@@ -92,6 +92,7 @@
     "nav": {
       "home": "Accueil",
       "resumes": "Mes CV",
+      "coverLetters": "Lettres de motivation",
       "jobs": "Recherche d'emploi",
       "goals": "Objectifs",
       "settings": "Paramètres"
@@ -414,5 +415,98 @@
     "keepOriginal": "Conserver l'original",
     "currentAchievements": "Réalisations actuelles",
     "clearAll": "Tout effacer"
+  },
+  "coverLetters": {
+    "title": "Lettres de motivation",
+    "subtitle": "Créez et gérez vos lettres de motivation",
+    "createNew": "Créer une lettre",
+    "createFirst": "Créez votre première lettre de motivation",
+    "updated": "Mis à jour",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "duplicate": "Dupliquer",
+    "downloadPDF": "Télécharger PDF",
+    "confirmDelete": "Êtes-vous sûr de vouloir supprimer cette lettre de motivation ?",
+    "empty": {
+      "title": "Aucune lettre de motivation",
+      "description": "Créez votre première lettre de motivation pour accompagner vos candidatures.",
+      "createFirst": "Créez votre première lettre de motivation"
+    },
+    "new": {
+      "title": "Nouvelle lettre de motivation",
+      "subtitle": "Créez une lettre de motivation pour votre candidature",
+      "titleLabel": "Titre de la lettre",
+      "titlePlaceholder": "ex: Candidature pour Ingénieur Logiciel",
+      "titleHint": "Donnez un nom descriptif à votre lettre",
+      "titleRequired": "Le titre est requis",
+      "companyLabel": "Nom de l'entreprise",
+      "companyPlaceholder": "ex: Google",
+      "jobTitleLabel": "Poste",
+      "jobTitlePlaceholder": "ex: Ingénieur Logiciel Senior",
+      "linkResumeLabel": "Lier à un CV",
+      "linkResumeHint": "Utilisez les données d'un CV existant pour générer le contenu",
+      "selectResume": "Sélectionnez un CV...",
+      "create": "Créer la lettre",
+      "creating": "Création..."
+    },
+    "editor": {
+      "titlePlaceholder": "Lettre sans titre",
+      "unsavedChanges": "Modifications non enregistrées",
+      "lastSaved": "Enregistré",
+      "saveFailed": "Échec de l'enregistrement",
+      "generate": "Générer",
+      "check": "Vérifier",
+      "sections": {
+        "recipient": "Destinataire",
+        "opening": "Accroche",
+        "body": "Corps",
+        "closing": "Conclusion",
+        "signature": "Signature"
+      }
+    },
+    "generation": {
+      "title": "Générer la lettre",
+      "subtitle": "L'IA créera une lettre personnalisée",
+      "resumeLabel": "Utiliser les données du CV",
+      "selectResume": "Sélectionnez un CV...",
+      "jobTitleLabel": "Poste",
+      "jobTitlePlaceholder": "ex: Ingénieur Logiciel",
+      "jobTitleRequired": "Le poste est requis",
+      "companyLabel": "Entreprise",
+      "companyPlaceholder": "ex: Google",
+      "companyRequired": "L'entreprise est requise",
+      "recipientLabel": "Nom du destinataire",
+      "recipientPlaceholder": "ex: Jean Dupont",
+      "jobDescriptionLabel": "Description du poste",
+      "jobDescriptionPlaceholder": "Collez la description du poste ici...",
+      "jobDescriptionRequired": "La description du poste est requise",
+      "cancel": "Annuler",
+      "generate": "Générer",
+      "generating": "Génération..."
+    },
+    "checker": {
+      "title": "Vérificateur de lettre",
+      "subtitle": "L'IA analysera votre lettre",
+      "jobTitleLabel": "Poste",
+      "jobTitlePlaceholder": "ex: Ingénieur Logiciel",
+      "jobTitleRequired": "Le poste est requis pour l'analyse",
+      "jobDescriptionLabel": "Description du poste",
+      "jobDescriptionPlaceholder": "Collez la description du poste ici...",
+      "jobDescriptionRequired": "La description du poste est requise pour l'analyse",
+      "contentRequired": "Veuillez ajouter du contenu avant d'analyser",
+      "close": "Fermer",
+      "analyze": "Analyser",
+      "analyzing": "Analyse...",
+      "analyzeAgain": "Analyser à nouveau",
+      "scoreExcellent": "Excellent !",
+      "scoreGood": "Bien",
+      "scoreNeedsWork": "À améliorer",
+      "keywordCoverage": "Couverture des mots-clés",
+      "matchedKeywords": "Correspondants",
+      "missingKeywords": "Manquants",
+      "strengths": "Points forts",
+      "weaknesses": "Points à améliorer",
+      "suggestions": "Suggestions"
+    }
   }
 }

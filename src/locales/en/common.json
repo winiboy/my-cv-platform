@@ -92,6 +92,7 @@
     "nav": {
       "home": "Home",
       "resumes": "My Resumes",
+      "coverLetters": "Cover Letters",
       "jobs": "Job Search",
       "goals": "Goals",
       "settings": "Settings"
@@ -414,5 +415,139 @@
     "keepOriginal": "Keep Original",
     "currentAchievements": "Current Achievements",
     "clearAll": "Clear All"
+  },
+  "coverLetters": {
+    "title": "Cover Letters",
+    "subtitle": "Create and manage your cover letters",
+    "createNew": "Create Cover Letter",
+    "createFirst": "Create Your First Cover Letter",
+    "updated": "Updated",
+    "edit": "Edit",
+    "delete": "Delete",
+    "duplicate": "Duplicate",
+    "downloadPDF": "Download PDF",
+    "confirmDelete": "Are you sure you want to delete this cover letter?",
+    "empty": {
+      "title": "No cover letters yet",
+      "description": "Create your first cover letter to accompany your job applications.",
+      "createFirst": "Create Your First Cover Letter"
+    },
+    "new": {
+      "title": "Create New Cover Letter",
+      "subtitle": "Create a cover letter for your job application",
+      "titleLabel": "Cover Letter Title",
+      "titlePlaceholder": "e.g., Application for Software Engineer",
+      "titleHint": "Give your cover letter a descriptive name",
+      "titleRequired": "Cover letter title is required",
+      "companyLabel": "Company Name",
+      "companyPlaceholder": "e.g., Google",
+      "jobTitleLabel": "Job Title",
+      "jobTitlePlaceholder": "e.g., Senior Software Engineer",
+      "linkResumeLabel": "Link to Resume",
+      "linkResumeHint": "Use data from an existing resume to generate content",
+      "selectResume": "Select a resume...",
+      "create": "Create Cover Letter",
+      "creating": "Creating..."
+    },
+    "editor": {
+      "titlePlaceholder": "Untitled Cover Letter",
+      "unsavedChanges": "Unsaved changes",
+      "lastSaved": "Saved",
+      "saveFailed": "Failed to save",
+      "generate": "Generate",
+      "check": "Check",
+      "sections": {
+        "recipient": "Recipient",
+        "opening": "Opening",
+        "body": "Body",
+        "closing": "Closing",
+        "signature": "Signature"
+      },
+      "recipient": {
+        "title": "Recipient Information",
+        "nameLabel": "Recipient Name",
+        "namePlaceholder": "e.g., John Smith",
+        "titleLabel": "Recipient Title",
+        "titlePlaceholder": "e.g., Hiring Manager",
+        "companyLabel": "Company Name",
+        "companyPlaceholder": "e.g., Acme Corp",
+        "addressLabel": "Company Address",
+        "addressPlaceholder": "123 Main St\nCity, State 12345"
+      },
+      "opening": {
+        "title": "Opening",
+        "greetingLabel": "Greeting",
+        "greetingPlaceholder": "Dear Hiring Manager,",
+        "paragraphLabel": "Opening Paragraph",
+        "paragraphHint": "Introduce yourself and explain why you are writing. Mention the position and how you learned about it.",
+        "paragraphPlaceholder": "Write your opening paragraph..."
+      },
+      "body": {
+        "title": "Body Paragraphs",
+        "hint": "Explain why you are a good fit for the role. Highlight relevant experience and achievements.",
+        "addParagraph": "Add Paragraph",
+        "paragraphLabel": "Paragraph",
+        "paragraphPlaceholder": "Write your paragraph...",
+        "removeParagraph": "Remove paragraph",
+        "emptyState": "No body paragraphs yet",
+        "addFirst": "Add Your First Paragraph"
+      },
+      "closing": {
+        "title": "Closing",
+        "paragraphLabel": "Closing Paragraph",
+        "paragraphHint": "Express your enthusiasm and include a call to action. Thank the reader for their consideration.",
+        "paragraphPlaceholder": "Write your closing paragraph..."
+      },
+      "signature": {
+        "title": "Signature",
+        "signOffLabel": "Sign-off",
+        "nameLabel": "Your Name",
+        "namePlaceholder": "Your full name"
+      }
+    },
+    "generation": {
+      "title": "Generate Cover Letter",
+      "subtitle": "AI will create a personalized cover letter",
+      "resumeLabel": "Use data from resume",
+      "selectResume": "Select a resume...",
+      "jobTitleLabel": "Job Title",
+      "jobTitlePlaceholder": "e.g., Software Engineer",
+      "jobTitleRequired": "Job title is required",
+      "companyLabel": "Company Name",
+      "companyPlaceholder": "e.g., Google",
+      "companyRequired": "Company name is required",
+      "recipientLabel": "Recipient Name",
+      "recipientPlaceholder": "e.g., John Smith",
+      "jobDescriptionLabel": "Job Description",
+      "jobDescriptionPlaceholder": "Paste the job description here...",
+      "jobDescriptionRequired": "Job description is required",
+      "cancel": "Cancel",
+      "generate": "Generate",
+      "generating": "Generating..."
+    },
+    "checker": {
+      "title": "Cover Letter Checker",
+      "subtitle": "AI will analyze your cover letter",
+      "jobTitleLabel": "Job Title",
+      "jobTitlePlaceholder": "e.g., Software Engineer",
+      "jobTitleRequired": "Job title is required for analysis",
+      "jobDescriptionLabel": "Job Description",
+      "jobDescriptionPlaceholder": "Paste the job description here...",
+      "jobDescriptionRequired": "Job description is required for analysis",
+      "contentRequired": "Please add some content to your cover letter before analyzing",
+      "close": "Close",
+      "analyze": "Analyze",
+      "analyzing": "Analyzing...",
+      "analyzeAgain": "Analyze Again",
+      "scoreExcellent": "Excellent!",
+      "scoreGood": "Good",
+      "scoreNeedsWork": "Needs Work",
+      "keywordCoverage": "Keyword Coverage",
+      "matchedKeywords": "Matched",
+      "missingKeywords": "Missing",
+      "strengths": "Strengths",
+      "weaknesses": "Areas for Improvement",
+      "suggestions": "Suggestions"
+    }
   }
 }

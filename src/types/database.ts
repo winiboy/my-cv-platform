@@ -23,6 +23,7 @@ export type ResumeAnalysis = Tables<'resume_analyses'>
 export type JobApplication = Tables<'job_applications'>
 export type CareerGoal = Tables<'career_goals'>
 export type AISuggestion = Tables<'ai_suggestions'>
+export type CoverLetter = Tables<'cover_letters'>
 
 // Insert types
 export type ProfileInsert = TablesInsert<'profiles'>
@@ -31,6 +32,7 @@ export type ResumeAnalysisInsert = TablesInsert<'resume_analyses'>
 export type JobApplicationInsert = TablesInsert<'job_applications'>
 export type CareerGoalInsert = TablesInsert<'career_goals'>
 export type AISuggestionInsert = TablesInsert<'ai_suggestions'>
+export type CoverLetterInsert = TablesInsert<'cover_letters'>
 
 // Update types
 export type ProfileUpdate = TablesUpdate<'profiles'>
@@ -39,6 +41,7 @@ export type ResumeAnalysisUpdate = TablesUpdate<'resume_analyses'>
 export type JobApplicationUpdate = TablesUpdate<'job_applications'>
 export type CareerGoalUpdate = TablesUpdate<'career_goals'>
 export type AISuggestionUpdate = TablesUpdate<'ai_suggestions'>
+export type CoverLetterUpdate = TablesUpdate<'cover_letters'>
 
 // Structured types for JSONB fields
 
@@ -160,9 +163,21 @@ export interface CareerGoalResource {
   notes?: string
 }
 
+// Cover Letter Analysis type
+export interface CoverLetterAnalysis {
+  score: number
+  strengths: string[]
+  weaknesses: string[]
+  suggestions: string[]
+  keywordCoverage: number
+  matchedKeywords: string[]
+  missingKeywords: string[]
+}
+
 // Enums
 export type UserPlan = Profile['plan']
 export type ResumeTemplate = Resume['template']
+export type CoverLetterTemplate = CoverLetter['template']
 export type JobStatus = JobApplication['status']
 export type JobPriority = JobApplication['priority']
 export type GoalStatus = CareerGoal['status']
