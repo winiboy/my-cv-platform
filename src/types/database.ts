@@ -184,3 +184,30 @@ export type GoalStatus = CareerGoal['status']
 export type GoalCategory = NonNullable<CareerGoal['category']>
 export type SuggestionType = AISuggestion['suggestion_type']
 export type Locale = Profile['preferred_locale']
+
+// Extended types for bidirectional CV-Cover Letter associations
+
+/**
+ * Cover letter with optional linked resume information
+ * Used when fetching cover letters that may be associated with a resume
+ */
+export interface CoverLetterWithResume extends CoverLetter {
+  resume: {
+    id: string
+    title: string
+  } | null
+}
+
+/**
+ * Resume with optional linked cover letters array
+ * Used when fetching resumes with their associated cover letters
+ */
+export interface ResumeWithCoverLetters extends Resume {
+  cover_letters?: Array<{
+    id: string
+    title: string
+    company_name: string | null
+    job_title: string | null
+    updated_at: string
+  }>
+}

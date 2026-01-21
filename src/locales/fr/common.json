@@ -108,6 +108,10 @@
         "title": "Créer un CV",
         "description": "Nouveau CV professionnel"
       },
+      "createCoverLetter": {
+        "title": "Créer une lettre",
+        "description": "Nouvelle lettre de motivation"
+      },
       "addJob": {
         "title": "Ajouter une candidature",
         "description": "Suivre une nouvelle offre"
@@ -127,6 +131,7 @@
     "title": "Mes CV",
     "subtitle": "Créez et gérez vos CV professionnels",
     "createNew": "Créer un CV",
+    "linkedCoverLetters": "lettre(s) de motivation",
     "createFromJob": "Créer depuis une offre d'emploi",
     "createFirst": "Créer Votre Premier CV",
     "default": "Par défaut",
@@ -200,7 +205,14 @@
         "skills": "Compétences",
         "languages": "Langues",
         "certifications": "Certifications",
-        "projects": "Réalisations clés"
+        "projects": "Réalisations clés",
+        "coverLetters": "Lettres de motivation"
+      },
+      "coverLetters": {
+        "title": "Lettres de motivation liées",
+        "hint": "Lettres de motivation associées à ce CV",
+        "noLinked": "Aucune lettre de motivation liée",
+        "createNew": "Créer une lettre"
       },
       "contactHint": "Ajoutez vos coordonnées et liens professionnels",
       "fullName": "Nom complet",
@@ -349,7 +361,21 @@
     },
     "showControls": "Afficher les contrôles",
     "pdfExportComingSoon": "Export PDF bientôt disponible !",
-    "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce CV ?"
+    "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce CV ?",
+    "association": {
+      "linkedCoverLetters": "Lettres de motivation liées",
+      "noCoverLetters": "Aucune lettre de motivation liée à ce CV",
+      "untitledCoverLetter": "Lettre sans titre",
+      "createCoverLetter": "Créer une lettre de motivation",
+      "linkExisting": "Lier une lettre existante",
+      "selectCoverLetter": "Sélectionner une lettre de motivation",
+      "link": "Lier",
+      "linking": "Liaison en cours...",
+      "showLess": "Voir moins",
+      "viewAll": "Voir tout",
+      "more": "de plus",
+      "hint": "Lettres de motivation associées à ce CV"
+    }
   },
   "common": {
     "cancel": "Annuler",
@@ -420,6 +446,7 @@
     "title": "Lettres de motivation",
     "subtitle": "Créez et gérez vos lettres de motivation",
     "createNew": "Créer une lettre",
+    "linkedTo": "Lié à",
     "createFirst": "Créez votre première lettre de motivation",
     "updated": "Mis à jour",
     "edit": "Modifier",
@@ -427,6 +454,17 @@
     "duplicate": "Dupliquer",
     "downloadPDF": "Télécharger PDF",
     "confirmDelete": "Êtes-vous sûr de vouloir supprimer cette lettre de motivation ?",
+    "association": {
+      "linkedCV": "CV lié",
+      "noResumeLinked": "Aucun CV lié",
+      "selectResume": "Sélectionner un CV",
+      "untitledResume": "CV sans titre",
+      "viewResume": "Voir le CV",
+      "view": "Voir",
+      "createNew": "Créer un nouveau CV",
+      "hint": "Associer un CV pour utiliser ses données dans la génération IA",
+      "error": "Échec de la mise à jour du CV lié"
+    },
     "empty": {
       "title": "Aucune lettre de motivation",
       "description": "Créez votre première lettre de motivation pour accompagner vos candidatures.",
@@ -461,7 +499,16 @@
         "opening": "Accroche",
         "body": "Corps",
         "closing": "Conclusion",
-        "signature": "Signature"
+        "signature": "Signature",
+        "resume": "CV lié"
+      },
+      "resume": {
+        "title": "CV lié",
+        "hint": "Associez un CV pour utiliser ses données dans la génération IA",
+        "noLinked": "Aucun CV lié",
+        "selectResume": "Sélectionner un CV",
+        "unlinkResume": "Dissocier",
+        "createNew": "Créer un nouveau CV"
       }
     },
     "generation": {

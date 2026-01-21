@@ -11,9 +11,10 @@ interface ResumeCardProps {
   resume: Resume
   locale: string
   dict: any
+  linkedCoverLettersCount?: number
 }
 
-export function ResumeCard({ resume, locale, dict }: ResumeCardProps) {
+export function ResumeCard({ resume, locale, dict, linkedCoverLettersCount }: ResumeCardProps) {
   const router = useRouter()
   const [showMenu, setShowMenu] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -124,6 +125,13 @@ export function ResumeCard({ resume, locale, dict }: ResumeCardProps) {
           <div className="flex items-center gap-1 px-2 py-1 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 text-xs font-medium rounded">
             <Star className="h-3 w-3 fill-current" />
             {dict.resumes?.default || 'Default'}
+          </div>
+        )}
+        {/* Linked cover letters badge */}
+        {linkedCoverLettersCount !== undefined && linkedCoverLettersCount > 0 && (
+          <div className="flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-medium rounded">
+            <FileText className="h-3 w-3" />
+            {linkedCoverLettersCount} {dict.resumes?.linkedCoverLetters || 'cover letter(s)'}
           </div>
         )}
       </div>

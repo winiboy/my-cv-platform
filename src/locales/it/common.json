@@ -108,6 +108,10 @@
         "title": "Crea CV",
         "description": "Nuovo CV professionale"
       },
+      "createCoverLetter": {
+        "title": "Crea lettera",
+        "description": "Nuova lettera di presentazione"
+      },
       "addJob": {
         "title": "Aggiungi candidatura",
         "description": "Traccia una nuova posizione"
@@ -127,6 +131,7 @@
     "title": "I miei CV",
     "subtitle": "Crea e gestisci i tuoi CV professionali",
     "createNew": "Crea CV",
+    "linkedCoverLetters": "lettera/e di presentazione",
     "createFromJob": "Crea da offerta di lavoro",
     "createFirst": "Crea il tuo primo CV",
     "default": "Predefinito",
@@ -202,7 +207,14 @@
         "skills": "Competenze",
         "languages": "Lingue",
         "certifications": "Certificazioni",
-        "projects": "Risultati chiave"
+        "projects": "Risultati chiave",
+        "coverLetters": "Lettere di presentazione"
+      },
+      "coverLetters": {
+        "title": "Lettere di presentazione collegate",
+        "hint": "Lettere di presentazione associate a questo CV",
+        "noLinked": "Nessuna lettera di presentazione collegata",
+        "createNew": "Crea lettera"
       },
       "contactHint": "Aggiungi i tuoi dettagli di contatto e link professionali",
       "fullName": "Nome completo",
@@ -349,7 +361,21 @@
         "olive": "Oliva"
       }
     },
-    "showControls": "Mostra controlli"
+    "showControls": "Mostra controlli",
+    "association": {
+      "linkedCoverLetters": "Lettere di presentazione collegate",
+      "noCoverLetters": "Nessuna lettera di presentazione collegata a questo CV",
+      "untitledCoverLetter": "Lettera senza titolo",
+      "createCoverLetter": "Crea lettera di presentazione",
+      "linkExisting": "Collega lettera esistente",
+      "selectCoverLetter": "Seleziona una lettera di presentazione",
+      "link": "Collega",
+      "linking": "Collegamento...",
+      "showLess": "Mostra meno",
+      "viewAll": "Vedi tutto",
+      "more": "altre",
+      "hint": "Lettere di presentazione associate a questo CV"
+    }
   },
   "common": {
     "cancel": "Annulla",
@@ -420,6 +446,7 @@
     "title": "Lettere di presentazione",
     "subtitle": "Crea e gestisci le tue lettere di presentazione",
     "createNew": "Crea lettera",
+    "linkedTo": "Collegato a",
     "createFirst": "Crea la tua prima lettera di presentazione",
     "updated": "Aggiornato",
     "edit": "Modifica",
@@ -427,6 +454,17 @@
     "duplicate": "Duplica",
     "downloadPDF": "Scarica PDF",
     "confirmDelete": "Sei sicuro di voler eliminare questa lettera di presentazione?",
+    "association": {
+      "linkedCV": "CV collegato",
+      "noResumeLinked": "Nessun CV collegato",
+      "selectResume": "Seleziona un CV",
+      "untitledResume": "CV senza titolo",
+      "viewResume": "Visualizza CV",
+      "view": "Visualizza",
+      "createNew": "Crea nuovo CV",
+      "hint": "Associa un CV per utilizzare i suoi dati nella generazione IA",
+      "error": "Impossibile aggiornare il CV collegato"
+    },
     "empty": {
       "title": "Nessuna lettera di presentazione",
       "description": "Crea la tua prima lettera di presentazione per le tue candidature.",
@@ -461,7 +499,16 @@
         "opening": "Apertura",
         "body": "Corpo",
         "closing": "Chiusura",
-        "signature": "Firma"
+        "signature": "Firma",
+        "resume": "CV collegato"
+      },
+      "resume": {
+        "title": "CV collegato",
+        "hint": "Associa un CV per utilizzare i suoi dati nella generazione IA",
+        "noLinked": "Nessun CV collegato",
+        "selectResume": "Seleziona un CV",
+        "unlinkResume": "Scollega",
+        "createNew": "Crea nuovo CV"
       },
       "recipient": {
         "title": "Informazioni destinatario",

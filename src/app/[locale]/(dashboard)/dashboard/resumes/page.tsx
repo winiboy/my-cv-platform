@@ -35,6 +35,24 @@ export default async function ResumesPage({
     console.error('Error fetching resumes:', error)
   }
 
+  // Fetch cover letter counts per resume
+  const { data: coverLetterLinks } = await supabase
+    .from('cover_letters')
+    .select('resume_id')
+    .eq('user_id', user.id)
+    .not('resume_id', 'is', null)
+
+  // Aggregate counts per resume_id
+  const coverLetterCountMap = new Map<string, number>()
+  if (coverLetterLinks) {
+    for (const link of coverLetterLinks) {
+      if (link.resume_id) {
+        const current = coverLetterCountMap.get(link.resume_id) || 0
+        coverLetterCountMap.set(link.resume_id, current + 1)
+      }
+    }
+  }
+
   const resumeList = (resumes as Resume[] | null) || []
 
   return (
@@ -89,7 +107,13 @@ export default async function ResumesPage({
       {resumeList.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {resumeList.map((resume) => (
-            <ResumeCard key={resume.id} resume={resume} locale={locale} dict={dict} />
+            <ResumeCard
+              key={resume.id}
+              resume={resume}
+              locale={locale}
+              dict={dict}
+              linkedCoverLettersCount={coverLetterCountMap.get(resume.id)}
+            />
           ))}
         </div>
       )}

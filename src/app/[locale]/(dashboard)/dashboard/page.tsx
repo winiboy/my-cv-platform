@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { FileText, Briefcase, Target, TrendingUp } from 'lucide-react'
+import { FileText, Briefcase, Target, TrendingUp, Mail } from 'lucide-react'
 import Link from 'next/link'
 import type { Locale } from '@/lib/i18n'
 import { getTranslations } from '@/lib/i18n'
@@ -45,6 +45,11 @@ export default async function DashboardPage({
     .select('*', { count: 'exact', head: true })
     .eq('user_id', user.id)
 
+  const { count: coverLetterCount } = await supabase
+    .from('cover_letters')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+
   const userName = profile?.full_name || user.email?.split('@')[0] || 'there'
 
   const stats = [
@@ -55,14 +60,28 @@ export default async function DashboardPage({
       href: `/${params.locale}/dashboard/resumes`,
       color: 'text-teal-600',
       bgColor: 'bg-teal-50',
+      darkColor: 'dark:text-teal-400',
+      darkBgColor: 'dark:bg-teal-900/30',
+    },
+    {
+      name: t.dashboard.nav.coverLetters,
+      value: coverLetterCount || 0,
+      icon: Mail,
+      href: `/${params.locale}/dashboard/cover-letters`,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+      darkColor: 'dark:text-purple-400',
+      darkBgColor: 'dark:bg-purple-900/30',
     },
     {
       name: t.dashboard.nav.jobs,
       value: jobCount || 0,
       icon: Briefcase,
       href: `/${params.locale}/dashboard/jobs`,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      darkColor: 'dark:text-blue-400',
+      darkBgColor: 'dark:bg-blue-900/30',
     },
     {
       name: t.dashboard.nav.goals,
@@ -71,6 +90,8 @@ export default async function DashboardPage({
       href: `/${params.locale}/dashboard/goals`,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
+      darkColor: 'dark:text-orange-400',
+      darkBgColor: 'dark:bg-orange-900/30',
     },
   ]
 
@@ -78,34 +99,34 @@ export default async function DashboardPage({
     <div className="space-y-6">
       {/* Welcome header */}
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
           {t.dashboard.welcome}, {userName}!
         </h1>
-        <p className="mt-2 text-slate-600">
+        <p className="mt-2 text-slate-600 dark:text-slate-400">
           {t.dashboard.overview}
         </p>
       </div>
 
       {/* Stats grid */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => {
           const Icon = stat.icon
           return (
             <Link
               key={stat.name}
               href={stat.href}
-              className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white p-6 transition-all hover:shadow-lg"
+              className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white p-6 transition-all hover:shadow-lg dark:border-slate-700 dark:bg-slate-800"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-600">{stat.name}</p>
-                  <p className="mt-2 text-3xl font-bold text-slate-900">{stat.value}</p>
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400">{stat.name}</p>
+                  <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">{stat.value}</p>
                 </div>
-                <div className={`rounded-lg ${stat.bgColor} p-3`}>
-                  <Icon className={`h-6 w-6 ${stat.color}`} />
+                <div className={`rounded-lg ${stat.bgColor} ${stat.darkBgColor} p-3`}>
+                  <Icon className={`h-6 w-6 ${stat.color} ${stat.darkColor}`} />
                 </div>
               </div>
-              <div className="mt-4 flex items-center text-sm text-slate-500 group-hover:text-teal-600">
+              <div className="mt-4 flex items-center text-sm text-slate-500 group-hover:text-teal-600 dark:text-slate-400 dark:group-hover:text-teal-400">
                 <span>
                   {t.dashboard.viewAll}
                 </span>
@@ -129,40 +150,57 @@ export default async function DashboardPage({
       </div>
 
       {/* Quick actions */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-slate-900">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
           {t.dashboard.quickActions}
         </h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Link
             href={`/${params.locale}/dashboard/resumes`}
-            className="flex items-center gap-3 rounded-lg border border-slate-200 p-4 transition-all hover:border-teal-500 hover:bg-teal-50"
+            className="flex items-center gap-3 rounded-lg border border-slate-200 p-4 transition-all hover:border-teal-500 hover:bg-teal-50 dark:border-slate-700 dark:hover:border-teal-500 dark:hover:bg-teal-900/30"
           >
-            <div className="rounded-lg bg-teal-100 p-2">
-              <FileText className="h-5 w-5 text-teal-600" />
+            <div className="rounded-lg bg-teal-100 p-2 dark:bg-teal-900/50">
+              <FileText className="h-5 w-5 text-teal-600 dark:text-teal-400" />
             </div>
             <div>
-              <p className="font-medium text-slate-900">
+              <p className="font-medium text-slate-900 dark:text-slate-100">
                 {t.dashboard.actions.createResume.title}
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {t.dashboard.actions.createResume.description}
               </p>
             </div>
           </Link>
 
           <Link
-            href={`/${params.locale}/dashboard/jobs`}
-            className="flex items-center gap-3 rounded-lg border border-slate-200 p-4 transition-all hover:border-purple-500 hover:bg-purple-50"
+            href={`/${params.locale}/dashboard/cover-letters/new`}
+            className="flex items-center gap-3 rounded-lg border border-slate-200 p-4 transition-all hover:border-purple-500 hover:bg-purple-50 dark:border-slate-700 dark:hover:border-purple-500 dark:hover:bg-purple-900/30"
           >
-            <div className="rounded-lg bg-purple-100 p-2">
-              <Briefcase className="h-5 w-5 text-purple-600" />
+            <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/50">
+              <Mail className="h-5 w-5 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <p className="font-medium text-slate-900">
+              <p className="font-medium text-slate-900 dark:text-slate-100">
+                {t.dashboard.actions.createCoverLetter.title}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {t.dashboard.actions.createCoverLetter.description}
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            href={`/${params.locale}/dashboard/jobs`}
+            className="flex items-center gap-3 rounded-lg border border-slate-200 p-4 transition-all hover:border-blue-500 hover:bg-blue-50 dark:border-slate-700 dark:hover:border-blue-500 dark:hover:bg-blue-900/30"
+          >
+            <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/50">
+              <Briefcase className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="font-medium text-slate-900 dark:text-slate-100">
                 {t.dashboard.actions.addJob.title}
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {t.dashboard.actions.addJob.description}
               </p>
             </div>
@@ -170,16 +208,16 @@ export default async function DashboardPage({
 
           <Link
             href={`/${params.locale}/dashboard/goals`}
-            className="flex items-center gap-3 rounded-lg border border-slate-200 p-4 transition-all hover:border-orange-500 hover:bg-orange-50"
+            className="flex items-center gap-3 rounded-lg border border-slate-200 p-4 transition-all hover:border-orange-500 hover:bg-orange-50 dark:border-slate-700 dark:hover:border-orange-500 dark:hover:bg-orange-900/30"
           >
-            <div className="rounded-lg bg-orange-100 p-2">
-              <Target className="h-5 w-5 text-orange-600" />
+            <div className="rounded-lg bg-orange-100 p-2 dark:bg-orange-900/50">
+              <Target className="h-5 w-5 text-orange-600 dark:text-orange-400" />
             </div>
             <div>
-              <p className="font-medium text-slate-900">
+              <p className="font-medium text-slate-900 dark:text-slate-100">
                 {t.dashboard.actions.setGoal.title}
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {t.dashboard.actions.setGoal.description}
               </p>
             </div>
@@ -188,17 +226,17 @@ export default async function DashboardPage({
       </div>
 
       {/* Getting started guide (only show if user has no data) */}
-      {!resumeCount && !jobCount && !goalCount && (
-        <div className="rounded-xl border border-teal-200 bg-gradient-to-br from-teal-50 to-teal-100 p-6">
+      {!resumeCount && !coverLetterCount && !jobCount && !goalCount && (
+        <div className="rounded-xl border border-teal-200 bg-gradient-to-br from-teal-50 to-teal-100 p-6 dark:border-teal-800 dark:from-teal-900/30 dark:to-teal-800/30">
           <div className="flex items-start gap-4">
-            <div className="rounded-lg bg-teal-500 p-2">
+            <div className="rounded-lg bg-teal-500 p-2 dark:bg-teal-600">
               <TrendingUp className="h-6 w-6 text-white" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-slate-900">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 {t.dashboard.gettingStarted.title}
               </h3>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                 {t.dashboard.gettingStarted.description}
               </p>
               <Link

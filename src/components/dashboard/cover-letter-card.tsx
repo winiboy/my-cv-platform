@@ -12,9 +12,11 @@ interface CoverLetterCardProps {
   coverLetter: CoverLetter
   locale: string
   dict: Record<string, unknown>
+  linkedResumeName?: string | null
+  linkedResumeId?: string | null
 }
 
-export function CoverLetterCard({ coverLetter, locale, dict }: CoverLetterCardProps) {
+export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, linkedResumeId }: CoverLetterCardProps) {
   const router = useRouter()
   const [showMenu, setShowMenu] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -274,6 +276,20 @@ export function CoverLetterCard({ coverLetter, locale, dict }: CoverLetterCardPr
             )}
           </div>
         </div>
+
+        {/* Linked resume badge */}
+        {linkedResumeName && linkedResumeId && (
+          <div className="mb-3">
+            <Link
+              href={`/${locale}/dashboard/resumes/${linkedResumeId}/edit`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 text-xs font-medium rounded hover:bg-teal-200 dark:hover:bg-teal-900/50 transition-colors"
+            >
+              <FileText className="h-3 w-3" />
+              {(coverLettersDict.linkedTo as string) || 'Linked to'}: {linkedResumeName}
+            </Link>
+          </div>
+        )}
 
         <div className="text-xs text-slate-500 dark:text-slate-500">
           {(coverLettersDict.updated as string) || 'Updated'} {formatDate(coverLetter.updated_at)}

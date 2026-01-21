@@ -108,6 +108,10 @@
         "title": "Create Resume",
         "description": "New professional resume"
       },
+      "createCoverLetter": {
+        "title": "Create Cover Letter",
+        "description": "New professional letter"
+      },
       "addJob": {
         "title": "Add Job Application",
         "description": "Track a new position"
@@ -127,6 +131,7 @@
     "title": "My Resumes",
     "subtitle": "Create and manage your professional resumes",
     "createNew": "Create Resume",
+    "linkedCoverLetters": "cover letter(s)",
     "createFromJob": "Create from Job Description",
     "createFirst": "Create Your First Resume",
     "default": "Default",
@@ -202,7 +207,14 @@
         "skills": "Skills",
         "languages": "Languages",
         "certifications": "Certifications",
-        "projects": "Key Achievements"
+        "projects": "Key Achievements",
+        "coverLetters": "Cover Letters"
+      },
+      "coverLetters": {
+        "title": "Linked Cover Letters",
+        "hint": "Cover letters associated with this resume",
+        "noLinked": "No cover letters linked",
+        "createNew": "Create Cover Letter"
       },
       "contactHint": "Add your contact details and professional links",
       "fullName": "Full Name",
@@ -349,7 +361,21 @@
         "olive": "Olive"
       }
     },
-    "showControls": "Show Controls"
+    "showControls": "Show Controls",
+    "association": {
+      "linkedCoverLetters": "Linked Cover Letters",
+      "noCoverLetters": "No cover letters linked to this resume yet",
+      "untitledCoverLetter": "Untitled cover letter",
+      "createCoverLetter": "Create Cover Letter",
+      "linkExisting": "Link Existing Cover Letter",
+      "selectCoverLetter": "Select a cover letter",
+      "link": "Link",
+      "linking": "Linking...",
+      "showLess": "Show less",
+      "viewAll": "View all",
+      "more": "more",
+      "hint": "Cover letters associated with this resume"
+    }
   },
   "common": {
     "cancel": "Cancel",
@@ -420,6 +446,7 @@
     "title": "Cover Letters",
     "subtitle": "Create and manage your cover letters",
     "createNew": "Create Cover Letter",
+    "linkedTo": "Linked to",
     "createFirst": "Create Your First Cover Letter",
     "updated": "Updated",
     "edit": "Edit",
@@ -427,6 +454,17 @@
     "duplicate": "Duplicate",
     "downloadPDF": "Download PDF",
     "confirmDelete": "Are you sure you want to delete this cover letter?",
+    "association": {
+      "linkedCV": "Linked CV",
+      "noResumeLinked": "No resume linked",
+      "selectResume": "Select a resume",
+      "untitledResume": "Untitled resume",
+      "viewResume": "View Resume",
+      "view": "View",
+      "createNew": "Create New Resume",
+      "hint": "Associate with a resume to use its data for AI generation",
+      "error": "Failed to update linked resume"
+    },
     "empty": {
       "title": "No cover letters yet",
       "description": "Create your first cover letter to accompany your job applications.",
@@ -461,7 +499,16 @@
         "opening": "Opening",
         "body": "Body",
         "closing": "Closing",
-        "signature": "Signature"
+        "signature": "Signature",
+        "resume": "Linked CV"
+      },
+      "resume": {
+        "title": "Linked Resume",
+        "hint": "Associate with a resume to use its data for AI generation",
+        "noLinked": "No resume linked",
+        "selectResume": "Select a resume",
+        "unlinkResume": "Unlink",
+        "createNew": "Create New Resume"
       },
       "recipient": {
         "title": "Recipient Information",

@@ -108,6 +108,10 @@
         "title": "Lebenslauf erstellen",
         "description": "Neuer professioneller Lebenslauf"
       },
+      "createCoverLetter": {
+        "title": "Anschreiben erstellen",
+        "description": "Neues professionelles Anschreiben"
+      },
       "addJob": {
         "title": "Bewerbung hinzufügen",
         "description": "Neue Stelle verfolgen"
@@ -127,6 +131,7 @@
     "title": "Meine Lebensläufe",
     "subtitle": "Erstellen und verwalten Sie Ihre professionellen Lebensläufe",
     "createNew": "Lebenslauf erstellen",
+    "linkedCoverLetters": "Anschreiben",
     "createFromJob": "Aus Stellenbeschreibung erstellen",
     "createFirst": "Erstellen Sie Ihren ersten Lebenslauf",
     "default": "Standard",
@@ -202,7 +207,14 @@
         "skills": "Fähigkeiten",
         "languages": "Sprachen",
         "certifications": "Zertifikate",
-        "projects": "Wichtige Erfolge"
+        "projects": "Wichtige Erfolge",
+        "coverLetters": "Anschreiben"
+      },
+      "coverLetters": {
+        "title": "Verknüpfte Anschreiben",
+        "hint": "Mit diesem Lebenslauf verknüpfte Anschreiben",
+        "noLinked": "Keine Anschreiben verknüpft",
+        "createNew": "Anschreiben erstellen"
       },
       "contactHint": "Fügen Sie Ihre Kontaktdaten und professionellen Links hinzu",
       "fullName": "Vollständiger Name",
@@ -349,7 +361,21 @@
         "olive": "Olivgrün"
       }
     },
-    "showControls": "Steuerungen anzeigen"
+    "showControls": "Steuerungen anzeigen",
+    "association": {
+      "linkedCoverLetters": "Verknüpfte Anschreiben",
+      "noCoverLetters": "Noch keine Anschreiben mit diesem Lebenslauf verknüpft",
+      "untitledCoverLetter": "Unbenanntes Anschreiben",
+      "createCoverLetter": "Anschreiben erstellen",
+      "linkExisting": "Vorhandenes Anschreiben verknüpfen",
+      "selectCoverLetter": "Anschreiben auswählen",
+      "link": "Verknüpfen",
+      "linking": "Verknüpfung...",
+      "showLess": "Weniger anzeigen",
+      "viewAll": "Alle anzeigen",
+      "more": "weitere",
+      "hint": "Mit diesem Lebenslauf verknüpfte Anschreiben"
+    }
   },
   "common": {
     "cancel": "Abbrechen",
@@ -420,6 +446,7 @@
     "title": "Anschreiben",
     "subtitle": "Erstellen und verwalten Sie Ihre Anschreiben",
     "createNew": "Anschreiben erstellen",
+    "linkedTo": "Verknüpft mit",
     "createFirst": "Erstellen Sie Ihr erstes Anschreiben",
     "updated": "Aktualisiert",
     "edit": "Bearbeiten",
@@ -427,6 +454,17 @@
     "duplicate": "Duplizieren",
     "downloadPDF": "PDF herunterladen",
     "confirmDelete": "Möchten Sie dieses Anschreiben wirklich löschen?",
+    "association": {
+      "linkedCV": "Verknüpfter Lebenslauf",
+      "noResumeLinked": "Kein Lebenslauf verknüpft",
+      "selectResume": "Lebenslauf auswählen",
+      "untitledResume": "Unbenannter Lebenslauf",
+      "viewResume": "Lebenslauf anzeigen",
+      "view": "Anzeigen",
+      "createNew": "Neuen Lebenslauf erstellen",
+      "hint": "Verknüpfen Sie einen Lebenslauf, um dessen Daten für die KI-Generierung zu verwenden",
+      "error": "Fehler beim Aktualisieren des verknüpften Lebenslaufs"
+    },
     "empty": {
       "title": "Noch keine Anschreiben",
       "description": "Erstellen Sie Ihr erstes Anschreiben für Ihre Bewerbungen.",
@@ -461,7 +499,16 @@
         "opening": "Einleitung",
         "body": "Hauptteil",
         "closing": "Schluss",
-        "signature": "Unterschrift"
+        "signature": "Unterschrift",
+        "resume": "Verknüpfter Lebenslauf"
+      },
+      "resume": {
+        "title": "Verknüpfter Lebenslauf",
+        "hint": "Verknüpfen Sie einen Lebenslauf, um dessen Daten für die KI-Generierung zu verwenden",
+        "noLinked": "Kein Lebenslauf verknüpft",
+        "selectResume": "Lebenslauf auswählen",
+        "unlinkResume": "Verknüpfung aufheben",
+        "createNew": "Neuen Lebenslauf erstellen"
       },
       "recipient": {
         "title": "Empfängerinformationen",

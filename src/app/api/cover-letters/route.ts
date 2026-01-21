@@ -41,9 +41,10 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Include linked resume info (id, title) via Supabase join syntax
     const { data: coverLetters, error } = await supabase
       .from('cover_letters')
-      .select('*')
+      .select('*, resume:resumes(id, title)')
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false })
 

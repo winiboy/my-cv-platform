@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { FileText } from 'lucide-react'
 import type { CoverLetterInsert } from '@/types/database'
@@ -14,10 +14,17 @@ interface CreateCoverLetterFormProps {
 
 export function CreateCoverLetterForm({ locale, dict, resumes }: CreateCoverLetterFormProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Read resume_id from URL query parameter to pre-select the resume
+  const resumeIdFromUrl = searchParams?.get('resume_id') || ''
+  // Validate that the resume_id from URL exists in the resumes list
+  const initialResumeId = resumes.some((r) => r.id === resumeIdFromUrl) ? resumeIdFromUrl : ''
+
   const [title, setTitle] = useState('')
   const [companyName, setCompanyName] = useState('')
   const [jobTitle, setJobTitle] = useState('')
-  const [selectedResumeId, setSelectedResumeId] = useState<string>('')
+  const [selectedResumeId, setSelectedResumeId] = useState<string>(initialResumeId)
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState('')
 

@@ -18,6 +18,7 @@ import {
   Sparkles,
   LayoutList,
   GripVertical,
+  Mail,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n'
@@ -30,6 +31,7 @@ import { SkillsSection } from './resume-sections/skills-section'
 import { LanguagesSection } from './resume-sections/languages-section'
 import { CertificationsSection } from './resume-sections/certifications-section'
 import { ProjectsSection } from './resume-sections/projects-section'
+import { CoverLetterAssociationSection } from './resume-sections/cover-letter-association-section'
 import { ProfessionalTemplate } from './resume-templates/professional-template'
 import { CVAdaptationModal } from './cv-adaptation-modal'
 import { FontCarousel3D, FONTS } from '@/components/ui/font-carousel-3d'
@@ -39,6 +41,8 @@ interface ResumeEditorProps {
   resume: Resume
   locale: Locale
   dict: any
+  linkedCoverLetters?: { id: string; title: string; company_name: string | null; job_title: string | null }[]
+  unlinkedCoverLetters?: { id: string; title: string; company_name: string | null }[]
 }
 
 type SectionId =
@@ -50,6 +54,7 @@ type SectionId =
   | 'languages'
   | 'certifications'
   | 'projects'
+  | 'coverLetters'
   | 'editSidebar'
   | 'editMainContent'
 
@@ -62,6 +67,7 @@ const SECTIONS = [
   { id: 'languages' as const, label: 'Languages', icon: Languages },
   { id: 'certifications' as const, label: 'Certifications', icon: Award },
   { id: 'projects' as const, label: 'Projects', icon: FolderGit2 },
+  { id: 'coverLetters' as const, label: 'Cover Letters', icon: Mail },
   { id: 'editSidebar' as const, label: 'Edit Sidebar', icon: LayoutList },
   { id: 'editMainContent' as const, label: 'Edit Main Content', icon: LayoutList },
 ]
@@ -85,7 +91,7 @@ const SECTION_MAPPING: Record<string, SectionId> = {
   projects: 'projects',
 }
 
-export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEditorProps) {
+export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverLetters, unlinkedCoverLetters: initialUnlinkedCoverLetters }: ResumeEditorProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [resume, setResume] = useState(initialResume)
@@ -97,6 +103,10 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [modifiedSections, setModifiedSections] = useState<Set<SectionId>>(new Set())
   const [showAdaptationModal, setShowAdaptationModal] = useState(false)
+
+  // Cover letter association state
+  const [coverLetters, setCoverLetters] = useState(linkedCoverLetters || [])
+  const [unlinkedCoverLetters, setUnlinkedCoverLetters] = useState(initialUnlinkedCoverLetters || [])
 
   // Design settings for live preview (loaded from localStorage)
   const [titleFontSize, setTitleFontSize] = useState(24)
@@ -175,6 +185,41 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
       setIsSaving(false)
     }
   }
+
+  /**
+   * Associates an existing unlinked cover letter with this resume.
+   * PATCHes the cover letter to set its resume_id to the current resume.
+   */
+  const handleAssociateCoverLetter = useCallback(async (coverLetterId: string) => {
+    try {
+      const supabase = createClient()
+
+      const { error } = await supabase
+        .from('cover_letters')
+        .update({ resume_id: resume.id })
+        .eq('id', coverLetterId)
+
+      if (error) {
+        console.error('Error associating cover letter:', error)
+        throw error
+      }
+
+      // Find the cover letter in unlinked list and move it to linked list
+      const associatedCoverLetter = unlinkedCoverLetters.find((cl) => cl.id === coverLetterId)
+      if (associatedCoverLetter) {
+        // Add to linked cover letters (with empty job_title since unlinked doesn't have it)
+        setCoverLetters((prev) => [
+          { ...associatedCoverLetter, job_title: null },
+          ...prev,
+        ])
+        // Remove from unlinked cover letters
+        setUnlinkedCoverLetters((prev) => prev.filter((cl) => cl.id !== coverLetterId))
+      }
+    } catch (err) {
+      console.error('Failed to associate cover letter:', err)
+      throw err
+    }
+  }, [resume.id, unlinkedCoverLetters])
 
   // Debounced localStorage save
   const saveToLocalStorageDebounced = useRef<NodeJS.Timeout | undefined>(undefined)
@@ -683,6 +728,16 @@ export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEdit
               )}
               {activeSection === 'projects' && (
                 <ProjectsSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
+              )}
+              {activeSection === 'coverLetters' && (
+                <CoverLetterAssociationSection
+                  resumeId={resume.id}
+                  coverLetters={coverLetters}
+                  unlinkedCoverLetters={unlinkedCoverLetters}
+                  locale={locale}
+                  dict={dict}
+                  onAssociate={handleAssociateCoverLetter}
+                />
               )}
               {activeSection === 'editSidebar' && (
                 <div className="space-y-6">

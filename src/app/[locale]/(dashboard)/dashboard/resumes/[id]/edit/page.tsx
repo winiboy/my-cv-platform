@@ -33,8 +33,31 @@ export default async function EditResumePage({
     notFound()
   }
 
+  // Fetch linked cover letters for this resume
+  const { data: linkedCoverLetters } = await supabase
+    .from('cover_letters')
+    .select('id, title, company_name, job_title')
+    .eq('resume_id', id)
+    .order('updated_at', { ascending: false })
+
+  // Fetch unlinked cover letters (available for association)
+  const { data: unlinkedCoverLetters } = await supabase
+    .from('cover_letters')
+    .select('id, title, company_name')
+    .eq('user_id', user.id)
+    .is('resume_id', null)
+    .order('updated_at', { ascending: false })
+
   // Get translations
   const dict = getTranslations(locale as Locale, 'common')
 
-  return <ResumeEditor resume={resume as Resume} locale={locale as Locale} dict={dict} />
+  return (
+    <ResumeEditor
+      resume={resume as Resume}
+      locale={locale as Locale}
+      dict={dict}
+      linkedCoverLetters={linkedCoverLetters || []}
+      unlinkedCoverLetters={unlinkedCoverLetters || []}
+    />
+  )
 }

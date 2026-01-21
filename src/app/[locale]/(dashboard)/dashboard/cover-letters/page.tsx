@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { FileText, Plus } from 'lucide-react'
 import { CoverLetterCard } from '@/components/dashboard/cover-letter-card'
 import { getTranslations, type Locale } from '@/lib/i18n'
-import type { CoverLetter } from '@/types/database'
+import type { CoverLetterWithResume } from '@/types/database'
 
 export default async function CoverLettersPage({
   params,
@@ -24,10 +24,10 @@ export default async function CoverLettersPage({
     redirect(`/${locale}/login`)
   }
 
-  // Fetch user's cover letters
+  // Fetch user's cover letters with linked resume info
   const { data: coverLetters, error } = await supabase
     .from('cover_letters')
-    .select('*')
+    .select('*, resume:resumes(id, title)')
     .eq('user_id', user.id)
     .order('updated_at', { ascending: false })
 
@@ -35,7 +35,7 @@ export default async function CoverLettersPage({
     console.error('Error fetching cover letters:', error)
   }
 
-  const coverLetterList = (coverLetters as CoverLetter[] | null) || []
+  const coverLetterList = (coverLetters as CoverLetterWithResume[] | null) || []
   const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
   const emptyDict = (coverLettersDict.empty || {}) as Record<string, unknown>
 
@@ -92,6 +92,8 @@ export default async function CoverLettersPage({
               coverLetter={coverLetter}
               locale={locale}
               dict={dict}
+              linkedResumeName={coverLetter.resume?.title}
+              linkedResumeId={coverLetter.resume?.id}
             />
           ))}
         </div>

@@ -13,11 +13,13 @@ import {
   AlignLeft,
   PenTool,
   Loader2,
+  Link2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n'
 import type { CoverLetter, Resume, CoverLetterAnalysis } from '@/types/database'
 import { CoverLetterPreview } from './cover-letter-preview'
+import { ResumeAssociationSection } from './cover-letter-sections/resume-association-section'
 import { RecipientSection } from './cover-letter-sections/recipient-section'
 import { OpeningSection } from './cover-letter-sections/opening-section'
 import { BodySection } from './cover-letter-sections/body-section'
@@ -33,9 +35,10 @@ interface CoverLetterEditorProps {
   dict: Record<string, unknown>
 }
 
-type SectionId = 'recipient' | 'opening' | 'body' | 'closing' | 'signature'
+type SectionId = 'resume' | 'recipient' | 'opening' | 'body' | 'closing' | 'signature'
 
 const SECTIONS = [
+  { id: 'resume' as const, label: 'Linked CV', icon: Link2 },
   { id: 'recipient' as const, label: 'Recipient', icon: User },
   { id: 'opening' as const, label: 'Opening', icon: FileText },
   { id: 'body' as const, label: 'Body', icon: AlignLeft },
@@ -87,6 +90,7 @@ export function CoverLetterEditor({
           job_title: coverLetter.job_title,
           job_description: coverLetter.job_description,
           template: coverLetter.template,
+          resume_id: coverLetter.resume_id,
           analysis_score: coverLetter.analysis_score,
           analysis_results: coverLetter.analysis_results,
           updated_at: new Date().toISOString(),
@@ -156,12 +160,63 @@ export function CoverLetterEditor({
     [updateCoverLetter]
   )
 
+  /**
+   * Handles resume association changes. Updates local state immediately
+   * and persists to database. Reverts on error.
+   */
+  const handleResumeChange = useCallback(
+    async (resumeId: string | null) => {
+      const previousResumeId = coverLetter.resume_id
+
+      // Update local state immediately for responsive UI
+      setCoverLetter((prev) => ({ ...prev, resume_id: resumeId }))
+
+      try {
+        const supabase = createClient()
+        const { error } = await supabase
+          .from('cover_letters')
+          .update({ resume_id: resumeId, updated_at: new Date().toISOString() })
+          .eq('id', coverLetter.id)
+
+        if (error) {
+          console.error('Error updating resume association:', error)
+          // Revert on error
+          setCoverLetter((prev) => ({ ...prev, resume_id: previousResumeId }))
+          setSaveError(
+            ((editorDict.resume as Record<string, string>)?.error as string) ||
+              'Failed to update linked resume'
+          )
+        }
+      } catch (err) {
+        console.error('Unexpected error updating resume association:', err)
+        // Revert on error
+        setCoverLetter((prev) => ({ ...prev, resume_id: previousResumeId }))
+        setSaveError(
+          ((editorDict.resume as Record<string, string>)?.error as string) ||
+            'Failed to update linked resume'
+        )
+      }
+    },
+    [coverLetter.id, coverLetter.resume_id, editorDict]
+  )
+
   const bodyParagraphs = Array.isArray(coverLetter.body_paragraphs)
     ? (coverLetter.body_paragraphs as string[])
     : []
 
   const renderSection = () => {
     switch (activeSection) {
+      case 'resume':
+        return (
+          <ResumeAssociationSection
+            coverLetterId={coverLetter.id}
+            currentResumeId={coverLetter.resume_id}
+            resumes={resumes.map((r) => ({ id: r.id, title: r.title }))}
+            locale={locale}
+            dict={dict}
+            onResumeChange={handleResumeChange}
+          />
+        )
       case 'recipient':
         return (
           <RecipientSection
