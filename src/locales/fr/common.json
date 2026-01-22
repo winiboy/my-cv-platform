@@ -93,6 +93,7 @@
       "home": "Accueil",
       "resumes": "Mes CV",
       "coverLetters": "Lettres de motivation",
+      "applications": "Mes candidatures",
       "jobs": "Recherche d'emploi",
       "goals": "Objectifs",
       "settings": "Paramètres"
@@ -596,5 +597,18 @@
     "jobLabel": "Emploi",
     "linked": "Lié",
     "linkedJob": "Emploi lié"
+  },
+  "jobApplications": {
+    "title": "Mes candidatures",
+    "subtitle": "Suivez et gérez vos candidatures",
+    "filterAll": "Toutes",
+    "browseJobs": "Parcourir les offres",
+    "empty": {
+      "title": "Aucune candidature pour le moment",
+      "description": "Commencez à suivre votre recherche d'emploi en enregistrant les offres qui vous intéressent.",
+      "noMatchingStatus": "Aucune candidature avec ce statut",
+      "tryDifferentFilter": "Essayez de sélectionner un autre filtre ou parcourez les offres pour en ajouter de nouvelles.",
+      "browseJobsCta": "Parcourir les offres d'emploi"
+    }
   }
 }

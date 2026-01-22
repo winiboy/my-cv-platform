@@ -198,8 +198,10 @@ export function CoverLetterEditor({
   )
 
   /**
-   * Handles job application association changes. Updates local state immediately
-   * and persists to database. Reverts on error.
+   * Handles job application association changes. Updates both sides of the relationship:
+   * - cover_letters.job_application_id
+   * - job_applications.cover_letter_id (bidirectional sync)
+   * Updates local state immediately and persists to database. Reverts on error.
    */
   const handleJobApplicationChange = useCallback(
     async (jobApplicationId: string | null) => {
@@ -217,23 +219,57 @@ export function CoverLetterEditor({
 
       try {
         const supabase = createClient()
-        const { error } = await supabase
+
+        // Step 1: Update the cover letter to link to the new job (or null)
+        const { error: coverLetterError } = await supabase
           .from('cover_letters')
           .update({ job_application_id: jobApplicationId, updated_at: new Date().toISOString() })
           .eq('id', coverLetter.id)
 
-        if (error) {
-          console.error('Error updating job application association:', error)
-          // Revert on error
-          setCoverLetter((prev) => ({ ...prev, job_application_id: previousJobApplicationId }))
-          setCurrentJobApplication(previousJobApplication)
-          const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
-          const jobAssociationDict = (coverLettersDict.jobAssociation || {}) as Record<string, string>
-          setSaveError(jobAssociationDict.error || 'Failed to update linked job')
+        if (coverLetterError) {
+          console.error('Error updating cover letter job association:', coverLetterError)
+          throw coverLetterError
+        }
+
+        // Step 2: Clear the previous job's cover_letter_id if there was one
+        if (previousJobApplicationId) {
+          const { error: clearPreviousError } = await supabase
+            .from('job_applications')
+            .update({ cover_letter_id: null })
+            .eq('id', previousJobApplicationId)
+
+          if (clearPreviousError) {
+            console.error('Error clearing previous job reverse link:', clearPreviousError)
+            // Non-fatal: log but continue since the primary link was updated
+          }
+        }
+
+        // Step 3: Set the new job's cover_letter_id if linking to a job
+        if (jobApplicationId) {
+          const { error: setNewError } = await supabase
+            .from('job_applications')
+            .update({ cover_letter_id: coverLetter.id })
+            .eq('id', jobApplicationId)
+
+          if (setNewError) {
+            console.error('Error setting new job reverse link:', setNewError)
+            // Rollback: revert cover letter update and restore previous job link
+            await supabase
+              .from('cover_letters')
+              .update({ job_application_id: previousJobApplicationId, updated_at: new Date().toISOString() })
+              .eq('id', coverLetter.id)
+            if (previousJobApplicationId) {
+              await supabase
+                .from('job_applications')
+                .update({ cover_letter_id: coverLetter.id })
+                .eq('id', previousJobApplicationId)
+            }
+            throw setNewError
+          }
         }
       } catch (err) {
         console.error('Unexpected error updating job application association:', err)
-        // Revert on error
+        // Revert local state on error
         setCoverLetter((prev) => ({ ...prev, job_application_id: previousJobApplicationId }))
         setCurrentJobApplication(previousJobApplication)
         const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>

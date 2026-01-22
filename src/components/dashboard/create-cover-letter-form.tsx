@@ -1,30 +1,44 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { FileText } from 'lucide-react'
-import type { CoverLetterInsert } from '@/types/database'
+import type { CoverLetterInsert, JobApplication } from '@/types/database'
 
 interface CreateCoverLetterFormProps {
   locale: string
   dict: Record<string, unknown>
   resumes: { id: string; title: string }[]
+  jobApplication?: JobApplication | null
+  initialResumeId?: string
 }
 
-export function CreateCoverLetterForm({ locale, dict, resumes }: CreateCoverLetterFormProps) {
+export function CreateCoverLetterForm({
+  locale,
+  dict,
+  resumes,
+  jobApplication,
+  initialResumeId: initialResumeIdProp,
+}: CreateCoverLetterFormProps) {
   const router = useRouter()
-  const searchParams = useSearchParams()
 
-  // Read resume_id from URL query parameter to pre-select the resume
-  const resumeIdFromUrl = searchParams?.get('resume_id') || ''
-  // Validate that the resume_id from URL exists in the resumes list
-  const initialResumeId = resumes.some((r) => r.id === resumeIdFromUrl) ? resumeIdFromUrl : ''
+  // Validate that the initial resume_id exists in the resumes list
+  const validatedResumeId = initialResumeIdProp && resumes.some((r) => r.id === initialResumeIdProp)
+    ? initialResumeIdProp
+    : ''
 
-  const [title, setTitle] = useState('')
-  const [companyName, setCompanyName] = useState('')
-  const [jobTitle, setJobTitle] = useState('')
-  const [selectedResumeId, setSelectedResumeId] = useState<string>(initialResumeId)
+  // Pre-fill from job application if provided
+  const initialCompany = jobApplication?.company_name || ''
+  const initialJobTitle = jobApplication?.job_title || ''
+  const initialTitle = jobApplication
+    ? `Cover Letter - ${initialJobTitle} at ${initialCompany}`
+    : ''
+
+  const [title, setTitle] = useState(initialTitle)
+  const [companyName, setCompanyName] = useState(initialCompany)
+  const [jobTitle, setJobTitle] = useState(initialJobTitle)
+  const [selectedResumeId, setSelectedResumeId] = useState<string>(validatedResumeId)
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState('')
 
@@ -70,14 +84,16 @@ export function CreateCoverLetterForm({ locale, dict, resumes }: CreateCoverLett
 
       console.log('Authenticated user:', user.id.substring(0, 8) + '...')
 
-      // Create cover letter - ensure resume_id is null when empty, not empty string
+      // Create cover letter - ensure resume_id and job_application_id are null when empty
       const resumeId = selectedResumeId && selectedResumeId.trim() !== '' ? selectedResumeId : null
       const newCoverLetter: CoverLetterInsert = {
         user_id: user.id,
         title: title.trim(),
         resume_id: resumeId,
+        job_application_id: jobApplication?.id || null,
         company_name: companyName.trim() || null,
         job_title: jobTitle.trim() || null,
+        job_description: jobApplication?.job_description || null,
         greeting: 'Dear Hiring Manager,',
         opening_paragraph: null,
         body_paragraphs: [],
@@ -86,11 +102,6 @@ export function CreateCoverLetterForm({ locale, dict, resumes }: CreateCoverLett
         sender_name: null,
         template: 'modern',
       }
-
-      console.log('Creating cover letter with data:', {
-        ...newCoverLetter,
-        user_id: user.id.substring(0, 8) + '...', // Partially hide for privacy
-      })
 
       const { data: coverLetter, error: insertError } = await supabase
         .from('cover_letters')
@@ -122,6 +133,20 @@ export function CreateCoverLetterForm({ locale, dict, resumes }: CreateCoverLett
         setError(errorMessage)
         setIsCreating(false)
         return
+      }
+
+      // Create bidirectional link: update job_applications.cover_letter_id
+      if (jobApplication?.id && coverLetter?.id) {
+        const { error: updateError } = await supabase
+          .from('job_applications')
+          .update({ cover_letter_id: coverLetter.id, updated_at: new Date().toISOString() })
+          .eq('id', jobApplication.id)
+          .eq('user_id', user.id)
+
+        if (updateError) {
+          // Log but don't fail the operation - the cover letter was created successfully
+          console.error('Error linking cover letter to job application:', updateError)
+        }
       }
 
       // Redirect to editor

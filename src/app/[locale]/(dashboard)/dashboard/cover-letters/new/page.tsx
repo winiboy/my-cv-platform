@@ -1,16 +1,22 @@
 import { CreateCoverLetterForm } from '@/components/dashboard/create-cover-letter-form'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Briefcase } from 'lucide-react'
 import Link from 'next/link'
 import { getTranslations, type Locale } from '@/lib/i18n'
+import type { JobApplication } from '@/types/database'
+
+interface NewCoverLetterPageProps {
+  params: Promise<{ locale: string }>
+  searchParams: Promise<{ jobApplicationId?: string; resume_id?: string }>
+}
 
 export default async function NewCoverLetterPage({
   params,
-}: {
-  params: Promise<{ locale: string }>
-}) {
+  searchParams,
+}: NewCoverLetterPageProps) {
   const { locale } = await params
+  const { jobApplicationId, resume_id } = await searchParams
   const dict = getTranslations(locale as Locale, 'common') as Record<string, unknown>
   const supabase = await createServerSupabaseClient()
 
@@ -21,6 +27,19 @@ export default async function NewCoverLetterPage({
 
   if (!user) {
     redirect(`/${locale}/login`)
+  }
+
+  // Fetch job application if jobApplicationId is provided
+  let jobApplication: JobApplication | null = null
+  if (jobApplicationId) {
+    const { data } = await supabase
+      .from('job_applications')
+      .select('*')
+      .eq('id', jobApplicationId)
+      .eq('user_id', user.id)
+      .single()
+
+    jobApplication = data
   }
 
   // Fetch user's resumes for linking
@@ -45,6 +64,21 @@ export default async function NewCoverLetterPage({
         {(commonDict.back as string) || 'Back to'} {(coverLettersDict.title as string) || 'Cover Letters'}
       </Link>
 
+      {/* Job Application Banner */}
+      {jobApplication && (
+        <div className="flex items-start gap-3 p-4 bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg">
+          <Briefcase className="h-5 w-5 text-teal-600 dark:text-teal-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-teal-800 dark:text-teal-200">
+              {(newDict.creatingForJob as string) || 'Creating cover letter for job application'}
+            </p>
+            <p className="text-sm text-teal-700 dark:text-teal-300">
+              {jobApplication.job_title} {(commonDict.at as string) || 'at'} {jobApplication.company_name}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
@@ -60,6 +94,8 @@ export default async function NewCoverLetterPage({
         locale={locale}
         dict={dict}
         resumes={resumes || []}
+        jobApplication={jobApplication}
+        initialResumeId={resume_id}
       />
     </div>
   )

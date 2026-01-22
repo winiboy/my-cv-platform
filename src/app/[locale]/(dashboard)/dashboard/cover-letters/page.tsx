@@ -36,7 +36,8 @@ export default async function CoverLettersPage({
   }
 
   // Fetch linked job applications separately (to avoid schema cache issues)
-  const jobAppIds = coverLetters?.map(cl => cl.job_application_id).filter(Boolean) || []
+  // Filter out null values and cast to string[] for TypeScript
+  const jobAppIds = (coverLetters?.map(cl => cl.job_application_id).filter((id): id is string => id !== null) || [])
   const jobApplicationsMap = new Map<string, { id: string; job_title: string; company_name: string }>()
 
   if (jobAppIds.length > 0) {

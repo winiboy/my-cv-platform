@@ -33,7 +33,28 @@
       "Bash(npm run build:*)",
       "Bash(git stash:*)",
       "Bash(npm run dev:*)",
-      "Bash(git diff:*)"
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git restore:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(timeout /t 5 /nobreak)",
+      "Bash(npm version:*)",
+      "Bash(dir /s /b \"E:\\\\website\\\\cv-website\\\\my-cv-platform\\\\src\\\\app\\\\[locale]\\\\\\(marketing\\)\")",
+      "Bash(cd:*)",
+      "Bash(git branch:*)",
+      "Bash(pnpm dev --hostname 0.0.0.0)",
+      "Bash(more:*)",
+      "Bash(tasklist:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm eslint:*)",
+      "Bash(node -p:*)",
+      "Bash(pnpm exec tsc:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npx eslint:*)",
+      "Bash(pnpm ls:*)",
+      "Bash(echo:*)",
+      "Bash(pnpm exec eslint:*)"
     ]
   }
 }

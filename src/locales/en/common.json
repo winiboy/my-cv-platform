@@ -93,6 +93,7 @@
       "home": "Home",
       "resumes": "My Resumes",
       "coverLetters": "Cover Letters",
+      "applications": "My Applications",
       "jobs": "Job Search",
       "goals": "Goals",
       "settings": "Settings"
@@ -637,5 +638,18 @@
     "jobLabel": "Job",
     "linked": "Linked",
     "linkedJob": "Linked Job"
+  },
+  "jobApplications": {
+    "title": "My Job Applications",
+    "subtitle": "Track and manage your job applications",
+    "filterAll": "All",
+    "browseJobs": "Browse Jobs",
+    "empty": {
+      "title": "No job applications yet",
+      "description": "Start tracking your job search by saving jobs you are interested in.",
+      "noMatchingStatus": "No applications with this status",
+      "tryDifferentFilter": "Try selecting a different filter or browse jobs to add new applications.",
+      "browseJobsCta": "Browse Job Listings"
+    }
   }
 }

@@ -86,11 +86,17 @@ export function KeyAchievementsToolbar({
       activeFormats.has(command) ? 'bg-teal-100 text-teal-700' : 'text-slate-600'
     } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`
 
+  // Prevent selection loss when clicking toolbar buttons
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+  }, [])
+
   return (
     <div className="flex items-center gap-0.5 print:hidden">
       {/* Alignment */}
       <button
         type="button"
+        onMouseDown={handleMouseDown}
         onClick={() => handleButtonClick('alignLeft')}
         className={buttonClass('alignLeft')}
         title={t?.alignLeft || 'Align left'}
@@ -102,6 +108,7 @@ export function KeyAchievementsToolbar({
 
       <button
         type="button"
+        onMouseDown={handleMouseDown}
         onClick={() => handleButtonClick('alignCenter')}
         className={buttonClass('alignCenter')}
         title={t?.alignCenter || 'Center'}
@@ -113,6 +120,7 @@ export function KeyAchievementsToolbar({
 
       <button
         type="button"
+        onMouseDown={handleMouseDown}
         onClick={() => handleButtonClick('alignJustify')}
         className={buttonClass('alignJustify')}
         title={t?.alignJustify || 'Justify'}
@@ -127,6 +135,7 @@ export function KeyAchievementsToolbar({
       {/* Lists */}
       <button
         type="button"
+        onMouseDown={handleMouseDown}
         onClick={() => handleButtonClick('bulletList')}
         className={buttonClass('bulletList')}
         title={t?.bulletList || 'Bullet list'}
@@ -138,6 +147,7 @@ export function KeyAchievementsToolbar({
 
       <button
         type="button"
+        onMouseDown={handleMouseDown}
         onClick={() => handleButtonClick('dashList')}
         className={buttonClass('dashList')}
         title={t?.dashList || 'Dash list'}
@@ -149,6 +159,7 @@ export function KeyAchievementsToolbar({
 
       <button
         type="button"
+        onMouseDown={handleMouseDown}
         onClick={() => handleButtonClick('numberedList')}
         className={buttonClass('numberedList')}
         title={t?.numberedList || 'Numbered list'}
@@ -163,6 +174,7 @@ export function KeyAchievementsToolbar({
       {/* Text Formatting */}
       <button
         type="button"
+        onMouseDown={handleMouseDown}
         onClick={() => handleButtonClick('bold')}
         className={buttonClass('bold')}
         title={t?.bold || 'Bold (Ctrl+B)'}
@@ -175,6 +187,7 @@ export function KeyAchievementsToolbar({
       {showItalic && (
         <button
           type="button"
+          onMouseDown={handleMouseDown}
           onClick={() => handleButtonClick('italic')}
           className={buttonClass('italic')}
           title={t?.italic || 'Italic (Ctrl+I)'}

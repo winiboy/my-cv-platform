@@ -17,7 +17,7 @@ interface LinkedJobInfo {
 interface ResumeCardProps {
   resume: Resume
   locale: string
-  dict: any
+  dict: Record<string, unknown>
   linkedCoverLetterIds?: string[]
   linkedJob?: LinkedJobInfo | null
 }
@@ -28,6 +28,14 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
   const [isDeleting, setIsDeleting] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
+  // Extract nested dictionaries with type assertions
+  const resumesDict = (dict.resumes || {}) as Record<string, unknown>
+  const commonDict = (dict.common || {}) as Record<string, unknown>
+  const errorsDict = (dict.errors || {}) as Record<string, unknown>
+  const apiErrorsDict = (errorsDict.api || {}) as Record<string, string>
+  const editorDict = (resumesDict.editor || {}) as Record<string, string>
+  const templatesDict = (resumesDict.templates || {}) as Record<string, string>
+
   // Check for unsaved changes in localStorage
   useEffect(() => {
     const draft = localStorage.getItem(`resume_draft_${resume.id}`)
@@ -35,7 +43,7 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
   }, [resume.id])
 
   const handleDelete = async () => {
-    if (!confirm(dict.resumes?.confirmDelete || 'Are you sure you want to delete this resume?')) return
+    if (!confirm((resumesDict.confirmDelete as string) || 'Are you sure you want to delete this resume?')) return
 
     setIsDeleting(true)
     const supabase = createClient()
@@ -44,7 +52,7 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
 
     if (error) {
       console.error('Error deleting resume:', error)
-      alert(dict.errors?.api?.deleteResume || 'Failed to delete resume')
+      alert(apiErrorsDict.deleteResume || 'Failed to delete resume')
       setIsDeleting(false)
       return
     }
@@ -55,7 +63,7 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
   const handleDuplicate = async () => {
     const supabase = createClient()
 
-    const { error } = await (supabase as any).from('resumes').insert({
+    const { error } = await supabase.from('resumes').insert({
       user_id: resume.user_id,
       title: `${resume.title} (Copy)`,
       template: resume.template,
@@ -74,7 +82,7 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
 
     if (error) {
       console.error('Error duplicating resume:', error)
-      alert(dict.errors?.api?.duplicateResume || 'Failed to duplicate resume')
+      alert(apiErrorsDict.duplicateResume || 'Failed to duplicate resume')
       return
     }
 
@@ -86,14 +94,14 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
     const supabase = createClient()
 
     // First, unset any existing default
-    await (supabase as any).from('resumes').update({ is_default: false }).eq('user_id', resume.user_id)
+    await supabase.from('resumes').update({ is_default: false }).eq('user_id', resume.user_id)
 
     // Set this one as default
-    const { error } = await (supabase as any).from('resumes').update({ is_default: true }).eq('id', resume.id)
+    const { error } = await supabase.from('resumes').update({ is_default: true }).eq('id', resume.id)
 
     if (error) {
       console.error('Error setting default:', error)
-      alert(dict.errors?.api?.setDefault || 'Failed to set as default')
+      alert(apiErrorsDict.setDefault || 'Failed to set as default')
       return
     }
 
@@ -111,10 +119,10 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
   }
 
   const templateLabels = {
-    modern: dict.resumes?.templates?.modern || 'Modern',
-    classic: dict.resumes?.templates?.classic || 'Classic',
-    minimal: dict.resumes?.templates?.minimal || 'Minimal',
-    creative: dict.resumes?.templates?.creative || 'Creative',
+    modern: templatesDict.modern || 'Modern',
+    classic: templatesDict.classic || 'Classic',
+    minimal: templatesDict.minimal || 'Minimal',
+    creative: templatesDict.creative || 'Creative',
   }
 
   return (
@@ -125,14 +133,14 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
         {hasUnsavedChanges && (
           <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium rounded">
             <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
-            {dict.resumes?.editor?.unsavedChanges || 'Unsaved changes'}
+            {editorDict.unsavedChanges || 'Unsaved changes'}
           </div>
         )}
         {/* Default badge */}
         {resume.is_default && (
           <div className="flex items-center gap-1 px-2 py-1 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 text-xs font-medium rounded">
             <Star className="h-3 w-3 fill-current" />
-            {dict.resumes?.default || 'Default'}
+            {(resumesDict.default as string) || 'Default'}
           </div>
         )}
         {/* Linked cover letters badge */}
@@ -146,14 +154,16 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
             className="flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-medium rounded hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors cursor-pointer"
           >
             <FileText className="h-3 w-3" />
-            {linkedCoverLetterIds.length} {dict.resumes?.linkedCoverLetters || 'cover letter(s)'}
+            {linkedCoverLetterIds.length} {(resumesDict.linkedCoverLetters as string) || 'cover letter(s)'}
           </Link>
         )}
         {/* Linked job badge */}
         {linkedJob && (
           <JobLinkBadge
+            jobId={linkedJob.id}
             jobTitle={linkedJob.job_title}
             companyName={linkedJob.company_name}
+            locale={locale}
             dict={dict}
           />
         )}
@@ -177,14 +187,14 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
               className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             >
               <Pencil className="h-4 w-4" />
-              {dict.resumes?.edit || 'Edit'}
+              {(resumesDict.edit as string) || 'Edit'}
             </Link>
             <button
               onClick={handleDuplicate}
               className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             >
               <Copy className="h-4 w-4" />
-              {dict.resumes?.duplicate || 'Duplicate'}
+              {(resumesDict.duplicate as string) || 'Duplicate'}
             </button>
             {!resume.is_default && (
               <button
@@ -192,15 +202,15 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
                 className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
               >
                 <Star className="h-4 w-4" />
-                {dict.resumes?.setDefault || 'Set as Default'}
+                {(resumesDict.setDefault as string) || 'Set as Default'}
               </button>
             )}
             <button
-              onClick={() => alert(dict.resumes?.pdfExportComingSoon || 'PDF export coming soon!')}
+              onClick={() => alert((resumesDict.pdfExportComingSoon as string) || 'PDF export coming soon!')}
               className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             >
               <Download className="h-4 w-4" />
-              {dict.resumes?.downloadPDF || 'Download PDF'}
+              {(resumesDict.downloadPDF as string) || 'Download PDF'}
             </button>
             <hr className="my-1 border-slate-200 dark:border-slate-700" />
             <button
@@ -209,7 +219,7 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
               className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
             >
               <Trash2 className="h-4 w-4" />
-              {isDeleting ? (dict.common?.deleting || 'Deleting...') : (dict.resumes?.delete || 'Delete')}
+              {isDeleting ? ((commonDict.deleting as string) || 'Deleting...') : ((resumesDict.delete as string) || 'Delete')}
             </button>
           </div>
         )}
@@ -230,7 +240,7 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
         </div>
 
         <div className="text-xs text-slate-500 dark:text-slate-500">
-          {dict.resumes?.updated || 'Updated'} {formatDate(resume.updated_at)}
+          {(resumesDict.updated as string) || 'Updated'} {formatDate(resume.updated_at)}
         </div>
       </Link>
     </div>

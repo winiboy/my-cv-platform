@@ -52,7 +52,9 @@ export function JobAssociationSection({
   const associationDict = ((dict.resumes || {}) as Record<string, unknown>).jobAssociation as Record<string, unknown> || {}
 
   /**
-   * Links a job application to this resume by updating the resume's job_application_id
+   * Links a job application to this resume by updating both sides of the relationship:
+   * - resumes.job_application_id = jobId
+   * - job_applications.resume_id = resumeId
    */
   const handleLink = useCallback(async () => {
     if (!selectedJobId) return
@@ -63,14 +65,31 @@ export function JobAssociationSection({
     try {
       const supabase = createClient()
 
-      const { error: updateError } = await supabase
+      // Step 1: Update the resume to link to the job
+      const { error: resumeUpdateError } = await supabase
         .from('resumes')
         .update({ job_application_id: selectedJobId })
         .eq('id', resumeId)
 
-      if (updateError) {
-        console.error('Error linking job:', updateError)
-        throw updateError
+      if (resumeUpdateError) {
+        console.error('Error linking job to resume:', resumeUpdateError)
+        throw resumeUpdateError
+      }
+
+      // Step 2: Update the job application to link back to this resume (bidirectional sync)
+      const { error: jobUpdateError } = await supabase
+        .from('job_applications')
+        .update({ resume_id: resumeId })
+        .eq('id', selectedJobId)
+
+      if (jobUpdateError) {
+        console.error('Error updating job application reverse link:', jobUpdateError)
+        // Rollback: revert the resume update
+        await supabase
+          .from('resumes')
+          .update({ job_application_id: null })
+          .eq('id', resumeId)
+        throw jobUpdateError
       }
 
       // Find the job in available jobs and notify parent
@@ -89,7 +108,9 @@ export function JobAssociationSection({
   }, [selectedJobId, resumeId, availableJobs, onJobChange, associationDict.linkError])
 
   /**
-   * Unlinks the job application from this resume
+   * Unlinks the job application from this resume by clearing both sides of the relationship:
+   * - resumes.job_application_id = null
+   * - job_applications.resume_id = null (for the previously linked job)
    */
   const handleUnlink = useCallback(async () => {
     if (!linkedJob) return
@@ -97,17 +118,36 @@ export function JobAssociationSection({
     setIsUnlinking(true)
     setError('')
 
+    const previousJobId = linkedJob.id
+
     try {
       const supabase = createClient()
 
-      const { error: updateError } = await supabase
+      // Step 1: Clear the resume's link to the job
+      const { error: resumeUpdateError } = await supabase
         .from('resumes')
         .update({ job_application_id: null })
         .eq('id', resumeId)
 
-      if (updateError) {
-        console.error('Error unlinking job:', updateError)
-        throw updateError
+      if (resumeUpdateError) {
+        console.error('Error unlinking job from resume:', resumeUpdateError)
+        throw resumeUpdateError
+      }
+
+      // Step 2: Clear the job application's link back to this resume (bidirectional sync)
+      const { error: jobUpdateError } = await supabase
+        .from('job_applications')
+        .update({ resume_id: null })
+        .eq('id', previousJobId)
+
+      if (jobUpdateError) {
+        console.error('Error clearing job application reverse link:', jobUpdateError)
+        // Rollback: restore the resume's link
+        await supabase
+          .from('resumes')
+          .update({ job_application_id: previousJobId })
+          .eq('id', resumeId)
+        throw jobUpdateError
       }
 
       onJobChange(null)

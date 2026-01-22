@@ -1,20 +1,74 @@
 'use client'
 
-import { MapPin, Briefcase, DollarSign, Calendar, Bookmark, ExternalLink, CheckCircle, Sparkles, FilePlus, Loader2 } from 'lucide-react'
+import { MapPin, Briefcase, DollarSign, Calendar, Bookmark, ExternalLink, Sparkles, FilePlus, Loader2, Eye } from 'lucide-react'
 import type { JobListing } from '@/types/jobs'
 import type { Locale } from '@/lib/i18n'
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { isRedirectContent } from '@/lib/adzuna-client'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/components/ui/toast'
 import { CVAdaptationModal } from '@/components/dashboard/cv-adaptation-modal'
 import { ResumeSelectorModal } from './resume-selector-modal'
 import { createClient } from '@/lib/supabase/client'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
 import { useRouter } from 'next/navigation'
 
+/**
+ * Response from the job-applications POST endpoint
+ */
+interface SaveJobResponse {
+  jobApplication?: {
+    id: string
+  }
+  error?: string
+  isDuplicate?: boolean
+  message?: string
+}
+
+/**
+ * Dictionary type for job detail panel translations
+ * Uses specific types for type safety while maintaining flexibility
+ */
+interface JobDetailPanelDict {
+  jobAlreadySaved?: string
+  jobSavedSuccess?: string
+  jobSaveError?: string
+  saving?: string
+  saved?: string
+  save?: string
+  apply?: string
+  jobDescription?: string
+  preview?: string
+  fullDetailsNote?: string
+  viewFullDetails?: string
+  requirements?: string
+  locationNote?: string
+  viewInApplications?: string
+  employmentTypes?: Record<string, string>
+  createCV?: {
+    noUrlError?: string
+    noDescriptionError?: string
+    fetching?: string
+    button?: string
+    modalTitle?: string
+    selectResumeTitleWithCreate?: string
+    newCV?: string
+    newCVDescription?: string
+    createButton?: string
+    creating?: string
+    helpText?: string
+  }
+  cvAdaptation?: {
+    fetching?: string
+    adaptCV?: string
+    noResumesError?: string
+    [key: string]: string | undefined
+  }
+}
+
 interface JobDetailPanelProps {
   job: JobListing
-  dict: any
+  dict: JobDetailPanelDict
   locale: Locale
 }
 
@@ -30,8 +84,11 @@ function getValidDescription(description: string | undefined): string | null {
 
 export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
   const router = useRouter()
+  const toast = useToast()
   const [isSaved, setIsSaved] = useState(job.is_saved || false)
-  const [isTracked, setIsTracked] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [savedJobId, setSavedJobId] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [showAdaptationModal, setShowAdaptationModal] = useState(false)
   const [showResumeSelector, setShowResumeSelector] = useState(false)
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null)
@@ -46,14 +103,84 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
   } | null>(null)
   const [showCreateNewCVModal, setShowCreateNewCVModal] = useState(false)
 
-  const handleSave = () => {
-    setIsSaved(!isSaved)
-    // TODO: Persist to backend
-  }
+  /**
+   * Saves a job to the user's job applications
+   * Creates a new record with status 'saved'
+   */
+  const saveJobToApplications = useCallback(async (): Promise<SaveJobResponse> => {
+    // Extract salary values from salary_range string if available
+    // Format is typically "X - Y CHF" from Adzuna
+    let salaryMin: number | null = null
+    let salaryMax: number | null = null
 
-  const handleTrack = () => {
-    setIsTracked(!isTracked)
-    // TODO: Persist to backend (create job_application record with status 'saved')
+    if (job.salary_range) {
+      const salaryMatch = job.salary_range.match(/(\d[\d\s']*)/g)
+      if (salaryMatch && salaryMatch.length >= 1) {
+        salaryMin = parseInt(salaryMatch[0].replace(/[\s']/g, ''), 10) || null
+        if (salaryMatch.length >= 2) {
+          salaryMax = parseInt(salaryMatch[1].replace(/[\s']/g, ''), 10) || null
+        }
+      }
+    }
+
+    const response = await fetch('/api/job-applications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        job_title: job.title,
+        company_name: job.company,
+        location: job.location_full || `${job.location_city}, Switzerland`,
+        salary_min: salaryMin,
+        salary_max: salaryMax,
+        job_url: job.application_url || null,
+        job_description: job.description || null,
+        source: 'Adzuna',
+      }),
+    })
+
+    return response.json()
+  }, [job])
+
+  const handleSave = async () => {
+    // If already saved, just toggle the visual state (no unsave API yet)
+    if (isSaved) {
+      return
+    }
+
+    setSaveError(null)
+    setIsSaving(true)
+
+    try {
+      const result = await saveJobToApplications()
+
+      if (result.error) {
+        if (result.isDuplicate) {
+          // Job already saved, update state to reflect this
+          setIsSaved(true)
+          if (result.jobApplication?.id) {
+            setSavedJobId(result.jobApplication.id)
+          }
+          toast.info(dict?.jobAlreadySaved || 'This job is already in your saved applications.')
+        } else {
+          setSaveError(result.error)
+          toast.error(result.error)
+        }
+        return
+      }
+
+      // Success
+      setIsSaved(true)
+      if (result.jobApplication?.id) {
+        setSavedJobId(result.jobApplication.id)
+      }
+      toast.success(dict?.jobSavedSuccess || 'Job saved to your applications!')
+    } catch (error) {
+      console.error('Error saving job:', error)
+      setSaveError('Failed to save job')
+      toast.error(dict?.jobSaveError || 'Failed to save job. Please try again.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleApply = () => {
@@ -112,7 +239,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
           // If no valid description available at all, show error and return
           if (!finalDescription) {
             console.error('[handleAdaptCV] No valid job description available - both fetched and fallback are redirect content')
-            alert(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
+            toast.error(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
             setIsFetchingJob(false)
             return
           }
@@ -127,7 +254,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
           // Fallback to existing job data, but validate it first
           const validDescription = getValidDescription(job.description)
           if (!validDescription) {
-            alert(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
+            toast.error(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
             setIsFetchingJob(false)
             return
           }
@@ -141,7 +268,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
         // No external URL, use existing job data but validate it first
         const validDescription = getValidDescription(job.description)
         if (!validDescription) {
-          alert(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
+          toast.error(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
           setIsFetchingJob(false)
           return
         }
@@ -162,13 +289,13 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
 
       if (error) {
         console.error('Error fetching resumes:', error)
-        alert(dict?.cvAdaptation?.noResumesError || 'Failed to load resumes')
+        toast.error(dict?.cvAdaptation?.noResumesError || 'Failed to load resumes')
         return
       }
 
       if (!resumes || resumes.length === 0) {
         // No resumes found
-        alert(dict?.cvAdaptation?.noResumesError || 'Please create a CV first before adapting it to a job.')
+        toast.warning(dict?.cvAdaptation?.noResumesError || 'Please create a CV first before adapting it to a job.')
         return
       }
 
@@ -183,7 +310,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
     } catch (error) {
       console.error('Error in handleAdaptCV:', error)
       setIsFetchingJob(false)
-      alert('An error occurred. Please try again.')
+      toast.error('An error occurred. Please try again.')
     }
   }
 
@@ -210,7 +337,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
 
   const handleCreateCV = async () => {
     if (!job.application_url || job.application_url === '#') {
-      alert(dict?.createCV?.noUrlError || 'No external job URL available')
+      toast.error(dict?.createCV?.noUrlError || 'No external job URL available')
       return
     }
 
@@ -260,7 +387,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
       // If no valid description available at all, show error
       if (!finalDescription) {
         console.error('[handleCreateCV] No valid job description available - both fetched and fallback are redirect content')
-        alert(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
+        toast.error(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
         setIsFetchingJob(false)
         setIsCreateCVMode(false)
         return
@@ -280,7 +407,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
 
       if (error) {
         console.error('Error fetching resumes:', error)
-        alert(dict?.cvAdaptation?.noResumesError || 'Failed to load resumes')
+        toast.error(dict?.cvAdaptation?.noResumesError || 'Failed to load resumes')
         setIsFetchingJob(false)
         setIsCreateCVMode(false)
         return
@@ -295,7 +422,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
       setShowCreateNewCVModal(true)
     } catch (error) {
       console.error('Error in handleCreateCV:', error)
-      alert('An error occurred. Please try again.')
+      toast.error('An error occurred. Please try again.')
       setIsFetchingJob(false)
       setIsCreateCVMode(false)
     }
@@ -315,7 +442,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
       // Use existing job data if no external URL, but validate it first
       const validDescription = getValidDescription(job.description)
       if (!validDescription) {
-        alert(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
+        toast.error(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
         return
       }
       setFetchedJobData({
@@ -363,7 +490,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
       // If no valid description available at all, show error
       if (!finalDescription) {
         console.error('[handleCreateNewCVFromSelector] No valid job description available - both fetched and fallback are redirect content')
-        alert(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
+        toast.error(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
         setIsFetchingJob(false)
         return
       }
@@ -382,7 +509,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
       // Fallback: use existing job data, but validate it first
       const validDescription = getValidDescription(job.description)
       if (!validDescription) {
-        alert(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
+        toast.error(dict?.createCV?.noDescriptionError || 'Unable to retrieve job description. Please visit the job listing directly for more details.')
         return
       }
       setFetchedJobData({
@@ -433,62 +560,84 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Button onClick={handleApply} className="flex items-center gap-2">
+        {/* Action Buttons - Grid layout for better mobile responsiveness */}
+        <div className="mt-6 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
+          {/* Primary action - Apply */}
+          <Button onClick={handleApply} className="flex items-center justify-center gap-2">
             <ExternalLink className="h-4 w-4" />
-            {dict?.apply || 'Apply'}
+            <span className="truncate">{dict?.apply || 'Apply'}</span>
           </Button>
 
-          <Button
-            onClick={handleTrack}
-            variant={isTracked ? 'default' : 'outline'}
-            className="flex items-center gap-2"
-          >
-            <CheckCircle className={`h-4 w-4 ${isTracked ? 'fill-current' : ''}`} />
-            {isTracked ? (dict?.tracked || 'Tracked') : (dict?.track || 'Track')}
-          </Button>
-
+          {/* Save button */}
           <Button
             onClick={handleSave}
+            disabled={isSaving || isSaved}
             variant="outline"
-            className="flex items-center gap-2"
+            className="flex items-center justify-center gap-2"
           >
-            <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-current' : ''}`} />
-            {isSaved ? (dict?.saved || 'Saved') : (dict?.save || 'Save')}
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Bookmark className={`h-4 w-4 flex-shrink-0 ${isSaved ? 'fill-current' : ''}`} />
+            )}
+            <span className="truncate">
+              {isSaving
+                ? (dict?.saving || 'Saving...')
+                : isSaved
+                  ? (dict?.saved || 'Saved')
+                  : (dict?.save || 'Save')}
+            </span>
           </Button>
 
+          {/* Adapt CV button */}
           <Button
             onClick={handleAdaptCV}
             disabled={isFetchingJob}
             variant="outline"
-            className="flex items-center gap-2 border-purple-600 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
+            className="flex items-center justify-center gap-2 border-purple-600 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
           >
             {isFetchingJob ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Sparkles className="h-4 w-4" />
+              <Sparkles className="h-4 w-4 flex-shrink-0" />
             )}
-            {isFetchingJob
-              ? (dict?.cvAdaptation?.fetching || 'Fetching job details...')
-              : (dict?.cvAdaptation?.adaptCV || 'Adapt My CV')}
+            <span className="truncate">
+              {isFetchingJob
+                ? (dict?.cvAdaptation?.fetching || 'Loading...')
+                : (dict?.cvAdaptation?.adaptCV || 'Adapt CV')}
+            </span>
           </Button>
 
+          {/* Create CV button */}
           <Button
             onClick={handleCreateCV}
             disabled={isFetchingJob}
             variant="outline"
-            className="flex items-center gap-2 border-teal-600 text-teal-600 hover:bg-teal-50 hover:text-teal-700"
+            className="flex items-center justify-center gap-2 border-teal-600 text-teal-600 hover:bg-teal-50 hover:text-teal-700"
           >
             {isFetchingJob ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <FilePlus className="h-4 w-4" />
+              <FilePlus className="h-4 w-4 flex-shrink-0" />
             )}
-            {isFetchingJob
-              ? (dict?.createCV?.fetching || 'Fetching job details...')
-              : (dict?.createCV?.button || 'Créer un CV')}
+            <span className="truncate">
+              {isFetchingJob
+                ? (dict?.createCV?.fetching || 'Loading...')
+                : (dict?.createCV?.button || 'Create CV')}
+            </span>
           </Button>
+
+          {/* View in applications - only shown when saved, spans full width on mobile */}
+          {isSaved && savedJobId && (
+            <Button
+              onClick={() => router.push(`/${locale}/dashboard/applications`)}
+              variant="ghost"
+              className="col-span-2 sm:col-span-1 flex items-center justify-center gap-2 text-teal-600 hover:text-teal-700"
+            >
+              <Eye className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate">{dict?.viewInApplications || 'View in Applications'}</span>
+            </Button>
+          )}
         </div>
       </div>
 

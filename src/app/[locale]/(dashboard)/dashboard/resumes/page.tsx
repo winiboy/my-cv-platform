@@ -12,7 +12,9 @@ export default async function ResumesPage({
   params: Promise<{ locale: string }>
 }) {
   const { locale } = await params
-  const dict = getTranslations(locale as Locale, 'common') as any
+  const dict = getTranslations(locale as Locale, 'common') as Record<string, unknown>
+  const resumesDict = (dict.resumes || {}) as Record<string, unknown>
+  const emptyDict = (resumesDict.empty || {}) as Record<string, string>
   const supabase = await createServerSupabaseClient()
 
   // Check authentication
@@ -36,7 +38,8 @@ export default async function ResumesPage({
   }
 
   // Fetch linked job applications separately (to avoid schema cache issues)
-  const resumeIds = resumes?.map(r => r.job_application_id).filter(Boolean) || []
+  // Filter out null values and cast to string[] for TypeScript
+  const resumeIds = (resumes?.map(r => r.job_application_id).filter((id): id is string => id !== null) || [])
   const jobApplicationsMap = new Map<string, { id: string; job_title: string; company_name: string }>()
 
   if (resumeIds.length > 0) {
@@ -78,9 +81,9 @@ export default async function ResumesPage({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{dict.resumes?.title || 'My Resumes'}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{(resumesDict.title as string) || 'My Resumes'}</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-2">
-            {dict.resumes?.subtitle || 'Create and manage your professional resumes'}
+            {(resumesDict.subtitle as string) || 'Create and manage your professional resumes'}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -89,14 +92,14 @@ export default async function ResumesPage({
             className="inline-flex items-center gap-2 px-4 py-2 border border-teal-600 bg-white text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
           >
             <Sparkles className="h-4 w-4" />
-            {dict.resumes?.createFromJob || 'Create from Job Description'}
+            {(resumesDict.createFromJob as string) || 'Create from Job Description'}
           </Link>
           <Link
             href={`/${locale}/dashboard/resumes/new`}
             className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors"
           >
             <Plus className="h-4 w-4" />
-            {dict.resumes?.createNew || 'Create Resume'}
+            {(resumesDict.createNew as string) || 'Create Resume'}
           </Link>
         </div>
       </div>
@@ -107,16 +110,16 @@ export default async function ResumesPage({
           <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
             <FileText className="h-8 w-8 text-slate-400" />
           </div>
-          <h2 className="text-xl font-semibold mb-2">{dict.resumes?.empty?.title || 'No resumes yet'}</h2>
+          <h2 className="text-xl font-semibold mb-2">{emptyDict.title || 'No resumes yet'}</h2>
           <p className="text-slate-600 dark:text-slate-400 text-center max-w-md mb-6">
-            {dict.resumes?.empty?.description || 'Create your first professional resume to start applying for jobs.'}
+            {emptyDict.description || 'Create your first professional resume to start applying for jobs.'}
           </p>
           <Link
             href={`/${locale}/dashboard/resumes/new`}
             className="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors"
           >
             <Plus className="h-5 w-5" />
-            {dict.resumes?.createFirst || 'Create Your First Resume'}
+            {(resumesDict.createFirst as string) || 'Create Your First Resume'}
           </Link>
         </div>
       )}

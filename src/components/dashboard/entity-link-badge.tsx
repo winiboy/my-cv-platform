@@ -164,16 +164,26 @@ function truncateText(text: string, maxLength: number): string {
  * Convenience component for showing linked job indicator.
  * Shows only company name by default to keep badge compact.
  * Falls back to truncated job title if no company name available.
+ *
+ * When jobId and locale are provided, the badge becomes clickable
+ * and navigates to the job application detail page.
  */
 export function JobLinkBadge({
+  jobId,
   jobTitle,
   companyName,
   href,
+  locale,
   dict,
 }: {
+  /** The job application ID - used to generate navigation link */
+  jobId?: string
   jobTitle?: string
   companyName?: string
+  /** Optional explicit href - if not provided, will be generated from jobId and locale */
   href?: string
+  /** Current locale for navigation - required if jobId is provided */
+  locale?: string
   dict?: Record<string, unknown>
 }) {
   // Prefer company name for compact display, fall back to truncated job title
@@ -186,11 +196,22 @@ export function JobLinkBadge({
     label = truncateText(jobTitle, MAX_LABEL_LENGTH)
   }
 
+  // Generate href from jobId and locale if not explicitly provided
+  let resolvedHref = href
+  if (!resolvedHref && jobId) {
+    if (locale) {
+      resolvedHref = `/${locale}/dashboard/job-applications/${jobId}`
+    } else {
+      // Fallback without locale prefix - useful if locale is not available
+      resolvedHref = `/dashboard/job-applications/${jobId}`
+    }
+  }
+
   return (
     <EntityLinkBadge
       type="job"
       linked
-      href={href}
+      href={resolvedHref}
       label={label}
       dict={dict}
     />

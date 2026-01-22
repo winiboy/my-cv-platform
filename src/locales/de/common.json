@@ -93,6 +93,7 @@
       "home": "Startseite",
       "resumes": "Meine Lebensläufe",
       "coverLetters": "Anschreiben",
+      "applications": "Meine Bewerbungen",
       "jobs": "Stellensuche",
       "goals": "Ziele",
       "settings": "Einstellungen"
@@ -637,5 +638,18 @@
     "jobLabel": "Stelle",
     "linked": "Verknüpft",
     "linkedJob": "Verknüpfte Stelle"
+  },
+  "jobApplications": {
+    "title": "Meine Bewerbungen",
+    "subtitle": "Verfolgen und verwalten Sie Ihre Bewerbungen",
+    "filterAll": "Alle",
+    "browseJobs": "Stellen durchsuchen",
+    "empty": {
+      "title": "Noch keine Bewerbungen",
+      "description": "Beginnen Sie mit der Verfolgung Ihrer Jobsuche, indem Sie interessante Stellen speichern.",
+      "noMatchingStatus": "Keine Bewerbungen mit diesem Status",
+      "tryDifferentFilter": "Versuchen Sie, einen anderen Filter zu wählen oder durchsuchen Sie Stellen, um neue Bewerbungen hinzuzufügen.",
+      "browseJobsCta": "Stellenangebote durchsuchen"
+    }
   }
 }

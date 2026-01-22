@@ -216,8 +216,10 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
         {/* Linked job badge */}
         {linkedJob && (
           <JobLinkBadge
+            jobId={linkedJob.id}
             jobTitle={linkedJob.job_title}
             companyName={linkedJob.company_name}
+            locale={locale}
             dict={dict}
           />
         )}
