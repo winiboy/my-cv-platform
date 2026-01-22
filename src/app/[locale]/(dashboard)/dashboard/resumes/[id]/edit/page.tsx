@@ -48,6 +48,28 @@ export default async function EditResumePage({
     .is('resume_id', null)
     .order('updated_at', { ascending: false })
 
+  // Fetch linked job application (if any)
+  let linkedJob = null
+  if (resume.job_application_id) {
+    const { data: jobData } = await supabase
+      .from('job_applications')
+      .select('id, company_name, job_title, job_url, status, job_description')
+      .eq('id', resume.job_application_id)
+      .single()
+
+    linkedJob = jobData
+  }
+
+  // Fetch available jobs for association (not linked to this resume)
+  const { data: availableJobsData } = await supabase
+    .from('job_applications')
+    .select('id, company_name, job_title, job_url, status, job_description')
+    .eq('user_id', user.id)
+    .eq('is_archived', false)
+    .neq('id', resume.job_application_id || '')
+    .order('updated_at', { ascending: false })
+    .limit(50)
+
   // Get translations
   const dict = getTranslations(locale as Locale, 'common')
 
@@ -58,6 +80,8 @@ export default async function EditResumePage({
       dict={dict}
       linkedCoverLetters={linkedCoverLetters || []}
       unlinkedCoverLetters={unlinkedCoverLetters || []}
+      linkedJob={linkedJob}
+      availableJobs={availableJobsData || []}
     />
   )
 }

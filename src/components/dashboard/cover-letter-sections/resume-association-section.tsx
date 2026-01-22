@@ -101,9 +101,7 @@ export function ResumeAssociationSection({
       <div className="flex gap-2">
         {currentResumeId && (
           <Link
-            href={`/${locale}/dashboard/resumes/${currentResumeId}`}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={`/${locale}/dashboard/resumes/${currentResumeId}/edit`}
             className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
           >
             <ExternalLink className="h-3.5 w-3.5" />

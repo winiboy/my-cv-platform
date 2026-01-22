@@ -35,6 +35,23 @@ export default async function CoverLettersPage({
     console.error('Error fetching cover letters:', error)
   }
 
+  // Fetch linked job applications separately (to avoid schema cache issues)
+  const jobAppIds = coverLetters?.map(cl => cl.job_application_id).filter(Boolean) || []
+  const jobApplicationsMap = new Map<string, { id: string; job_title: string; company_name: string }>()
+
+  if (jobAppIds.length > 0) {
+    const { data: jobApps } = await supabase
+      .from('job_applications')
+      .select('id, job_title, company_name')
+      .in('id', jobAppIds)
+
+    if (jobApps) {
+      for (const job of jobApps) {
+        jobApplicationsMap.set(job.id, job)
+      }
+    }
+  }
+
   const coverLetterList = (coverLetters as CoverLetterWithResume[] | null) || []
   const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
   const emptyDict = (coverLettersDict.empty || {}) as Record<string, unknown>
@@ -94,6 +111,7 @@ export default async function CoverLettersPage({
               dict={dict}
               linkedResumeName={coverLetter.resume?.title}
               linkedResumeId={coverLetter.resume?.id}
+              linkedJob={coverLetter.job_application_id ? jobApplicationsMap.get(coverLetter.job_application_id) : null}
             />
           ))}
         </div>

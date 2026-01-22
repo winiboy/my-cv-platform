@@ -6,15 +6,23 @@ import { FileText, Star, MoreVertical, Pencil, Trash2, Copy, Download } from 'lu
 import type { Resume } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { JobLinkBadge } from '@/components/dashboard/entity-link-badge'
+
+interface LinkedJobInfo {
+  id: string
+  job_title: string
+  company_name: string
+}
 
 interface ResumeCardProps {
   resume: Resume
   locale: string
   dict: any
   linkedCoverLettersCount?: number
+  linkedJob?: LinkedJobInfo | null
 }
 
-export function ResumeCard({ resume, locale, dict, linkedCoverLettersCount }: ResumeCardProps) {
+export function ResumeCard({ resume, locale, dict, linkedCoverLettersCount, linkedJob }: ResumeCardProps) {
   const router = useRouter()
   const [showMenu, setShowMenu] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -129,10 +137,21 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLettersCount }: Re
         )}
         {/* Linked cover letters badge */}
         {linkedCoverLettersCount !== undefined && linkedCoverLettersCount > 0 && (
-          <div className="flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-medium rounded">
+          <Link
+            href={`/${locale}/dashboard/resumes/${resume.id}/edit?section=coverLetters`}
+            className="flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-medium rounded hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors cursor-pointer"
+          >
             <FileText className="h-3 w-3" />
             {linkedCoverLettersCount} {dict.resumes?.linkedCoverLetters || 'cover letter(s)'}
-          </div>
+          </Link>
+        )}
+        {/* Linked job badge */}
+        {linkedJob && (
+          <JobLinkBadge
+            jobTitle={linkedJob.job_title}
+            companyName={linkedJob.company_name}
+            dict={dict}
+          />
         )}
       </div>
 

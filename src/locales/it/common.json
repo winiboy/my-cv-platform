@@ -375,6 +375,22 @@
       "viewAll": "Vedi tutto",
       "more": "altre",
       "hint": "Lettere di presentazione associate a questo CV"
+    },
+    "jobAssociation": {
+      "linkedJob": "Candidatura collegata",
+      "linkError": "Impossibile collegare la candidatura",
+      "unlinkError": "Impossibile scollegare la candidatura",
+      "viewJobDetails": "Visualizza dettagli lavoro",
+      "adaptToJob": "Adatta CV a questo lavoro",
+      "noJobDescription": "Questa candidatura non ha una descrizione del lavoro. Aggiungine una per abilitare l'adattamento IA.",
+      "noLinkedJob": "Nessuna candidatura collegata a questo CV",
+      "linkExisting": "Collega a lavoro salvato",
+      "selectJob": "Seleziona una candidatura...",
+      "link": "Collega",
+      "unlink": "Scollega",
+      "noAvailableJobs": "Nessuna candidatura salvata disponibile. Salva prima una candidatura per collegarla a questo CV.",
+      "browseJobs": "Sfoglia offerte di lavoro",
+      "hint": "Collega una candidatura per adattare rapidamente il tuo CV usando la descrizione del lavoro e tracciare il progresso della candidatura."
     }
   },
   "common": {
@@ -454,6 +470,16 @@
     "duplicate": "Duplica",
     "downloadPDF": "Scarica PDF",
     "confirmDelete": "Sei sicuro di voler eliminare questa lettera di presentazione?",
+    "jobAssociation": {
+      "linkedJob": "Lavoro collegato",
+      "viewJob": "Visualizza lavoro",
+      "view": "Visualizza",
+      "noJobLinked": "Nessun lavoro collegato",
+      "viewJobListing": "Visualizza offerta di lavoro",
+      "browseJobs": "Sfoglia offerte",
+      "selectJob": "Seleziona un lavoro",
+      "hint": "Collega un lavoro per tracciare quale posizione riguarda questa lettera e usare la descrizione del lavoro per la generazione IA."
+    },
     "association": {
       "linkedCV": "CV collegato",
       "noResumeLinked": "Nessun CV collegato",
@@ -557,6 +583,14 @@
       "subtitle": "L'IA creerà una lettera personalizzata",
       "resumeLabel": "Usa dati dal CV",
       "selectResume": "Seleziona un CV...",
+      "jobSourceLabel": "Fonte dell'offerta",
+      "pasteJobDescription": "Incolla descrizione",
+      "selectSavedJob": "Offerta salvata",
+      "savedJobLabel": "Seleziona un'offerta",
+      "selectSavedJobPlaceholder": "Seleziona un'offerta salvata...",
+      "selectJobRequired": "Seleziona un'offerta salvata",
+      "autoFilledHint": "Dettagli compilati automaticamente",
+      "noJobDescriptionWarning": "Questa offerta non ha una descrizione. Aggiungine una per risultati migliori.",
       "jobTitleLabel": "Posizione",
       "jobTitlePlaceholder": "es. Ingegnere Software",
       "jobTitleRequired": "La posizione è obbligatoria",
@@ -596,5 +630,12 @@
       "weaknesses": "Aree di miglioramento",
       "suggestions": "Suggerimenti"
     }
+  },
+  "badges": {
+    "resumeLabel": "CV",
+    "coverLetterLabel": "Lettera",
+    "jobLabel": "Lavoro",
+    "linked": "Collegato",
+    "linkedJob": "Lavoro collegato"
   }
 }

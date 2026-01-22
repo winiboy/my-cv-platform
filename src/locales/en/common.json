@@ -375,6 +375,22 @@
       "viewAll": "View all",
       "more": "more",
       "hint": "Cover letters associated with this resume"
+    },
+    "jobAssociation": {
+      "linkedJob": "Linked Job Application",
+      "linkError": "Failed to link job application",
+      "unlinkError": "Failed to unlink job application",
+      "viewJobDetails": "View Job Details",
+      "adaptToJob": "Adapt CV to this Job",
+      "noJobDescription": "This job application has no job description. Add one to enable AI adaptation.",
+      "noLinkedJob": "No job application linked to this resume",
+      "linkExisting": "Link to Saved Job",
+      "selectJob": "Select a job application...",
+      "link": "Link",
+      "unlink": "Unlink job",
+      "noAvailableJobs": "No saved job applications available. Save a job application first to link it to this resume.",
+      "browseJobs": "Browse Job Listings",
+      "hint": "Link a job application to quickly adapt your CV using the job description and track your application progress."
     }
   },
   "common": {
@@ -454,6 +470,16 @@
     "duplicate": "Duplicate",
     "downloadPDF": "Download PDF",
     "confirmDelete": "Are you sure you want to delete this cover letter?",
+    "jobAssociation": {
+      "linkedJob": "Linked Job",
+      "viewJob": "View Job",
+      "view": "View",
+      "noJobLinked": "No job linked",
+      "viewJobListing": "View Job Listing",
+      "browseJobs": "Browse Jobs",
+      "selectJob": "Select a job",
+      "hint": "Link a job to track which position this cover letter is for and use the job description for AI generation."
+    },
     "association": {
       "linkedCV": "Linked CV",
       "noResumeLinked": "No resume linked",
@@ -557,6 +583,14 @@
       "subtitle": "AI will create a personalized cover letter",
       "resumeLabel": "Use data from resume",
       "selectResume": "Select a resume...",
+      "jobSourceLabel": "Job Source",
+      "pasteJobDescription": "Paste Job Description",
+      "selectSavedJob": "Select Saved Job",
+      "savedJobLabel": "Select a saved job",
+      "selectSavedJobPlaceholder": "Select a saved job...",
+      "selectJobRequired": "Please select a saved job",
+      "autoFilledHint": "Job details auto-filled from saved job",
+      "noJobDescriptionWarning": "This saved job has no job description. Consider adding one for better results.",
       "jobTitleLabel": "Job Title",
       "jobTitlePlaceholder": "e.g., Software Engineer",
       "jobTitleRequired": "Job title is required",
@@ -596,5 +630,12 @@
       "weaknesses": "Areas for Improvement",
       "suggestions": "Suggestions"
     }
+  },
+  "badges": {
+    "resumeLabel": "CV",
+    "coverLetterLabel": "Cover Letter",
+    "jobLabel": "Job",
+    "linked": "Linked",
+    "linkedJob": "Linked Job"
   }
 }

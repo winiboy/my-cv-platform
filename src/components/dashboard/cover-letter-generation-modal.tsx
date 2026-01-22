@@ -1,24 +1,38 @@
 'use client'
 
-import { useState } from 'react'
-import { X, Sparkles, Loader2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, Sparkles, Loader2, Briefcase, FileText } from 'lucide-react'
 import type { Resume } from '@/types/database'
+
+interface SavedJob {
+  id: string
+  company_name: string
+  job_title: string
+  job_description: string | null
+}
+
+type JobSource = 'manual' | 'saved'
 
 interface CoverLetterGenerationModalProps {
   isOpen: boolean
   onClose: () => void
-  onGenerate: (content: {
-    greeting: string
-    openingParagraph: string
-    bodyParagraphs: string[]
-    closingParagraph: string
-    signOff: string
-  }) => void
+  onGenerate: (
+    content: {
+      greeting: string
+      openingParagraph: string
+      bodyParagraphs: string[]
+      closingParagraph: string
+      signOff: string
+    },
+    jobApplicationId?: string
+  ) => void
   resumes: Resume[]
+  savedJobs?: SavedJob[]
   defaultResumeId?: string | null
   defaultJobDescription?: string | null
   defaultJobTitle?: string | null
   defaultCompanyName?: string | null
+  defaultJobApplicationId?: string | null
   dict: Record<string, unknown>
   locale: string
 }
@@ -28,10 +42,12 @@ export function CoverLetterGenerationModal({
   onClose,
   onGenerate,
   resumes,
+  savedJobs = [],
   defaultResumeId,
   defaultJobDescription,
   defaultJobTitle,
   defaultCompanyName,
+  defaultJobApplicationId,
   dict,
   locale,
 }: CoverLetterGenerationModalProps) {
@@ -43,10 +59,77 @@ export function CoverLetterGenerationModal({
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState('')
 
+  // Job source state: manual entry or saved job selection
+  const [jobSource, setJobSource] = useState<JobSource>(
+    defaultJobApplicationId ? 'saved' : 'manual'
+  )
+  const [selectedJobId, setSelectedJobId] = useState<string>(defaultJobApplicationId || '')
+
+  // Reset fields when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setResumeId(defaultResumeId || '')
+      setJobDescription(defaultJobDescription || '')
+      setJobTitle(defaultJobTitle || '')
+      setCompanyName(defaultCompanyName || '')
+      setRecipientName('')
+      setError('')
+      setJobSource(defaultJobApplicationId ? 'saved' : 'manual')
+      setSelectedJobId(defaultJobApplicationId || '')
+    }
+  }, [isOpen, defaultResumeId, defaultJobDescription, defaultJobTitle, defaultCompanyName, defaultJobApplicationId])
+
   const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
   const generationDict = (coverLettersDict.generation || {}) as Record<string, unknown>
 
+  /**
+   * Handle saved job selection - auto-fills job details
+   */
+  const handleSavedJobSelect = (jobId: string) => {
+    setSelectedJobId(jobId)
+    if (jobId) {
+      const job = savedJobs.find((j) => j.id === jobId)
+      if (job) {
+        setJobTitle(job.job_title)
+        setCompanyName(job.company_name)
+        setJobDescription(job.job_description || '')
+      }
+    } else {
+      // Clear fields when deselecting
+      setJobTitle('')
+      setCompanyName('')
+      setJobDescription('')
+    }
+  }
+
+  /**
+   * Handle job source tab change
+   */
+  const handleJobSourceChange = (source: JobSource) => {
+    setJobSource(source)
+    setError('')
+    if (source === 'manual') {
+      // Clear saved job selection but preserve manual fields
+      setSelectedJobId('')
+    } else if (source === 'saved') {
+      // Clear fields when switching to saved jobs
+      if (!selectedJobId) {
+        setJobTitle('')
+        setCompanyName('')
+        setJobDescription('')
+      }
+    }
+  }
+
+  // Check if fields are auto-filled from saved job
+  const isAutoFilled = jobSource === 'saved' && selectedJobId !== ''
+
   const handleGenerate = async () => {
+    // Validate job selection when using saved jobs
+    if (jobSource === 'saved' && !selectedJobId) {
+      setError((generationDict.selectJobRequired as string) || 'Please select a saved job')
+      return
+    }
     if (!jobDescription.trim()) {
       setError((generationDict.jobDescriptionRequired as string) || 'Job description is required')
       return
@@ -73,6 +156,7 @@ export function CoverLetterGenerationModal({
           jobTitle,
           companyName,
           recipientName: recipientName || undefined,
+          jobApplicationId: jobSource === 'saved' ? selectedJobId : undefined,
           locale,
         }),
       })
@@ -83,13 +167,17 @@ export function CoverLetterGenerationModal({
         throw new Error(data.error || 'Failed to generate cover letter')
       }
 
-      onGenerate({
-        greeting: data.coverLetter.greeting,
-        openingParagraph: data.coverLetter.openingParagraph,
-        bodyParagraphs: data.coverLetter.bodyParagraphs,
-        closingParagraph: data.coverLetter.closingParagraph,
-        signOff: data.coverLetter.signOff,
-      })
+      // Pass the job application ID to the callback for linking
+      onGenerate(
+        {
+          greeting: data.coverLetter.greeting,
+          openingParagraph: data.coverLetter.openingParagraph,
+          bodyParagraphs: data.coverLetter.bodyParagraphs,
+          closingParagraph: data.coverLetter.closingParagraph,
+          signOff: data.coverLetter.signOff,
+        },
+        jobSource === 'saved' ? selectedJobId : undefined
+      )
 
       onClose()
     } catch (err) {
@@ -158,6 +246,67 @@ export function CoverLetterGenerationModal({
             </div>
           )}
 
+          {/* Job Source Tabs */}
+          {savedJobs.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                {(generationDict.jobSourceLabel as string) || 'Job Source'}
+              </label>
+              <div className="flex border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => handleJobSourceChange('manual')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                    jobSource === 'manual'
+                      ? 'bg-teal-600 text-white'
+                      : 'bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'
+                  }`}
+                >
+                  <FileText className="h-4 w-4" />
+                  {(generationDict.pasteJobDescription as string) || 'Paste Job Description'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleJobSourceChange('saved')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                    jobSource === 'saved'
+                      ? 'bg-teal-600 text-white'
+                      : 'bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'
+                  }`}
+                >
+                  <Briefcase className="h-4 w-4" />
+                  {(generationDict.selectSavedJob as string) || 'Select Saved Job'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Saved Job Dropdown - only shown when 'saved' tab is active */}
+          {jobSource === 'saved' && savedJobs.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {(generationDict.savedJobLabel as string) || 'Select a saved job'} *
+              </label>
+              <select
+                value={selectedJobId}
+                onChange={(e) => handleSavedJobSelect(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-slate-800"
+              >
+                <option value="">{(generationDict.selectSavedJobPlaceholder as string) || 'Select a saved job...'}</option>
+                {savedJobs.map((job) => (
+                  <option key={job.id} value={job.id}>
+                    {job.job_title} - {job.company_name}
+                  </option>
+                ))}
+              </select>
+              {selectedJobId && (
+                <p className="mt-1.5 text-xs text-teal-600 dark:text-teal-400">
+                  {(generationDict.autoFilledHint as string) || 'Job details auto-filled from saved job'}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Job Title */}
           <div>
             <label className="block text-sm font-medium mb-1">
@@ -168,7 +317,10 @@ export function CoverLetterGenerationModal({
               value={jobTitle}
               onChange={(e) => setJobTitle(e.target.value)}
               placeholder={(generationDict.jobTitlePlaceholder as string) || 'e.g., Software Engineer'}
-              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-slate-800"
+              readOnly={isAutoFilled}
+              className={`w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-slate-800 ${
+                isAutoFilled ? 'bg-slate-50 dark:bg-slate-700 cursor-not-allowed' : ''
+              }`}
             />
           </div>
 
@@ -182,7 +334,10 @@ export function CoverLetterGenerationModal({
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
               placeholder={(generationDict.companyPlaceholder as string) || 'e.g., Google'}
-              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-slate-800"
+              readOnly={isAutoFilled}
+              className={`w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-slate-800 ${
+                isAutoFilled ? 'bg-slate-50 dark:bg-slate-700 cursor-not-allowed' : ''
+              }`}
             />
           </div>
 
@@ -210,8 +365,16 @@ export function CoverLetterGenerationModal({
               onChange={(e) => setJobDescription(e.target.value)}
               placeholder={(generationDict.jobDescriptionPlaceholder as string) || 'Paste the job description here...'}
               rows={6}
-              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-slate-800 resize-none"
+              readOnly={isAutoFilled}
+              className={`w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-slate-800 resize-none ${
+                isAutoFilled ? 'bg-slate-50 dark:bg-slate-700 cursor-not-allowed' : ''
+              }`}
             />
+            {isAutoFilled && !jobDescription && (
+              <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+                {(generationDict.noJobDescriptionWarning as string) || 'This saved job has no job description. Consider adding one for better results.'}
+              </p>
+            )}
           </div>
 
           {/* Error */}

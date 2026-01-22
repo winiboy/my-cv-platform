@@ -375,6 +375,22 @@
       "viewAll": "Alle anzeigen",
       "more": "weitere",
       "hint": "Mit diesem Lebenslauf verknüpfte Anschreiben"
+    },
+    "jobAssociation": {
+      "linkedJob": "Verknüpfte Bewerbung",
+      "linkError": "Bewerbung konnte nicht verknüpft werden",
+      "unlinkError": "Bewerbung konnte nicht getrennt werden",
+      "viewJobDetails": "Stellendetails anzeigen",
+      "adaptToJob": "Lebenslauf an diese Stelle anpassen",
+      "noJobDescription": "Diese Bewerbung hat keine Stellenbeschreibung. Fügen Sie eine hinzu, um die KI-Anpassung zu aktivieren.",
+      "noLinkedJob": "Keine Bewerbung mit diesem Lebenslauf verknüpft",
+      "linkExisting": "Mit gespeicherter Stelle verknüpfen",
+      "selectJob": "Bewerbung auswählen...",
+      "link": "Verknüpfen",
+      "unlink": "Verknüpfung aufheben",
+      "noAvailableJobs": "Keine gespeicherten Bewerbungen verfügbar. Speichern Sie zuerst eine Bewerbung, um sie mit diesem Lebenslauf zu verknüpfen.",
+      "browseJobs": "Stellenangebote durchsuchen",
+      "hint": "Verknüpfen Sie eine Bewerbung, um Ihren Lebenslauf schnell mit der Stellenbeschreibung anzupassen und Ihren Bewerbungsfortschritt zu verfolgen."
     }
   },
   "common": {
@@ -454,6 +470,16 @@
     "duplicate": "Duplizieren",
     "downloadPDF": "PDF herunterladen",
     "confirmDelete": "Möchten Sie dieses Anschreiben wirklich löschen?",
+    "jobAssociation": {
+      "linkedJob": "Verknüpfte Stelle",
+      "viewJob": "Stelle anzeigen",
+      "view": "Anzeigen",
+      "noJobLinked": "Keine Stelle verknüpft",
+      "viewJobListing": "Stellenanzeige anzeigen",
+      "browseJobs": "Stellen durchsuchen",
+      "selectJob": "Stelle auswählen",
+      "hint": "Verknüpfen Sie eine Stelle, um zu verfolgen, für welche Position dieses Anschreiben bestimmt ist und die Stellenbeschreibung für die KI-Generierung zu nutzen."
+    },
     "association": {
       "linkedCV": "Verknüpfter Lebenslauf",
       "noResumeLinked": "Kein Lebenslauf verknüpft",
@@ -557,6 +583,14 @@
       "subtitle": "KI erstellt ein personalisiertes Anschreiben",
       "resumeLabel": "Daten aus Lebenslauf verwenden",
       "selectResume": "Lebenslauf auswählen...",
+      "jobSourceLabel": "Stellenquelle",
+      "pasteJobDescription": "Beschreibung einfügen",
+      "selectSavedJob": "Gespeicherte Stelle",
+      "savedJobLabel": "Stelle auswählen",
+      "selectSavedJobPlaceholder": "Gespeicherte Stelle auswählen...",
+      "selectJobRequired": "Bitte wählen Sie eine gespeicherte Stelle",
+      "autoFilledHint": "Details automatisch ausgefüllt",
+      "noJobDescriptionWarning": "Diese Stelle hat keine Beschreibung. Für bessere Ergebnisse fügen Sie eine hinzu.",
       "jobTitleLabel": "Stellenbezeichnung",
       "jobTitlePlaceholder": "z.B. Software-Ingenieur",
       "jobTitleRequired": "Stellenbezeichnung ist erforderlich",
@@ -596,5 +630,12 @@
       "weaknesses": "Verbesserungspotential",
       "suggestions": "Vorschläge"
     }
+  },
+  "badges": {
+    "resumeLabel": "Lebenslauf",
+    "coverLetterLabel": "Anschreiben",
+    "jobLabel": "Stelle",
+    "linked": "Verknüpft",
+    "linkedJob": "Verknüpfte Stelle"
   }
 }

@@ -14,12 +14,14 @@ import {
   PenTool,
   Loader2,
   Link2,
+  Briefcase,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n'
 import type { CoverLetter, Resume, CoverLetterAnalysis } from '@/types/database'
 import { CoverLetterPreview } from './cover-letter-preview'
 import { ResumeAssociationSection } from './cover-letter-sections/resume-association-section'
+import { JobAssociationSection } from './cover-letter-sections/job-association-section'
 import { RecipientSection } from './cover-letter-sections/recipient-section'
 import { OpeningSection } from './cover-letter-sections/opening-section'
 import { BodySection } from './cover-letter-sections/body-section'
@@ -28,17 +30,28 @@ import { SignatureSection } from './cover-letter-sections/signature-section'
 import { CoverLetterGenerationModal } from './cover-letter-generation-modal'
 import { CoverLetterCheckerModal } from './cover-letter-checker-modal'
 
+interface JobApplicationData {
+  id: string
+  company_name: string
+  job_title: string
+  job_url: string | null
+  job_description: string | null
+}
+
 interface CoverLetterEditorProps {
   coverLetter: CoverLetter
   resumes: Resume[]
+  jobApplications: JobApplicationData[]
+  currentJobApplication: JobApplicationData | null
   locale: Locale
   dict: Record<string, unknown>
 }
 
-type SectionId = 'resume' | 'recipient' | 'opening' | 'body' | 'closing' | 'signature'
+type SectionId = 'resume' | 'job' | 'recipient' | 'opening' | 'body' | 'closing' | 'signature'
 
 const SECTIONS = [
   { id: 'resume' as const, label: 'Linked CV', icon: Link2 },
+  { id: 'job' as const, label: 'Linked Job', icon: Briefcase },
   { id: 'recipient' as const, label: 'Recipient', icon: User },
   { id: 'opening' as const, label: 'Opening', icon: FileText },
   { id: 'body' as const, label: 'Body', icon: AlignLeft },
@@ -49,11 +62,14 @@ const SECTIONS = [
 export function CoverLetterEditor({
   coverLetter: initialCoverLetter,
   resumes,
+  jobApplications,
+  currentJobApplication: initialJobApplication,
   locale,
   dict,
 }: CoverLetterEditorProps) {
-  const router = useRouter()
+  const _router = useRouter()
   const [coverLetter, setCoverLetter] = useState(initialCoverLetter)
+  const [currentJobApplication, setCurrentJobApplication] = useState<JobApplicationData | null>(initialJobApplication)
   const [activeSection, setActiveSection] = useState<SectionId>('recipient')
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -131,25 +147,6 @@ export function CoverLetterEditor({
     [updateCoverLetter]
   )
 
-  const handleGeneratedContent = useCallback(
-    (content: {
-      greeting: string
-      openingParagraph: string
-      bodyParagraphs: string[]
-      closingParagraph: string
-      signOff: string
-    }) => {
-      updateCoverLetter({
-        greeting: content.greeting,
-        opening_paragraph: content.openingParagraph,
-        body_paragraphs: content.bodyParagraphs as unknown as CoverLetter['body_paragraphs'],
-        closing_paragraph: content.closingParagraph,
-        sign_off: content.signOff,
-      })
-    },
-    [updateCoverLetter]
-  )
-
   const handleAnalysisComplete = useCallback(
     (analysis: CoverLetterAnalysis) => {
       updateCoverLetter({
@@ -200,6 +197,83 @@ export function CoverLetterEditor({
     [coverLetter.id, coverLetter.resume_id, editorDict]
   )
 
+  /**
+   * Handles job application association changes. Updates local state immediately
+   * and persists to database. Reverts on error.
+   */
+  const handleJobApplicationChange = useCallback(
+    async (jobApplicationId: string | null) => {
+      const previousJobApplicationId = coverLetter.job_application_id
+      const previousJobApplication = currentJobApplication
+
+      // Find the new job application data
+      const newJobApplication = jobApplicationId
+        ? jobApplications.find((j) => j.id === jobApplicationId) || null
+        : null
+
+      // Update local state immediately for responsive UI
+      setCoverLetter((prev) => ({ ...prev, job_application_id: jobApplicationId }))
+      setCurrentJobApplication(newJobApplication)
+
+      try {
+        const supabase = createClient()
+        const { error } = await supabase
+          .from('cover_letters')
+          .update({ job_application_id: jobApplicationId, updated_at: new Date().toISOString() })
+          .eq('id', coverLetter.id)
+
+        if (error) {
+          console.error('Error updating job application association:', error)
+          // Revert on error
+          setCoverLetter((prev) => ({ ...prev, job_application_id: previousJobApplicationId }))
+          setCurrentJobApplication(previousJobApplication)
+          const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
+          const jobAssociationDict = (coverLettersDict.jobAssociation || {}) as Record<string, string>
+          setSaveError(jobAssociationDict.error || 'Failed to update linked job')
+        }
+      } catch (err) {
+        console.error('Unexpected error updating job application association:', err)
+        // Revert on error
+        setCoverLetter((prev) => ({ ...prev, job_application_id: previousJobApplicationId }))
+        setCurrentJobApplication(previousJobApplication)
+        const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
+        const jobAssociationDict = (coverLettersDict.jobAssociation || {}) as Record<string, string>
+        setSaveError(jobAssociationDict.error || 'Failed to update linked job')
+      }
+    },
+    [coverLetter.id, coverLetter.job_application_id, currentJobApplication, jobApplications, dict]
+  )
+
+  /**
+   * Handles generated content from AI and optionally links to selected job
+   */
+  const handleGeneratedContent = useCallback(
+    async (
+      content: {
+        greeting: string
+        openingParagraph: string
+        bodyParagraphs: string[]
+        closingParagraph: string
+        signOff: string
+      },
+      jobApplicationId?: string
+    ) => {
+      updateCoverLetter({
+        greeting: content.greeting,
+        opening_paragraph: content.openingParagraph,
+        body_paragraphs: content.bodyParagraphs as unknown as CoverLetter['body_paragraphs'],
+        closing_paragraph: content.closingParagraph,
+        sign_off: content.signOff,
+      })
+
+      // If a saved job was selected, link the cover letter to it
+      if (jobApplicationId && jobApplicationId !== coverLetter.job_application_id) {
+        await handleJobApplicationChange(jobApplicationId)
+      }
+    },
+    [updateCoverLetter, coverLetter.job_application_id, handleJobApplicationChange]
+  )
+
   const bodyParagraphs = Array.isArray(coverLetter.body_paragraphs)
     ? (coverLetter.body_paragraphs as string[])
     : []
@@ -215,6 +289,17 @@ export function CoverLetterEditor({
             locale={locale}
             dict={dict}
             onResumeChange={handleResumeChange}
+          />
+        )
+      case 'job':
+        return (
+          <JobAssociationSection
+            currentJobApplicationId={coverLetter.job_application_id}
+            currentJobApplication={currentJobApplication}
+            jobApplications={jobApplications}
+            locale={locale}
+            dict={dict}
+            onJobApplicationChange={handleJobApplicationChange}
           />
         )
       case 'recipient':
@@ -393,10 +478,17 @@ export function CoverLetterEditor({
         onClose={() => setShowGenerationModal(false)}
         onGenerate={handleGeneratedContent}
         resumes={resumes}
+        savedJobs={jobApplications.map((j) => ({
+          id: j.id,
+          company_name: j.company_name,
+          job_title: j.job_title,
+          job_description: j.job_description,
+        }))}
         defaultResumeId={coverLetter.resume_id}
         defaultJobDescription={coverLetter.job_description}
         defaultJobTitle={coverLetter.job_title}
         defaultCompanyName={coverLetter.company_name}
+        defaultJobApplicationId={coverLetter.job_application_id}
         dict={dict}
         locale={locale}
       />

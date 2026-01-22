@@ -185,7 +185,7 @@ export type GoalCategory = NonNullable<CareerGoal['category']>
 export type SuggestionType = AISuggestion['suggestion_type']
 export type Locale = Profile['preferred_locale']
 
-// Extended types for bidirectional CV-Cover Letter associations
+// Extended types for tri-directional associations (Resume, Cover Letter, Job Application)
 
 /**
  * Cover letter with optional linked resume information
@@ -210,4 +210,108 @@ export interface ResumeWithCoverLetters extends Resume {
     job_title: string | null
     updated_at: string
   }>
+}
+
+/**
+ * Resume with optional linked job application information
+ * Used when fetching resumes that may be associated with a job application
+ */
+export interface ResumeWithJobApplication extends Resume {
+  job_application: {
+    id: string
+    company_name: string
+    job_title: string
+    status: JobApplication['status']
+  } | null
+}
+
+/**
+ * Resume with all relations (cover letters and job application)
+ * Used for comprehensive resume data retrieval
+ */
+export interface ResumeWithRelations extends Resume {
+  cover_letters?: Array<{
+    id: string
+    title: string
+    company_name: string | null
+    job_title: string | null
+    updated_at: string
+  }>
+  job_application: {
+    id: string
+    company_name: string
+    job_title: string
+    status: JobApplication['status']
+  } | null
+}
+
+/**
+ * Cover letter with optional linked job application information
+ * Used when fetching cover letters that may be associated with a job application
+ */
+export interface CoverLetterWithJobApplication extends CoverLetter {
+  job_application: {
+    id: string
+    company_name: string
+    job_title: string
+    status: JobApplication['status']
+  } | null
+}
+
+/**
+ * Cover letter with all relations (resume and job application)
+ * Used for comprehensive cover letter data retrieval
+ */
+export interface CoverLetterWithRelations extends CoverLetter {
+  resume: {
+    id: string
+    title: string
+  } | null
+  job_application: {
+    id: string
+    company_name: string
+    job_title: string
+    status: JobApplication['status']
+  } | null
+}
+
+/**
+ * Job application with linked resume information
+ * Used when fetching job applications with their associated resume
+ */
+export interface JobApplicationWithResume extends JobApplication {
+  resume: {
+    id: string
+    title: string
+    template: Resume['template']
+  } | null
+}
+
+/**
+ * Job application with linked cover letter information
+ * Used when fetching job applications with their associated cover letter
+ */
+export interface JobApplicationWithCoverLetter extends JobApplication {
+  cover_letter: {
+    id: string
+    title: string
+    company_name: string | null
+  } | null
+}
+
+/**
+ * Job application with all relations (resume and cover letter)
+ * Used for comprehensive job application data retrieval
+ */
+export interface JobApplicationWithRelations extends JobApplication {
+  resume: {
+    id: string
+    title: string
+    template: Resume['template']
+  } | null
+  cover_letter: {
+    id: string
+    title: string
+    company_name: string | null
+  } | null
 }

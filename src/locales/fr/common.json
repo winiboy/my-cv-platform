@@ -375,6 +375,22 @@
       "viewAll": "Voir tout",
       "more": "de plus",
       "hint": "Lettres de motivation associées à ce CV"
+    },
+    "jobAssociation": {
+      "linkedJob": "Candidature liée",
+      "linkError": "Échec de la liaison de la candidature",
+      "unlinkError": "Échec de la dissociation de la candidature",
+      "viewJobDetails": "Voir les détails de l'emploi",
+      "adaptToJob": "Adapter le CV à ce poste",
+      "noJobDescription": "Cette candidature n'a pas de description de poste. Ajoutez-en une pour activer l'adaptation IA.",
+      "noLinkedJob": "Aucune candidature liée à ce CV",
+      "linkExisting": "Lier à une offre enregistrée",
+      "selectJob": "Sélectionner une candidature...",
+      "link": "Lier",
+      "unlink": "Dissocier",
+      "noAvailableJobs": "Aucune candidature enregistrée disponible. Enregistrez d'abord une candidature pour la lier à ce CV.",
+      "browseJobs": "Parcourir les offres d'emploi",
+      "hint": "Liez une candidature pour adapter rapidement votre CV avec la description du poste et suivre votre progression."
     }
   },
   "common": {
@@ -454,6 +470,16 @@
     "duplicate": "Dupliquer",
     "downloadPDF": "Télécharger PDF",
     "confirmDelete": "Êtes-vous sûr de vouloir supprimer cette lettre de motivation ?",
+    "jobAssociation": {
+      "linkedJob": "Emploi lié",
+      "viewJob": "Voir l'emploi",
+      "view": "Voir",
+      "noJobLinked": "Aucun emploi lié",
+      "viewJobListing": "Voir l'offre d'emploi",
+      "browseJobs": "Parcourir les offres",
+      "selectJob": "Sélectionner un emploi",
+      "hint": "Liez un emploi pour suivre quelle position correspond à cette lettre et utiliser la description du poste pour la génération IA."
+    },
     "association": {
       "linkedCV": "CV lié",
       "noResumeLinked": "Aucun CV lié",
@@ -516,6 +542,14 @@
       "subtitle": "L'IA créera une lettre personnalisée",
       "resumeLabel": "Utiliser les données du CV",
       "selectResume": "Sélectionnez un CV...",
+      "jobSourceLabel": "Source de l'offre",
+      "pasteJobDescription": "Coller la description",
+      "selectSavedJob": "Offre enregistrée",
+      "savedJobLabel": "Sélectionner une offre",
+      "selectSavedJobPlaceholder": "Sélectionnez une offre enregistrée...",
+      "selectJobRequired": "Veuillez sélectionner une offre enregistrée",
+      "autoFilledHint": "Détails remplis automatiquement",
+      "noJobDescriptionWarning": "Cette offre n'a pas de description. Ajoutez-en une pour de meilleurs résultats.",
       "jobTitleLabel": "Poste",
       "jobTitlePlaceholder": "ex: Ingénieur Logiciel",
       "jobTitleRequired": "Le poste est requis",
@@ -555,5 +589,12 @@
       "weaknesses": "Points à améliorer",
       "suggestions": "Suggestions"
     }
+  },
+  "badges": {
+    "resumeLabel": "CV",
+    "coverLetterLabel": "Lettre",
+    "jobLabel": "Emploi",
+    "linked": "Lié",
+    "linkedJob": "Emploi lié"
   }
 }

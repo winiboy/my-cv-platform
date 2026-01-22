@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       companyName,
       recipientName,
       recipientTitle,
+      jobApplicationId,
       locale,
     } = body
 
@@ -49,6 +50,23 @@ export async function POST(request: NextRequest) {
         { error: 'companyName is required' },
         { status: 400 }
       )
+    }
+
+    // Validate jobApplicationId belongs to user if provided
+    if (jobApplicationId && typeof jobApplicationId === 'string') {
+      const { data: jobApp, error: jobError } = await supabase
+        .from('job_applications')
+        .select('id')
+        .eq('id', jobApplicationId)
+        .eq('user_id', user.id)
+        .single()
+
+      if (jobError || !jobApp) {
+        return NextResponse.json(
+          { error: 'Invalid job application ID' },
+          { status: 400 }
+        )
+      }
     }
 
     // Fetch resume data if resumeId provided

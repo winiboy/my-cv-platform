@@ -7,6 +7,13 @@ import type { CoverLetter } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { sanitizeHtml } from '@/lib/html-utils'
+import { JobLinkBadge } from '@/components/dashboard/entity-link-badge'
+
+interface LinkedJobInfo {
+  id: string
+  job_title: string
+  company_name: string
+}
 
 interface CoverLetterCardProps {
   coverLetter: CoverLetter
@@ -14,9 +21,10 @@ interface CoverLetterCardProps {
   dict: Record<string, unknown>
   linkedResumeName?: string | null
   linkedResumeId?: string | null
+  linkedJob?: LinkedJobInfo | null
 }
 
-export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, linkedResumeId }: CoverLetterCardProps) {
+export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, linkedResumeId, linkedJob }: CoverLetterCardProps) {
   const router = useRouter()
   const [showMenu, setShowMenu] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -189,9 +197,10 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
 
   return (
     <div className="relative bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6 hover:shadow-lg transition-shadow">
-      {/* Score badge */}
-      {coverLetter.analysis_score !== null && (
-        <div className="absolute top-4 right-4">
+      {/* Badges container */}
+      <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+        {/* Score badge */}
+        {coverLetter.analysis_score !== null && (
           <div
             className={`px-2 py-1 text-xs font-medium rounded ${
               coverLetter.analysis_score >= 80
@@ -203,8 +212,16 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
           >
             {coverLetter.analysis_score}%
           </div>
-        </div>
-      )}
+        )}
+        {/* Linked job badge */}
+        {linkedJob && (
+          <JobLinkBadge
+            jobTitle={linkedJob.job_title}
+            companyName={linkedJob.company_name}
+            dict={dict}
+          />
+        )}
+      </div>
 
       {/* Menu button */}
       <div className="absolute top-4 left-4">

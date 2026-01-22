@@ -35,6 +35,23 @@ export default async function ResumesPage({
     console.error('Error fetching resumes:', error)
   }
 
+  // Fetch linked job applications separately (to avoid schema cache issues)
+  const resumeIds = resumes?.map(r => r.job_application_id).filter(Boolean) || []
+  const jobApplicationsMap = new Map<string, { id: string; job_title: string; company_name: string }>()
+
+  if (resumeIds.length > 0) {
+    const { data: jobApps } = await supabase
+      .from('job_applications')
+      .select('id, job_title, company_name')
+      .in('id', resumeIds)
+
+    if (jobApps) {
+      for (const job of jobApps) {
+        jobApplicationsMap.set(job.id, job)
+      }
+    }
+  }
+
   // Fetch cover letter counts per resume
   const { data: coverLetterLinks } = await supabase
     .from('cover_letters')
@@ -113,6 +130,7 @@ export default async function ResumesPage({
               locale={locale}
               dict={dict}
               linkedCoverLettersCount={coverLetterCountMap.get(resume.id)}
+              linkedJob={resume.job_application_id ? jobApplicationsMap.get(resume.job_application_id) : null}
             />
           ))}
         </div>

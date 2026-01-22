@@ -32,10 +32,20 @@ import { LanguagesSection } from './resume-sections/languages-section'
 import { CertificationsSection } from './resume-sections/certifications-section'
 import { ProjectsSection } from './resume-sections/projects-section'
 import { CoverLetterAssociationSection } from './resume-sections/cover-letter-association-section'
+import { JobAssociationSection } from './resume-sections/job-association-section'
 import { ProfessionalTemplate } from './resume-templates/professional-template'
 import { CVAdaptationModal } from './cv-adaptation-modal'
 import { FontCarousel3D, FONTS } from '@/components/ui/font-carousel-3d'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
+
+interface JobApplicationItem {
+  id: string
+  company_name: string
+  job_title: string
+  job_url: string | null
+  status: string
+  job_description: string | null
+}
 
 interface ResumeEditorProps {
   resume: Resume
@@ -43,6 +53,8 @@ interface ResumeEditorProps {
   dict: any
   linkedCoverLetters?: { id: string; title: string; company_name: string | null; job_title: string | null }[]
   unlinkedCoverLetters?: { id: string; title: string; company_name: string | null }[]
+  linkedJob?: JobApplicationItem | null
+  availableJobs?: JobApplicationItem[]
 }
 
 type SectionId =
@@ -54,6 +66,7 @@ type SectionId =
   | 'languages'
   | 'certifications'
   | 'projects'
+  | 'jobApplication'
   | 'coverLetters'
   | 'editSidebar'
   | 'editMainContent'
@@ -67,6 +80,7 @@ const SECTIONS = [
   { id: 'languages' as const, label: 'Languages', icon: Languages },
   { id: 'certifications' as const, label: 'Certifications', icon: Award },
   { id: 'projects' as const, label: 'Projects', icon: FolderGit2 },
+  { id: 'jobApplication' as const, label: 'Job Application', icon: Briefcase },
   { id: 'coverLetters' as const, label: 'Cover Letters', icon: Mail },
   { id: 'editSidebar' as const, label: 'Edit Sidebar', icon: LayoutList },
   { id: 'editMainContent' as const, label: 'Edit Main Content', icon: LayoutList },
@@ -91,12 +105,16 @@ const SECTION_MAPPING: Record<string, SectionId> = {
   projects: 'projects',
 }
 
-export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverLetters, unlinkedCoverLetters: initialUnlinkedCoverLetters }: ResumeEditorProps) {
+export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverLetters, unlinkedCoverLetters: initialUnlinkedCoverLetters, linkedJob: initialLinkedJob, availableJobs: initialAvailableJobs }: ResumeEditorProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [resume, setResume] = useState(initialResume)
   const resumeRef = useRef(resume) // Track latest resume to avoid stale closures
-  const [activeSection, setActiveSection] = useState<SectionId>('contact')
+  // Initialize active section from URL query param or default to 'contact'
+  const initialSection = searchParams?.get('section') as SectionId | null
+  const [activeSection, setActiveSection] = useState<SectionId>(
+    initialSection && SECTIONS.some(s => s.id === initialSection) ? initialSection : 'contact'
+  )
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
@@ -107,6 +125,15 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   // Cover letter association state
   const [coverLetters, setCoverLetters] = useState(linkedCoverLetters || [])
   const [unlinkedCoverLetters, setUnlinkedCoverLetters] = useState(initialUnlinkedCoverLetters || [])
+
+  // Job association state
+  const [linkedJob, setLinkedJob] = useState<JobApplicationItem | null>(initialLinkedJob || null)
+  const [availableJobs, setAvailableJobs] = useState<JobApplicationItem[]>(initialAvailableJobs || [])
+
+  // State for pre-filling the adaptation modal from a linked job
+  const [adaptationJobDescription, setAdaptationJobDescription] = useState('')
+  const [adaptationJobTitle, setAdaptationJobTitle] = useState('')
+  const [adaptationCompany, setAdaptationCompany] = useState('')
 
   // Design settings for live preview (loaded from localStorage)
   const [titleFontSize, setTitleFontSize] = useState(24)
@@ -220,6 +247,33 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       throw err
     }
   }, [resume.id, unlinkedCoverLetters])
+
+  /**
+   * Handles job association changes from the JobAssociationSection.
+   * Updates local state when a job is linked or unlinked.
+   */
+  const handleJobChange = useCallback((job: JobApplicationItem | null) => {
+    if (job) {
+      // Job was linked - remove from available jobs and set as linked
+      setLinkedJob(job)
+      setAvailableJobs((prev) => prev.filter((j) => j.id !== job.id))
+    } else if (linkedJob) {
+      // Job was unlinked - add back to available jobs
+      setAvailableJobs((prev) => [linkedJob, ...prev])
+      setLinkedJob(null)
+    }
+  }, [linkedJob])
+
+  /**
+   * Opens the adaptation modal with pre-filled data from the linked job.
+   * Called when user clicks "Adapt CV to this Job" in JobAssociationSection.
+   */
+  const handleAdaptToJobFromSection = useCallback((jobDescription: string, jobTitle: string, companyName: string) => {
+    setAdaptationJobDescription(jobDescription)
+    setAdaptationJobTitle(jobTitle)
+    setAdaptationCompany(companyName)
+    setShowAdaptationModal(true)
+  }, [])
 
   // Debounced localStorage save
   const saveToLocalStorageDebounced = useRef<NodeJS.Timeout | undefined>(undefined)
@@ -729,6 +783,17 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
               {activeSection === 'projects' && (
                 <ProjectsSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
               )}
+              {activeSection === 'jobApplication' && (
+                <JobAssociationSection
+                  resumeId={resume.id}
+                  linkedJob={linkedJob}
+                  availableJobs={availableJobs}
+                  locale={locale}
+                  dict={dict}
+                  onJobChange={handleJobChange}
+                  onAdaptToJob={handleAdaptToJobFromSection}
+                />
+              )}
               {activeSection === 'coverLetters' && (
                 <CoverLetterAssociationSection
                   resumeId={resume.id}
@@ -1021,8 +1086,17 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       {/* CV Adaptation Modal */}
       <CVAdaptationModal
         isOpen={showAdaptationModal}
-        onClose={() => setShowAdaptationModal(false)}
+        onClose={() => {
+          setShowAdaptationModal(false)
+          // Reset pre-filled values when modal closes
+          setAdaptationJobDescription('')
+          setAdaptationJobTitle('')
+          setAdaptationCompany('')
+        }}
         resumeId={resume.id}
+        initialJobDescription={adaptationJobDescription}
+        initialJobTitle={adaptationJobTitle}
+        initialCompany={adaptationCompany}
         locale={locale}
         onApplyChanges={handleApplyChanges}
         dict={dict?.cvAdaptation}

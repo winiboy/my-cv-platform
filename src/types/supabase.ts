@@ -98,6 +98,7 @@ export type Database = {
           is_default: boolean
           is_public: boolean
           public_slug: string | null
+          job_application_id: string | null
           created_at: string
           updated_at: string
         }
@@ -118,6 +119,7 @@ export type Database = {
           is_default?: boolean
           is_public?: boolean
           public_slug?: string | null
+          job_application_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -138,6 +140,7 @@ export type Database = {
           is_default?: boolean
           is_public?: boolean
           public_slug?: string | null
+          job_application_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -147,6 +150,13 @@ export type Database = {
             columns: ['user_id']
             isOneToOne: false
             referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'resumes_job_application_id_fkey'
+            columns: ['job_application_id']
+            isOneToOne: false
+            referencedRelation: 'job_applications'
             referencedColumns: ['id']
           }
         ]
@@ -227,6 +237,7 @@ export type Database = {
           documents: Json
           interviews: Json
           resume_id: string | null
+          cover_letter_id: string | null
           is_archived: boolean
           color_tag: string | null
           created_at: string
@@ -250,6 +261,7 @@ export type Database = {
           documents?: Json
           interviews?: Json
           resume_id?: string | null
+          cover_letter_id?: string | null
           is_archived?: boolean
           color_tag?: string | null
           created_at?: string
@@ -273,6 +285,7 @@ export type Database = {
           documents?: Json
           interviews?: Json
           resume_id?: string | null
+          cover_letter_id?: string | null
           is_archived?: boolean
           color_tag?: string | null
           created_at?: string
@@ -291,6 +304,13 @@ export type Database = {
             columns: ['resume_id']
             isOneToOne: false
             referencedRelation: 'resumes'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'job_applications_cover_letter_id_fkey'
+            columns: ['cover_letter_id']
+            isOneToOne: false
+            referencedRelation: 'cover_letters'
             referencedColumns: ['id']
           }
         ]
@@ -397,6 +417,7 @@ export type Database = {
           id: string
           user_id: string
           resume_id: string | null
+          job_application_id: string | null
           title: string
           recipient_name: string | null
           recipient_title: string | null
@@ -420,6 +441,7 @@ export type Database = {
           id?: string
           user_id: string
           resume_id?: string | null
+          job_application_id?: string | null
           title?: string
           recipient_name?: string | null
           recipient_title?: string | null
@@ -443,6 +465,7 @@ export type Database = {
           id?: string
           user_id?: string
           resume_id?: string | null
+          job_application_id?: string | null
           title?: string
           recipient_name?: string | null
           recipient_title?: string | null
@@ -475,6 +498,13 @@ export type Database = {
             columns: ['resume_id']
             isOneToOne: false
             referencedRelation: 'resumes'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'cover_letters_job_application_id_fkey'
+            columns: ['job_application_id']
+            isOneToOne: false
+            referencedRelation: 'job_applications'
             referencedColumns: ['id']
           }
         ]
