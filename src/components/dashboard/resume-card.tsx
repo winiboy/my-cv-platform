@@ -18,11 +18,11 @@ interface ResumeCardProps {
   resume: Resume
   locale: string
   dict: any
-  linkedCoverLettersCount?: number
+  linkedCoverLetterIds?: string[]
   linkedJob?: LinkedJobInfo | null
 }
 
-export function ResumeCard({ resume, locale, dict, linkedCoverLettersCount, linkedJob }: ResumeCardProps) {
+export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJob }: ResumeCardProps) {
   const router = useRouter()
   const [showMenu, setShowMenu] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -136,13 +136,17 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLettersCount, link
           </div>
         )}
         {/* Linked cover letters badge */}
-        {linkedCoverLettersCount !== undefined && linkedCoverLettersCount > 0 && (
+        {linkedCoverLetterIds && linkedCoverLetterIds.length > 0 && (
           <Link
-            href={`/${locale}/dashboard/resumes/${resume.id}/edit?section=coverLetters`}
+            href={
+              linkedCoverLetterIds.length === 1
+                ? `/${locale}/dashboard/cover-letters/${linkedCoverLetterIds[0]}/edit`
+                : `/${locale}/dashboard/cover-letters`
+            }
             className="flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-medium rounded hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors cursor-pointer"
           >
             <FileText className="h-3 w-3" />
-            {linkedCoverLettersCount} {dict.resumes?.linkedCoverLetters || 'cover letter(s)'}
+            {linkedCoverLetterIds.length} {dict.resumes?.linkedCoverLetters || 'cover letter(s)'}
           </Link>
         )}
         {/* Linked job badge */}

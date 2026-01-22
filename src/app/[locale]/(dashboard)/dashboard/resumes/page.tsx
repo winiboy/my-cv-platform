@@ -52,20 +52,21 @@ export default async function ResumesPage({
     }
   }
 
-  // Fetch cover letter counts per resume
+  // Fetch cover letter IDs per resume
   const { data: coverLetterLinks } = await supabase
     .from('cover_letters')
-    .select('resume_id')
+    .select('id, resume_id')
     .eq('user_id', user.id)
     .not('resume_id', 'is', null)
 
-  // Aggregate counts per resume_id
-  const coverLetterCountMap = new Map<string, number>()
+  // Aggregate cover letter IDs per resume_id
+  const coverLetterIdsMap = new Map<string, string[]>()
   if (coverLetterLinks) {
     for (const link of coverLetterLinks) {
       if (link.resume_id) {
-        const current = coverLetterCountMap.get(link.resume_id) || 0
-        coverLetterCountMap.set(link.resume_id, current + 1)
+        const current = coverLetterIdsMap.get(link.resume_id) || []
+        current.push(link.id)
+        coverLetterIdsMap.set(link.resume_id, current)
       }
     }
   }
@@ -129,7 +130,7 @@ export default async function ResumesPage({
               resume={resume}
               locale={locale}
               dict={dict}
-              linkedCoverLettersCount={coverLetterCountMap.get(resume.id)}
+              linkedCoverLetterIds={coverLetterIdsMap.get(resume.id)}
               linkedJob={resume.job_application_id ? jobApplicationsMap.get(resume.job_application_id) : null}
             />
           ))}
