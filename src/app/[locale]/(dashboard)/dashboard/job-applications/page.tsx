@@ -28,16 +28,16 @@ const STATUS_FILTERS: StatusFilter[] = [
 ]
 
 interface JobApplicationsPageProps {
-  params: Promise<{ locale: string }>
-  searchParams: Promise<{ status?: string }>
+  params: { locale: string }
+  searchParams: { status?: string }
 }
 
 export default async function JobApplicationsPage({
   params,
   searchParams,
 }: JobApplicationsPageProps) {
-  const { locale } = await params
-  const { status: statusParam } = await searchParams
+  const { locale } = params
+  const { status: statusParam } = searchParams
   const dict = getTranslations(locale as Locale, 'common') as Record<string, unknown>
   const jobsDict = getTranslations(locale as Locale, 'jobs') as Record<string, unknown>
   const supabase = await createServerSupabaseClient()
@@ -46,6 +46,8 @@ export default async function JobApplicationsPage({
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
+  console.log('[JobApplicationsPage] User:', user?.id ?? 'NOT AUTHENTICATED')
 
   if (!user) {
     redirect(`/${locale}/login`)
@@ -57,12 +59,15 @@ export default async function JobApplicationsPage({
     : 'all'
 
   // Fetch all applications to calculate status counts and filter
+  // Include records where is_archived is false OR null (null = not yet set)
   const { data: allJobApplications, error } = await supabase
     .from('job_applications')
-    .select('*, resume:resumes(id, title, template), cover_letter:cover_letters(id, title, company_name)')
+    .select('*, resume:resumes!job_applications_resume_id_fkey(id, title, template), cover_letter:cover_letters!job_applications_cover_letter_id_fkey(id, title, company_name)')
     .eq('user_id', user.id)
-    .eq('is_archived', false)
+    .or('is_archived.eq.false,is_archived.is.null')
     .order('updated_at', { ascending: false })
+
+  console.log('[JobApplicationsPage] Query result - data:', allJobApplications?.length ?? 'null', 'error:', error)
 
   if (error) {
     console.error('Error fetching job applications:', error)
@@ -93,6 +98,8 @@ export default async function JobApplicationsPage({
   const applicationsList = activeStatus === 'all'
     ? allApplications
     : allApplications.filter((app) => app.status === activeStatus)
+
+  console.log('[JobApplicationsPage] Rendering with applicationsList.length:', applicationsList.length)
 
   // Extract translations with fallbacks
   const jobApplicationsDict = (dict.jobApplications || {}) as Record<string, unknown>

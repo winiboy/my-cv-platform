@@ -20,13 +20,13 @@ import { JOB_STATUS_CONFIG } from '@/lib/constants/job-statuses'
 import { cn } from '@/lib/utils'
 
 interface JobApplicationDetailPageProps {
-  params: Promise<{ locale: string; id: string }>
+  params: { locale: string; id: string }
 }
 
 export default async function JobApplicationDetailPage({
   params,
 }: JobApplicationDetailPageProps) {
-  const { locale, id } = await params
+  const { locale, id } = params
   const dict = getTranslations(locale as Locale, 'common') as Record<string, unknown>
   const jobsDict = getTranslations(locale as Locale, 'jobs') as Record<string, unknown>
   const supabase = await createServerSupabaseClient()
@@ -43,7 +43,7 @@ export default async function JobApplicationDetailPage({
   // Fetch the job application with linked entities
   const { data: jobApplication, error } = await supabase
     .from('job_applications')
-    .select('*, resume:resumes(id, title, template), cover_letter:cover_letters(id, title, company_name)')
+    .select('*, resume:resumes!job_applications_resume_id_fkey(id, title, template), cover_letter:cover_letters!job_applications_cover_letter_id_fkey(id, title, company_name)')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
@@ -51,6 +51,8 @@ export default async function JobApplicationDetailPage({
   if (error || !jobApplication) {
     notFound()
   }
+
+  console.log('[JobApplicationDetailPage] Fetched job application:', { id, jobApplication })
 
   const job = jobApplication as JobApplicationWithRelations
 
