@@ -35,10 +35,12 @@ export default async function DashboardPage({
     .select('*', { count: 'exact', head: true })
     .eq('user_id', user.id)
 
+  // Include records where is_archived is false OR null to match job-applications page
   const { count: jobCount } = await supabase
     .from('job_applications')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', user.id)
+    .or('is_archived.eq.false,is_archived.is.null')
 
   const { count: goalCount } = await supabase
     .from('career_goals')
@@ -77,7 +79,7 @@ export default async function DashboardPage({
       name: t.dashboard.nav.jobs,
       value: jobCount || 0,
       icon: Briefcase,
-      href: `/${params.locale}/dashboard/jobs`,
+      href: `/${params.locale}/dashboard/job-applications`,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
       darkColor: 'dark:text-blue-400',

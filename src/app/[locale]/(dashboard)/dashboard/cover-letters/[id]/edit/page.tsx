@@ -53,7 +53,7 @@ export default async function EditCoverLetterPage({
     .from('job_applications')
     .select('id, company_name, job_title, job_url, job_description, status')
     .eq('user_id', user.id)
-    .eq('is_archived', false)
+    .or('is_archived.eq.false,is_archived.is.null')
     .order('updated_at', { ascending: false })
 
   // Fetch the linked job application if exists

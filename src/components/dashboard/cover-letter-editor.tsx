@@ -159,7 +159,8 @@ export function CoverLetterEditor({
 
   /**
    * Handles resume association changes. Updates local state immediately
-   * and persists to database. Reverts on error.
+   * and persists to database. Also propagates resume_id to the linked
+   * job application for tri-directional sync. Reverts on error.
    */
   const handleResumeChange = useCallback(
     async (resumeId: string | null) => {
@@ -170,6 +171,8 @@ export function CoverLetterEditor({
 
       try {
         const supabase = createClient()
+
+        // Step 1: Update the cover letter's resume_id
         const { error } = await supabase
           .from('cover_letters')
           .update({ resume_id: resumeId, updated_at: new Date().toISOString() })
@@ -183,6 +186,22 @@ export function CoverLetterEditor({
             ((editorDict.resume as Record<string, string>)?.error as string) ||
               'Failed to update linked resume'
           )
+          return
+        }
+
+        // Step 2: Tri-directional sync - if cover letter is linked to a job application,
+        // propagate the resume_id change to the job application
+        if (coverLetter.job_application_id) {
+          const { error: jobUpdateError } = await supabase
+            .from('job_applications')
+            .update({ resume_id: resumeId })
+            .eq('id', coverLetter.job_application_id)
+
+          if (jobUpdateError) {
+            // Log but don't revert - the primary operation succeeded
+            // The job application update is a secondary sync operation
+            console.error('Error syncing resume_id to job application:', jobUpdateError)
+          }
         }
       } catch (err) {
         console.error('Unexpected error updating resume association:', err)
@@ -194,7 +213,7 @@ export function CoverLetterEditor({
         )
       }
     },
-    [coverLetter.id, coverLetter.resume_id, editorDict]
+    [coverLetter.id, coverLetter.resume_id, coverLetter.job_application_id, editorDict]
   )
 
   /**
@@ -244,11 +263,20 @@ export function CoverLetterEditor({
           }
         }
 
-        // Step 3: Set the new job's cover_letter_id if linking to a job
+        // Step 3: Set the new job's cover_letter_id and resume_id if linking to a job
         if (jobApplicationId) {
+          // Build update payload: always set cover_letter_id, and propagate resume_id if present
+          const jobUpdatePayload: { cover_letter_id: string; resume_id?: string | null } = {
+            cover_letter_id: coverLetter.id,
+          }
+          // Tri-directional sync: propagate the cover letter's resume_id to the job application
+          if (coverLetter.resume_id !== undefined) {
+            jobUpdatePayload.resume_id = coverLetter.resume_id
+          }
+
           const { error: setNewError } = await supabase
             .from('job_applications')
-            .update({ cover_letter_id: coverLetter.id })
+            .update(jobUpdatePayload)
             .eq('id', jobApplicationId)
 
           if (setNewError) {
@@ -277,7 +305,7 @@ export function CoverLetterEditor({
         setSaveError(jobAssociationDict.error || 'Failed to update linked job')
       }
     },
-    [coverLetter.id, coverLetter.job_application_id, currentJobApplication, jobApplications, dict]
+    [coverLetter.id, coverLetter.job_application_id, coverLetter.resume_id, currentJobApplication, jobApplications, dict]
   )
 
   /**

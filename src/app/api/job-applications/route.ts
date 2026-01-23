@@ -47,11 +47,12 @@ export async function GET() {
     }
 
     // Fetch user's job applications with essential fields for cover letter linking
+    // Include records where is_archived is false OR null (null = not yet set)
     const { data: jobApplications, error } = await supabase
       .from('job_applications')
       .select('id, company_name, job_title, job_url, status, created_at')
       .eq('user_id', user.id)
-      .eq('is_archived', false)
+      .or('is_archived.eq.false,is_archived.is.null')
       .order('updated_at', { ascending: false })
 
     if (error) {
@@ -90,10 +91,35 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
+      console.log('[job-applications POST] user:', 'NO USER', 'authError:', authError?.message || 'none')
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
+    }
+
+    console.log('[job-applications POST] user:', user.id)
+
+    // Ensure profile exists before insert (defensive check)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile) {
+      console.log('[job-applications POST] Profile missing, creating for user:', user.id)
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({ id: user.id, email: user.email || '' })
+
+      if (profileError) {
+        console.error('[job-applications POST] Failed to create profile:', profileError)
+        return NextResponse.json(
+          { error: 'Failed to initialize user profile' },
+          { status: 500 }
+        )
+      }
     }
 
     // Parse and validate request body
@@ -172,10 +198,12 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
+      console.error('[job-applications POST] insert error:', error)
       console.error('[API] Error creating job application:', {
         code: error.code,
         message: error.message,
         details: error.details,
+        userId: user.id,
       })
       return NextResponse.json(
         { error: 'Failed to save job application', details: error.message },

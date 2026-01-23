@@ -126,6 +126,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
     const response = await fetch('/api/job-applications', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({
         job_title: job.title,
         company_name: job.company,
@@ -137,6 +138,11 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
         source: 'Adzuna',
       }),
     })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      return { error: errorData.error || `HTTP ${response.status}` }
+    }
 
     return response.json()
   }, [job])
@@ -630,7 +636,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
           {/* View in applications - only shown when saved, spans full width on mobile */}
           {isSaved && savedJobId && (
             <Button
-              onClick={() => router.push(`/${locale}/dashboard/applications`)}
+              onClick={() => router.push(`/${locale}/dashboard/job-applications`)}
               variant="ghost"
               className="col-span-2 sm:col-span-1 flex items-center justify-center gap-2 text-teal-600 hover:text-teal-700"
             >

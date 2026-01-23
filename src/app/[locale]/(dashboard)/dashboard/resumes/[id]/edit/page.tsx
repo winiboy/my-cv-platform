@@ -65,7 +65,7 @@ export default async function EditResumePage({
     .from('job_applications')
     .select('id, company_name, job_title, job_url, status, job_description')
     .eq('user_id', user.id)
-    .eq('is_archived', false)
+    .or('is_archived.eq.false,is_archived.is.null')
     .neq('id', resume.job_application_id || '')
     .order('updated_at', { ascending: false })
     .limit(50)
