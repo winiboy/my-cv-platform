@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { FileText, Star, MoreVertical, Pencil, Trash2, Copy, Download } from 'lucide-react'
 import type { Resume } from '@/types/database'
@@ -26,7 +26,12 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
   const router = useRouter()
   const [showMenu, setShowMenu] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+
+  // Check for unsaved changes in localStorage (computed on render)
+  const hasUnsavedChanges = useMemo(() => {
+    if (typeof window === 'undefined') return false
+    return !!localStorage.getItem(`resume_draft_${resume.id}`)
+  }, [resume.id])
 
   // Extract nested dictionaries with type assertions
   const resumesDict = (dict.resumes || {}) as Record<string, unknown>
@@ -35,12 +40,6 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
   const apiErrorsDict = (errorsDict.api || {}) as Record<string, string>
   const editorDict = (resumesDict.editor || {}) as Record<string, string>
   const templatesDict = (resumesDict.templates || {}) as Record<string, string>
-
-  // Check for unsaved changes in localStorage
-  useEffect(() => {
-    const draft = localStorage.getItem(`resume_draft_${resume.id}`)
-    setHasUnsavedChanges(!!draft)
-  }, [resume.id])
 
   const handleDelete = async () => {
     if (!confirm((resumesDict.confirmDelete as string) || 'Are you sure you want to delete this resume?')) return
