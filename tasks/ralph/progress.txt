@@ -1,0 +1,35 @@
+# Ralph Progress Log
+# Feature: resume-card-3way-linking-fix
+# Started: 2026-01-24
+
+---
+
+## Run 1 - 2026-01-24
+
+### US-001: Display Job Application link on Resume card
+- Status: PASS
+- Notes: JobLinkBadge renders when linkedJob is present. Direct and indirect associations both work.
+
+### US-002: Preserve existing Cover Letter link on Resume card
+- Status: PASS
+- Notes: Cover Letter link preserved via linkedCoverLetterIds prop.
+
+### US-003: Enforce automatic 3-way linking consistency
+- Status: PASS
+- Notes: Transitive linking implemented via indirectJobIdMap. Direct association takes priority.
+
+### US-004: Verify linking parity across all locales
+- Status: PASS
+- Notes: All links use /${locale}/dashboard/... pattern. JobLinkBadge generates locale-aware URLs.
+
+### Checks
+- Typecheck: PASS
+- Lint (feature files): PASS
+- Code Review: PASS
+
+### Files Modified
+- src/components/dashboard/resume-card.tsx (lint fix: useMemo instead of useEffect+setState)
+- src/app/[locale]/(dashboard)/dashboard/resumes/page.tsx (transitive linking logic)
+
+### Summary
+All 4 user stories completed. Implementation passes all acceptance criteria.

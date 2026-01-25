@@ -39,14 +39,14 @@ export default async function ResumesPage({
 
   // Fetch linked job applications separately (to avoid schema cache issues)
   // Filter out null values and cast to string[] for TypeScript
-  const resumeIds = (resumes?.map(r => r.job_application_id).filter((id): id is string => id !== null) || [])
+  const directJobApplicationIds = (resumes?.map(r => r.job_application_id).filter((id): id is string => id !== null) || [])
   const jobApplicationsMap = new Map<string, { id: string; job_title: string; company_name: string }>()
 
-  if (resumeIds.length > 0) {
+  if (directJobApplicationIds.length > 0) {
     const { data: jobApps } = await supabase
       .from('job_applications')
       .select('id, job_title, company_name')
-      .in('id', resumeIds)
+      .in('id', directJobApplicationIds)
 
     if (jobApps) {
       for (const job of jobApps) {
@@ -55,21 +55,49 @@ export default async function ResumesPage({
     }
   }
 
-  // Fetch cover letter IDs per resume
+  // Fetch cover letter IDs per resume (including job_application_id for transitive linking)
   const { data: coverLetterLinks } = await supabase
     .from('cover_letters')
-    .select('id, resume_id')
+    .select('id, resume_id, job_application_id')
     .eq('user_id', user.id)
     .not('resume_id', 'is', null)
 
   // Aggregate cover letter IDs per resume_id
   const coverLetterIdsMap = new Map<string, string[]>()
+  // Map resume_id -> job_application_id (indirect link via cover letter)
+  const indirectJobIdMap = new Map<string, string>()
+
   if (coverLetterLinks) {
     for (const link of coverLetterLinks) {
       if (link.resume_id) {
+        // Collect cover letter IDs for the resume
         const current = coverLetterIdsMap.get(link.resume_id) || []
         current.push(link.id)
         coverLetterIdsMap.set(link.resume_id, current)
+
+        // Track indirect job application link (cover letter -> job application)
+        // Only set if this resume doesn't already have an indirect link
+        if (link.job_application_id && !indirectJobIdMap.has(link.resume_id)) {
+          indirectJobIdMap.set(link.resume_id, link.job_application_id)
+        }
+      }
+    }
+  }
+
+  // Fetch indirect job applications (from cover letters) that aren't already in the map
+  const indirectJobIds = Array.from(indirectJobIdMap.values()).filter(
+    id => !jobApplicationsMap.has(id)
+  )
+
+  if (indirectJobIds.length > 0) {
+    const { data: indirectJobApps } = await supabase
+      .from('job_applications')
+      .select('id, job_title, company_name')
+      .in('id', indirectJobIds)
+
+    if (indirectJobApps) {
+      for (const job of indirectJobApps) {
+        jobApplicationsMap.set(job.id, job)
       }
     }
   }
@@ -134,7 +162,15 @@ export default async function ResumesPage({
               locale={locale}
               dict={dict}
               linkedCoverLetterIds={coverLetterIdsMap.get(resume.id)}
-              linkedJob={resume.job_application_id ? jobApplicationsMap.get(resume.job_application_id) : null}
+              linkedJob={
+                // Direct association takes priority
+                resume.job_application_id
+                  ? jobApplicationsMap.get(resume.job_application_id)
+                  // Indirect association via cover letter
+                  : indirectJobIdMap.has(resume.id)
+                    ? jobApplicationsMap.get(indirectJobIdMap.get(resume.id)!)
+                    : null
+              }
             />
           ))}
         </div>
