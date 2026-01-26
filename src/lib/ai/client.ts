@@ -1,9 +1,17 @@
 import Groq from 'groq-sdk'
 
 // Initialize Groq client
-export const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-})
+
+export function getGroqClient() {
+  const apiKey = process.env.GROQ_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("GROQ_API_KEY is missing or empty");
+  }
+
+  return new Groq({ apiKey });
+}
+
 
 // Default model to use
 export const DEFAULT_MODEL = 'llama-3.3-70b-versatile'
@@ -36,6 +44,8 @@ export async function generateCompletion(
     temperature = 0.7,
     maxTokens = 1000,
   } = options
+
+  const groq = getGroqClient()
 
   try {
     const completion = await groq.chat.completions.create({

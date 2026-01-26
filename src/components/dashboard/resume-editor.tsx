@@ -80,7 +80,7 @@ const SECTIONS = [
   { id: 'languages' as const, label: 'Languages', icon: Languages },
   { id: 'certifications' as const, label: 'Certifications', icon: Award },
   { id: 'projects' as const, label: 'Projects', icon: FolderGit2 },
-  { id: 'jobApplication' as const, label: 'Job Application', icon: Briefcase },
+  { id: 'jobApplication' as const, label: 'Linked Job', icon: Briefcase },
   { id: 'coverLetters' as const, label: 'Cover Letters', icon: Mail },
   { id: 'editSidebar' as const, label: 'Edit Sidebar', icon: LayoutList },
   { id: 'editMainContent' as const, label: 'Edit Main Content', icon: LayoutList },

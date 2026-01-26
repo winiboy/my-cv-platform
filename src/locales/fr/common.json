@@ -207,7 +207,8 @@
         "languages": "Langues",
         "certifications": "Certifications",
         "projects": "Réalisations clés",
-        "coverLetters": "Lettres de motivation"
+        "coverLetters": "Lettres de motivation",
+        "jobApplication": "Emploi lié"
       },
       "coverLetters": {
         "title": "Lettres de motivation liées",
@@ -378,7 +379,7 @@
       "hint": "Lettres de motivation associées à ce CV"
     },
     "jobAssociation": {
-      "linkedJob": "Candidature liée",
+      "linkedJob": "Emploi lié",
       "linkError": "Échec de la liaison de la candidature",
       "unlinkError": "Échec de la dissociation de la candidature",
       "viewJobDetails": "Voir les détails de l'emploi",

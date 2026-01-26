@@ -209,7 +209,8 @@
         "languages": "Lingue",
         "certifications": "Certificazioni",
         "projects": "Risultati chiave",
-        "coverLetters": "Lettere di presentazione"
+        "coverLetters": "Lettere di presentazione",
+        "jobApplication": "Lavoro collegato"
       },
       "coverLetters": {
         "title": "Lettere di presentazione collegate",
@@ -378,7 +379,7 @@
       "hint": "Lettere di presentazione associate a questo CV"
     },
     "jobAssociation": {
-      "linkedJob": "Candidatura collegata",
+      "linkedJob": "Lavoro collegato",
       "linkError": "Impossibile collegare la candidatura",
       "unlinkError": "Impossibile scollegare la candidatura",
       "viewJobDetails": "Visualizza dettagli lavoro",

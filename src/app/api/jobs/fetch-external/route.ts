@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import Groq from 'groq-sdk'
 import { isRedirectContent } from '@/lib/adzuna-client'
+import Groq from 'groq-sdk'
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-})
+import { getGroqClient } from "@/lib/ai/client";
+
 
 /**
  * Allowed domains for fetching job descriptions
@@ -60,6 +59,16 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    let groq;
+    try {
+      groq = getGroqClient();
+    } catch {
+      return NextResponse.json(
+        { error: "GROQ_API_KEY not configured" },
+        { status: 500 }
+      );
     }
 
     // Parse request body
@@ -126,7 +135,7 @@ export async function POST(request: NextRequest) {
           const landHtml = await fetchWithRedirectHandling(landAdUrl)
           const landData = extractJobDetails(landHtml)
           if (!isUnusableContent(landData.description) && landData.description.length > extractedData.description.length) {
-            return processAndRespond(landData, targetLanguage)
+            return processAndRespond(landData, targetLanguage, groq)
           }
         } catch (landError) {
           console.error('[fetch-external] Failed to fetch land/ad URL:', landError)
@@ -148,7 +157,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Process and respond with the extracted data
-    return processAndRespond(extractedData, targetLanguage)
+    return processAndRespond(extractedData, targetLanguage, groq)
   } catch (error) {
     console.error('Error fetching external job:', error)
     return NextResponse.json(
@@ -379,7 +388,8 @@ function extractAdzunaLandUrl(html: string): string | null {
  */
 async function processAndRespond(
   extractedData: { title: string; description: string; company: string; detectedLanguage: string },
-  targetLanguage?: string
+  targetLanguage: string | undefined,
+  groq: Groq
 ): Promise<NextResponse> {
   let finalDescription = extractedData.description
   let finalTitle = extractedData.title

@@ -209,7 +209,8 @@
         "languages": "Languages",
         "certifications": "Certifications",
         "projects": "Key Achievements",
-        "coverLetters": "Cover Letters"
+        "coverLetters": "Cover Letters",
+        "jobApplication": "Linked Job"
       },
       "coverLetters": {
         "title": "Linked Cover Letters",
@@ -378,7 +379,7 @@
       "hint": "Cover letters associated with this resume"
     },
     "jobAssociation": {
-      "linkedJob": "Linked Job Application",
+      "linkedJob": "Linked Job",
       "linkError": "Failed to link job application",
       "unlinkError": "Failed to unlink job application",
       "viewJobDetails": "View Job Details",
