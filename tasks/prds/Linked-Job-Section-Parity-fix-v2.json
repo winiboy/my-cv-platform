@@ -1,0 +1,77 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "feature/Linked-Job-Section-Parity-fix",
+  "description": "Resume Linked Job Section - Strict 1:1 Parity with Cover Letter. Remove all Resume-specific features (status badges, Adapt CV button, clickable card) and use identical component/behavior.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Resume sidebar Linked Job must match Cover Letter visually",
+      "description": "As a user, when editing a Resume, I want the Linked Job section in the sidebar to look exactly the same as the Linked Job section in the Cover Letter sidebar.",
+      "acceptanceCriteria": [
+        "Same spacing, typography, colors, and layout",
+        "Same icons and icon placement",
+        "Same section structure and hierarchy",
+        "Same empty state layout",
+        "Same linked-job state layout",
+        "No Resume-specific styling differences",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: side-by-side comparison shows no visual differences"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Resume now uses exact same JobAssociationSection component from Cover Letter. Visual parity achieved."
+    },
+    {
+      "id": "US-002",
+      "title": "Resume sidebar Linked Job must match Cover Letter behavior",
+      "description": "As a user, I want the Linked Job section in the Resume sidebar to behave exactly like the Linked Job section in the Cover Letter sidebar.",
+      "acceptanceCriteria": [
+        "Same empty state behavior",
+        "Same add/link/manage actions",
+        "Same unlink or replace behavior",
+        "Same loading and disabled states",
+        "Same error handling and messages",
+        "Same navigation and CTA behavior",
+        "No Resume-specific logic or shortcuts",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: interactions are indistinguishable"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Identical component used. Status badges, Adapt CV button, clickable card all removed. Bidirectional DB sync preserved."
+    },
+    {
+      "id": "US-003",
+      "title": "Resume page scope must remain strictly unchanged",
+      "description": "As a user, I want the Resume page to behave exactly as before, except for the Linked Job sidebar section.",
+      "acceptanceCriteria": [
+        "Resume editor logic is unchanged",
+        "Resume layout outside the sidebar is unchanged",
+        "Resume preview and export logic are untouched",
+        "Resume navigation and dashboard behavior are unchanged",
+        "Only the Linked Job sidebar section is modified"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Only 3 files modified (resume-editor.tsx, edit/page.tsx, deleted job-association-section.tsx). No other Resume features affected."
+    },
+    {
+      "id": "US-004",
+      "title": "Locale parity with Cover Letter Linked Job",
+      "description": "As a multilingual user, I want the Resume sidebar Linked Job section to use the exact same translations as the Cover Letter sidebar Linked Job section.",
+      "acceptanceCriteria": [
+        "/en terminology matches Cover Letter exactly",
+        "/fr terminology matches Cover Letter exactly",
+        "/de terminology matches Cover Letter exactly",
+        "/it terminology matches Cover Letter exactly",
+        "No new translation wording is introduced",
+        "Verify in browser across all locales"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Same component uses coverLetters.jobAssociation translations. Parity automatic."
+    }
+  ]
+}

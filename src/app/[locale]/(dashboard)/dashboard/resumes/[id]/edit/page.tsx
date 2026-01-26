@@ -49,24 +49,23 @@ export default async function EditResumePage({
     .order('updated_at', { ascending: false })
 
   // Fetch linked job application (if any)
-  let linkedJob = null
+  let currentJobApplication = null
   if (resume.job_application_id) {
     const { data: jobData } = await supabase
       .from('job_applications')
-      .select('id, company_name, job_title, job_url, status, job_description')
+      .select('id, company_name, job_title, job_url')
       .eq('id', resume.job_application_id)
       .single()
 
-    linkedJob = jobData
+    currentJobApplication = jobData
   }
 
-  // Fetch available jobs for association (not linked to this resume)
-  const { data: availableJobsData } = await supabase
+  // Fetch all user's job applications for the selector dropdown
+  const { data: jobApplicationsData } = await supabase
     .from('job_applications')
-    .select('id, company_name, job_title, job_url, status, job_description')
+    .select('id, company_name, job_title, job_url')
     .eq('user_id', user.id)
     .or('is_archived.eq.false,is_archived.is.null')
-    .neq('id', resume.job_application_id || '')
     .order('updated_at', { ascending: false })
     .limit(50)
 
@@ -80,8 +79,9 @@ export default async function EditResumePage({
       dict={dict}
       linkedCoverLetters={linkedCoverLetters || []}
       unlinkedCoverLetters={unlinkedCoverLetters || []}
-      linkedJob={linkedJob}
-      availableJobs={availableJobsData || []}
+      currentJobApplicationId={resume.job_application_id || null}
+      currentJobApplication={currentJobApplication}
+      jobApplications={jobApplicationsData || []}
     />
   )
 }

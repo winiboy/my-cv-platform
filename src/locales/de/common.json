@@ -209,7 +209,8 @@
         "languages": "Sprachen",
         "certifications": "Zertifikate",
         "projects": "Wichtige Erfolge",
-        "coverLetters": "Anschreiben"
+        "coverLetters": "Anschreiben",
+        "jobApplication": "Verknüpfte Stelle"
       },
       "coverLetters": {
         "title": "Verknüpfte Anschreiben",
@@ -378,7 +379,7 @@
       "hint": "Mit diesem Lebenslauf verknüpfte Anschreiben"
     },
     "jobAssociation": {
-      "linkedJob": "Verknüpfte Bewerbung",
+      "linkedJob": "Verknüpfte Stelle",
       "linkError": "Bewerbung konnte nicht verknüpft werden",
       "unlinkError": "Bewerbung konnte nicht getrennt werden",
       "viewJobDetails": "Stellendetails anzeigen",

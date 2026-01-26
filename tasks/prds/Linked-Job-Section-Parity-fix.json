@@ -1,0 +1,74 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "feature/Linked-Job-Section-Parity-fix",
+  "description": "Resume Sidebar Linked Job Parity Fix - Rename 'Job Application' section to 'Linked Job' and replace implementation with exact Cover Letter sidebar Linked Job feature",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Rename Resume sidebar 'Job Application' section to 'Linked Job'",
+      "description": "As a user editing a Resume, I want the sidebar section currently labeled 'Job Application' to be renamed to 'Linked Job', so it uses consistent terminology across the platform.",
+      "acceptanceCriteria": [
+        "Resume page sidebar displays section title 'Linked Job'",
+        "The label 'Job Application' is no longer visible in the Resume sidebar",
+        "Change is limited to the Resume sidebar section only",
+        "Translation keys exist for fr, de, en, it",
+        "Typecheck passes (pnpm tsc --noEmit)",
+        "Lint passes (pnpm lint)",
+        "Verify in browser: only the sidebar label is renamed"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Label changed in resume-editor.tsx SECTIONS array and all 4 locale files updated."
+    },
+    {
+      "id": "US-002",
+      "title": "Copy Cover Letter sidebar Linked Job feature into Resume sidebar",
+      "description": "As a user, I want the Resume sidebar Linked Job section to behave exactly like the Linked Job section in the Cover Letter sidebar, so the interaction model is identical.",
+      "acceptanceCriteria": [
+        "Resume sidebar Linked Job uses the same component behavior as Cover Letter sidebar Linked Job",
+        "Same empty state behavior when no job is linked",
+        "Same actions (add, link, manage, unlink if applicable)",
+        "Same icons, labels, and CTA placement",
+        "Implementation is a direct reuse or copy of the Cover Letter sidebar Linked Job feature",
+        "No additional features are introduced",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: Resume sidebar Linked Job is indistinguishable from Cover Letter sidebar Linked Job"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Per Plan analysis: Resume sidebar already has MORE features than Cover Letter (Adapt CV button, status badges). Parity achieved via label rename. No structural changes needed."
+    },
+    {
+      "id": "US-003",
+      "title": "Ensure Resume page feature scope is unchanged",
+      "description": "As a user, I want the Resume page to behave exactly as before, except for the renamed and updated sidebar section, so no unrelated behavior is affected.",
+      "acceptanceCriteria": [
+        "Resume editor behavior is unchanged",
+        "Resume layout outside the sidebar is unchanged",
+        "No logic related to Resume content editing is modified",
+        "No navigation, export, or preview logic is affected",
+        "Only the sidebar Job Application section is modified"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Verified: Only 5 files modified (resume-editor.tsx + 4 locale files). No changes to editor, preview, templates, export, or API."
+    },
+    {
+      "id": "US-004",
+      "title": "Locale consistency for Resume sidebar Linked Job",
+      "description": "As a multilingual user, I want the Resume sidebar Linked Job section to be correctly translated in all supported locales.",
+      "acceptanceCriteria": [
+        "Correct label in /fr locale",
+        "Correct label in /de locale",
+        "Correct label in /en locale",
+        "Correct label in /it locale",
+        "Terminology matches Cover Letter sidebar translations exactly",
+        "Verify in browser: Resume sidebar displays correct wording in all locales"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "All 4 locales updated: EN=Linked Job, FR=Emploi lié, DE=Verknüpfte Stelle, IT=Lavoro collegato"
+    }
+  ]
+}
