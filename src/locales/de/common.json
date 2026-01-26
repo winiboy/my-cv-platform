@@ -373,6 +373,7 @@
       "selectCoverLetter": "Anschreiben auswählen",
       "link": "Verknüpfen",
       "linking": "Verknüpfung...",
+      "linkError": "Anschreiben konnte nicht verknüpft werden",
       "showLess": "Weniger anzeigen",
       "viewAll": "Alle anzeigen",
       "more": "weitere",
@@ -402,7 +403,8 @@
     "delete": "Löschen",
     "deleting": "Wird gelöscht...",
     "confirm": "Bestätigen",
-    "back": "Zurück"
+    "back": "Zurück",
+    "loading": "Wird geladen..."
   },
   "errors": {
     "unauthorized": "Nicht autorisiert",

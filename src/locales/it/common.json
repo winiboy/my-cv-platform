@@ -373,6 +373,7 @@
       "selectCoverLetter": "Seleziona una lettera di presentazione",
       "link": "Collega",
       "linking": "Collegamento...",
+      "linkError": "Impossibile collegare la lettera di presentazione",
       "showLess": "Mostra meno",
       "viewAll": "Vedi tutto",
       "more": "altre",
@@ -402,7 +403,8 @@
     "delete": "Elimina",
     "deleting": "Eliminazione...",
     "confirm": "Conferma",
-    "back": "Indietro"
+    "back": "Indietro",
+    "loading": "Caricamento..."
   },
   "errors": {
     "unauthorized": "Non autorizzato",

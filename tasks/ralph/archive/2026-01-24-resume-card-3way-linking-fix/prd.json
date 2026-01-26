@@ -1,0 +1,75 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "ralph/resume-card-3way-linking-fix",
+  "description": "Resume Card 3-Way Linking Parity Fix - Add Job Application link to Resume cards to achieve full bidirectional navigation parity with Cover Letter and Job Application cards",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Display Job Application link on Resume card",
+      "description": "As a user, I want to see a link to the associated Job Application on my Resume card so I can navigate the full application context from the Resume.",
+      "acceptanceCriteria": [
+        "Resume card displays Job Application link (icon + text) when association exists",
+        "Link style matches existing links on Cover Letter and Job Application cards",
+        "Link navigates to /[locale]/dashboard/job-applications/[id]",
+        "Link appears when a Job Application is associated directly or indirectly (via Cover Letter)",
+        "No link appears when no Job Application is associated",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "JobLinkBadge renders when linkedJob is present. Direct and indirect associations both work."
+    },
+    {
+      "id": "US-002",
+      "title": "Preserve existing Cover Letter link on Resume card",
+      "description": "As a user, I want the existing Cover Letter link on the Resume card to continue working exactly as before.",
+      "acceptanceCriteria": [
+        "Cover Letter link remains visible when associated",
+        "Cover Letter link navigates to correct URL",
+        "No visual or functional regression from previous behavior",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Cover Letter link preserved via linkedCoverLetterIds prop."
+    },
+    {
+      "id": "US-003",
+      "title": "Enforce automatic 3-way linking consistency",
+      "description": "As a system, I want relationships between Resume, Cover Letter, and Job Application to be transitive and consistently visible across all cards.",
+      "acceptanceCriteria": [
+        "If Resume ↔ Cover Letter exists AND Cover Letter ↔ Job Application exists, then Resume ↔ Job Application link is visible",
+        "Resume card reflects all existing associations without manual user action",
+        "No duplicate links are rendered",
+        "Linking logic is deterministic and centralized (not scattered across components)",
+        "Typecheck passes",
+        "Lint passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Transitive linking implemented via indirectJobIdMap. Direct association takes priority. First cover letter wins for indirect."
+    },
+    {
+      "id": "US-004",
+      "title": "Verify linking parity across all locales",
+      "description": "As a user in any supported locale, I want Resume card links to work correctly regardless of language.",
+      "acceptanceCriteria": [
+        "Links work in /fr/dashboard/",
+        "Links work in /de/dashboard/",
+        "Links work in /en/dashboard/",
+        "Links work in /it/dashboard/",
+        "Link labels are properly translated (if applicable)",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "All links use /${locale}/dashboard/... pattern. JobLinkBadge generates locale-aware URLs."
+    }
+  ]
+}

@@ -8,14 +8,12 @@ import {
   DollarSign,
   Calendar,
   ExternalLink,
-  FileText,
-  Mail,
 } from 'lucide-react'
 import { getTranslations, type Locale } from '@/lib/i18n'
 import type { JobApplicationWithRelations, JobStatus } from '@/types/database'
 import { JobApplicationStatusChanger } from '@/components/dashboard/job-application-status-changer'
 import { JobApplicationDeleteButton } from '@/components/dashboard/job-application-delete-button'
-import { ResumeLinkBadge, CoverLetterLinkBadge } from '@/components/dashboard/entity-link-badge'
+import { LinkedCVSection, CoverLettersSection } from '@/components/dashboard/shared'
 import { JOB_STATUS_CONFIG } from '@/lib/constants/job-statuses'
 import { cn } from '@/lib/utils'
 
@@ -174,84 +172,22 @@ export default async function JobApplicationDetailPage({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Linked Resume */}
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <FileText className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-            <h2 className="font-semibold">
-              {(detailDict.linkedResume as string) || 'Linked CV'}
-            </h2>
-          </div>
-
-          {job.resume ? (
-            <div className="space-y-3">
-              <ResumeLinkBadge
-                resumeTitle={job.resume.title}
-                href={`/${locale}/dashboard/resumes/${job.resume.id}/edit`}
-                dict={dict}
-              />
-              <div className="flex gap-2">
-                <Link
-                  href={`/${locale}/dashboard/resumes/${job.resume.id}/edit`}
-                  className="text-sm text-teal-600 dark:text-teal-400 hover:underline"
-                >
-                  {(detailDict.editResume as string) || 'Edit CV'}
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              <p className="mb-3">
-                {(detailDict.noResumeLinked as string) || 'No CV linked to this job application.'}
-              </p>
-              <Link
-                href={`/${locale}/dashboard/resumes/new?jobApplicationId=${job.id}`}
-                className="inline-flex items-center gap-1.5 text-teal-600 dark:text-teal-400 hover:underline"
-              >
-                <FileText className="h-4 w-4" />
-                {(detailDict.createResume as string) || 'Create CV for this Job'}
-              </Link>
-            </div>
-          )}
+          <LinkedCVSection
+            entityType="jobApplication"
+            entityId={job.id}
+            locale={locale}
+            dict={dict}
+          />
         </div>
 
         {/* Linked Cover Letter */}
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Mail className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-            <h2 className="font-semibold">
-              {(detailDict.linkedCoverLetter as string) || 'Linked Cover Letter'}
-            </h2>
-          </div>
-
-          {job.cover_letter ? (
-            <div className="space-y-3">
-              <CoverLetterLinkBadge
-                count={1}
-                href={`/${locale}/dashboard/cover-letters/${job.cover_letter.id}/edit`}
-                dict={dict}
-              />
-              <div className="flex gap-2">
-                <Link
-                  href={`/${locale}/dashboard/cover-letters/${job.cover_letter.id}/edit`}
-                  className="text-sm text-purple-600 dark:text-purple-400 hover:underline"
-                >
-                  {(detailDict.editCoverLetter as string) || 'Edit Cover Letter'}
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <div className="text-sm text-slate-500 dark:text-slate-400">
-              <p className="mb-3">
-                {(detailDict.noCoverLetterLinked as string) || 'No cover letter linked to this job application.'}
-              </p>
-              <Link
-                href={`/${locale}/dashboard/cover-letters/new?jobApplicationId=${job.id}`}
-                className="inline-flex items-center gap-1.5 text-purple-600 dark:text-purple-400 hover:underline"
-              >
-                <Mail className="h-4 w-4" />
-                {(detailDict.createCoverLetter as string) || 'Create Cover Letter for this Job'}
-              </Link>
-            </div>
-          )}
+          <CoverLettersSection
+            entityType="jobApplication"
+            entityId={job.id}
+            locale={locale}
+            dict={dict}
+          />
         </div>
       </div>
 

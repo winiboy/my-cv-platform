@@ -373,6 +373,7 @@
       "selectCoverLetter": "Sélectionner une lettre de motivation",
       "link": "Lier",
       "linking": "Liaison en cours...",
+      "linkError": "Échec de la liaison de la lettre de motivation",
       "showLess": "Voir moins",
       "viewAll": "Voir tout",
       "more": "de plus",
@@ -402,7 +403,8 @@
     "delete": "Supprimer",
     "deleting": "Suppression...",
     "confirm": "Confirmer",
-    "back": "Retour"
+    "back": "Retour",
+    "loading": "Chargement..."
   },
   "errors": {
     "unauthorized": "Non autorisé",

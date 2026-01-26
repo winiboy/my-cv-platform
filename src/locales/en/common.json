@@ -373,6 +373,7 @@
       "selectCoverLetter": "Select a cover letter",
       "link": "Link",
       "linking": "Linking...",
+      "linkError": "Failed to link cover letter",
       "showLess": "Show less",
       "viewAll": "View all",
       "more": "more",
@@ -402,7 +403,8 @@
     "delete": "Delete",
     "deleting": "Deleting...",
     "confirm": "Confirm",
-    "back": "Back"
+    "back": "Back",
+    "loading": "Loading..."
   },
   "errors": {
     "unauthorized": "Unauthorized",

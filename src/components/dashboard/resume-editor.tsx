@@ -31,29 +31,16 @@ import { SkillsSection } from './resume-sections/skills-section'
 import { LanguagesSection } from './resume-sections/languages-section'
 import { CertificationsSection } from './resume-sections/certifications-section'
 import { ProjectsSection } from './resume-sections/projects-section'
-import { CoverLetterAssociationSection } from './resume-sections/cover-letter-association-section'
-import { JobAssociationSection } from './cover-letter-sections/job-association-section'
+import { LinkedJobSection, CoverLettersSection } from './shared'
 import { ProfessionalTemplate } from './resume-templates/professional-template'
 import { CVAdaptationModal } from './cv-adaptation-modal'
 import { FontCarousel3D, FONTS } from '@/components/ui/font-carousel-3d'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
 
-interface JobApplicationItem {
-  id: string
-  company_name: string
-  job_title: string
-  job_url: string | null
-}
-
 interface ResumeEditorProps {
   resume: Resume
   locale: Locale
   dict: any
-  linkedCoverLetters?: { id: string; title: string; company_name: string | null; job_title: string | null }[]
-  unlinkedCoverLetters?: { id: string; title: string; company_name: string | null }[]
-  currentJobApplicationId?: string | null
-  currentJobApplication?: JobApplicationItem | null
-  jobApplications?: JobApplicationItem[]
 }
 
 type SectionId =
@@ -104,7 +91,7 @@ const SECTION_MAPPING: Record<string, SectionId> = {
   projects: 'projects',
 }
 
-export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverLetters, unlinkedCoverLetters: initialUnlinkedCoverLetters, currentJobApplicationId: initialJobAppId, currentJobApplication: initialJobApp, jobApplications: initialJobApps }: ResumeEditorProps) {
+export function ResumeEditor({ resume: initialResume, locale, dict }: ResumeEditorProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [resume, setResume] = useState(initialResume)
@@ -120,15 +107,6 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [modifiedSections, setModifiedSections] = useState<Set<SectionId>>(new Set())
   const [showAdaptationModal, setShowAdaptationModal] = useState(false)
-
-  // Cover letter association state
-  const [coverLetters, setCoverLetters] = useState(linkedCoverLetters || [])
-  const [unlinkedCoverLetters, setUnlinkedCoverLetters] = useState(initialUnlinkedCoverLetters || [])
-
-  // Job association state
-  const [currentJobApplicationId, setCurrentJobApplicationId] = useState<string | null>(initialJobAppId || null)
-  const [currentJobApplication, setCurrentJobApplication] = useState<JobApplicationItem | null>(initialJobApp || null)
-  const [jobApplications, setJobApplications] = useState<JobApplicationItem[]>(initialJobApps || [])
 
   // State for pre-filling the adaptation modal from a linked job (used by header button only)
   const [adaptationJobDescription, setAdaptationJobDescription] = useState('')
@@ -212,131 +190,6 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       setIsSaving(false)
     }
   }
-
-  /**
-   * Associates an existing unlinked cover letter with this resume.
-   * PATCHes the cover letter to set its resume_id to the current resume.
-   */
-  const handleAssociateCoverLetter = useCallback(async (coverLetterId: string) => {
-    try {
-      const supabase = createClient()
-
-      const { error } = await supabase
-        .from('cover_letters')
-        .update({ resume_id: resume.id })
-        .eq('id', coverLetterId)
-
-      if (error) {
-        console.error('Error associating cover letter:', error)
-        throw error
-      }
-
-      // Find the cover letter in unlinked list and move it to linked list
-      const associatedCoverLetter = unlinkedCoverLetters.find((cl) => cl.id === coverLetterId)
-      if (associatedCoverLetter) {
-        // Add to linked cover letters (with empty job_title since unlinked doesn't have it)
-        setCoverLetters((prev) => [
-          { ...associatedCoverLetter, job_title: null },
-          ...prev,
-        ])
-        // Remove from unlinked cover letters
-        setUnlinkedCoverLetters((prev) => prev.filter((cl) => cl.id !== coverLetterId))
-      }
-    } catch (err) {
-      console.error('Failed to associate cover letter:', err)
-      throw err
-    }
-  }, [resume.id, unlinkedCoverLetters])
-
-  /**
-   * Handles job association changes from the JobAssociationSection.
-   * Performs bidirectional database sync: updates both resumes.job_application_id
-   * and job_applications.resume_id to maintain data integrity.
-   */
-  const handleJobApplicationChange = useCallback(async (jobApplicationId: string | null) => {
-    const supabase = createClient()
-    const previousJobId = currentJobApplicationId
-
-    if (jobApplicationId) {
-      // Linking a new job
-      // Step 1: Update the resume to link to the job
-      const { error: resumeError } = await supabase
-        .from('resumes')
-        .update({ job_application_id: jobApplicationId })
-        .eq('id', resume.id)
-
-      if (resumeError) {
-        console.error('Error linking job to resume:', resumeError)
-        throw resumeError
-      }
-
-      // Step 2: Update the job application to link back to this resume
-      const { error: jobError } = await supabase
-        .from('job_applications')
-        .update({ resume_id: resume.id })
-        .eq('id', jobApplicationId)
-
-      if (jobError) {
-        console.error('Error updating job application reverse link:', jobError)
-        // Rollback: revert the resume update
-        await supabase
-          .from('resumes')
-          .update({ job_application_id: previousJobId })
-          .eq('id', resume.id)
-        throw jobError
-      }
-
-      // Step 3: If there was a previously linked job, clear its reverse link
-      if (previousJobId && previousJobId !== jobApplicationId) {
-        await supabase
-          .from('job_applications')
-          .update({ resume_id: null })
-          .eq('id', previousJobId)
-      }
-
-      // Update local state
-      const newJob = jobApplications.find((j) => j.id === jobApplicationId)
-      if (newJob) {
-        setCurrentJobApplication(newJob)
-        setCurrentJobApplicationId(jobApplicationId)
-      }
-    } else {
-      // Unlinking the current job
-      // Step 1: Clear the resume's link
-      const { error: resumeError } = await supabase
-        .from('resumes')
-        .update({ job_application_id: null })
-        .eq('id', resume.id)
-
-      if (resumeError) {
-        console.error('Error unlinking job from resume:', resumeError)
-        throw resumeError
-      }
-
-      // Step 2: Clear the job application's reverse link
-      if (previousJobId) {
-        const { error: jobError } = await supabase
-          .from('job_applications')
-          .update({ resume_id: null })
-          .eq('id', previousJobId)
-
-        if (jobError) {
-          console.error('Error clearing job application reverse link:', jobError)
-          // Rollback: restore the resume's link
-          await supabase
-            .from('resumes')
-            .update({ job_application_id: previousJobId })
-            .eq('id', resume.id)
-          throw jobError
-        }
-      }
-
-      // Update local state
-      setCurrentJobApplication(null)
-      setCurrentJobApplicationId(null)
-    }
-  }, [currentJobApplicationId, resume.id, jobApplications])
-
 
   // Debounced localStorage save
   const saveToLocalStorageDebounced = useRef<NodeJS.Timeout | undefined>(undefined)
@@ -847,23 +700,19 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                 <ProjectsSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
               )}
               {activeSection === 'jobApplication' && (
-                <JobAssociationSection
-                  currentJobApplicationId={currentJobApplicationId}
-                  currentJobApplication={currentJobApplication}
-                  jobApplications={jobApplications}
+                <LinkedJobSection
+                  entityType="resume"
+                  entityId={resume.id}
                   locale={locale}
                   dict={dict}
-                  onJobApplicationChange={handleJobApplicationChange}
                 />
               )}
               {activeSection === 'coverLetters' && (
-                <CoverLetterAssociationSection
-                  resumeId={resume.id}
-                  coverLetters={coverLetters}
-                  unlinkedCoverLetters={unlinkedCoverLetters}
+                <CoverLettersSection
+                  entityType="resume"
+                  entityId={resume.id}
                   locale={locale}
                   dict={dict}
-                  onAssociate={handleAssociateCoverLetter}
                 />
               )}
               {activeSection === 'editSidebar' && (

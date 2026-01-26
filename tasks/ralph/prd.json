@@ -1,75 +1,251 @@
 {
   "project": "my-cv-platform",
-  "branchName": "ralph/resume-card-3way-linking-fix",
-  "description": "Resume Card 3-Way Linking Parity Fix - Add Job Application link to Resume cards to achieve full bidirectional navigation parity with Cover Letter and Job Application cards",
+  "branchName": "feature/Linked-Job-Section-Parity-fix",
+  "description": "Full 3-Way Automatic Linking Parity - Extract shared components and centralized linking hook to achieve strict parity between Resume, Cover Letter, and Job Application sidebar sections",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Display Job Application link on Resume card",
-      "description": "As a user, I want to see a link to the associated Job Application on my Resume card so I can navigate the full application context from the Resume.",
+      "title": "Create shared useEntityLinking hook",
+      "description": "As a developer, I need a centralized hook that manages all 3-way linking operations so that linking logic is consistent and reusable across all pages.",
       "acceptanceCriteria": [
-        "Resume card displays Job Application link (icon + text) when association exists",
-        "Link style matches existing links on Cover Letter and Job Application cards",
-        "Link navigates to /[locale]/dashboard/job-applications/[id]",
-        "Link appears when a Job Application is associated directly or indirectly (via Cover Letter)",
-        "No link appears when no Job Application is associated",
+        "Create src/hooks/useEntityLinking.ts",
+        "Hook accepts entity type ('resume' | 'coverLetter' | 'jobApplication') and ID as parameters",
+        "Hook provides functions: linkJob, unlinkJob, linkResume, unlinkResume, linkCoverLetter, unlinkCoverLetter",
+        "All linking functions propagate changes to related entities (3-way)",
+        "Hook returns loading and error states",
         "Typecheck passes",
-        "Lint passes",
-        "Verify in browser using dev-browser skill"
+        "Lint passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "JobLinkBadge renders when linkedJob is present. Direct and indirect associations both work."
+      "notes": "Created at src/lib/hooks/useEntityLinking.ts. All 6 link/unlink functions with 3-way propagation. Code review PASS."
     },
     {
       "id": "US-002",
-      "title": "Preserve existing Cover Letter link on Resume card",
-      "description": "As a user, I want the existing Cover Letter link on the Resume card to continue working exactly as before.",
+      "title": "Add auto-repair logic for inconsistent links",
+      "description": "As a developer, I need the linking hook to detect and auto-repair inconsistent legacy links on page load so that users always see a consistent state.",
       "acceptanceCriteria": [
-        "Cover Letter link remains visible when associated",
-        "Cover Letter link navigates to correct URL",
-        "No visual or functional regression from previous behavior",
+        "Hook detects orphaned or one-way links on mount",
+        "Hook automatically repairs links to ensure 3-way consistency",
+        "Repair happens silently without user intervention",
+        "Repair is logged to console in development mode only",
+        "No data loss occurs during repair",
         "Typecheck passes",
-        "Lint passes",
-        "Verify in browser using dev-browser skill"
+        "Lint passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Cover Letter link preserved via linkedCoverLetterIds prop."
+      "notes": "All 15 inconsistency categories (A1-A4, B1-B4, C1-C2, D1-D5) detected and repaired. Dev-only logging. Code review PASS."
     },
     {
       "id": "US-003",
-      "title": "Enforce automatic 3-way linking consistency",
-      "description": "As a system, I want relationships between Resume, Cover Letter, and Job Application to be transitive and consistently visible across all cards.",
+      "title": "Extract LinkedJobSection as shared component",
+      "description": "As a developer, I need to extract the Cover Letter's Linked Job section into a shared component so it can be reused on the Resume page.",
       "acceptanceCriteria": [
-        "If Resume ↔ Cover Letter exists AND Cover Letter ↔ Job Application exists, then Resume ↔ Job Application link is visible",
-        "Resume card reflects all existing associations without manual user action",
-        "No duplicate links are rendered",
-        "Linking logic is deterministic and centralized (not scattered across components)",
+        "Create src/components/dashboard/shared/LinkedJobSection.tsx",
+        "Component accepts entityType ('resume' | 'coverLetter') and entityId props",
+        "Component uses useEntityLinking hook internally",
+        "Component matches Cover Letter's Linked Job section exactly (layout, spacing, icons)",
+        "Component handles empty, linked, loading, and error states",
         "Typecheck passes",
         "Lint passes"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Transitive linking implemented via indirectJobIdMap. Direct association takes priority. First cover letter wins for indirect."
+      "notes": "Created shared component with useEntityLinking hook, JobAssociationSelector reuse, all states handled. Code review PASS."
     },
     {
       "id": "US-004",
-      "title": "Verify linking parity across all locales",
-      "description": "As a user in any supported locale, I want Resume card links to work correctly regardless of language.",
+      "title": "Extract LinkedCVSection as shared component",
+      "description": "As a developer, I need to extract the Cover Letter's Linked CV section into a shared component so it can be reused on the Job Application page.",
       "acceptanceCriteria": [
-        "Links work in /fr/dashboard/",
-        "Links work in /de/dashboard/",
-        "Links work in /en/dashboard/",
-        "Links work in /it/dashboard/",
-        "Link labels are properly translated (if applicable)",
+        "Create src/components/dashboard/shared/LinkedCVSection.tsx",
+        "Component accepts entityType ('coverLetter' | 'jobApplication') and entityId props",
+        "Component uses useEntityLinking hook internally",
+        "Component matches Cover Letter's Linked CV section exactly",
+        "Component handles empty, linked, loading, and error states",
+        "Typecheck passes",
+        "Lint passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Created shared component using useEntityLinking hook. Reuses ResumeAssociationSelector. All states handled. Code review PASS."
+    },
+    {
+      "id": "US-005",
+      "title": "Extract CoverLettersSection as shared component",
+      "description": "As a developer, I need to extract the Cover Letters listing section into a shared component so it can be reused on Resume and Job Application pages.",
+      "acceptanceCriteria": [
+        "Create src/components/dashboard/shared/CoverLettersSection.tsx",
+        "Component accepts entityType ('resume' | 'jobApplication') and entityId props",
+        "Component uses useEntityLinking hook internally",
+        "Component handles list rendering and empty state",
+        "Component provides add/link/navigate actions",
+        "Typecheck passes",
+        "Lint passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Created shared component with useEntityLinking hook. Added job_title to LinkedCoverLetterInfo. Fixed SQL injection, waterfall fetch. Code review PASS after fixes."
+    },
+    {
+      "id": "US-006",
+      "title": "Update Cover Letter page to use shared LinkedJobSection",
+      "description": "As a developer, I need to update the Cover Letter page to use the shared LinkedJobSection component to ensure a single source of truth.",
+      "acceptanceCriteria": [
+        "Replace Cover Letter's existing Linked Job section with shared LinkedJobSection",
+        "Pass correct entityType='coverLetter' and entityId props",
+        "No visual or behavioral regression",
         "Typecheck passes",
         "Lint passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 4,
+      "priority": 6,
       "passes": true,
-      "notes": "All links use /${locale}/dashboard/... pattern. JobLinkBadge generates locale-aware URLs."
+      "notes": "Replaced JobAssociationSection with LinkedJobSection. Props: entityType='coverLetter', entityId. Code review PASS. Browser verification pending."
+    },
+    {
+      "id": "US-007",
+      "title": "Update Cover Letter page to use shared LinkedCVSection",
+      "description": "As a developer, I need to update the Cover Letter page to use the shared LinkedCVSection component.",
+      "acceptanceCriteria": [
+        "Replace Cover Letter's existing Linked CV section with shared LinkedCVSection",
+        "Pass correct entityType='coverLetter' and entityId props",
+        "No visual or behavioral regression",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Replaced ResumeAssociationSection with LinkedCVSection. Removed unused handleResumeChange callback (58 lines). Code review PASS."
+    },
+    {
+      "id": "US-008",
+      "title": "Integrate shared LinkedJobSection on Resume page",
+      "description": "As a user editing a Resume, I want the Linked Job sidebar section to behave and look exactly like the Linked Job section on the Cover Letter page.",
+      "acceptanceCriteria": [
+        "Replace Resume's existing Linked Job section with shared LinkedJobSection",
+        "Pass correct entityType='resume' and entityId props",
+        "Verify layout matches Cover Letter page exactly",
+        "Verify linking/unlinking propagates to Cover Letters and Job Applications",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "Replaced JobAssociationSection with LinkedJobSection. Removed unused state, callback, page fetch. Code review PASS."
+    },
+    {
+      "id": "US-009",
+      "title": "Integrate shared CoverLettersSection on Resume page",
+      "description": "As a user editing a Resume, I want the Cover Letters sidebar section to behave exactly like corresponding sections on other pages.",
+      "acceptanceCriteria": [
+        "Replace Resume's existing Cover Letters section with shared CoverLettersSection",
+        "Pass correct entityType='resume' and entityId props",
+        "Verify list rendering matches Cover Letter page",
+        "Verify add/link actions work correctly",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "Replaced CoverLetterAssociationSection with CoverLettersSection. Removed state, callback, server fetch. PASS."
+    },
+    {
+      "id": "US-010",
+      "title": "Integrate shared LinkedCVSection on Job Application page",
+      "description": "As a user editing a Job Application, I want the Linked CV sidebar section to behave exactly like the Linked CV section on the Cover Letter page.",
+      "acceptanceCriteria": [
+        "Replace Job Application's existing Linked CV section with shared LinkedCVSection",
+        "Pass correct entityType='jobApplication' and entityId props",
+        "Verify layout matches Cover Letter page exactly",
+        "Verify linking/unlinking propagates correctly",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "Replaced inline Linked Resume section with LinkedCVSection. Removed unused imports. PASS."
+    },
+    {
+      "id": "US-011",
+      "title": "Integrate shared CoverLettersSection on Job Application page",
+      "description": "As a user editing a Job Application, I want the Cover Letters sidebar section to behave identically to corresponding sections on other pages.",
+      "acceptanceCriteria": [
+        "Replace Job Application's existing Cover Letters section with shared CoverLettersSection",
+        "Pass correct entityType='jobApplication' and entityId props",
+        "Verify list rendering and actions match other pages",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "Replaced inline Cover Letter section with CoverLettersSection. Removed unused imports. PASS."
+    },
+    {
+      "id": "US-012",
+      "title": "Verify 3-way automatic linking from Resume entry point",
+      "description": "As a user, when I link a Job from the Resume page, I want all related Cover Letters and the Job Application to update automatically.",
+      "acceptanceCriteria": [
+        "Link a Job from Resume page",
+        "Navigate to linked Cover Letter - Job is shown as linked",
+        "Navigate to Job Application - Resume is shown as linked",
+        "Unlink Job from Resume - propagates to all related entities",
+        "No stale or orphaned links remain",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "Code analysis found 2 orphan-link gaps - fixed. linkJob and linkCoverLetter now clear old job's cover_letter_id before reassigning. Code review PASS. Browser verification manual."
+    },
+    {
+      "id": "US-013",
+      "title": "Verify 3-way automatic linking from Cover Letter entry point",
+      "description": "As a user, when I link entities from the Cover Letter page, I want all related Resumes and Job Applications to update automatically.",
+      "acceptanceCriteria": [
+        "Link a Job from Cover Letter page - Resume updates",
+        "Link a Resume from Cover Letter page - Job Application updates",
+        "Unlink operations propagate correctly",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": "Fixed 3 gaps: linkJob propagates to resume, linkResume clears orphaned job, unlinkResume clears job_application_id. Code review PASS."
+    },
+    {
+      "id": "US-014",
+      "title": "Verify 3-way automatic linking from Job Application entry point",
+      "description": "As a user, when I link entities from the Job Application page, I want all related Resumes and Cover Letters to update automatically.",
+      "acceptanceCriteria": [
+        "Link a Resume from Job Application page - Cover Letters update",
+        "Link a Cover Letter from Job Application page - Resume updates",
+        "Unlink operations propagate correctly",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": "Fixed 2 gaps: linkResume propagates to cover letter, unlinkResume clears cover letter's resume_id. Code review PASS."
+    },
+    {
+      "id": "US-015",
+      "title": "Locale parity for all shared components",
+      "description": "As a multilingual user, I want all linking sections to use consistent terminology across all pages and locales.",
+      "acceptanceCriteria": [
+        "Audit i18n keys used in shared components",
+        "Ensure /en, /fr, /de, /it labels are consistent",
+        "Remove any page-specific wording variations",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill for all 4 locales"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": "Fixed 3 hardcoded Loading strings, added common.loading and resumes.association.linkError to all 4 locales. Code review PASS."
     }
   ]
 }

@@ -20,8 +20,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n'
 import type { CoverLetter, Resume, CoverLetterAnalysis } from '@/types/database'
 import { CoverLetterPreview } from './cover-letter-preview'
-import { ResumeAssociationSection } from './cover-letter-sections/resume-association-section'
-import { JobAssociationSection } from './cover-letter-sections/job-association-section'
+import { LinkedJobSection, LinkedCVSection } from './shared'
 import { RecipientSection } from './cover-letter-sections/recipient-section'
 import { OpeningSection } from './cover-letter-sections/opening-section'
 import { BodySection } from './cover-letter-sections/body-section'
@@ -158,65 +157,6 @@ export function CoverLetterEditor({
   )
 
   /**
-   * Handles resume association changes. Updates local state immediately
-   * and persists to database. Also propagates resume_id to the linked
-   * job application for tri-directional sync. Reverts on error.
-   */
-  const handleResumeChange = useCallback(
-    async (resumeId: string | null) => {
-      const previousResumeId = coverLetter.resume_id
-
-      // Update local state immediately for responsive UI
-      setCoverLetter((prev) => ({ ...prev, resume_id: resumeId }))
-
-      try {
-        const supabase = createClient()
-
-        // Step 1: Update the cover letter's resume_id
-        const { error } = await supabase
-          .from('cover_letters')
-          .update({ resume_id: resumeId, updated_at: new Date().toISOString() })
-          .eq('id', coverLetter.id)
-
-        if (error) {
-          console.error('Error updating resume association:', error)
-          // Revert on error
-          setCoverLetter((prev) => ({ ...prev, resume_id: previousResumeId }))
-          setSaveError(
-            ((editorDict.resume as Record<string, string>)?.error as string) ||
-              'Failed to update linked resume'
-          )
-          return
-        }
-
-        // Step 2: Tri-directional sync - if cover letter is linked to a job application,
-        // propagate the resume_id change to the job application
-        if (coverLetter.job_application_id) {
-          const { error: jobUpdateError } = await supabase
-            .from('job_applications')
-            .update({ resume_id: resumeId })
-            .eq('id', coverLetter.job_application_id)
-
-          if (jobUpdateError) {
-            // Log but don't revert - the primary operation succeeded
-            // The job application update is a secondary sync operation
-            console.error('Error syncing resume_id to job application:', jobUpdateError)
-          }
-        }
-      } catch (err) {
-        console.error('Unexpected error updating resume association:', err)
-        // Revert on error
-        setCoverLetter((prev) => ({ ...prev, resume_id: previousResumeId }))
-        setSaveError(
-          ((editorDict.resume as Record<string, string>)?.error as string) ||
-            'Failed to update linked resume'
-        )
-      }
-    },
-    [coverLetter.id, coverLetter.resume_id, coverLetter.job_application_id, editorDict]
-  )
-
-  /**
    * Handles job application association changes. Updates both sides of the relationship:
    * - cover_letters.job_application_id
    * - job_applications.cover_letter_id (bidirectional sync)
@@ -346,24 +286,20 @@ export function CoverLetterEditor({
     switch (activeSection) {
       case 'resume':
         return (
-          <ResumeAssociationSection
-            coverLetterId={coverLetter.id}
-            currentResumeId={coverLetter.resume_id}
-            resumes={resumes.map((r) => ({ id: r.id, title: r.title }))}
+          <LinkedCVSection
+            entityType="coverLetter"
+            entityId={coverLetter.id}
             locale={locale}
             dict={dict}
-            onResumeChange={handleResumeChange}
           />
         )
       case 'job':
         return (
-          <JobAssociationSection
-            currentJobApplicationId={coverLetter.job_application_id}
-            currentJobApplication={currentJobApplication}
-            jobApplications={jobApplications}
+          <LinkedJobSection
+            entityType="coverLetter"
+            entityId={coverLetter.id}
             locale={locale}
             dict={dict}
-            onJobApplicationChange={handleJobApplicationChange}
           />
         )
       case 'recipient':
