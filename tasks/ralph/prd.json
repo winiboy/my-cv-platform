@@ -1,75 +1,79 @@
 {
   "project": "my-cv-platform",
-  "branchName": "ralph/resume-card-3way-linking-fix",
-  "description": "Resume Card 3-Way Linking Parity Fix - Add Job Application link to Resume cards to achieve full bidirectional navigation parity with Cover Letter and Job Application cards",
+  "branchName": "feature/Add-branch-name",
+  "description": "Display a global, read-only indicator showing the active Git branch name and version (from package.json) at the top of every page. This provides immediate visibility into which build is running during development, debugging, review, and PR validation.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Display Job Application link on Resume card",
-      "description": "As a user, I want to see a link to the associated Job Application on my Resume card so I can navigate the full application context from the Resume.",
+      "title": "Display active branch name globally",
+      "description": "As a developer or reviewer, I want to see the currently active Git branch name at the top of every page, so I can immediately identify the running context.",
       "acceptanceCriteria": [
-        "Resume card displays Job Application link (icon + text) when association exists",
-        "Link style matches existing links on Cover Letter and Job Application cards",
-        "Link navigates to /[locale]/dashboard/job-applications/[id]",
-        "Link appears when a Job Application is associated directly or indirectly (via Cover Letter)",
-        "No link appears when no Job Application is associated",
+        "Active branch name is visible at the top of every page",
+        "Branch name is read-only and cannot be modified from the UI",
+        "Branch name is identical across all pages during a session",
+        "Branch name updates correctly when switching branches and rebuilding",
         "Typecheck passes",
         "Lint passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser: branch name is clearly visible on all pages"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "JobLinkBadge renders when linkedJob is present. Direct and indirect associations both work."
+      "notes": "Build-time injection via next.config.js. BranchIndicator server component in root layout. Vercel support via VERCEL_GIT_COMMIT_REF fallback."
     },
     {
       "id": "US-002",
-      "title": "Preserve existing Cover Letter link on Resume card",
-      "description": "As a user, I want the existing Cover Letter link on the Resume card to continue working exactly as before.",
+      "title": "Display active branch version globally",
+      "description": "As a developer or reviewer, I want to see the version associated with the active branch next to the branch name, so I can confirm exactly which build is running.",
       "acceptanceCriteria": [
-        "Cover Letter link remains visible when associated",
-        "Cover Letter link navigates to correct URL",
-        "No visual or functional regression from previous behavior",
+        "Version displayed matches package.json version",
+        "Version is displayed next to the branch name",
+        "Version format is consistent with existing versioning scheme (e.g. v0.53.x)",
+        "Version updates correctly after version bump and rebuild",
         "Typecheck passes",
         "Lint passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser: version matches the expected build"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Cover Letter link preserved via linkedCoverLetterIds prop."
+      "notes": "Version read from package.json via getPackageVersion() at build time. Display format: branch • v0.53.37. Graceful fallback if version unavailable."
     },
     {
       "id": "US-003",
-      "title": "Enforce automatic 3-way linking consistency",
-      "description": "As a system, I want relationships between Resume, Cover Letter, and Job Application to be transitive and consistently visible across all cards.",
+      "title": "Global visibility on all pages",
+      "description": "As a user navigating the application, I want the branch and version indicator to remain visible regardless of which page I am on.",
       "acceptanceCriteria": [
-        "If Resume ↔ Cover Letter exists AND Cover Letter ↔ Job Application exists, then Resume ↔ Job Application link is visible",
-        "Resume card reflects all existing associations without manual user action",
-        "No duplicate links are rendered",
-        "Linking logic is deterministic and centralized (not scattered across components)",
+        "Indicator is visible on Resume pages",
+        "Indicator is visible on Cover Letter pages",
+        "Indicator is visible on Job Application pages",
+        "Indicator is visible on Dashboard pages",
+        "No page hides or overrides the indicator",
+        "Indicator positioning is consistent across all pages",
         "Typecheck passes",
-        "Lint passes"
+        "Lint passes",
+        "Verify in browser: indicator visible on all routed pages"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Transitive linking implemented via indirectJobIdMap. Direct association takes priority. First cover letter wins for indirect."
+      "notes": "Component in root locale layout inherits to all routes. Z-index increased to z-[60] to render above marketing header (z-50). Verified: dashboard, marketing, and auth pages all inherit correctly."
     },
     {
       "id": "US-004",
-      "title": "Verify linking parity across all locales",
-      "description": "As a user in any supported locale, I want Resume card links to work correctly regardless of language.",
+      "title": "Locale-safe rendering",
+      "description": "As a multilingual user, I want the branch/version indicator to work correctly regardless of the active locale.",
       "acceptanceCriteria": [
-        "Links work in /fr/dashboard/",
-        "Links work in /de/dashboard/",
-        "Links work in /en/dashboard/",
-        "Links work in /it/dashboard/",
-        "Link labels are properly translated (if applicable)",
+        "Indicator renders correctly under /en",
+        "Indicator renders correctly under /fr",
+        "Indicator renders correctly under /de",
+        "Indicator renders correctly under /it",
+        "Branch name and version are NOT translated",
+        "No locale-specific formatting issues occur",
         "Typecheck passes",
         "Lint passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser: indicator works across all locales"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "All links use /${locale}/dashboard/... pattern. JobLinkBadge generates locale-aware URLs."
+      "notes": "Component is locale-agnostic by design. No i18n imports, no translation functions, uses raw environment variables only. Unicode bullet separator (U+2022) is not locale-dependent."
     }
   ]
 }
