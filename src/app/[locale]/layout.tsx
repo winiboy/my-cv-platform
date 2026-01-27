@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "../globals.css";
 import NextAuthSessionProvider from "@/components/providers/session-provider";
 import { ToastProvider } from "@/components/ui/toast";
+import { BranchIndicator } from "@/components/ui/branch-indicator";
 import { getTranslations, type Locale } from "@/lib/i18n";
 
 const inter = Inter({
@@ -42,6 +43,7 @@ export default function LocaleLayout({
   return (
     <html lang={params.locale}>
       <body className={inter.className}>
+        <BranchIndicator />
         <NextAuthSessionProvider>
           <ToastProvider>{children}</ToastProvider>
         </NextAuthSessionProvider>

@@ -1,7 +1,48 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { execSync } = require("child_process");
+
+/**
+ * Get the current Git branch name at build time.
+ * Prioritizes Vercel's environment variable for deployed environments.
+ */
+function getGitBranch() {
+  // Vercel provides this environment variable during builds
+  if (process.env.VERCEL_GIT_COMMIT_REF) {
+    return process.env.VERCEL_GIT_COMMIT_REF;
+  }
+
+  try {
+    const branch = execSync("git rev-parse --abbrev-ref HEAD", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+    return branch || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
+ * Get the package version from package.json at build time.
+ * Returns "unknown" if reading fails.
+ */
+function getPackageVersion() {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("./package.json").version;
+  } catch {
+    return "unknown";
+  }
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   webpack: (config) => {
     return config; // ensures Webpack is used
+  },
+  env: {
+    NEXT_PUBLIC_GIT_BRANCH: getGitBranch(),
+    NEXT_PUBLIC_APP_VERSION: getPackageVersion(),
   },
 };
 
@@ -10,6 +51,7 @@ module.exports = nextConfig;
 
 // Injected content via Sentry wizard below
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { withSentryConfig } = require("@sentry/nextjs");
 
 module.exports = withSentryConfig(
