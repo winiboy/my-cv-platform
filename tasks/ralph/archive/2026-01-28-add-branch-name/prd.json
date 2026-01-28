@@ -1,0 +1,79 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "feature/Add-branch-name",
+  "description": "Display a global, read-only indicator showing the active Git branch name and version (from package.json) at the top of every page. This provides immediate visibility into which build is running during development, debugging, review, and PR validation.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Display active branch name globally",
+      "description": "As a developer or reviewer, I want to see the currently active Git branch name at the top of every page, so I can immediately identify the running context.",
+      "acceptanceCriteria": [
+        "Active branch name is visible at the top of every page",
+        "Branch name is read-only and cannot be modified from the UI",
+        "Branch name is identical across all pages during a session",
+        "Branch name updates correctly when switching branches and rebuilding",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: branch name is clearly visible on all pages"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Build-time injection via next.config.js. BranchIndicator server component in root layout. Vercel support via VERCEL_GIT_COMMIT_REF fallback."
+    },
+    {
+      "id": "US-002",
+      "title": "Display active branch version globally",
+      "description": "As a developer or reviewer, I want to see the version associated with the active branch next to the branch name, so I can confirm exactly which build is running.",
+      "acceptanceCriteria": [
+        "Version displayed matches package.json version",
+        "Version is displayed next to the branch name",
+        "Version format is consistent with existing versioning scheme (e.g. v0.53.x)",
+        "Version updates correctly after version bump and rebuild",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: version matches the expected build"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Version read from package.json via getPackageVersion() at build time. Display format: branch • v0.53.37. Graceful fallback if version unavailable."
+    },
+    {
+      "id": "US-003",
+      "title": "Global visibility on all pages",
+      "description": "As a user navigating the application, I want the branch and version indicator to remain visible regardless of which page I am on.",
+      "acceptanceCriteria": [
+        "Indicator is visible on Resume pages",
+        "Indicator is visible on Cover Letter pages",
+        "Indicator is visible on Job Application pages",
+        "Indicator is visible on Dashboard pages",
+        "No page hides or overrides the indicator",
+        "Indicator positioning is consistent across all pages",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: indicator visible on all routed pages"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Component in root locale layout inherits to all routes. Z-index increased to z-[60] to render above marketing header (z-50). Verified: dashboard, marketing, and auth pages all inherit correctly."
+    },
+    {
+      "id": "US-004",
+      "title": "Locale-safe rendering",
+      "description": "As a multilingual user, I want the branch/version indicator to work correctly regardless of the active locale.",
+      "acceptanceCriteria": [
+        "Indicator renders correctly under /en",
+        "Indicator renders correctly under /fr",
+        "Indicator renders correctly under /de",
+        "Indicator renders correctly under /it",
+        "Branch name and version are NOT translated",
+        "No locale-specific formatting issues occur",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: indicator works across all locales"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Component is locale-agnostic by design. No i18n imports, no translation functions, uses raw environment variables only. Unicode bullet separator (U+2022) is not locale-dependent."
+    }
+  ]
+}

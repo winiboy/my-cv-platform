@@ -269,6 +269,14 @@ ${jobDescription}
 6. Create 3-5 key achievements that demonstrate relevant capabilities
 7. ALL text content must be in ${targetLanguage}
 
+**CRITICAL - JOB ALIGNMENT RULES (MANDATORY):**
+8. **Skills Alignment:** Every skill listed in the CV MUST directly correspond to a skill mentioned or implied in the job description. Do NOT include skills that are irrelevant to this specific role.
+9. **Responsibility Mapping:** Each job responsibility in the experience section MUST map to a requirement from the job posting. Frame all duties and accomplishments to demonstrate capability for the target role.
+10. **Keyword Inclusion:** Extract and incorporate key terminology, technical terms, and phrases from the job description throughout the CV. This includes job-specific jargon, tools, methodologies, and industry terms.
+11. **No Generic Content:** NEVER include generic filler content that does not relate to the job description. Every sentence must serve a purpose in demonstrating fit for THIS specific role.
+12. **Prioritization:** Lead with the most relevant qualifications. Order skills, experiences, and achievements by their relevance to the job requirements.
+13. **Quantifiable Alignment:** When creating achievements, tie metrics and results to outcomes that matter for the target role (e.g., if the job requires cost reduction, highlight cost savings).
+
 **Output Structure (JSON):**
 {
   "summary": "<Professional summary in HTML format (60-100 words) highlighting relevant experience and skills for this role. Use <strong>, <em>, <ul>, <li> tags for formatting. Must be in ${targetLanguage}>",
