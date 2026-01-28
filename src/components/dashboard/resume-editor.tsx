@@ -35,6 +35,13 @@ import { CoverLetterAssociationSection } from './resume-sections/cover-letter-as
 import { JobAssociationSection } from './cover-letter-sections/job-association-section'
 import { ProfessionalTemplate } from './resume-templates/professional-template'
 import { CVAdaptationModal } from './cv-adaptation-modal'
+import { QualityWarningBanner } from './quality-warning-banner'
+import { QualityScoreBadge } from './quality-score-badge'
+import { GapAnalysisPanel } from './gap-analysis-panel'
+import { GenerationProgress } from './generation-progress'
+import { BelowThresholdWarning } from './below-threshold-warning'
+import { QUALITY_THRESHOLD } from '@/lib/constants'
+import type { QualityAnalysis } from '@/types/quality-analysis'
 import { FontCarousel3D, FONTS } from '@/components/ui/font-carousel-3d'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
 
@@ -54,6 +61,8 @@ interface ResumeEditorProps {
   currentJobApplicationId?: string | null
   currentJobApplication?: JobApplicationItem | null
   jobApplications?: JobApplicationItem[]
+  /** Optional quality analysis from CV generation - used to populate quality UI components */
+  qualityAnalysis?: QualityAnalysis | null
 }
 
 type SectionId =
@@ -104,7 +113,7 @@ const SECTION_MAPPING: Record<string, SectionId> = {
   projects: 'projects',
 }
 
-export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverLetters, unlinkedCoverLetters: initialUnlinkedCoverLetters, currentJobApplicationId: initialJobAppId, currentJobApplication: initialJobApp, jobApplications: initialJobApps }: ResumeEditorProps) {
+export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverLetters, unlinkedCoverLetters: initialUnlinkedCoverLetters, currentJobApplicationId: initialJobAppId, currentJobApplication: initialJobApp, jobApplications: initialJobApps, qualityAnalysis: initialQualityAnalysis }: ResumeEditorProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [resume, setResume] = useState(initialResume)
@@ -120,6 +129,16 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [modifiedSections, setModifiedSections] = useState<Set<SectionId>>(new Set())
   const [showAdaptationModal, setShowAdaptationModal] = useState(false)
+
+  // CV generation progress state (placeholder for US-017 wiring)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generationIteration, setGenerationIteration] = useState(1)
+
+  // Quality analysis state - initialized from prop if provided
+  const [qualityAnalysis, setQualityAnalysis] = useState<QualityAnalysis | null>(initialQualityAnalysis || null)
+
+  // Below-threshold warning state
+  const [isRegenerating, setIsRegenerating] = useState(false)
 
   // Cover letter association state
   const [coverLetters, setCoverLetters] = useState(linkedCoverLetters || [])
@@ -727,7 +746,13 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
             {dict.common?.back || 'Back'}
           </button>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">{resume.title}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-slate-900">{resume.title}</h1>
+              <QualityScoreBadge
+                score={qualityAnalysis?.score ?? 0}
+                isVisible={Boolean(currentJobApplicationId) && qualityAnalysis !== null}
+              />
+            </div>
             {hasUnsavedChanges ? (
               <p className="flex items-center gap-1.5 text-xs text-amber-600">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-600"></span>
@@ -782,6 +807,46 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
           <p className="text-sm text-red-800">{saveError}</p>
         </div>
       )}
+
+      {/* Quality Warning Banner - shown when CV was created from a job with limited description */}
+      <QualityWarningBanner
+        isVisible={Boolean(currentJobApplicationId)}
+        message={dict?.resumes?.editor?.qualityWarning || 'The job description is limited. CV quality may be affected.'}
+        className="mx-6 mt-3"
+      />
+
+      {/* Generation Progress - shows iteration count during CV generation */}
+      {isGenerating && (
+        <div className="mx-6 mt-3">
+          <GenerationProgress
+            isVisible={isGenerating}
+            currentIteration={generationIteration}
+            maxIterations={3}
+          />
+        </div>
+      )}
+
+      {/* Below Threshold Warning - shows when CV quality is below target */}
+      <BelowThresholdWarning
+        isVisible={Boolean(currentJobApplicationId) && qualityAnalysis !== null && qualityAnalysis.score < QUALITY_THRESHOLD}
+        score={qualityAnalysis?.score ?? 0}
+        threshold={QUALITY_THRESHOLD}
+        onRegenerate={() => {
+          // Placeholder: will be wired to actual regeneration logic in a follow-up story
+          setIsRegenerating(true)
+          setTimeout(() => setIsRegenerating(false), 2000)
+        }}
+        isRegenerating={isRegenerating}
+        className="mx-6 mt-3"
+      />
+
+      {/* Gap Analysis Panel - shows matched/missing items when CV was created from a job */}
+      <GapAnalysisPanel
+        isVisible={Boolean(currentJobApplicationId) && qualityAnalysis !== null}
+        matchedItems={qualityAnalysis?.matchedItems ?? []}
+        missingItems={qualityAnalysis?.missingItems ?? []}
+        className="mx-6 mt-3"
+      />
 
       {/* Editor Layout */}
       <div ref={containerRef} className="flex flex-1 overflow-hidden">

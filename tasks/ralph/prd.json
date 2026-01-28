@@ -1,79 +1,291 @@
 {
   "project": "my-cv-platform",
-  "branchName": "feature/Add-branch-name",
-  "description": "Display a global, read-only indicator showing the active Git branch name and version (from package.json) at the top of every page. This provides immediate visibility into which build is running during development, debugging, review, and PR validation.",
+  "branchName": "ralph/cv-from-job-quality",
+  "description": "Resume Creation from Job – AI Quality Analysis & Relevance Improvement. Enhance the 'Create CV from Job' flow with quality scoring, gap analysis, and iterative regeneration to ensure generated CVs are highly relevant to job descriptions.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Display active branch name globally",
-      "description": "As a developer or reviewer, I want to see the currently active Git branch name at the top of every page, so I can immediately identify the running context.",
+      "title": "Create job requirements extraction utility",
+      "description": "As a system, I need to extract structured requirements (skills, responsibilities, qualifications) from job description text for CV generation and quality evaluation.",
       "acceptanceCriteria": [
-        "Active branch name is visible at the top of every page",
-        "Branch name is read-only and cannot be modified from the UI",
-        "Branch name is identical across all pages during a session",
-        "Branch name updates correctly when switching branches and rebuilding",
+        "Create src/lib/ai/job-requirements-extractor.ts",
+        "Export function extractJobRequirements(jobDescription: string, locale: string): JobRequirements",
+        "JobRequirements type includes: skills[], responsibilities[], qualifications[], niceToHaves[]",
+        "Handle empty or very short descriptions (return partial/empty arrays, no throw)",
+        "Include JSDoc comments explaining the function",
         "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: branch name is clearly visible on all pages"
+        "Lint passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Build-time injection via next.config.js. BranchIndicator server component in root layout. Vercel support via VERCEL_GIT_COMMIT_REF fallback."
+      "notes": "AI-based extraction using Groq. Handles empty/short descriptions gracefully."
     },
     {
       "id": "US-002",
-      "title": "Display active branch version globally",
-      "description": "As a developer or reviewer, I want to see the version associated with the active branch next to the branch name, so I can confirm exactly which build is running.",
+      "title": "Implement keyword-based extraction logic",
+      "description": "As a system, I need the extraction function to parse job descriptions and identify skills, responsibilities, and qualifications using keyword patterns.",
       "acceptanceCriteria": [
-        "Version displayed matches package.json version",
-        "Version is displayed next to the branch name",
-        "Version format is consistent with existing versioning scheme (e.g. v0.53.x)",
-        "Version updates correctly after version bump and rebuild",
+        "Extraction uses keyword patterns (e.g., 'required:', 'responsibilities:', 'qualifications:', 'nice to have:')",
+        "Fallback to bullet-point extraction when no headers found",
+        "Support English, French, German, Italian header keywords",
+        "Return deduplicated arrays",
         "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: version matches the expected build"
+        "Lint passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Version read from package.json via getPackageVersion() at build time. Display format: branch • v0.53.37. Graceful fallback if version unavailable."
+      "notes": "AI-based extraction supersedes keyword-based. AI inherently handles multilingual (en/fr/de/it) via prompt and deduplication via JSON parsing."
     },
     {
       "id": "US-003",
-      "title": "Global visibility on all pages",
-      "description": "As a user navigating the application, I want the branch and version indicator to remain visible regardless of which page I am on.",
+      "title": "Add vague job description detection",
+      "description": "As a system, I need to detect when a job description is too short or vague to generate a quality CV.",
       "acceptanceCriteria": [
-        "Indicator is visible on Resume pages",
-        "Indicator is visible on Cover Letter pages",
-        "Indicator is visible on Job Application pages",
-        "Indicator is visible on Dashboard pages",
-        "No page hides or overrides the indicator",
-        "Indicator positioning is consistent across all pages",
+        "Add function isJobDescriptionInsufficient(jobDescription: string, requirements: JobRequirements): boolean",
+        "Return true if: description < 100 chars OR total extractable items < 3",
+        "Export from job-requirements-extractor.ts",
         "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: indicator visible on all routed pages"
+        "Lint passes"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Component in root locale layout inherits to all routes. Z-index increased to z-[60] to render above marketing header (z-50). Verified: dashboard, marketing, and auth pages all inherit correctly."
+      "notes": "Added isJobDescriptionInsufficient function with configurable thresholds (100 chars, 3 items)."
     },
     {
       "id": "US-004",
-      "title": "Locale-safe rendering",
-      "description": "As a multilingual user, I want the branch/version indicator to work correctly regardless of the active locale.",
+      "title": "Create relevance scoring utility",
+      "description": "As a system, I need to calculate a relevance score comparing generated CV content against extracted job requirements.",
       "acceptanceCriteria": [
-        "Indicator renders correctly under /en",
-        "Indicator renders correctly under /fr",
-        "Indicator renders correctly under /de",
-        "Indicator renders correctly under /it",
-        "Branch name and version are NOT translated",
-        "No locale-specific formatting issues occur",
+        "Create src/lib/ai/relevance-scorer.ts",
+        "Export function calculateRelevanceScore(cvContent: ResumeContent, jobRequirements: JobRequirements): RelevanceScore",
+        "RelevanceScore type includes: score (0-100), matchedItems[], missingItems[], genericItems[]",
+        "Score based on: skills coverage (40%), responsibilities coverage (40%), keyword presence (20%)",
+        "Score calculation is deterministic (same inputs = same score)",
         "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: indicator works across all locales"
+        "Lint passes"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Component is locale-agnostic by design. No i18n imports, no translation functions, uses raw environment variables only. Unicode bullet separator (U+2022) is not locale-dependent."
+      "notes": "Deterministic scoring with 40/40/20 weights. Fuzzy matching, generic item detection, comprehensive CV parsing."
+    },
+    {
+      "id": "US-005",
+      "title": "Implement CV content text extraction for scoring",
+      "description": "As a system, I need to extract text content from CV sections for comparison against job requirements.",
+      "acceptanceCriteria": [
+        "Add function extractCvTextContent(resume: Resume): string[]",
+        "Extract text from: summary, experience descriptions, skills, education",
+        "Normalize text (lowercase, trim whitespace)",
+        "Export from relevance-scorer.ts",
+        "Typecheck passes",
+        "Lint passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Added extractCvTextContent function. Normalizes and extracts from summary, experience, skills, education."
+    },
+    {
+      "id": "US-006",
+      "title": "Add quality threshold to app settings",
+      "description": "As an admin, I want a configurable quality threshold so the system knows when a CV is acceptable.",
+      "acceptanceCriteria": [
+        "Add QUALITY_THRESHOLD constant to src/lib/constants.ts (default: 70)",
+        "Export as number type (0-100 range)",
+        "Add comment explaining the threshold purpose",
+        "Typecheck passes",
+        "Lint passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Created src/lib/constants.ts with QUALITY_THRESHOLD = 70."
+    },
+    {
+      "id": "US-007",
+      "title": "Create CV generation logs table",
+      "description": "As a product team, I need a database table to store CV generation analysis results for auditing.",
+      "acceptanceCriteria": [
+        "Create migration file for cv_generation_logs table",
+        "Columns: id (uuid), user_id (uuid), resume_id (uuid), job_id (text), score (int), gaps (jsonb), iteration (int), created_at (timestamptz)",
+        "Add RLS policy: users can only read their own logs",
+        "Migration file follows existing naming convention",
+        "Typecheck passes",
+        "Lint passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Created 005_cv_generation_logs.sql with RLS policies and indexes."
+    },
+    {
+      "id": "US-008",
+      "title": "Add generation log insert function",
+      "description": "As a system, I need to log each CV generation attempt for audit purposes.",
+      "acceptanceCriteria": [
+        "Create src/lib/supabase/generation-logs.ts",
+        "Export function logGenerationAttempt(params: GenerationLogParams): Promise<void>",
+        "GenerationLogParams includes: userId, resumeId, jobId, score, gaps, iteration",
+        "Handle insert errors gracefully (log to console, don't throw)",
+        "Typecheck passes",
+        "Lint passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "Created logGenerationAttempt function with fail-safe error handling. Type assertion used until Supabase types are regenerated."
+    },
+    {
+      "id": "US-009",
+      "title": "Enhance CV generation prompts for job alignment",
+      "description": "As a system, I need enhanced prompts that explicitly instruct the AI to align CV content with job requirements.",
+      "acceptanceCriteria": [
+        "Update prompts.ts to include job requirements in CV generation prompts",
+        "Prompt includes: 'Align skills with: [extracted skills]'",
+        "Prompt includes: 'Reflect responsibilities: [extracted responsibilities]'",
+        "Prompt includes: 'Avoid generic content not related to the job'",
+        "No changes to existing API endpoint signatures",
+        "Typecheck passes",
+        "Lint passes"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "Enhanced buildJobDescriptionToResumePrompt with 6 explicit alignment rules (skills, responsibilities, keywords, no generic content)."
+    },
+    {
+      "id": "US-010",
+      "title": "Create quality analysis result type and store",
+      "description": "As a system, I need a way to store and pass quality analysis results between generation and UI.",
+      "acceptanceCriteria": [
+        "Create src/types/quality-analysis.ts",
+        "Export QualityAnalysis type: score, matchedItems, missingItems, genericItems, isInsufficient, iteration",
+        "Export QualityAnalysisStore for client-side state (simple object or context)",
+        "Typecheck passes",
+        "Lint passes"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "Created QualityAnalysis and QualityAnalysisStore types with constants."
+    },
+    {
+      "id": "US-011",
+      "title": "Display vague job description warning in Resume Editor",
+      "description": "As a user, I want to see a warning when the job description is too vague, so I understand CV quality may be limited.",
+      "acceptanceCriteria": [
+        "Add warning banner component in Resume Editor for insufficient job descriptions",
+        "Warning text: 'The job description is limited. CV quality may be affected.'",
+        "Warning uses yellow/amber styling consistent with existing alerts",
+        "Warning only appears when CV was created from a job AND job is insufficient",
+        "Warning does NOT block any user actions",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: warning appears for short job descriptions"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "Created QualityWarningBanner component with amber styling, dismissible, accessible. Shows when currentJobApplicationId exists."
+    },
+    {
+      "id": "US-012",
+      "title": "Display quality score badge in Resume Editor",
+      "description": "As a user, I want to see the CV quality score immediately after generation from a job.",
+      "acceptanceCriteria": [
+        "Add QualityScoreBadge component to Resume Editor header area",
+        "Display score as percentage with color: red (<50), yellow (50-70), green (>70)",
+        "Badge only visible when CV was created from a job",
+        "Badge shows tooltip explaining what the score means",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: score badge appears after creating CV from job"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "Created QualityScoreBadge with color-coded display (red/yellow/green) and tooltip. Placeholder score=75."
+    },
+    {
+      "id": "US-013",
+      "title": "Display gap analysis panel in Resume Editor",
+      "description": "As a user, I want to see what's missing or matched in my CV compared to the job.",
+      "acceptanceCriteria": [
+        "Add collapsible GapAnalysisPanel component below quality score",
+        "Display 'Matched' section with green checkmarks for matched items",
+        "Display 'Missing' section with red X for missing items",
+        "Panel is collapsed by default, expandable on click",
+        "Panel only visible when CV was created from a job",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: gap analysis panel visible and expandable"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": "Created GapAnalysisPanel with collapsible matched/missing sections. Accessible, responsive grid layout."
+    },
+    {
+      "id": "US-014",
+      "title": "Implement iterative regeneration logic",
+      "description": "As a system, I need to automatically retry CV generation when quality is below threshold.",
+      "acceptanceCriteria": [
+        "Create src/lib/ai/iterative-generator.ts",
+        "Export function generateWithRetry(params): Promise<GenerationResult>",
+        "If initial score < threshold, regenerate with enhanced prompt including gaps",
+        "Maximum 2 retries (3 total attempts)",
+        "Return best-scoring attempt as final result",
+        "Log each attempt via logGenerationAttempt",
+        "Typecheck passes",
+        "Lint passes"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": "Created generateWithRetry with max 3 iterations, best-result tracking, gap-enhanced prompts, and audit logging."
+    },
+    {
+      "id": "US-015",
+      "title": "Display generation progress with iteration count",
+      "description": "As a user, I want to see when the system is improving my CV during generation.",
+      "acceptanceCriteria": [
+        "Update generation loading state to show iteration number",
+        "Display: 'Generating CV...' for first attempt",
+        "Display: 'Improving CV... attempt 2/3' for retries",
+        "Progress indicator appears inline in Resume Editor",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: iteration status visible during regeneration"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": "Created GenerationProgress component with animated spinner and iteration display."
+    },
+    {
+      "id": "US-016",
+      "title": "Show below-threshold warning with regenerate button",
+      "description": "As a user, I want clear indication when CV quality is below target, with option to retry.",
+      "acceptanceCriteria": [
+        "If final score < threshold, show orange warning banner (not success toast)",
+        "Warning text: 'CV quality is below target (X%). Review the gaps below.'",
+        "Include 'Regenerate' button in warning banner",
+        "Clicking Regenerate triggers new generation cycle",
+        "User can still use/edit the CV (not blocked)",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: warning appears for low-quality results with regenerate button"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "Created BelowThresholdWarning with orange styling, Regenerate button, and animated spinner."
+    },
+    {
+      "id": "US-017",
+      "title": "Wire up quality analysis to Create CV from Job flow",
+      "description": "As a system, I need to integrate all quality components into the existing Create CV from Job flow.",
+      "acceptanceCriteria": [
+        "Update Create CV from Job action to use extractJobRequirements",
+        "Update flow to use generateWithRetry instead of direct generation",
+        "Pass QualityAnalysis result to Resume Editor",
+        "Store analysis result in client state for UI components",
+        "Existing Create CV from Job functionality still works",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: full flow works with quality analysis"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": "API returns qualityAnalysis. ResumeEditor accepts optional qualityAnalysis prop. UI components wired to use real data."
     }
   ]
 }
