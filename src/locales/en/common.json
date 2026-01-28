@@ -652,5 +652,83 @@
       "tryDifferentFilter": "Try selecting a different filter or browse jobs to add new applications.",
       "browseJobsCta": "Browse Job Listings"
     }
+  },
+  "kanban": {
+    "board": {
+      "ariaLabel": "Job applications board",
+      "skipLink": "Skip Kanban board"
+    },
+    "column": {
+      "dropHere": "Drop here",
+      "noApplications": "No applications",
+      "collapse": "Collapse column",
+      "expand": "Expand column"
+    },
+    "card": {
+      "dragToMove": "Drag to move",
+      "moreActions": "More actions",
+      "menuLabel": "Job application actions",
+      "edit": "Edit",
+      "createCV": "Create CV for this Job",
+      "createCoverLetter": "Create Cover Letter",
+      "delete": "Delete",
+      "deleting": "Deleting...",
+      "confirmDelete": "Are you sure you want to delete this job application?"
+    },
+    "preview": {
+      "noDetails": "No additional details",
+      "salary": "Salary",
+      "nextInterview": "Next Interview",
+      "notes": "Notes",
+      "deadline": "Deadline"
+    },
+    "header": {
+      "title": "Job Applications",
+      "searchPlaceholder": "Search by title, company, or location...",
+      "viewBoard": "Board",
+      "viewList": "List",
+      "browseJobs": "Browse Jobs",
+      "applicationsSingular": "application",
+      "applicationsPlural": "applications"
+    },
+    "search": {
+      "noResults": "No applications match your search",
+      "noFilterResults": "No applications match your filters",
+      "clearSearch": "Clear search"
+    },
+    "sort": {
+      "label": "Sort column",
+      "mostRecent": "Most recent",
+      "oldestFirst": "Oldest first",
+      "companyAZ": "Company A-Z",
+      "companyZA": "Company Z-A"
+    },
+    "filters": {
+      "button": "Filters",
+      "status": "Status",
+      "dateRange": "Date added",
+      "clearAll": "Clear all",
+      "removeDateRange": "Remove date range filter",
+      "week": "This week",
+      "month": "This month",
+      "threeMonths": "Last 3 months",
+      "all": "All time"
+    },
+    "quickAdd": {
+      "title": "Quick Add Job",
+      "addToColumn": "Add job to {status}",
+      "jobTitleLabel": "Job Title",
+      "jobTitlePlaceholder": "e.g., Software Engineer",
+      "jobTitleRequired": "Job title is required",
+      "companyLabel": "Company",
+      "companyPlaceholder": "e.g., Google",
+      "companyRequired": "Company name is required",
+      "jobUrlLabel": "Job URL",
+      "jobUrlPlaceholder": "https://...",
+      "optional": "optional",
+      "invalidUrl": "Please enter a valid URL",
+      "save": "Save",
+      "saving": "Saving..."
+    }
   }
 }

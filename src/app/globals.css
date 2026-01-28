@@ -344,6 +344,17 @@
   font-family: inherit;
 }
 
+/* Reduced Motion - Respect user accessibility preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Print Styles - For CV Download/Print */
 @media print {
   /* Remove all backgrounds, margins, and padding from page */

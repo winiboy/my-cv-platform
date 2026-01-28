@@ -1,0 +1,382 @@
+{
+  "prdSource": "tasks/prds/Job-Application.md",
+  "feature": "Job Applications TealHQ Parity",
+  "version": "1.0.0",
+  "stories": [
+    {
+      "id": "US-001",
+      "title": "Create Kanban board layout component structure",
+      "description": "As a developer, I want to create the foundational Kanban board layout component that will replace the current grid view, so that job applications can be organized in status columns like TealHQ.",
+      "acceptanceCriteria": [
+        "Create KanbanBoard component at src/components/dashboard/job-applications/kanban-board.tsx",
+        "Create KanbanColumn component at src/components/dashboard/job-applications/kanban-column.tsx",
+        "Columns render for each status: saved, applied, interviewing, offer, rejected, accepted, declined",
+        "Each column has a header with status name and count badge",
+        "Columns are horizontally scrollable on smaller screens",
+        "Layout uses CSS Grid or Flexbox for proper alignment",
+        "Component accepts jobApplications array as prop",
+        "pnpm lint passes",
+        "pnpm build passes"
+      ],
+      "status": "completed",
+      "dependencies": []
+    },
+    {
+      "id": "US-002",
+      "title": "Create Kanban card component for job applications",
+      "description": "As a user, I want each job application to display as a compact card within the Kanban column, so that I can quickly scan my applications at a glance.",
+      "acceptanceCriteria": [
+        "Create KanbanCard component at src/components/dashboard/job-applications/kanban-card.tsx",
+        "Card displays job title, company name, and location",
+        "Card shows status badge using existing JOB_STATUS_CONFIG colors",
+        "Card displays applied/saved date in compact format",
+        "Card has hover state with subtle shadow elevation",
+        "Card is clickable and navigates to job application detail/edit page",
+        "Card dimensions match TealHQ card proportions (compact, not full-width)",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: cards render correctly in columns"
+      ],
+      "status": "completed",
+      "dependencies": ["US-001"]
+    },
+    {
+      "id": "US-003",
+      "title": "Add 3-way linking badges to Kanban cards using shared components",
+      "description": "As a user, I want to see linked Resume and Cover Letter indicators on each Kanban card using the existing EntityLinkBadge components, so that I can understand the relationship between my applications and documents.",
+      "acceptanceCriteria": [
+        "Import and use ResumeLinkBadge from entity-link-badge.tsx",
+        "Import and use CoverLetterLinkBadge from entity-link-badge.tsx",
+        "Badges display only when resume or cover_letter is linked",
+        "Clicking badge navigates to the linked entity edit page",
+        "Badge click stops propagation to prevent card navigation",
+        "No custom linking components created - ONLY shared components used",
+        "Badges render in a compact row below job info",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: badges appear and navigate correctly"
+      ],
+      "status": "completed",
+      "dependencies": ["US-002"]
+    },
+    {
+      "id": "US-004",
+      "title": "Implement drag-and-drop between Kanban columns",
+      "description": "As a user, I want to drag job application cards between status columns, so that I can quickly update the status of my applications visually.",
+      "acceptanceCriteria": [
+        "Install @dnd-kit/core and @dnd-kit/sortable if not already present",
+        "Implement DndContext wrapper around KanbanBoard",
+        "Cards are draggable with drag handle or entire card as handle",
+        "Columns are valid drop targets",
+        "Visual feedback during drag: card follows cursor, drop zone highlights",
+        "On drop: API call updates job_application.status in database",
+        "On drop: If status changes to 'applied' and no applied_date, set applied_date to today",
+        "Optimistic update: UI updates immediately, reverts on error",
+        "Error toast displays if status update fails",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: drag and drop updates status correctly"
+      ],
+      "status": "completed",
+      "dependencies": ["US-003"]
+    },
+    {
+      "id": "US-005",
+      "title": "Add card context menu with actions",
+      "description": "As a user, I want a context menu on each Kanban card with quick actions (edit, delete, create CV, create cover letter), so that I can manage applications without leaving the board view.",
+      "acceptanceCriteria": [
+        "Add 3-dot menu button (MoreVertical icon) on card hover or always visible",
+        "Dropdown menu appears on click with: Edit, Create CV, Create Cover Letter, Delete",
+        "Edit navigates to /{locale}/dashboard/jobs/{id}/edit",
+        "Create CV navigates to /{locale}/dashboard/resumes/new?jobApplicationId={id}",
+        "Create Cover Letter navigates to /{locale}/dashboard/cover-letters/new?jobApplicationId={id}",
+        "Delete shows confirmation dialog, then deletes and removes card",
+        "Menu closes when clicking outside",
+        "Menu is accessible via keyboard",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: all menu actions work correctly"
+      ],
+      "status": "completed",
+      "dependencies": ["US-004"]
+    },
+    {
+      "id": "US-006",
+      "title": "Implement Kanban board header with view toggle and search",
+      "description": "As a user, I want a header above the Kanban board with search input and view toggle (board/list), so that I can filter applications and switch views like in TealHQ.",
+      "acceptanceCriteria": [
+        "Create JobApplicationsHeader component",
+        "Header includes page title and subtitle",
+        "Search input filters cards by job title, company name, or location",
+        "Search is debounced (300ms) to prevent excessive filtering",
+        "View toggle buttons: Board view (active), List view",
+        "View preference persists in URL query param (?view=board or ?view=list)",
+        "Browse Jobs button links to /{locale}/dashboard/jobs",
+        "Header layout matches TealHQ spacing and alignment",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: search filters cards, view toggle works"
+      ],
+      "status": "completed",
+      "dependencies": ["US-005"]
+    },
+    {
+      "id": "US-007",
+      "title": "Add filter dropdown for status and date range",
+      "description": "As a user, I want filter controls to narrow down displayed applications by status or date range, so that I can focus on specific applications.",
+      "acceptanceCriteria": [
+        "Add filter dropdown button next to search",
+        "Dropdown includes status multi-select checkboxes",
+        "Dropdown includes date range filter (This week, This month, Last 3 months, All time)",
+        "Active filters show as pills/badges below the header",
+        "Filter pills can be dismissed individually",
+        "Clear all filters button when filters are active",
+        "Filters persist in URL query params",
+        "Filtered count shows in each column header",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: filters narrow down visible cards"
+      ],
+      "status": "completed",
+      "dependencies": ["US-006"]
+    },
+    {
+      "id": "US-008",
+      "title": "Create empty state for Kanban board",
+      "description": "As a user, I want to see a helpful empty state when I have no job applications, so that I understand how to get started.",
+      "acceptanceCriteria": [
+        "Empty state displays when no job applications exist",
+        "Shows illustration or icon (Briefcase icon)",
+        "Primary message: 'No job applications yet'",
+        "Secondary message explains how to add applications",
+        "CTA button: 'Browse Jobs' links to jobs search page",
+        "Empty column state: subtle message when a specific column is empty",
+        "Matches TealHQ empty state visual style",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: empty states render correctly"
+      ],
+      "status": "completed",
+      "dependencies": ["US-001"]
+    },
+    {
+      "id": "US-009",
+      "title": "Implement loading skeleton for Kanban board",
+      "description": "As a user, I want to see loading skeletons while job applications are being fetched, so that I know the page is loading.",
+      "acceptanceCriteria": [
+        "Create KanbanBoardSkeleton component",
+        "Skeleton shows placeholder columns with animated shimmer",
+        "Each column shows 2-3 placeholder cards",
+        "Skeleton matches exact dimensions of real board",
+        "Uses existing shadcn/ui Skeleton component if available",
+        "Loading state displays during initial data fetch",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: skeleton appears on slow connection"
+      ],
+      "status": "completed",
+      "dependencies": ["US-001"]
+    },
+    {
+      "id": "US-010",
+      "title": "Update job-applications page to use Kanban board",
+      "description": "As a developer, I want to integrate the new Kanban board into the existing job-applications page, replacing the current grid view while preserving the list view option.",
+      "acceptanceCriteria": [
+        "Modify src/app/[locale]/(dashboard)/dashboard/job-applications/page.tsx",
+        "Default view is Kanban board (?view=board)",
+        "List view shows existing grid layout (?view=list)",
+        "Remove old status filter tabs (replaced by Kanban columns)",
+        "Pass fetched job applications to KanbanBoard component",
+        "Page uses Server Component for initial data fetch",
+        "Client components handle interactivity (drag-drop, menus)",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: page loads with Kanban board by default"
+      ],
+      "status": "completed",
+      "dependencies": ["US-006", "US-008", "US-009"]
+    },
+    {
+      "id": "US-011",
+      "title": "Add column sorting within Kanban columns",
+      "description": "As a user, I want to sort cards within each column by different criteria (date, company name, priority), so that I can organize my view.",
+      "acceptanceCriteria": [
+        "Add sort dropdown in each column header",
+        "Sort options: Most recent, Oldest first, Company A-Z, Company Z-A",
+        "Default sort is Most recent (by updated_at or applied_date)",
+        "Sort preference persists per-column during session",
+        "Sort icon indicates current sort direction",
+        "Sorting is client-side for responsiveness",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: sorting reorders cards correctly"
+      ],
+      "status": "completed",
+      "dependencies": ["US-010"]
+    },
+    {
+      "id": "US-012",
+      "title": "Implement card hover preview with quick details",
+      "description": "As a user, I want to see more details when hovering over a Kanban card, so that I can get information without clicking.",
+      "acceptanceCriteria": [
+        "On hover, card expands slightly or shows tooltip with additional info",
+        "Preview shows: salary range (if available), notes excerpt, interview dates",
+        "Preview appears after 500ms hover delay to prevent flicker",
+        "Preview disappears immediately on mouse leave",
+        "Preview does not block drag-and-drop interaction",
+        "Uses Radix UI Tooltip or similar for accessibility",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: hover preview shows correct data"
+      ],
+      "status": "completed",
+      "dependencies": ["US-010"]
+    },
+    {
+      "id": "US-013",
+      "title": "Add keyboard navigation for Kanban board",
+      "description": "As a user who uses keyboard navigation, I want to navigate the Kanban board using arrow keys and shortcuts, so that I can use the feature without a mouse.",
+      "acceptanceCriteria": [
+        "Tab key moves focus between cards",
+        "Arrow keys move focus within and between columns",
+        "Enter key opens card detail/edit page",
+        "Space key opens card context menu",
+        "Escape key closes open menus",
+        "Focus ring is clearly visible on focused card",
+        "Skip link available to bypass board for screen readers",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: full keyboard navigation works"
+      ],
+      "status": "completed",
+      "dependencies": ["US-010"]
+    },
+    {
+      "id": "US-014",
+      "title": "Add i18n translations for Kanban board",
+      "description": "As a multilingual user, I want all Kanban board text to be translated in my language (en, fr, de, it), so that I can use the app in my preferred language.",
+      "acceptanceCriteria": [
+        "Add translation keys for: column headers, empty states, menu items, tooltips",
+        "Update en.json, fr.json, de.json, it.json in src/locales/",
+        "All hardcoded strings replaced with translation keys",
+        "Date formats respect locale (using Intl.DateTimeFormat)",
+        "No text overflow or layout breakage in any language",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: switch locale, all text translates correctly"
+      ],
+      "status": "completed",
+      "dependencies": ["US-010"]
+    },
+    {
+      "id": "US-015",
+      "title": "Implement responsive design for mobile Kanban",
+      "description": "As a mobile user, I want the Kanban board to be usable on small screens, so that I can manage applications on my phone.",
+      "acceptanceCriteria": [
+        "On mobile (<768px): columns stack vertically or use horizontal scroll",
+        "Touch gestures work for drag-and-drop on mobile",
+        "Cards are appropriately sized for touch targets (min 44px touch area)",
+        "Column headers are sticky during scroll",
+        "Filter/search UI adapts to mobile (collapsible or bottom sheet)",
+        "No horizontal overflow causing double scrollbars",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: test on mobile viewport, usable experience"
+      ],
+      "status": "completed",
+      "dependencies": ["US-010"]
+    },
+    {
+      "id": "US-016",
+      "title": "Add animations and micro-interactions",
+      "description": "As a user, I want smooth animations when cards move, columns update, and menus open, so that the UI feels polished like TealHQ.",
+      "acceptanceCriteria": [
+        "Card drag: smooth transition following cursor",
+        "Card drop: animate to final position (200ms ease-out)",
+        "Column count update: number counter animates",
+        "Menu open/close: fade and scale animation",
+        "Card hover: subtle lift/shadow transition",
+        "Status change: card animates to new column",
+        "Use CSS transitions or Framer Motion",
+        "Animations respect prefers-reduced-motion",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: animations are smooth and not jarring"
+      ],
+      "status": "completed",
+      "dependencies": ["US-010"]
+    },
+    {
+      "id": "US-017",
+      "title": "Create API endpoint for batch status updates",
+      "description": "As a developer, I want an API endpoint that can update multiple job application statuses at once, so that bulk operations and drag-drop can be efficient.",
+      "acceptanceCriteria": [
+        "Create PATCH /api/job-applications/batch endpoint",
+        "Accepts array of { id, status, applied_date? } objects",
+        "Validates all IDs belong to authenticated user",
+        "Returns updated applications or error details",
+        "Respects Supabase RLS policies",
+        "Rate limited to prevent abuse",
+        "pnpm lint passes",
+        "pnpm build passes"
+      ],
+      "status": "completed",
+      "dependencies": []
+    },
+    {
+      "id": "US-018",
+      "title": "Add Quick Add job application from Kanban board",
+      "description": "As a user, I want to quickly add a new job application directly from the Kanban board, so that I can track new opportunities without leaving the view.",
+      "acceptanceCriteria": [
+        "Add '+' button in each column header or global Add button",
+        "Click opens modal with minimal form: job title, company, URL (optional)",
+        "Form uses React Hook Form + Zod validation",
+        "Status auto-set based on which column's '+' was clicked",
+        "On save: creates job application and adds card to column",
+        "Cancel closes modal without saving",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: quick add creates and displays new card"
+      ],
+      "status": "completed",
+      "dependencies": ["US-010"]
+    },
+    {
+      "id": "US-019",
+      "title": "Implement column collapse/expand functionality",
+      "description": "As a user, I want to collapse columns I am not actively using, so that I can focus on relevant statuses and save screen space.",
+      "acceptanceCriteria": [
+        "Each column header has collapse/expand toggle button",
+        "Collapsed column shows only header with count, minimal width",
+        "Clicking collapsed column expands it",
+        "Collapse state persists in localStorage",
+        "Collapsed columns still accept drag-drop (auto-expand on hover)",
+        "Animation for collapse/expand transition",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: columns collapse and expand smoothly"
+      ],
+      "status": "completed",
+      "dependencies": ["US-010"]
+    },
+    {
+      "id": "US-020",
+      "title": "Final visual parity review and polish",
+      "description": "As a user, I want the Job Applications Kanban board to be visually indistinguishable from TealHQ Job Tracker, so that I have a premium, professional experience.",
+      "acceptanceCriteria": [
+        "Side-by-side comparison with TealHQ shows no visible differences",
+        "Spacing, margins, and padding match TealHQ exactly",
+        "Typography (font sizes, weights, line heights) matches",
+        "Color palette is consistent with TealHQ (within legal bounds)",
+        "Border radii, shadows, and elevation match",
+        "Dark mode styling is consistent",
+        "No visual regressions from original implementation",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Verify in browser: visual parity confirmed"
+      ],
+      "status": "completed",
+      "dependencies": ["US-016", "US-014", "US-015"]
+    }
+  ]
+}

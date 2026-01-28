@@ -7,8 +7,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+import { JOB_STATUSES } from '@/lib/constants/job-statuses'
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * Valid job statuses for validation.
+ * Uses the canonical JOB_STATUSES array from constants.
+ */
+const jobStatusSchema = z.enum(JOB_STATUSES as [string, ...string[]])
 
 /**
  * Zod schema for job application creation from job search
@@ -23,6 +30,8 @@ const jobApplicationCreateSchema = z.object({
   job_url: z.string().url().max(2000).nullable().optional(),
   job_description: z.string().max(50000).nullable().optional(),
   source: z.string().max(100).nullable().optional(),
+  /** Optional status for quick-add from Kanban column. Defaults to 'saved' if not provided. */
+  status: jobStatusSchema.optional(),
 })
 
 /**
@@ -142,6 +151,7 @@ export async function POST(request: NextRequest) {
       job_url,
       job_description,
       source,
+      status: requestedStatus,
     } = validationResult.data
 
     // Format salary range if provided
@@ -175,6 +185,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Determine the initial status (use provided status or default to 'saved')
+    // Type assertion ensures TypeScript recognizes this as a valid JobStatus
+    const initialStatus = (requestedStatus || 'saved') as 'saved' | 'applied' | 'interviewing' | 'offer' | 'rejected' | 'accepted' | 'declined'
+
     // Create the job application record
     const { data: jobApplication, error } = await supabase
       .from('job_applications')
@@ -186,7 +200,7 @@ export async function POST(request: NextRequest) {
         salary_range: salaryRange,
         job_url: job_url || null,
         job_description: job_description || null,
-        status: 'saved',
+        status: initialStatus,
         priority: 'medium',
         notes: source ? `Source: ${source}` : null,
         contacts: [],

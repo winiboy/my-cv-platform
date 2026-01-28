@@ -652,5 +652,83 @@
       "tryDifferentFilter": "Prova a selezionare un filtro diverso o sfoglia le offerte per aggiungerne di nuove.",
       "browseJobsCta": "Sfoglia le offerte di lavoro"
     }
+  },
+  "kanban": {
+    "board": {
+      "ariaLabel": "Bacheca delle candidature",
+      "skipLink": "Salta bacheca Kanban"
+    },
+    "column": {
+      "dropHere": "Rilascia qui",
+      "noApplications": "Nessuna candidatura",
+      "collapse": "Comprimi colonna",
+      "expand": "Espandi colonna"
+    },
+    "card": {
+      "dragToMove": "Trascina per spostare",
+      "moreActions": "Altre azioni",
+      "menuLabel": "Azioni candidatura",
+      "edit": "Modifica",
+      "createCV": "Crea CV per questo lavoro",
+      "createCoverLetter": "Crea lettera di presentazione",
+      "delete": "Elimina",
+      "deleting": "Eliminazione...",
+      "confirmDelete": "Sei sicuro di voler eliminare questa candidatura?"
+    },
+    "preview": {
+      "noDetails": "Nessun dettaglio aggiuntivo",
+      "salary": "Stipendio",
+      "nextInterview": "Prossimo colloquio",
+      "notes": "Note",
+      "deadline": "Scadenza"
+    },
+    "header": {
+      "title": "Candidature",
+      "searchPlaceholder": "Cerca per titolo, azienda o luogo...",
+      "viewBoard": "Bacheca",
+      "viewList": "Lista",
+      "browseJobs": "Sfoglia offerte",
+      "applicationsSingular": "candidatura",
+      "applicationsPlural": "candidature"
+    },
+    "search": {
+      "noResults": "Nessuna candidatura corrisponde alla tua ricerca",
+      "noFilterResults": "Nessuna candidatura corrisponde ai tuoi filtri",
+      "clearSearch": "Cancella ricerca"
+    },
+    "sort": {
+      "label": "Ordina colonna",
+      "mostRecent": "Più recenti",
+      "oldestFirst": "Meno recenti",
+      "companyAZ": "Azienda A-Z",
+      "companyZA": "Azienda Z-A"
+    },
+    "filters": {
+      "button": "Filtri",
+      "status": "Stato",
+      "dateRange": "Data aggiunta",
+      "clearAll": "Cancella tutto",
+      "removeDateRange": "Rimuovi filtro data",
+      "week": "Questa settimana",
+      "month": "Questo mese",
+      "threeMonths": "Ultimi 3 mesi",
+      "all": "Tutto"
+    },
+    "quickAdd": {
+      "title": "Aggiungi velocemente",
+      "addToColumn": "Aggiungi lavoro a {status}",
+      "jobTitleLabel": "Posizione",
+      "jobTitlePlaceholder": "es. Ingegnere Software",
+      "jobTitleRequired": "La posizione è obbligatoria",
+      "companyLabel": "Azienda",
+      "companyPlaceholder": "es. Google",
+      "companyRequired": "Il nome dell'azienda è obbligatorio",
+      "jobUrlLabel": "URL dell'offerta",
+      "jobUrlPlaceholder": "https://...",
+      "optional": "opzionale",
+      "invalidUrl": "Inserisci un URL valido",
+      "save": "Salva",
+      "saving": "Salvataggio..."
+    }
   }
 }
