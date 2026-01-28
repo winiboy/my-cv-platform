@@ -724,3 +724,64 @@ If Claude violates ANY rule above:
   • State: “Execution halted due to agent-model violation.”
   • Restart from Phase 0
 No apology. No workaround.
+
+
+## 🤖 RALPH (Claude Code ONLY — MODE A)
+
+Ralph is authorized as an orchestration tool ONLY under the following constraints:
+
+### Scope
+- Ralph MUST operate ONLY on a dedicated feature branch.
+- Ralph MUST NEVER run on `main`.
+- Ralph MUST NEVER push to origin automatically.
+
+### Commits
+- Ralph MAY create incremental commits ONLY on the feature branch.
+- Each commit MUST correspond to a single PRD story.
+- Commits MUST include:
+  - feature code
+  - updated prd.json state
+  - NO version bump in package.json
+
+### Required Checks (MANDATORY)
+After each story implementation, Ralph MUST run:
+- pnpm lint
+- pnpm build
+
+If any check fails:
+- The story is NOT complete
+- Fixes must be applied
+- Checks must be re-run
+
+### Push Policy
+- Ralph MUST NEVER push.
+- Pushing to origin is a manual, user-approved action ONLY.
+
+### Agent Compliance
+- All code written by Ralph MUST follow the agent-only pipeline:
+  Plan → Explore → senior-coder → ui-expert (if UI) → code-reviewer → Bash
+- Ralph MUST respect role boundaries exactly as defined in this CLAUDE.md.
+
+Violation of ANY rule above requires the run to STOP immediately.
+
+
+You are operating under CLAUDE.md rules.
+
+We are using Ralph in MODE A.
+
+Instructions:
+- Create a PRD JSON from the provided PRD markdown
+- Ensure stories are minimal and testable
+- Run Ralph with Claude as the tool
+- Work ONLY on the existing feature branch
+- Never touch main
+- Never push
+- After each story, run:
+  - pnpm lint
+  - pnpm build
+- Follow the full agent-only pipeline
+- Stop immediately if any rule is violated
+
+Confirm readiness before starting.
+
+

@@ -652,5 +652,83 @@
       "tryDifferentFilter": "Versuchen Sie, einen anderen Filter zu wählen oder durchsuchen Sie Stellen, um neue Bewerbungen hinzuzufügen.",
       "browseJobsCta": "Stellenangebote durchsuchen"
     }
+  },
+  "kanban": {
+    "board": {
+      "ariaLabel": "Bewerbungs-Board",
+      "skipLink": "Kanban-Board überspringen"
+    },
+    "column": {
+      "dropHere": "Hier ablegen",
+      "noApplications": "Keine Bewerbungen",
+      "collapse": "Spalte einklappen",
+      "expand": "Spalte ausklappen"
+    },
+    "card": {
+      "dragToMove": "Ziehen zum Verschieben",
+      "moreActions": "Weitere Aktionen",
+      "menuLabel": "Bewerbungsaktionen",
+      "edit": "Bearbeiten",
+      "createCV": "Lebenslauf für diese Stelle erstellen",
+      "createCoverLetter": "Anschreiben erstellen",
+      "delete": "Löschen",
+      "deleting": "Wird gelöscht...",
+      "confirmDelete": "Sind Sie sicher, dass Sie diese Bewerbung löschen möchten?"
+    },
+    "preview": {
+      "noDetails": "Keine zusätzlichen Details",
+      "salary": "Gehalt",
+      "nextInterview": "Nächstes Vorstellungsgespräch",
+      "notes": "Notizen",
+      "deadline": "Frist"
+    },
+    "header": {
+      "title": "Bewerbungen",
+      "searchPlaceholder": "Nach Titel, Unternehmen oder Ort suchen...",
+      "viewBoard": "Board",
+      "viewList": "Liste",
+      "browseJobs": "Stellen durchsuchen",
+      "applicationsSingular": "Bewerbung",
+      "applicationsPlural": "Bewerbungen"
+    },
+    "search": {
+      "noResults": "Keine Bewerbungen entsprechen Ihrer Suche",
+      "noFilterResults": "Keine Bewerbungen entsprechen Ihren Filtern",
+      "clearSearch": "Suche löschen"
+    },
+    "sort": {
+      "label": "Spalte sortieren",
+      "mostRecent": "Neueste",
+      "oldestFirst": "Älteste zuerst",
+      "companyAZ": "Unternehmen A-Z",
+      "companyZA": "Unternehmen Z-A"
+    },
+    "filters": {
+      "button": "Filter",
+      "status": "Status",
+      "dateRange": "Hinzugefügt am",
+      "clearAll": "Alle löschen",
+      "removeDateRange": "Datumsfilter entfernen",
+      "week": "Diese Woche",
+      "month": "Dieser Monat",
+      "threeMonths": "Letzte 3 Monate",
+      "all": "Alle"
+    },
+    "quickAdd": {
+      "title": "Schnell hinzufügen",
+      "addToColumn": "Stelle zu {status} hinzufügen",
+      "jobTitleLabel": "Stellenbezeichnung",
+      "jobTitlePlaceholder": "z.B. Software-Ingenieur",
+      "jobTitleRequired": "Stellenbezeichnung ist erforderlich",
+      "companyLabel": "Unternehmen",
+      "companyPlaceholder": "z.B. Google",
+      "companyRequired": "Firmenname ist erforderlich",
+      "jobUrlLabel": "Stellen-URL",
+      "jobUrlPlaceholder": "https://...",
+      "optional": "optional",
+      "invalidUrl": "Bitte geben Sie eine gültige URL ein",
+      "save": "Speichern",
+      "saving": "Wird gespeichert..."
+    }
   }
 }
