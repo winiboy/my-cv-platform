@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
 import type { Locale } from "@/lib/i18n";
+import { ToolCard } from "@/components/marketing/tool-card";
+import { FileText, CheckCircle, Mail, Briefcase, Search, Sparkles } from "lucide-react";
 
 /**
  * Static metadata for the Tools page.
  * Provides SEO-friendly title and description for search engines.
  */
 export const metadata: Metadata = {
-  title: "Free Career Tools | CV Builder, Resume Checker & More",
+  title: "Career Tools | CV Builder, Resume Checker & More",
   description:
     "Discover our suite of free career tools including CV builder, resume checker, cover letter generator, and job application tracker. Boost your job search today.",
   openGraph: {
-    title: "Free Career Tools | CV Builder, Resume Checker & More",
+    title: "Career Tools | CV Builder, Resume Checker & More",
     description:
       "Discover our suite of free career tools including CV builder, resume checker, cover letter generator, and job application tracker.",
     type: "website",
@@ -22,6 +24,49 @@ interface ToolsPageProps {
 }
 
 /**
+ * Tools data - defines all available career tools.
+ * Each tool has an icon, title, description, and href.
+ */
+const tools = [
+  {
+    icon: FileText,
+    title: "CV Builder",
+    description: "Create professional CVs with our easy-to-use builder. Choose from multiple templates and customize every detail.",
+    href: "/resumes",
+  },
+  {
+    icon: CheckCircle,
+    title: "Resume Checker",
+    description: "Get instant feedback on your resume with AI-powered analysis. Identify areas for improvement and optimize for ATS.",
+    href: "/resume-checker",
+  },
+  {
+    icon: Mail,
+    title: "Cover Letter Generator",
+    description: "Generate tailored cover letters for any job application. AI-powered content that matches your experience to the role.",
+    href: "/cover-letter",
+  },
+  {
+    icon: Briefcase,
+    title: "Job Application Tracker",
+    description: "Keep track of all your job applications in one place. Never miss a follow-up or deadline again.",
+    href: "/job-applications",
+  },
+  {
+    icon: Search,
+    title: "Job Search",
+    description: "Search thousands of job listings from top employers. Find opportunities that match your skills and experience.",
+    href: "/jobs",
+  },
+  {
+    icon: Sparkles,
+    title: "AI Resume Optimizer",
+    description: "Optimize your resume for specific job descriptions. AI-powered suggestions to increase your match rate.",
+    href: "/optimize",
+  },
+];
+
+/**
  * Tools landing page - showcases all available career tools.
  * This is a Server Component that renders a static marketing page.
  */
@@ -31,12 +76,12 @@ export default async function ToolsPage({ params }: ToolsPageProps) {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-teal-50 via-slate-50 to-purple-50 px-4 py-20 sm:px-6 md:px-8 lg:px-12 xl:px-16">
+      <section className="bg-gradient-to-br from-teal-50 via-slate-50 to-purple-50 px-4 py-20">
         <div className="mx-auto max-w-4xl text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl md:text-6xl">
-            Free Career Tools
+          <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+            Career Tools
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-600">
+          <p className="mx-auto mt-6 max-w-2xl text-xl text-slate-500">
             Everything you need to land your dream job. Our suite of free tools
             helps you create professional CVs, optimize your resume, and track
             your applications.
@@ -44,44 +89,19 @@ export default async function ToolsPage({ params }: ToolsPageProps) {
         </div>
       </section>
 
-      {/* Tools Grid Placeholder */}
-      <section className="px-4 py-20 sm:px-6 md:px-8 lg:px-12 xl:px-16">
-        <div className="mx-auto max-w-7xl">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              Our Tools
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-lg text-slate-600">
-              Professional-grade tools to accelerate your career
-            </p>
-          </div>
-
-          {/* Placeholder grid - will be populated in future stories */}
-          <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-xl font-semibold text-slate-900">
-                CV Builder
-              </h3>
-              <p className="mt-3 text-base text-slate-600">
-                Create professional CVs with our easy-to-use builder.
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-xl font-semibold text-slate-900">
-                Resume Checker
-              </h3>
-              <p className="mt-3 text-base text-slate-600">
-                Get instant feedback on your resume with AI-powered analysis.
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-xl font-semibold text-slate-900">
-                Cover Letter Generator
-              </h3>
-              <p className="mt-3 text-base text-slate-600">
-                Generate tailored cover letters for any job application.
-              </p>
-            </div>
+      {/* Tools Grid */}
+      <section className="px-4 py-20">
+        <div className="mx-auto max-w-6xl">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {tools.map((tool) => (
+              <ToolCard
+                key={tool.href}
+                icon={tool.icon}
+                title={tool.title}
+                description={tool.description}
+                href={`/${locale}${tool.href}`}
+              />
+            ))}
           </div>
         </div>
       </section>
