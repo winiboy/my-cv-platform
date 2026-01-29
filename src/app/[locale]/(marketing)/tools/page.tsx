@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
 import type { Locale } from "@/lib/i18n";
 import { ToolCard } from "@/components/marketing/tool-card";
-import { FileText, CheckCircle, Mail, Briefcase, Search, Sparkles } from "lucide-react";
+import {
+  FileCheck,
+  Target,
+  PenLine,
+  MessageSquareText,
+  SpellCheck,
+  FileSearch,
+  FileCheck2,
+} from "lucide-react";
 
 /**
  * Static metadata for the Tools page.
@@ -24,45 +32,58 @@ interface ToolsPageProps {
 }
 
 /**
- * Tools data - defines all available career tools.
+ * Tools data - defines all 7 career tools.
  * Each tool has an icon, title, description, and href.
  */
 const tools = [
   {
-    icon: FileText,
-    title: "CV Builder",
-    description: "Create professional CVs with our easy-to-use builder. Choose from multiple templates and customize every detail.",
-    href: "/resumes",
-  },
-  {
-    icon: CheckCircle,
+    icon: FileCheck,
     title: "Resume Checker",
-    description: "Get instant feedback on your resume with AI-powered analysis. Identify areas for improvement and optimize for ATS.",
-    href: "/resume-checker",
+    description:
+      "Analyze your resume for completeness and formatting issues. Get actionable insights to ensure your document meets professional standards.",
+    href: "/tools/resume-checker",
   },
   {
-    icon: Mail,
+    icon: Target,
+    title: "Resume Job Description Match",
+    description:
+      "Compare your resume against specific job postings. Identify missing keywords and skills to improve your application success rate.",
+    href: "/tools/resume-job-match",
+  },
+  {
+    icon: PenLine,
     title: "Cover Letter Generator",
-    description: "Generate tailored cover letters for any job application. AI-powered content that matches your experience to the role.",
-    href: "/cover-letter",
+    description:
+      "Create compelling cover letters tailored to your target role. Our AI crafts personalized content that highlights your relevant qualifications.",
+    href: "/tools/cover-letter-generator",
   },
   {
-    icon: Briefcase,
-    title: "Job Application Tracker",
-    description: "Keep track of all your job applications in one place. Never miss a follow-up or deadline again.",
-    href: "/job-applications",
+    icon: MessageSquareText,
+    title: "Resume Reviewer",
+    description:
+      "Receive detailed feedback on your resume content and structure. Understand what recruiters look for and how to strengthen your narrative.",
+    href: "/tools/resume-reviewer",
   },
   {
-    icon: Search,
-    title: "Job Search",
-    description: "Search thousands of job listings from top employers. Find opportunities that match your skills and experience.",
-    href: "/jobs",
+    icon: SpellCheck,
+    title: "Resume Grammar Checker",
+    description:
+      "Scan your resume for spelling mistakes, grammatical errors, and inconsistent punctuation. Present a polished document to potential employers.",
+    href: "/tools/resume-grammar-checker",
   },
   {
-    icon: Sparkles,
-    title: "AI Resume Optimizer",
-    description: "Optimize your resume for specific job descriptions. AI-powered suggestions to increase your match rate.",
-    href: "/optimize",
+    icon: FileSearch,
+    title: "CV Checker",
+    description:
+      "Evaluate your CV for academic and professional positions. Ensure your curriculum vitae follows industry conventions and showcases your achievements.",
+    href: "/tools/cv-checker",
+  },
+  {
+    icon: FileCheck2,
+    title: "Cover Letter Checker",
+    description:
+      "Review your cover letter for tone, clarity, and persuasiveness. Make sure your introduction makes a strong first impression on hiring managers.",
+    href: "/tools/cover-letter-checker",
   },
 ];
 
