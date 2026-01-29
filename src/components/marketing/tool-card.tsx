@@ -30,7 +30,14 @@ export function ToolCard({
     <Link
       href={href}
       className={cn(
-        'group flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:border-teal-300 hover:shadow-md',
+        // Base styles
+        'group flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm',
+        // Hover states: shadow elevation, scale, border color, cursor
+        'hover:border-teal-300 hover:shadow-md hover:scale-[1.02] cursor-pointer',
+        // Focus states: visible ring for accessibility
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+        // Smooth transitions
+        'transition-all duration-200 ease-in-out',
         className
       )}
     >
