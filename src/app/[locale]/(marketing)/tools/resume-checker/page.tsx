@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, FileCheck, LogIn } from "lucide-react";
+import { ArrowLeft, CheckCircle2, LogIn } from "lucide-react";
 import type { Locale } from "@/lib/i18n";
 import { locales, getTranslations } from "@/lib/i18n";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { ResumeCheckerClient } from "@/components/tools/resume-checker-client";
 
 interface ResumeCheckerPageProps {
   params: {
@@ -123,7 +124,11 @@ export default async function ResumeCheckerPage({
 
       {/* Content Section - Auth-gated */}
       {isAuthenticated ? (
-        <AuthenticatedContent translations={t.resumeChecker} />
+        <section className="px-4 py-12 sm:px-6 md:px-8 lg:px-12 xl:px-16">
+          <div className="mx-auto max-w-7xl">
+            <ResumeCheckerClient locale={locale} />
+          </div>
+        </section>
       ) : (
         <UnauthenticatedContent
           locale={locale}
@@ -132,32 +137,6 @@ export default async function ResumeCheckerPage({
         />
       )}
     </div>
-  );
-}
-
-/**
- * Content shown to authenticated users.
- * Currently displays a placeholder for the upcoming UI.
- */
-function AuthenticatedContent({
-  translations,
-}: {
-  translations: ResumeCheckerTranslations;
-}) {
-  return (
-    <section className="px-4 py-20 sm:px-6 md:px-8 lg:px-12 xl:px-16">
-      <div className="mx-auto max-w-4xl">
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-12 text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-teal-100">
-            <FileCheck className="h-8 w-8 text-teal-600" />
-          </div>
-
-          <p className="text-lg text-slate-600">
-            {translations.authenticated.placeholder}
-          </p>
-        </div>
-      </div>
-    </section>
   );
 }
 
