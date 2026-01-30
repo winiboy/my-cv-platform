@@ -71,6 +71,7 @@
       "signupLink": "Creane uno gratis"
     },
     "ui": {
+      "tabLinkResume": "Collega CV",
       "tabPasteText": "Incolla testo",
       "tabUploadFile": "Carica file",
       "tabMyResumes": "I miei CV",
@@ -111,7 +112,10 @@
       "selectSavedResume": "Seleziona un CV salvato",
       "orPasteManually": "o incolla manualmente",
       "loadingResumeContent": "Caricamento del contenuto del CV...",
-      "resumeLoadError": "Impossibile caricare il contenuto del CV."
+      "resumeLoadError": "Impossibile caricare il contenuto del CV.",
+      "linkResumeTitle": "Collega un CV salvato",
+      "linkResumeDescription": "Collega direttamente uno dei tuoi CV salvati per un'analisi rapida. Il componente ResumeLinker sarà presto disponibile qui.",
+      "linkResumeLoginPrompt": "Accedi per collegare i tuoi CV salvati."
     }
   },
   "resumeChecker": {

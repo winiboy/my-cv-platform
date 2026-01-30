@@ -71,6 +71,7 @@
       "signupLink": "Create one for free"
     },
     "ui": {
+      "tabLinkResume": "Link to Resume",
       "tabPasteText": "Paste Text",
       "tabUploadFile": "Upload File",
       "tabMyResumes": "My Resumes",
@@ -111,7 +112,10 @@
       "selectSavedResume": "Select a saved resume",
       "orPasteManually": "or paste manually",
       "loadingResumeContent": "Loading resume content...",
-      "resumeLoadError": "Failed to load resume content."
+      "resumeLoadError": "Failed to load resume content.",
+      "linkResumeTitle": "Link to a Saved Resume",
+      "linkResumeDescription": "Connect one of your saved resumes directly for quick analysis. The ResumeLinker component will be available here soon.",
+      "linkResumeLoginPrompt": "Sign in to link your saved resumes."
     }
   },
   "resumeChecker": {

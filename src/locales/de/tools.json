@@ -71,6 +71,7 @@
       "signupLink": "Kostenlos erstellen"
     },
     "ui": {
+      "tabLinkResume": "Lebenslauf verknüpfen",
       "tabPasteText": "Text einfügen",
       "tabUploadFile": "Datei hochladen",
       "tabMyResumes": "Meine Lebensläufe",
@@ -111,7 +112,10 @@
       "selectSavedResume": "Gespeicherten Lebenslauf auswählen",
       "orPasteManually": "oder manuell einfügen",
       "loadingResumeContent": "Lebenslauf-Inhalt wird geladen...",
-      "resumeLoadError": "Fehler beim Laden des Lebenslauf-Inhalts."
+      "resumeLoadError": "Fehler beim Laden des Lebenslauf-Inhalts.",
+      "linkResumeTitle": "Gespeicherten Lebenslauf verknüpfen",
+      "linkResumeDescription": "Verbinden Sie einen Ihrer gespeicherten Lebensläufe direkt für eine schnelle Analyse. Die ResumeLinker-Komponente wird hier bald verfügbar sein.",
+      "linkResumeLoginPrompt": "Melden Sie sich an, um Ihre gespeicherten Lebensläufe zu verknüpfen."
     }
   },
   "resumeChecker": {

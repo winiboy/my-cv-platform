@@ -25,6 +25,7 @@ interface ResumeJobMatchPageTranslations {
   metaDescription: string
   ui: {
     // Tab labels
+    tabLinkResume: string
     tabPasteText: string
     tabUploadFile: string
     tabMyResumes: string
@@ -75,6 +76,10 @@ interface ResumeJobMatchPageTranslations {
     noMissingSkills?: string
     noRecommendations?: string
     noStrengths?: string
+    // Link to resume tab
+    linkResumeTitle?: string
+    linkResumeDescription?: string
+    linkResumeLoginPrompt?: string
   }
 }
 
@@ -159,6 +164,7 @@ export default async function ResumeJobMatchPage({
     resultsSection: t.resumeJobMatch.ui.resultsSection || 'Results',
 
     // Tab labels
+    tabLinkResume: t.resumeJobMatch.ui.tabLinkResume,
     tabPasteText: t.resumeJobMatch.ui.tabPasteText,
     tabUploadFile: t.resumeJobMatch.ui.tabUploadFile,
     tabMyResumes: t.resumeJobMatch.ui.tabMyResumes,
@@ -226,6 +232,16 @@ export default async function ResumeJobMatchPage({
       t.resumeJobMatch.ui.loadingResumeContent || 'Loading resume content...',
     resumeLoadError:
       t.resumeJobMatch.ui.resumeLoadError || 'Failed to load resume content.',
+
+    // Link to resume tab translations
+    linkResumeTitle:
+      t.resumeJobMatch.ui.linkResumeTitle || 'Link to a Saved Resume',
+    linkResumeDescription:
+      t.resumeJobMatch.ui.linkResumeDescription ||
+      'Connect one of your saved resumes directly for quick analysis.',
+    linkResumeLoginPrompt:
+      t.resumeJobMatch.ui.linkResumeLoginPrompt ||
+      'Sign in to link your saved resumes.',
   }
 
   return (

@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
 } from 'react'
 import { useSession } from 'next-auth/react'
-import { Loader2, BarChart3, FileText, Upload, FolderOpen } from 'lucide-react'
+import { Loader2, BarChart3, FileText, Upload, FolderOpen, Link } from 'lucide-react'
 import {
   ResumeTextInput,
   type ResumeTextInputTranslations,
@@ -42,9 +42,10 @@ import type {
 } from '@/types/database'
 
 /**
- * Enum for the three resume input methods available in the tabbed interface.
+ * Enum for the four resume input methods available in the tabbed interface.
+ * 'link' allows users to link to a saved resume from their account.
  */
-type ResumeInputTab = 'paste' | 'upload' | 'saved'
+type ResumeInputTab = 'link' | 'paste' | 'upload' | 'saved'
 
 /**
  * Minimum character thresholds for input validation.
@@ -63,6 +64,7 @@ export interface ResumeJobMatchTranslations {
   resultsSection: string
 
   // Tab labels for resume input methods
+  tabLinkResume: string
   tabPasteText: string
   tabUploadFile: string
   tabMyResumes: string
@@ -124,6 +126,11 @@ export interface ResumeJobMatchTranslations {
   loadError: string
   loadingResumeContent: string
   resumeLoadError: string
+
+  // Link to resume tab translations
+  linkResumeTitle: string
+  linkResumeDescription: string
+  linkResumeLoginPrompt: string
 }
 
 interface ResumeJobMatchClientProps {
@@ -333,8 +340,8 @@ export function ResumeJobMatchClient({
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null)
   const [isLoadingResume, setIsLoadingResume] = useState(false)
 
-  // Tab state management - starts on paste tab
-  const [activeTab, setActiveTab] = useState<ResumeInputTab>('paste')
+  // Tab state management - starts on link tab (the first tab)
+  const [activeTab, setActiveTab] = useState<ResumeInputTab>('link')
 
   // Refs for tab navigation
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
@@ -343,10 +350,11 @@ export function ResumeJobMatchClient({
 
   /**
    * Get available tabs based on authentication status.
+   * The "Link to Resume" tab is always first and visible to all users.
    * The "My Resumes" tab is only shown to authenticated users.
    */
   const availableTabs = useMemo((): ResumeInputTab[] => {
-    const tabs: ResumeInputTab[] = ['paste', 'upload']
+    const tabs: ResumeInputTab[] = ['link', 'paste', 'upload']
     if (isAuthenticated) {
       tabs.push('saved')
     }
@@ -396,6 +404,11 @@ export function ResumeJobMatchClient({
   const getTabConfig = useCallback(
     (tab: ResumeInputTab) => {
       switch (tab) {
+        case 'link':
+          return {
+            label: translations.tabLinkResume,
+            icon: Link,
+          }
         case 'paste':
           return {
             label: translations.tabPasteText,
@@ -676,6 +689,38 @@ export function ResumeJobMatchClient({
 
               {/* Tab panels */}
               <div className="pt-2">
+                {/* Link to Resume Tab Panel - visible to all users */}
+                <div
+                  role="tabpanel"
+                  id="tabpanel-link"
+                  aria-labelledby="tab-link"
+                  hidden={activeTab !== 'link'}
+                  tabIndex={0}
+                >
+                  {activeTab === 'link' && (
+                    <div className="space-y-4">
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 sm:p-6">
+                        <div className="flex flex-col items-center text-center space-y-3">
+                          <div className="rounded-full bg-teal-100 dark:bg-teal-900/30 p-3">
+                            <Link className="h-6 w-6 text-teal-600 dark:text-teal-400" aria-hidden="true" />
+                          </div>
+                          <h3 className="text-base font-medium text-slate-900 dark:text-slate-100">
+                            {translations.linkResumeTitle}
+                          </h3>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md">
+                            {translations.linkResumeDescription}
+                          </p>
+                          {!isAuthenticated && (
+                            <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                              {translations.linkResumeLoginPrompt}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Paste Text Tab Panel */}
                 <div
                   role="tabpanel"

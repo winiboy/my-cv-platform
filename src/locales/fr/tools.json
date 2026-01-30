@@ -71,6 +71,7 @@
       "signupLink": "Créez-en un gratuitement"
     },
     "ui": {
+      "tabLinkResume": "Lier un CV",
       "tabPasteText": "Coller le texte",
       "tabUploadFile": "Importer un fichier",
       "tabMyResumes": "Mes CV",
@@ -111,7 +112,10 @@
       "selectSavedResume": "Sélectionner un CV enregistré",
       "orPasteManually": "ou coller manuellement",
       "loadingResumeContent": "Chargement du contenu du CV...",
-      "resumeLoadError": "Échec du chargement du contenu du CV."
+      "resumeLoadError": "Échec du chargement du contenu du CV.",
+      "linkResumeTitle": "Lier un CV enregistré",
+      "linkResumeDescription": "Connectez directement l'un de vos CV enregistrés pour une analyse rapide. Le composant ResumeLinker sera bientôt disponible ici.",
+      "linkResumeLoginPrompt": "Connectez-vous pour lier vos CV enregistrés."
     }
   },
   "resumeChecker": {
