@@ -660,11 +660,11 @@ export function ResumeJobMatchClient({
                       onKeyDown={(e) => handleTabKeyDown(e, index)}
                       className={cn(
                         'flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium whitespace-nowrap',
-                        'border-b-2 -mb-px transition-colors min-h-[44px]',
-                        'focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2',
+                        'border-b-2 -mb-px transition-all duration-200 min-h-[44px] cursor-pointer',
+                        'focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 focus-visible:rounded-t-md',
                         isActive
                           ? 'border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400'
-                          : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                          : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50'
                       )}
                     >
                       <Icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />

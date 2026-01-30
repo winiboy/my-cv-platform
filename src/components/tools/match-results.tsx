@@ -174,11 +174,13 @@ function SkillBadge({ skill, variant, animationIndex = 0 }: SkillBadgeProps) {
     <span
       className={cn(
         'inline-flex items-center px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium',
-        'border transition-colors',
+        'border transition-all duration-200',
+        // Subtle hover effect for visual feedback
+        'hover:scale-105 hover:shadow-sm',
         // Animation classes with motion-reduce support
         'opacity-0 translate-y-2',
         'animate-[badge-appear_0.3s_ease-out_forwards]',
-        'motion-reduce:animate-none motion-reduce:opacity-100 motion-reduce:translate-y-0',
+        'motion-reduce:animate-none motion-reduce:opacity-100 motion-reduce:translate-y-0 motion-reduce:hover:scale-100',
         styles[variant]
       )}
       style={{

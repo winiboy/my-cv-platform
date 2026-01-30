@@ -304,7 +304,9 @@ export function ResumeFileUpload({
         className={cn(
           'relative flex flex-col items-center justify-center gap-3 p-8',
           'border-2 border-dashed rounded-lg cursor-pointer',
-          'transition-colors duration-200',
+          'transition-all duration-200 outline-none',
+          // Focus visible state for keyboard navigation
+          'focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2',
           // Base state
           !disabled &&
             !isExtracting &&
@@ -314,10 +316,10 @@ export function ResumeFileUpload({
           !disabled &&
             !isExtracting &&
             !isDragActive &&
-            'hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-900/20',
+            'hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-900/20 hover:shadow-sm',
           // Drag active state
           isDragActive &&
-            'border-teal-500 bg-teal-50 dark:bg-teal-900/30',
+            'border-teal-500 bg-teal-50 dark:bg-teal-900/30 ring-2 ring-teal-500/30',
           // Disabled/extracting state
           (disabled || isExtracting) &&
             'border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/30 cursor-not-allowed opacity-60',
