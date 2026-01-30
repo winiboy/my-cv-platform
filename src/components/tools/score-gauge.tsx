@@ -107,12 +107,20 @@ export function ScoreGauge({
   // Center point of the SVG
   const center = config.width / 2
 
-  // Trigger animation on mount
+  // Trigger animation on mount (respects reduced motion preference)
   useEffect(() => {
+    // Check for reduced motion preference (must be inside effect for SSR safety)
+    const prefersReducedMotion = typeof window !== 'undefined'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      : false
+
+    // Determine the delay: instant for reduced motion, slight delay for animation
+    const delay = prefersReducedMotion ? 0 : 50
+
     // Small delay to ensure the initial state is rendered before animating
     const timer = setTimeout(() => {
       setAnimatedProgress(clampedScore)
-    }, 50)
+    }, delay)
 
     return () => clearTimeout(timer)
   }, [clampedScore])
@@ -152,7 +160,8 @@ export function ScoreGauge({
           strokeDashoffset={strokeDashoffset}
           className={cn(
             colors.stroke,
-            'transition-[stroke-dashoffset] duration-1000 ease-out'
+            'transition-[stroke-dashoffset] duration-1000 ease-out',
+            'motion-reduce:transition-none'
           )}
         />
       </svg>

@@ -791,6 +791,135 @@ export interface ResumeAdaptationInput {
 }
 
 /**
+ * Input for job match analysis prompt builder.
+ * Contains the resume text and job description for comparison analysis.
+ */
+export interface JobMatchAnalysisInput {
+  /**
+   * Full text content of the resume including all sections.
+   */
+  resumeText: string
+
+  /**
+   * Full text of the job description/posting to match against.
+   */
+  jobDescription: string
+
+  /**
+   * Locale code for the analysis output language.
+   */
+  locale?: string
+}
+
+/**
+ * Generate prompt for analyzing resume-job description match.
+ * Returns a prompt that instructs the AI to compare the resume against
+ * the job requirements and produce a structured analysis with realistic scoring.
+ */
+export function buildJobMatchAnalysisPrompt(input: JobMatchAnalysisInput): string {
+  const { resumeText, jobDescription, locale } = input
+
+  const languageMap: Record<string, string> = {
+    'en': 'English',
+    'fr': 'French',
+    'de': 'German',
+    'it': 'Italian',
+  }
+
+  const targetLanguage = locale && languageMap[locale] ? languageMap[locale] : 'English'
+
+  return `You are an expert career advisor and recruiter with extensive experience in resume screening and candidate evaluation. Analyze the match between the provided resume and job description.
+
+**CRITICAL - LANGUAGE REQUIREMENT:**
+- Write ALL analysis text in ${targetLanguage}
+- Maintain ${targetLanguage} throughout the JSON values
+- Use professional ${targetLanguage} career terminology
+
+**RESUME TO ANALYZE:**
+"""
+${resumeText}
+"""
+
+**JOB DESCRIPTION TO MATCH AGAINST:**
+"""
+${jobDescription}
+"""
+
+**ANALYSIS INSTRUCTIONS:**
+
+1. **Extract Required Skills:**
+   - Identify all technical skills mentioned in the job description
+   - Identify all soft skills mentioned or implied
+   - Note required certifications, tools, and technologies
+   - Identify experience level requirements
+
+2. **Compare Against Resume:**
+   - Check each required skill against the resume content
+   - Look for exact matches and equivalent/related skills
+   - Evaluate experience relevance and depth
+   - Consider transferable skills
+
+3. **Calculate Match Score:**
+   - Base score on skill coverage AND experience relevance
+   - Weight technical skills appropriately for the role
+   - Consider seniority alignment
+   - Account for must-have vs nice-to-have requirements
+
+4. **Identify Gaps:**
+   - List skills present in job but missing from resume
+   - Prioritize critical gaps over minor ones
+   - Consider whether gaps are addressable
+
+5. **Provide Recommendations:**
+   - Suggest specific, actionable improvements
+   - Focus on high-impact changes first
+   - Include both content and presentation suggestions
+
+**SCORING GUIDELINES (CRITICAL - BE REALISTIC):**
+
+Apply these scoring bands honestly:
+- **80-100 (Excellent):** Nearly perfect match. Has all must-have skills, most nice-to-haves, relevant experience at appropriate level. Rare - only for highly qualified candidates.
+- **70-79 (Strong):** Good match. Has most must-have skills, some nice-to-haves. Would likely get an interview. This is a GOOD score.
+- **50-69 (Moderate):** Partial match. Missing some important skills but has relevant foundation. Worth considering with reservations. 50% is AVERAGE.
+- **30-49 (Weak):** Significant gaps. Missing multiple must-have skills. Would need substantial upskilling.
+- **0-29 (Poor):** Major mismatch. Wrong field, wrong level, or missing most requirements.
+
+**IMPORTANT:** Do NOT inflate scores. A 70% match is genuinely good. Most candidates score between 40-70%. Reserve 80+ for exceptional matches only.
+
+**OUTPUT FORMAT (JSON ONLY):**
+{
+  "matchScore": <number 0-100>,
+  "matchedSkills": [
+    "<skill found in both resume and job description in ${targetLanguage}>"
+  ],
+  "missingSkills": [
+    "<skill required by job but missing from resume in ${targetLanguage}>"
+  ],
+  "recommendations": [
+    "<specific actionable recommendation in ${targetLanguage}>"
+  ],
+  "strengths": [
+    "<candidate strength relevant to this role in ${targetLanguage}>"
+  ],
+  "analyzedAt": "<current ISO 8601 timestamp>"
+}
+
+**CRITICAL REQUIREMENTS:**
+1. matchScore MUST be a realistic number between 0-100 following the scoring guidelines
+2. matchedSkills: Include 3-10 skills present in BOTH resume AND job description
+3. missingSkills: Include 2-8 skills required by job but ABSENT from resume
+4. recommendations: Provide 3-5 specific, actionable suggestions
+5. strengths: Identify 2-5 relevant strengths the candidate brings to this role
+6. analyzedAt: Set to current ISO 8601 timestamp
+7. ALL text content must be in ${targetLanguage}
+8. Be honest and constructive - help the candidate understand their true position
+9. Do NOT invent skills or qualifications not present in the resume
+
+**Response:**
+Return ONLY the JSON object. No additional text, explanations, or formatting.`
+}
+
+/**
  * Generate prompt for adapting an existing resume to a job description
  * This creates targeted patches (not full rewrites) with confidence scoring
  */
