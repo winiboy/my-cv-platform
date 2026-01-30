@@ -135,6 +135,18 @@
     "createResume": "Crea CV",
     "clearSelection": "Cancella selezione"
   },
+  "jobLinker": {
+    "selectJobDropdown": "Seleziona un'offerta",
+    "noJobsAvailable": "Nessuna offerta salvata disponibile",
+    "createJobPrompt": "Salva prima le offerte dalla ricerca lavoro",
+    "company": "Azienda",
+    "loadingJobs": "Caricamento offerte...",
+    "tryAgain": "Riprova",
+    "loginRequired": "Accedi per collegare le tue offerte salvate",
+    "loadError": "Impossibile caricare le offerte",
+    "browseJobs": "Sfoglia offerte",
+    "clearSelection": "Cancella selezione"
+  },
   "resumeChecker": {
     "title": "Verificatore di CV",
     "subtitle": "Ottieni feedback immediato sul tuo CV con il nostro strumento di analisi alimentato dall'IA.",

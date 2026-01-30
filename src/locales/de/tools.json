@@ -135,6 +135,18 @@
     "createResume": "Lebenslauf erstellen",
     "clearSelection": "Auswahl löschen"
   },
+  "jobLinker": {
+    "selectJobDropdown": "Stelle auswählen",
+    "noJobsAvailable": "Keine gespeicherten Stellen verfügbar",
+    "createJobPrompt": "Speichern Sie zuerst Stellen aus der Jobsuche",
+    "company": "Unternehmen",
+    "loadingJobs": "Stellen werden geladen...",
+    "tryAgain": "Erneut versuchen",
+    "loginRequired": "Melden Sie sich an, um Ihre gespeicherten Stellen zu verknüpfen",
+    "loadError": "Fehler beim Laden der Stellen",
+    "browseJobs": "Stellen durchsuchen",
+    "clearSelection": "Auswahl löschen"
+  },
   "resumeChecker": {
     "title": "Lebenslauf-Prüfer",
     "subtitle": "Erhalten Sie sofortiges Feedback zu Ihrem Lebenslauf mit unserem KI-gestützten Analysetool.",

@@ -135,6 +135,18 @@
     "createResume": "Create Resume",
     "clearSelection": "Clear selection"
   },
+  "jobLinker": {
+    "selectJobDropdown": "Select a job",
+    "noJobsAvailable": "No saved jobs available",
+    "createJobPrompt": "Save jobs from job search first",
+    "company": "Company",
+    "loadingJobs": "Loading jobs...",
+    "tryAgain": "Try again",
+    "loginRequired": "Sign in to link to your saved jobs",
+    "loadError": "Failed to load jobs",
+    "browseJobs": "Browse Jobs",
+    "clearSelection": "Clear selection"
+  },
   "resumeChecker": {
     "title": "Resume Checker",
     "subtitle": "Get instant feedback on your resume with our AI-powered analysis tool.",

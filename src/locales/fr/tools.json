@@ -135,6 +135,18 @@
     "createResume": "Créer un CV",
     "clearSelection": "Effacer la sélection"
   },
+  "jobLinker": {
+    "selectJobDropdown": "Sélectionner une offre",
+    "noJobsAvailable": "Aucune offre enregistrée",
+    "createJobPrompt": "Enregistrez d'abord des offres depuis la recherche d'emploi",
+    "company": "Entreprise",
+    "loadingJobs": "Chargement des offres...",
+    "tryAgain": "Réessayer",
+    "loginRequired": "Connectez-vous pour lier vos offres enregistrées",
+    "loadError": "Échec du chargement des offres",
+    "browseJobs": "Parcourir les offres",
+    "clearSelection": "Effacer la sélection"
+  },
   "resumeChecker": {
     "title": "Vérificateur de CV",
     "subtitle": "Obtenez des retours instantanés sur votre CV grâce à notre outil d'analyse alimenté par l'IA.",
