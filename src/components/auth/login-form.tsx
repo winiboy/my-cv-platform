@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useTranslation } from '@/lib/hooks/use-translation'
@@ -11,9 +11,28 @@ interface LoginFormProps {
   locale: Locale
 }
 
+/**
+ * Validates and returns a safe redirect URL.
+ * Only allows relative paths starting with '/' to prevent open redirect attacks.
+ * Returns the fallback URL if validation fails.
+ */
+function getSafeRedirectUrl(callbackUrl: string | null, fallbackUrl: string): string {
+  if (!callbackUrl) {
+    return fallbackUrl
+  }
+
+  // Only allow relative paths starting with '/' to prevent open redirect
+  if (callbackUrl.startsWith('/') && !callbackUrl.startsWith('//')) {
+    return callbackUrl
+  }
+
+  return fallbackUrl
+}
+
 export function LoginForm({ locale }: LoginFormProps) {
   const { t } = useTranslation('common')
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
@@ -70,7 +89,10 @@ export function LoginForm({ locale }: LoginFormProps) {
       }
 
       if (data.user) {
-        router.push(`/${locale}/dashboard`)
+        const defaultRedirect = `/${locale}/dashboard`
+        const callbackUrl = searchParams.get('callbackUrl')
+        const redirectUrl = getSafeRedirectUrl(callbackUrl, defaultRedirect)
+        router.push(redirectUrl)
         router.refresh()
       }
     } catch (err) {
@@ -89,13 +111,18 @@ export function LoginForm({ locale }: LoginFormProps) {
       const supabase = createClient()
 
       // Build callback URL with locale-aware redirect
-      const callbackUrl = new URL('/api/auth/callback', window.location.origin)
-      callbackUrl.searchParams.set('next', `/${locale}/dashboard`)
+      // Use the callbackUrl from query params if provided, otherwise default to dashboard
+      const defaultRedirect = `/${locale}/dashboard`
+      const requestedCallback = searchParams.get('callbackUrl')
+      const nextUrl = getSafeRedirectUrl(requestedCallback, defaultRedirect)
+
+      const authCallbackUrl = new URL('/api/auth/callback', window.location.origin)
+      authCallbackUrl.searchParams.set('next', nextUrl)
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: callbackUrl.toString(),
+          redirectTo: authCallbackUrl.toString(),
         },
       })
 

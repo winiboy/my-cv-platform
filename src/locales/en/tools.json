@@ -50,5 +50,61 @@
     "viewAllTools": "View All Tools",
     "metaTitleSuffix": "Career Tools - Coming Soon",
     "metaDescriptionPrefix": "Our {toolName} tool is coming soon. Get notified when this powerful career tool becomes available to help you land your dream job."
+  },
+  "resumeChecker": {
+    "title": "Resume Checker",
+    "subtitle": "Get instant feedback on your resume with our AI-powered analysis tool.",
+    "metaTitle": "Resume Checker | AI-Powered Resume Analysis",
+    "metaDescription": "Analyze your resume for completeness, formatting, and ATS compatibility. Get actionable insights to improve your job application success rate.",
+    "auth": {
+      "title": "Sign in to check your resume",
+      "description": "Create a free account to access our AI-powered resume checker and get personalized feedback to improve your job applications.",
+      "benefits": {
+        "title": "What you will get:",
+        "completeness": "Completeness score and missing section alerts",
+        "formatting": "Formatting and structure analysis",
+        "ats": "ATS compatibility check",
+        "suggestions": "Actionable improvement suggestions"
+      },
+      "loginButton": "Sign in to continue",
+      "signupPrompt": "Don't have an account?",
+      "signupLink": "Create one for free"
+    },
+    "authenticated": {
+      "placeholder": "Authenticated! Resume checker UI coming soon..."
+    },
+    "ui": {
+      "selectResume": "Select a Resume",
+      "analysisResults": "Analysis Results",
+      "analyzeButton": "Analyze Resume",
+      "analyzingButton": "Analyzing...",
+      "loadingResumes": "Loading your resumes...",
+      "tryAgain": "Try again",
+      "noResumesFound": "No resumes found",
+      "noResumesDescription": "Create your first resume to get started with the analysis.",
+      "createResume": "Create Resume",
+      "updated": "Updated",
+      "loginRequired": "Please log in to view your resumes",
+      "loadError": "Failed to load resumes. Please try again.",
+      "noAnalysisYet": "No Analysis Yet",
+      "noAnalysisDescription": "Select a resume from the dropdown above and click \"Analyze\" to get detailed feedback on how to improve your resume.",
+      "analyzedAt": "Analyzed at:",
+      "noCategories": "No categories to display",
+      "noIssues": "No issues found in this category.",
+      "showMe": "Show me",
+      "suggestion": "Suggestion:",
+      "issues": "Issues",
+      "severityHigh": "High",
+      "severityMedium": "Medium",
+      "severityLow": "Low",
+      "selectResumePrompt": "Please select a resume to analyze",
+      "analysisComplete": "Resume analysis complete",
+      "analysisFailed": "Failed to analyze resume",
+      "analysisDataMissing": "Analysis data is missing from response",
+      "reanalyzeButton": "Re-analyze",
+      "loadingAnalysis": "Loading...",
+      "cachedAnalysisLoaded": "Loaded previous analysis",
+      "cachedAnalysisNote": "This is a previously saved analysis. Click Re-analyze to generate a fresh analysis."
+    }
   }
 }

@@ -3,6 +3,201 @@
  * Based on specifications in AI_TRANSFORMATION_LOGIC.md
  */
 
+/**
+ * Input for resume analysis prompt builder.
+ * Contains all resume sections needed for comprehensive analysis.
+ */
+export interface ResumeAnalysisInput {
+  summary?: string
+  experience?: {
+    position: string
+    company: string
+    startDate?: string
+    endDate?: string
+    description?: string
+  }[]
+  education?: {
+    degree?: string
+    institution?: string
+    graduationDate?: string
+  }[]
+  skills?: string[]
+  contact?: {
+    email?: string
+    phone?: string
+    location?: string
+    linkedin?: string
+  }
+  locale?: string
+}
+
+/**
+ * Generate prompt for comprehensive resume analysis.
+ * Analyzes 15 categories and returns structured feedback matching ResumeAnalysis type.
+ */
+export function buildResumeAnalysisPrompt(input: ResumeAnalysisInput): string {
+  const { summary, experience, education, skills, contact, locale } = input
+
+  const languageMap: Record<string, string> = {
+    'en': 'English',
+    'fr': 'French',
+    'de': 'German',
+    'it': 'Italian',
+  }
+
+  const targetLanguage = locale && languageMap[locale] ? languageMap[locale] : 'English'
+
+  const experienceText = experience
+    ?.map(exp => `
+Position: ${exp.position}
+Company: ${exp.company}
+Duration: ${exp.startDate || 'N/A'} - ${exp.endDate || 'Present'}
+Description: ${exp.description || 'No description provided'}
+`)
+    .join('\n') || 'No experience provided'
+
+  const educationText = education
+    ?.map(edu => `
+Degree: ${edu.degree || 'N/A'}
+Institution: ${edu.institution || 'N/A'}
+Graduation: ${edu.graduationDate || 'N/A'}
+`)
+    .join('\n') || 'No education provided'
+
+  const skillsText = skills?.join(', ') || 'No skills provided'
+
+  const contactText = contact
+    ? `
+Email: ${contact.email || 'Not provided'}
+Phone: ${contact.phone || 'Not provided'}
+Location: ${contact.location || 'Not provided'}
+LinkedIn: ${contact.linkedin || 'Not provided'}
+`
+    : 'No contact information provided'
+
+  return `You are an expert resume analyst and career coach. Perform a comprehensive analysis of the following resume and provide detailed feedback across 15 categories.
+
+**CRITICAL - LANGUAGE REQUIREMENT:**
+- Write ALL feedback text in ${targetLanguage}
+- Maintain ${targetLanguage} throughout the JSON values
+- Use professional ${targetLanguage} career terminology
+
+**RESUME CONTENT TO ANALYZE:**
+
+Contact Information:
+${contactText}
+
+Summary/Objective:
+${summary || 'No summary provided'}
+
+Work Experience:
+${experienceText}
+
+Education:
+${educationText}
+
+Skills:
+${skillsText}
+
+**ANALYSIS CATEGORIES (MANDATORY - ALL 15):**
+
+You MUST analyze ALL of the following categories:
+
+1. **Contact Information** - Completeness and professionalism of contact details
+2. **Summary/Objective** - Clarity, impact, and relevance of the professional summary
+3. **Work Experience** - Quality, relevance, and presentation of work history
+4. **Skills Section** - Relevance, organization, and completeness of skills
+5. **Education** - Proper presentation and relevance of educational background
+6. **Formatting** - Visual consistency, readability, and professional appearance
+7. **ATS Compatibility** - Likelihood of passing Applicant Tracking Systems
+8. **Keywords** - Presence of industry-relevant keywords and phrases
+9. **Grammar & Spelling** - Language quality and error detection
+10. **Action Verbs** - Use of strong, varied action verbs in descriptions
+11. **Quantified Achievements** - Presence of metrics, numbers, and measurable results
+12. **Length** - Appropriateness of resume length for experience level
+13. **Consistency** - Uniformity in formatting, tense, and style throughout
+14. **Professional Tone** - Appropriateness of language and presentation
+15. **Overall Score** - Weighted average considering all categories
+
+**SCORING RULES:**
+- Score each category from 0-100
+- Status determination:
+  - "pass": score >= 80
+  - "warning": score >= 60 AND score < 80
+  - "fail": score < 60
+- Issue severity:
+  - "high": Critical issues requiring immediate attention
+  - "medium": Important issues that should be addressed
+  - "low": Minor improvements that would enhance quality
+
+**OVERALL SCORE CALCULATION:**
+Calculate a weighted average where:
+- Work Experience: 20%
+- Summary/Objective: 15%
+- Skills Section: 15%
+- ATS Compatibility: 10%
+- Quantified Achievements: 10%
+- Keywords: 10%
+- Contact Information: 5%
+- Education: 5%
+- Formatting: 3%
+- Grammar & Spelling: 2%
+- Action Verbs: 2%
+- Length: 1%
+- Consistency: 1%
+- Professional Tone: 1%
+
+**OUTPUT FORMAT (JSON ONLY):**
+{
+  "overallScore": <number 0-100>,
+  "categories": [
+    {
+      "name": "<category name in ${targetLanguage}>",
+      "score": <number 0-100>,
+      "status": "pass" | "warning" | "fail",
+      "feedback": "<summary feedback in ${targetLanguage}>",
+      "issues": [
+        {
+          "description": "<issue description in ${targetLanguage}>",
+          "severity": "low" | "medium" | "high",
+          "section": "<affected section: 'contact', 'summary', 'experience', 'education', 'skills', or null>",
+          "suggestion": "<actionable suggestion in ${targetLanguage}>"
+        }
+      ]
+    }
+  ],
+  "generatedAt": "<ISO 8601 timestamp>"
+}
+
+**CRITICAL REQUIREMENTS:**
+1. Return EXACTLY 15 categories in the order listed above
+2. Every category MUST have:
+   - A score (0-100)
+   - A status ('pass', 'warning', or 'fail')
+   - Feedback text explaining the score
+   - An issues array (can be empty if no issues)
+3. Issues MUST include:
+   - description: What the issue is
+   - severity: 'low', 'medium', or 'high'
+   - section: Which resume section is affected (for navigation)
+   - suggestion: How to fix it
+4. Be specific and actionable in all feedback
+5. Do NOT invent content that is not present in the resume
+6. Analyze ONLY what is provided
+7. Set generatedAt to current ISO timestamp
+
+**ANALYSIS GUIDELINES:**
+- Be constructive but honest
+- Prioritize high-impact improvements
+- Consider the resume as a whole, not just individual parts
+- Account for missing sections in scoring
+- Provide specific examples when possible
+- Focus on actionable improvements
+
+**Response:**
+Return ONLY the JSON object. No additional text, explanations, or formatting.`
+}
+
 export interface TransformSummaryInput {
   rawSummary: string
   currentRole?: string
