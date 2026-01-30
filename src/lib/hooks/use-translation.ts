@@ -14,27 +14,32 @@ import fr_jobs from '@/locales/fr/jobs.json'
 import de_jobs from '@/locales/de/jobs.json'
 import en_jobs from '@/locales/en/jobs.json'
 import it_jobs from '@/locales/it/jobs.json'
+import en_tools from '@/locales/en/tools.json'
 
 const translations = {
   fr: {
     common: fr_common,
     marketing: fr_marketing,
     jobs: fr_jobs,
+    tools: en_tools, // Fallback to English until French translations are added
   },
   de: {
     common: de_common,
     marketing: de_marketing,
     jobs: de_jobs,
+    tools: en_tools, // Fallback to English until German translations are added
   },
   en: {
     common: en_common,
     marketing: en_marketing,
     jobs: en_jobs,
+    tools: en_tools,
   },
   it: {
     common: it_common,
     marketing: it_marketing,
     jobs: it_jobs,
+    tools: en_tools, // Fallback to English until Italian translations are added
   },
 }
 

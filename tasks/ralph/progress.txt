@@ -33,6 +33,11 @@
 
 ### US-006: Create placeholder tool detail page template
 - Status: PASS
-- Commit: pending
+- Commit: 347b913
 - Notes: Dynamic route at /[locale]/(marketing)/tools/[tool]/page.tsx with formatToolName(), Coming Soon styling, back links. Typecheck passes. All 7 tool routes generate statically.
+
+### US-007: Add i18n translations for tools page (English)
+- Status: PASS
+- Commit: pending
+- Notes: Created src/locales/en/tools.json with all translations. Updated i18n.ts and use-translation.ts with tools namespace. Both tools pages now use translation keys. Typecheck passes.
 

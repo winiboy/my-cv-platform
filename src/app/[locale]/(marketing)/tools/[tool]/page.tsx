@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Clock } from "lucide-react";
 import type { Locale } from "@/lib/i18n";
-import { locales } from "@/lib/i18n";
+import { locales, getTranslations } from "@/lib/i18n";
 
 /**
  * Valid tool slugs for the career tools section.
@@ -62,6 +62,23 @@ export function generateStaticParams(): Array<{ locale: Locale; tool: ToolSlug }
 }
 
 /**
+ * Type definition for tools translations.
+ */
+interface ToolsTranslations {
+  detail: {
+    backToTools: string;
+    comingSoon: string;
+    workingOnIt: string;
+    underDevelopment: string;
+    exploreOther: string;
+    invalidTool: string;
+    viewAllTools: string;
+    metaTitleSuffix: string;
+    metaDescriptionPrefix: string;
+  };
+}
+
+/**
  * Generates dynamic metadata based on the tool slug.
  * Provides SEO-friendly title and description for each tool page.
  */
@@ -69,13 +86,17 @@ export async function generateMetadata({
   params,
 }: ToolDetailPageProps): Promise<Metadata> {
   const toolName = formatToolName(params.tool);
+  const t = getTranslations(params.locale, "tools") as ToolsTranslations;
+
+  const title = `${toolName} | ${t.detail.metaTitleSuffix}`;
+  const description = t.detail.metaDescriptionPrefix.replace("{toolName}", toolName);
 
   return {
-    title: `${toolName} | Career Tools - Coming Soon`,
-    description: `Our ${toolName} tool is coming soon. Get notified when this powerful career tool becomes available to help you land your dream job.`,
+    title,
+    description,
     openGraph: {
-      title: `${toolName} | Career Tools - Coming Soon`,
-      description: `Our ${toolName} tool is coming soon. Get notified when this powerful career tool becomes available.`,
+      title,
+      description,
       type: "website",
     },
   };
@@ -90,6 +111,7 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
   const { locale, tool } = params;
   const toolName = formatToolName(tool);
   const isValid = isValidToolSlug(tool);
+  const t = getTranslations(locale, "tools") as ToolsTranslations;
 
   return (
     <div className="min-h-screen bg-white">
@@ -102,7 +124,7 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
             className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-teal-600 transition-colors hover:text-teal-700"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Tools
+            {t.detail.backToTools}
           </Link>
 
           <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
@@ -111,12 +133,11 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
 
           {isValid ? (
             <p className="mx-auto mt-6 max-w-2xl text-xl text-slate-500">
-              We are working hard to bring you this powerful tool. Stay tuned
-              for updates.
+              {t.detail.workingOnIt}
             </p>
           ) : (
             <p className="mx-auto mt-6 max-w-2xl text-xl text-red-500">
-              This tool does not exist. Please check the URL and try again.
+              {t.detail.invalidTool}
             </p>
           )}
         </div>
@@ -131,13 +152,11 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
             </div>
 
             <h2 className="text-3xl font-bold tracking-tight text-slate-900">
-              Coming Soon
+              {t.detail.comingSoon}
             </h2>
 
             <p className="mt-6 text-lg text-slate-500">
-              The <span className="font-semibold text-slate-700">{toolName}</span> is
-              currently under development. We are building something amazing to
-              help you succeed in your job search.
+              The <span className="font-semibold text-slate-700">{toolName}</span> {t.detail.underDevelopment}
             </p>
 
             <div className="mt-10">
@@ -145,7 +164,7 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
                 href={`/${locale}/tools`}
                 className="inline-block rounded-lg bg-teal-500 px-8 py-3 text-base font-semibold text-white shadow-sm transition-all hover:bg-teal-600"
               >
-                Explore Other Tools
+                {t.detail.exploreOther}
               </Link>
             </div>
           </div>
@@ -161,7 +180,7 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
                 href={`/${locale}/tools`}
                 className="inline-block rounded-lg bg-teal-500 px-8 py-3 text-base font-semibold text-white shadow-sm transition-all hover:bg-teal-600"
               >
-                View All Tools
+                {t.detail.viewAllTools}
               </Link>
             </div>
           </div>

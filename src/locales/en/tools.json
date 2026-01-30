@@ -1,0 +1,54 @@
+{
+  "page": {
+    "title": "Career Tools",
+    "subtitle": "Everything you need to land your dream job. Our suite of free tools helps you create professional CVs, optimize your resume, and track your applications.",
+    "metaTitle": "Career Tools | CV Builder, Resume Checker & More",
+    "metaDescription": "Discover our suite of free career tools including CV builder, resume checker, cover letter generator, and job application tracker. Boost your job search today."
+  },
+  "tools": {
+    "resumeChecker": {
+      "title": "Resume Checker",
+      "description": "Analyze your resume for completeness and formatting issues. Get actionable insights to ensure your document meets professional standards."
+    },
+    "resumeJobMatch": {
+      "title": "Resume Job Description Match",
+      "description": "Compare your resume against specific job postings. Identify missing keywords and skills to improve your application success rate."
+    },
+    "coverLetterGenerator": {
+      "title": "Cover Letter Generator",
+      "description": "Create compelling cover letters tailored to your target role. Our AI crafts personalized content that highlights your relevant qualifications."
+    },
+    "resumeReviewer": {
+      "title": "Resume Reviewer",
+      "description": "Receive detailed feedback on your resume content and structure. Understand what recruiters look for and how to strengthen your narrative."
+    },
+    "resumeGrammarChecker": {
+      "title": "Resume Grammar Checker",
+      "description": "Scan your resume for spelling mistakes, grammatical errors, and inconsistent punctuation. Present a polished document to potential employers."
+    },
+    "cvChecker": {
+      "title": "CV Checker",
+      "description": "Evaluate your CV for academic and professional positions. Ensure your curriculum vitae follows industry conventions and showcases your achievements."
+    },
+    "coverLetterChecker": {
+      "title": "Cover Letter Checker",
+      "description": "Review your cover letter for tone, clarity, and persuasiveness. Make sure your introduction makes a strong first impression on hiring managers."
+    }
+  },
+  "cta": {
+    "title": "Ready to boost your career?",
+    "subtitle": "Start using our free tools today and land your dream job faster.",
+    "button": "Get Started Free"
+  },
+  "detail": {
+    "backToTools": "Back to Tools",
+    "comingSoon": "Coming Soon",
+    "workingOnIt": "We are working hard to bring you this powerful tool. Stay tuned for updates.",
+    "underDevelopment": "is currently under development. We are building something amazing to help you succeed in your job search.",
+    "exploreOther": "Explore Other Tools",
+    "invalidTool": "This tool does not exist. Please check the URL and try again.",
+    "viewAllTools": "View All Tools",
+    "metaTitleSuffix": "Career Tools - Coming Soon",
+    "metaDescriptionPrefix": "Our {toolName} tool is coming soon. Get notified when this powerful career tool becomes available to help you land your dream job."
+  }
+}
