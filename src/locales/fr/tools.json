@@ -96,7 +96,22 @@
       "strengths": "Points forts",
       "minCharsError": "Veuillez saisir au moins {count} caractères",
       "emptyState": "Entrez votre CV et une description de poste pour voir leur compatibilité",
-      "backToTools": "Retour aux outils"
+      "emptyStateTitle": "Prêt à analyser",
+      "backToTools": "Retour aux outils",
+      "inputSection": "Saisie",
+      "resultsSection": "Résultats",
+      "analysisComplete": "Analyse terminée",
+      "analysisFailed": "Échec de l'analyse. Veuillez réessayer.",
+      "connectionError": "Erreur de connexion. Veuillez vérifier votre réseau et réessayer.",
+      "analyzedAt": "Analysé le",
+      "noSkillsFound": "Aucune compétence correspondante trouvée",
+      "noMissingSkills": "Aucune compétence manquante identifiée",
+      "noRecommendations": "Aucune recommandation disponible",
+      "noStrengths": "Aucun point fort identifié",
+      "selectSavedResume": "Sélectionner un CV enregistré",
+      "orPasteManually": "ou coller manuellement",
+      "loadingResumeContent": "Chargement du contenu du CV...",
+      "resumeLoadError": "Échec du chargement du contenu du CV."
     }
   },
   "resumeChecker": {

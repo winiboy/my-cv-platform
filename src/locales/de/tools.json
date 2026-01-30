@@ -96,7 +96,22 @@
       "strengths": "Stärken",
       "minCharsError": "Bitte geben Sie mindestens {count} Zeichen ein",
       "emptyState": "Geben Sie Ihren Lebenslauf und eine Stellenbeschreibung ein, um die Übereinstimmung zu sehen",
-      "backToTools": "Zurück zu den Tools"
+      "emptyStateTitle": "Bereit zur Analyse",
+      "backToTools": "Zurück zu den Tools",
+      "inputSection": "Eingabe",
+      "resultsSection": "Ergebnisse",
+      "analysisComplete": "Analyse abgeschlossen",
+      "analysisFailed": "Analyse fehlgeschlagen. Bitte versuchen Sie es erneut.",
+      "connectionError": "Verbindungsfehler. Bitte überprüfen Sie Ihr Netzwerk und versuchen Sie es erneut.",
+      "analyzedAt": "Analysiert am",
+      "noSkillsFound": "Keine übereinstimmenden Fähigkeiten gefunden",
+      "noMissingSkills": "Keine fehlenden Fähigkeiten identifiziert",
+      "noRecommendations": "Keine Empfehlungen verfügbar",
+      "noStrengths": "Keine Stärken identifiziert",
+      "selectSavedResume": "Gespeicherten Lebenslauf auswählen",
+      "orPasteManually": "oder manuell einfügen",
+      "loadingResumeContent": "Lebenslauf-Inhalt wird geladen...",
+      "resumeLoadError": "Fehler beim Laden des Lebenslauf-Inhalts."
     }
   },
   "resumeChecker": {

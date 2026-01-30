@@ -109,6 +109,7 @@ export interface ResumeJobMatchTranslations {
   // Toast messages
   analysisComplete: string
   analysisFailed: string
+  connectionError: string
 
   // Resume selector translations (for authenticated users)
   selectSavedResume: string
@@ -549,6 +550,7 @@ export function ResumeJobMatchClient({
   /**
    * Triggers the resume-job match analysis API call.
    * Validates inputs before making the request.
+   * Handles network errors separately from API errors for better UX.
    */
   const handleAnalyze = useCallback(async () => {
     if (!canAnalyze) {
@@ -559,17 +561,34 @@ export function ResumeJobMatchClient({
     setError(null)
 
     try {
-      const response = await fetch('/api/tools/match-resume-job', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          resumeText,
-          jobDescription,
-          locale,
-        }),
-      })
+      let response: Response
+      try {
+        response = await fetch('/api/tools/match-resume-job', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            resumeText,
+            jobDescription,
+            locale,
+          }),
+        })
+      } catch (networkError) {
+        // Network error (fetch failed) - distinct from API error
+        console.error('Network error during analysis:', networkError)
+        const connectionErrorMessage = translations.connectionError
+        setError(connectionErrorMessage)
+        toast.error(connectionErrorMessage)
+        return
+      }
 
-      const data: MatchResumeJobResponse = await response.json()
+      let data: MatchResumeJobResponse
+      try {
+        data = await response.json()
+      } catch (parseError) {
+        // JSON parsing failed - treat as API error
+        console.error('Failed to parse API response:', parseError)
+        throw new Error(translations.analysisFailed)
+      }
 
       if (!response.ok || !data.success) {
         const errorMessage =
@@ -600,6 +619,7 @@ export function ResumeJobMatchClient({
     toast,
     translations.analysisFailed,
     translations.analysisComplete,
+    translations.connectionError,
   ])
 
   return (

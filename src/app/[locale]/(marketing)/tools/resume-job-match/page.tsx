@@ -55,12 +55,26 @@ interface ResumeJobMatchPageTranslations {
     strengths: string
     minCharsError: string
     emptyState: string
+    emptyStateTitle?: string
     backToTools: string
     // Resume selector
     selectSavedResume?: string
     orPasteManually?: string
     loadingResumeContent?: string
     resumeLoadError?: string
+    // Section headers
+    inputSection?: string
+    resultsSection?: string
+    // Toast messages
+    analysisComplete?: string
+    analysisFailed?: string
+    connectionError?: string
+    // Result fallbacks
+    analyzedAt?: string
+    noSkillsFound?: string
+    noMissingSkills?: string
+    noRecommendations?: string
+    noStrengths?: string
   }
 }
 
@@ -140,13 +154,9 @@ export default async function ResumeJobMatchPage({
    * since not all interface fields exist in the current translation files.
    */
   const clientTranslations: ResumeJobMatchTranslations = {
-    // Section headers - derived from context
-    inputSection: t.resumeJobMatch.ui.resumeLabel.includes('Resume')
-      ? 'Input'
-      : 'Saisie',
-    resultsSection: t.resumeJobMatch.ui.matchScore.includes('Score')
-      ? 'Results'
-      : 'Resultats',
+    // Section headers - use translations or fallback
+    inputSection: t.resumeJobMatch.ui.inputSection || 'Input',
+    resultsSection: t.resumeJobMatch.ui.resultsSection || 'Results',
 
     // Tab labels
     tabPasteText: t.resumeJobMatch.ui.tabPasteText,
@@ -184,17 +194,18 @@ export default async function ResumeJobMatchPage({
     missingSkills: t.resumeJobMatch.ui.missingSkills,
     recommendations: t.resumeJobMatch.ui.recommendations,
     strengths: t.resumeJobMatch.ui.strengths,
-    emptyStateTitle: t.resumeJobMatch.ui.matchScore,
+    emptyStateTitle: t.resumeJobMatch.ui.emptyStateTitle || 'Ready to Analyze',
     emptyStateDescription: t.resumeJobMatch.ui.emptyState,
-    analyzedAt: 'Analyzed at',
-    noSkillsFound: 'No matched skills found',
-    noMissingSkills: 'No missing skills identified',
-    noRecommendations: 'No recommendations available',
-    noStrengths: 'No strengths identified',
+    analyzedAt: t.resumeJobMatch.ui.analyzedAt || 'Analyzed at',
+    noSkillsFound: t.resumeJobMatch.ui.noSkillsFound || 'No matched skills found',
+    noMissingSkills: t.resumeJobMatch.ui.noMissingSkills || 'No missing skills identified',
+    noRecommendations: t.resumeJobMatch.ui.noRecommendations || 'No recommendations available',
+    noStrengths: t.resumeJobMatch.ui.noStrengths || 'No strengths identified',
 
     // Toast messages
-    analysisComplete: 'Analysis complete',
-    analysisFailed: 'Analysis failed. Please try again.',
+    analysisComplete: t.resumeJobMatch.ui.analysisComplete || 'Analysis complete',
+    analysisFailed: t.resumeJobMatch.ui.analysisFailed || 'Analysis failed. Please try again.',
+    connectionError: t.resumeJobMatch.ui.connectionError || 'Connection error. Please check your network and try again.',
 
     // Resume selector translations (reuse from resume checker or provide defaults)
     selectSavedResume:

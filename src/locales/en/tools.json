@@ -96,7 +96,22 @@
       "strengths": "Strengths",
       "minCharsError": "Please enter at least {count} characters",
       "emptyState": "Enter your resume and a job description to see how well they match",
-      "backToTools": "Back to Tools"
+      "emptyStateTitle": "Ready to Analyze",
+      "backToTools": "Back to Tools",
+      "inputSection": "Input",
+      "resultsSection": "Results",
+      "analysisComplete": "Analysis complete",
+      "analysisFailed": "Analysis failed. Please try again.",
+      "connectionError": "Connection error. Please check your network and try again.",
+      "analyzedAt": "Analyzed at",
+      "noSkillsFound": "No matched skills found",
+      "noMissingSkills": "No missing skills identified",
+      "noRecommendations": "No recommendations available",
+      "noStrengths": "No strengths identified",
+      "selectSavedResume": "Select a saved resume",
+      "orPasteManually": "or paste manually",
+      "loadingResumeContent": "Loading resume content...",
+      "resumeLoadError": "Failed to load resume content."
     }
   },
   "resumeChecker": {
