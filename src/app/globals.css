@@ -344,6 +344,18 @@
   font-family: inherit;
 }
 
+/* Tool Animations - Badge stagger animation for skill badges */
+@keyframes badge-appear {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Reduced Motion - Respect user accessibility preferences */
 @media (prefers-reduced-motion: reduce) {
   *,
