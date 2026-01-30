@@ -88,9 +88,9 @@ export function JobDescriptionInput({
           aria-invalid={showError}
           aria-describedby={showError ? 'job-description-error' : undefined}
           className={cn(
-            'w-full rounded-lg border bg-white dark:bg-slate-900 px-4 py-3 pr-10 text-sm',
+            'w-full rounded-lg border bg-white dark:bg-slate-900 px-3 sm:px-4 py-3 pr-10 text-sm',
             'placeholder:text-slate-400 dark:placeholder:text-slate-500',
-            'transition-all duration-200 outline-none resize-y min-h-[160px]',
+            'transition-all duration-200 outline-none resize-y min-h-[140px] sm:min-h-[160px]',
             'focus:ring-2 focus:ring-offset-0 focus:shadow-sm',
             showError
               ? 'border-red-300 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20'

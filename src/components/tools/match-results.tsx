@@ -133,14 +133,14 @@ interface EmptyStateProps {
  */
 function EmptyState({ translations }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-      <div className="w-20 h-20 rounded-full bg-teal-50 dark:bg-teal-900/20 flex items-center justify-center mb-6">
-        <FileSearch className="w-10 h-10 text-teal-500 dark:text-teal-400" />
+    <div className="flex flex-col items-center justify-center py-10 sm:py-16 px-4 text-center">
+      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-teal-50 dark:bg-teal-900/20 flex items-center justify-center mb-4 sm:mb-6">
+        <FileSearch className="w-8 h-8 sm:w-10 sm:h-10 text-teal-500 dark:text-teal-400" />
       </div>
-      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+      <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
         {translations.emptyStateTitle}
       </h3>
-      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
+      <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
         {translations.emptyStateDescription}
       </p>
     </div>
@@ -166,7 +166,7 @@ function SkillBadge({ skill, variant }: SkillBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium',
+        'inline-flex items-center px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium',
         'border transition-colors',
         styles[variant]
       )}
@@ -187,11 +187,11 @@ interface SectionHeaderProps {
  */
 function SectionHeader({ icon, title, count }: SectionHeaderProps) {
   return (
-    <div className="flex items-center gap-2 mb-3">
+    <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
       {icon}
-      <h3 className="text-base font-semibold text-foreground">{title}</h3>
+      <h3 className="text-sm sm:text-base font-semibold text-foreground">{title}</h3>
       {count !== undefined && count > 0 && (
-        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+        <span className="inline-flex items-center justify-center px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
           {count}
         </span>
       )}
@@ -210,16 +210,16 @@ interface BulletListProps {
 function BulletList({ items, emptyMessage }: BulletListProps) {
   if (items.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground italic">{emptyMessage}</p>
+      <p className="text-xs sm:text-sm text-muted-foreground italic">{emptyMessage}</p>
     )
   }
 
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-1.5 sm:space-y-2">
       {items.map((item, index) => (
-        <li key={index} className="flex items-start gap-2 text-sm text-foreground">
-          <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500 flex-shrink-0" />
-          <span>{item}</span>
+        <li key={index} className="flex items-start gap-2 text-xs sm:text-sm text-foreground">
+          <span className="mt-1.5 w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-slate-400 dark:bg-slate-500 flex-shrink-0" />
+          <span className="leading-relaxed">{item}</span>
         </li>
       ))}
     </ul>
@@ -278,61 +278,61 @@ export function MatchResults({
   return (
     <div className={cn('w-full flex flex-col', className)}>
       {/* Score gauge section - centered at top */}
-      <div className="flex flex-col items-center gap-2 pb-6">
+      <div className="flex flex-col items-center gap-1.5 sm:gap-2 pb-4 sm:pb-6">
         <ScoreGauge score={analysis.matchScore} size={gaugeSize} />
-        <p className="text-base font-semibold text-foreground">
+        <p className="text-sm sm:text-base font-semibold text-foreground">
           {translations.matchScore}
         </p>
         {/* Analyzed at timestamp */}
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs sm:text-sm text-muted-foreground text-center">
           {translations.analyzedAt} {formatAnalysisDate(analysis.analyzedAt, locale)}
         </p>
       </div>
 
       {/* Matched skills section */}
-      <div className="py-5 border-t border-slate-100 dark:border-slate-700">
+      <div className="py-4 sm:py-5 border-t border-slate-100 dark:border-slate-700">
         <SectionHeader
-          icon={<CheckCircle2 className="w-5 h-5 text-teal-600 dark:text-teal-400" />}
+          icon={<CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-teal-600 dark:text-teal-400" />}
           title={translations.matchedSkills}
           count={analysis.matchedSkills.length}
         />
         {analysis.matchedSkills.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
             {analysis.matchedSkills.map((skill, index) => (
               <SkillBadge key={index} skill={skill} variant="matched" />
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground italic">
+          <p className="text-xs sm:text-sm text-muted-foreground italic">
             {translations.noSkillsFound}
           </p>
         )}
       </div>
 
       {/* Missing skills section */}
-      <div className="py-5 border-t border-slate-100 dark:border-slate-700">
+      <div className="py-4 sm:py-5 border-t border-slate-100 dark:border-slate-700">
         <SectionHeader
-          icon={<AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />}
+          icon={<AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 dark:text-amber-400" />}
           title={translations.missingSkills}
           count={analysis.missingSkills.length}
         />
         {analysis.missingSkills.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
             {analysis.missingSkills.map((skill, index) => (
               <SkillBadge key={index} skill={skill} variant="missing" />
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground italic">
+          <p className="text-xs sm:text-sm text-muted-foreground italic">
             {translations.noMissingSkills}
           </p>
         )}
       </div>
 
       {/* Recommendations section */}
-      <div className="py-5 border-t border-slate-100 dark:border-slate-700">
+      <div className="py-4 sm:py-5 border-t border-slate-100 dark:border-slate-700">
         <SectionHeader
-          icon={<Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
+          icon={<Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />}
           title={translations.recommendations}
           count={analysis.recommendations.length}
         />
@@ -343,9 +343,9 @@ export function MatchResults({
       </div>
 
       {/* Strengths section */}
-      <div className="py-5 border-t border-slate-100 dark:border-slate-700">
+      <div className="py-4 sm:py-5 border-t border-slate-100 dark:border-slate-700">
         <SectionHeader
-          icon={<Trophy className="w-5 h-5 text-purple-600 dark:text-purple-400" />}
+          icon={<Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 dark:text-purple-400" />}
           title={translations.strengths}
           count={analysis.strengths.length}
         />

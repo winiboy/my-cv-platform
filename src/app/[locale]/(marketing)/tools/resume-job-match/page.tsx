@@ -218,31 +218,31 @@ export default async function ResumeJobMatchPage({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 overflow-x-hidden">
       {/* Hero Section - Gradient from teal to slate */}
-      <section className="bg-gradient-to-br from-teal-600 via-teal-500 to-slate-600 px-4 py-16 sm:px-6 sm:py-20 md:px-8 lg:px-12 xl:px-16">
+      <section className="bg-gradient-to-br from-teal-600 via-teal-500 to-slate-600 px-4 py-10 sm:px-6 sm:py-16 md:py-20 md:px-8 lg:px-12 xl:px-16">
         <div className="mx-auto max-w-4xl text-center">
           {/* Back Link */}
           <Link
             href={`/${locale}/tools`}
-            className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-teal-100 transition-colors hover:text-white"
+            className="mb-4 sm:mb-6 inline-flex items-center gap-2 text-sm font-medium text-teal-100 transition-colors hover:text-white min-h-[44px] px-2 -mx-2"
           >
             <ArrowLeft className="h-4 w-4" />
             {t.detail.backToTools}
           </Link>
 
-          <h1 className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
+          <h1 className="mt-2 sm:mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl lg:text-5xl">
             {t.resumeJobMatch.title}
           </h1>
 
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-teal-100 sm:mt-6 sm:text-xl">
+          <p className="mx-auto mt-3 sm:mt-4 max-w-2xl text-base text-teal-100 sm:mt-6 sm:text-lg md:text-xl leading-relaxed">
             {t.resumeJobMatch.subtitle}
           </p>
         </div>
       </section>
 
       {/* Content Section - No auth required */}
-      <section className="px-4 py-8 sm:px-6 sm:py-12 md:px-8 lg:px-12 xl:px-16">
+      <section className="px-4 py-6 sm:px-6 sm:py-8 md:py-12 md:px-8 lg:px-12 xl:px-16">
         <div className="mx-auto max-w-7xl">
           <ResumeJobMatchClient
             locale={locale}
