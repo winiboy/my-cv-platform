@@ -38,6 +38,11 @@
 
 ### US-007: Add i18n translations for tools page (English)
 - Status: PASS
-- Commit: pending
+- Commit: 92c85b7
 - Notes: Created src/locales/en/tools.json with all translations. Updated i18n.ts and use-translation.ts with tools namespace. Both tools pages now use translation keys. Typecheck passes.
+
+### US-008: Add i18n translations for French, German, Italian
+- Status: PASS
+- Commit: pending
+- Notes: Created fr/tools.json, de/tools.json, it/tools.json. Updated i18n.ts and use-translation.ts to use native locale files. All keys match English structure. Typecheck passes.
 

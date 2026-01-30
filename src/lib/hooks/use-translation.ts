@@ -14,20 +14,23 @@ import fr_jobs from '@/locales/fr/jobs.json'
 import de_jobs from '@/locales/de/jobs.json'
 import en_jobs from '@/locales/en/jobs.json'
 import it_jobs from '@/locales/it/jobs.json'
+import fr_tools from '@/locales/fr/tools.json'
+import de_tools from '@/locales/de/tools.json'
 import en_tools from '@/locales/en/tools.json'
+import it_tools from '@/locales/it/tools.json'
 
 const translations = {
   fr: {
     common: fr_common,
     marketing: fr_marketing,
     jobs: fr_jobs,
-    tools: en_tools, // Fallback to English until French translations are added
+    tools: fr_tools,
   },
   de: {
     common: de_common,
     marketing: de_marketing,
     jobs: de_jobs,
-    tools: en_tools, // Fallback to English until German translations are added
+    tools: de_tools,
   },
   en: {
     common: en_common,
@@ -39,7 +42,7 @@ const translations = {
     common: it_common,
     marketing: it_marketing,
     jobs: it_jobs,
-    tools: en_tools, // Fallback to English until Italian translations are added
+    tools: it_tools,
   },
 }
 

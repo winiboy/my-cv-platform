@@ -1,0 +1,54 @@
+{
+  "page": {
+    "title": "Karriere-Tools",
+    "subtitle": "Alles, was Sie brauchen, um Ihren Traumjob zu finden. Unsere kostenlosen Tools helfen Ihnen, professionelle Lebensläufe zu erstellen, Ihre Bewerbung zu optimieren und Ihre Bewerbungen zu verfolgen.",
+    "metaTitle": "Karriere-Tools | Lebenslauf-Ersteller, CV-Prüfer und mehr",
+    "metaDescription": "Entdecken Sie unsere kostenlosen Karriere-Tools: Lebenslauf-Ersteller, CV-Prüfer, Anschreiben-Generator und Bewerbungs-Tracker. Steigern Sie noch heute Ihre Jobsuche."
+  },
+  "tools": {
+    "resumeChecker": {
+      "title": "Lebenslauf-Prüfer",
+      "description": "Analysieren Sie Ihren Lebenslauf auf Vollständigkeit und Formatierungsprobleme. Erhalten Sie umsetzbare Empfehlungen, um sicherzustellen, dass Ihr Dokument professionellen Standards entspricht."
+    },
+    "resumeJobMatch": {
+      "title": "Lebenslauf-Stellenanzeigen-Abgleich",
+      "description": "Vergleichen Sie Ihren Lebenslauf mit spezifischen Stellenanzeigen. Identifizieren Sie fehlende Schlüsselwörter und Fähigkeiten, um Ihre Bewerbungserfolgsquote zu verbessern."
+    },
+    "coverLetterGenerator": {
+      "title": "Anschreiben-Generator",
+      "description": "Erstellen Sie überzeugende Anschreiben, die auf Ihre Zielposition zugeschnitten sind. Unsere KI verfasst personalisierte Inhalte, die Ihre relevanten Qualifikationen hervorheben."
+    },
+    "resumeReviewer": {
+      "title": "Lebenslauf-Bewerter",
+      "description": "Erhalten Sie detailliertes Feedback zu Inhalt und Struktur Ihres Lebenslaufs. Verstehen Sie, worauf Personalverantwortliche achten und wie Sie Ihr Profil stärken können."
+    },
+    "resumeGrammarChecker": {
+      "title": "Lebenslauf-Grammatikprüfer",
+      "description": "Überprüfen Sie Ihren Lebenslauf auf Rechtschreibfehler, Grammatikfehler und inkonsistente Zeichensetzung. Präsentieren Sie potenziellen Arbeitgebern ein makelloses Dokument."
+    },
+    "cvChecker": {
+      "title": "CV-Prüfer",
+      "description": "Bewerten Sie Ihren CV für akademische und berufliche Positionen. Stellen Sie sicher, dass Ihr Curriculum Vitae den Branchenkonventionen entspricht und Ihre Erfolge präsentiert."
+    },
+    "coverLetterChecker": {
+      "title": "Anschreiben-Prüfer",
+      "description": "Überprüfen Sie Ihr Anschreiben auf Ton, Klarheit und Überzeugungskraft. Stellen Sie sicher, dass Ihre Einleitung bei Personalverantwortlichen einen starken ersten Eindruck hinterlässt."
+    }
+  },
+  "cta": {
+    "title": "Bereit, Ihre Karriere voranzutreiben?",
+    "subtitle": "Nutzen Sie noch heute unsere kostenlosen Tools und finden Sie schneller Ihren Traumjob.",
+    "button": "Kostenlos starten"
+  },
+  "detail": {
+    "backToTools": "Zurück zu den Tools",
+    "comingSoon": "Demnächst verfügbar",
+    "workingOnIt": "Wir arbeiten intensiv daran, Ihnen dieses leistungsstarke Tool bereitzustellen. Bleiben Sie gespannt auf Updates.",
+    "underDevelopment": "befindet sich derzeit in Entwicklung. Wir bauen etwas Grossartiges, um Ihnen bei Ihrer Jobsuche zum Erfolg zu verhelfen.",
+    "exploreOther": "Andere Tools entdecken",
+    "invalidTool": "Dieses Tool existiert nicht. Bitte überprüfen Sie die URL und versuchen Sie es erneut.",
+    "viewAllTools": "Alle Tools anzeigen",
+    "metaTitleSuffix": "Karriere-Tools - Demnächst verfügbar",
+    "metaDescriptionPrefix": "Unser {toolName}-Tool kommt bald. Lassen Sie sich benachrichtigen, wenn dieses leistungsstarke Karriere-Tool verfügbar wird, um Ihnen zu helfen, Ihren Traumjob zu finden."
+  }
+}
