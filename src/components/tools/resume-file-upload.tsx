@@ -130,9 +130,23 @@ export function ResumeFileUpload({
           body: formData,
         })
 
+        // Check response.ok BEFORE attempting to parse JSON
+        if (!response.ok) {
+          // Try to parse error details from JSON body, fallback to status text
+          let errorMessage = translations.extractionFailedError
+          try {
+            const errorData: ExtractTextResponse = await response.json()
+            errorMessage = errorData.message || errorData.error || translations.extractionFailedError
+          } catch {
+            // JSON parsing failed, use status text as fallback
+            errorMessage = response.statusText || translations.extractionFailedError
+          }
+          throw new Error(errorMessage)
+        }
+
         const data: ExtractTextResponse = await response.json()
 
-        if (!response.ok || !data.success) {
+        if (!data.success) {
           throw new Error(data.message || data.error || translations.extractionFailedError)
         }
 
