@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
 } from 'react'
 import { useSession } from 'next-auth/react'
-import { Loader2, BarChart3, FileText, Upload, FolderOpen, Link } from 'lucide-react'
+import { Loader2, BarChart3, FileText, Upload, FolderOpen, Link, Briefcase } from 'lucide-react'
 import {
   ResumeTextInput,
   type ResumeTextInputTranslations,
@@ -50,6 +50,12 @@ import type {
  * 'link' allows users to link to a saved resume from their account.
  */
 type ResumeInputTab = 'link' | 'paste' | 'upload' | 'saved'
+
+/**
+ * Enum for the two job description input methods available in the tabbed interface.
+ * 'paste' allows manual text entry, 'link' allows linking to saved jobs (placeholder).
+ */
+type JobInputTab = 'paste' | 'link'
 
 /**
  * Minimum character thresholds for input validation.
@@ -135,6 +141,13 @@ export interface ResumeJobMatchTranslations {
   linkResumeTitle: string
   linkResumeDescription: string
   linkResumeLoginPrompt: string
+
+  // Job input tab translations
+  tabJobPaste: string
+  tabJobLink: string
+  linkJobTitle: string
+  linkJobDescription: string
+  linkJobLoginPrompt: string
 
   // ResumeLinker translations
   resumeLinker: ResumeLinkerTranslations
@@ -353,8 +366,14 @@ export function ResumeJobMatchClient({
   // Tab state management - starts on link tab (the first tab)
   const [activeTab, setActiveTab] = useState<ResumeInputTab>('link')
 
+  // Job input tab state management - starts on paste tab (the default)
+  const [activeJobTab, setActiveJobTab] = useState<JobInputTab>('paste')
+
   // Refs for tab navigation
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
+
+  // Refs for job tab navigation
+  const jobTabRefs = useRef<(HTMLButtonElement | null)[]>([])
 
   const toast = useToast()
 
@@ -406,6 +425,72 @@ export function ResumeJobMatchClient({
       }
     },
     [availableTabs.length]
+  )
+
+  /**
+   * Available tabs for job description input.
+   * Always shows both 'paste' and 'link' tabs.
+   */
+  const availableJobTabs: JobInputTab[] = useMemo(() => {
+    return ['paste', 'link']
+  }, [])
+
+  /**
+   * Handles keyboard navigation for job tabs.
+   * Arrow keys move focus between tabs, Enter/Space activates.
+   */
+  const handleJobTabKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLButtonElement>, tabIndex: number) => {
+      const tabCount = availableJobTabs.length
+
+      switch (event.key) {
+        case 'ArrowLeft': {
+          event.preventDefault()
+          const prevIndex = tabIndex === 0 ? tabCount - 1 : tabIndex - 1
+          jobTabRefs.current[prevIndex]?.focus()
+          break
+        }
+        case 'ArrowRight': {
+          event.preventDefault()
+          const nextIndex = tabIndex === tabCount - 1 ? 0 : tabIndex + 1
+          jobTabRefs.current[nextIndex]?.focus()
+          break
+        }
+        case 'Home': {
+          event.preventDefault()
+          jobTabRefs.current[0]?.focus()
+          break
+        }
+        case 'End': {
+          event.preventDefault()
+          jobTabRefs.current[tabCount - 1]?.focus()
+          break
+        }
+        // Enter and Space are handled by the button's onClick
+      }
+    },
+    [availableJobTabs.length]
+  )
+
+  /**
+   * Get tab label and icon for a given job tab type.
+   */
+  const getJobTabConfig = useCallback(
+    (tab: JobInputTab) => {
+      switch (tab) {
+        case 'paste':
+          return {
+            label: translations.tabJobPaste,
+            icon: FileText,
+          }
+        case 'link':
+          return {
+            label: translations.tabJobLink,
+            icon: Briefcase,
+          }
+      }
+    },
+    [translations]
   )
 
   /**
@@ -901,13 +986,96 @@ export function ResumeJobMatchClient({
               </div>
             </div>
 
-            {/* Job description input */}
-            <JobDescriptionInput
-              value={jobDescription}
-              onChange={setJobDescription}
-              translations={jobInputTranslations}
-              minChars={MIN_JOB_DESCRIPTION_CHARS}
-            />
+            {/* Tabbed job description input interface */}
+            <div className="space-y-3 sm:space-y-4">
+              {/* Job tab buttons */}
+              <div
+                role="tablist"
+                aria-label="Job description input methods"
+                className="flex border-b border-slate-200 dark:border-slate-700 overflow-x-auto scrollbar-none"
+              >
+                {availableJobTabs.map((tab, index) => {
+                  const { label, icon: Icon } = getJobTabConfig(tab)
+                  const isActive = activeJobTab === tab
+
+                  return (
+                    <button
+                      key={tab}
+                      ref={(el) => {
+                        jobTabRefs.current[index] = el
+                      }}
+                      role="tab"
+                      id={`job-tab-${tab}`}
+                      aria-selected={isActive}
+                      aria-controls={`job-tabpanel-${tab}`}
+                      tabIndex={isActive ? 0 : -1}
+                      onClick={() => setActiveJobTab(tab)}
+                      onKeyDown={(e) => handleJobTabKeyDown(e, index)}
+                      className={cn(
+                        'flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium whitespace-nowrap',
+                        'border-b-2 -mb-px transition-all duration-200 min-h-[44px] cursor-pointer',
+                        'focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 focus-visible:rounded-t-md',
+                        isActive
+                          ? 'border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400'
+                          : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                      )}
+                    >
+                      <Icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                      <span>{label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Job tab panels */}
+              <div className="pt-2">
+                {/* Paste Text Tab Panel */}
+                <div
+                  role="tabpanel"
+                  id="job-tabpanel-paste"
+                  aria-labelledby="job-tab-paste"
+                  hidden={activeJobTab !== 'paste'}
+                  tabIndex={0}
+                >
+                  {activeJobTab === 'paste' && (
+                    <JobDescriptionInput
+                      value={jobDescription}
+                      onChange={setJobDescription}
+                      translations={jobInputTranslations}
+                      minChars={MIN_JOB_DESCRIPTION_CHARS}
+                    />
+                  )}
+                </div>
+
+                {/* Link to Job Tab Panel - placeholder for future feature */}
+                <div
+                  role="tabpanel"
+                  id="job-tabpanel-link"
+                  aria-labelledby="job-tab-link"
+                  hidden={activeJobTab !== 'link'}
+                  tabIndex={0}
+                >
+                  {activeJobTab === 'link' && (
+                    <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 p-6 text-center">
+                      <Briefcase className="mx-auto h-10 w-10 text-slate-400 dark:text-slate-500 mb-3" />
+                      <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">
+                        {translations.linkJobTitle}
+                      </h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                        {isAuthenticated
+                          ? translations.linkJobDescription
+                          : translations.linkJobLoginPrompt}
+                      </p>
+                      {!isAuthenticated && (
+                        <p className="text-xs text-slate-400 dark:text-slate-500">
+                          {translations.linkJobLoginPrompt}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Analyze button - inside card */}

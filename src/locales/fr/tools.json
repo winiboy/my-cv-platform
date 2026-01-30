@@ -115,7 +115,12 @@
       "resumeLoadError": "Échec du chargement du contenu du CV.",
       "linkResumeTitle": "Lier un CV enregistré",
       "linkResumeDescription": "Connectez directement l'un de vos CV enregistrés pour une analyse rapide. Le composant ResumeLinker sera bientôt disponible ici.",
-      "linkResumeLoginPrompt": "Connectez-vous pour lier vos CV enregistrés."
+      "linkResumeLoginPrompt": "Connectez-vous pour lier vos CV enregistrés.",
+      "tabJobPaste": "Coller le texte",
+      "tabJobLink": "Lier une offre",
+      "linkJobTitle": "Lier une offre enregistrée",
+      "linkJobDescription": "Sélectionnez une offre parmi vos candidatures suivies",
+      "linkJobLoginPrompt": "Connectez-vous pour lier vos offres enregistrées"
     }
   },
   "resumeLinker": {

@@ -115,7 +115,12 @@
       "resumeLoadError": "Fehler beim Laden des Lebenslauf-Inhalts.",
       "linkResumeTitle": "Gespeicherten Lebenslauf verknüpfen",
       "linkResumeDescription": "Verbinden Sie einen Ihrer gespeicherten Lebensläufe direkt für eine schnelle Analyse. Die ResumeLinker-Komponente wird hier bald verfügbar sein.",
-      "linkResumeLoginPrompt": "Melden Sie sich an, um Ihre gespeicherten Lebensläufe zu verknüpfen."
+      "linkResumeLoginPrompt": "Melden Sie sich an, um Ihre gespeicherten Lebensläufe zu verknüpfen.",
+      "tabJobPaste": "Text einfügen",
+      "tabJobLink": "Stelle verknüpfen",
+      "linkJobTitle": "Gespeicherte Stelle verknüpfen",
+      "linkJobDescription": "Wählen Sie eine Stelle aus Ihren verfolgten Bewerbungen",
+      "linkJobLoginPrompt": "Melden Sie sich an, um Ihre gespeicherten Stellen zu verknüpfen"
     }
   },
   "resumeLinker": {

@@ -81,6 +81,12 @@ interface ResumeJobMatchPageTranslations {
     linkResumeTitle?: string
     linkResumeDescription?: string
     linkResumeLoginPrompt?: string
+    // Job input tabs
+    tabJobPaste?: string
+    tabJobLink?: string
+    linkJobTitle?: string
+    linkJobDescription?: string
+    linkJobLoginPrompt?: string
   }
 }
 
@@ -243,6 +249,17 @@ export default async function ResumeJobMatchPage({
     linkResumeLoginPrompt:
       t.resumeJobMatch.ui.linkResumeLoginPrompt ||
       'Sign in to link your saved resumes.',
+
+    // Job input tab translations
+    tabJobPaste: t.resumeJobMatch.ui.tabJobPaste || 'Paste text',
+    tabJobLink: t.resumeJobMatch.ui.tabJobLink || 'Link to job',
+    linkJobTitle: t.resumeJobMatch.ui.linkJobTitle || 'Link to a saved job',
+    linkJobDescription:
+      t.resumeJobMatch.ui.linkJobDescription ||
+      'Select a job from your tracked applications',
+    linkJobLoginPrompt:
+      t.resumeJobMatch.ui.linkJobLoginPrompt ||
+      'Sign in to link to your saved jobs',
 
     // ResumeLinker translations
     resumeLinker: {

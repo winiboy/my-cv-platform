@@ -115,7 +115,12 @@
       "resumeLoadError": "Failed to load resume content.",
       "linkResumeTitle": "Link to a Saved Resume",
       "linkResumeDescription": "Connect one of your saved resumes directly for quick analysis. The ResumeLinker component will be available here soon.",
-      "linkResumeLoginPrompt": "Sign in to link your saved resumes."
+      "linkResumeLoginPrompt": "Sign in to link your saved resumes.",
+      "tabJobPaste": "Paste text",
+      "tabJobLink": "Link to job",
+      "linkJobTitle": "Link to a saved job",
+      "linkJobDescription": "Select a job from your tracked applications",
+      "linkJobLoginPrompt": "Sign in to link to your saved jobs"
     }
   },
   "resumeLinker": {

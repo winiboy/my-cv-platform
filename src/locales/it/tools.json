@@ -115,7 +115,12 @@
       "resumeLoadError": "Impossibile caricare il contenuto del CV.",
       "linkResumeTitle": "Collega un CV salvato",
       "linkResumeDescription": "Collega direttamente uno dei tuoi CV salvati per un'analisi rapida. Il componente ResumeLinker sarà presto disponibile qui.",
-      "linkResumeLoginPrompt": "Accedi per collegare i tuoi CV salvati."
+      "linkResumeLoginPrompt": "Accedi per collegare i tuoi CV salvati.",
+      "tabJobPaste": "Incolla testo",
+      "tabJobLink": "Collega offerta",
+      "linkJobTitle": "Collega un'offerta salvata",
+      "linkJobDescription": "Seleziona un'offerta dalle tue candidature tracciate",
+      "linkJobLoginPrompt": "Accedi per collegare le tue offerte salvate"
     }
   },
   "resumeLinker": {
