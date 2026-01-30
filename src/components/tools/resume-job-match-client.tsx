@@ -509,6 +509,53 @@ export function ResumeJobMatchClient({
   )
 
   /**
+   * Handles resume tab changes with mutual exclusivity.
+   * Ensures only one input method is active at a time by clearing
+   * conflicting state when switching between tabs.
+   *
+   * - When switching TO 'link' or 'saved' tabs: clears resumeText (pasted/uploaded content)
+   * - When switching FROM 'link' tab: clears linkedResumeId
+   * - When switching FROM 'saved' tab: clears selectedResumeId
+   */
+  const handleResumeTabChange = useCallback(
+    (newTab: ResumeInputTab) => {
+      const previousTab = activeTab
+
+      // If switching to the same tab, do nothing
+      if (newTab === previousTab) {
+        return
+      }
+
+      // Clear state from the previous tab
+      switch (previousTab) {
+        case 'link':
+          // Leaving link tab: clear linked resume selection
+          setLinkedResumeId(null)
+          break
+        case 'saved':
+          // Leaving saved tab: clear saved resume selection
+          setSelectedResumeId(null)
+          break
+        // 'paste' and 'upload' tabs share resumeText, handled below
+      }
+
+      // Clear resumeText when switching between different input methods
+      // to ensure mutual exclusivity
+      if (previousTab !== newTab) {
+        // Clear resume text when:
+        // - Switching from paste/upload to link/saved (linked resumes load their own text)
+        // - Switching from link/saved to paste/upload (start fresh)
+        // - Switching between any tabs (ensure clean slate)
+        setResumeText('')
+      }
+
+      // Set the new active tab
+      setActiveTab(newTab)
+    },
+    [activeTab]
+  )
+
+  /**
    * Get tab label and icon for a given tab type.
    */
   const getTabConfig = useCallback(
@@ -890,7 +937,7 @@ export function ResumeJobMatchClient({
                       aria-selected={isActive}
                       aria-controls={`tabpanel-${tab}`}
                       tabIndex={isActive ? 0 : -1}
-                      onClick={() => setActiveTab(tab)}
+                      onClick={() => handleResumeTabChange(tab)}
                       onKeyDown={(e) => handleTabKeyDown(e, index)}
                       className={cn(
                         'flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium whitespace-nowrap',
