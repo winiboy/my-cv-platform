@@ -380,6 +380,8 @@ export function ResumeJobMatchClient({
 
   // State for job URL input in the job 'link' tab
   const [jobUrl, setJobUrl] = useState('')
+  const [isExtractingUrl, setIsExtractingUrl] = useState(false)
+  const [urlError, setUrlError] = useState<string | null>(null)
 
   // Tab state management - starts on link tab (the first tab)
   const [activeTab, setActiveTab] = useState<ResumeInputTab>('link')
@@ -855,6 +857,81 @@ export function ResumeJobMatchClient({
   }, [])
 
   /**
+   * Handles extraction of job description from a URL.
+   * Calls the API endpoint and populates the job description on success.
+   */
+  const handleExtractJobUrl = useCallback(async () => {
+    // Validate URL is not empty
+    const trimmedUrl = jobUrl.trim()
+    if (!trimmedUrl) {
+      setUrlError('Please enter a job posting URL')
+      return
+    }
+
+    // Basic URL validation
+    try {
+      new URL(trimmedUrl)
+    } catch {
+      setUrlError('Please enter a valid URL')
+      return
+    }
+
+    setIsExtractingUrl(true)
+    setUrlError(null)
+
+    try {
+      const response = await fetch('/api/tools/extract-job-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: trimmedUrl }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        // API returned an error
+        const errorMessage = data.message || data.error || 'Failed to extract job description'
+        setUrlError(errorMessage)
+        return
+      }
+
+      // Success - populate job description
+      if (data.jobDescription) {
+        setJobDescription(data.jobDescription)
+        // Clear the linked job selection since we're using URL extraction
+        setLinkedJobId(null)
+        // Clear URL error on success
+        setUrlError(null)
+      } else {
+        setUrlError('No job description found in the response')
+      }
+    } catch (err) {
+      console.error('Error extracting job from URL:', err)
+      setUrlError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to extract job description. Please try again or paste manually.'
+      )
+    } finally {
+      setIsExtractingUrl(false)
+    }
+  }, [jobUrl])
+
+  /**
+   * Handles Enter key press in the URL input field.
+   * Triggers extraction when Enter is pressed.
+   */
+  const handleUrlKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter' && !isExtractingUrl) {
+        event.preventDefault()
+        handleExtractJobUrl()
+      }
+    },
+    [handleExtractJobUrl, isExtractingUrl]
+  )
+
+  /**
    * Determines if the analyze button should be enabled.
    * Both inputs must meet their minimum character requirements.
    */
@@ -1220,50 +1297,94 @@ export function ResumeJobMatchClient({
                         translations={translations.jobLinker}
                       />
 
-                      {/* Job URL input field */}
-                      <div className="relative">
+                      {/* Job URL input field with Extract button */}
+                      <div className="space-y-2">
                         <label
                           htmlFor="job-url-input"
-                          className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5"
+                          className="block text-sm font-medium text-slate-700 dark:text-slate-300"
                         >
                           Or paste a job posting URL
                         </label>
-                        <div className="relative">
-                          <input
-                            id="job-url-input"
-                            type="url"
-                            value={jobUrl}
-                            onChange={(e) => setJobUrl(e.target.value)}
-                            placeholder="https://example.com/job/..."
-                            className={cn(
-                              'w-full px-3 py-2.5 pr-10 rounded-lg border',
-                              'text-sm text-slate-900 dark:text-slate-100',
-                              'bg-white dark:bg-slate-800',
-                              'border-slate-300 dark:border-slate-600',
-                              'placeholder:text-slate-400 dark:placeholder:text-slate-500',
-                              'focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500',
-                              'transition-colors duration-200'
-                            )}
-                          />
-                          {jobUrl && (
-                            <button
-                              type="button"
-                              onClick={() => setJobUrl('')}
-                              aria-label="Clear URL"
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <input
+                              id="job-url-input"
+                              type="url"
+                              value={jobUrl}
+                              onChange={(e) => {
+                                setJobUrl(e.target.value)
+                                // Clear error when user starts typing
+                                if (urlError) setUrlError(null)
+                              }}
+                              onKeyDown={handleUrlKeyDown}
+                              placeholder="https://example.com/job/..."
+                              disabled={isExtractingUrl}
                               className={cn(
-                                'absolute right-2 top-1/2 -translate-y-1/2',
-                                'p-1 rounded-full',
-                                'text-slate-400 hover:text-slate-600',
-                                'dark:text-slate-500 dark:hover:text-slate-300',
-                                'hover:bg-slate-100 dark:hover:bg-slate-700',
+                                'w-full px-3 py-2.5 pr-10 rounded-lg border',
+                                'text-sm text-slate-900 dark:text-slate-100',
+                                'bg-white dark:bg-slate-800',
+                                'placeholder:text-slate-400 dark:placeholder:text-slate-500',
+                                'focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500',
                                 'transition-colors duration-200',
-                                'focus:outline-none focus:ring-2 focus:ring-teal-500'
+                                'disabled:opacity-50 disabled:cursor-not-allowed',
+                                urlError
+                                  ? 'border-red-500 dark:border-red-500'
+                                  : 'border-slate-300 dark:border-slate-600'
                               )}
-                            >
-                              <X className="h-4 w-4" aria-hidden="true" />
-                            </button>
-                          )}
+                            />
+                            {jobUrl && !isExtractingUrl && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setJobUrl('')
+                                  setUrlError(null)
+                                }}
+                                aria-label="Clear URL"
+                                className={cn(
+                                  'absolute right-2 top-1/2 -translate-y-1/2',
+                                  'p-1 rounded-full',
+                                  'text-slate-400 hover:text-slate-600',
+                                  'dark:text-slate-500 dark:hover:text-slate-300',
+                                  'hover:bg-slate-100 dark:hover:bg-slate-700',
+                                  'transition-colors duration-200',
+                                  'focus:outline-none focus:ring-2 focus:ring-teal-500'
+                                )}
+                              >
+                                <X className="h-4 w-4" aria-hidden="true" />
+                              </button>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleExtractJobUrl}
+                            disabled={isExtractingUrl || !jobUrl.trim()}
+                            aria-busy={isExtractingUrl}
+                            className={cn(
+                              'inline-flex items-center justify-center gap-2 px-4 py-2.5',
+                              'bg-teal-600 text-white font-medium rounded-lg',
+                              'text-sm whitespace-nowrap',
+                              'shadow-sm transition-all duration-200',
+                              'hover:bg-teal-700 hover:shadow-md',
+                              'focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2',
+                              'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-teal-600 disabled:hover:shadow-sm'
+                            )}
+                          >
+                            {isExtractingUrl ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                                <span>Extracting...</span>
+                              </>
+                            ) : (
+                              <span>Extract</span>
+                            )}
+                          </button>
                         </div>
+                        {/* URL extraction error message */}
+                        {urlError && (
+                          <p className="text-sm text-red-600 dark:text-red-400">
+                            {urlError}
+                          </p>
+                        )}
                       </div>
 
                       {isLoadingJob && linkedJobId && (
@@ -1272,8 +1393,8 @@ export function ResumeJobMatchClient({
                           {translations.loadingJobDescription || 'Loading job description...'}
                         </div>
                       )}
-                      {/* Show loaded job description preview when a linked job is selected */}
-                      {jobDescription && linkedJobId && !isLoadingJob && (
+                      {/* Show loaded job description preview when populated */}
+                      {jobDescription && !isLoadingJob && !isExtractingUrl && (
                         <div className="mt-4">
                           <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                             {translations.jobLabel}
@@ -1302,7 +1423,7 @@ export function ResumeJobMatchClient({
             <button
               type="button"
               onClick={handleAnalyze}
-              disabled={!canAnalyze || isLoadingResume || isLoadingJob}
+              disabled={!canAnalyze || isLoadingResume || isLoadingJob || isExtractingUrl}
               aria-busy={isLoading}
               className={cn(
                 'inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3',
