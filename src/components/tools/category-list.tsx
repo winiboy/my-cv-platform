@@ -1,8 +1,9 @@
 'use client'
 
-import { CheckCircle2, AlertTriangle, XCircle, ChevronRight } from 'lucide-react'
+import { useState } from 'react'
+import { CheckCircle2, AlertTriangle, XCircle, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { AnalysisCategory, CategoryStatus } from '@/types/resume-analysis'
+import type { AnalysisCategory, AnalysisIssue, CategoryStatus, IssueSeverity } from '@/types/resume-analysis'
 
 interface CategoryListProps {
   /** Array of analysis categories to display */
@@ -52,6 +53,65 @@ function getStatusConfig(status: CategoryStatus): {
 }
 
 /**
+ * Returns severity badge styling based on issue severity level.
+ */
+function getSeverityConfig(severity: IssueSeverity): {
+  bgColor: string
+  textColor: string
+  label: string
+} {
+  switch (severity) {
+    case 'high':
+      return {
+        bgColor: 'bg-red-100 dark:bg-red-900/30',
+        textColor: 'text-red-700 dark:text-red-300',
+        label: 'High',
+      }
+    case 'medium':
+      return {
+        bgColor: 'bg-amber-100 dark:bg-amber-900/30',
+        textColor: 'text-amber-700 dark:text-amber-300',
+        label: 'Medium',
+      }
+    case 'low':
+      return {
+        bgColor: 'bg-gray-100 dark:bg-gray-800',
+        textColor: 'text-gray-600 dark:text-gray-400',
+        label: 'Low',
+      }
+  }
+}
+
+/**
+ * Renders an individual issue with severity badge, description, and suggestion.
+ */
+function IssueItem({ issue }: { issue: AnalysisIssue }) {
+  const severityConfig = getSeverityConfig(issue.severity)
+
+  return (
+    <div className="flex flex-col gap-1.5 py-2 border-b border-border/50 last:border-b-0">
+      <div className="flex items-start gap-2">
+        <span
+          className={cn(
+            'flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium',
+            severityConfig.bgColor,
+            severityConfig.textColor
+          )}
+        >
+          {severityConfig.label}
+        </span>
+        <p className="text-sm text-foreground">{issue.description}</p>
+      </div>
+      {issue.suggestion && (
+        <p className="text-sm text-muted-foreground pl-[52px]">
+          <span className="font-medium">Suggestion:</span> {issue.suggestion}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
  * CategoryList displays a list of analysis categories with their scores and status.
  * Each category is clickable and shows an icon indicating pass/warning/fail status.
  *
@@ -68,12 +128,22 @@ export function CategoryList({
   onCategoryClick,
   className,
 }: CategoryListProps) {
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
+
   if (categories.length === 0) {
     return (
       <div className={cn('text-center text-muted-foreground py-8', className)}>
         No categories to display
       </div>
     )
+  }
+
+  /**
+   * Handles category row click - toggles expansion and calls external callback if provided.
+   */
+  function handleCategoryClick(index: number) {
+    setExpandedIndex((current) => (current === index ? null : index))
+    onCategoryClick?.(index)
   }
 
   return (
@@ -85,66 +155,112 @@ export function CategoryList({
       {categories.map((category, index) => {
         const config = getStatusConfig(category.status)
         const StatusIcon = config.icon
-        const isClickable = onCategoryClick !== undefined
+        const isExpanded = expandedIndex === index
+        const hasIssues = category.issues.length > 0
 
         return (
-          <button
+          <div
             key={`${category.name}-${index}`}
-            type="button"
-            onClick={() => onCategoryClick?.(index)}
-            disabled={!isClickable}
             className={cn(
-              'flex items-center gap-3 px-4 py-3 rounded-lg border transition-all duration-150',
-              'text-left w-full',
-              config.bgColor,
+              'rounded-lg border transition-all duration-150',
               config.borderColor,
-              isClickable && [
-                'cursor-pointer',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-              ],
-              !isClickable && 'cursor-default'
+              isExpanded && 'ring-1 ring-ring/20'
             )}
-            role="listitem"
-            aria-label={`${category.name}: ${category.score} out of 100, status ${category.status}`}
           >
-            {/* Status icon */}
+            {/* Category header row */}
+            <button
+              type="button"
+              onClick={() => handleCategoryClick(index)}
+              className={cn(
+                'flex items-center gap-3 px-4 py-3 w-full transition-all duration-150',
+                'text-left cursor-pointer',
+                config.bgColor,
+                isExpanded ? 'rounded-t-lg' : 'rounded-lg',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+              )}
+              aria-expanded={isExpanded}
+              aria-controls={`category-content-${index}`}
+              aria-label={`${category.name}: ${category.score} out of 100, status ${category.status}`}
+            >
+              {/* Status icon */}
+              <div
+                className={cn(
+                  'flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full',
+                  category.status === 'pass' && 'bg-teal-100 dark:bg-teal-900/30',
+                  category.status === 'warning' && 'bg-amber-100 dark:bg-amber-900/30',
+                  category.status === 'fail' && 'bg-red-100 dark:bg-red-900/30'
+                )}
+              >
+                <StatusIcon
+                  className={cn('w-5 h-5', config.iconColor)}
+                  aria-hidden="true"
+                />
+              </div>
+
+              {/* Category name */}
+              <span className="flex-1 text-sm font-medium text-foreground truncate">
+                {category.name}
+              </span>
+
+              {/* Score */}
+              <span
+                className={cn(
+                  'flex-shrink-0 text-lg font-bold tabular-nums',
+                  config.scoreColor
+                )}
+              >
+                {category.score}
+              </span>
+
+              {/* Chevron indicator - rotates when expanded */}
+              <ChevronDown
+                className={cn(
+                  'flex-shrink-0 w-4 h-4 text-muted-foreground transition-transform duration-200',
+                  isExpanded && 'rotate-180'
+                )}
+                aria-hidden="true"
+              />
+            </button>
+
+            {/* Expanded content section with smooth animation */}
             <div
+              id={`category-content-${index}`}
               className={cn(
-                'flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full',
-                category.status === 'pass' && 'bg-teal-100 dark:bg-teal-900/30',
-                category.status === 'warning' && 'bg-amber-100 dark:bg-amber-900/30',
-                category.status === 'fail' && 'bg-red-100 dark:bg-red-900/30'
+                'overflow-hidden transition-all duration-200 ease-in-out',
+                isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
               )}
             >
-              <StatusIcon
-                className={cn('w-5 h-5', config.iconColor)}
-                aria-hidden="true"
-              />
+              <div className="px-4 py-3 bg-background/50 border-t border-border/50 rounded-b-lg">
+                {/* Feedback text */}
+                {category.feedback && (
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {category.feedback}
+                  </p>
+                )}
+
+                {/* Issues list */}
+                {hasIssues ? (
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                      Issues ({category.issues.length})
+                    </h4>
+                    <div className="divide-y divide-border/50">
+                      {category.issues.map((issue, issueIndex) => (
+                        <IssueItem
+                          key={`${category.name}-issue-${issueIndex}`}
+                          issue={issue}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-teal-600 dark:text-teal-400 font-medium">
+                    No issues found in this category.
+                  </p>
+                )}
+              </div>
             </div>
-
-            {/* Category name */}
-            <span className="flex-1 text-sm font-medium text-foreground truncate">
-              {category.name}
-            </span>
-
-            {/* Score */}
-            <span
-              className={cn(
-                'flex-shrink-0 text-lg font-bold tabular-nums',
-                config.scoreColor
-              )}
-            >
-              {category.score}
-            </span>
-
-            {/* Chevron indicator for clickable rows */}
-            {isClickable && (
-              <ChevronRight
-                className="flex-shrink-0 w-4 h-4 text-muted-foreground"
-                aria-hidden="true"
-              />
-            )}
-          </button>
+          </div>
         )
       })}
     </div>
