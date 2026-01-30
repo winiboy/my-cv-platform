@@ -51,6 +51,42 @@
     "metaTitleSuffix": "Strumenti per la carriera - Prossimamente",
     "metaDescriptionPrefix": "Il nostro strumento {toolName} arriverà presto. Ricevi una notifica quando questo potente strumento per la carriera sarà disponibile per aiutarti a trovare il lavoro dei tuoi sogni."
   },
+  "resumeJobMatch": {
+    "title": "Corrispondenza CV - Offerta di lavoro",
+    "subtitle": "Confronta il tuo CV con le descrizioni delle posizioni per identificare le lacune nelle competenze e migliorare il tuo tasso di corrispondenza.",
+    "metaTitle": "Corrispondenza CV - Lavoro | Analisi IA delle descrizioni di lavoro",
+    "metaDescription": "Confronta il tuo CV con le descrizioni delle posizioni. Identifica le competenze corrispondenti e mancanti, ottieni un punteggio di compatibilità e ricevi raccomandazioni per migliorare la tua candidatura.",
+    "auth": {
+      "title": "Accedi per analizzare il tuo CV",
+      "description": "Crea un account gratuito per accedere al nostro strumento di matching CV-lavoro alimentato dall'IA e scopri quanto il tuo profilo corrisponde alle posizioni specifiche.",
+      "benefits": {
+        "title": "Cosa otterrai:",
+        "matchScore": "Punteggio di compatibilità complessivo",
+        "matchedSkills": "Competenze corrispondenti identificate",
+        "missingSkills": "Analisi delle competenze mancanti",
+        "recommendations": "Raccomandazioni di miglioramento concrete"
+      },
+      "loginButton": "Accedi per continuare",
+      "signupPrompt": "Non hai un account?",
+      "signupLink": "Creane uno gratis"
+    },
+    "ui": {
+      "resumeLabel": "Il tuo CV",
+      "resumePlaceholder": "Incolla qui il contenuto del tuo CV...",
+      "jobLabel": "Descrizione del lavoro",
+      "jobPlaceholder": "Incolla qui la descrizione del lavoro...",
+      "analyzeButton": "Analizza corrispondenza",
+      "analyzingButton": "Analisi in corso...",
+      "matchScore": "Punteggio di corrispondenza",
+      "matchedSkills": "Competenze corrispondenti",
+      "missingSkills": "Competenze mancanti",
+      "recommendations": "Raccomandazioni",
+      "strengths": "Punti di forza",
+      "minCharsError": "Inserisci almeno {count} caratteri",
+      "emptyState": "Inserisci il tuo CV e una descrizione del lavoro per vedere la corrispondenza",
+      "backToTools": "Torna agli strumenti"
+    }
+  },
   "resumeChecker": {
     "title": "Verificatore di CV",
     "subtitle": "Ottieni feedback immediato sul tuo CV con il nostro strumento di analisi alimentato dall'IA.",

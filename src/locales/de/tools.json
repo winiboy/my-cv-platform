@@ -51,6 +51,42 @@
     "metaTitleSuffix": "Karriere-Tools - Demnächst verfügbar",
     "metaDescriptionPrefix": "Unser {toolName}-Tool kommt bald. Lassen Sie sich benachrichtigen, wenn dieses leistungsstarke Karriere-Tool verfügbar wird, um Ihnen zu helfen, Ihren Traumjob zu finden."
   },
+  "resumeJobMatch": {
+    "title": "Lebenslauf-Stellenanzeigen-Abgleich",
+    "subtitle": "Vergleichen Sie Ihren Lebenslauf mit Stellenbeschreibungen, um Kompetenzlücken zu identifizieren und Ihre Übereinstimmungsrate zu verbessern.",
+    "metaTitle": "Lebenslauf-Stellenabgleich | KI-gestützte Stellenbeschreibungsanalyse",
+    "metaDescription": "Vergleichen Sie Ihren Lebenslauf mit Stellenbeschreibungen. Identifizieren Sie übereinstimmende und fehlende Fähigkeiten, erhalten Sie einen Kompatibilitätswert und Empfehlungen zur Verbesserung Ihrer Bewerbung.",
+    "auth": {
+      "title": "Melden Sie sich an, um Ihren Lebenslauf abzugleichen",
+      "description": "Erstellen Sie ein kostenloses Konto, um auf unser KI-gestütztes Lebenslauf-Matching-Tool zuzugreifen und zu erfahren, wie gut Ihr Profil zu bestimmten Positionen passt.",
+      "benefits": {
+        "title": "Was Sie erhalten:",
+        "matchScore": "Gesamtkompatibilitätswert",
+        "matchedSkills": "Identifizierte übereinstimmende Fähigkeiten",
+        "missingSkills": "Analyse fehlender Fähigkeiten",
+        "recommendations": "Umsetzbare Verbesserungsempfehlungen"
+      },
+      "loginButton": "Anmelden um fortzufahren",
+      "signupPrompt": "Noch kein Konto?",
+      "signupLink": "Kostenlos erstellen"
+    },
+    "ui": {
+      "resumeLabel": "Ihr Lebenslauf",
+      "resumePlaceholder": "Fügen Sie hier Ihren Lebenslauf ein...",
+      "jobLabel": "Stellenbeschreibung",
+      "jobPlaceholder": "Fügen Sie hier die Stellenbeschreibung ein...",
+      "analyzeButton": "Übereinstimmung analysieren",
+      "analyzingButton": "Wird analysiert...",
+      "matchScore": "Übereinstimmungswert",
+      "matchedSkills": "Übereinstimmende Fähigkeiten",
+      "missingSkills": "Fehlende Fähigkeiten",
+      "recommendations": "Empfehlungen",
+      "strengths": "Stärken",
+      "minCharsError": "Bitte geben Sie mindestens {count} Zeichen ein",
+      "emptyState": "Geben Sie Ihren Lebenslauf und eine Stellenbeschreibung ein, um die Übereinstimmung zu sehen",
+      "backToTools": "Zurück zu den Tools"
+    }
+  },
   "resumeChecker": {
     "title": "Lebenslauf-Prüfer",
     "subtitle": "Erhalten Sie sofortiges Feedback zu Ihrem Lebenslauf mit unserem KI-gestützten Analysetool.",
