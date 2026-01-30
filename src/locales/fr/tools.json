@@ -1,0 +1,54 @@
+{
+  "page": {
+    "title": "Outils de carrière",
+    "subtitle": "Tout ce dont vous avez besoin pour décrocher l'emploi de vos rêves. Notre suite d'outils gratuits vous aide à créer des CV professionnels, optimiser votre candidature et suivre vos postulations.",
+    "metaTitle": "Outils de carrière | Créateur de CV, Vérificateur de CV et plus",
+    "metaDescription": "Découvrez notre suite d'outils de carrière gratuits : créateur de CV, vérificateur de CV, générateur de lettre de motivation et suivi de candidatures. Boostez votre recherche d'emploi dès aujourd'hui."
+  },
+  "tools": {
+    "resumeChecker": {
+      "title": "Vérificateur de CV",
+      "description": "Analysez votre CV pour vérifier son exhaustivité et sa mise en forme. Obtenez des recommandations concrètes pour garantir que votre document répond aux standards professionnels."
+    },
+    "resumeJobMatch": {
+      "title": "Correspondance CV - Offre d'emploi",
+      "description": "Comparez votre CV avec des offres d'emploi spécifiques. Identifiez les mots-clés et compétences manquants pour améliorer vos chances de succès."
+    },
+    "coverLetterGenerator": {
+      "title": "Générateur de lettre de motivation",
+      "description": "Créez des lettres de motivation percutantes adaptées au poste visé. Notre IA rédige un contenu personnalisé qui met en valeur vos qualifications pertinentes."
+    },
+    "resumeReviewer": {
+      "title": "Évaluateur de CV",
+      "description": "Recevez des commentaires détaillés sur le contenu et la structure de votre CV. Comprenez ce que recherchent les recruteurs et comment renforcer votre profil."
+    },
+    "resumeGrammarChecker": {
+      "title": "Correcteur grammatical de CV",
+      "description": "Analysez votre CV pour détecter les fautes d'orthographe, erreurs grammaticales et incohérences de ponctuation. Présentez un document impeccable aux employeurs potentiels."
+    },
+    "cvChecker": {
+      "title": "Vérificateur de curriculum vitae",
+      "description": "Évaluez votre CV pour les postes académiques et professionnels. Assurez-vous que votre curriculum vitae respecte les conventions du secteur et met en valeur vos réalisations."
+    },
+    "coverLetterChecker": {
+      "title": "Vérificateur de lettre de motivation",
+      "description": "Examinez votre lettre de motivation pour son ton, sa clarté et sa force de persuasion. Assurez-vous que votre introduction fasse une excellente première impression aux recruteurs."
+    }
+  },
+  "cta": {
+    "title": "Prêt à booster votre carrière ?",
+    "subtitle": "Commencez à utiliser nos outils gratuits dès aujourd'hui et décrochez l'emploi de vos rêves plus rapidement.",
+    "button": "Commencer gratuitement"
+  },
+  "detail": {
+    "backToTools": "Retour aux outils",
+    "comingSoon": "Bientôt disponible",
+    "workingOnIt": "Nous travaillons activement pour vous proposer cet outil puissant. Restez à l'écoute pour les mises à jour.",
+    "underDevelopment": "est actuellement en cours de développement. Nous construisons quelque chose d'extraordinaire pour vous aider à réussir dans votre recherche d'emploi.",
+    "exploreOther": "Explorer d'autres outils",
+    "invalidTool": "Cet outil n'existe pas. Veuillez vérifier l'URL et réessayer.",
+    "viewAllTools": "Voir tous les outils",
+    "metaTitleSuffix": "Outils de carrière - Bientôt disponible",
+    "metaDescriptionPrefix": "Notre outil {toolName} arrive bientôt. Soyez informé dès que cet outil de carrière puissant sera disponible pour vous aider à décrocher l'emploi de vos rêves."
+  }
+}

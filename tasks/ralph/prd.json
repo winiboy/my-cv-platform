@@ -1,291 +1,155 @@
 {
   "project": "my-cv-platform",
-  "branchName": "ralph/cv-from-job-quality",
-  "description": "Resume Creation from Job – AI Quality Analysis & Relevance Improvement. Enhance the 'Create CV from Job' flow with quality scoring, gap analysis, and iterative regeneration to ensure generated CVs are highly relevant to job descriptions.",
+  "branchName": "ralph/tools-page",
+  "description": "Tools Page – TealHQ Visual & Functional Parity. Create a new /[locale]/tools page that visually and functionally replicates TealHQ's Tools page with 7 career tools.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Create job requirements extraction utility",
-      "description": "As a system, I need to extract structured requirements (skills, responsibilities, qualifications) from job description text for CV generation and quality evaluation.",
+      "title": "Create tools page route and basic structure",
+      "description": "As a developer, I need the page route and basic layout structure so other components can be added.",
       "acceptanceCriteria": [
-        "Create src/lib/ai/job-requirements-extractor.ts",
-        "Export function extractJobRequirements(jobDescription: string, locale: string): JobRequirements",
-        "JobRequirements type includes: skills[], responsibilities[], qualifications[], niceToHaves[]",
-        "Handle empty or very short descriptions (return partial/empty arrays, no throw)",
-        "Include JSDoc comments explaining the function",
+        "Create /src/app/[locale]/(marketing)/tools/page.tsx",
+        "Page renders without errors at /en/tools",
+        "Basic metadata (title, description) set for SEO",
+        "Page uses existing layout wrapper",
         "Typecheck passes",
         "Lint passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "AI-based extraction using Groq. Handles empty/short descriptions gracefully."
+      "notes": "Server component with SEO metadata, hero section, placeholder grid. Build and lint pass."
     },
     {
       "id": "US-002",
-      "title": "Implement keyword-based extraction logic",
-      "description": "As a system, I need the extraction function to parse job descriptions and identify skills, responsibilities, and qualifications using keyword patterns.",
+      "title": "Create tool card component",
+      "description": "As a developer, I need a reusable ToolCard component to display each tool consistently.",
       "acceptanceCriteria": [
-        "Extraction uses keyword patterns (e.g., 'required:', 'responsibilities:', 'qualifications:', 'nice to have:')",
-        "Fallback to bullet-point extraction when no headers found",
-        "Support English, French, German, Italian header keywords",
-        "Return deduplicated arrays",
+        "Component accepts: icon (LucideIcon), title, description, href props",
+        "Card layout: icon at top, title below, description below title, entire card is clickable link",
+        "Proper spacing and alignment (p-6 padding, gap-4 between elements)",
+        "Component located at /src/components/marketing/tool-card.tsx",
         "Typecheck passes",
         "Lint passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "AI-based extraction supersedes keyword-based. AI inherently handles multilingual (en/fr/de/it) via prompt and deduplication via JSON parsing."
+      "notes": "Server component with LucideIcon typing, teal gradient icon container, Link wrapper."
     },
     {
       "id": "US-003",
-      "title": "Add vague job description detection",
-      "description": "As a system, I need to detect when a job description is too short or vague to generate a quality CV.",
+      "title": "Implement tool card hover and focus states",
+      "description": "As a user, I want visual feedback when interacting with tool cards.",
       "acceptanceCriteria": [
-        "Add function isJobDescriptionInsufficient(jobDescription: string, requirements: JobRequirements): boolean",
-        "Return true if: description < 100 chars OR total extractable items < 3",
-        "Export from job-requirements-extractor.ts",
+        "Hover state: subtle shadow elevation (shadow-md) and slight scale (scale-[1.02])",
+        "Focus state: visible focus ring (ring-2 ring-primary) for accessibility",
+        "Smooth transition (transition-all duration-200 ease-in-out)",
+        "Cursor changes to pointer on hover",
         "Typecheck passes",
-        "Lint passes"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Added isJobDescriptionInsufficient function with configurable thresholds (100 chars, 3 items)."
+      "notes": "Added hover shadow/scale, focus-visible ring with offset, 200ms transitions."
     },
     {
       "id": "US-004",
-      "title": "Create relevance scoring utility",
-      "description": "As a system, I need to calculate a relevance score comparing generated CV content against extracted job requirements.",
+      "title": "Create tools grid layout with hero section",
+      "description": "As a user, I want to see a clear header and all tools in an organized grid.",
       "acceptanceCriteria": [
-        "Create src/lib/ai/relevance-scorer.ts",
-        "Export function calculateRelevanceScore(cvContent: ResumeContent, jobRequirements: JobRequirements): RelevanceScore",
-        "RelevanceScore type includes: score (0-100), matchedItems[], missingItems[], genericItems[]",
-        "Score based on: skills coverage (40%), responsibilities coverage (40%), keyword presence (20%)",
-        "Score calculation is deterministic (same inputs = same score)",
+        "Hero section with centered title 'Career Tools' and subtitle explaining page purpose",
+        "Grid layout: 3 columns on desktop (lg:grid-cols-3), 2 on tablet (md:grid-cols-2), 1 on mobile",
+        "Consistent gap spacing (gap-6) between cards",
+        "Grid centered within max-w-6xl container with px-4 padding",
         "Typecheck passes",
-        "Lint passes"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Deterministic scoring with 40/40/20 weights. Fuzzy matching, generic item detection, comprehensive CV parsing."
+      "notes": "Hero with centered title/subtitle, responsive grid layout, ToolCard integration with initial tools."
     },
     {
       "id": "US-005",
-      "title": "Implement CV content text extraction for scoring",
-      "description": "As a system, I need to extract text content from CV sections for comparison against job requirements.",
+      "title": "Add all 7 tool cards with icons and descriptions",
+      "description": "As a user, I want to see all career tools with appropriate icons and descriptions.",
       "acceptanceCriteria": [
-        "Add function extractCvTextContent(resume: Resume): string[]",
-        "Extract text from: summary, experience descriptions, skills, education",
-        "Normalize text (lowercase, trim whitespace)",
-        "Export from relevance-scorer.ts",
+        "Resume Checker: FileCheck icon, links to /[locale]/tools/resume-checker",
+        "Resume Job Description Match: Target icon, links to /[locale]/tools/resume-job-match",
+        "Cover Letter Generator: PenLine icon, links to /[locale]/tools/cover-letter-generator",
+        "Resume Reviewer: MessageSquareText icon, links to /[locale]/tools/resume-reviewer",
+        "Resume Grammar Checker: SpellCheck icon, links to /[locale]/tools/resume-grammar-checker",
+        "CV Checker: FileSearch icon, links to /[locale]/tools/cv-checker",
+        "Cover Letter Checker: FileCheck2 icon, links to /[locale]/tools/cover-letter-checker",
+        "Each tool has original description text (not copied from TealHQ)",
         "Typecheck passes",
-        "Lint passes"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "Added extractCvTextContent function. Normalizes and extracts from summary, experience, skills, education."
+      "notes": "All 7 tools with correct icons and original descriptions. Typecheck passes."
     },
     {
       "id": "US-006",
-      "title": "Add quality threshold to app settings",
-      "description": "As an admin, I want a configurable quality threshold so the system knows when a CV is acceptable.",
+      "title": "Create placeholder tool detail page template",
+      "description": "As a developer, I need a placeholder page for individual tools so links work.",
       "acceptanceCriteria": [
-        "Add QUALITY_THRESHOLD constant to src/lib/constants.ts (default: 70)",
-        "Export as number type (0-100 range)",
-        "Add comment explaining the threshold purpose",
+        "Create dynamic route /src/app/[locale]/(marketing)/tools/[tool]/page.tsx",
+        "Displays tool name from URL parameter (formatted with proper capitalization)",
+        "Shows 'Coming Soon' message with consistent styling",
+        "Includes back link to main tools page",
+        "All 7 tool routes render without errors",
         "Typecheck passes",
-        "Lint passes"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
       "passes": true,
-      "notes": "Created src/lib/constants.ts with QUALITY_THRESHOLD = 70."
+      "notes": "Dynamic route with formatToolName(), Coming Soon styling, back links. Typecheck passes."
     },
     {
       "id": "US-007",
-      "title": "Create CV generation logs table",
-      "description": "As a product team, I need a database table to store CV generation analysis results for auditing.",
+      "title": "Add i18n translations for tools page (English)",
+      "description": "As a developer, I need English translations for the tools page content.",
       "acceptanceCriteria": [
-        "Create migration file for cv_generation_logs table",
-        "Columns: id (uuid), user_id (uuid), resume_id (uuid), job_id (text), score (int), gaps (jsonb), iteration (int), created_at (timestamptz)",
-        "Add RLS policy: users can only read their own logs",
-        "Migration file follows existing naming convention",
+        "Add tools namespace to /src/locales/en/ (tools.json or in common.json)",
+        "Include translations for: page title, page subtitle, all 7 tool titles, all 7 tool descriptions, coming soon text",
+        "Update tools page to use translation keys instead of hardcoded strings",
         "Typecheck passes",
         "Lint passes"
       ],
       "priority": 7,
       "passes": true,
-      "notes": "Created 005_cv_generation_logs.sql with RLS policies and indexes."
+      "notes": "Created tools.json with all translations. Updated i18n.ts and use-translation.ts. Both pages use translation keys."
     },
     {
       "id": "US-008",
-      "title": "Add generation log insert function",
-      "description": "As a system, I need to log each CV generation attempt for audit purposes.",
+      "title": "Add i18n translations for French, German, Italian",
+      "description": "As a multilingual user, I want the tools page content in my language.",
       "acceptanceCriteria": [
-        "Create src/lib/supabase/generation-logs.ts",
-        "Export function logGenerationAttempt(params: GenerationLogParams): Promise<void>",
-        "GenerationLogParams includes: userId, resumeId, jobId, score, gaps, iteration",
-        "Handle insert errors gracefully (log to console, don't throw)",
-        "Typecheck passes",
-        "Lint passes"
+        "Add translations to /src/locales/fr/ for all tools page content",
+        "Add translations to /src/locales/de/ for all tools page content",
+        "Add translations to /src/locales/it/ for all tools page content",
+        "Page renders correctly at /fr/tools, /de/tools, /it/tools",
+        "No layout breaks due to longer text in other languages",
+        "Typecheck passes"
       ],
       "priority": 8,
       "passes": true,
-      "notes": "Created logGenerationAttempt function with fail-safe error handling. Type assertion used until Supabase types are regenerated."
+      "notes": "Created fr/de/it tools.json files with natural translations. Updated i18n files. Typecheck passes."
     },
     {
       "id": "US-009",
-      "title": "Enhance CV generation prompts for job alignment",
-      "description": "As a system, I need enhanced prompts that explicitly instruct the AI to align CV content with job requirements.",
+      "title": "Visual polish and responsive verification",
+      "description": "As a user, I want the tools page to look polished and work on all screen sizes.",
       "acceptanceCriteria": [
-        "Update prompts.ts to include job requirements in CV generation prompts",
-        "Prompt includes: 'Align skills with: [extracted skills]'",
-        "Prompt includes: 'Reflect responsibilities: [extracted responsibilities]'",
-        "Prompt includes: 'Avoid generic content not related to the job'",
-        "No changes to existing API endpoint signatures",
+        "Spacing is consistent across all elements (hero, grid, cards)",
+        "Typography uses project design system (text-3xl for title, text-lg for subtitle, text-xl for card titles)",
+        "Cards have consistent border radius (rounded-lg) and subtle border or shadow",
+        "Page looks good on mobile (375px), tablet (768px), and desktop (1280px)",
         "Typecheck passes",
-        "Lint passes"
+        "Verify in browser using dev-browser skill at multiple viewport sizes"
       ],
       "priority": 9,
       "passes": true,
-      "notes": "Enhanced buildJobDescriptionToResumePrompt with 6 explicit alignment rules (skills, responsibilities, keywords, no generic content)."
-    },
-    {
-      "id": "US-010",
-      "title": "Create quality analysis result type and store",
-      "description": "As a system, I need a way to store and pass quality analysis results between generation and UI.",
-      "acceptanceCriteria": [
-        "Create src/types/quality-analysis.ts",
-        "Export QualityAnalysis type: score, matchedItems, missingItems, genericItems, isInsufficient, iteration",
-        "Export QualityAnalysisStore for client-side state (simple object or context)",
-        "Typecheck passes",
-        "Lint passes"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": "Created QualityAnalysis and QualityAnalysisStore types with constants."
-    },
-    {
-      "id": "US-011",
-      "title": "Display vague job description warning in Resume Editor",
-      "description": "As a user, I want to see a warning when the job description is too vague, so I understand CV quality may be limited.",
-      "acceptanceCriteria": [
-        "Add warning banner component in Resume Editor for insufficient job descriptions",
-        "Warning text: 'The job description is limited. CV quality may be affected.'",
-        "Warning uses yellow/amber styling consistent with existing alerts",
-        "Warning only appears when CV was created from a job AND job is insufficient",
-        "Warning does NOT block any user actions",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: warning appears for short job descriptions"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": "Created QualityWarningBanner component with amber styling, dismissible, accessible. Shows when currentJobApplicationId exists."
-    },
-    {
-      "id": "US-012",
-      "title": "Display quality score badge in Resume Editor",
-      "description": "As a user, I want to see the CV quality score immediately after generation from a job.",
-      "acceptanceCriteria": [
-        "Add QualityScoreBadge component to Resume Editor header area",
-        "Display score as percentage with color: red (<50), yellow (50-70), green (>70)",
-        "Badge only visible when CV was created from a job",
-        "Badge shows tooltip explaining what the score means",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: score badge appears after creating CV from job"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": "Created QualityScoreBadge with color-coded display (red/yellow/green) and tooltip. Placeholder score=75."
-    },
-    {
-      "id": "US-013",
-      "title": "Display gap analysis panel in Resume Editor",
-      "description": "As a user, I want to see what's missing or matched in my CV compared to the job.",
-      "acceptanceCriteria": [
-        "Add collapsible GapAnalysisPanel component below quality score",
-        "Display 'Matched' section with green checkmarks for matched items",
-        "Display 'Missing' section with red X for missing items",
-        "Panel is collapsed by default, expandable on click",
-        "Panel only visible when CV was created from a job",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: gap analysis panel visible and expandable"
-      ],
-      "priority": 13,
-      "passes": true,
-      "notes": "Created GapAnalysisPanel with collapsible matched/missing sections. Accessible, responsive grid layout."
-    },
-    {
-      "id": "US-014",
-      "title": "Implement iterative regeneration logic",
-      "description": "As a system, I need to automatically retry CV generation when quality is below threshold.",
-      "acceptanceCriteria": [
-        "Create src/lib/ai/iterative-generator.ts",
-        "Export function generateWithRetry(params): Promise<GenerationResult>",
-        "If initial score < threshold, regenerate with enhanced prompt including gaps",
-        "Maximum 2 retries (3 total attempts)",
-        "Return best-scoring attempt as final result",
-        "Log each attempt via logGenerationAttempt",
-        "Typecheck passes",
-        "Lint passes"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": "Created generateWithRetry with max 3 iterations, best-result tracking, gap-enhanced prompts, and audit logging."
-    },
-    {
-      "id": "US-015",
-      "title": "Display generation progress with iteration count",
-      "description": "As a user, I want to see when the system is improving my CV during generation.",
-      "acceptanceCriteria": [
-        "Update generation loading state to show iteration number",
-        "Display: 'Generating CV...' for first attempt",
-        "Display: 'Improving CV... attempt 2/3' for retries",
-        "Progress indicator appears inline in Resume Editor",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: iteration status visible during regeneration"
-      ],
-      "priority": 15,
-      "passes": true,
-      "notes": "Created GenerationProgress component with animated spinner and iteration display."
-    },
-    {
-      "id": "US-016",
-      "title": "Show below-threshold warning with regenerate button",
-      "description": "As a user, I want clear indication when CV quality is below target, with option to retry.",
-      "acceptanceCriteria": [
-        "If final score < threshold, show orange warning banner (not success toast)",
-        "Warning text: 'CV quality is below target (X%). Review the gaps below.'",
-        "Include 'Regenerate' button in warning banner",
-        "Clicking Regenerate triggers new generation cycle",
-        "User can still use/edit the CV (not blocked)",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: warning appears for low-quality results with regenerate button"
-      ],
-      "priority": 16,
-      "passes": true,
-      "notes": "Created BelowThresholdWarning with orange styling, Regenerate button, and animated spinner."
-    },
-    {
-      "id": "US-017",
-      "title": "Wire up quality analysis to Create CV from Job flow",
-      "description": "As a system, I need to integrate all quality components into the existing Create CV from Job flow.",
-      "acceptanceCriteria": [
-        "Update Create CV from Job action to use extractJobRequirements",
-        "Update flow to use generateWithRetry instead of direct generation",
-        "Pass QualityAnalysis result to Resume Editor",
-        "Store analysis result in client state for UI components",
-        "Existing Create CV from Job functionality still works",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: full flow works with quality analysis"
-      ],
-      "priority": 17,
-      "passes": true,
-      "notes": "API returns qualityAnalysis. ResumeEditor accepts optional qualityAnalysis prop. UI components wired to use real data."
+      "notes": "Card rounded-lg, title text-xl. Responsive padding on all sections. Typecheck passes."
     }
   ]
 }
