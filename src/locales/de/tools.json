@@ -118,6 +118,18 @@
       "linkResumeLoginPrompt": "Melden Sie sich an, um Ihre gespeicherten Lebensläufe zu verknüpfen."
     }
   },
+  "resumeLinker": {
+    "selectResumeDropdown": "Lebenslauf auswählen",
+    "noResumesAvailable": "Keine Lebensläufe verfügbar",
+    "createResumePrompt": "Erstellen Sie zuerst einen Lebenslauf",
+    "lastUpdated": "Zuletzt aktualisiert",
+    "loadingResumes": "Lebensläufe werden geladen...",
+    "tryAgain": "Erneut versuchen",
+    "loginRequired": "Bitte melden Sie sich an, um auf Ihre Lebensläufe zuzugreifen",
+    "loadError": "Fehler beim Laden der Lebensläufe. Bitte versuchen Sie es erneut.",
+    "createResume": "Lebenslauf erstellen",
+    "clearSelection": "Auswahl löschen"
+  },
   "resumeChecker": {
     "title": "Lebenslauf-Prüfer",
     "subtitle": "Erhalten Sie sofortiges Feedback zu Ihrem Lebenslauf mit unserem KI-gestützten Analysetool.",

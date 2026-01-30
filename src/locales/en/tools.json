@@ -118,6 +118,18 @@
       "linkResumeLoginPrompt": "Sign in to link your saved resumes."
     }
   },
+  "resumeLinker": {
+    "selectResumeDropdown": "Select a resume",
+    "noResumesAvailable": "No resumes available",
+    "createResumePrompt": "Create a resume first",
+    "lastUpdated": "Last updated",
+    "loadingResumes": "Loading resumes...",
+    "tryAgain": "Try again",
+    "loginRequired": "Please sign in to access your resumes",
+    "loadError": "Failed to load resumes. Please try again.",
+    "createResume": "Create Resume",
+    "clearSelection": "Clear selection"
+  },
   "resumeChecker": {
     "title": "Resume Checker",
     "subtitle": "Get instant feedback on your resume with our AI-powered analysis tool.",

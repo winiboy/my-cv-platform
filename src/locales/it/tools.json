@@ -118,6 +118,18 @@
       "linkResumeLoginPrompt": "Accedi per collegare i tuoi CV salvati."
     }
   },
+  "resumeLinker": {
+    "selectResumeDropdown": "Seleziona un CV",
+    "noResumesAvailable": "Nessun CV disponibile",
+    "createResumePrompt": "Crea prima un CV",
+    "lastUpdated": "Ultimo aggiornamento",
+    "loadingResumes": "Caricamento CV...",
+    "tryAgain": "Riprova",
+    "loginRequired": "Accedi per accedere ai tuoi CV",
+    "loadError": "Impossibile caricare i CV. Riprova.",
+    "createResume": "Crea CV",
+    "clearSelection": "Cancella selezione"
+  },
   "resumeChecker": {
     "title": "Verificatore di CV",
     "subtitle": "Ottieni feedback immediato sul tuo CV con il nostro strumento di analisi alimentato dall'IA.",
