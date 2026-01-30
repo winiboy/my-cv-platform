@@ -488,6 +488,40 @@ export function ResumeJobMatchClient({
   )
 
   /**
+   * Handles job tab changes with mutual exclusivity.
+   * Ensures only one job input method is active at a time by clearing
+   * conflicting state when switching between tabs.
+   *
+   * - When switching TO 'link' tab: clears jobDescription (pasted content), keeps linkedJobId if exists
+   * - When switching FROM 'link' tab TO 'paste': clears linkedJobId, keeps jobDescription
+   */
+  const handleJobTabChange = useCallback(
+    (newTab: JobInputTab) => {
+      const previousTab = activeJobTab
+
+      // If switching to the same tab, do nothing
+      if (newTab === previousTab) {
+        return
+      }
+
+      // Clear state based on tab transition
+      if (previousTab === 'link') {
+        // Leaving link tab: clear linked job selection
+        setLinkedJobId(null)
+      }
+
+      if (newTab === 'link') {
+        // Entering link tab: clear pasted job description
+        setJobDescription('')
+      }
+
+      // Set the new active tab
+      setActiveJobTab(newTab)
+    },
+    [activeJobTab]
+  )
+
+  /**
    * Get tab label and icon for a given job tab type.
    */
   const getJobTabConfig = useCallback(
@@ -1127,7 +1161,7 @@ export function ResumeJobMatchClient({
                       aria-selected={isActive}
                       aria-controls={`job-tabpanel-${tab}`}
                       tabIndex={isActive ? 0 : -1}
-                      onClick={() => setActiveJobTab(tab)}
+                      onClick={() => handleJobTabChange(tab)}
                       onKeyDown={(e) => handleJobTabKeyDown(e, index)}
                       className={cn(
                         'flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium whitespace-nowrap',
