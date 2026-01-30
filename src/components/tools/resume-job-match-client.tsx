@@ -1,12 +1,22 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import {
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  type KeyboardEvent,
+} from 'react'
 import { useSession } from 'next-auth/react'
-import { Loader2, BarChart3 } from 'lucide-react'
+import { Loader2, BarChart3, FileText, Upload, FolderOpen } from 'lucide-react'
 import {
   ResumeTextInput,
   type ResumeTextInputTranslations,
 } from './resume-text-input'
+import {
+  ResumeFileUpload,
+  type ResumeFileUploadTranslations,
+} from './resume-file-upload'
 import {
   JobDescriptionInput,
   type JobDescriptionInputTranslations,
@@ -18,6 +28,7 @@ import {
 } from './resume-selector'
 import { useToast } from '@/components/ui/toast'
 import { createClient } from '@/lib/supabase/client'
+import { cn } from '@/lib/utils'
 import type { JobMatchAnalysis } from '@/types/job-match'
 import type { Resume } from '@/types/database'
 import type {
@@ -29,6 +40,11 @@ import type {
   ResumeCertification,
   ResumeProject,
 } from '@/types/database'
+
+/**
+ * Enum for the three resume input methods available in the tabbed interface.
+ */
+type ResumeInputTab = 'paste' | 'upload' | 'saved'
 
 /**
  * Minimum character thresholds for input validation.
@@ -46,10 +62,26 @@ export interface ResumeJobMatchTranslations {
   inputSection: string
   resultsSection: string
 
+  // Tab labels for resume input methods
+  tabPasteText: string
+  tabUploadFile: string
+  tabMyResumes: string
+
   // Resume input translations
   resumeLabel: string
   resumePlaceholder: string
   resumeMinCharsError: string
+
+  // File upload translations
+  uploadLabel: string
+  dragDropText: string
+  browseText: string
+  acceptedFilesText: string
+  fileTooLargeError: string
+  unsupportedFileError: string
+  extractionFailedError: string
+  extractingText: string
+  removeFileLabel: string
 
   // Job description input translations
   jobLabel: string
@@ -291,6 +323,7 @@ export function ResumeJobMatchClient({
   const { data: session, status } = useSession()
   const isAuthenticated = status === 'authenticated' && !!session?.user
 
+  // Unified resume text state - populated by any input method
   const [resumeText, setResumeText] = useState('')
   const [jobDescription, setJobDescription] = useState('')
   const [analysis, setAnalysis] = useState<JobMatchAnalysis | null>(null)
@@ -299,7 +332,88 @@ export function ResumeJobMatchClient({
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null)
   const [isLoadingResume, setIsLoadingResume] = useState(false)
 
+  // Tab state management - starts on paste tab
+  const [activeTab, setActiveTab] = useState<ResumeInputTab>('paste')
+
+  // Refs for tab navigation
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
+
   const toast = useToast()
+
+  /**
+   * Get available tabs based on authentication status.
+   * The "My Resumes" tab is only shown to authenticated users.
+   */
+  const availableTabs = useMemo((): ResumeInputTab[] => {
+    const tabs: ResumeInputTab[] = ['paste', 'upload']
+    if (isAuthenticated) {
+      tabs.push('saved')
+    }
+    return tabs
+  }, [isAuthenticated])
+
+  /**
+   * Handles keyboard navigation for tabs.
+   * Arrow keys move focus between tabs, Enter/Space activates.
+   */
+  const handleTabKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLButtonElement>, tabIndex: number) => {
+      const tabCount = availableTabs.length
+
+      switch (event.key) {
+        case 'ArrowLeft': {
+          event.preventDefault()
+          const prevIndex = tabIndex === 0 ? tabCount - 1 : tabIndex - 1
+          tabRefs.current[prevIndex]?.focus()
+          break
+        }
+        case 'ArrowRight': {
+          event.preventDefault()
+          const nextIndex = tabIndex === tabCount - 1 ? 0 : tabIndex + 1
+          tabRefs.current[nextIndex]?.focus()
+          break
+        }
+        case 'Home': {
+          event.preventDefault()
+          tabRefs.current[0]?.focus()
+          break
+        }
+        case 'End': {
+          event.preventDefault()
+          tabRefs.current[tabCount - 1]?.focus()
+          break
+        }
+        // Enter and Space are handled by the button's onClick
+      }
+    },
+    [availableTabs.length]
+  )
+
+  /**
+   * Get tab label and icon for a given tab type.
+   */
+  const getTabConfig = useCallback(
+    (tab: ResumeInputTab) => {
+      switch (tab) {
+        case 'paste':
+          return {
+            label: translations.tabPasteText,
+            icon: FileText,
+          }
+        case 'upload':
+          return {
+            label: translations.tabUploadFile,
+            icon: Upload,
+          }
+        case 'saved':
+          return {
+            label: translations.tabMyResumes,
+            icon: FolderOpen,
+          }
+      }
+    },
+    [translations]
+  )
 
   // Prepare translations for child components
   const resumeInputTranslations: ResumeTextInputTranslations = useMemo(
@@ -307,6 +421,21 @@ export function ResumeJobMatchClient({
       resumeLabel: translations.resumeLabel,
       resumePlaceholder: translations.resumePlaceholder,
       minCharsError: translations.resumeMinCharsError,
+    }),
+    [translations]
+  )
+
+  const fileUploadTranslations: ResumeFileUploadTranslations = useMemo(
+    () => ({
+      uploadLabel: translations.uploadLabel,
+      dragDropText: translations.dragDropText,
+      browseText: translations.browseText,
+      acceptedFilesText: translations.acceptedFilesText,
+      fileTooLargeError: translations.fileTooLargeError,
+      unsupportedFileError: translations.unsupportedFileError,
+      extractionFailedError: translations.extractionFailedError,
+      extractingText: translations.extractingText,
+      removeFileLabel: translations.removeFileLabel,
     }),
     [translations]
   )
@@ -351,6 +480,14 @@ export function ResumeJobMatchClient({
     }),
     [translations]
   )
+
+  /**
+   * Handles text extracted from file upload.
+   * Sets the resume text directly from the extracted content.
+   */
+  const handleFileTextExtracted = useCallback((text: string) => {
+    setResumeText(text)
+  }, [])
 
   /**
    * Handles selection of a saved resume.
@@ -475,44 +612,150 @@ export function ResumeJobMatchClient({
           </h2>
 
           <div className="space-y-6">
-            {/* Resume selector for authenticated users */}
-            {isAuthenticated && (
-              <div className="space-y-4">
-                <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  {translations.selectSavedResume}
-                </h3>
-                <ResumeSelector
-                  onSelect={handleResumeSelect}
-                  selectedId={selectedResumeId}
-                  locale={locale}
-                  translations={resumeSelectorTranslations}
-                />
-                {isLoadingResume && (
-                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    {translations.loadingResumeContent}
+            {/* Tabbed resume input interface */}
+            <div className="space-y-4">
+              {/* Tab buttons */}
+              <div
+                role="tablist"
+                aria-label="Resume input methods"
+                className="flex border-b border-slate-200 dark:border-slate-700"
+              >
+                {availableTabs.map((tab, index) => {
+                  const { label, icon: Icon } = getTabConfig(tab)
+                  const isActive = activeTab === tab
+
+                  return (
+                    <button
+                      key={tab}
+                      ref={(el) => {
+                        tabRefs.current[index] = el
+                      }}
+                      role="tab"
+                      id={`tab-${tab}`}
+                      aria-selected={isActive}
+                      aria-controls={`tabpanel-${tab}`}
+                      tabIndex={isActive ? 0 : -1}
+                      onClick={() => setActiveTab(tab)}
+                      onKeyDown={(e) => handleTabKeyDown(e, index)}
+                      className={cn(
+                        'flex items-center gap-2 px-4 py-3 text-sm font-medium',
+                        'border-b-2 -mb-px transition-colors',
+                        'focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2',
+                        isActive
+                          ? 'border-teal-500 text-teal-600 dark:text-teal-400'
+                          : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                      )}
+                    >
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Tab panels */}
+              <div className="pt-2">
+                {/* Paste Text Tab Panel */}
+                <div
+                  role="tabpanel"
+                  id="tabpanel-paste"
+                  aria-labelledby="tab-paste"
+                  hidden={activeTab !== 'paste'}
+                  tabIndex={0}
+                >
+                  {activeTab === 'paste' && (
+                    <ResumeTextInput
+                      value={resumeText}
+                      onChange={setResumeText}
+                      translations={resumeInputTranslations}
+                      minChars={MIN_RESUME_CHARS}
+                    />
+                  )}
+                </div>
+
+                {/* Upload File Tab Panel */}
+                <div
+                  role="tabpanel"
+                  id="tabpanel-upload"
+                  aria-labelledby="tab-upload"
+                  hidden={activeTab !== 'upload'}
+                  tabIndex={0}
+                >
+                  {activeTab === 'upload' && (
+                    <div className="space-y-4">
+                      <ResumeFileUpload
+                        onTextExtracted={handleFileTextExtracted}
+                        translations={fileUploadTranslations}
+                      />
+                      {/* Show current resume text preview when uploaded */}
+                      {resumeText && (
+                        <div className="mt-4">
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                            {translations.resumeLabel}
+                          </p>
+                          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 max-h-48 overflow-y-auto">
+                            <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap line-clamp-6">
+                              {resumeText.slice(0, 500)}
+                              {resumeText.length > 500 && '...'}
+                            </p>
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            {new Intl.NumberFormat().format(resumeText.length)}{' '}
+                            characters
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* My Resumes Tab Panel - Only rendered when authenticated */}
+                {isAuthenticated && (
+                  <div
+                    role="tabpanel"
+                    id="tabpanel-saved"
+                    aria-labelledby="tab-saved"
+                    hidden={activeTab !== 'saved'}
+                    tabIndex={0}
+                  >
+                    {activeTab === 'saved' && (
+                      <div className="space-y-4">
+                        <ResumeSelector
+                          onSelect={handleResumeSelect}
+                          selectedId={selectedResumeId}
+                          locale={locale}
+                          translations={resumeSelectorTranslations}
+                        />
+                        {isLoadingResume && (
+                          <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            {translations.loadingResumeContent}
+                          </div>
+                        )}
+                        {/* Show loaded resume preview */}
+                        {resumeText && !isLoadingResume && (
+                          <div className="mt-4">
+                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                              {translations.resumeLabel}
+                            </p>
+                            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 max-h-48 overflow-y-auto">
+                              <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap line-clamp-6">
+                                {resumeText.slice(0, 500)}
+                                {resumeText.length > 500 && '...'}
+                              </p>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                              {new Intl.NumberFormat().format(resumeText.length)}{' '}
+                              characters
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-slate-200 dark:border-slate-700" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white dark:bg-slate-900 px-2 text-slate-500 dark:text-slate-400">
-                      {translations.orPasteManually}
-                    </span>
-                  </div>
-                </div>
               </div>
-            )}
-
-            {/* Resume text input */}
-            <ResumeTextInput
-              value={resumeText}
-              onChange={setResumeText}
-              translations={resumeInputTranslations}
-              minChars={MIN_RESUME_CHARS}
-            />
+            </div>
 
             {/* Job description input */}
             <JobDescriptionInput

@@ -24,12 +24,30 @@ interface ResumeJobMatchPageTranslations {
   metaTitle: string
   metaDescription: string
   ui: {
+    // Tab labels
+    tabPasteText: string
+    tabUploadFile: string
+    tabMyResumes: string
+    // Resume input
     resumeLabel: string
     resumePlaceholder: string
+    // File upload
+    uploadLabel: string
+    dragDropText: string
+    browseText: string
+    acceptedFilesText: string
+    fileTooLargeError: string
+    unsupportedFileError: string
+    extractionFailedError: string
+    extractingText: string
+    removeFileLabel: string
+    // Job description
     jobLabel: string
     jobPlaceholder: string
+    // Buttons
     analyzeButton: string
     analyzingButton: string
+    // Results
     matchScore: string
     matchedSkills: string
     missingSkills: string
@@ -38,6 +56,7 @@ interface ResumeJobMatchPageTranslations {
     minCharsError: string
     emptyState: string
     backToTools: string
+    // Resume selector
     selectSavedResume?: string
     orPasteManually?: string
     loadingResumeContent?: string
@@ -129,10 +148,26 @@ export default async function ResumeJobMatchPage({
       ? 'Results'
       : 'Resultats',
 
+    // Tab labels
+    tabPasteText: t.resumeJobMatch.ui.tabPasteText,
+    tabUploadFile: t.resumeJobMatch.ui.tabUploadFile,
+    tabMyResumes: t.resumeJobMatch.ui.tabMyResumes,
+
     // Resume input translations
     resumeLabel: t.resumeJobMatch.ui.resumeLabel,
     resumePlaceholder: t.resumeJobMatch.ui.resumePlaceholder,
     resumeMinCharsError: t.resumeJobMatch.ui.minCharsError,
+
+    // File upload translations
+    uploadLabel: t.resumeJobMatch.ui.uploadLabel,
+    dragDropText: t.resumeJobMatch.ui.dragDropText,
+    browseText: t.resumeJobMatch.ui.browseText,
+    acceptedFilesText: t.resumeJobMatch.ui.acceptedFilesText,
+    fileTooLargeError: t.resumeJobMatch.ui.fileTooLargeError,
+    unsupportedFileError: t.resumeJobMatch.ui.unsupportedFileError,
+    extractionFailedError: t.resumeJobMatch.ui.extractionFailedError,
+    extractingText: t.resumeJobMatch.ui.extractingText,
+    removeFileLabel: t.resumeJobMatch.ui.removeFileLabel,
 
     // Job description input translations
     jobLabel: t.resumeJobMatch.ui.jobLabel,
