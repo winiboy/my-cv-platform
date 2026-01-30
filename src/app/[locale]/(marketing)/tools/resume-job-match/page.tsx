@@ -7,6 +7,7 @@ import {
   ResumeJobMatchClient,
   type ResumeJobMatchTranslations,
 } from '@/components/tools/resume-job-match-client'
+import type { ResumeLinkerTranslations } from '@/components/tools/resume-linker'
 
 interface ResumeJobMatchPageProps {
   params: {
@@ -242,6 +243,24 @@ export default async function ResumeJobMatchPage({
     linkResumeLoginPrompt:
       t.resumeJobMatch.ui.linkResumeLoginPrompt ||
       'Sign in to link your saved resumes.',
+
+    // ResumeLinker translations
+    resumeLinker: {
+      selectResumeDropdown: checkerUI?.loadingResumes ? 'Select a resume' : 'Select a resume',
+      noResumesAvailable: checkerUI?.noResumesFound || 'No resumes found',
+      createResumePrompt:
+        checkerUI?.noResumesDescription ||
+        'Create your first resume to get started.',
+      lastUpdated: checkerUI?.updated || 'Updated',
+      loadingResumes: checkerUI?.loadingResumes || 'Loading your resumes...',
+      tryAgain: checkerUI?.tryAgain || 'Try again',
+      loginRequired:
+        checkerUI?.loginRequired || 'Please log in to view your resumes',
+      loadError:
+        checkerUI?.loadError || 'Failed to load resumes. Please try again.',
+      createResume: checkerUI?.createResume || 'Create Resume',
+      clearSelection: 'Clear selection',
+    } satisfies ResumeLinkerTranslations,
   }
 
   return (

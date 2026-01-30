@@ -26,6 +26,10 @@ import {
   ResumeSelector,
   type ResumeSelectorTranslations,
 } from './resume-selector'
+import {
+  ResumeLinker,
+  type ResumeLinkerTranslations,
+} from './resume-linker'
 import { useToast } from '@/components/ui/toast'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -131,6 +135,9 @@ export interface ResumeJobMatchTranslations {
   linkResumeTitle: string
   linkResumeDescription: string
   linkResumeLoginPrompt: string
+
+  // ResumeLinker translations
+  resumeLinker: ResumeLinkerTranslations
 }
 
 interface ResumeJobMatchClientProps {
@@ -339,6 +346,9 @@ export function ResumeJobMatchClient({
   const [error, setError] = useState<string | null>(null)
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null)
   const [isLoadingResume, setIsLoadingResume] = useState(false)
+
+  // State for the linked resume in the 'link' tab
+  const [linkedResumeId, setLinkedResumeId] = useState<string | null>(null)
 
   // Tab state management - starts on link tab (the first tab)
   const [activeTab, setActiveTab] = useState<ResumeInputTab>('link')
@@ -550,6 +560,61 @@ export function ResumeJobMatchClient({
   )
 
   /**
+   * Handles selection of a linked resume from the 'link' tab.
+   * Fetches the full resume data and converts it to plain text.
+   */
+  const handleLinkedResumeSelect = useCallback(
+    async (resumeId: string) => {
+      setLinkedResumeId(resumeId)
+      setIsLoadingResume(true)
+      setError(null)
+
+      try {
+        const supabase = createClient()
+
+        // Fetch the full resume data
+        const { data: resume, error: fetchError } = await supabase
+          .from('resumes')
+          .select('*')
+          .eq('id', resumeId)
+          .single()
+
+        if (fetchError) {
+          throw fetchError
+        }
+
+        if (!resume) {
+          throw new Error(translations.resumeLoadError)
+        }
+
+        // Convert resume to plain text and set it
+        const plainText = convertResumeToText(resume as Resume)
+        setResumeText(plainText)
+      } catch (err) {
+        console.error('Error loading linked resume:', err)
+        const errorMessage =
+          err instanceof Error ? err.message : translations.resumeLoadError
+        setError(errorMessage)
+        toast.error(errorMessage)
+        // Reset selection on error
+        setLinkedResumeId(null)
+      } finally {
+        setIsLoadingResume(false)
+      }
+    },
+    [toast, translations.resumeLoadError]
+  )
+
+  /**
+   * Handles clearing the linked resume selection.
+   * Resets the linked resume ID and clears the resume text.
+   */
+  const handleLinkedResumeClear = useCallback(() => {
+    setLinkedResumeId(null)
+    setResumeText('')
+  }, [])
+
+  /**
    * Determines if the analyze button should be enabled.
    * Both inputs must meet their minimum character requirements.
    */
@@ -699,24 +764,37 @@ export function ResumeJobMatchClient({
                 >
                   {activeTab === 'link' && (
                     <div className="space-y-4">
-                      <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-4 sm:p-6">
-                        <div className="flex flex-col items-center text-center space-y-3">
-                          <div className="rounded-full bg-teal-100 dark:bg-teal-900/30 p-3">
-                            <Link className="h-6 w-6 text-teal-600 dark:text-teal-400" aria-hidden="true" />
-                          </div>
-                          <h3 className="text-base font-medium text-slate-900 dark:text-slate-100">
-                            {translations.linkResumeTitle}
-                          </h3>
-                          <p className="text-sm text-slate-600 dark:text-slate-400 max-w-md">
-                            {translations.linkResumeDescription}
-                          </p>
-                          {!isAuthenticated && (
-                            <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">
-                              {translations.linkResumeLoginPrompt}
-                            </p>
-                          )}
+                      <ResumeLinker
+                        onSelect={handleLinkedResumeSelect}
+                        onClear={handleLinkedResumeClear}
+                        selectedResumeId={linkedResumeId}
+                        locale={locale}
+                        translations={translations.resumeLinker}
+                      />
+                      {isLoadingResume && linkedResumeId && (
+                        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {translations.loadingResumeContent}
                         </div>
-                      </div>
+                      )}
+                      {/* Show loaded resume preview when a linked resume is selected */}
+                      {resumeText && linkedResumeId && !isLoadingResume && (
+                        <div className="mt-4">
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                            {translations.resumeLabel}
+                          </p>
+                          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 max-h-48 overflow-y-auto">
+                            <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap line-clamp-6">
+                              {resumeText.slice(0, 500)}
+                              {resumeText.length > 500 && '...'}
+                            </p>
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            {new Intl.NumberFormat().format(resumeText.length)}{' '}
+                            characters
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
