@@ -43,6 +43,16 @@
 
 ### US-008: Add i18n translations for French, German, Italian
 - Status: PASS
-- Commit: pending
+- Commit: cb38af4
 - Notes: Created fr/tools.json, de/tools.json, it/tools.json. Updated i18n.ts and use-translation.ts to use native locale files. All keys match English structure. Typecheck passes.
+
+### US-009: Visual polish and responsive verification
+- Status: PASS
+- Commit: pending
+- Notes: Card border radius rounded-lg, card title text-xl. Responsive padding on all sections. Typecheck passes.
+
+---
+
+## Feature Complete
+All 9 user stories implemented and verified.
 

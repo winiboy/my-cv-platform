@@ -116,7 +116,7 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-teal-50 via-slate-50 to-purple-50 px-4 py-20">
+      <section className="bg-gradient-to-br from-teal-50 via-slate-50 to-purple-50 px-4 py-20 sm:px-6 md:px-8 lg:px-12 xl:px-16">
         <div className="mx-auto max-w-4xl text-center">
           {/* Back Link */}
           <Link
@@ -145,7 +145,7 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
 
       {/* Coming Soon Section */}
       {isValid && (
-        <section className="px-4 py-20">
+        <section className="px-4 py-20 sm:px-6 md:px-8 lg:px-12 xl:px-16">
           <div className="mx-auto max-w-2xl text-center">
             <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-full bg-teal-100">
               <Clock className="h-10 w-10 text-teal-600" />
@@ -173,7 +173,7 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
 
       {/* Invalid Tool Section */}
       {!isValid && (
-        <section className="px-4 py-20">
+        <section className="px-4 py-20 sm:px-6 md:px-8 lg:px-12 xl:px-16">
           <div className="mx-auto max-w-2xl text-center">
             <div className="mt-10">
               <Link

@@ -31,7 +31,7 @@ export function ToolCard({
       href={href}
       className={cn(
         // Base styles
-        'group flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm',
+        'group flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm',
         // Hover states: shadow elevation, scale, border color, cursor
         'hover:border-teal-300 hover:shadow-md hover:scale-[1.02] cursor-pointer',
         // Focus states: visible ring for accessibility
@@ -45,7 +45,7 @@ export function ToolCard({
         <Icon className="h-6 w-6" />
       </div>
       <div className="flex flex-col gap-2">
-        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+        <h3 className="text-xl font-semibold text-slate-900">{title}</h3>
         <p className="text-sm leading-relaxed text-slate-600">{description}</p>
       </div>
     </Link>
