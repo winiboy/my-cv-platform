@@ -207,7 +207,7 @@ export function CategoryList({
               type="button"
               onClick={() => handleCategoryClick(index)}
               className={cn(
-                'flex items-center gap-3 px-4 py-3 w-full transition-all duration-150',
+                'flex items-center gap-3 px-4 py-3 w-full transition-all duration-150 min-h-[56px]',
                 'text-left cursor-pointer',
                 config.bgColor,
                 isExpanded ? 'rounded-t-lg' : 'rounded-lg',

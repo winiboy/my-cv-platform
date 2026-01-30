@@ -4,6 +4,7 @@ import { FileText, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ScoreGauge } from './score-gauge'
 import { CategoryList } from './category-list'
+import { useIsMobile } from '@/lib/hooks/use-media-query'
 import type { ResumeAnalysis } from '@/types/resume-analysis'
 
 interface AnalysisResultsProps {
@@ -111,6 +112,10 @@ export function AnalysisResults({
   locale,
   className,
 }: AnalysisResultsProps) {
+  // Use responsive sizing for the score gauge
+  const isMobile = useIsMobile()
+  const gaugeSize = isMobile ? 'md' : 'lg'
+
   // Loading state: show skeleton while analysis is being generated
   if (isLoading) {
     return (
@@ -134,7 +139,7 @@ export function AnalysisResults({
     <div className={cn('w-full flex flex-col gap-6', className)}>
       {/* Score gauge section - centered at top */}
       <div className="flex flex-col items-center gap-2">
-        <ScoreGauge score={analysis.overallScore} size="lg" />
+        <ScoreGauge score={analysis.overallScore} size={gaugeSize} />
 
         {/* Analyzed at timestamp */}
         <p className="text-sm text-muted-foreground">

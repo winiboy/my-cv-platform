@@ -138,7 +138,7 @@ export function ResumeSelector({
 
   // Resumes grid
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {resumes.map((resume) => {
         const isSelected = selectedId === resume.id
         const lastModified = resume.updated_at || resume.created_at
@@ -151,7 +151,7 @@ export function ResumeSelector({
             aria-pressed={isSelected}
             aria-label={`Select resume: ${resume.title}`}
             className={cn(
-              'relative flex flex-col items-start p-4 rounded-lg border-2 text-left transition-all',
+              'relative flex flex-col items-start p-4 rounded-lg border-2 text-left transition-all min-h-[72px]',
               'hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2',
               isSelected
                 ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20 dark:border-teal-400'
