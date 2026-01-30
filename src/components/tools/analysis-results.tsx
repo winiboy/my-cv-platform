@@ -11,8 +11,10 @@ interface AnalysisResultsProps {
   analysis: ResumeAnalysis | null
   /** Whether the analysis is currently being generated */
   isLoading: boolean
-  /** Optional resume ID for future "Show me" navigation links */
+  /** Resume ID for "Show me" navigation links */
   resumeId?: string
+  /** Locale for i18n routing in "Show me" navigation links */
+  locale?: string
   /** Optional CSS class name for the container */
   className?: string
 }
@@ -105,9 +107,8 @@ function EmptyState() {
 export function AnalysisResults({
   analysis,
   isLoading,
-  // Reserved for future "Show me" navigation feature
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   resumeId,
+  locale,
   className,
 }: AnalysisResultsProps) {
   // Loading state: show skeleton while analysis is being generated
@@ -142,7 +143,11 @@ export function AnalysisResults({
       </div>
 
       {/* Category breakdown */}
-      <CategoryList categories={analysis.categories} />
+      <CategoryList
+        categories={analysis.categories}
+        resumeId={resumeId}
+        locale={locale}
+      />
     </div>
   )
 }

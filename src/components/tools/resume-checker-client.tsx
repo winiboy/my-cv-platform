@@ -160,6 +160,7 @@ export function ResumeCheckerClient({ locale }: ResumeCheckerClientProps) {
             analysis={analysis}
             isLoading={isLoading}
             resumeId={selectedResumeId ?? undefined}
+            locale={locale}
           />
         </div>
       </div>

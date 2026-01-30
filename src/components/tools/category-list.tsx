@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle2, AlertTriangle, XCircle, ChevronDown } from 'lucide-react'
+import Link from 'next/link'
+import { CheckCircle2, AlertTriangle, XCircle, ChevronDown, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { AnalysisCategory, AnalysisIssue, CategoryStatus, IssueSeverity } from '@/types/resume-analysis'
 
@@ -12,6 +13,10 @@ interface CategoryListProps {
   onCategoryClick?: (index: number) => void
   /** Optional CSS class name for the container */
   className?: string
+  /** Resume ID for "Show me" navigation links */
+  resumeId?: string
+  /** Locale for i18n routing in navigation links */
+  locale?: string
 }
 
 /**
@@ -82,11 +87,30 @@ function getSeverityConfig(severity: IssueSeverity): {
   }
 }
 
+/** Valid resume section anchors for "Show me" navigation */
+const VALID_SECTIONS = ['summary', 'experience', 'education', 'skills', 'contact'] as const
+type ResumeSection = (typeof VALID_SECTIONS)[number]
+
+/**
+ * Type guard to validate if a section string is a valid resume section anchor.
+ */
+function isValidSection(section: string | undefined): section is ResumeSection {
+  return section !== undefined && VALID_SECTIONS.includes(section as ResumeSection)
+}
+
+interface IssueItemProps {
+  issue: AnalysisIssue
+  resumeId?: string
+  locale?: string
+}
+
 /**
  * Renders an individual issue with severity badge, description, and suggestion.
+ * Includes a "Show me" link when the issue has a valid section reference.
  */
-function IssueItem({ issue }: { issue: AnalysisIssue }) {
+function IssueItem({ issue, resumeId, locale }: IssueItemProps) {
   const severityConfig = getSeverityConfig(issue.severity)
+  const canNavigate = resumeId && locale && isValidSection(issue.section)
 
   return (
     <div className="flex flex-col gap-1.5 py-2 border-b border-border/50 last:border-b-0">
@@ -100,7 +124,16 @@ function IssueItem({ issue }: { issue: AnalysisIssue }) {
         >
           {severityConfig.label}
         </span>
-        <p className="text-sm text-foreground">{issue.description}</p>
+        <p className="text-sm text-foreground flex-1">{issue.description}</p>
+        {canNavigate && (
+          <Link
+            href={`/${locale}/dashboard/resumes/${resumeId}#${issue.section}`}
+            className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 hover:underline transition-colors"
+          >
+            Show me
+            <ArrowRight className="w-3 h-3" aria-hidden="true" />
+          </Link>
+        )}
       </div>
       {issue.suggestion && (
         <p className="text-sm text-muted-foreground pl-[52px]">
@@ -127,6 +160,8 @@ export function CategoryList({
   categories,
   onCategoryClick,
   className,
+  resumeId,
+  locale,
 }: CategoryListProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
 
@@ -249,6 +284,8 @@ export function CategoryList({
                         <IssueItem
                           key={`${category.name}-issue-${issueIndex}`}
                           issue={issue}
+                          resumeId={resumeId}
+                          locale={locale}
                         />
                       ))}
                     </div>
