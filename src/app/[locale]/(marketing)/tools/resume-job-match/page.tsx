@@ -8,6 +8,7 @@ import {
   type ResumeJobMatchTranslations,
 } from '@/components/tools/resume-job-match-client'
 import type { ResumeLinkerTranslations } from '@/components/tools/resume-linker'
+import type { JobLinkerTranslations } from '@/components/tools/job-linker'
 
 interface ResumeJobMatchPageProps {
   params: {
@@ -87,6 +88,9 @@ interface ResumeJobMatchPageTranslations {
     linkJobTitle?: string
     linkJobDescription?: string
     linkJobLoginPrompt?: string
+    // Job linker loading states
+    loadingJobDescription?: string
+    jobDescriptionLoadError?: string
   }
 }
 
@@ -278,6 +282,26 @@ export default async function ResumeJobMatchPage({
       createResume: checkerUI?.createResume || 'Create Resume',
       clearSelection: 'Clear selection',
     } satisfies ResumeLinkerTranslations,
+
+    // JobLinker translations
+    jobLinker: {
+      selectJobDropdown: 'Select a job',
+      noJobsAvailable: 'No jobs found',
+      createJobPrompt: 'Save job applications to link them here.',
+      company: 'Company',
+      loadingJobs: 'Loading your jobs...',
+      tryAgain: checkerUI?.tryAgain || 'Try again',
+      loginRequired: checkerUI?.loginRequired || 'Please log in to view your jobs',
+      loadError: 'Failed to load jobs. Please try again.',
+      browseJobs: 'Browse Jobs',
+      clearSelection: 'Clear selection',
+    } satisfies JobLinkerTranslations,
+
+    // Job description loading states
+    loadingJobDescription:
+      t.resumeJobMatch.ui.loadingJobDescription || 'Loading job description...',
+    jobDescriptionLoadError:
+      t.resumeJobMatch.ui.jobDescriptionLoadError || 'Failed to load job description.',
   }
 
   return (

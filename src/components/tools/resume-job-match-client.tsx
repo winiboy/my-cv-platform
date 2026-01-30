@@ -30,6 +30,10 @@ import {
   ResumeLinker,
   type ResumeLinkerTranslations,
 } from './resume-linker'
+import {
+  JobLinker,
+  type JobLinkerTranslations,
+} from './job-linker'
 import { useToast } from '@/components/ui/toast'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -151,6 +155,13 @@ export interface ResumeJobMatchTranslations {
 
   // ResumeLinker translations
   resumeLinker: ResumeLinkerTranslations
+
+  // JobLinker translations
+  jobLinker: JobLinkerTranslations
+
+  // Job description loading states
+  loadingJobDescription?: string
+  jobDescriptionLoadError?: string
 }
 
 interface ResumeJobMatchClientProps {
@@ -362,6 +373,10 @@ export function ResumeJobMatchClient({
 
   // State for the linked resume in the 'link' tab
   const [linkedResumeId, setLinkedResumeId] = useState<string | null>(null)
+
+  // State for the linked job in the job 'link' tab
+  const [linkedJobId, setLinkedJobId] = useState<string | null>(null)
+  const [isLoadingJob, setIsLoadingJob] = useState(false)
 
   // Tab state management - starts on link tab (the first tab)
   const [activeTab, setActiveTab] = useState<ResumeInputTab>('link')
@@ -697,6 +712,62 @@ export function ResumeJobMatchClient({
   const handleLinkedResumeClear = useCallback(() => {
     setLinkedResumeId(null)
     setResumeText('')
+  }, [])
+
+  /**
+   * Handles selection of a linked job from the job 'link' tab.
+   * Fetches the full job_description from the job_applications record.
+   */
+  const handleLinkedJobSelect = useCallback(
+    async (jobId: string) => {
+      setLinkedJobId(jobId)
+      setIsLoadingJob(true)
+      setError(null)
+
+      try {
+        const supabase = createClient()
+
+        // Fetch the job description from the job_applications table
+        const { data: jobApplication, error: fetchError } = await supabase
+          .from('job_applications')
+          .select('job_description')
+          .eq('id', jobId)
+          .single()
+
+        if (fetchError) {
+          throw fetchError
+        }
+
+        if (!jobApplication?.job_description) {
+          throw new Error(translations.jobDescriptionLoadError || 'No job description found')
+        }
+
+        // Set the job description for analysis
+        setJobDescription(jobApplication.job_description)
+      } catch (err) {
+        console.error('Error loading job description:', err)
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : translations.jobDescriptionLoadError || 'Failed to load job description'
+        setError(errorMessage)
+        toast.error(errorMessage)
+        // Reset selection on error
+        setLinkedJobId(null)
+      } finally {
+        setIsLoadingJob(false)
+      }
+    },
+    [toast, translations.jobDescriptionLoadError]
+  )
+
+  /**
+   * Handles clearing the linked job selection.
+   * Resets the linked job ID and clears the job description.
+   */
+  const handleLinkedJobClear = useCallback(() => {
+    setLinkedJobId(null)
+    setJobDescription('')
   }, [])
 
   /**
@@ -1047,7 +1118,7 @@ export function ResumeJobMatchClient({
                   )}
                 </div>
 
-                {/* Link to Job Tab Panel - placeholder for future feature */}
+                {/* Link to Job Tab Panel */}
                 <div
                   role="tabpanel"
                   id="job-tabpanel-link"
@@ -1056,20 +1127,37 @@ export function ResumeJobMatchClient({
                   tabIndex={0}
                 >
                   {activeJobTab === 'link' && (
-                    <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 p-6 text-center">
-                      <Briefcase className="mx-auto h-10 w-10 text-slate-400 dark:text-slate-500 mb-3" />
-                      <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">
-                        {translations.linkJobTitle}
-                      </h3>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                        {isAuthenticated
-                          ? translations.linkJobDescription
-                          : translations.linkJobLoginPrompt}
-                      </p>
-                      {!isAuthenticated && (
-                        <p className="text-xs text-slate-400 dark:text-slate-500">
-                          {translations.linkJobLoginPrompt}
-                        </p>
+                    <div className="space-y-4">
+                      <JobLinker
+                        onSelect={handleLinkedJobSelect}
+                        onClear={handleLinkedJobClear}
+                        selectedJobId={linkedJobId}
+                        locale={locale}
+                        translations={translations.jobLinker}
+                      />
+                      {isLoadingJob && linkedJobId && (
+                        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {translations.loadingJobDescription || 'Loading job description...'}
+                        </div>
+                      )}
+                      {/* Show loaded job description preview when a linked job is selected */}
+                      {jobDescription && linkedJobId && !isLoadingJob && (
+                        <div className="mt-4">
+                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                            {translations.jobLabel}
+                          </p>
+                          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 max-h-48 overflow-y-auto">
+                            <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap line-clamp-6">
+                              {jobDescription.slice(0, 500)}
+                              {jobDescription.length > 500 && '...'}
+                            </p>
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            {new Intl.NumberFormat().format(jobDescription.length)}{' '}
+                            characters
+                          </p>
+                        </div>
                       )}
                     </div>
                   )}
@@ -1083,7 +1171,7 @@ export function ResumeJobMatchClient({
             <button
               type="button"
               onClick={handleAnalyze}
-              disabled={!canAnalyze || isLoadingResume}
+              disabled={!canAnalyze || isLoadingResume || isLoadingJob}
               aria-busy={isLoading}
               className={cn(
                 'inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3',
