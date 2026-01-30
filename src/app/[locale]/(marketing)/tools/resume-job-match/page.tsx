@@ -38,7 +38,25 @@ interface ResumeJobMatchPageTranslations {
     minCharsError: string
     emptyState: string
     backToTools: string
+    selectSavedResume?: string
+    orPasteManually?: string
+    loadingResumeContent?: string
+    resumeLoadError?: string
   }
+}
+
+/**
+ * Type definition for resume checker UI translations (shared with resume selector).
+ */
+interface ResumeCheckerUITranslations {
+  loadingResumes: string
+  tryAgain: string
+  noResumesFound: string
+  noResumesDescription: string
+  createResume: string
+  updated: string
+  loginRequired: string
+  loadError: string
 }
 
 /**
@@ -49,6 +67,9 @@ interface ToolsTranslations {
     backToTools: string
   }
   resumeJobMatch: ResumeJobMatchPageTranslations
+  resumeChecker?: {
+    ui?: ResumeCheckerUITranslations
+  }
 }
 
 /**
@@ -90,6 +111,9 @@ export default async function ResumeJobMatchPage({
 }: ResumeJobMatchPageProps) {
   const { locale } = params
   const t = getTranslations(locale, 'tools') as ToolsTranslations
+
+  // Get resume checker translations for shared components (resume selector)
+  const checkerUI = t.resumeChecker?.ui
 
   /**
    * Map the available JSON translations to the ResumeJobMatchTranslations interface.
@@ -136,6 +160,26 @@ export default async function ResumeJobMatchPage({
     // Toast messages
     analysisComplete: 'Analysis complete',
     analysisFailed: 'Analysis failed. Please try again.',
+
+    // Resume selector translations (reuse from resume checker or provide defaults)
+    selectSavedResume:
+      t.resumeJobMatch.ui.selectSavedResume || 'Select a saved resume',
+    orPasteManually:
+      t.resumeJobMatch.ui.orPasteManually || 'or paste manually',
+    loadingResumes: checkerUI?.loadingResumes || 'Loading your resumes...',
+    tryAgain: checkerUI?.tryAgain || 'Try again',
+    noResumesFound: checkerUI?.noResumesFound || 'No resumes found',
+    noResumesDescription:
+      checkerUI?.noResumesDescription ||
+      'Create your first resume to get started.',
+    createResume: checkerUI?.createResume || 'Create Resume',
+    updated: checkerUI?.updated || 'Updated',
+    loginRequired: checkerUI?.loginRequired || 'Please log in to view your resumes',
+    loadError: checkerUI?.loadError || 'Failed to load resumes. Please try again.',
+    loadingResumeContent:
+      t.resumeJobMatch.ui.loadingResumeContent || 'Loading resume content...',
+    resumeLoadError:
+      t.resumeJobMatch.ui.resumeLoadError || 'Failed to load resume content.',
   }
 
   return (
