@@ -381,8 +381,8 @@ export function ResumeJobMatchClient({
   // Tab state management - starts on link tab (the first tab)
   const [activeTab, setActiveTab] = useState<ResumeInputTab>('link')
 
-  // Job input tab state management - starts on paste tab (the default)
-  const [activeJobTab, setActiveJobTab] = useState<JobInputTab>('paste')
+  // Job input tab state management - starts on link tab (the first/default tab)
+  const [activeJobTab, setActiveJobTab] = useState<JobInputTab>('link')
 
   // Refs for tab navigation
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
@@ -444,10 +444,10 @@ export function ResumeJobMatchClient({
 
   /**
    * Available tabs for job description input.
-   * Always shows both 'paste' and 'link' tabs.
+   * Always shows both 'link' and 'paste' tabs, with 'link' first.
    */
   const availableJobTabs: JobInputTab[] = useMemo(() => {
-    return ['paste', 'link']
+    return ['link', 'paste']
   }, [])
 
   /**
