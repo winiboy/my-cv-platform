@@ -145,6 +145,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Save analysis to database for caching and history
+    const categoryScores = Object.fromEntries(
+      analysis.categories.map((c) => [c.name, c.score])
+    )
+
+    const recommendations = analysis.categories
+      .filter((c) => c.issues.length > 0)
+      .map((c) => ({
+        category: c.name,
+        priority: c.status === 'fail' ? 'high' : c.status === 'warning' ? 'medium' : 'low',
+        message: c.feedback,
+        suggestions: c.issues.map((i) => i.suggestion),
+      }))
+
+    const { error: saveError } = await supabase.from('resume_analyses').insert({
+      user_id: user.id,
+      resume_id: resumeId,
+      overall_score: analysis.overallScore,
+      category_scores: categoryScores,
+      recommendations: recommendations,
+    })
+
+    if (saveError) {
+      // Log but do not fail the request - the analysis was still successful
+      console.error('Failed to save analysis to database:', saveError)
+    }
+
     // Return success response
     return NextResponse.json({
       success: true,

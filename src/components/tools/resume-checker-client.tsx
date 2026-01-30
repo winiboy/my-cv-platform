@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { Loader2, Search } from 'lucide-react'
+import { Loader2, Search, RefreshCw } from 'lucide-react'
 import { ResumeSelector, type ResumeSelectorTranslations } from './resume-selector'
 import { AnalysisResults, type AnalysisResultsTranslations } from './analysis-results'
 import { useToast } from '@/components/ui/toast'
@@ -16,6 +16,7 @@ export interface ResumeCheckerTranslations {
   analysisResults: string
   analyzeButton: string
   analyzingButton: string
+  reanalyzeButton: string
   loadingResumes: string
   tryAgain: string
   noResumesFound: string
@@ -39,6 +40,9 @@ export interface ResumeCheckerTranslations {
   analysisComplete: string
   analysisFailed: string
   analysisDataMissing: string
+  loadingAnalysis: string
+  cachedAnalysisLoaded: string
+  cachedAnalysisNote: string
 }
 
 interface ResumeCheckerClientProps {
@@ -60,6 +64,18 @@ interface AnalyzeResumeResponse {
 }
 
 /**
+ * API response shape from /api/ai/analyze-resume/[resumeId] endpoint.
+ * Used for fetching existing analysis.
+ */
+interface FetchAnalysisResponse {
+  success: boolean
+  analysis: ResumeAnalysis | null
+  isRecent: boolean
+  analyzedAt?: string
+  error?: string
+}
+
+/**
  * ResumeCheckerClient is the main client component for the Resume Checker feature.
  * It orchestrates the resume selection, analysis triggering, and results display.
  *
@@ -77,7 +93,10 @@ export function ResumeCheckerClient({ locale, translations }: ResumeCheckerClien
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null)
   const [analysis, setAnalysis] = useState<ResumeAnalysis | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingCached, setIsLoadingCached] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** Indicates whether the currently displayed analysis is from cache (not freshly generated) */
+  const [isCachedAnalysis, setIsCachedAnalysis] = useState(false)
 
   const toast = useToast()
 
@@ -108,17 +127,59 @@ export function ResumeCheckerClient({ locale, translations }: ResumeCheckerClien
   }
 
   /**
-   * Handles resume selection from the ResumeSelector component.
-   * Clears any existing analysis when a new resume is selected.
+   * Fetches existing analysis for a resume from the database.
+   * Called when a resume is selected to check for cached results.
    */
-  const handleResumeSelect = useCallback((resumeId: string) => {
-    setSelectedResumeId(resumeId)
-    // Clear previous analysis when selecting a new resume
-    if (analysis) {
+  const fetchExistingAnalysis = useCallback(
+    async (resumeId: string) => {
+      setIsLoadingCached(true)
+      setError(null)
+
+      try {
+        const response = await fetch(`/api/ai/analyze-resume/${resumeId}`)
+        const data: FetchAnalysisResponse = await response.json()
+
+        if (!response.ok || !data.success) {
+          // Not finding an analysis is not an error - just means we need to analyze
+          console.log('No existing analysis found for resume:', resumeId)
+          return
+        }
+
+        if (data.analysis) {
+          setAnalysis(data.analysis)
+          setIsCachedAnalysis(true)
+          // Only show toast if the analysis is recent
+          if (data.isRecent) {
+            toast.success(translations.cachedAnalysisLoaded)
+          }
+        }
+      } catch (err) {
+        // Silently fail - user can still analyze the resume
+        console.error('Error fetching existing analysis:', err)
+      } finally {
+        setIsLoadingCached(false)
+      }
+    },
+    [toast, translations.cachedAnalysisLoaded]
+  )
+
+  /**
+   * Handles resume selection from the ResumeSelector component.
+   * Fetches existing analysis when a new resume is selected.
+   */
+  const handleResumeSelect = useCallback(
+    (resumeId: string) => {
+      setSelectedResumeId(resumeId)
+      // Clear previous analysis when selecting a new resume
       setAnalysis(null)
-    }
-    setError(null)
-  }, [analysis])
+      setIsCachedAnalysis(false)
+      setError(null)
+
+      // Fetch existing analysis for this resume
+      fetchExistingAnalysis(resumeId)
+    },
+    [fetchExistingAnalysis]
+  )
 
   /**
    * Triggers the resume analysis API call.
@@ -155,6 +216,7 @@ export function ResumeCheckerClient({ locale, translations }: ResumeCheckerClien
       }
 
       setAnalysis(data.analysis)
+      setIsCachedAnalysis(false)
       toast.success(translations.analysisComplete)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : translations.analysisFailed
@@ -187,7 +249,7 @@ export function ResumeCheckerClient({ locale, translations }: ResumeCheckerClien
           <button
             type="button"
             onClick={handleAnalyze}
-            disabled={!selectedResumeId || isLoading}
+            disabled={!selectedResumeId || isLoading || isLoadingCached}
             aria-busy={isLoading}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
           >
@@ -196,6 +258,16 @@ export function ResumeCheckerClient({ locale, translations }: ResumeCheckerClien
                 <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
                 {translations.analyzingButton}
               </>
+            ) : isLoadingCached ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                {translations.loadingAnalysis}
+              </>
+            ) : isCachedAnalysis ? (
+              <>
+                <RefreshCw className="h-5 w-5" aria-hidden="true" />
+                {translations.reanalyzeButton}
+              </>
             ) : (
               <>
                 <Search className="h-5 w-5" aria-hidden="true" />
@@ -203,6 +275,13 @@ export function ResumeCheckerClient({ locale, translations }: ResumeCheckerClien
               </>
             )}
           </button>
+
+          {/* Note about cached analysis */}
+          {isCachedAnalysis && !isLoading && (
+            <p className="text-sm text-muted-foreground text-center max-w-sm">
+              {translations.cachedAnalysisNote}
+            </p>
+          )}
 
           {/* Inline error display for non-toast errors */}
           {error && !isLoading && (

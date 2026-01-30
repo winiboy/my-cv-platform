@@ -42,6 +42,7 @@ interface ResumeCheckerPageTranslations {
     analysisResults: string;
     analyzeButton: string;
     analyzingButton: string;
+    reanalyzeButton: string;
     loadingResumes: string;
     tryAgain: string;
     noResumesFound: string;
@@ -65,6 +66,9 @@ interface ResumeCheckerPageTranslations {
     analysisComplete: string;
     analysisFailed: string;
     analysisDataMissing: string;
+    loadingAnalysis: string;
+    cachedAnalysisLoaded: string;
+    cachedAnalysisNote: string;
   };
 }
 

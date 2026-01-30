@@ -100,7 +100,11 @@
       "selectResumePrompt": "Seleziona un CV da analizzare",
       "analysisComplete": "Analisi del CV completata",
       "analysisFailed": "Analisi del CV fallita",
-      "analysisDataMissing": "I dati dell'analisi mancano dalla risposta"
+      "analysisDataMissing": "I dati dell'analisi mancano dalla risposta",
+      "reanalyzeButton": "Rianalizza",
+      "loadingAnalysis": "Caricamento...",
+      "cachedAnalysisLoaded": "Analisi precedente caricata",
+      "cachedAnalysisNote": "Questa è un'analisi salvata in precedenza. Clicca su Rianalizza per generare una nuova analisi."
     }
   }
 }

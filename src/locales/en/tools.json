@@ -100,7 +100,11 @@
       "selectResumePrompt": "Please select a resume to analyze",
       "analysisComplete": "Resume analysis complete",
       "analysisFailed": "Failed to analyze resume",
-      "analysisDataMissing": "Analysis data is missing from response"
+      "analysisDataMissing": "Analysis data is missing from response",
+      "reanalyzeButton": "Re-analyze",
+      "loadingAnalysis": "Loading...",
+      "cachedAnalysisLoaded": "Loaded previous analysis",
+      "cachedAnalysisNote": "This is a previously saved analysis. Click Re-analyze to generate a fresh analysis."
     }
   }
 }
