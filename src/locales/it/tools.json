@@ -147,6 +147,17 @@
     "browseJobs": "Sfoglia offerte",
     "clearSelection": "Cancella selezione"
   },
+  "jobUrlExtraction": {
+    "label": "Oppure incolla l'URL di un'offerta di lavoro",
+    "placeholder": "https://esempio.com/lavoro/...",
+    "extract": "Estrai",
+    "extracting": "Estrazione...",
+    "clearUrl": "Cancella URL",
+    "invalidUrl": "Inserisci un URL valido",
+    "emptyUrl": "Inserisci l'URL di un'offerta di lavoro",
+    "extractionFailed": "Impossibile estrarre la descrizione del lavoro",
+    "noDescriptionFound": "Nessuna descrizione del lavoro trovata nella risposta"
+  },
   "resumeChecker": {
     "title": "Verificatore di CV",
     "subtitle": "Ottieni feedback immediato sul tuo CV con il nostro strumento di analisi alimentato dall'IA.",

@@ -147,6 +147,17 @@
     "browseJobs": "Stellen durchsuchen",
     "clearSelection": "Auswahl löschen"
   },
+  "jobUrlExtraction": {
+    "label": "Oder fügen Sie eine Stellen-URL ein",
+    "placeholder": "https://beispiel.com/stelle/...",
+    "extract": "Extrahieren",
+    "extracting": "Wird extrahiert...",
+    "clearUrl": "URL löschen",
+    "invalidUrl": "Bitte geben Sie eine gültige URL ein",
+    "emptyUrl": "Bitte geben Sie eine Stellen-URL ein",
+    "extractionFailed": "Stellenbeschreibung konnte nicht extrahiert werden",
+    "noDescriptionFound": "Keine Stellenbeschreibung in der Antwort gefunden"
+  },
   "resumeChecker": {
     "title": "Lebenslauf-Prüfer",
     "subtitle": "Erhalten Sie sofortiges Feedback zu Ihrem Lebenslauf mit unserem KI-gestützten Analysetool.",

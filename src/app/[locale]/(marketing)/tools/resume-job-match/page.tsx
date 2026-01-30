@@ -109,6 +109,21 @@ interface ResumeCheckerUITranslations {
 }
 
 /**
+ * Type definition for job URL extraction translations.
+ */
+interface JobUrlExtractionTranslations {
+  label: string
+  placeholder: string
+  extract: string
+  extracting: string
+  clearUrl: string
+  invalidUrl: string
+  emptyUrl: string
+  extractionFailed: string
+  noDescriptionFound: string
+}
+
+/**
  * Type definition for tools translations including detail section.
  */
 interface ToolsTranslations {
@@ -119,6 +134,7 @@ interface ToolsTranslations {
   resumeChecker?: {
     ui?: ResumeCheckerUITranslations
   }
+  jobUrlExtraction?: JobUrlExtractionTranslations
 }
 
 /**
@@ -302,6 +318,19 @@ export default async function ResumeJobMatchPage({
       t.resumeJobMatch.ui.loadingJobDescription || 'Loading job description...',
     jobDescriptionLoadError:
       t.resumeJobMatch.ui.jobDescriptionLoadError || 'Failed to load job description.',
+
+    // Job URL extraction translations
+    jobUrlExtraction: {
+      label: t.jobUrlExtraction?.label || 'Or paste a job posting URL',
+      placeholder: t.jobUrlExtraction?.placeholder || 'https://example.com/job/...',
+      extract: t.jobUrlExtraction?.extract || 'Extract',
+      extracting: t.jobUrlExtraction?.extracting || 'Extracting...',
+      clearUrl: t.jobUrlExtraction?.clearUrl || 'Clear URL',
+      invalidUrl: t.jobUrlExtraction?.invalidUrl || 'Please enter a valid URL',
+      emptyUrl: t.jobUrlExtraction?.emptyUrl || 'Please enter a job posting URL',
+      extractionFailed: t.jobUrlExtraction?.extractionFailed || 'Failed to extract job description',
+      noDescriptionFound: t.jobUrlExtraction?.noDescriptionFound || 'No job description found in the response',
+    },
   }
 
   return (

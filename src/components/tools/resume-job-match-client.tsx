@@ -162,6 +162,19 @@ export interface ResumeJobMatchTranslations {
   // Job description loading states
   loadingJobDescription?: string
   jobDescriptionLoadError?: string
+
+  // Job URL extraction translations
+  jobUrlExtraction: {
+    label: string
+    placeholder: string
+    extract: string
+    extracting: string
+    clearUrl: string
+    invalidUrl: string
+    emptyUrl: string
+    extractionFailed: string
+    noDescriptionFound: string
+  }
 }
 
 interface ResumeJobMatchClientProps {
@@ -864,7 +877,7 @@ export function ResumeJobMatchClient({
     // Validate URL is not empty
     const trimmedUrl = jobUrl.trim()
     if (!trimmedUrl) {
-      setUrlError('Please enter a job posting URL')
+      setUrlError(translations.jobUrlExtraction.emptyUrl)
       return
     }
 
@@ -872,7 +885,7 @@ export function ResumeJobMatchClient({
     try {
       new URL(trimmedUrl)
     } catch {
-      setUrlError('Please enter a valid URL')
+      setUrlError(translations.jobUrlExtraction.invalidUrl)
       return
     }
 
@@ -890,7 +903,7 @@ export function ResumeJobMatchClient({
 
       if (!response.ok || !data.success) {
         // API returned an error
-        const errorMessage = data.message || data.error || 'Failed to extract job description'
+        const errorMessage = data.message || data.error || translations.jobUrlExtraction.extractionFailed
         setUrlError(errorMessage)
         return
       }
@@ -903,19 +916,19 @@ export function ResumeJobMatchClient({
         // Clear URL error on success
         setUrlError(null)
       } else {
-        setUrlError('No job description found in the response')
+        setUrlError(translations.jobUrlExtraction.noDescriptionFound)
       }
     } catch (err) {
       console.error('Error extracting job from URL:', err)
       setUrlError(
         err instanceof Error
           ? err.message
-          : 'Failed to extract job description. Please try again or paste manually.'
+          : translations.jobUrlExtraction.extractionFailed
       )
     } finally {
       setIsExtractingUrl(false)
     }
-  }, [jobUrl])
+  }, [jobUrl, translations.jobUrlExtraction])
 
   /**
    * Handles Enter key press in the URL input field.
@@ -1303,7 +1316,7 @@ export function ResumeJobMatchClient({
                           htmlFor="job-url-input"
                           className="block text-sm font-medium text-slate-700 dark:text-slate-300"
                         >
-                          Or paste a job posting URL
+                          {translations.jobUrlExtraction.label}
                         </label>
                         <div className="flex gap-2">
                           <div className="relative flex-1">
@@ -1317,7 +1330,7 @@ export function ResumeJobMatchClient({
                                 if (urlError) setUrlError(null)
                               }}
                               onKeyDown={handleUrlKeyDown}
-                              placeholder="https://example.com/job/..."
+                              placeholder={translations.jobUrlExtraction.placeholder}
                               disabled={isExtractingUrl}
                               className={cn(
                                 'w-full px-3 py-2.5 pr-10 rounded-lg border',
@@ -1339,7 +1352,7 @@ export function ResumeJobMatchClient({
                                   setJobUrl('')
                                   setUrlError(null)
                                 }}
-                                aria-label="Clear URL"
+                                aria-label={translations.jobUrlExtraction.clearUrl}
                                 className={cn(
                                   'absolute right-2 top-1/2 -translate-y-1/2',
                                   'p-1 rounded-full',
@@ -1372,10 +1385,10 @@ export function ResumeJobMatchClient({
                             {isExtractingUrl ? (
                               <>
                                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                                <span>Extracting...</span>
+                                <span>{translations.jobUrlExtraction.extracting}</span>
                               </>
                             ) : (
-                              <span>Extract</span>
+                              <span>{translations.jobUrlExtraction.extract}</span>
                             )}
                           </button>
                         </div>

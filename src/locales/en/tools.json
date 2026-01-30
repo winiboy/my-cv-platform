@@ -147,6 +147,17 @@
     "browseJobs": "Browse Jobs",
     "clearSelection": "Clear selection"
   },
+  "jobUrlExtraction": {
+    "label": "Or paste a job posting URL",
+    "placeholder": "https://example.com/job/...",
+    "extract": "Extract",
+    "extracting": "Extracting...",
+    "clearUrl": "Clear URL",
+    "invalidUrl": "Please enter a valid URL",
+    "emptyUrl": "Please enter a job posting URL",
+    "extractionFailed": "Failed to extract job description",
+    "noDescriptionFound": "No job description found in the response"
+  },
   "resumeChecker": {
     "title": "Resume Checker",
     "subtitle": "Get instant feedback on your resume with our AI-powered analysis tool.",
