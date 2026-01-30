@@ -1,0 +1,176 @@
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
+import type { Locale } from '@/lib/i18n'
+import { locales, getTranslations } from '@/lib/i18n'
+import {
+  ResumeJobMatchClient,
+  type ResumeJobMatchTranslations,
+} from '@/components/tools/resume-job-match-client'
+
+interface ResumeJobMatchPageProps {
+  params: {
+    locale: Locale
+  }
+}
+
+/**
+ * Type definition for the resume job match page translations.
+ * Maps to the structure in tools.json resumeJobMatch section.
+ */
+interface ResumeJobMatchPageTranslations {
+  title: string
+  subtitle: string
+  metaTitle: string
+  metaDescription: string
+  ui: {
+    resumeLabel: string
+    resumePlaceholder: string
+    jobLabel: string
+    jobPlaceholder: string
+    analyzeButton: string
+    analyzingButton: string
+    matchScore: string
+    matchedSkills: string
+    missingSkills: string
+    recommendations: string
+    strengths: string
+    minCharsError: string
+    emptyState: string
+    backToTools: string
+  }
+}
+
+/**
+ * Type definition for tools translations including detail section.
+ */
+interface ToolsTranslations {
+  detail: {
+    backToTools: string
+  }
+  resumeJobMatch: ResumeJobMatchPageTranslations
+}
+
+/**
+ * Generates static params for all locales.
+ * Enables static generation at build time for all supported languages.
+ */
+export function generateStaticParams(): Array<{ locale: Locale }> {
+  return locales.map((locale) => ({ locale }))
+}
+
+/**
+ * Generates dynamic metadata for the resume job match page.
+ * Provides SEO-friendly title and description.
+ */
+export async function generateMetadata({
+  params,
+}: ResumeJobMatchPageProps): Promise<Metadata> {
+  const t = getTranslations(params.locale, 'tools') as ToolsTranslations
+  const { metaTitle, metaDescription } = t.resumeJobMatch
+
+  return {
+    title: metaTitle,
+    description: metaDescription,
+    openGraph: {
+      title: metaTitle,
+      description: metaDescription,
+      type: 'website',
+    },
+  }
+}
+
+/**
+ * Resume Job Match page - public access, no authentication required.
+ * Users can compare their resume text against job descriptions to find skill gaps.
+ * This is a Server Component.
+ */
+export default async function ResumeJobMatchPage({
+  params,
+}: ResumeJobMatchPageProps) {
+  const { locale } = params
+  const t = getTranslations(locale, 'tools') as ToolsTranslations
+
+  /**
+   * Map the available JSON translations to the ResumeJobMatchTranslations interface.
+   * Some fields are derived from existing translations or use sensible defaults
+   * since not all interface fields exist in the current translation files.
+   */
+  const clientTranslations: ResumeJobMatchTranslations = {
+    // Section headers - derived from context
+    inputSection: t.resumeJobMatch.ui.resumeLabel.includes('Resume')
+      ? 'Input'
+      : 'Saisie',
+    resultsSection: t.resumeJobMatch.ui.matchScore.includes('Score')
+      ? 'Results'
+      : 'Resultats',
+
+    // Resume input translations
+    resumeLabel: t.resumeJobMatch.ui.resumeLabel,
+    resumePlaceholder: t.resumeJobMatch.ui.resumePlaceholder,
+    resumeMinCharsError: t.resumeJobMatch.ui.minCharsError,
+
+    // Job description input translations
+    jobLabel: t.resumeJobMatch.ui.jobLabel,
+    jobPlaceholder: t.resumeJobMatch.ui.jobPlaceholder,
+    jobMinCharsError: t.resumeJobMatch.ui.minCharsError,
+
+    // Button translations
+    analyzeButton: t.resumeJobMatch.ui.analyzeButton,
+    analyzingButton: t.resumeJobMatch.ui.analyzingButton,
+
+    // Result translations
+    matchScore: t.resumeJobMatch.ui.matchScore,
+    matchedSkills: t.resumeJobMatch.ui.matchedSkills,
+    missingSkills: t.resumeJobMatch.ui.missingSkills,
+    recommendations: t.resumeJobMatch.ui.recommendations,
+    strengths: t.resumeJobMatch.ui.strengths,
+    emptyStateTitle: t.resumeJobMatch.ui.matchScore,
+    emptyStateDescription: t.resumeJobMatch.ui.emptyState,
+    analyzedAt: 'Analyzed at',
+    noSkillsFound: 'No matched skills found',
+    noMissingSkills: 'No missing skills identified',
+    noRecommendations: 'No recommendations available',
+    noStrengths: 'No strengths identified',
+
+    // Toast messages
+    analysisComplete: 'Analysis complete',
+    analysisFailed: 'Analysis failed. Please try again.',
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-teal-50 via-slate-50 to-purple-50 px-4 py-20 sm:px-6 md:px-8 lg:px-12 xl:px-16">
+        <div className="mx-auto max-w-4xl text-center">
+          {/* Back Link */}
+          <Link
+            href={`/${locale}/tools`}
+            className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-teal-600 transition-colors hover:text-teal-700"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {t.detail.backToTools}
+          </Link>
+
+          <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+            {t.resumeJobMatch.title}
+          </h1>
+
+          <p className="mx-auto mt-6 max-w-2xl text-xl text-slate-500">
+            {t.resumeJobMatch.subtitle}
+          </p>
+        </div>
+      </section>
+
+      {/* Content Section - No auth required */}
+      <section className="px-4 py-12 sm:px-6 md:px-8 lg:px-12 xl:px-16">
+        <div className="mx-auto max-w-7xl">
+          <ResumeJobMatchClient
+            locale={locale}
+            translations={clientTranslations}
+          />
+        </div>
+      </section>
+    </div>
+  )
+}
