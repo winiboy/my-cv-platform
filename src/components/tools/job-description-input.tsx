@@ -88,13 +88,13 @@ export function JobDescriptionInput({
           aria-invalid={showError}
           aria-describedby={showError ? 'job-description-error' : undefined}
           className={cn(
-            'w-full rounded-lg border bg-white dark:bg-slate-800 px-4 py-3 pr-10 text-sm',
+            'w-full rounded-lg border bg-white dark:bg-slate-900 px-4 py-3 pr-10 text-sm',
             'placeholder:text-slate-400 dark:placeholder:text-slate-500',
-            'transition-colors outline-none resize-y min-h-[160px]',
-            'focus:ring-2 focus:ring-offset-0',
+            'transition-all duration-200 outline-none resize-y min-h-[160px]',
+            'focus:ring-2 focus:ring-offset-0 focus:shadow-sm',
             showError
-              ? 'border-red-500 dark:border-red-400 focus:border-red-500 focus:ring-red-500/20'
-              : 'border-slate-200 dark:border-slate-700 focus:border-teal-500 focus:ring-teal-500/20',
+              ? 'border-red-300 dark:border-red-500 focus:border-red-500 focus:ring-red-500/20'
+              : 'border-slate-200 dark:border-slate-600 focus:border-teal-500 focus:ring-teal-500/20 dark:focus:border-teal-400 dark:focus:ring-teal-400/20',
             'text-slate-900 dark:text-slate-100'
           )}
         />
@@ -106,10 +106,10 @@ export function JobDescriptionInput({
             onClick={handleClear}
             aria-label="Clear job description"
             className={cn(
-              'absolute top-3 right-3 p-1 rounded-md',
+              'absolute top-3 right-3 p-1.5 rounded-md',
               'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300',
               'hover:bg-slate-100 dark:hover:bg-slate-700',
-              'transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500'
+              'transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-1'
             )}
           >
             <X className="h-4 w-4" />

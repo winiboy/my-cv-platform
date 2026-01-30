@@ -133,14 +133,14 @@ interface EmptyStateProps {
  */
 function EmptyState({ translations }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-      <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
-        <FileSearch className="w-8 h-8 text-muted-foreground" />
+    <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+      <div className="w-20 h-20 rounded-full bg-teal-50 dark:bg-teal-900/20 flex items-center justify-center mb-6">
+        <FileSearch className="w-10 h-10 text-teal-500 dark:text-teal-400" />
       </div>
-      <h3 className="text-lg font-semibold text-foreground mb-2">
+      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
         {translations.emptyStateTitle}
       </h3>
-      <p className="text-sm text-muted-foreground max-w-sm">
+      <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
         {translations.emptyStateDescription}
       </p>
     </div>
@@ -155,17 +155,19 @@ interface SkillBadgeProps {
 /**
  * Badge component for displaying individual skills.
  * Green for matched skills, amber for missing skills.
+ * Uses rounded-full for pill-shaped badges with consistent padding.
  */
 function SkillBadge({ skill, variant }: SkillBadgeProps) {
   const styles = {
-    matched: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-    missing: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+    matched: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-700',
+    missing: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700',
   }
 
   return (
     <span
       className={cn(
-        'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium',
+        'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium',
+        'border transition-colors',
         styles[variant]
       )}
     >
@@ -274,11 +276,11 @@ export function MatchResults({
 
   // Data state: display the match results
   return (
-    <div className={cn('w-full flex flex-col gap-6', className)}>
+    <div className={cn('w-full flex flex-col', className)}>
       {/* Score gauge section - centered at top */}
-      <div className="flex flex-col items-center gap-2">
+      <div className="flex flex-col items-center gap-2 pb-6">
         <ScoreGauge score={analysis.matchScore} size={gaugeSize} />
-        <p className="text-base font-medium text-foreground">
+        <p className="text-base font-semibold text-foreground">
           {translations.matchScore}
         </p>
         {/* Analyzed at timestamp */}
@@ -288,9 +290,9 @@ export function MatchResults({
       </div>
 
       {/* Matched skills section */}
-      <div>
+      <div className="py-5 border-t border-slate-100 dark:border-slate-700">
         <SectionHeader
-          icon={<CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />}
+          icon={<CheckCircle2 className="w-5 h-5 text-teal-600 dark:text-teal-400" />}
           title={translations.matchedSkills}
           count={analysis.matchedSkills.length}
         />
@@ -308,7 +310,7 @@ export function MatchResults({
       </div>
 
       {/* Missing skills section */}
-      <div>
+      <div className="py-5 border-t border-slate-100 dark:border-slate-700">
         <SectionHeader
           icon={<AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />}
           title={translations.missingSkills}
@@ -328,7 +330,7 @@ export function MatchResults({
       </div>
 
       {/* Recommendations section */}
-      <div>
+      <div className="py-5 border-t border-slate-100 dark:border-slate-700">
         <SectionHeader
           icon={<Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
           title={translations.recommendations}
@@ -341,7 +343,7 @@ export function MatchResults({
       </div>
 
       {/* Strengths section */}
-      <div>
+      <div className="py-5 border-t border-slate-100 dark:border-slate-700">
         <SectionHeader
           icon={<Trophy className="w-5 h-5 text-purple-600 dark:text-purple-400" />}
           title={translations.strengths}

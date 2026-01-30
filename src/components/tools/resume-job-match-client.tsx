@@ -603,11 +603,12 @@ export function ResumeJobMatchClient({
   ])
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
       {/* Left column: Inputs and analyze button */}
       <div className="space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
+        {/* Input card container */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-6">
             {translations.inputSection}
           </h2>
 
@@ -642,8 +643,8 @@ export function ResumeJobMatchClient({
                         'border-b-2 -mb-px transition-colors',
                         'focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2',
                         isActive
-                          ? 'border-teal-500 text-teal-600 dark:text-teal-400'
-                          : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                          ? 'border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400'
+                          : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
                       )}
                     >
                       <Icon className="h-4 w-4" aria-hidden="true" />
@@ -765,45 +766,53 @@ export function ResumeJobMatchClient({
               minChars={MIN_JOB_DESCRIPTION_CHARS}
             />
           </div>
-        </div>
 
-        {/* Analyze button */}
-        <div className="flex flex-col items-center gap-4">
-          <button
-            type="button"
-            onClick={handleAnalyze}
-            disabled={!canAnalyze || isLoadingResume}
-            aria-busy={isLoading}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-                {translations.analyzingButton}
-              </>
-            ) : (
-              <>
-                <BarChart3 className="h-5 w-5" aria-hidden="true" />
-                {translations.analyzeButton}
-              </>
+          {/* Analyze button - inside card */}
+          <div className="flex flex-col items-center gap-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+            <button
+              type="button"
+              onClick={handleAnalyze}
+              disabled={!canAnalyze || isLoadingResume}
+              aria-busy={isLoading}
+              className={cn(
+                'inline-flex items-center justify-center gap-2 px-8 py-3',
+                'bg-teal-600 text-white font-semibold rounded-lg',
+                'shadow-sm transition-all duration-200',
+                'hover:bg-teal-700 hover:shadow-md',
+                'focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2',
+                'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-teal-600 disabled:hover:shadow-sm',
+                'w-full sm:w-auto'
+              )}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                  {translations.analyzingButton}
+                </>
+              ) : (
+                <>
+                  <BarChart3 className="h-5 w-5" aria-hidden="true" />
+                  {translations.analyzeButton}
+                </>
+              )}
+            </button>
+
+            {/* Inline error display for non-toast errors */}
+            {error && !isLoading && (
+              <p className="text-sm text-red-600 dark:text-red-400 text-center">
+                {error}
+              </p>
             )}
-          </button>
-
-          {/* Inline error display for non-toast errors */}
-          {error && !isLoading && (
-            <p className="text-sm text-red-600 dark:text-red-400 text-center">
-              {error}
-            </p>
-          )}
+          </div>
         </div>
       </div>
 
       {/* Right column: Match results */}
-      <div>
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
           {translations.resultsSection}
         </h2>
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 min-h-[400px]">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800 min-h-[400px]">
           <MatchResults
             analysis={analysis}
             isLoading={isLoading}
