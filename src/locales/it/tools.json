@@ -50,5 +50,28 @@
     "viewAllTools": "Visualizza tutti gli strumenti",
     "metaTitleSuffix": "Strumenti per la carriera - Prossimamente",
     "metaDescriptionPrefix": "Il nostro strumento {toolName} arriverà presto. Ricevi una notifica quando questo potente strumento per la carriera sarà disponibile per aiutarti a trovare il lavoro dei tuoi sogni."
+  },
+  "resumeChecker": {
+    "title": "Verificatore di CV",
+    "subtitle": "Ottieni feedback immediato sul tuo CV con il nostro strumento di analisi alimentato dall'IA.",
+    "metaTitle": "Verificatore di CV | Analisi CV con IA",
+    "metaDescription": "Analizza il tuo CV per completezza, formattazione e compatibilità ATS. Ottieni suggerimenti pratici per migliorare il tasso di successo delle tue candidature.",
+    "auth": {
+      "title": "Accedi per verificare il tuo CV",
+      "description": "Crea un account gratuito per accedere al nostro verificatore di CV alimentato dall'IA e ricevere feedback personalizzati per migliorare le tue candidature.",
+      "benefits": {
+        "title": "Cosa otterrai:",
+        "completeness": "Punteggio di completezza e avvisi per sezioni mancanti",
+        "formatting": "Analisi di formattazione e struttura",
+        "ats": "Verifica di compatibilità ATS",
+        "suggestions": "Suggerimenti di miglioramento concreti"
+      },
+      "loginButton": "Accedi per continuare",
+      "signupPrompt": "Non hai un account?",
+      "signupLink": "Creane uno gratis"
+    },
+    "authenticated": {
+      "placeholder": "Autenticato! L'interfaccia del verificatore di CV arriverà presto..."
+    }
   }
 }

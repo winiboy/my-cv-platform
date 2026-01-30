@@ -8,8 +8,11 @@ import { locales, getTranslations } from "@/lib/i18n";
  * Valid tool slugs for the career tools section.
  * Used for static generation and validation.
  */
+/**
+ * Note: "resume-checker" is excluded because it has a dedicated page at
+ * src/app/[locale]/(marketing)/tools/resume-checker/page.tsx
+ */
 const VALID_TOOL_SLUGS = [
-  "resume-checker",
   "resume-job-match",
   "cover-letter-generator",
   "resume-reviewer",

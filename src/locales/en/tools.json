@@ -50,5 +50,28 @@
     "viewAllTools": "View All Tools",
     "metaTitleSuffix": "Career Tools - Coming Soon",
     "metaDescriptionPrefix": "Our {toolName} tool is coming soon. Get notified when this powerful career tool becomes available to help you land your dream job."
+  },
+  "resumeChecker": {
+    "title": "Resume Checker",
+    "subtitle": "Get instant feedback on your resume with our AI-powered analysis tool.",
+    "metaTitle": "Resume Checker | AI-Powered Resume Analysis",
+    "metaDescription": "Analyze your resume for completeness, formatting, and ATS compatibility. Get actionable insights to improve your job application success rate.",
+    "auth": {
+      "title": "Sign in to check your resume",
+      "description": "Create a free account to access our AI-powered resume checker and get personalized feedback to improve your job applications.",
+      "benefits": {
+        "title": "What you will get:",
+        "completeness": "Completeness score and missing section alerts",
+        "formatting": "Formatting and structure analysis",
+        "ats": "ATS compatibility check",
+        "suggestions": "Actionable improvement suggestions"
+      },
+      "loginButton": "Sign in to continue",
+      "signupPrompt": "Don't have an account?",
+      "signupLink": "Create one for free"
+    },
+    "authenticated": {
+      "placeholder": "Authenticated! Resume checker UI coming soon..."
+    }
   }
 }

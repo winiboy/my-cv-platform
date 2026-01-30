@@ -50,5 +50,28 @@
     "viewAllTools": "Alle Tools anzeigen",
     "metaTitleSuffix": "Karriere-Tools - Demnächst verfügbar",
     "metaDescriptionPrefix": "Unser {toolName}-Tool kommt bald. Lassen Sie sich benachrichtigen, wenn dieses leistungsstarke Karriere-Tool verfügbar wird, um Ihnen zu helfen, Ihren Traumjob zu finden."
+  },
+  "resumeChecker": {
+    "title": "Lebenslauf-Prüfer",
+    "subtitle": "Erhalten Sie sofortiges Feedback zu Ihrem Lebenslauf mit unserem KI-gestützten Analysetool.",
+    "metaTitle": "Lebenslauf-Prüfer | KI-gestützte Lebenslaufanalyse",
+    "metaDescription": "Analysieren Sie Ihren Lebenslauf auf Vollständigkeit, Formatierung und ATS-Kompatibilität. Erhalten Sie umsetzbare Tipps zur Verbesserung Ihrer Bewerbungserfolgsquote.",
+    "auth": {
+      "title": "Melden Sie sich an, um Ihren Lebenslauf zu prüfen",
+      "description": "Erstellen Sie ein kostenloses Konto, um auf unseren KI-gestützten Lebenslauf-Prüfer zuzugreifen und personalisiertes Feedback zur Verbesserung Ihrer Bewerbungen zu erhalten.",
+      "benefits": {
+        "title": "Was Sie erhalten:",
+        "completeness": "Vollständigkeitsbewertung und Hinweise auf fehlende Abschnitte",
+        "formatting": "Analyse von Formatierung und Struktur",
+        "ats": "ATS-Kompatibilitätsprüfung",
+        "suggestions": "Umsetzbare Verbesserungsvorschläge"
+      },
+      "loginButton": "Anmelden um fortzufahren",
+      "signupPrompt": "Noch kein Konto?",
+      "signupLink": "Kostenlos erstellen"
+    },
+    "authenticated": {
+      "placeholder": "Authentifiziert! Die Lebenslauf-Prüfer-Oberfläche kommt bald..."
+    }
   }
 }
