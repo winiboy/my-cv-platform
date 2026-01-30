@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
 } from 'react'
 import { useSession } from 'next-auth/react'
-import { Loader2, BarChart3, FileText, Upload, FolderOpen, Link, Briefcase } from 'lucide-react'
+import { Loader2, BarChart3, FileText, Upload, FolderOpen, Link, Briefcase, X } from 'lucide-react'
 import {
   ResumeTextInput,
   type ResumeTextInputTranslations,
@@ -377,6 +377,9 @@ export function ResumeJobMatchClient({
   // State for the linked job in the job 'link' tab
   const [linkedJobId, setLinkedJobId] = useState<string | null>(null)
   const [isLoadingJob, setIsLoadingJob] = useState(false)
+
+  // State for job URL input in the job 'link' tab
+  const [jobUrl, setJobUrl] = useState('')
 
   // Tab state management - starts on link tab (the first tab)
   const [activeTab, setActiveTab] = useState<ResumeInputTab>('link')
@@ -1216,6 +1219,53 @@ export function ResumeJobMatchClient({
                         locale={locale}
                         translations={translations.jobLinker}
                       />
+
+                      {/* Job URL input field */}
+                      <div className="relative">
+                        <label
+                          htmlFor="job-url-input"
+                          className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5"
+                        >
+                          Or paste a job posting URL
+                        </label>
+                        <div className="relative">
+                          <input
+                            id="job-url-input"
+                            type="url"
+                            value={jobUrl}
+                            onChange={(e) => setJobUrl(e.target.value)}
+                            placeholder="https://example.com/job/..."
+                            className={cn(
+                              'w-full px-3 py-2.5 pr-10 rounded-lg border',
+                              'text-sm text-slate-900 dark:text-slate-100',
+                              'bg-white dark:bg-slate-800',
+                              'border-slate-300 dark:border-slate-600',
+                              'placeholder:text-slate-400 dark:placeholder:text-slate-500',
+                              'focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500',
+                              'transition-colors duration-200'
+                            )}
+                          />
+                          {jobUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setJobUrl('')}
+                              aria-label="Clear URL"
+                              className={cn(
+                                'absolute right-2 top-1/2 -translate-y-1/2',
+                                'p-1 rounded-full',
+                                'text-slate-400 hover:text-slate-600',
+                                'dark:text-slate-500 dark:hover:text-slate-300',
+                                'hover:bg-slate-100 dark:hover:bg-slate-700',
+                                'transition-colors duration-200',
+                                'focus:outline-none focus:ring-2 focus:ring-teal-500'
+                              )}
+                            >
+                              <X className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
                       {isLoadingJob && linkedJobId && (
                         <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                           <Loader2 className="h-4 w-4 animate-spin" />
