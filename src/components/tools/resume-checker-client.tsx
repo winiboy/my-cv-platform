@@ -2,14 +2,50 @@
 
 import { useState, useCallback } from 'react'
 import { Loader2, Search } from 'lucide-react'
-import { ResumeSelector } from './resume-selector'
-import { AnalysisResults } from './analysis-results'
+import { ResumeSelector, type ResumeSelectorTranslations } from './resume-selector'
+import { AnalysisResults, type AnalysisResultsTranslations } from './analysis-results'
 import { useToast } from '@/components/ui/toast'
 import type { ResumeAnalysis } from '@/types/resume-analysis'
+
+/**
+ * Combined translation interface for all Resume Checker UI strings.
+ * This is passed from the server component which has access to translations.
+ */
+export interface ResumeCheckerTranslations {
+  selectResume: string
+  analysisResults: string
+  analyzeButton: string
+  analyzingButton: string
+  loadingResumes: string
+  tryAgain: string
+  noResumesFound: string
+  noResumesDescription: string
+  createResume: string
+  updated: string
+  loginRequired: string
+  loadError: string
+  noAnalysisYet: string
+  noAnalysisDescription: string
+  analyzedAt: string
+  noCategories: string
+  noIssues: string
+  showMe: string
+  suggestion: string
+  issues: string
+  severityHigh: string
+  severityMedium: string
+  severityLow: string
+  selectResumePrompt: string
+  analysisComplete: string
+  analysisFailed: string
+  analysisDataMissing: string
+}
 
 interface ResumeCheckerClientProps {
   /** Locale for navigation links and API calls */
   locale: string
+  /** Translated UI strings */
+  translations: ResumeCheckerTranslations
 }
 
 /**
@@ -37,13 +73,39 @@ interface AnalyzeResumeResponse {
  * - isLoading: Whether an analysis is in progress
  * - error: Any error message from the last operation
  */
-export function ResumeCheckerClient({ locale }: ResumeCheckerClientProps) {
+export function ResumeCheckerClient({ locale, translations }: ResumeCheckerClientProps) {
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null)
   const [analysis, setAnalysis] = useState<ResumeAnalysis | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const toast = useToast()
+
+  // Prepare translations for child components
+  const resumeSelectorTranslations: ResumeSelectorTranslations = {
+    loadingResumes: translations.loadingResumes,
+    tryAgain: translations.tryAgain,
+    noResumesFound: translations.noResumesFound,
+    noResumesDescription: translations.noResumesDescription,
+    createResume: translations.createResume,
+    updated: translations.updated,
+    loginRequired: translations.loginRequired,
+    loadError: translations.loadError,
+  }
+
+  const analysisResultsTranslations: AnalysisResultsTranslations = {
+    noAnalysisYet: translations.noAnalysisYet,
+    noAnalysisDescription: translations.noAnalysisDescription,
+    analyzedAt: translations.analyzedAt,
+    noCategories: translations.noCategories,
+    noIssues: translations.noIssues,
+    showMe: translations.showMe,
+    suggestion: translations.suggestion,
+    issues: translations.issues,
+    severityHigh: translations.severityHigh,
+    severityMedium: translations.severityMedium,
+    severityLow: translations.severityLow,
+  }
 
   /**
    * Handles resume selection from the ResumeSelector component.
@@ -64,7 +126,7 @@ export function ResumeCheckerClient({ locale }: ResumeCheckerClientProps) {
    */
   const handleAnalyze = useCallback(async () => {
     if (!selectedResumeId) {
-      toast.error('Please select a resume to analyze')
+      toast.error(translations.selectResumePrompt)
       return
     }
 
@@ -84,25 +146,25 @@ export function ResumeCheckerClient({ locale }: ResumeCheckerClientProps) {
       const data: AnalyzeResumeResponse = await response.json()
 
       if (!response.ok || !data.success) {
-        const errorMessage = data.error || data.message || 'Failed to analyze resume'
+        const errorMessage = data.error || data.message || translations.analysisFailed
         throw new Error(errorMessage)
       }
 
       if (!data.analysis) {
-        throw new Error('Analysis data is missing from response')
+        throw new Error(translations.analysisDataMissing)
       }
 
       setAnalysis(data.analysis)
-      toast.success('Resume analysis complete')
+      toast.success(translations.analysisComplete)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to analyze resume'
+      const errorMessage = err instanceof Error ? err.message : translations.analysisFailed
       console.error('Error analyzing resume:', err)
       setError(errorMessage)
       toast.error(errorMessage)
     } finally {
       setIsLoading(false)
     }
-  }, [selectedResumeId, locale, toast])
+  }, [selectedResumeId, locale, toast, translations])
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -110,12 +172,13 @@ export function ResumeCheckerClient({ locale }: ResumeCheckerClientProps) {
       <div className="space-y-6">
         <div>
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
-            Select a Resume
+            {translations.selectResume}
           </h2>
           <ResumeSelector
             onSelect={handleResumeSelect}
             selectedId={selectedResumeId}
             locale={locale}
+            translations={resumeSelectorTranslations}
           />
         </div>
 
@@ -131,12 +194,12 @@ export function ResumeCheckerClient({ locale }: ResumeCheckerClientProps) {
             {isLoading ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-                Analyzing...
+                {translations.analyzingButton}
               </>
             ) : (
               <>
                 <Search className="h-5 w-5" aria-hidden="true" />
-                Analyze Resume
+                {translations.analyzeButton}
               </>
             )}
           </button>
@@ -153,7 +216,7 @@ export function ResumeCheckerClient({ locale }: ResumeCheckerClientProps) {
       {/* Right column: Analysis results */}
       <div>
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
-          Analysis Results
+          {translations.analysisResults}
         </h2>
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 min-h-[400px]">
           <AnalysisResults
@@ -161,6 +224,7 @@ export function ResumeCheckerClient({ locale }: ResumeCheckerClientProps) {
             isLoading={isLoading}
             resumeId={selectedResumeId ?? undefined}
             locale={locale}
+            translations={analysisResultsTranslations}
           />
         </div>
       </div>

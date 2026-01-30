@@ -6,6 +6,20 @@ import { CheckCircle2, AlertTriangle, XCircle, ChevronDown, ArrowRight } from 'l
 import { cn } from '@/lib/utils'
 import type { AnalysisCategory, AnalysisIssue, CategoryStatus, IssueSeverity } from '@/types/resume-analysis'
 
+/**
+ * Translation strings required by the CategoryList component.
+ */
+export interface CategoryListTranslations {
+  noCategories: string
+  noIssues: string
+  showMe: string
+  suggestion: string
+  issues: string
+  severityHigh: string
+  severityMedium: string
+  severityLow: string
+}
+
 interface CategoryListProps {
   /** Array of analysis categories to display */
   categories: AnalysisCategory[]
@@ -17,6 +31,8 @@ interface CategoryListProps {
   resumeId?: string
   /** Locale for i18n routing in navigation links */
   locale?: string
+  /** Translated UI strings */
+  translations: CategoryListTranslations
 }
 
 /**
@@ -57,32 +73,34 @@ function getStatusConfig(status: CategoryStatus): {
   }
 }
 
-/**
- * Returns severity badge styling based on issue severity level.
- */
-function getSeverityConfig(severity: IssueSeverity): {
+interface SeverityConfig {
   bgColor: string
   textColor: string
   label: string
-} {
+}
+
+/**
+ * Returns severity badge styling based on issue severity level.
+ */
+function getSeverityConfig(severity: IssueSeverity, translations: CategoryListTranslations): SeverityConfig {
   switch (severity) {
     case 'high':
       return {
         bgColor: 'bg-red-100 dark:bg-red-900/30',
         textColor: 'text-red-700 dark:text-red-300',
-        label: 'High',
+        label: translations.severityHigh,
       }
     case 'medium':
       return {
         bgColor: 'bg-amber-100 dark:bg-amber-900/30',
         textColor: 'text-amber-700 dark:text-amber-300',
-        label: 'Medium',
+        label: translations.severityMedium,
       }
     case 'low':
       return {
         bgColor: 'bg-gray-100 dark:bg-gray-800',
         textColor: 'text-gray-600 dark:text-gray-400',
-        label: 'Low',
+        label: translations.severityLow,
       }
   }
 }
@@ -102,14 +120,15 @@ interface IssueItemProps {
   issue: AnalysisIssue
   resumeId?: string
   locale?: string
+  translations: Pick<CategoryListTranslations, 'showMe' | 'suggestion'>
 }
 
 /**
  * Renders an individual issue with severity badge, description, and suggestion.
  * Includes a "Show me" link when the issue has a valid section reference.
  */
-function IssueItem({ issue, resumeId, locale }: IssueItemProps) {
-  const severityConfig = getSeverityConfig(issue.severity)
+function IssueItem({ issue, resumeId, locale, translations }: IssueItemProps) {
+  const severityConfig = getSeverityConfig(issue.severity, translations as CategoryListTranslations)
   const canNavigate = resumeId && locale && isValidSection(issue.section)
 
   return (
@@ -130,14 +149,14 @@ function IssueItem({ issue, resumeId, locale }: IssueItemProps) {
             href={`/${locale}/dashboard/resumes/${resumeId}#${issue.section}`}
             className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 hover:underline transition-colors"
           >
-            Show me
+            {translations.showMe}
             <ArrowRight className="w-3 h-3" aria-hidden="true" />
           </Link>
         )}
       </div>
       {issue.suggestion && (
         <p className="text-sm text-muted-foreground pl-[52px]">
-          <span className="font-medium">Suggestion:</span> {issue.suggestion}
+          <span className="font-medium">{translations.suggestion}</span> {issue.suggestion}
         </p>
       )}
     </div>
@@ -153,6 +172,7 @@ function IssueItem({ issue, resumeId, locale }: IssueItemProps) {
  * <CategoryList
  *   categories={analysis.categories}
  *   onCategoryClick={(index) => setSelectedCategory(index)}
+ *   translations={uiTranslations}
  * />
  * ```
  */
@@ -162,13 +182,14 @@ export function CategoryList({
   className,
   resumeId,
   locale,
+  translations,
 }: CategoryListProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
 
   if (categories.length === 0) {
     return (
       <div className={cn('text-center text-muted-foreground py-8', className)}>
-        No categories to display
+        {translations.noCategories}
       </div>
     )
   }
@@ -277,7 +298,7 @@ export function CategoryList({
                 {hasIssues ? (
                   <div className="space-y-1">
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                      Issues ({category.issues.length})
+                      {translations.issues} ({category.issues.length})
                     </h4>
                     <div className="divide-y divide-border/50">
                       {category.issues.map((issue, issueIndex) => (
@@ -286,13 +307,14 @@ export function CategoryList({
                           issue={issue}
                           resumeId={resumeId}
                           locale={locale}
+                          translations={translations}
                         />
                       ))}
                     </div>
                   </div>
                 ) : (
                   <p className="text-sm text-teal-600 dark:text-teal-400 font-medium">
-                    No issues found in this category.
+                    {translations.noIssues}
                   </p>
                 )}
               </div>

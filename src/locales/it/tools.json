@@ -72,6 +72,35 @@
     },
     "authenticated": {
       "placeholder": "Autenticato! L'interfaccia del verificatore di CV arriverà presto..."
+    },
+    "ui": {
+      "selectResume": "Seleziona un CV",
+      "analysisResults": "Risultati dell'analisi",
+      "analyzeButton": "Analizza CV",
+      "analyzingButton": "Analisi in corso...",
+      "loadingResumes": "Caricamento dei tuoi CV...",
+      "tryAgain": "Riprova",
+      "noResumesFound": "Nessun CV trovato",
+      "noResumesDescription": "Crea il tuo primo CV per iniziare l'analisi.",
+      "createResume": "Crea CV",
+      "updated": "Aggiornato",
+      "loginRequired": "Accedi per visualizzare i tuoi CV",
+      "loadError": "Impossibile caricare i CV. Riprova.",
+      "noAnalysisYet": "Nessuna analisi ancora",
+      "noAnalysisDescription": "Seleziona un CV dall'elenco sopra e clicca su \"Analizza\" per ottenere feedback dettagliato su come migliorare il tuo CV.",
+      "analyzedAt": "Analizzato il:",
+      "noCategories": "Nessuna categoria da visualizzare",
+      "noIssues": "Nessun problema trovato in questa categoria.",
+      "showMe": "Mostrami",
+      "suggestion": "Suggerimento:",
+      "issues": "Problemi",
+      "severityHigh": "Alto",
+      "severityMedium": "Medio",
+      "severityLow": "Basso",
+      "selectResumePrompt": "Seleziona un CV da analizzare",
+      "analysisComplete": "Analisi del CV completata",
+      "analysisFailed": "Analisi del CV fallita",
+      "analysisDataMissing": "I dati dell'analisi mancano dalla risposta"
     }
   }
 }

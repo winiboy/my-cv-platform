@@ -4,7 +4,7 @@ import { ArrowLeft, CheckCircle2, LogIn } from "lucide-react";
 import type { Locale } from "@/lib/i18n";
 import { locales, getTranslations } from "@/lib/i18n";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { ResumeCheckerClient } from "@/components/tools/resume-checker-client";
+import { ResumeCheckerClient, type ResumeCheckerTranslations } from "@/components/tools/resume-checker-client";
 
 interface ResumeCheckerPageProps {
   params: {
@@ -15,7 +15,7 @@ interface ResumeCheckerPageProps {
 /**
  * Type definition for resume checker translations.
  */
-interface ResumeCheckerTranslations {
+interface ResumeCheckerPageTranslations {
   title: string;
   subtitle: string;
   metaTitle: string;
@@ -37,6 +37,35 @@ interface ResumeCheckerTranslations {
   authenticated: {
     placeholder: string;
   };
+  ui: {
+    selectResume: string;
+    analysisResults: string;
+    analyzeButton: string;
+    analyzingButton: string;
+    loadingResumes: string;
+    tryAgain: string;
+    noResumesFound: string;
+    noResumesDescription: string;
+    createResume: string;
+    updated: string;
+    loginRequired: string;
+    loadError: string;
+    noAnalysisYet: string;
+    noAnalysisDescription: string;
+    analyzedAt: string;
+    noCategories: string;
+    noIssues: string;
+    showMe: string;
+    suggestion: string;
+    issues: string;
+    severityHigh: string;
+    severityMedium: string;
+    severityLow: string;
+    selectResumePrompt: string;
+    analysisComplete: string;
+    analysisFailed: string;
+    analysisDataMissing: string;
+  };
 }
 
 /**
@@ -46,7 +75,7 @@ interface ToolsTranslations {
   detail: {
     backToTools: string;
   };
-  resumeChecker: ResumeCheckerTranslations;
+  resumeChecker: ResumeCheckerPageTranslations;
 }
 
 /**
@@ -98,6 +127,9 @@ export default async function ResumeCheckerPage({
   const isAuthenticated = !!user;
   const callbackUrl = encodeURIComponent(`/${locale}/tools/resume-checker`);
 
+  // Prepare translations for the client component
+  const clientTranslations: ResumeCheckerTranslations = t.resumeChecker.ui;
+
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
@@ -126,7 +158,7 @@ export default async function ResumeCheckerPage({
       {isAuthenticated ? (
         <section className="px-4 py-12 sm:px-6 md:px-8 lg:px-12 xl:px-16">
           <div className="mx-auto max-w-7xl">
-            <ResumeCheckerClient locale={locale} />
+            <ResumeCheckerClient locale={locale} translations={clientTranslations} />
           </div>
         </section>
       ) : (
@@ -150,7 +182,7 @@ function UnauthenticatedContent({
   callbackUrl,
 }: {
   locale: Locale;
-  translations: ResumeCheckerTranslations;
+  translations: ResumeCheckerPageTranslations;
   callbackUrl: string;
 }) {
   const benefits = [

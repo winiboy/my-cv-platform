@@ -72,6 +72,35 @@
     },
     "authenticated": {
       "placeholder": "Authenticated! Resume checker UI coming soon..."
+    },
+    "ui": {
+      "selectResume": "Select a Resume",
+      "analysisResults": "Analysis Results",
+      "analyzeButton": "Analyze Resume",
+      "analyzingButton": "Analyzing...",
+      "loadingResumes": "Loading your resumes...",
+      "tryAgain": "Try again",
+      "noResumesFound": "No resumes found",
+      "noResumesDescription": "Create your first resume to get started with the analysis.",
+      "createResume": "Create Resume",
+      "updated": "Updated",
+      "loginRequired": "Please log in to view your resumes",
+      "loadError": "Failed to load resumes. Please try again.",
+      "noAnalysisYet": "No Analysis Yet",
+      "noAnalysisDescription": "Select a resume from the dropdown above and click \"Analyze\" to get detailed feedback on how to improve your resume.",
+      "analyzedAt": "Analyzed at:",
+      "noCategories": "No categories to display",
+      "noIssues": "No issues found in this category.",
+      "showMe": "Show me",
+      "suggestion": "Suggestion:",
+      "issues": "Issues",
+      "severityHigh": "High",
+      "severityMedium": "Medium",
+      "severityLow": "Low",
+      "selectResumePrompt": "Please select a resume to analyze",
+      "analysisComplete": "Resume analysis complete",
+      "analysisFailed": "Failed to analyze resume",
+      "analysisDataMissing": "Analysis data is missing from response"
     }
   }
 }

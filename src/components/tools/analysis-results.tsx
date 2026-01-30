@@ -3,9 +3,26 @@
 import { FileText, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ScoreGauge } from './score-gauge'
-import { CategoryList } from './category-list'
+import { CategoryList, type CategoryListTranslations } from './category-list'
 import { useIsMobile } from '@/lib/hooks/use-media-query'
 import type { ResumeAnalysis } from '@/types/resume-analysis'
+
+/**
+ * Translation strings required by the AnalysisResults component.
+ */
+export interface AnalysisResultsTranslations {
+  noAnalysisYet: string
+  noAnalysisDescription: string
+  analyzedAt: string
+  noCategories: string
+  noIssues: string
+  showMe: string
+  suggestion: string
+  issues: string
+  severityHigh: string
+  severityMedium: string
+  severityLow: string
+}
 
 interface AnalysisResultsProps {
   /** The analysis data to display, null when no analysis exists */
@@ -16,6 +33,8 @@ interface AnalysisResultsProps {
   resumeId?: string
   /** Locale for i18n routing in "Show me" navigation links */
   locale?: string
+  /** Translated UI strings */
+  translations: AnalysisResultsTranslations
   /** Optional CSS class name for the container */
   className?: string
 }
@@ -24,10 +43,10 @@ interface AnalysisResultsProps {
  * Formats an ISO 8601 date string to a localized display format.
  * Falls back to the original string if parsing fails.
  */
-function formatAnalysisDate(isoString: string): string {
+function formatAnalysisDate(isoString: string, locale?: string): string {
   try {
     const date = new Date(isoString)
-    return date.toLocaleString(undefined, {
+    return date.toLocaleString(locale, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -70,22 +89,25 @@ function AnalysisSkeleton() {
   )
 }
 
+interface EmptyStateProps {
+  translations: Pick<AnalysisResultsTranslations, 'noAnalysisYet' | 'noAnalysisDescription'>
+}
+
 /**
  * Empty state component shown when no analysis exists.
  * Provides instructional text to guide the user.
  */
-function EmptyState() {
+function EmptyState({ translations }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
       <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
         <FileText className="w-8 h-8 text-muted-foreground" />
       </div>
       <h3 className="text-lg font-semibold text-foreground mb-2">
-        No Analysis Yet
+        {translations.noAnalysisYet}
       </h3>
       <p className="text-sm text-muted-foreground max-w-sm">
-        Select a resume from the dropdown above and click &quot;Analyze&quot; to get
-        detailed feedback on how to improve your resume.
+        {translations.noAnalysisDescription}
       </p>
     </div>
   )
@@ -102,6 +124,7 @@ function EmptyState() {
  *   analysis={analysisData}
  *   isLoading={false}
  *   resumeId="abc-123"
+ *   translations={uiTranslations}
  * />
  * ```
  */
@@ -110,11 +133,24 @@ export function AnalysisResults({
   isLoading,
   resumeId,
   locale,
+  translations,
   className,
 }: AnalysisResultsProps) {
   // Use responsive sizing for the score gauge
   const isMobile = useIsMobile()
   const gaugeSize = isMobile ? 'md' : 'lg'
+
+  // Prepare translations for CategoryList
+  const categoryListTranslations: CategoryListTranslations = {
+    noCategories: translations.noCategories,
+    noIssues: translations.noIssues,
+    showMe: translations.showMe,
+    suggestion: translations.suggestion,
+    issues: translations.issues,
+    severityHigh: translations.severityHigh,
+    severityMedium: translations.severityMedium,
+    severityLow: translations.severityLow,
+  }
 
   // Loading state: show skeleton while analysis is being generated
   if (isLoading) {
@@ -129,7 +165,7 @@ export function AnalysisResults({
   if (!analysis) {
     return (
       <div className={cn('w-full', className)}>
-        <EmptyState />
+        <EmptyState translations={translations} />
       </div>
     )
   }
@@ -143,7 +179,7 @@ export function AnalysisResults({
 
         {/* Analyzed at timestamp */}
         <p className="text-sm text-muted-foreground">
-          Analyzed at: {formatAnalysisDate(analysis.generatedAt)}
+          {translations.analyzedAt} {formatAnalysisDate(analysis.generatedAt, locale)}
         </p>
       </div>
 
@@ -152,6 +188,7 @@ export function AnalysisResults({
         categories={analysis.categories}
         resumeId={resumeId}
         locale={locale}
+        translations={categoryListTranslations}
       />
     </div>
   )

@@ -72,6 +72,35 @@
     },
     "authenticated": {
       "placeholder": "Authentifiziert! Die Lebenslauf-Prüfer-Oberfläche kommt bald..."
+    },
+    "ui": {
+      "selectResume": "Lebenslauf auswählen",
+      "analysisResults": "Analyseergebnisse",
+      "analyzeButton": "Lebenslauf analysieren",
+      "analyzingButton": "Wird analysiert...",
+      "loadingResumes": "Ihre Lebensläufe werden geladen...",
+      "tryAgain": "Erneut versuchen",
+      "noResumesFound": "Keine Lebensläufe gefunden",
+      "noResumesDescription": "Erstellen Sie Ihren ersten Lebenslauf, um mit der Analyse zu beginnen.",
+      "createResume": "Lebenslauf erstellen",
+      "updated": "Aktualisiert",
+      "loginRequired": "Bitte melden Sie sich an, um Ihre Lebensläufe zu sehen",
+      "loadError": "Fehler beim Laden der Lebensläufe. Bitte versuchen Sie es erneut.",
+      "noAnalysisYet": "Noch keine Analyse",
+      "noAnalysisDescription": "Wählen Sie oben einen Lebenslauf aus und klicken Sie auf \"Analysieren\", um detailliertes Feedback zur Verbesserung Ihres Lebenslaufs zu erhalten.",
+      "analyzedAt": "Analysiert am:",
+      "noCategories": "Keine Kategorien anzuzeigen",
+      "noIssues": "Keine Probleme in dieser Kategorie gefunden.",
+      "showMe": "Zeig mir",
+      "suggestion": "Vorschlag:",
+      "issues": "Probleme",
+      "severityHigh": "Hoch",
+      "severityMedium": "Mittel",
+      "severityLow": "Niedrig",
+      "selectResumePrompt": "Bitte wählen Sie einen Lebenslauf zur Analyse aus",
+      "analysisComplete": "Lebenslaufanalyse abgeschlossen",
+      "analysisFailed": "Lebenslaufanalyse fehlgeschlagen",
+      "analysisDataMissing": "Analysedaten fehlen in der Antwort"
     }
   }
 }

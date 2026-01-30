@@ -13,6 +13,20 @@ import type { Resume } from '@/types/database'
  */
 type ResumeSummary = Pick<Resume, 'id' | 'title' | 'updated_at' | 'created_at'>
 
+/**
+ * Translation strings required by the ResumeSelector component.
+ */
+export interface ResumeSelectorTranslations {
+  loadingResumes: string
+  tryAgain: string
+  noResumesFound: string
+  noResumesDescription: string
+  createResume: string
+  updated: string
+  loginRequired: string
+  loadError: string
+}
+
 interface ResumeSelectorProps {
   /** Callback when a resume is selected */
   onSelect: (resumeId: string) => void
@@ -20,6 +34,8 @@ interface ResumeSelectorProps {
   selectedId: string | null
   /** Locale for navigation links */
   locale: string
+  /** Translated UI strings */
+  translations: ResumeSelectorTranslations
 }
 
 /**
@@ -30,6 +46,7 @@ export function ResumeSelector({
   onSelect,
   selectedId,
   locale,
+  translations,
 }: ResumeSelectorProps) {
   const [resumes, setResumes] = useState<ResumeSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -45,7 +62,7 @@ export function ResumeSelector({
       // Verify user is authenticated before querying
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        setError('Please log in to view your resumes')
+        setError(translations.loginRequired)
         setIsLoading(false)
         return
       }
@@ -63,11 +80,11 @@ export function ResumeSelector({
       setResumes(data || [])
     } catch (err) {
       console.error('Error fetching resumes:', err)
-      setError('Failed to load resumes. Please try again.')
+      setError(translations.loadError)
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [translations.loginRequired, translations.loadError])
 
   useEffect(() => {
     fetchResumes()
@@ -91,7 +108,7 @@ export function ResumeSelector({
       <div className="flex flex-col items-center justify-center py-12 space-y-4">
         <Loader2 className="h-10 w-10 text-teal-600 animate-spin" />
         <p className="text-sm text-slate-600 dark:text-slate-400">
-          Loading your resumes...
+          {translations.loadingResumes}
         </p>
       </div>
     )
@@ -106,7 +123,7 @@ export function ResumeSelector({
           onClick={fetchResumes}
           className="mt-4 text-sm text-red-600 dark:text-red-400 hover:underline"
         >
-          Try again
+          {translations.tryAgain}
         </button>
       </div>
     )
@@ -120,17 +137,17 @@ export function ResumeSelector({
           <FileText className="h-8 w-8 text-slate-400 dark:text-slate-500" />
         </div>
         <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
-          No resumes found
+          {translations.noResumesFound}
         </h3>
         <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-          Create your first resume to get started with the analysis.
+          {translations.noResumesDescription}
         </p>
         <Link
           href={`/${locale}/dashboard/resumes`}
           className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-md transition-colors"
         >
           <Plus className="h-4 w-4" />
-          Create Resume
+          {translations.createResume}
         </Link>
       </div>
     )
@@ -216,7 +233,7 @@ export function ResumeSelector({
                       : 'text-slate-500 dark:text-slate-400'
                   )}
                 >
-                  Updated {formatDate(lastModified)}
+                  {translations.updated} {formatDate(lastModified)}
                 </p>
               </div>
             </div>

@@ -72,6 +72,35 @@
     },
     "authenticated": {
       "placeholder": "Authentifié ! L'interface du vérificateur de CV arrive bientôt..."
+    },
+    "ui": {
+      "selectResume": "Sélectionner un CV",
+      "analysisResults": "Résultats de l'analyse",
+      "analyzeButton": "Analyser le CV",
+      "analyzingButton": "Analyse en cours...",
+      "loadingResumes": "Chargement de vos CV...",
+      "tryAgain": "Réessayer",
+      "noResumesFound": "Aucun CV trouvé",
+      "noResumesDescription": "Créez votre premier CV pour commencer l'analyse.",
+      "createResume": "Créer un CV",
+      "updated": "Mis à jour",
+      "loginRequired": "Veuillez vous connecter pour voir vos CV",
+      "loadError": "Échec du chargement des CV. Veuillez réessayer.",
+      "noAnalysisYet": "Pas encore d'analyse",
+      "noAnalysisDescription": "Sélectionnez un CV dans la liste ci-dessus et cliquez sur « Analyser » pour obtenir des commentaires détaillés sur la façon d'améliorer votre CV.",
+      "analyzedAt": "Analysé le :",
+      "noCategories": "Aucune catégorie à afficher",
+      "noIssues": "Aucun problème trouvé dans cette catégorie.",
+      "showMe": "Voir",
+      "suggestion": "Suggestion :",
+      "issues": "Problèmes",
+      "severityHigh": "Élevé",
+      "severityMedium": "Moyen",
+      "severityLow": "Faible",
+      "selectResumePrompt": "Veuillez sélectionner un CV à analyser",
+      "analysisComplete": "Analyse du CV terminée",
+      "analysisFailed": "Échec de l'analyse du CV",
+      "analysisDataMissing": "Les données d'analyse sont manquantes dans la réponse"
     }
   }
 }
