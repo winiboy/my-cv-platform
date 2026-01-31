@@ -357,5 +357,112 @@
     "emptyUrl": "Inserisci l'URL dell'annuncio di lavoro",
     "extractionFailed": "Impossibile estrarre la descrizione del lavoro",
     "noDescriptionFound": "Nessuna descrizione del lavoro trovata nella risposta"
+  },
+  "grammarChecker": {
+    "title": "Correttore grammaticale per CV",
+    "subtitle": "Scansiona il tuo CV per errori di ortografia, errori grammaticali e problemi di punteggiatura per presentare un documento impeccabile.",
+    "metaTitle": "Correttore grammaticale per CV | Correzione con IA",
+    "metaDescription": "Controlla il tuo CV per errori di ortografia, grammatica e punteggiatura. Il nostro strumento alimentato dall'IA ti aiuta a presentare un documento curato e professionale ai potenziali datori di lavoro.",
+    "auth": {
+      "title": "Accedi per controllare la grammatica del tuo CV",
+      "description": "Crea un account gratuito per accedere al nostro correttore grammaticale alimentato dall'IA e garantire un CV senza errori.",
+      "benefits": {
+        "title": "Cosa otterrai:",
+        "spelling": "Rilevamento e correzione degli errori di ortografia",
+        "grammar": "Analisi grammaticale e sintattica",
+        "punctuation": "Verifica della coerenza della punteggiatura",
+        "phrasing": "Suggerimenti per formulazioni professionali"
+      },
+      "loginButton": "Accedi per continuare",
+      "signupPrompt": "Non hai un account?",
+      "signupLink": "Creane uno gratis"
+    },
+    "authenticated": {
+      "placeholder": "Autenticato! L'interfaccia del correttore grammaticale arriverà presto..."
+    },
+    "ui": {
+      "inputSection": "Il tuo CV",
+      "resultsSection": "Risultati della verifica grammaticale",
+      "tabLinkResume": "Collega CV",
+      "tabMyResumes": "I miei CV",
+      "tabPasteText": "Incolla testo",
+      "tabUploadFile": "Carica file",
+      "checkButton": "Verifica grammatica",
+      "checkingButton": "Verifica in corso...",
+      "emptyStateTitle": "Nessun risultato ancora",
+      "emptyStateDescription": "Carica, incolla o seleziona un CV per verificare errori di grammatica e ortografia.",
+      "uploadLabel": "Carica il tuo CV",
+      "dragDropText": "Trascina e rilascia il tuo file qui o",
+      "browseText": "sfoglia",
+      "acceptedFilesText": "PDF o DOCX (max 5 MB)",
+      "fileTooLargeError": "Il file è troppo grande. La dimensione massima è 5 MB.",
+      "unsupportedFileError": "Tipo di file non supportato. Carica un file PDF o DOCX.",
+      "extractionFailedError": "Impossibile estrarre il testo dal file. Riprova.",
+      "extractingText": "Estrazione del testo...",
+      "removeFileLabel": "Rimuovi file",
+      "fileSizeLimit": "Max 5 MB",
+      "pasteLabel": "Incolla il contenuto del tuo CV",
+      "pastePlaceholder": "Incolla qui il testo del tuo CV...",
+      "clearTextButton": "Cancella",
+      "characterCount": "{count} caratteri",
+      "minCharactersWarning": "Ancora {count} caratteri necessari per l'analisi",
+      "minCharsError": "Inserisci almeno {count} caratteri",
+      "loadingResumes": "Caricamento dei tuoi CV...",
+      "loadError": "Impossibile caricare i CV. Riprova.",
+      "tryAgain": "Riprova",
+      "noResumesFound": "Nessun CV trovato",
+      "noResumesDescription": "Crea il tuo primo CV per iniziare.",
+      "createResume": "Crea CV",
+      "updated": "Aggiornato",
+      "loginRequired": "Accedi per visualizzare i tuoi CV",
+      "loadingResumeContent": "Caricamento contenuto del CV...",
+      "resumeLoadError": "Impossibile caricare il contenuto del CV.",
+      "extractedContent": "Contenuto estratto",
+      "charactersExtracted": "{count} caratteri estratti",
+      "issueCard": {
+        "typeLabels": {
+          "spelling": "Ortografia",
+          "grammar": "Grammatica",
+          "punctuation": "Punteggiatura",
+          "tense": "Tempo verbale",
+          "phrasing": "Formulazione"
+        },
+        "severityLabels": {
+          "error": "Errore",
+          "warning": "Avviso",
+          "suggestion": "Suggerimento"
+        },
+        "original": "Originale:",
+        "suggested": "Suggerito:",
+        "explanation": "Perché:",
+        "location": "Trovato in:"
+      },
+      "results": {
+        "grammarScore": "Punteggio grammaticale",
+        "issuesFound": "{count} problemi trovati",
+        "noIssuesFound": "Nessun problema trovato",
+        "filterAll": "Tutti",
+        "filterSpelling": "Ortografia",
+        "filterGrammar": "Grammatica",
+        "filterPunctuation": "Punteggiatura",
+        "filterTense": "Tempo verbale",
+        "filterPhrasing": "Formulazione",
+        "emptyStateTitle": "Il tuo CV è perfetto!",
+        "emptyStateDescription": "Non sono stati trovati errori grammaticali o di ortografia.",
+        "noFilterResults": "Nessun problema di {type} trovato"
+      }
+    }
+  },
+  "grammarCheckerLinker": {
+    "selectResumeDropdown": "Seleziona un CV",
+    "noResumesAvailable": "Nessun CV disponibile",
+    "createResumePrompt": "Crea prima un CV",
+    "lastUpdated": "Ultimo aggiornamento",
+    "loadingResumes": "Caricamento CV...",
+    "tryAgain": "Riprova",
+    "loginRequired": "Accedi per visualizzare i tuoi CV",
+    "loadError": "Impossibile caricare i CV. Riprova.",
+    "createResume": "Crea CV",
+    "clearSelection": "Cancella selezione"
   }
 }

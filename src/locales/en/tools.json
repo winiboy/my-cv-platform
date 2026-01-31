@@ -357,5 +357,112 @@
     "emptyUrl": "Please enter a job posting URL",
     "extractionFailed": "Failed to extract job description",
     "noDescriptionFound": "No job description found in the response"
+  },
+  "grammarChecker": {
+    "title": "Resume Grammar Checker",
+    "subtitle": "Scan your resume for spelling mistakes, grammatical errors, and punctuation issues to present a polished document.",
+    "metaTitle": "Resume Grammar Checker | AI-Powered Proofreading",
+    "metaDescription": "Check your resume for spelling, grammar, and punctuation errors. Our AI-powered tool helps you present a polished, professional document to potential employers.",
+    "auth": {
+      "title": "Sign in to check your resume grammar",
+      "description": "Create a free account to access our AI-powered grammar checker and ensure your resume is error-free.",
+      "benefits": {
+        "title": "What you will get:",
+        "spelling": "Spelling error detection and corrections",
+        "grammar": "Grammar and syntax analysis",
+        "punctuation": "Punctuation consistency checks",
+        "phrasing": "Professional phrasing suggestions"
+      },
+      "loginButton": "Sign in to continue",
+      "signupPrompt": "Don't have an account?",
+      "signupLink": "Create one for free"
+    },
+    "authenticated": {
+      "placeholder": "Authenticated! Grammar checker UI coming soon..."
+    },
+    "ui": {
+      "inputSection": "Your Resume",
+      "resultsSection": "Grammar Check Results",
+      "tabLinkResume": "Link to Resume",
+      "tabMyResumes": "My Resumes",
+      "tabPasteText": "Paste Text",
+      "tabUploadFile": "Upload File",
+      "checkButton": "Check Grammar",
+      "checkingButton": "Checking...",
+      "emptyStateTitle": "No Results Yet",
+      "emptyStateDescription": "Upload, paste, or select a resume to check for grammar and spelling errors.",
+      "uploadLabel": "Upload your resume",
+      "dragDropText": "Drag and drop your file here or",
+      "browseText": "browse",
+      "acceptedFilesText": "PDF or DOCX (max 5MB)",
+      "fileTooLargeError": "File is too large. Maximum size is 5MB.",
+      "unsupportedFileError": "Unsupported file type. Please upload a PDF or DOCX file.",
+      "extractionFailedError": "Failed to extract text from file. Please try again.",
+      "extractingText": "Extracting text...",
+      "removeFileLabel": "Remove file",
+      "fileSizeLimit": "Max 5MB",
+      "pasteLabel": "Paste your resume content",
+      "pastePlaceholder": "Paste your resume text here...",
+      "clearTextButton": "Clear",
+      "characterCount": "{count} characters",
+      "minCharactersWarning": "{count} more characters needed for analysis",
+      "minCharsError": "Please enter at least {count} characters",
+      "loadingResumes": "Loading your resumes...",
+      "loadError": "Failed to load resumes. Please try again.",
+      "tryAgain": "Try again",
+      "noResumesFound": "No resumes found",
+      "noResumesDescription": "Create your first resume to get started.",
+      "createResume": "Create Resume",
+      "updated": "Updated",
+      "loginRequired": "Please sign in to access your resumes",
+      "loadingResumeContent": "Loading resume content...",
+      "resumeLoadError": "Failed to load resume content.",
+      "extractedContent": "Extracted Content",
+      "charactersExtracted": "characters",
+      "issueCard": {
+        "typeLabels": {
+          "spelling": "Spelling",
+          "grammar": "Grammar",
+          "punctuation": "Punctuation",
+          "tense": "Tense",
+          "phrasing": "Phrasing"
+        },
+        "severityLabels": {
+          "error": "Error",
+          "warning": "Warning",
+          "suggestion": "Suggestion"
+        },
+        "original": "Original:",
+        "suggested": "Suggested:",
+        "explanation": "Why:",
+        "location": "Found in:"
+      },
+      "results": {
+        "grammarScore": "Grammar Score",
+        "issuesFound": "{count} issues found",
+        "noIssuesFound": "No issues found",
+        "filterAll": "All",
+        "filterSpelling": "Spelling",
+        "filterGrammar": "Grammar",
+        "filterPunctuation": "Punctuation",
+        "filterTense": "Tense",
+        "filterPhrasing": "Phrasing",
+        "emptyStateTitle": "Your resume looks great!",
+        "emptyStateDescription": "No grammar or spelling issues were found.",
+        "noFilterResults": "No {type} issues found"
+      }
+    }
+  },
+  "grammarCheckerLinker": {
+    "selectResumeDropdown": "Select a resume",
+    "noResumesAvailable": "No resumes available",
+    "createResumePrompt": "Create a resume first",
+    "lastUpdated": "Last updated",
+    "loadingResumes": "Loading resumes...",
+    "tryAgain": "Try again",
+    "loginRequired": "Please sign in to access your resumes",
+    "loadError": "Failed to load resumes. Please try again.",
+    "createResume": "Create Resume",
+    "clearSelection": "Clear selection"
   }
 }

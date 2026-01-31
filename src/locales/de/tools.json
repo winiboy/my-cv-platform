@@ -357,5 +357,112 @@
     "emptyUrl": "Bitte geben Sie eine Stellenanzeigen-URL ein",
     "extractionFailed": "Stellenbeschreibung konnte nicht extrahiert werden",
     "noDescriptionFound": "Keine Stellenbeschreibung in der Antwort gefunden"
+  },
+  "grammarChecker": {
+    "title": "Lebenslauf-Grammatikprüfer",
+    "subtitle": "Überprüfen Sie Ihren Lebenslauf auf Rechtschreibfehler, Grammatikfehler und Zeichensetzungsprobleme, um ein makelloses Dokument zu präsentieren.",
+    "metaTitle": "Lebenslauf-Grammatikprüfer | KI-gestützte Korrektur",
+    "metaDescription": "Überprüfen Sie Ihren Lebenslauf auf Rechtschreibung, Grammatik und Zeichensetzungsfehler. Unser KI-gestütztes Tool hilft Ihnen, potenziellen Arbeitgebern ein gepflegtes, professionelles Dokument zu präsentieren.",
+    "auth": {
+      "title": "Melden Sie sich an, um die Grammatik Ihres Lebenslaufs zu prüfen",
+      "description": "Erstellen Sie ein kostenloses Konto, um auf unseren KI-gestützten Grammatikprüfer zuzugreifen und einen fehlerfreien Lebenslauf sicherzustellen.",
+      "benefits": {
+        "title": "Was Sie erhalten:",
+        "spelling": "Erkennung und Korrektur von Rechtschreibfehlern",
+        "grammar": "Grammatik- und Syntaxanalyse",
+        "punctuation": "Prüfung der Zeichensetzungskonsistenz",
+        "phrasing": "Vorschläge für professionelle Formulierungen"
+      },
+      "loginButton": "Anmelden um fortzufahren",
+      "signupPrompt": "Noch kein Konto?",
+      "signupLink": "Kostenlos erstellen"
+    },
+    "authenticated": {
+      "placeholder": "Authentifiziert! Die Grammatikprüfer-Oberfläche kommt bald..."
+    },
+    "ui": {
+      "inputSection": "Ihr Lebenslauf",
+      "resultsSection": "Ergebnisse der Grammatikprüfung",
+      "tabLinkResume": "Lebenslauf verknüpfen",
+      "tabMyResumes": "Meine Lebensläufe",
+      "tabPasteText": "Text einfügen",
+      "tabUploadFile": "Datei hochladen",
+      "checkButton": "Grammatik prüfen",
+      "checkingButton": "Wird geprüft...",
+      "emptyStateTitle": "Noch keine Ergebnisse",
+      "emptyStateDescription": "Laden Sie hoch, fügen Sie ein oder wählen Sie einen Lebenslauf aus, um auf Grammatik- und Rechtschreibfehler zu prüfen.",
+      "uploadLabel": "Laden Sie Ihren Lebenslauf hoch",
+      "dragDropText": "Ziehen Sie Ihre Datei hierher oder",
+      "browseText": "durchsuchen",
+      "acceptedFilesText": "PDF oder DOCX (max. 5 MB)",
+      "fileTooLargeError": "Die Datei ist zu gross. Die maximale Grösse beträgt 5 MB.",
+      "unsupportedFileError": "Nicht unterstützter Dateityp. Bitte laden Sie eine PDF- oder DOCX-Datei hoch.",
+      "extractionFailedError": "Text konnte nicht extrahiert werden. Bitte versuchen Sie es erneut.",
+      "extractingText": "Text wird extrahiert...",
+      "removeFileLabel": "Datei entfernen",
+      "fileSizeLimit": "Max. 5 MB",
+      "pasteLabel": "Fügen Sie Ihren Lebenslauf-Inhalt ein",
+      "pastePlaceholder": "Fügen Sie hier Ihren Lebenslauf-Text ein...",
+      "clearTextButton": "Löschen",
+      "characterCount": "{count} Zeichen",
+      "minCharactersWarning": "Noch {count} Zeichen für die Analyse erforderlich",
+      "minCharsError": "Bitte geben Sie mindestens {count} Zeichen ein",
+      "loadingResumes": "Ihre Lebensläufe werden geladen...",
+      "loadError": "Lebensläufe konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
+      "tryAgain": "Erneut versuchen",
+      "noResumesFound": "Keine Lebensläufe gefunden",
+      "noResumesDescription": "Erstellen Sie Ihren ersten Lebenslauf, um zu beginnen.",
+      "createResume": "Lebenslauf erstellen",
+      "updated": "Aktualisiert",
+      "loginRequired": "Bitte melden Sie sich an, um auf Ihre Lebensläufe zuzugreifen",
+      "loadingResumeContent": "Lebenslauf-Inhalt wird geladen...",
+      "resumeLoadError": "Lebenslauf-Inhalt konnte nicht geladen werden.",
+      "extractedContent": "Extrahierter Inhalt",
+      "charactersExtracted": "{count} Zeichen extrahiert",
+      "issueCard": {
+        "typeLabels": {
+          "spelling": "Rechtschreibung",
+          "grammar": "Grammatik",
+          "punctuation": "Zeichensetzung",
+          "tense": "Zeitform",
+          "phrasing": "Formulierung"
+        },
+        "severityLabels": {
+          "error": "Fehler",
+          "warning": "Warnung",
+          "suggestion": "Vorschlag"
+        },
+        "original": "Original:",
+        "suggested": "Vorschlag:",
+        "explanation": "Warum:",
+        "location": "Gefunden in:"
+      },
+      "results": {
+        "grammarScore": "Grammatik-Score",
+        "issuesFound": "{count} Probleme gefunden",
+        "noIssuesFound": "Keine Probleme gefunden",
+        "filterAll": "Alle",
+        "filterSpelling": "Rechtschreibung",
+        "filterGrammar": "Grammatik",
+        "filterPunctuation": "Zeichensetzung",
+        "filterTense": "Zeitform",
+        "filterPhrasing": "Formulierung",
+        "emptyStateTitle": "Ihr Lebenslauf sieht großartig aus!",
+        "emptyStateDescription": "Es wurden keine Grammatik- oder Rechtschreibfehler gefunden.",
+        "noFilterResults": "Keine {type}-Probleme gefunden"
+      }
+    }
+  },
+  "grammarCheckerLinker": {
+    "selectResumeDropdown": "Lebenslauf auswählen",
+    "noResumesAvailable": "Keine Lebensläufe verfügbar",
+    "createResumePrompt": "Erstellen Sie zuerst einen Lebenslauf",
+    "lastUpdated": "Zuletzt aktualisiert",
+    "loadingResumes": "Lebensläufe werden geladen...",
+    "tryAgain": "Erneut versuchen",
+    "loginRequired": "Bitte melden Sie sich an, um auf Ihre Lebensläufe zuzugreifen",
+    "loadError": "Lebensläufe konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
+    "createResume": "Lebenslauf erstellen",
+    "clearSelection": "Auswahl löschen"
   }
 }

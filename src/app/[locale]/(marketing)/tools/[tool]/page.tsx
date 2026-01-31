@@ -14,10 +14,13 @@ import { locales, getTranslations } from "@/lib/i18n";
  * - src/app/[locale]/(marketing)/tools/resume-checker/page.tsx
  * - src/app/[locale]/(marketing)/tools/resume-reviewer/page.tsx
  */
+/**
+ * Note: "resume-grammar-checker" is excluded because it has a dedicated page at:
+ * - src/app/[locale]/(marketing)/tools/resume-grammar-checker/page.tsx
+ */
 const VALID_TOOL_SLUGS = [
   "resume-job-match",
   "cover-letter-generator",
-  "resume-grammar-checker",
   "cv-checker",
   "cover-letter-checker",
 ] as const;
