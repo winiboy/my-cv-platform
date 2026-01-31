@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PDFParse } from 'pdf-parse'
+import pdf from 'pdf-parse'
 import mammoth from 'mammoth'
 
 /**
@@ -117,31 +117,17 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Extracts text content from a PDF buffer using pdf-parse v2.
+ * Extracts text content from a PDF buffer using pdf-parse v1.
  * Normalizes whitespace and removes excessive blank lines.
  * Throws an Error with a descriptive message if extraction fails.
  */
 async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  let parser: PDFParse | null = null
   try {
-    // pdf-parse v2 accepts Buffer directly via the data option
-    const data = new Uint8Array(buffer)
-    parser = new PDFParse({ data })
-    const result = await parser.getText()
+    const result = await pdf(buffer)
     return normalizeExtractedText(result.text)
   } catch (error) {
-    // Re-throw with a user-friendly message for PDF-specific errors
     const message = error instanceof Error ? error.message : 'Unknown PDF parsing error'
     throw new Error(`Failed to parse PDF: ${message}`)
-  } finally {
-    // Always clean up the parser to free resources
-    if (parser) {
-      try {
-        await parser.destroy()
-      } catch {
-        // Ignore cleanup errors
-      }
-    }
   }
 }
 

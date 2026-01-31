@@ -29,7 +29,7 @@
     "mammoth": "^1.11.0",
     "next": "14.2.33",
     "next-auth": "^4.24.13",
-    "pdf-parse": "^2.4.5",
+    "pdf-parse": "^1.1.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-dom-server": "^0.0.5",
