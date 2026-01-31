@@ -9,13 +9,14 @@ import { locales, getTranslations } from "@/lib/i18n";
  * Used for static generation and validation.
  */
 /**
- * Note: "resume-checker" is excluded because it has a dedicated page at
- * src/app/[locale]/(marketing)/tools/resume-checker/page.tsx
+ * Note: "resume-checker" and "resume-reviewer" are excluded because they have
+ * dedicated pages at:
+ * - src/app/[locale]/(marketing)/tools/resume-checker/page.tsx
+ * - src/app/[locale]/(marketing)/tools/resume-reviewer/page.tsx
  */
 const VALID_TOOL_SLUGS = [
   "resume-job-match",
   "cover-letter-generator",
-  "resume-reviewer",
   "resume-grammar-checker",
   "cv-checker",
   "cover-letter-checker",

@@ -41,6 +41,8 @@ interface JobLinkerProps {
   locale: string
   /** Translated UI strings */
   translations: JobLinkerTranslations
+  /** Optional max height class for dropdown (default: 'max-h-60') */
+  dropdownMaxHeight?: string
 }
 
 /**
@@ -54,6 +56,7 @@ export function JobLinker({
   selectedJobId,
   locale,
   translations,
+  dropdownMaxHeight = 'max-h-60',
 }: JobLinkerProps) {
   const [jobs, setJobs] = useState<JobSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -279,7 +282,8 @@ export function JobLinker({
             role="listbox"
             className={cn(
               'absolute z-20 w-full mt-1 py-1 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700',
-              'shadow-lg max-h-60 overflow-auto'
+              'shadow-lg overflow-auto',
+              dropdownMaxHeight
             )}
           >
             {jobs.map((job) => {

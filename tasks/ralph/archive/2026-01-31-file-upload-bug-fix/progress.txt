@@ -1,0 +1,53 @@
+# Ralph Progress Log
+# Feature: file-upload-bug-fix
+# Started: 2026-01-31
+# Target Version: 0.53.46
+
+---
+
+## Run 1 - 2026-01-31
+
+### US-001: Investigate root cause of Internal Server Error
+- Status: PASS
+- Commit: N/A (exploration only)
+- Notes: ROOT CAUSE: @types/pdf-parse@1.1.5 (v1 function types) conflicts with pdf-parse@2.4.5 (v2 class API). Module resolution fails at runtime before try-catch. FIX: Remove @types/pdf-parse.
+
+### US-002: Fix PDF parsing implementation
+- Status: PASS (after retry)
+- Commit: 7f7c282
+- Notes: First fix (remove @types/pdf-parse) didn't work. Actual fix: Downgraded pdf-parse to v1.1.1 with simpler function-based API.
+
+### US-003: Fix DOCX parsing implementation
+- Status: PASS
+- Commit: N/A (mammoth unchanged, works correctly)
+- Notes: mammoth@1.11.0 has no issues.
+
+### US-004: Ensure robust error handling
+- Status: PASS
+- Commit: N/A (already implemented in v0.53.45)
+- Notes: Server try-catch and client response.ok checks already in place.
+
+### US-005: End-to-end verification
+- Status: PENDING
+- Commit: N/A
+- Notes: User should test PDF/DOCX upload in browser to verify fix.
+
+---
+
+## Run 2 - 2026-01-31 (Retry after user reported fix failed)
+
+### Investigation:
+- First fix (remove @types/pdf-parse) didn't resolve the issue
+- Deep investigation revealed pdf-parse v2.4.5 has worker/environment issues in Next.js
+- v2 requires Node.js 20.16+, 22.3+, or 23+ and worker configuration
+
+### Actual Fix:
+- Downgraded pdf-parse from v2.4.5 to v1.1.1
+- v1 uses simpler function-based API: `await pdf(buffer)`
+- No worker configuration needed
+- Added type declarations for v1
+
+### Commits:
+- c88681e: Remove @types/pdf-parse (incomplete fix)
+- 7f7c282: Downgrade to pdf-parse v1 (actual fix)
+
