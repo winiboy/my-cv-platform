@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
 } from 'react'
 import { useSession } from 'next-auth/react'
-import { Loader2, BarChart3, FileText, Upload, FolderOpen, Link, Briefcase, X } from 'lucide-react'
+import { Loader2, BarChart3, FileText, Upload, FolderOpen, Link, Briefcase, X, CheckCircle2, Globe } from 'lucide-react'
 import {
   ResumeTextInput,
   type ResumeTextInputTranslations,
@@ -469,6 +469,28 @@ export function ResumeJobMatchClient({
   }, [])
 
   /**
+   * Determines the active job input source for visual indication.
+   * Returns 'linked' when a saved job is selected, 'url' when URL extraction was used,
+   * 'manual' when text was pasted, or null when no source is active.
+   */
+  type JobInputSource = 'linked' | 'url' | 'manual' | null
+  const activeJobSource: JobInputSource = useMemo(() => {
+    if (linkedJobId && jobDescription) {
+      return 'linked'
+    }
+    // URL extraction clears linkedJobId, so if we have jobDescription and jobUrl
+    // (and no linkedJobId), the source is URL
+    if (jobUrl && jobDescription && !linkedJobId) {
+      return 'url'
+    }
+    // If on paste tab with content, it's manual
+    if (activeJobTab === 'paste' && jobDescription) {
+      return 'manual'
+    }
+    return null
+  }, [linkedJobId, jobUrl, jobDescription, activeJobTab])
+
+  /**
    * Handles keyboard navigation for job tabs.
    * Arrow keys move focus between tabs, Enter/Space activates.
    */
@@ -508,10 +530,10 @@ export function ResumeJobMatchClient({
   /**
    * Handles job tab changes with mutual exclusivity.
    * Ensures only one job input method is active at a time by clearing
-   * conflicting state when switching between tabs.
+   * all conflicting state when switching between tabs.
    *
-   * - When switching TO 'link' tab: clears jobDescription (pasted content), keeps linkedJobId if exists
-   * - When switching FROM 'link' tab TO 'paste': clears linkedJobId, keeps jobDescription
+   * - When switching TO 'link' tab: clears jobDescription (pasted content)
+   * - When switching FROM 'link' tab TO 'paste': clears linkedJobId, jobUrl, urlError
    */
   const handleJobTabChange = useCallback(
     (newTab: JobInputTab) => {
@@ -524,8 +546,10 @@ export function ResumeJobMatchClient({
 
       // Clear state based on tab transition
       if (previousTab === 'link') {
-        // Leaving link tab: clear linked job selection
+        // Leaving link tab: clear all link tab state
         setLinkedJobId(null)
+        setJobUrl('')
+        setUrlError(null)
       }
 
       if (newTab === 'link') {
@@ -816,12 +840,16 @@ export function ResumeJobMatchClient({
   /**
    * Handles selection of a linked job from the job 'link' tab.
    * Fetches the full job_description from the job_applications record.
+   * Clears URL extraction state to ensure mutual exclusivity.
    */
   const handleLinkedJobSelect = useCallback(
     async (jobId: string) => {
       setLinkedJobId(jobId)
       setIsLoadingJob(true)
       setError(null)
+      // Clear URL extraction state for mutual exclusivity
+      setJobUrl('')
+      setUrlError(null)
 
       try {
         const supabase = createClient()
@@ -1409,9 +1437,24 @@ export function ResumeJobMatchClient({
                       {/* Show loaded job description preview when populated */}
                       {jobDescription && !isLoadingJob && !isExtractingUrl && (
                         <div className="mt-4">
-                          <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                            {translations.jobLabel}
-                          </p>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                              {translations.jobLabel}
+                            </p>
+                            {/* Visual indicator for active job input source */}
+                            {activeJobSource === 'linked' && (
+                              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300">
+                                <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                                Linked Job
+                              </span>
+                            )}
+                            {activeJobSource === 'url' && (
+                              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                                <Globe className="h-3 w-3" aria-hidden="true" />
+                                From URL
+                              </span>
+                            )}
+                          </div>
                           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 max-h-48 overflow-y-auto">
                             <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap line-clamp-6">
                               {jobDescription.slice(0, 500)}
