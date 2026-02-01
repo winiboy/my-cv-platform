@@ -100,12 +100,12 @@ export default async function ToolsPage({ params }: ToolsPageProps) {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-teal-50 via-slate-50 to-purple-50 px-4 py-20 sm:px-6 md:px-8 lg:px-12 xl:px-16">
+      <section className="bg-gradient-to-br from-teal-600 via-teal-500 to-slate-600 px-4 py-20 sm:px-6 md:px-8 lg:px-12 xl:px-16">
         <div className="mx-auto max-w-4xl text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+          <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
             {t.page.title}
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-xl text-slate-500">
+          <p className="mx-auto mt-6 max-w-2xl text-xl text-teal-100">
             {t.page.subtitle}
           </p>
         </div>

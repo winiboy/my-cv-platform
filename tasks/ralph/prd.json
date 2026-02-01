@@ -1,359 +1,153 @@
 {
   "project": "my-cv-platform",
-  "branchName": "ralph/cover-letter-checker",
-  "description": "Cover Letter Checker - AI-powered cover letter analysis tool with strict 1:1 TealHQ visual/functional parity. Users paste text or upload PDF/DOCX, optionally add job description, and receive comprehensive analysis with scores, category breakdowns, strengths, improvements, and job match results.",
+  "branchName": "ralph/tools-green-design",
+  "description": "Tools Header Color Harmonization - Update all /tools/ page headers (across all locales) to use the exact same green color as /fr/tools/resume-job-match. Language selection must have zero impact on header color.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Add translation keys for cover letter checker",
-      "description": "As a developer, I need all UI strings externalized to translation files so that the feature supports i18n from the start.",
+      "title": "Identify reference header color and audit Tools pages",
+      "description": "As a developer, I need to identify the exact CSS color value used for the header on /fr/tools/resume-job-match and audit all Tools pages to understand the full scope.",
       "acceptanceCriteria": [
-        "Add coverLetterChecker section to src/locales/en/tools.json with: title, subtitle, metaTitle, metaDescription",
-        "Add auth section keys: title, description, benefits array (3-4 items), loginButton, signupButton",
-        "Add ui section keys: tabs (pasteText, uploadFile), textareaPlaceholder, characterCount, minCharsWarning",
-        "Add ui section keys: jobDescriptionToggle, jobDescriptionPlaceholder, checkButton, checkingButton",
-        "Add results section keys: overallScore, categories (structure, tone, clarity, relevance, callToAction), strengths, improvements",
-        "Add jobMatch section keys: title, score, matchedKeywords, missingKeywords, suggestions",
-        "Add error section keys: tooShort, uploadFailed, networkError, rateLimited",
-        "Add empty section keys: noResults, getStarted",
-        "Add equivalent translations to fr/tools.json",
-        "Add equivalent translations to de/tools.json",
-        "Add equivalent translations to it/tools.json",
-        "Typecheck passes",
-        "Lint passes"
+        "Inspect resume-job-match page.tsx header component for color value",
+        "Document the exact header background color (hex, CSS variable, or Tailwind class)",
+        "List all page files under src/app/[locale]/(marketing)/tools/",
+        "Identify which component renders the header for each page",
+        "Note any shared vs page-specific header implementations",
+        "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Added 50+ translation keys to all 4 locale files."
+      "notes": "Reference: bg-gradient-to-br from-teal-600 via-teal-500 to-slate-600. Found 8 pages total. 7 need update (using light gradient from-teal-50 via-slate-50 to-purple-50). Back links need text-teal-100 hover:text-white for dark bg."
     },
     {
       "id": "US-002",
-      "title": "Create API endpoint for cover letter analysis",
-      "description": "As a developer, I need a public API endpoint to analyze cover letters so that the client can request AI-powered analysis.",
+      "title": "Update Tools root page header color",
+      "description": "As a user, I want the /tools/ root page header to match the reference green color.",
       "acceptanceCriteria": [
-        "Create /src/app/api/tools/check-cover-letter/route.ts",
-        "POST endpoint with Zod validation schema",
-        "Request body: { coverLetterText: string (required, min 100 chars), jobDescription?: string, locale?: 'en'|'fr'|'de'|'it' }",
-        "Use Groq SDK with BALANCED model (llama-3.3-70b-versatile) following existing pattern in lib/ai/client.ts",
-        "AI prompt analyzes: Structure, Tone, Clarity, Relevance, Call to Action",
-        "Response: { success: boolean, analysis: CoverLetterAnalysis } or { error: string }",
-        "CoverLetterAnalysis includes: overallScore (0-100), categories array, strengths array, improvements array",
-        "If jobDescription provided, include jobMatch: { score, matchedKeywords, missingKeywords, suggestions }",
-        "Handle AI errors gracefully with 500 status",
-        "Handle validation errors with 400 status",
+        "Header on src/app/[locale]/(marketing)/tools/page.tsx uses exact reference color",
+        "Color is identical when visiting /fr/tools/, /en/tools/, /de/tools/, /it/tools/",
+        "No language-conditional styling logic in the header",
         "Typecheck passes",
-        "Lint passes"
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Created API endpoint with Zod validation, Groq SDK integration, comprehensive prompts."
+      "notes": "Updated gradient to from-teal-600 via-teal-500 to-slate-600. Title: text-white. Subtitle: text-teal-100."
     },
     {
       "id": "US-003",
-      "title": "Create page component with auth gate",
-      "description": "As a developer, I need the server-side page component with authentication handling following the established tool pattern.",
+      "title": "Update resume-checker page header color",
+      "description": "As a user, I want the /tools/resume-checker page header to match the reference green color.",
       "acceptanceCriteria": [
-        "Create /src/app/[locale]/(marketing)/tools/cover-letter-checker/page.tsx",
-        "Implement generateStaticParams() returning all 4 locales: en, fr, de, it",
-        "Implement generateMetadata() using translations for title and description",
-        "Server component fetches auth state via createServerSupabaseClient()",
-        "Unauthenticated users see: benefits list with checkmark icons, login CTA button, signup link",
-        "Authenticated users see: CoverLetterCheckerClient component (import as placeholder for now)",
-        "Pass translations object to client component",
-        "Follow exact pattern from resume-checker/page.tsx or grammar-checker/page.tsx",
+        "Header uses exact reference color from resume-job-match",
+        "Color is identical across all 4 locales",
+        "No page-specific color overrides",
         "Typecheck passes",
-        "Lint passes"
+        "Lint passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Server page with auth gate following established pattern."
+      "notes": "Updated gradient, back link (text-teal-100 hover:text-white), title (text-white), subtitle (text-teal-100)."
     },
     {
       "id": "US-004",
-      "title": "Create base client component with layout",
-      "description": "As a user, I want to see the cover letter checker interface with proper two-column layout matching TealHQ.",
+      "title": "Update grammar-checker page header color",
+      "description": "As a user, I want the /tools/grammar-checker page header to match the reference green color.",
       "acceptanceCriteria": [
-        "Create /src/components/tools/cover-letter-checker-client.tsx",
-        "Accept translations prop with proper TypeScript interface",
-        "Hero section: back link to /tools, title, subtitle from translations",
-        "Responsive two-column grid: left 40% input, right 60% results on desktop (md:grid-cols-[40%_1fr])",
-        "Mobile: single column stacked layout",
-        "Left column: placeholder for input controls",
-        "Right column: empty state with Mail icon and 'Paste or upload your cover letter to get started' message",
-        "Use 'use client' directive",
+        "Header uses exact reference color from resume-job-match",
+        "Color is identical across all 4 locales",
+        "No page-specific color overrides",
         "Typecheck passes",
         "Lint passes",
-        "Verify in browser at /en/tools/cover-letter-checker: layout structure visible"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Two-column responsive layout with empty state."
+      "notes": "Updated resume-grammar-checker/page.tsx with matching gradient and text colors."
     },
     {
       "id": "US-005",
-      "title": "Implement paste text input tab",
-      "description": "As a user, I want to paste my cover letter text so that I can analyze it.",
+      "title": "Update resume-reviewer page header color",
+      "description": "As a user, I want the /tools/resume-reviewer page header to match the reference green color.",
       "acceptanceCriteria": [
-        "Add tabbed interface in left column with Tabs component from shadcn/ui",
-        "First tab: 'Paste Text' (default active)",
-        "Textarea with placeholder from translations",
-        "Character count display below textarea (e.g., '1,234 characters')",
-        "Warning message when < 100 characters: 'Minimum 100 characters required'",
-        "Store cover letter text in useState",
+        "Header uses exact reference color from resume-job-match",
+        "Color is identical across all 4 locales",
+        "No page-specific color overrides",
         "Typecheck passes",
         "Lint passes",
-        "Verify in browser: paste text and see character count update"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "Custom tabs with ARIA support, character count, validation warning."
+      "notes": "Updated gradient, back link, title, and subtitle colors."
     },
     {
       "id": "US-006",
-      "title": "Implement file upload input tab",
-      "description": "As a user, I want to upload a PDF or DOCX cover letter so that I can analyze documents I already have.",
+      "title": "Update cover-letter-checker page header color",
+      "description": "As a user, I want the /tools/cover-letter-checker page header to match the reference green color.",
       "acceptanceCriteria": [
-        "Second tab: 'Upload File'",
-        "Drag-drop zone following resume-file-upload.tsx pattern",
-        "Accept .pdf and .docx files only",
-        "On file drop/select, call /api/tools/extract-text to extract content",
-        "Show loading spinner during extraction",
-        "Populate textarea with extracted text and switch to 'Paste Text' tab",
-        "Error state if extraction fails: 'Could not extract text from file'",
+        "Header uses exact reference color from resume-job-match",
+        "Color is identical across all 4 locales",
+        "No page-specific color overrides",
         "Typecheck passes",
         "Lint passes",
-        "Verify in browser: upload PDF and see text extracted"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
       "passes": true,
-      "notes": "Drag-drop zone with file extraction via API."
+      "notes": "Updated gradient, back link, title, and subtitle colors."
     },
     {
       "id": "US-007",
-      "title": "Implement optional job description input",
-      "description": "As a user, I want to optionally add a job description so that my cover letter is analyzed for job-specific relevance.",
+      "title": "Update cover-letter-generator page header color",
+      "description": "As a user, I want the /tools/cover-letter-generator page header to match the reference green color.",
       "acceptanceCriteria": [
-        "Add collapsible section below cover letter input",
-        "Toggle button: 'Add Job Description (Optional)' with ChevronDown/ChevronUp icon",
-        "When expanded: textarea for job description with placeholder",
-        "When job description has content, show badge: 'Enhanced analysis enabled'",
-        "Store job description in useState",
+        "Header uses exact reference color from resume-job-match",
+        "Color is identical across all 4 locales",
+        "No page-specific color overrides",
         "Typecheck passes",
         "Lint passes",
-        "Verify in browser: expand/collapse job description section"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
       "passes": true,
-      "notes": "Collapsible section with smooth animation and enhanced badge."
+      "notes": "Updated gradient, back link, title, and subtitle colors."
     },
     {
       "id": "US-008",
-      "title": "Implement Check Cover Letter button and loading state",
-      "description": "As a user, I want to trigger analysis and see clear loading feedback.",
+      "title": "Update any remaining Tools pages header color",
+      "description": "As a user, I want all remaining Tools pages to have matching header color.",
       "acceptanceCriteria": [
-        "Primary button: 'Check Cover Letter' with Sparkles icon",
-        "Button disabled when: cover letter text < 100 chars OR already loading",
-        "On click: set isLoading true, call /api/tools/check-cover-letter",
-        "Loading state: button shows 'Checking...' with spinner, inputs disabled",
-        "Show loading skeleton in results area during analysis",
-        "On success: store analysis in state, clear loading",
-        "On error: show toast notification with error message, clear loading",
+        "Check for any additional tools pages not covered in US-002 to US-007",
+        "Update all found pages to use reference color",
+        "Verify dynamic [tool]/page.tsx handler uses correct color if applicable",
+        "Color is identical across all 4 locales for all pages",
         "Typecheck passes",
         "Lint passes",
-        "Verify in browser: click button and see loading state"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
       "passes": true,
-      "notes": "Primary button with loading state, skeleton, toast notifications."
+      "notes": "Updated [tool]/page.tsx dynamic handler. Error message changed to text-red-300 for dark bg visibility."
     },
     {
       "id": "US-009",
-      "title": "Display overall score with circular gauge",
-      "description": "As a user, I want to see my cover letter's overall score prominently displayed.",
+      "title": "Cross-locale visual verification",
+      "description": "As a QA tester, I want to verify that switching languages produces zero header color variation across all Tools pages.",
       "acceptanceCriteria": [
-        "Results header with 'Analysis Results' title",
-        "Circular score gauge (reuse or adapt existing score-gauge.tsx if available)",
-        "Score displayed as large number (0-100) in center of gauge",
-        "Color coding: red (<50), yellow (50-75), green (>75)",
-        "Animated fill on initial display",
-        "Score label below gauge",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: see circular gauge with score after analysis"
+        "Visit /fr/tools/ and all child pages - note header color",
+        "Visit /en/tools/ and all child pages - header color identical",
+        "Visit /de/tools/ and all child pages - header color identical",
+        "Visit /it/tools/ and all child pages - header color identical",
+        "No opacity, gradient, or tint differences between locales",
+        "pnpm build succeeds",
+        "Typecheck passes"
       ],
       "priority": 9,
       "passes": true,
-      "notes": "Reused ScoreGauge component with custom thresholds."
-    },
-    {
-      "id": "US-010",
-      "title": "Display category score cards",
-      "description": "As a user, I want to see detailed scores for each analysis category.",
-      "acceptanceCriteria": [
-        "Section title: 'Category Breakdown'",
-        "5 category cards in grid: Structure, Tone, Clarity, Relevance, Call to Action",
-        "Each card shows: category name, horizontal score bar (0-100%), feedback text",
-        "Score bars color-coded by value (same red/yellow/green scheme)",
-        "Cards use consistent styling with rounded corners, subtle shadow",
-        "Responsive: 2 columns on desktop, 1 column on mobile",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: see 5 category cards with scores and feedback"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": "CategoryCard component with color-coded progress bars."
-    },
-    {
-      "id": "US-011",
-      "title": "Display strengths and improvements sections",
-      "description": "As a user, I want to see what my cover letter does well and what needs improvement.",
-      "acceptanceCriteria": [
-        "Two sections: 'Strengths' and 'Areas for Improvement'",
-        "Strengths section: green CheckCircle icon, list of 3-5 positive points",
-        "Improvements section: yellow AlertTriangle icon, list of 3-5 suggestions",
-        "Each item as bullet point with clear, actionable text",
-        "Sections collapsible on mobile (optional)",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: see strengths with green icons, improvements with yellow icons"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": "Two-column grid with color-coded icons."
-    },
-    {
-      "id": "US-012",
-      "title": "Display job match results when job provided",
-      "description": "As a user, I want to see how well my cover letter matches the job description I provided.",
-      "acceptanceCriteria": [
-        "Job Match section only renders if jobMatch exists in analysis",
-        "Section title: 'Job Match Analysis'",
-        "Job match score with smaller gauge or badge",
-        "Matched keywords displayed as green tags/chips",
-        "Missing keywords displayed as gray/red tags/chips",
-        "List of job-specific suggestions for improvement",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: provide job description, see job match section in results"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": "Conditional section with score badge, keyword chips, suggestions list."
-    },
-    {
-      "id": "US-013",
-      "title": "Implement error and empty states",
-      "description": "As a user, I want clear feedback when something goes wrong or when I haven't started yet.",
-      "acceptanceCriteria": [
-        "Empty state (no analysis yet): Mail icon, 'Paste or upload your cover letter to get started' text",
-        "API error state: Alert component with error message and 'Try Again' button",
-        "File upload error: 'Could not extract text from file. Please try a different file.'",
-        "Rate limit error: 'Too many requests. Please wait a moment and try again.'",
-        "Network error: 'Connection failed. Please check your internet and try again.'",
-        "All error messages from translations",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: see appropriate error states"
-      ],
-      "priority": 13,
-      "passes": true,
-      "notes": "Created Alert component, error detection for rate limit and network errors."
-    },
-    {
-      "id": "US-014",
-      "title": "Implement responsive design polish",
-      "description": "As a user, I want the tool to work well on all device sizes.",
-      "acceptanceCriteria": [
-        "Mobile (375px): single column, full-width inputs, stacked results",
-        "Tablet (768px): hybrid layout with adjusted spacing",
-        "Desktop (1024px+): two-column layout as designed",
-        "Touch-friendly button sizes (min 44px height)",
-        "Proper spacing between sections on all breakpoints",
-        "Results scroll independently if content exceeds viewport",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser at 375px, 768px, and 1024px widths"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": "Responsive text sizes, spacing, touch targets, scroll container."
-    },
-    {
-      "id": "US-015",
-      "title": "Final integration and cleanup",
-      "description": "As a developer, I want to ensure the feature is production-ready with no regressions.",
-      "acceptanceCriteria": [
-        "Remove cover-letter-checker from dynamic [tool]/page.tsx if it was handled there",
-        "Verify tools list page links correctly to /[locale]/tools/cover-letter-checker",
-        "Test full flow: paste text -> analyze -> view all results",
-        "Test full flow: upload PDF -> extract -> analyze -> view results",
-        "Test with job description -> verify job match section appears",
-        "Test all 4 locales load correctly: /en/, /fr/, /de/, /it/",
-        "No console errors in browser",
-        "pnpm build succeeds",
-        "pnpm lint passes on new files",
-        "Typecheck passes"
-      ],
-      "priority": 15,
-      "passes": true,
-      "notes": "Removed from dynamic handler, build succeeds (pre-existing 404/500 errors unrelated)."
-    },
-    {
-      "id": "US-016",
-      "title": "Create CoverLetterLinker component",
-      "description": "As a user, I want to select from my saved cover letters so that I can analyze an existing cover letter.",
-      "acceptanceCriteria": [
-        "Create /src/components/tools/cover-letter-linker.tsx",
-        "Model after resume-linker.tsx - same structure, states, styling",
-        "Fetch from cover_letters table via Supabase",
-        "Display: title, company_name, updated_at in dropdown",
-        "Export CoverLetterLinkerTranslations interface",
-        "Handle states: loading, not authenticated, error, empty, dropdown",
-        "Include clear selection functionality",
-        "Typecheck passes",
-        "Lint passes"
-      ],
-      "priority": 16,
-      "passes": true,
-      "notes": "Created component following resume-linker.tsx pattern with Mail icon."
-    },
-    {
-      "id": "US-017",
-      "title": "Add translation keys for linking features",
-      "description": "As a developer, I need translation keys for cover letter linking and job linking features.",
-      "acceptanceCriteria": [
-        "Add coverLetterChecker.ui.tabs.linkCoverLetter",
-        "Add coverLetterChecker.ui: tabJobLink, tabJobPaste, loadingCoverLetterContent, coverLetterLoadError",
-        "Add coverLetterCheckerLinker section with all keys",
-        "Add coverLetterCheckerJobLinker section",
-        "Add coverLetterCheckerJobUrlExtraction section",
-        "Update all 4 locales: en, fr, de, it",
-        "Typecheck passes"
-      ],
-      "priority": 17,
-      "passes": true,
-      "notes": "Added 40+ translation keys across all locale files."
-    },
-    {
-      "id": "US-018",
-      "title": "Add Link to Cover Letter and Job tabs",
-      "description": "As a user, I want to link to my saved cover letters and jobs for analysis.",
-      "acceptanceCriteria": [
-        "Add Link to Cover Letter tab as FIRST tab (left of Paste Text)",
-        "Import and use CoverLetterLinker component",
-        "When cover letter selected, fetch content and convert to text",
-        "Replace job description collapsible with tabbed interface",
-        "Job tabs: Link to Job (left) | Paste Text (right)",
-        "Link to Job includes JobLinker dropdown and URL extraction",
-        "URL extraction identical to resume-job-match",
-        "Update type interfaces for new translations",
-        "Typecheck passes",
-        "Lint passes"
-      ],
-      "priority": 18,
-      "passes": true,
-      "notes": "Full implementation with CoverLetterLinker, JobLinker, URL extraction, tabbed interfaces."
+      "notes": "Code review PASS. All 8 pages verified: identical gradient, back links, titles, subtitles. No locale-conditional styling. Build generates 112 pages."
     }
   ]
 }
