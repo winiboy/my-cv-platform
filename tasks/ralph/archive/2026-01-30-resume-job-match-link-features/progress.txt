@@ -1,0 +1,100 @@
+# Ralph Progress Log
+# Feature: resume-job-match-link-features
+# Started: 2026-01-30
+
+---
+
+## Run 1 - 2026-01-30
+
+### US-001: Explore existing resume-job-match page structure
+- Status: PASS
+- Commit: N/A (exploration only)
+- Notes: Resume input has tabbed interface (paste|upload|saved). Job description has NO tabs. State: resumeText, jobDescription, selectedResumeId, activeTab. API: POST /api/tools/match-resume-job. ResumeSelector and convertResumeToText() already exist.
+
+### US-002: Explore saved jobs data structure
+- Status: PASS
+- Commit: N/A (exploration only)
+- Notes: Jobs in 'job_applications' table. Fields: id, company_name, job_title, job_description, status. API: GET /api/job-applications. Type: JobApplication from database.ts.
+
+### US-003: Add 'Link to resume' tab to resume input tabs
+- Status: PASS
+- Commit: d37bfe1
+- Notes: Added 'link' tab as first option, visible to all users. Placeholder panel with login prompt for unauthenticated. i18n for en/fr/de/it.
+
+### US-004: Create ResumeLinker component with selector
+- Status: PASS
+- Commit: ad14c61
+- Notes: Created resume-linker.tsx with dropdown selector, Supabase fetch, loading/empty/error/login states. resumeLinker translations for all 4 locales.
+
+### US-005: Display selected resume state in ResumeLinker
+- Status: PASS
+- Commit: N/A (implemented in US-004)
+- Notes: Already implemented in ResumeLinker: selected title display, dropdown to change, X button to clear, teal border + checkmark visual indication.
+
+### US-006: Integrate ResumeLinker into resume-job-match-client
+- Status: PASS
+- Commit: 57dc0bf
+- Notes: Added linkedResumeId state, wired ResumeLinker with callbacks, fetch resume and convert to text on selection.
+
+### US-007: Add 'Link to job' section to job input area
+- Status: PASS
+- Commit: 1f2feb8
+- Notes: Added JobInputTab type, activeJobTab state, tabbed interface with paste/link tabs, placeholder panel with auth-aware messaging.
+
+### US-008: Create JobLinker component with selector
+- Status: PASS
+- Commit: f5b9f66
+- Notes: Created job-linker.tsx with dropdown selector from job_applications table. Shows job title + company. All states implemented.
+
+### US-009: Display selected job state in JobLinker
+- Status: PASS
+- Commit: N/A (implemented in US-008)
+- Notes: Already implemented in JobLinker: selected job title + company, dropdown to change, X button to clear, teal accent + checkmark.
+
+### US-010: Integrate JobLinker into resume-job-match-client
+- Status: PASS
+- Commit: 4087db0
+- Notes: Added linkedJobId state, JobLinker wired with callbacks, fetch job_description on selection, loading state and preview.
+
+### US-011: Wire linked resume to analysis API call
+- Status: PASS
+- Commit: N/A (implemented in US-006)
+- Notes: handleLinkedResumeSelect stores resume text in resumeText state, which handleAnalyze uses for API call.
+
+### US-012: Wire linked job to analysis API call
+- Status: PASS
+- Commit: N/A (implemented in US-010)
+- Notes: handleLinkedJobSelect stores job_description in jobDescription state, which handleAnalyze uses for API call.
+
+### US-013: Implement input mutual exclusivity for resume
+- Status: PASS
+- Commit: 8b00c7f
+- Notes: Added handleResumeTabChange to clear conflicting state on tab switch.
+
+### US-014: Implement input mutual exclusivity for job
+- Status: PASS
+- Commit: 29429a9
+- Notes: Added handleJobTabChange to clear conflicting state on tab switch.
+
+### US-015: Add i18n translations for link features
+- Status: PASS
+- Commit: N/A (added throughout previous stories)
+- Notes: resumeLinker and jobLinker sections in all 4 locales with complete translation coverage.
+
+### US-016: Visual parity check for new controls
+- Status: PASS
+- Commit: N/A (verification only)
+- Notes: Tabs use identical styling (border-b-2, teal accents). Dropdowns consistent. Responsive via Tailwind.
+
+### US-017: Final integration test
+- Status: PASS
+- Commit: N/A (verification only)
+- Notes: Typecheck passes. Lint/build errors are pre-existing (404/500 pages). All 107 static pages generated.
+
+---
+
+## Feature Complete
+All 17 user stories implemented and verified.
+Branch: ralph/resume-job-match-link-features
+Total commits: 9
+

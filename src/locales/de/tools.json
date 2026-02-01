@@ -615,5 +615,114 @@
     "loadError": "Lebensläufe konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
     "createResume": "Lebenslauf erstellen",
     "clearSelection": "Auswahl löschen"
+  },
+  "coverLetterChecker": {
+    "title": "Anschreiben-Prüfer",
+    "subtitle": "Analysieren Sie Ihr Anschreiben auf Ton, Klarheit und Überzeugungskraft. Erhalten Sie umsetzbare Tipps für einen starken ersten Eindruck.",
+    "metaTitle": "Anschreiben-Prüfer | KI-gestützte Anschreiben-Analyse",
+    "metaDescription": "Überprüfen Sie Ihr Anschreiben auf Ton, Klarheit und Überzeugungskraft. Unser KI-gestütztes Tool hilft Ihnen, überzeugende Einleitungen zu verfassen, die Personalverantwortliche beeindrucken.",
+    "auth": {
+      "title": "Melden Sie sich an, um Ihr Anschreiben zu prüfen",
+      "description": "Erstellen Sie ein kostenloses Konto, um auf unseren KI-gestützten Anschreiben-Prüfer zuzugreifen und detailliertes Feedback zur Stärkung Ihrer Bewerbungen zu erhalten.",
+      "benefits": [
+        "Analyse von Ton und Professionalität",
+        "Feedback zu Klarheit und Struktur",
+        "Überzeugungskraft-Score und Tipps",
+        "Stellenbezogene Relevanzprüfung"
+      ],
+      "loginButton": "Anmelden um fortzufahren",
+      "signupButton": "Kostenloses Konto erstellen"
+    },
+    "ui": {
+      "tabs": {
+        "pasteText": "Text einfügen",
+        "uploadFile": "Datei hochladen",
+        "linkCoverLetter": "Mit Anschreiben verknüpfen"
+      },
+      "tabJobLink": "Mit Stelle verknüpfen",
+      "tabJobPaste": "Text einfügen",
+      "loadingCoverLetterContent": "Anschreiben wird geladen...",
+      "coverLetterLoadError": "Anschreiben konnte nicht geladen werden",
+      "loadingJobDescription": "Stellenbeschreibung wird geladen...",
+      "jobDescriptionLoadError": "Stellenbeschreibung konnte nicht geladen werden",
+      "textareaPlaceholder": "Fügen Sie Ihr Anschreiben hier ein...",
+      "characterCount": "{count} Zeichen",
+      "minCharsWarning": "Noch {count} Zeichen für die Analyse erforderlich",
+      "jobDescriptionToggle": "Stellenbeschreibung für gezieltes Feedback hinzufügen",
+      "jobDescriptionPlaceholder": "Fügen Sie hier die Stellenbeschreibung ein, um Feedback zu erhalten, wie gut Ihr Anschreiben zur Position passt...",
+      "checkButton": "Anschreiben prüfen",
+      "checkingButton": "Wird geprüft...",
+      "dragDropText": "Ziehen Sie Ihr Anschreiben hierher oder",
+      "browseText": "durchsuchen",
+      "acceptedFilesText": "PDF oder DOCX (max. 5 MB)",
+      "extractingText": "Text wird extrahiert...",
+      "jobLabel": "Stellenbeschreibung (Optional)"
+    },
+    "results": {
+      "overallScore": "Gesamtbewertung",
+      "categories": {
+        "structure": "Struktur",
+        "tone": "Ton",
+        "clarity": "Klarheit",
+        "relevance": "Relevanz",
+        "callToAction": "Handlungsaufforderung"
+      },
+      "strengths": "Stärken",
+      "improvements": "Verbesserungsbereiche"
+    },
+    "jobMatch": {
+      "title": "Stellenübereinstimmung",
+      "score": "Übereinstimmungs-Score",
+      "matchedKeywords": "Übereinstimmende Schlüsselwörter",
+      "missingKeywords": "Fehlende Schlüsselwörter",
+      "suggestions": "Empfehlungen"
+    },
+    "error": {
+      "tooShort": "Ihr Anschreiben ist zu kurz. Bitte geben Sie mindestens 200 Zeichen ein.",
+      "uploadFailed": "Text konnte nicht aus der Datei extrahiert werden. Bitte versuchen Sie eine andere Datei.",
+      "networkError": "Verbindung fehlgeschlagen. Bitte überprüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.",
+      "rateLimited": "Zu viele Anfragen. Bitte warten Sie einen Moment und versuchen Sie es erneut.",
+      "tryAgain": "Erneut versuchen"
+    },
+    "empty": {
+      "noResults": "Noch keine Ergebnisse",
+      "getStarted": "Fügen Sie Ihr Anschreiben ein oder laden Sie es hoch, um detailliertes Feedback zu Ton, Klarheit und Überzeugungskraft zu erhalten."
+    }
+  },
+  "coverLetterCheckerLinker": {
+    "selectCoverLetterDropdown": "Anschreiben auswählen",
+    "noCoverLettersAvailable": "Keine Anschreiben verfügbar",
+    "createCoverLetterPrompt": "Erstellen Sie zuerst ein Anschreiben",
+    "company": "Unternehmen",
+    "lastUpdated": "Zuletzt aktualisiert",
+    "loadingCoverLetters": "Anschreiben werden geladen...",
+    "tryAgain": "Erneut versuchen",
+    "loginRequired": "Bitte melden Sie sich an, um auf Ihre Anschreiben zuzugreifen",
+    "loadError": "Anschreiben konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
+    "createCoverLetter": "Anschreiben erstellen",
+    "clearSelection": "Auswahl löschen"
+  },
+  "coverLetterCheckerJobLinker": {
+    "selectJobDropdown": "Stelle auswählen",
+    "noJobsAvailable": "Keine gespeicherten Stellen verfügbar",
+    "createJobPrompt": "Speichern Sie zuerst Stellen aus der Jobsuche",
+    "company": "Unternehmen",
+    "loadingJobs": "Stellen werden geladen...",
+    "tryAgain": "Erneut versuchen",
+    "loginRequired": "Melden Sie sich an, um Ihre gespeicherten Stellen zu verknüpfen",
+    "loadError": "Stellen konnten nicht geladen werden",
+    "browseJobs": "Jobs durchsuchen",
+    "clearSelection": "Auswahl löschen"
+  },
+  "coverLetterCheckerJobUrlExtraction": {
+    "label": "Oder Stellenanzeigen-URL einfügen",
+    "placeholder": "https://beispiel.com/stelle/...",
+    "extract": "Extrahieren",
+    "extracting": "Wird extrahiert...",
+    "clearUrl": "URL löschen",
+    "invalidUrl": "Bitte geben Sie eine gültige URL ein",
+    "emptyUrl": "Bitte geben Sie eine Stellenanzeigen-URL ein",
+    "extractionFailed": "Stellenbeschreibung konnte nicht extrahiert werden",
+    "noDescriptionFound": "Keine Stellenbeschreibung in der Antwort gefunden"
   }
 }

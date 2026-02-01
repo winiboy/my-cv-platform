@@ -615,5 +615,114 @@
     "loadError": "Failed to load resumes. Please try again.",
     "createResume": "Create Resume",
     "clearSelection": "Clear selection"
+  },
+  "coverLetterChecker": {
+    "title": "Cover Letter Checker",
+    "subtitle": "Analyze your cover letter for tone, clarity, and persuasiveness. Get actionable feedback to make a strong first impression.",
+    "metaTitle": "Cover Letter Checker | AI-Powered Cover Letter Analysis",
+    "metaDescription": "Review your cover letter for tone, clarity, and persuasiveness. Our AI-powered tool helps you craft compelling introductions that impress hiring managers.",
+    "auth": {
+      "title": "Sign in to check your cover letter",
+      "description": "Create a free account to access our AI-powered cover letter checker and get detailed feedback to strengthen your applications.",
+      "benefits": [
+        "Tone and professionalism analysis",
+        "Clarity and structure feedback",
+        "Persuasiveness score and tips",
+        "Job-specific relevance check"
+      ],
+      "loginButton": "Sign in to continue",
+      "signupButton": "Create free account"
+    },
+    "ui": {
+      "tabs": {
+        "pasteText": "Paste Text",
+        "uploadFile": "Upload File",
+        "linkCoverLetter": "Link to Cover Letter"
+      },
+      "tabJobLink": "Link to Job",
+      "tabJobPaste": "Paste Text",
+      "loadingCoverLetterContent": "Loading cover letter...",
+      "coverLetterLoadError": "Failed to load cover letter",
+      "loadingJobDescription": "Loading job description...",
+      "jobDescriptionLoadError": "Failed to load job description",
+      "textareaPlaceholder": "Paste your cover letter here...",
+      "characterCount": "{count} characters",
+      "minCharsWarning": "{count} more characters needed for analysis",
+      "jobDescriptionToggle": "Add job description for targeted feedback",
+      "jobDescriptionPlaceholder": "Paste the job description here to get feedback on how well your cover letter matches the position...",
+      "checkButton": "Check Cover Letter",
+      "checkingButton": "Checking...",
+      "dragDropText": "Drag and drop your cover letter here or",
+      "browseText": "browse",
+      "acceptedFilesText": "PDF or DOCX (max 5MB)",
+      "extractingText": "Extracting text...",
+      "jobLabel": "Job Description"
+    },
+    "results": {
+      "overallScore": "Overall Score",
+      "categories": {
+        "structure": "Structure",
+        "tone": "Tone",
+        "clarity": "Clarity",
+        "relevance": "Relevance",
+        "callToAction": "Call to Action"
+      },
+      "strengths": "Strengths",
+      "improvements": "Areas for Improvement"
+    },
+    "jobMatch": {
+      "title": "Job Match Analysis",
+      "score": "Match Score",
+      "matchedKeywords": "Matched Keywords",
+      "missingKeywords": "Missing Keywords",
+      "suggestions": "Recommendations"
+    },
+    "error": {
+      "tooShort": "Your cover letter is too short. Please provide at least 200 characters.",
+      "uploadFailed": "Could not extract text from file. Please try a different file.",
+      "networkError": "Connection failed. Please check your internet and try again.",
+      "rateLimited": "Too many requests. Please wait a moment and try again.",
+      "tryAgain": "Try Again"
+    },
+    "empty": {
+      "noResults": "No Results Yet",
+      "getStarted": "Paste or upload your cover letter to get detailed feedback on tone, clarity, and persuasiveness."
+    }
+  },
+  "coverLetterCheckerLinker": {
+    "selectCoverLetterDropdown": "Select a cover letter",
+    "noCoverLettersAvailable": "No cover letters available",
+    "createCoverLetterPrompt": "Create a cover letter first",
+    "company": "Company",
+    "lastUpdated": "Last updated",
+    "loadingCoverLetters": "Loading cover letters...",
+    "tryAgain": "Try again",
+    "loginRequired": "Please sign in to access your cover letters",
+    "loadError": "Failed to load cover letters. Please try again.",
+    "createCoverLetter": "Create Cover Letter",
+    "clearSelection": "Clear selection"
+  },
+  "coverLetterCheckerJobLinker": {
+    "selectJobDropdown": "Select a job",
+    "noJobsAvailable": "No saved jobs available",
+    "createJobPrompt": "Save jobs from job search first",
+    "company": "Company",
+    "loadingJobs": "Loading jobs...",
+    "tryAgain": "Try again",
+    "loginRequired": "Sign in to link to your saved jobs",
+    "loadError": "Failed to load jobs",
+    "browseJobs": "Browse Jobs",
+    "clearSelection": "Clear selection"
+  },
+  "coverLetterCheckerJobUrlExtraction": {
+    "label": "Or paste a job posting URL",
+    "placeholder": "https://example.com/job/...",
+    "extract": "Extract",
+    "extracting": "Extracting...",
+    "clearUrl": "Clear URL",
+    "invalidUrl": "Please enter a valid URL",
+    "emptyUrl": "Please enter a job posting URL",
+    "extractionFailed": "Failed to extract job description",
+    "noDescriptionFound": "No job description found in the response"
   }
 }

@@ -17,12 +17,14 @@ import { locales, getTranslations } from "@/lib/i18n";
 /**
  * Note: "resume-grammar-checker" is excluded because it has a dedicated page at:
  * - src/app/[locale]/(marketing)/tools/resume-grammar-checker/page.tsx
+ *
+ * Note: "cover-letter-checker" is excluded because it has a dedicated page at:
+ * - src/app/[locale]/(marketing)/tools/cover-letter-checker/page.tsx
  */
 const VALID_TOOL_SLUGS = [
   "resume-job-match",
   "cover-letter-generator",
   "cv-checker",
-  "cover-letter-checker",
 ] as const;
 
 type ToolSlug = (typeof VALID_TOOL_SLUGS)[number];

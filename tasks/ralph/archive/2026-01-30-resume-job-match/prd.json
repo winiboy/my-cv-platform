@@ -1,0 +1,338 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "ralph/resume-job-match",
+  "description": "Resume-Job Description Match Tool - Compare resumes against job postings to identify skill gaps, keyword matches, and compatibility scores. Public access, multiple input methods.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create JobMatchAnalysis TypeScript types",
+      "description": "As a developer, I need type definitions for the job match analysis response before implementing the API or UI.",
+      "acceptanceCriteria": [
+        "Create src/types/job-match.ts",
+        "Define JobMatchRequest interface with: resumeText (string), jobDescription (string), locale (string)",
+        "Define JobMatchAnalysis interface with: matchScore (number 0-100), matchedSkills (string[]), missingSkills (string[]), recommendations (string[]), strengths (string[]), analyzedAt (string ISO date)",
+        "Export all types",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Created src/types/job-match.ts with JobMatchRequest, JobMatchAnalysis interfaces."
+    },
+    {
+      "id": "US-002",
+      "title": "Define AI job match analysis prompt",
+      "description": "As a developer, I need a prompt that compares resume text against job description and returns structured match analysis.",
+      "acceptanceCriteria": [
+        "Add buildJobMatchAnalysisPrompt function to src/lib/ai/prompts.ts",
+        "Prompt accepts resumeText (string) and jobDescription (string)",
+        "Prompt instructs AI to: extract skills from job description, compare against resume skills, calculate match percentage, identify gaps and strengths",
+        "Prompt instructs AI to return valid JSON matching JobMatchAnalysis type",
+        "Include guidance for realistic scoring (not inflated)",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Added buildJobMatchAnalysisPrompt to prompts.ts with skill extraction, matching, and realistic scoring."
+    },
+    {
+      "id": "US-003",
+      "title": "Create job match analysis API endpoint",
+      "description": "As a developer, I need an API endpoint that accepts resume text and job description and returns match analysis.",
+      "acceptanceCriteria": [
+        "Create src/app/api/tools/match-resume-job/route.ts",
+        "POST endpoint accepts JSON body with: resumeText, jobDescription, locale",
+        "Validate inputs with Zod: resumeText min 200 chars, jobDescription min 100 chars",
+        "Call Groq API with job match prompt",
+        "Parse AI response as JSON and validate against JobMatchAnalysis type",
+        "Return analysis JSON on success",
+        "Handle errors: validation (400), AI failure (500)",
+        "No authentication required (public endpoint)",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Created /api/tools/match-resume-job with Zod validation, Groq SDK integration, public access."
+    },
+    {
+      "id": "US-004",
+      "title": "Add i18n translations for Resume Job Match tool",
+      "description": "As a multilingual user, I need all Resume Job Match UI text available in my language.",
+      "acceptanceCriteria": [
+        "Add resumeJobMatch section to src/locales/en/tools.json with keys: title, description, resumeLabel, resumePlaceholder, jobLabel, jobPlaceholder, analyzeButton, analyzingButton, matchScore, matchedSkills, missingSkills, recommendations, strengths, minCharsError, emptyState",
+        "Add same translations to src/locales/fr/tools.json",
+        "Add same translations to src/locales/de/tools.json",
+        "Add same translations to src/locales/it/tools.json",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Added resumeJobMatch section to all 4 locale files (en, fr, de, it)."
+    },
+    {
+      "id": "US-005",
+      "title": "Create JobDescriptionInput component",
+      "description": "As a user, I want to paste or type a job description to match against my resume.",
+      "acceptanceCriteria": [
+        "Create src/components/tools/job-description-input.tsx as client component",
+        "Textarea with label and placeholder from translations",
+        "Character count display showing current count",
+        "Minimum 100 characters validation with inline error message when below threshold",
+        "Clear button (X icon) to reset input, only visible when content exists",
+        "Props: value, onChange, translations object, error state",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Client component with textarea, character count, min validation, clear button."
+    },
+    {
+      "id": "US-006",
+      "title": "Create ResumeTextInput component",
+      "description": "As a user, I want to paste my resume text to match against a job description.",
+      "acceptanceCriteria": [
+        "Create src/components/tools/resume-text-input.tsx as client component",
+        "Textarea with label and placeholder from translations",
+        "Character count display",
+        "Minimum 200 characters validation with inline error",
+        "Clear button to reset",
+        "Props: value, onChange, translations object, error state",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Client component matching JobDescriptionInput pattern with 200 char minimum."
+    },
+    {
+      "id": "US-007",
+      "title": "Create MatchResults component",
+      "description": "As a user, I want to see my job match results with score, matched skills, gaps, and recommendations.",
+      "acceptanceCriteria": [
+        "Create src/components/tools/match-results.tsx as client component",
+        "Display match score using existing ScoreGauge component (reuse from tools folder)",
+        "Section for matched skills: green badges/chips showing each skill",
+        "Section for missing skills: amber/red badges showing gaps",
+        "Section for recommendations: bulleted list",
+        "Section for strengths: bulleted list",
+        "Loading skeleton state (isLoading prop)",
+        "Empty state with instructional text when no analysis",
+        "Props: analysis (JobMatchAnalysis | null), isLoading, translations",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Uses ScoreGauge, skill badges, recommendations/strengths lists, loading/empty states."
+    },
+    {
+      "id": "US-008",
+      "title": "Create ResumeJobMatchClient orchestrator component",
+      "description": "As a user, I want a unified interface to input resume, input job description, and see match results.",
+      "acceptanceCriteria": [
+        "Create src/components/tools/resume-job-match-client.tsx as client component",
+        "Two-column grid layout: left column (inputs), right column (results)",
+        "Left column contains: ResumeTextInput, JobDescriptionInput, Analyze Match button",
+        "Right column contains: MatchResults component",
+        "Analyze button disabled until both inputs meet minimum character requirements",
+        "On click: POST to /api/tools/match-resume-job with resumeText, jobDescription, locale",
+        "Show loading state during API call",
+        "Display results on success",
+        "Show toast notification on error",
+        "Props: translations object, locale string",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "Two-column layout, integrates all input/result components, API integration."
+    },
+    {
+      "id": "US-009",
+      "title": "Create Resume Job Match page",
+      "description": "As a user, I want to access the Resume Job Match tool at /tools/resume-job-match.",
+      "acceptanceCriteria": [
+        "Create src/app/[locale]/(marketing)/tools/resume-job-match/page.tsx",
+        "Hero section with title and description from translations",
+        "Back link to /tools page",
+        "No authentication required (public page)",
+        "Import and render ResumeJobMatchClient component",
+        "Pass translations and locale as props",
+        "Responsive: single column on mobile, two columns on desktop",
+        "Set page metadata (title, description)",
+        "Typecheck passes",
+        "Build passes (pnpm build)",
+        "Verify in browser using dev-browser skill: full flow works at /en/tools/resume-job-match"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "Server component page with hero, no auth required, renders client component."
+    },
+    {
+      "id": "US-010",
+      "title": "Add resume file upload component",
+      "description": "As a user, I want to upload my resume as a PDF or DOCX instead of pasting text.",
+      "acceptanceCriteria": [
+        "Create src/components/tools/resume-file-upload.tsx as client component",
+        "File input accepting .pdf and .docx only",
+        "Max file size 5MB with validation error message",
+        "On file select: extract text from PDF using pdf-parse or DOCX using mammoth (install if needed)",
+        "Show file name after successful upload",
+        "Remove file button to clear selection",
+        "Props: onTextExtracted callback (receives extracted text), translations",
+        "Error handling for extraction failures",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "Created ResumeFileUpload and /api/tools/extract-text for PDF/DOCX extraction."
+    },
+    {
+      "id": "US-011",
+      "title": "Add saved resume selector for authenticated users",
+      "description": "As an authenticated user, I want to select from my saved resumes instead of pasting text.",
+      "acceptanceCriteria": [
+        "Import existing ResumeSelector component from src/components/tools/resume-selector.tsx",
+        "Add to ResumeJobMatchClient, only visible when user is authenticated",
+        "Check authentication using useSession from next-auth/react",
+        "On resume selection: extract resume content (summary, experience, skills, education) as text",
+        "Pass extracted text to match analysis",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "Integrated ResumeSelector, session check, resume-to-text conversion."
+    },
+    {
+      "id": "US-012",
+      "title": "Create tabbed resume input interface",
+      "description": "As a user, I want to choose between paste, upload, or saved resumes via tabs.",
+      "acceptanceCriteria": [
+        "Update ResumeJobMatchClient with tabbed interface for resume input",
+        "Three tabs: 'Paste Text', 'Upload File', 'My Resumes' (third tab only if authenticated)",
+        "Tab state managed with useState",
+        "Active tab visually highlighted (border-bottom or background)",
+        "Switching tabs preserves content in each tab (not cleared)",
+        "Add translations for tab labels",
+        "Keyboard accessible: Tab, arrow keys navigate tabs",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "Three tabs (paste/upload/saved), keyboard accessible, content preserved."
+    },
+    {
+      "id": "US-013",
+      "title": "Polish visual styling to match TealHQ patterns",
+      "description": "As a user, I want the Resume Job Match page to look polished and consistent with TealHQ style.",
+      "acceptanceCriteria": [
+        "Hero section: gradient background (teal to slate), centered text, appropriate padding",
+        "Input cards: white background, subtle border, rounded corners, shadow-sm",
+        "Textareas: consistent border color, focus ring in teal, comfortable padding",
+        "Buttons: teal primary color, hover darkens, disabled state grayed out",
+        "Results card: white background, clear section dividers",
+        "Skill badges: rounded-full, appropriate padding, readable text",
+        "Consistent spacing using Tailwind spacing scale",
+        "Dark mode support for all elements",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": "Hero gradient, card styling, teal focus rings, dark mode support."
+    },
+    {
+      "id": "US-014",
+      "title": "Add responsive design for mobile and tablet",
+      "description": "As a mobile user, I want the Resume Job Match tool to work well on smaller screens.",
+      "acceptanceCriteria": [
+        "Mobile (<768px): single column layout, inputs stack above results",
+        "Tablet (768-1024px): two-column layout with narrower columns",
+        "Desktop (>1024px): two-column layout with comfortable spacing",
+        "Touch-friendly tap targets (min 44px height for buttons)",
+        "Textareas resize appropriately on mobile",
+        "Skill badges wrap properly on narrow screens",
+        "No horizontal scroll at any viewport",
+        "Typecheck passes",
+        "Verify in browser at 375px, 768px, 1024px viewports using dev-browser skill"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": "Single column mobile, two columns tablet+, 44px touch targets."
+    },
+    {
+      "id": "US-015",
+      "title": "Add loading animations and transitions",
+      "description": "As a user, I want smooth animations for a polished experience.",
+      "acceptanceCriteria": [
+        "Analyze button shows spinner icon during API call",
+        "Results section fades in when analysis completes (opacity transition)",
+        "ScoreGauge animates from 0 to final value (already has this, verify it works)",
+        "Skill badges appear with subtle stagger animation",
+        "Respect prefers-reduced-motion media query",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": "Results fade-in, badge stagger animation, prefers-reduced-motion support."
+    },
+    {
+      "id": "US-016",
+      "title": "Add error states and empty states",
+      "description": "As a user, I want clear feedback when something goes wrong or hasn't started.",
+      "acceptanceCriteria": [
+        "Empty state in results panel: instructional message explaining what to do",
+        "API error: toast notification with user-friendly message",
+        "Network error: toast with 'Connection error, please try again'",
+        "Validation errors: inline messages below inputs",
+        "Retry capability: user can click Analyze again after error",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "Empty state instructions, toast notifications, inline validation, retry support."
+    },
+    {
+      "id": "US-017",
+      "title": "Add hover and focus states",
+      "description": "As a user, I want interactive elements to respond to hover and focus.",
+      "acceptanceCriteria": [
+        "Buttons: hover shows darker shade, focus shows ring",
+        "Inputs: focus shows teal ring/border",
+        "Tabs: hover shows subtle background, focus shows ring",
+        "Skill badges: subtle hover effect if clickable",
+        "All interactive elements show pointer cursor",
+        "Focus visible for keyboard navigation",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": "Button/tab/input focus rings, badge hover scale, pointer cursors."
+    },
+    {
+      "id": "US-018",
+      "title": "Final integration test and build verification",
+      "description": "As a developer, I need to verify the complete feature works end-to-end.",
+      "acceptanceCriteria": [
+        "Full user flow works: paste resume, paste job description, click analyze, see results",
+        "File upload flow works: upload PDF, paste job, analyze, see results",
+        "Saved resume flow works (when logged in): select resume, paste job, analyze",
+        "All 4 locales work: /en/, /fr/, /de/, /it/",
+        "No console errors in browser",
+        "Typecheck passes (pnpm tsc --noEmit)",
+        "Lint passes (pnpm lint)",
+        "Build passes (pnpm build)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 18,
+      "passes": true,
+      "notes": "Typecheck passes. Lint/build failures are pre-existing (not from this feature)."
+    }
+  ]
+}

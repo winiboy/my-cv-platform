@@ -615,5 +615,114 @@
     "loadError": "Échec du chargement des CV. Veuillez réessayer.",
     "createResume": "Créer un CV",
     "clearSelection": "Effacer la sélection"
+  },
+  "coverLetterChecker": {
+    "title": "Vérificateur de lettre de motivation",
+    "subtitle": "Analysez votre lettre de motivation pour son ton, sa clarté et sa force de persuasion. Obtenez des retours concrets pour faire une excellente première impression.",
+    "metaTitle": "Vérificateur de lettre de motivation | Analyse IA",
+    "metaDescription": "Examinez votre lettre de motivation pour son ton, sa clarté et sa persuasivité. Notre outil alimenté par l'IA vous aide à rédiger des introductions percutantes qui impressionnent les recruteurs.",
+    "auth": {
+      "title": "Connectez-vous pour vérifier votre lettre de motivation",
+      "description": "Créez un compte gratuit pour accéder à notre vérificateur de lettre de motivation alimenté par l'IA et obtenir des retours détaillés pour renforcer vos candidatures.",
+      "benefits": [
+        "Analyse du ton et du professionnalisme",
+        "Retours sur la clarté et la structure",
+        "Score de persuasion et conseils",
+        "Vérification de la pertinence pour le poste"
+      ],
+      "loginButton": "Se connecter pour continuer",
+      "signupButton": "Créer un compte gratuit"
+    },
+    "ui": {
+      "tabs": {
+        "pasteText": "Coller le texte",
+        "uploadFile": "Importer un fichier",
+        "linkCoverLetter": "Lier une lettre"
+      },
+      "tabJobLink": "Lier une offre",
+      "tabJobPaste": "Coller le texte",
+      "loadingCoverLetterContent": "Chargement de la lettre de motivation...",
+      "coverLetterLoadError": "Échec du chargement de la lettre de motivation",
+      "loadingJobDescription": "Chargement de la description du poste...",
+      "jobDescriptionLoadError": "Échec du chargement de la description du poste",
+      "textareaPlaceholder": "Collez votre lettre de motivation ici...",
+      "characterCount": "{count} caractères",
+      "minCharsWarning": "Encore {count} caractères requis pour l'analyse",
+      "jobDescriptionToggle": "Ajouter une description de poste pour des retours ciblés",
+      "jobDescriptionPlaceholder": "Collez la description du poste ici pour obtenir des retours sur la correspondance de votre lettre avec la position...",
+      "checkButton": "Vérifier la lettre de motivation",
+      "checkingButton": "Vérification...",
+      "dragDropText": "Glissez-déposez votre lettre de motivation ici ou",
+      "browseText": "parcourir",
+      "acceptedFilesText": "PDF ou DOCX (max 5 Mo)",
+      "extractingText": "Extraction du texte...",
+      "jobLabel": "Description du poste (Optionnel)"
+    },
+    "results": {
+      "overallScore": "Score global",
+      "categories": {
+        "structure": "Structure",
+        "tone": "Ton",
+        "clarity": "Clarté",
+        "relevance": "Pertinence",
+        "callToAction": "Appel à l'action"
+      },
+      "strengths": "Points forts",
+      "improvements": "Points à améliorer"
+    },
+    "jobMatch": {
+      "title": "Analyse de correspondance",
+      "score": "Score de correspondance",
+      "matchedKeywords": "Mots-clés correspondants",
+      "missingKeywords": "Mots-clés manquants",
+      "suggestions": "Recommandations"
+    },
+    "error": {
+      "tooShort": "Votre lettre de motivation est trop courte. Veuillez fournir au moins 200 caractères.",
+      "uploadFailed": "Impossible d'extraire le texte du fichier. Veuillez essayer un autre fichier.",
+      "networkError": "La connexion a échoué. Veuillez vérifier votre connexion internet et réessayer.",
+      "rateLimited": "Trop de requêtes. Veuillez patienter un moment et réessayer.",
+      "tryAgain": "Réessayer"
+    },
+    "empty": {
+      "noResults": "Pas encore de résultats",
+      "getStarted": "Collez ou importez votre lettre de motivation pour obtenir des retours détaillés sur le ton, la clarté et la persuasivité."
+    }
+  },
+  "coverLetterCheckerLinker": {
+    "selectCoverLetterDropdown": "Sélectionner une lettre de motivation",
+    "noCoverLettersAvailable": "Aucune lettre de motivation disponible",
+    "createCoverLetterPrompt": "Créez d'abord une lettre de motivation",
+    "company": "Entreprise",
+    "lastUpdated": "Dernière mise à jour",
+    "loadingCoverLetters": "Chargement des lettres de motivation...",
+    "tryAgain": "Réessayer",
+    "loginRequired": "Veuillez vous connecter pour accéder à vos lettres de motivation",
+    "loadError": "Échec du chargement des lettres de motivation. Veuillez réessayer.",
+    "createCoverLetter": "Créer une lettre de motivation",
+    "clearSelection": "Effacer la sélection"
+  },
+  "coverLetterCheckerJobLinker": {
+    "selectJobDropdown": "Sélectionner une offre",
+    "noJobsAvailable": "Aucune offre enregistrée",
+    "createJobPrompt": "Enregistrez d'abord des offres depuis la recherche d'emploi",
+    "company": "Entreprise",
+    "loadingJobs": "Chargement des offres...",
+    "tryAgain": "Réessayer",
+    "loginRequired": "Connectez-vous pour lier vos offres enregistrées",
+    "loadError": "Échec du chargement des offres",
+    "browseJobs": "Parcourir les offres",
+    "clearSelection": "Effacer la sélection"
+  },
+  "coverLetterCheckerJobUrlExtraction": {
+    "label": "Ou collez l'URL d'une offre d'emploi",
+    "placeholder": "https://exemple.com/offre/...",
+    "extract": "Extraire",
+    "extracting": "Extraction...",
+    "clearUrl": "Effacer l'URL",
+    "invalidUrl": "Veuillez entrer une URL valide",
+    "emptyUrl": "Veuillez entrer l'URL d'une offre d'emploi",
+    "extractionFailed": "Échec de l'extraction de la description du poste",
+    "noDescriptionFound": "Aucune description de poste trouvée dans la réponse"
   }
 }

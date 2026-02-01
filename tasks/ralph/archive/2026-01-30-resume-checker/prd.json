@@ -1,0 +1,267 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "ralph/resume-checker",
+  "description": "Resume Checker Tool - AI-powered resume analysis with TealHQ visual parity. Users select from saved resumes, get scored feedback across 15 categories.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create ResumeAnalysis TypeScript types",
+      "description": "As a developer, I need type definitions for the analysis response structure before implementing the API or UI.",
+      "acceptanceCriteria": [
+        "Create src/types/resume-analysis.ts",
+        "Define ResumeAnalysis interface with: overallScore (number 0-100), categories (AnalysisCategory[]), generatedAt (string ISO date)",
+        "Define AnalysisCategory interface with: name (string), score (number 0-100), status ('pass' | 'warning' | 'fail'), feedback (string), issues (AnalysisIssue[])",
+        "Define AnalysisIssue interface with: description (string), severity ('low' | 'medium' | 'high'), section (optional string for navigation), suggestion (string)",
+        "Export all types",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Created src/types/resume-analysis.ts with all interfaces. Typecheck passes."
+    },
+    {
+      "id": "US-002",
+      "title": "Define AI analysis prompt with 15 categories",
+      "description": "As a developer, I need a well-structured prompt that analyzes resumes and returns structured JSON.",
+      "acceptanceCriteria": [
+        "Add buildResumeAnalysisPrompt function to src/lib/ai/prompts.ts",
+        "Prompt accepts resume content (sections: summary, experience, education, skills, contact)",
+        "Prompt instructs AI to analyze 15 categories: Contact Info, Summary, Work Experience, Skills, Education, Formatting, ATS Compatibility, Keywords, Grammar, Action Verbs, Quantified Achievements, Length, Consistency, Professional Tone, Overall Score",
+        "Prompt instructs AI to return valid JSON matching ResumeAnalysis type",
+        "Each category must include score (0-100), status, feedback text, and specific issues with suggestions",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Added buildResumeAnalysisPrompt with 15 categories, weighted scoring. Typecheck passes."
+    },
+    {
+      "id": "US-003",
+      "title": "Create resume analysis API endpoint",
+      "description": "As a developer, I need an API endpoint that accepts a resumeId and returns AI analysis.",
+      "acceptanceCriteria": [
+        "Create src/app/api/ai/analyze-resume/route.ts",
+        "POST endpoint accepts JSON body with resumeId (string)",
+        "Fetch resume from Supabase by ID using server client",
+        "Validate authenticated user owns the resume",
+        "Call Groq API with analysis prompt and resume content",
+        "Parse AI response as JSON and validate against ResumeAnalysis type",
+        "Return analysis JSON on success, appropriate error responses on failure",
+        "Handle errors: missing resumeId (400), not found (404), unauthorized (401), AI failure (500)",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Created /api/ai/analyze-resume with auth, ownership check, resume extraction, AI call, JSON parsing."
+    },
+    {
+      "id": "US-004",
+      "title": "Create Resume Checker page with auth gate",
+      "description": "As a user, I want to access the Resume Checker page, with a login prompt if not authenticated.",
+      "acceptanceCriteria": [
+        "Create src/app/[locale]/(marketing)/tools/resume-checker/page.tsx (dedicated page, not dynamic route)",
+        "Check authentication using getServerSession from NextAuth",
+        "If not authenticated: render login CTA section with explanation and button linking to /[locale]/login?callbackUrl=/[locale]/tools/resume-checker",
+        "If authenticated: render placeholder for main UI (will be filled in subsequent stories)",
+        "Hero section with title 'Resume Checker' and subtitle explaining the tool",
+        "Use existing translations from tools namespace where available",
+        "Typecheck passes",
+        "Verify in browser: unauthenticated users see login prompt"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Dedicated page with auth gate, callback URL in LoginForm, route conflict fixed, i18n translations."
+    },
+    {
+      "id": "US-005",
+      "title": "Implement ResumeSelector component",
+      "description": "As a logged-in user, I want to select one of my saved resumes to analyze.",
+      "acceptanceCriteria": [
+        "Create src/components/tools/resume-selector.tsx as client component",
+        "Fetch user's resumes from Supabase on mount",
+        "Display resumes as selectable cards showing: resume name, last modified date",
+        "Selected resume has visual highlight (border color change or background)",
+        "Empty state if no resumes: message + CTA button linking to dashboard to create resume",
+        "Props: onSelect callback with resume ID, selectedId for controlled selection",
+        "Typecheck passes",
+        "Verify in browser: selector shows user's resumes correctly"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Client component with Supabase fetch, ResumeSummary type, auth check, ARIA accessibility."
+    },
+    {
+      "id": "US-006",
+      "title": "Create ScoreGauge component for overall score",
+      "description": "As a user, I want to see my overall resume score displayed prominently.",
+      "acceptanceCriteria": [
+        "Create src/components/tools/score-gauge.tsx",
+        "Display score as large number (0-100) with circular or semi-circular gauge visual",
+        "Color-coded: green for 80+, yellow/amber for 60-79, red for below 60",
+        "Animated fill on mount (CSS transition or simple animation)",
+        "Props: score (number), size (optional, default 'md')",
+        "Accessible: score readable by screen readers",
+        "Typecheck passes",
+        "Verify in browser: gauge renders with different score values"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Circular SVG gauge with animated fill, color-coded thresholds, three sizes, accessible."
+    },
+    {
+      "id": "US-007",
+      "title": "Create CategoryList component for analysis breakdown",
+      "description": "As a user, I want to see all analysis categories with their scores and status.",
+      "acceptanceCriteria": [
+        "Create src/components/tools/category-list.tsx",
+        "Display list of categories from ResumeAnalysis.categories",
+        "Each row shows: category name, score, status icon (checkmark/warning/x)",
+        "Status colors: green for pass, yellow for warning, red for fail",
+        "Props: categories (AnalysisCategory[]), onCategoryClick callback",
+        "Typecheck passes",
+        "Verify in browser: category list renders with mock data"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Category list with name, score, status icons, color-coded, accessible, click handler."
+    },
+    {
+      "id": "US-008",
+      "title": "Implement category expansion with issues",
+      "description": "As a user, I want to expand a category to see detailed feedback and issues.",
+      "acceptanceCriteria": [
+        "Update CategoryList to support expandable rows (accordion pattern)",
+        "Clicking a category row expands it, clicking again collapses",
+        "Only one category expanded at a time",
+        "Expanded view shows: feedback text, list of issues with severity icon and suggestion",
+        "Smooth expand/collapse animation (max-height transition or similar)",
+        "Issues show severity: high (red), medium (yellow), low (gray)",
+        "Typecheck passes",
+        "Verify in browser: expansion works smoothly"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "Accordion pattern, feedback text, issues list with severity badges, smooth animation."
+    },
+    {
+      "id": "US-009",
+      "title": "Create AnalysisResults container component",
+      "description": "As a user, I want to see the complete analysis results in a cohesive panel.",
+      "acceptanceCriteria": [
+        "Create src/components/tools/analysis-results.tsx",
+        "Composes ScoreGauge and CategoryList components",
+        "Props: analysis (ResumeAnalysis | null), isLoading (boolean)",
+        "Empty state when analysis is null: instructional text to select resume and analyze",
+        "Loading state: skeleton or spinner while analyzing",
+        "Display 'Analyzed at: [date]' below score gauge",
+        "Typecheck passes",
+        "Verify in browser: results panel shows correct states"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "Composes ScoreGauge and CategoryList, handles loading/empty/data states."
+    },
+    {
+      "id": "US-010",
+      "title": "Implement Analyze button and API integration",
+      "description": "As a user, I want to click Analyze to run the AI analysis on my selected resume.",
+      "acceptanceCriteria": [
+        "Add 'Analyze Resume' button to Resume Checker page",
+        "Button disabled when no resume is selected",
+        "On click: call /api/ai/analyze-resume with selected resumeId",
+        "Show loading state in button ('Analyzing...') and in results panel",
+        "On success: display results in AnalysisResults component",
+        "On error: show toast notification with error message",
+        "Typecheck passes",
+        "Verify in browser: full flow from select to analyze to results"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "ResumeCheckerClient with state management, API integration, toast notifications."
+    },
+    {
+      "id": "US-011",
+      "title": "Add Show Me navigation links for issues",
+      "description": "As a user, I want to click 'Show me' on an issue to navigate to that section in my resume.",
+      "acceptanceCriteria": [
+        "Add 'Show me' button/link to issues that have a section property",
+        "Button only visible when issue.section is defined",
+        "Clicking navigates to /[locale]/dashboard/resumes/[resumeId]#[section]",
+        "Resume ID passed as prop to CategoryList",
+        "Section anchors: summary, experience, education, skills, contact",
+        "Typecheck passes",
+        "Verify in browser: clicking Show me navigates to resume editor"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "Show me links with section validation, navigation to resume editor with hash."
+    },
+    {
+      "id": "US-012",
+      "title": "Assemble Resume Checker page two-column layout",
+      "description": "As a user, I want to see resume selector and results side by side.",
+      "acceptanceCriteria": [
+        "Update resume-checker page to render two-column layout below hero",
+        "Left column: ResumeSelector component",
+        "Right column: AnalysisResults component",
+        "Analyze button positioned between selector and results or in left column",
+        "State management: selectedResumeId, analysis, isLoading",
+        "Proper spacing and alignment matching TealHQ style",
+        "Typecheck passes",
+        "Verify in browser: layout renders correctly with both columns"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "Integrated ResumeCheckerClient into page, maintained hero and auth gate."
+    },
+    {
+      "id": "US-013",
+      "title": "Add responsive design for mobile/tablet",
+      "description": "As a mobile user, I want the Resume Checker to work well on smaller screens.",
+      "acceptanceCriteria": [
+        "Single-column layout on mobile (< 768px): selector stacks above results",
+        "Two-column layout on tablet and desktop (>= 768px)",
+        "Touch-friendly tap targets (minimum 44px height for buttons and cards)",
+        "Score gauge scales down appropriately on mobile",
+        "Category expansion works with touch",
+        "Typecheck passes",
+        "Verify in browser at mobile viewport (375px) and tablet (768px)"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": "Single-column mobile, two-column tablet+, touch-friendly targets, responsive gauge."
+    },
+    {
+      "id": "US-014",
+      "title": "Add i18n translations for Resume Checker",
+      "description": "As a multilingual user, I want the Resume Checker UI in my language.",
+      "acceptanceCriteria": [
+        "Add resumeChecker namespace/section to src/locales/en/tools.json",
+        "Include translations for: page title, subtitle, analyze button, loading text, empty states, category names, status labels, error messages",
+        "Add same translations to fr/tools.json, de/tools.json, it/tools.json",
+        "Update Resume Checker page and components to use translation keys",
+        "Typecheck passes",
+        "Verify in browser: switching locale updates all Resume Checker text"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": "Full translations for en/fr/de/it, all components use translation props."
+    },
+    {
+      "id": "US-015",
+      "title": "Store and retrieve analysis results from database",
+      "description": "As a user, I want my analysis saved so I can view it later without re-running.",
+      "acceptanceCriteria": [
+        "Check if resume_analyses table exists, if not document that migration is needed",
+        "After successful analysis: save to resume_analyses table (resume_id, user_id, analysis JSON, created_at)",
+        "On page load with selected resume: check for existing analysis",
+        "If recent analysis exists (< 24h): load and display it with 'Last analyzed' timestamp",
+        "Show 'Re-analyze' button to run fresh analysis",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": "Save to resume_analyses table, auto-load cached analysis, re-analyze button."
+    }
+  ]
+}

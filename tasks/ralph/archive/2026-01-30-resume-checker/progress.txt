@@ -1,0 +1,88 @@
+# Ralph Progress Log
+# Feature: resume-checker
+# Started: 2026-01-30
+
+---
+
+## Run 1 - 2026-01-30
+
+### US-001: Create ResumeAnalysis TypeScript types
+- Status: PASS
+- Commit: 393a996
+- Notes: Created src/types/resume-analysis.ts with ResumeAnalysis, AnalysisCategory, AnalysisIssue interfaces. Typecheck passes.
+
+### US-002: Define AI analysis prompt with 15 categories
+- Status: PASS
+- Commit: b533ede
+- Notes: Added buildResumeAnalysisPrompt to prompts.ts with 15 analysis categories, weighted scoring, JSON output matching types.
+
+### US-003: Create resume analysis API endpoint
+- Status: PASS
+- Commit: cddb076
+- Notes: Created /api/ai/analyze-resume with auth check, ownership validation, resume extraction, AI call, JSON parsing. Lint/typecheck pass.
+
+### US-004: Create Resume Checker page with auth gate
+- Status: PASS
+- Commit: d8eadf9
+- Notes: Dedicated page with auth gate, callback URL support in LoginForm, route conflict fixed, i18n for 4 locales.
+
+### US-005: Implement ResumeSelector component
+- Status: PASS
+- Commit: 42fd6b7
+- Notes: Client component with Supabase fetch, ResumeSummary type, auth check, ARIA accessibility, states handling.
+
+### US-006: Create ScoreGauge component for overall score
+- Status: PASS
+- Commit: 8d8fd5b
+- Notes: Circular SVG gauge with animated fill, color-coded thresholds, three sizes, accessible.
+
+### US-007: Create CategoryList component for analysis breakdown
+- Status: PASS
+- Commit: e91a7d1
+- Notes: Category list with name, score, status icons, color-coded, accessible, click handler.
+
+### US-008: Implement category expansion with issues
+- Status: PASS
+- Commit: 9091a0e
+- Notes: Accordion pattern, feedback text, issues list with severity badges, smooth animation.
+
+### US-009: Create AnalysisResults container component
+- Status: PASS
+- Commit: 73d9c26
+- Notes: Composes ScoreGauge and CategoryList, handles loading/empty/data states.
+
+### US-010: Implement Analyze button and API integration
+- Status: PASS
+- Commit: 5270f60
+- Notes: ResumeCheckerClient with state management, API integration, toast notifications.
+
+### US-011: Add Show Me navigation links for issues
+- Status: PASS
+- Commit: c18b50f
+- Notes: Show me links with section validation, navigation to resume editor with hash.
+
+### US-012: Assemble Resume Checker page two-column layout
+- Status: PASS
+- Commit: eebf38b
+- Notes: Integrated ResumeCheckerClient into page, maintained hero and auth gate.
+
+### US-013: Add responsive design for mobile/tablet
+- Status: PASS
+- Commit: 42dcbc4
+- Notes: Single-column mobile, two-column tablet+, touch-friendly targets, responsive gauge.
+
+### US-014: Add i18n translations for Resume Checker
+- Status: PASS
+- Commit: 6348d13
+- Notes: Full translations for en/fr/de/it, all components use translation props.
+
+### US-015: Store and retrieve analysis results from database
+- Status: PASS
+- Commit: 382881f
+- Notes: Save to resume_analyses table, auto-load cached analysis, re-analyze button.
+
+---
+
+## Feature Complete
+All 15 user stories implemented and verified.
+

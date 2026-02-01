@@ -615,5 +615,114 @@
     "loadError": "Impossibile caricare i CV. Riprova.",
     "createResume": "Crea CV",
     "clearSelection": "Cancella selezione"
+  },
+  "coverLetterChecker": {
+    "title": "Verificatore di lettera di presentazione",
+    "subtitle": "Analizza la tua lettera di presentazione per tono, chiarezza e persuasività. Ottieni feedback concreti per fare un'ottima prima impressione.",
+    "metaTitle": "Verificatore di lettera di presentazione | Analisi IA",
+    "metaDescription": "Rivedi la tua lettera di presentazione per tono, chiarezza e persuasività. Il nostro strumento alimentato dall'IA ti aiuta a creare introduzioni convincenti che impressionano i responsabili delle assunzioni.",
+    "auth": {
+      "title": "Accedi per verificare la tua lettera di presentazione",
+      "description": "Crea un account gratuito per accedere al nostro verificatore di lettere di presentazione alimentato dall'IA e ottenere feedback dettagliato per rafforzare le tue candidature.",
+      "benefits": [
+        "Analisi del tono e della professionalità",
+        "Feedback su chiarezza e struttura",
+        "Punteggio di persuasività e consigli",
+        "Verifica della rilevanza per la posizione"
+      ],
+      "loginButton": "Accedi per continuare",
+      "signupButton": "Crea un account gratuito"
+    },
+    "ui": {
+      "tabs": {
+        "pasteText": "Incolla testo",
+        "uploadFile": "Carica file",
+        "linkCoverLetter": "Collega lettera"
+      },
+      "tabJobLink": "Collega offerta",
+      "tabJobPaste": "Incolla testo",
+      "loadingCoverLetterContent": "Caricamento lettera di presentazione...",
+      "coverLetterLoadError": "Impossibile caricare la lettera di presentazione",
+      "loadingJobDescription": "Caricamento descrizione del lavoro...",
+      "jobDescriptionLoadError": "Impossibile caricare la descrizione del lavoro",
+      "textareaPlaceholder": "Incolla qui la tua lettera di presentazione...",
+      "characterCount": "{count} caratteri",
+      "minCharsWarning": "Ancora {count} caratteri necessari per l'analisi",
+      "jobDescriptionToggle": "Aggiungi descrizione del lavoro per feedback mirati",
+      "jobDescriptionPlaceholder": "Incolla qui la descrizione del lavoro per ottenere feedback su quanto la tua lettera corrisponde alla posizione...",
+      "checkButton": "Verifica lettera di presentazione",
+      "checkingButton": "Verifica in corso...",
+      "dragDropText": "Trascina qui la tua lettera di presentazione o",
+      "browseText": "sfoglia",
+      "acceptedFilesText": "PDF o DOCX (max 5 MB)",
+      "extractingText": "Estrazione del testo...",
+      "jobLabel": "Descrizione del lavoro (Opzionale)"
+    },
+    "results": {
+      "overallScore": "Punteggio complessivo",
+      "categories": {
+        "structure": "Struttura",
+        "tone": "Tono",
+        "clarity": "Chiarezza",
+        "relevance": "Rilevanza",
+        "callToAction": "Invito all'azione"
+      },
+      "strengths": "Punti di forza",
+      "improvements": "Aree da migliorare"
+    },
+    "jobMatch": {
+      "title": "Analisi corrispondenza lavoro",
+      "score": "Punteggio corrispondenza",
+      "matchedKeywords": "Parole chiave corrispondenti",
+      "missingKeywords": "Parole chiave mancanti",
+      "suggestions": "Raccomandazioni"
+    },
+    "error": {
+      "tooShort": "La tua lettera di presentazione è troppo breve. Fornisci almeno 200 caratteri.",
+      "uploadFailed": "Impossibile estrarre il testo dal file. Prova con un file diverso.",
+      "networkError": "Connessione fallita. Verifica la tua connessione internet e riprova.",
+      "rateLimited": "Troppe richieste. Attendi un momento e riprova.",
+      "tryAgain": "Riprova"
+    },
+    "empty": {
+      "noResults": "Nessun risultato ancora",
+      "getStarted": "Incolla o carica la tua lettera di presentazione per ottenere feedback dettagliato su tono, chiarezza e persuasività."
+    }
+  },
+  "coverLetterCheckerLinker": {
+    "selectCoverLetterDropdown": "Seleziona una lettera di presentazione",
+    "noCoverLettersAvailable": "Nessuna lettera di presentazione disponibile",
+    "createCoverLetterPrompt": "Crea prima una lettera di presentazione",
+    "company": "Azienda",
+    "lastUpdated": "Ultimo aggiornamento",
+    "loadingCoverLetters": "Caricamento lettere di presentazione...",
+    "tryAgain": "Riprova",
+    "loginRequired": "Accedi per visualizzare le tue lettere di presentazione",
+    "loadError": "Impossibile caricare le lettere di presentazione. Riprova.",
+    "createCoverLetter": "Crea lettera di presentazione",
+    "clearSelection": "Cancella selezione"
+  },
+  "coverLetterCheckerJobLinker": {
+    "selectJobDropdown": "Seleziona un'offerta",
+    "noJobsAvailable": "Nessuna offerta salvata disponibile",
+    "createJobPrompt": "Salva prima le offerte dalla ricerca lavoro",
+    "company": "Azienda",
+    "loadingJobs": "Caricamento offerte...",
+    "tryAgain": "Riprova",
+    "loginRequired": "Accedi per collegare le tue offerte salvate",
+    "loadError": "Impossibile caricare le offerte",
+    "browseJobs": "Sfoglia offerte",
+    "clearSelection": "Cancella selezione"
+  },
+  "coverLetterCheckerJobUrlExtraction": {
+    "label": "Oppure incolla l'URL di un'offerta di lavoro",
+    "placeholder": "https://esempio.com/lavoro/...",
+    "extract": "Estrai",
+    "extracting": "Estrazione...",
+    "clearUrl": "Cancella URL",
+    "invalidUrl": "Inserisci un URL valido",
+    "emptyUrl": "Inserisci l'URL di un'offerta di lavoro",
+    "extractionFailed": "Impossibile estrarre la descrizione del lavoro",
+    "noDescriptionFound": "Nessuna descrizione del lavoro trovata nella risposta"
   }
 }

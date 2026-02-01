@@ -36,6 +36,29 @@ const SIZE_CONFIG = {
 
 type GaugeSize = keyof typeof SIZE_CONFIG
 
+/**
+ * Color thresholds for the score gauge.
+ * Scores >= greenThreshold are green, >= yellowThreshold are yellow, below are red.
+ */
+export interface ScoreThresholds {
+  /** Score threshold for green color (default: 80) */
+  green: number
+  /** Score threshold for yellow color (default: 60) */
+  yellow: number
+}
+
+/** Default thresholds used for resume-related tools */
+const DEFAULT_THRESHOLDS: ScoreThresholds = {
+  green: 80,
+  yellow: 60,
+}
+
+/** Alternative thresholds commonly used for cover letter analysis */
+export const COVER_LETTER_THRESHOLDS: ScoreThresholds = {
+  green: 75,
+  yellow: 50,
+}
+
 interface ScoreGaugeProps {
   /** Score value from 0 to 100 */
   score: number
@@ -43,27 +66,34 @@ interface ScoreGaugeProps {
   size?: GaugeSize
   /** Optional CSS class name for the container */
   className?: string
+  /** Optional label displayed below the score */
+  label?: string
+  /** Custom color thresholds (defaults to 80/60) */
+  thresholds?: ScoreThresholds
 }
 
 /**
- * Determines the color class based on the score value.
- * - Green (teal) for scores 80 and above
- * - Amber/yellow for scores 60-79
- * - Red for scores below 60
+ * Determines the color class based on the score value and thresholds.
+ * - Green (teal) for scores at or above green threshold
+ * - Amber/yellow for scores at or above yellow threshold
+ * - Red for scores below yellow threshold
  */
-function getScoreColor(score: number): {
+function getScoreColor(
+  score: number,
+  thresholds: ScoreThresholds = DEFAULT_THRESHOLDS
+): {
   stroke: string
   text: string
   bg: string
 } {
-  if (score >= 80) {
+  if (score >= thresholds.green) {
     return {
       stroke: 'stroke-teal-500',
       text: 'text-teal-600 dark:text-teal-400',
       bg: 'bg-teal-50 dark:bg-teal-900/20',
     }
   }
-  if (score >= 60) {
+  if (score >= thresholds.yellow) {
     return {
       stroke: 'stroke-amber-500',
       text: 'text-amber-600 dark:text-amber-400',
@@ -84,12 +114,16 @@ function getScoreColor(score: number): {
  * @example
  * ```tsx
  * <ScoreGauge score={85} size="md" />
+ * // With custom thresholds for cover letter checker
+ * <ScoreGauge score={70} thresholds={COVER_LETTER_THRESHOLDS} label="Overall Score" />
  * ```
  */
 export function ScoreGauge({
   score,
   size = 'md',
   className,
+  label,
+  thresholds = DEFAULT_THRESHOLDS,
 }: ScoreGaugeProps) {
   // Clamp score to valid range
   const clampedScore = Math.max(0, Math.min(100, Math.round(score)))
@@ -98,7 +132,7 @@ export function ScoreGauge({
   const [animatedProgress, setAnimatedProgress] = useState(0)
 
   const config = SIZE_CONFIG[size]
-  const colors = getScoreColor(clampedScore)
+  const colors = getScoreColor(clampedScore, thresholds)
 
   // Calculate SVG circle properties
   const circumference = 2 * Math.PI * config.radius
@@ -127,64 +161,80 @@ export function ScoreGauge({
 
   return (
     <div
-      className={cn('relative inline-flex items-center justify-center', className)}
+      className={cn('inline-flex flex-col items-center gap-2', className)}
       role="img"
-      aria-label={`Score: ${clampedScore} out of 100`}
+      aria-label={label ? `${label}: ${clampedScore} out of 100` : `Score: ${clampedScore} out of 100`}
     >
-      <svg
-        width={config.width}
-        height={config.height}
-        viewBox={`0 0 ${config.width} ${config.height}`}
-        className="transform -rotate-90"
-        aria-hidden="true"
-      >
-        {/* Background ring */}
-        <circle
-          cx={center}
-          cy={center}
-          r={config.radius}
-          fill="none"
-          strokeWidth={config.strokeWidth}
-          className="stroke-slate-200 dark:stroke-slate-700"
-        />
+      {/* Circular gauge container */}
+      <div className="relative inline-flex items-center justify-center">
+        <svg
+          width={config.width}
+          height={config.height}
+          viewBox={`0 0 ${config.width} ${config.height}`}
+          className="transform -rotate-90"
+          aria-hidden="true"
+        >
+          {/* Background ring */}
+          <circle
+            cx={center}
+            cy={center}
+            r={config.radius}
+            fill="none"
+            strokeWidth={config.strokeWidth}
+            className="stroke-slate-200 dark:stroke-slate-700"
+          />
 
-        {/* Progress ring */}
-        <circle
-          cx={center}
-          cy={center}
-          r={config.radius}
-          fill="none"
-          strokeWidth={config.strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          className={cn(
-            colors.stroke,
-            'transition-[stroke-dashoffset] duration-1000 ease-out',
-            'motion-reduce:transition-none'
-          )}
-        />
-      </svg>
+          {/* Progress ring */}
+          <circle
+            cx={center}
+            cy={center}
+            r={config.radius}
+            fill="none"
+            strokeWidth={config.strokeWidth}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            className={cn(
+              colors.stroke,
+              'transition-[stroke-dashoffset] duration-1000 ease-out',
+              'motion-reduce:transition-none'
+            )}
+          />
+        </svg>
 
-      {/* Score number in center */}
-      <div
-        className="absolute inset-0 flex flex-col items-center justify-center"
-        aria-hidden="true"
-      >
+        {/* Score number in center */}
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center"
+          aria-hidden="true"
+        >
+          <span
+            className={cn(
+              config.fontSize,
+              colors.text,
+              'font-bold tabular-nums leading-none'
+            )}
+          >
+            {clampedScore}
+          </span>
+        </div>
+      </div>
+
+      {/* Optional label below the gauge */}
+      {label && (
         <span
           className={cn(
-            config.fontSize,
-            colors.text,
-            'font-bold tabular-nums leading-none'
+            config.labelSize,
+            'font-medium text-slate-600 dark:text-slate-400'
           )}
+          aria-hidden="true"
         >
-          {clampedScore}
+          {label}
         </span>
-      </div>
+      )}
 
       {/* Hidden text for screen readers */}
       <span className="sr-only">
-        Score: {clampedScore} out of 100
+        {label ? `${label}: ${clampedScore} out of 100` : `Score: ${clampedScore} out of 100`}
       </span>
     </div>
   )
