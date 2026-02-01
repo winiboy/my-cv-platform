@@ -1,276 +1,367 @@
 {
   "project": "my-cv-platform",
-  "branchName": "ralph/resume-reviewer",
-  "description": "Resume Reviewer Tool - Complete redesign of /[locale]/tools/resume-reviewer with TealHQ visual/functional parity. Supports PDF upload, text paste, select existing resume. AI analysis with ATS score, categorized feedback, and optional job matching. Fully public (no auth required).",
+  "branchName": "ralph/cover-letter-generator",
+  "description": "Cover Letter Generator - AI-powered cover letter generation with strict 1:1 TealHQ visual/functional parity. Users select resume, provide job description, configure settings (length, tone, job details), and receive tailored cover letters with WYSIWYG editing and PDF/DOCX export.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Create page layout structure matching TealHQ",
-      "description": "As a user, I want the Resume Reviewer page to have the same visual structure as TealHQ so the experience feels professional and familiar.",
+      "title": "Create page structure and route",
+      "description": "As a user, I want to access the cover letter generator from the tools page so that I can create tailored cover letters.",
       "acceptanceCriteria": [
-        "Hero section with title, subtitle, and brief description",
-        "Main content area with input section prominently displayed",
-        "Results section (hidden until analysis complete)",
-        "Responsive layout matching TealHQ breakpoints",
-        "Proper spacing and padding matching TealHQ",
-        "Typecheck passes (pnpm tsc --noEmit)",
-        "Lint passes (pnpm lint)",
-        "Verify in browser at /en/tools/resume-reviewer"
+        "Route exists at /[locale]/tools/cover-letter-generator",
+        "Page follows existing tools page pattern (server component)",
+        "Unauthenticated users see benefits list + login CTA",
+        "Authenticated users see the generator interface placeholder",
+        "Back link to tools page present",
+        "Hero section with title and subtitle",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser at /en/tools/cover-letter-generator"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Created page.tsx and resume-reviewer-client.tsx following resume-checker pattern. Added translations for all 4 locales. Removed from [tool]/page.tsx VALID_TOOL_SLUGS. Code review: PASS."
+      "notes": "Created page.tsx and cover-letter-generator-client.tsx following existing tools pattern."
     },
     {
       "id": "US-002",
-      "title": "Implement PDF upload input method",
-      "description": "As a user, I want to upload my resume as a PDF so I can get it analyzed without retyping.",
+      "title": "Add translation keys for cover letter generator",
+      "description": "As a developer, I need all UI strings externalized to translation files so that the feature supports i18n.",
       "acceptanceCriteria": [
-        "Drag-and-drop zone with visual feedback on hover/drag",
-        "Click to browse file picker (PDF only)",
-        "File size limit displayed (Max 5MB)",
-        "Upload progress indicator",
-        "Error state for invalid file type or size",
-        "Uploaded file name displayed with remove option",
-        "PDF text extraction via existing API or new endpoint",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: upload a PDF and see filename displayed"
-      ],
-      "priority": 2,
-      "passes": true,
-      "notes": "Drag-drop zone, file validation, extraction via /api/tools/extract-text."
-    },
-    {
-      "id": "US-003",
-      "title": "Implement text paste input method",
-      "description": "As a user, I want to paste my resume text directly so I can quickly get feedback without uploading a file.",
-      "acceptanceCriteria": [
-        "Large textarea with placeholder text",
-        "Character count display",
-        "Clear button to reset textarea",
-        "Minimum character validation before analysis",
-        "Tab switching between input methods (Upload / Paste / Select)",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: paste text and see character count update"
-      ],
-      "priority": 3,
-      "passes": true,
-      "notes": "Textarea with character count, clear button, 100-char minimum."
-    },
-    {
-      "id": "US-004",
-      "title": "Implement select existing resume input method",
-      "description": "As a logged-in user, I want to select one of my existing resumes so I don't have to re-upload.",
-      "acceptanceCriteria": [
-        "Dropdown or card selector showing user's resumes (if authenticated)",
-        "Shows 'Sign in to access your resumes' message if not authenticated",
-        "Resume preview/name displayed when selected",
-        "Graceful handling when user has no resumes",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: shows sign-in prompt when not logged in"
-      ],
-      "priority": 4,
-      "passes": true,
-      "notes": "Resume card selector, Supabase fetch, JSONB text extraction."
-    },
-    {
-      "id": "US-005",
-      "title": "Implement optional job description input",
-      "description": "As a user, I want to optionally add a job description so the analysis can tell me how well my resume matches.",
-      "acceptanceCriteria": [
-        "Collapsible/expandable section for job description",
-        "Textarea for pasting job description text",
-        "Clear indication this is optional",
-        "Job description included in analysis request when provided",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: expand section and paste job description"
-      ],
-      "priority": 5,
-      "passes": true,
-      "notes": "Collapsible accordion, optional badge, character count."
-    },
-    {
-      "id": "US-006",
-      "title": "Create analysis loading state",
-      "description": "As a user, I want clear feedback while my resume is being analyzed so I know the system is working.",
-      "acceptanceCriteria": [
-        "Analyze Resume button with loading spinner when processing",
-        "Button disabled during analysis",
-        "Progress indication or animated placeholder in results area",
-        "Estimated time or 'This may take a moment' message",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: click analyze and see loading state"
-      ],
-      "priority": 6,
-      "passes": true,
-      "notes": "Spinner, skeleton placeholders, aria-busy accessibility."
-    },
-    {
-      "id": "US-007",
-      "title": "Create API endpoint for resume analysis",
-      "description": "As a developer, I need an API endpoint that accepts resume text and optional job description, returning comprehensive analysis.",
-      "acceptanceCriteria": [
-        "POST /api/ai/analyze-resume endpoint",
-        "Accepts: { resumeText: string, jobDescription?: string }",
-        "Returns: { overallScore, categories[], suggestions[], jobMatch? }",
-        "Uses Groq SDK for AI analysis",
-        "Proper error handling with meaningful messages",
-        "Rate limiting consideration (public endpoint)",
+        "Add coverLetterGenerator section to src/locales/en/tools.json",
+        "Add coverLetterGenerator section to src/locales/fr/tools.json",
+        "Add coverLetterGenerator section to src/locales/de/tools.json",
+        "Add coverLetterGenerator section to src/locales/it/tools.json",
+        "Keys include: title, subtitle, buttons, labels, placeholders, errors, empty states",
+        "No hardcoded strings in components",
         "Typecheck passes",
         "Lint passes"
       ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Added 80+ translation keys across all 4 locale files."
+    },
+    {
+      "id": "US-003",
+      "title": "Implement two-column layout (TealHQ parity)",
+      "description": "As a user, I want a clean two-column layout matching TealHQ so that inputs are on the left and the generated letter is on the right.",
+      "acceptanceCriteria": [
+        "Left column: Input section container (40% width on desktop)",
+        "Right column: Output section container (60% width on desktop)",
+        "Responsive: stacks vertically on mobile (< 768px)",
+        "Consistent spacing and padding with existing tools",
+        "Empty state placeholder in right column",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev server"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Two-column responsive grid with md:grid-cols-[40%_1fr]."
+    },
+    {
+      "id": "US-004",
+      "title": "Integrate ResumeLinker for resume selection",
+      "description": "As a user, I want to select one of my saved resumes so that the cover letter is tailored to my experience.",
+      "acceptanceCriteria": [
+        "ResumeLinker component integrated in left column",
+        "Dropdown shows all user's resumes (title + last updated)",
+        "Selected resume ID stored in component state",
+        "Resume content extracted using convertResumeToText() pattern",
+        "Error state if no resumes exist (prompt to create one)",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: select a resume from dropdown"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "ResumeLinker integrated with Supabase fetch and text extraction."
+    },
+    {
+      "id": "US-005",
+      "title": "Implement job description input with tabs",
+      "description": "As a user, I want to provide a job description via text paste or saved job so that the cover letter targets the specific role.",
+      "acceptanceCriteria": [
+        "Tabbed interface: 'Paste Text' | 'Saved Jobs'",
+        "'Paste Text' tab: JobDescriptionInput textarea (min 100 chars)",
+        "'Saved Jobs' tab: JobLinker dropdown for saved job applications",
+        "Job description stored in component state",
+        "Clear visual indication of selected/active tab",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: switch tabs and enter job description"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Tabbed interface with keyboard navigation and ARIA support."
+    },
+    {
+      "id": "US-006",
+      "title": "Create generation settings panel",
+      "description": "As a user, I want to configure generation settings (length, tone) so that the cover letter matches my needs.",
+      "acceptanceCriteria": [
+        "Length selector: Short | Medium (default) | Long - using radio buttons or segmented control",
+        "Tone selector: Casual | Formal (default) | Match Job Description",
+        "Custom prompt field: Optional textarea for additional instructions",
+        "Settings grouped in a labeled section",
+        "Visual styling matches TealHQ (clean, minimal)",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: change settings and see selections"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Segmented controls for length, card grid for tone, custom prompt textarea."
+    },
+    {
+      "id": "US-007",
+      "title": "Add job details extraction and picker",
+      "description": "As a user, I want the system to extract key requirements from the job description so that I can select which to emphasize.",
+      "acceptanceCriteria": [
+        "Parse job description client-side to identify 5-10 key points",
+        "Display as selectable checkboxes with truncated text",
+        "Default: top 3-5 items pre-selected",
+        "User can toggle selections on/off",
+        "Selected items stored in component state for API call",
+        "Graceful handling if extraction yields < 3 items",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: see extracted job details as checkboxes"
+      ],
       "priority": 7,
       "passes": true,
-      "notes": "Created /api/tools/review-resume with Groq SDK, 5 categories, job match."
+      "notes": "Regex-based extraction with selectable checkboxes, top 4 pre-selected."
     },
     {
       "id": "US-008",
-      "title": "Display overall ATS score",
-      "description": "As a user, I want to see my overall ATS score prominently so I quickly understand how my resume performs.",
+      "title": "Create API endpoint for cover letter generation",
+      "description": "As a developer, I need an API endpoint that generates cover letters using AI so that the client can request tailored content.",
       "acceptanceCriteria": [
-        "Large circular or semi-circular score indicator (0-100)",
-        "Color coding: red (<50), yellow (50-75), green (>75)",
-        "Score label (ATS Score or Resume Score)",
-        "Brief interpretation text (Good, Needs Improvement)",
-        "Animation on score reveal",
+        "Endpoint: POST /api/tools/generate-cover-letter",
+        "Request body: { resumeText, jobDescription, length, tone, selectedDetails, customPrompt, locale }",
+        "Uses Groq SDK (BALANCED model: llama-3.3-70b-versatile)",
+        "Prompt engineering for professional cover letters with greeting, body, closing",
+        "Response: { success, coverLetter }",
+        "Error handling with user-friendly messages",
         "Typecheck passes",
-        "Lint passes",
-        "Verify in browser: see animated score after analysis"
+        "Lint passes"
       ],
       "priority": 8,
       "passes": true,
-      "notes": "SVG circular gauge, counting animation, color-coded interpretation."
+      "notes": "Zod validation, Groq SDK, multi-language support."
     },
     {
       "id": "US-009",
-      "title": "Display categorized section scores",
-      "description": "As a user, I want to see scores for different categories (Impact, Brevity, Style, etc.) so I know which areas need work.",
+      "title": "Implement Write with AI button and loading state",
+      "description": "As a user, I want to click a primary action button to generate my cover letter with clear loading feedback.",
       "acceptanceCriteria": [
-        "Category cards/rows matching TealHQ layout",
-        "Categories: Impact, Brevity, Style, Sections, Skills (or TealHQ equivalents)",
-        "Individual score per category (percentage or out of 10)",
-        "Visual indicator (progress bar or similar)",
-        "Color coding per category score",
+        "Button labeled 'Write with AI' with Sparkles icon",
+        "Button disabled until resume AND job description are provided",
+        "Button shows loading spinner during generation",
+        "Button uses primary color styling (teal/brand color)",
+        "Loading skeleton appears in right column during generation",
         "Typecheck passes",
         "Lint passes",
-        "Verify in browser: see all category scores displayed"
+        "Verify in browser: click button and see loading state"
       ],
       "priority": 9,
       "passes": true,
-      "notes": "5 category cards with icons, animated progress bars."
+      "notes": "Teal primary button, loading skeleton, disabled state logic."
     },
     {
       "id": "US-010",
-      "title": "Display detailed feedback and suggestions",
-      "description": "As a user, I want detailed, actionable feedback for each category so I can improve my resume.",
+      "title": "Display generated cover letter",
+      "description": "As a user, I want to see the generated cover letter in the right column so that I can review it immediately.",
       "acceptanceCriteria": [
-        "Expandable sections per category",
-        "Bullet-point list of specific issues found",
-        "Actionable improvement suggestions",
-        "Highlight specific text/sections when possible",
-        "Positive feedback for strong areas",
+        "Empty state before generation: helpful placeholder with instructions",
+        "Generated letter displays with proper formatting (paragraphs, spacing)",
+        "Smooth transition from loading to content",
+        "Scroll if content exceeds viewport height",
+        "Letter content stored in component state",
         "Typecheck passes",
         "Lint passes",
-        "Verify in browser: expand category and see detailed feedback"
+        "Verify in browser: generate letter and see formatted output"
       ],
       "priority": 10,
       "passes": true,
-      "notes": "Expandable cards, priority-ranked suggestions, positive indicators."
+      "notes": "Fade-in animation, scrollable container, paragraph formatting."
     },
     {
       "id": "US-011",
-      "title": "Display job match analysis (when job description provided)",
-      "description": "As a user, I want to see how well my resume matches the job description so I can tailor it appropriately.",
+      "title": "Add WYSIWYG editor for cover letter",
+      "description": "As a user, I want to edit the generated cover letter directly so that I can make manual adjustments.",
       "acceptanceCriteria": [
-        "Job match score displayed (percentage)",
-        "Keywords found vs. missing comparison",
-        "Skills alignment analysis",
-        "Specific suggestions to improve match",
-        "Section only visible when job description was provided",
+        "Rich text editor wrapping the cover letter content",
+        "Basic formatting toolbar: bold, italic, underline",
+        "Paragraph handling preserved",
+        "Changes persist in component state",
+        "Editor matches TealHQ styling (clean, minimal chrome)",
         "Typecheck passes",
         "Lint passes",
-        "Verify in browser: provide job description and see match analysis"
+        "Verify in browser: edit text and apply formatting"
       ],
       "priority": 11,
       "passes": true,
-      "notes": "JobMatchSection with compact gauge, keyword pills."
+      "notes": "ContentEditable with B/I/U toolbar, keyboard shortcuts (Ctrl+B/I/U)."
     },
     {
       "id": "US-012",
-      "title": "Implement error states and edge cases",
-      "description": "As a user, I want clear error messages when something goes wrong so I can take corrective action.",
+      "title": "Implement Improve with AI button",
+      "description": "As a user, I want to regenerate or refine the cover letter with new settings so that I can iterate on the content.",
       "acceptanceCriteria": [
-        "Error state for API failure",
-        "Error state for empty/invalid resume",
-        "Error state for PDF parsing failure",
-        "Retry button on error",
-        "Friendly error messages (not technical jargon)",
+        "Button appears in action bar after initial generation",
+        "Button labeled 'Improve with AI' with Wand icon",
+        "Clicking regenerates cover letter with current settings",
+        "Loading state during regeneration",
+        "Updated content replaces previous in editor",
         "Typecheck passes",
         "Lint passes",
-        "Verify in browser: trigger error and see friendly message"
+        "Verify in browser: click improve and see new content"
       ],
       "priority": 12,
       "passes": true,
-      "notes": "User-friendly error messages, retry button, pre-validation."
+      "notes": "Wand2 icon, calls same API with current settings."
     },
     {
       "id": "US-013",
-      "title": "Add Analyze Another reset functionality",
-      "description": "As a user, I want to easily analyze another resume without refreshing the page.",
+      "title": "Add copy to clipboard functionality",
+      "description": "As a user, I want to copy the cover letter to clipboard so that I can paste it into job applications.",
       "acceptanceCriteria": [
-        "Analyze Another Resume button in results section",
-        "Resets form to initial state",
-        "Clears previous results",
-        "Scrolls to input section",
+        "Copy button in cover letter action bar with Copy icon",
+        "Copies plain text (strips HTML formatting)",
+        "Visual feedback on copy: icon changes to Check for 2 seconds",
+        "Toast notification: 'Cover letter copied to clipboard'",
         "Typecheck passes",
         "Lint passes",
-        "Verify in browser: click reset and see form cleared"
+        "Verify in browser: click copy and paste elsewhere"
       ],
       "priority": 13,
       "passes": true,
-      "notes": "Reset button, state clearing, smooth scroll."
+      "notes": "Visual feedback with Check icon, fallback for older browsers."
     },
     {
       "id": "US-014",
-      "title": "Ensure responsive design parity",
-      "description": "As a user on mobile/tablet, I want the same quality experience as desktop.",
+      "title": "Add PDF download functionality",
+      "description": "As a user, I want to download the cover letter as PDF so that I can attach it to applications.",
       "acceptanceCriteria": [
-        "Mobile layout matches TealHQ mobile view",
-        "Tablet layout matches TealHQ tablet view",
-        "Touch-friendly input areas",
-        "Readable text at all breakpoints",
-        "No horizontal scroll",
+        "Download PDF button in action bar with FileDown icon",
+        "Uses html2pdf.js (same as resume export)",
+        "Clean formatting: proper margins (1 inch), readable font (12pt)",
+        "Filename: Cover_Letter_[timestamp].pdf",
+        "Loading state during PDF generation",
         "Typecheck passes",
         "Lint passes",
-        "Verify in browser: test at 375px, 768px, 1024px widths"
+        "Verify in browser: download PDF and open in viewer"
       ],
       "priority": 14,
       "passes": true,
-      "notes": "48px touch targets, responsive text, sm: breakpoints."
+      "notes": "html2pdf.js with 72px margins, Georgia serif font."
     },
     {
       "id": "US-015",
-      "title": "Final visual parity review",
-      "description": "As a product owner, I want side-by-side visual parity confirmed before release.",
+      "title": "Add DOCX download functionality",
+      "description": "As a user, I want to download the cover letter as DOCX so that I can edit it in Word.",
       "acceptanceCriteria": [
-        "Screenshot comparison: hero section",
-        "Screenshot comparison: input section (all 3 tabs)",
-        "Screenshot comparison: loading state",
-        "Screenshot comparison: results section",
-        "Screenshot comparison: mobile view",
-        "No visible differences in spacing, colors, typography",
+        "Download DOCX button in action bar with FileText icon",
+        "Uses html-to-docx (same as resume export)",
+        "Preserves formatting (paragraphs, basic styles)",
+        "Filename: Cover_Letter_[timestamp].docx",
+        "Loading state during DOCX generation",
         "Typecheck passes",
         "Lint passes",
-        "code-reviewer agent returns PASS"
+        "Verify in browser: download DOCX and open in Word"
       ],
       "priority": 15,
       "passes": true,
-      "notes": "Code review PASS. All components production-ready."
+      "notes": "docx library with proper paragraph styling."
+    },
+    {
+      "id": "US-016",
+      "title": "Add language selector for generation",
+      "description": "As a user, I want to generate cover letters in my preferred language so that they match the job market I'm targeting.",
+      "acceptanceCriteria": [
+        "Language selector dropdown: English, French, German, Italian",
+        "Default: current page locale",
+        "Selected language passed to API for AI generation",
+        "Label: 'Output Language'",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: change language and generate letter in that language"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "Dropdown in settings section, passed to API locale param."
+    },
+    {
+      "id": "US-017",
+      "title": "Implement error handling and edge cases",
+      "description": "As a user, I want clear error messages when something goes wrong so that I know how to fix it.",
+      "acceptanceCriteria": [
+        "Error alert if AI generation fails with retry button",
+        "Validation error if resume content is empty or too short",
+        "Validation error if job description is too short (< 100 chars)",
+        "Network error handling with user-friendly message",
+        "All errors displayed in dismissible alert component",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: trigger validation error and see message"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": "Dismissible alerts, retry button, pre-validation checks."
+    },
+    {
+      "id": "US-018",
+      "title": "Add empty states with guidance",
+      "description": "As a user, I want helpful empty states that guide me through the process.",
+      "acceptanceCriteria": [
+        "No resume selected: 'Select a resume to get started' message",
+        "No job description: 'Add a job description to tailor your letter' message",
+        "No generated letter: Placeholder with Mail icon and instructions",
+        "Empty states include relevant icons",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser: see empty states before completing inputs"
+      ],
+      "priority": 18,
+      "passes": true,
+      "notes": "Guidance hints with Info/CheckCircle2 icons."
+    },
+    {
+      "id": "US-019",
+      "title": "Ensure accessibility compliance",
+      "description": "As a user with accessibility needs, I want the feature to be fully accessible so that I can use it with assistive technologies.",
+      "acceptanceCriteria": [
+        "All interactive elements keyboard accessible",
+        "ARIA labels on buttons, inputs, regions",
+        "Focus management: focus moves logically through form",
+        "Color contrast meets WCAG AA (4.5:1 for text)",
+        "Screen reader announcements for loading/success/error states",
+        "Typecheck passes",
+        "Lint passes"
+      ],
+      "priority": 19,
+      "passes": true,
+      "notes": "Live regions, fieldsets, role attributes, keyboard navigation."
+    },
+    {
+      "id": "US-020",
+      "title": "Final visual polish and TealHQ parity review",
+      "description": "As a product owner, I want the UI to visually match TealHQ's cover letter generator so that the experience feels premium.",
+      "acceptanceCriteria": [
+        "Typography consistent with existing tools (font sizes, weights)",
+        "Spacing/padding matches TealHQ patterns",
+        "Button styles match existing tools (rounded, hover states)",
+        "Input styles match existing tools (borders, focus rings)",
+        "Color palette aligned with brand (teal accents)",
+        "Icons consistent with existing tools",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser at all breakpoints (375px, 768px, 1024px, 1440px)",
+        "code-reviewer agent returns PASS"
+      ],
+      "priority": 20,
+      "passes": true,
+      "notes": "Code review PASS. Production-ready."
     }
   ]
 }
