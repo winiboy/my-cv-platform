@@ -21,7 +21,6 @@ export function Header() {
   const navigation = useMemo(() => [
     ...(isLoggedIn ? [{ name: t('nav.dashboard'), href: `/${locale}/dashboard` }] : []),
     { name: t('nav.tools'), href: `/${locale}/tools` },
-    { name: t('nav.resources'), href: `/${locale}/resources` },
     { name: t('nav.pricing'), href: `/${locale}/pricing` },
   ], [isLoggedIn, locale, t])
 

@@ -24,7 +24,6 @@ import { locales, getTranslations } from "@/lib/i18n";
 const VALID_TOOL_SLUGS = [
   "resume-job-match",
   "cover-letter-generator",
-  "cv-checker",
 ] as const;
 
 type ToolSlug = (typeof VALID_TOOL_SLUGS)[number];
