@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { FileText, Briefcase, Target, TrendingUp, Mail } from 'lucide-react'
+import { FileText, Briefcase, TrendingUp, Mail } from 'lucide-react'
 import Link from 'next/link'
 import type { Locale } from '@/lib/i18n'
 import { getTranslations } from '@/lib/i18n'
@@ -42,11 +42,6 @@ export default async function DashboardPage({
     .eq('user_id', user.id)
     .or('is_archived.eq.false,is_archived.is.null')
 
-  const { count: goalCount } = await supabase
-    .from('career_goals')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-
   const { count: coverLetterCount } = await supabase
     .from('cover_letters')
     .select('*', { count: 'exact', head: true })
@@ -85,16 +80,6 @@ export default async function DashboardPage({
       darkColor: 'dark:text-blue-400',
       darkBgColor: 'dark:bg-blue-900/30',
     },
-    {
-      name: t.dashboard.nav.goals,
-      value: goalCount || 0,
-      icon: Target,
-      href: `/${params.locale}/dashboard/goals`,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-50',
-      darkColor: 'dark:text-orange-400',
-      darkBgColor: 'dark:bg-orange-900/30',
-    },
   ]
 
   return (
@@ -110,7 +95,7 @@ export default async function DashboardPage({
       </div>
 
       {/* Stats grid */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map((stat) => {
           const Icon = stat.icon
           return (
@@ -156,7 +141,7 @@ export default async function DashboardPage({
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
           {t.dashboard.quickActions}
         </h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Link
             href={`/${params.locale}/dashboard/resumes`}
             className="flex items-center gap-3 rounded-lg border border-slate-200 p-4 transition-all hover:border-teal-500 hover:bg-teal-50 dark:border-slate-700 dark:hover:border-teal-500 dark:hover:bg-teal-900/30"
@@ -208,27 +193,11 @@ export default async function DashboardPage({
             </div>
           </Link>
 
-          <Link
-            href={`/${params.locale}/dashboard/goals`}
-            className="flex items-center gap-3 rounded-lg border border-slate-200 p-4 transition-all hover:border-orange-500 hover:bg-orange-50 dark:border-slate-700 dark:hover:border-orange-500 dark:hover:bg-orange-900/30"
-          >
-            <div className="rounded-lg bg-orange-100 p-2 dark:bg-orange-900/50">
-              <Target className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-            </div>
-            <div>
-              <p className="font-medium text-slate-900 dark:text-slate-100">
-                {t.dashboard.actions.setGoal.title}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {t.dashboard.actions.setGoal.description}
-              </p>
-            </div>
-          </Link>
         </div>
       </div>
 
       {/* Getting started guide (only show if user has no data) */}
-      {!resumeCount && !coverLetterCount && !jobCount && !goalCount && (
+      {!resumeCount && !coverLetterCount && !jobCount && (
         <div className="rounded-xl border border-teal-200 bg-gradient-to-br from-teal-50 to-teal-100 p-6 dark:border-teal-800 dark:from-teal-900/30 dark:to-teal-800/30">
           <div className="flex items-start gap-4">
             <div className="rounded-lg bg-teal-500 p-2 dark:bg-teal-600">

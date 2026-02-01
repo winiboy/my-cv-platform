@@ -1,0 +1,25 @@
+# Ralph Progress Log
+# Feature: remove-goals-page
+# Started: 2026-02-01
+
+---
+
+## US-001: Delete the /fr/dashboard/goals page
+**Status:** PASS
+**Completed:** 2026-02-01
+
+**Changes:**
+- Removed Target icon import
+- Removed goalCount Supabase query
+- Removed Goals stats card
+- Removed "Set Goal" quick action link
+- Updated grids from 4 to 3 columns
+- Removed goalCount from Getting Started condition
+
+**File:** src/app/[locale]/(dashboard)/dashboard/page.tsx
+
+**Verification:**
+- code-reviewer: PASS
+- No lint errors in modified file
+- Build generates 108 pages successfully
+

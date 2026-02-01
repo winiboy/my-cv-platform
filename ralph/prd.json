@@ -1,0 +1,23 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "ralph/remove-goals-page",
+  "description": "Suppression de la page Dashboard Goals (FR) - Remove /fr/dashboard/goals page completely",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Delete the /fr/dashboard/goals page",
+      "description": "As a user, I should no longer be able to access the Goals page in the French dashboard.",
+      "acceptanceCriteria": [
+        "Delete the goals page file from src/app/[locale]/(dashboard)/dashboard/goals/",
+        "The route /fr/dashboard/goals returns 404",
+        "No other dashboard pages are modified",
+        "No side effects on other routes",
+        "Typecheck passes",
+        "Build passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Goals UI removed from dashboard. Goals card and Set Goal quick action deleted. Grids updated to 3 columns."
+    }
+  ]
+}
