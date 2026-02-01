@@ -8,7 +8,6 @@ import {
   PenLine,
   MessageSquareText,
   SpellCheck,
-  FileSearch,
   FileCheck2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -44,7 +43,7 @@ interface ToolDefinition {
 }
 
 /**
- * Tools data - defines all 7 career tools.
+ * Tools data - defines all 6 career tools.
  * Each tool has an icon, translation key, and href.
  */
 const tools: ToolDefinition[] = [
@@ -72,11 +71,6 @@ const tools: ToolDefinition[] = [
     icon: SpellCheck,
     translationKey: "resumeGrammarChecker",
     href: "/tools/resume-grammar-checker",
-  },
-  {
-    icon: FileSearch,
-    translationKey: "cvChecker",
-    href: "/tools/cv-checker",
   },
   {
     icon: FileCheck2,
