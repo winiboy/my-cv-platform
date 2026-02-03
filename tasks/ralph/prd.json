@@ -124,8 +124,8 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added PreviewsTranslations interface, getPreviewTranslations helper, wired translations to all 6 preview components"
     }
   ]
 }

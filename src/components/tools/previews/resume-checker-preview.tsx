@@ -230,7 +230,7 @@ function SectionRow({ section }: { section: SectionScore }) {
  * @param translations - Optional translations for labels. Defaults to French.
  */
 export default function ResumeCheckerPreview({ translations }: ResumeCheckerPreviewProps) {
-  const t = translations ?? DEFAULT_TRANSLATIONS
+  const t = { ...DEFAULT_TRANSLATIONS, ...translations }
   const { overallScore, analyzedDate, sections } = createSampleData(t)
 
   return (

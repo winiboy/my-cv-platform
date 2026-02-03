@@ -39,6 +39,69 @@ interface ToolsPageProps {
 }
 
 /**
+ * Type definition for the previews translations section.
+ * Maps to the "previews" key in tools.json locale files.
+ */
+interface PreviewsTranslations {
+  analyzedLabel: string;
+  resumeChecker: {
+    contactInfo: string;
+    summaryObjective: string;
+    professionalExperience: string;
+  };
+  grammarChecker: {
+    scoreLabel: string;
+    issuesFound: string;
+    categories: {
+      all: string;
+      spelling: string;
+      grammar: string;
+      punctuation: string;
+      tense: string;
+    };
+    originalLabel: string;
+  };
+  resumeReviewer: {
+    scoreLabel: string;
+    needsImprovement: string;
+    categoriesLabel: string;
+    impact: string;
+  };
+  jobMatch: {
+    scoreLabel: string;
+    matchingSkills: string;
+  };
+  coverLetterGenerator: {
+    aiGenerated: string;
+    personalizedLetter: string;
+    copy: string;
+    pdf: string;
+    docx: string;
+    improve: string;
+    bold: string;
+    italic: string;
+    underline: string;
+  };
+  coverLetterChecker: {
+    scoreLabel: string;
+    categoryBreakdown: string;
+    structure: string;
+    tone: string;
+  };
+}
+
+/**
+ * Type definition for the full tools translations object.
+ */
+interface ToolsTranslations {
+  tryNow: string;
+  page: { title: string; subtitle: string };
+  tools: Record<string, { title: string; description: string }>;
+  cta: { title: string; subtitle: string; button: string };
+  previews: PreviewsTranslations;
+}
+
+/**
  * Tool definition with icon and translation keys.
  * Translation key maps to tools.json translations.
  */
@@ -53,8 +116,70 @@ interface ToolDefinition {
   icon: LucideIcon;
   /** Navigation path to the tool */
   href: string;
-  /** Preview component to render in the card right panel */
-  previewComponent: React.ComponentType;
+  /** Preview component to render in the card right panel - accepts optional translations prop */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  previewComponent: React.ComponentType<{ translations?: any }>;
+}
+
+/**
+ * Returns the appropriate translations object for a preview component based on tool ID.
+ * Maps tool IDs to their corresponding preview translations from the locale files.
+ */
+function getPreviewTranslations(
+  toolId: string,
+  previews: PreviewsTranslations
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Record<string, any> {
+  switch (toolId) {
+    case "resume-checker":
+      return {
+        analyzedLabel: previews.analyzedLabel,
+        contactInfo: previews.resumeChecker.contactInfo,
+        summaryObjective: previews.resumeChecker.summaryObjective,
+        professionalExperience: previews.resumeChecker.professionalExperience,
+      };
+    case "resume-grammar-checker":
+      return {
+        scoreLabel: previews.grammarChecker.scoreLabel,
+        issuesFound: previews.grammarChecker.issuesFound,
+        categories: previews.grammarChecker.categories,
+        originalLabel: previews.grammarChecker.originalLabel,
+      };
+    case "resume-reviewer":
+      return {
+        scoreLabel: previews.resumeReviewer.scoreLabel,
+        needsImprovement: previews.resumeReviewer.needsImprovement,
+        categoriesLabel: previews.resumeReviewer.categoriesLabel,
+        impact: previews.resumeReviewer.impact,
+      };
+    case "resume-job-match":
+      return {
+        scoreLabel: previews.jobMatch.scoreLabel,
+        analyzedLabel: previews.analyzedLabel,
+        matchingSkills: previews.jobMatch.matchingSkills,
+      };
+    case "cover-letter-generator":
+      return {
+        aiGenerated: previews.coverLetterGenerator.aiGenerated,
+        personalizedLetter: previews.coverLetterGenerator.personalizedLetter,
+        copy: previews.coverLetterGenerator.copy,
+        pdf: previews.coverLetterGenerator.pdf,
+        docx: previews.coverLetterGenerator.docx,
+        improve: previews.coverLetterGenerator.improve,
+        bold: previews.coverLetterGenerator.bold,
+        italic: previews.coverLetterGenerator.italic,
+        underline: previews.coverLetterGenerator.underline,
+      };
+    case "cover-letter-checker":
+      return {
+        scoreLabel: previews.coverLetterChecker.scoreLabel,
+        categoryBreakdown: previews.coverLetterChecker.categoryBreakdown,
+        structure: previews.coverLetterChecker.structure,
+        tone: previews.coverLetterChecker.tone,
+      };
+    default:
+      return {};
+  }
 }
 
 /**
@@ -119,12 +244,7 @@ const tools: ToolDefinition[] = [
  */
 export default async function ToolsPage({ params }: ToolsPageProps) {
   const { locale } = params;
-  const t = getTranslations(locale, "tools") as {
-    tryNow: string;
-    page: { title: string; subtitle: string };
-    tools: Record<string, { title: string; description: string }>;
-    cta: { title: string; subtitle: string; button: string };
-  };
+  const t = getTranslations(locale, "tools") as ToolsTranslations;
 
   return (
     <div className="min-h-screen bg-white">
@@ -146,6 +266,8 @@ export default async function ToolsPage({ params }: ToolsPageProps) {
           <div className="flex flex-col space-y-6">
             {tools.map((tool) => {
               const PreviewComponent = tool.previewComponent;
+              // Build translations for each preview component based on tool id
+              const previewTranslations = getPreviewTranslations(tool.id, t.previews);
               return (
                 <ToolCard
                   key={tool.id}
@@ -154,7 +276,7 @@ export default async function ToolsPage({ params }: ToolsPageProps) {
                   description={t.tools[tool.descriptionKey].description}
                   href={`/${locale}${tool.href}`}
                   ctaText={t.tryNow}
-                  preview={<PreviewComponent />}
+                  preview={<PreviewComponent translations={previewTranslations} />}
                 />
               );
             })}

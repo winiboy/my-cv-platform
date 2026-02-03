@@ -228,7 +228,7 @@ function CategoryCardComponent({ category }: { category: CategoryCard }) {
 export default function CoverLetterCheckerPreview({
   translations,
 }: CoverLetterCheckerPreviewProps) {
-  const t = translations ?? DEFAULT_TRANSLATIONS
+  const t = { ...DEFAULT_TRANSLATIONS, ...translations }
   const { overallScore, categories } = getSampleData(t)
 
   return (
