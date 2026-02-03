@@ -5,7 +5,97 @@
 
 ---
 
-## Status: PENDING (0/7 stories)
+## Status: COMPLETE (7/7 stories PASS)
 
 ---
+
+## Run 1 - 2026-02-03
+
+### US-001: Add preview images to public directory
+- Status: PASS
+- Changes:
+  - Created public/images/tools/ directory
+  - Copied and renamed 6 screenshot images with web-friendly names
+
+### US-002: Define tool card data structure with ordering
+- Status: PASS
+- File: src/app/[locale]/(marketing)/tools/page.tsx
+- Changes:
+  - Updated ToolDefinition interface with id, titleKey, descriptionKey, icon, href, imagePath
+  - Reordered tools array to specified sequence
+  - Added imagePath references
+
+### US-003: Convert grid layout to single column
+- Status: PASS
+- Finding: Already implemented with max-w-4xl mx-auto and flex flex-col space-y-6
+
+### US-004: Create two-panel card layout
+- Status: PASS
+- File: src/components/marketing/tool-card.tsx
+- Changes:
+  - Restructured card with flex-col md:flex-row layout
+  - Left panel (md:w-2/5): icon, title, description
+  - Right panel (md:w-3/5): Next.js Image component
+
+### US-005: Add CTA button and card click navigation
+- Status: PASS
+- Files: tool-card.tsx, tools/page.tsx, locales/*/tools.json
+- Changes:
+  - Added ctaText prop and Button component
+  - Added tryNow translations (en, fr, de, it)
+
+### US-006: Implement mobile responsive layout
+- Status: PASS
+- File: src/components/marketing/tool-card.tsx
+- Changes:
+  - Added min-h-11 to button for touch targets
+  - Added aspect-video for mobile image scaling
+
+### US-007: Style cards to match design mockups
+- Status: PASS
+- File: src/components/marketing/tool-card.tsx
+- Changes:
+  - Updated to border-gray-200, hover:shadow-md
+  - Icon badge: bg-teal-50 p-3 text-teal-600
+  - Responsive image rounded corners
+
+---
+
+## Files Modified
+
+1. public/images/tools/ (6 new images)
+2. src/app/[locale]/(marketing)/tools/page.tsx
+3. src/components/marketing/tool-card.tsx
+4. src/locales/en/tools.json
+5. src/locales/fr/tools.json
+6. src/locales/de/tools.json
+7. src/locales/it/tools.json
+8. tasks/ralph/prd.json
+
+---
+
+## Verification
+
+- TypeScript: PASS
+- Lint: Pre-existing errors only (not introduced by this feature)
+- Build: 108/108 pages generated (pre-existing 404/500 errors unrelated)
+
+---
+
+## Commits (7 total)
+
+1. feat(tools): US-001 add preview images for tool cards
+2. feat(tools): US-002 define tool card data structure with ordering
+3. feat(tools): US-003 verify single column layout
+4. feat(tools): US-004 create two-panel card layout
+5. feat(tools): US-005 add CTA button with i18n
+6. feat(tools): US-006 implement mobile responsive layout
+7. feat(tools): US-007 style cards to match design mockups
+
+---
+
+## Ready for Review
+
+Branch: ralph/redesign-tools-page-cards
+Commits ahead of main: 7
 
