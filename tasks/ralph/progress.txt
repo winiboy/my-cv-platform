@@ -1,55 +1,73 @@
 # Ralph Progress Log
-# Feature: clean-page-accueil
-# Started: 2026-02-01
+# Feature: header-visibility
+# Started: 2026-02-03
 # Target Version: TBD
 
 ---
 
-## Status: COMPLETE (4/4 stories PASS)
+## Status: COMPLETE (6/6 stories PASS)
 
 ---
 
-## Run 1 - 2026-02-01
+## Run 1 - 2026-02-03
 
-### US-001: Remove Resources link from homepage header
+### US-001: Import marketing header into dashboard layout
+- Status: PASS
+- File: src/app/[locale]/(dashboard)/layout.tsx
+- Changes:
+  - Added import for Header from @/components/marketing/header
+  - Wrapped layout in flex column container
+  - Rendered Header above sidebar/content with sticky wrapper
+
+### US-002: Adjust dashboard layout for header height
+- Status: PASS
+- File: src/app/[locale]/(dashboard)/layout.tsx
+- Changes:
+  - Applied h-[calc(100vh-64px)] to content container below header
+  - Added h-full to sidebar and main content wrappers
+  - Ensured proper scrolling behavior
+
+### US-003: Add active state to Dashboard link in header
 - Status: PASS
 - File: src/components/marketing/header.tsx
-- Change: Removed `{ name: t('nav.resources'), href: \`/${locale}/resources\` }` from navigation array
-
-### US-002: Delete the /fr/resources page
-- Status: PASS (No action needed)
-- Finding: The /fr/resources page did not exist in the codebase
-- The header link was pointing to a non-existent route
-
-### US-003: Remove CV Checker card from Tools FR page
-- Status: PASS
-- File: src/app/[locale]/(marketing)/tools/page.tsx
 - Changes:
-  - Removed cvChecker entry from tools array
-  - Removed unused FileSearch import
-  - Updated comment: "7 career tools" → "6 career tools"
+  - Added usePathname hook import
+  - Added isDashboardActive detection logic
+  - Applied text-teal-600 styling for active Dashboard link (desktop)
+  - Applied text-teal-600 bg-teal-50 styling for active Dashboard link (mobile)
 
-### US-004: Delete the /fr/tools/cv-checker page
+### US-004: Remove duplicate dashboard header
 - Status: PASS
-- File: src/app/[locale]/(marketing)/tools/[tool]/page.tsx
-- Change: Removed "cv-checker" from VALID_TOOL_SLUGS array
+- File: src/app/[locale]/(dashboard)/layout.tsx
+- Changes:
+  - Removed DashboardHeader import
+  - Removed DashboardHeader component usage from JSX
+  - Removed unused profile database query
+
+### US-005: Ensure sidebar and header coexist without conflict
+- Status: PASS (verification only)
+- Finding: All criteria already satisfied from previous stories
+- Verified: h-full on sidebar, z-50 on header, print:hidden on both
+
+### US-006: Mobile header behavior on dashboard
+- Status: PASS (verification only)
+- Finding: Mobile menu fully functional
+- Verified: Hamburger toggle, nav links, language switcher, auth controls all present
 
 ---
 
 ## Files Modified
 
-1. src/components/marketing/header.tsx
-2. src/app/[locale]/(marketing)/tools/page.tsx
-3. src/app/[locale]/(marketing)/tools/[tool]/page.tsx
+1. src/app/[locale]/(dashboard)/layout.tsx
+2. src/components/marketing/header.tsx
 
 ---
 
 ## Verification
 
-- TypeScript: PASS
-- Lint (modified files): PASS
-- Build: 108/108 static pages generated
-  - Note: Pre-existing errors in /404 and /500 pages (Pages Router useRef issue) - out of scope
+- TypeScript: PASS (pnpm tsc --noEmit)
+- Lint: Pre-existing errors only (not introduced by this feature)
+- Build: 108/108 App Router pages generated (pre-existing error page issues unrelated)
 
 ---
 

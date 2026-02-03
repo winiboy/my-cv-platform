@@ -1,71 +1,109 @@
 {
   "project": "my-cv-platform",
-  "branchName": "ralph/clean-page-accueil",
-  "description": "Suppression de Resources (Accueil) et CV Checker (Tools FR) - Remove Resources link from homepage header and delete its page. Remove CV Checker card from Tools FR page and delete its page.",
+  "branchName": "ralph/header-visibility",
+  "description": "Header Visibility on Dashboard Pages - Make the marketing site header visible on all dashboard pages while preserving the existing sidebar navigation for consistent branding and navigation experience.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Remove Resources link from homepage header",
-      "description": "As a user, I should no longer see the Resources link in the homepage header navigation.",
+      "title": "Import marketing header into dashboard layout",
+      "description": "As a developer, I need to integrate the marketing header component into the dashboard layout so it appears above the existing sidebar/content structure.",
       "acceptanceCriteria": [
-        "The Resources link/label no longer appears in the header",
-        "No other header elements are modified",
-        "No empty space or visual misalignment is introduced",
+        "Marketing header component is imported in dashboard layout (src/app/[locale]/(dashboard)/layout.tsx)",
+        "Header renders above the existing flex container (sidebar + content)",
+        "Header maintains sticky positioning (sticky top-0 z-50)",
         "Typecheck passes",
         "Lint passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Removed Resources entry from navigation array in src/components/marketing/header.tsx. Dashboard link (conditional) was correctly left in place."
+      "notes": "Added Header import and rendered above sidebar/content container with sticky wrapper."
     },
     {
       "id": "US-002",
-      "title": "Delete the /fr/resources page",
-      "description": "As a user, I should no longer be able to access the Resources page via direct URL.",
+      "title": "Adjust dashboard layout for header height",
+      "description": "As a user, I want the dashboard content to be properly positioned below the header so nothing is hidden or overlapping.",
       "acceptanceCriteria": [
-        "The page /fr/resources is no longer accessible via direct URL",
-        "No content from this page is rendered",
-        "No impact on other pages",
-        "Delete or remove the page file/folder for resources",
+        "Dashboard flex container accounts for header height using calc(100vh - 64px) or equivalent",
+        "Sidebar starts below the header (not behind it)",
+        "Main content area is fully visible without overlap",
+        "Scrolling behavior works correctly (header stays fixed, content scrolls)",
         "Typecheck passes",
-        "Lint passes"
+        "Lint passes",
+        "Verify in browser using dev-browser skill: navigate to /fr/dashboard and confirm no content is hidden behind header"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "No action needed - the /fr/resources page did not exist in the codebase. The header link was pointing to a non-existent route."
+      "notes": "Applied h-[calc(100vh-64px)] to content container. Sidebar and main content use h-full."
     },
     {
       "id": "US-003",
-      "title": "Remove CV Checker card from Tools FR page",
-      "description": "As a user, I should no longer see the CV Checker card on the /fr/tools/ page.",
+      "title": "Add active state to Dashboard link in header",
+      "description": "As a user, I want to see the Dashboard navigation link highlighted when I'm on any dashboard page so I know where I am in the site.",
       "acceptanceCriteria": [
-        "The CV Checker card no longer appears on /fr/tools/",
-        "Other cards remain unchanged (content, order, design)",
-        "No visual gap or artifact is left behind",
+        "Dashboard link in header shows active state styling when pathname starts with /[locale]/dashboard",
+        "Active state uses visual differentiation (text-teal-600 or similar)",
+        "Other navigation links (Tools, Pricing) show default inactive state when on dashboard",
+        "Active state logic uses usePathname() to detect current route",
         "Typecheck passes",
         "Lint passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using dev-browser skill: navigate between dashboard and marketing pages, confirm correct highlight state"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Removed cvChecker entry from tools array in src/app/[locale]/(marketing)/tools/page.tsx. Also removed unused FileSearch import. Comment updated to reflect 6 tools."
+      "notes": "Added usePathname hook and isDashboardActive detection. Applied text-teal-600 styling for desktop and mobile nav."
     },
     {
       "id": "US-004",
-      "title": "Delete the /fr/tools/cv-checker page",
-      "description": "As a user, I should no longer be able to access the CV Checker page via direct URL.",
+      "title": "Remove duplicate dashboard header",
+      "description": "As a developer, I need to remove or hide the existing minimal dashboard header's user menu since the marketing header now provides auth controls.",
       "acceptanceCriteria": [
-        "The page /fr/tools/cv-checker is no longer accessible via direct URL",
-        "No content from this page is rendered",
-        "No impact on other tools pages",
-        "Delete or remove the page file/folder for cv-checker",
+        "Existing DashboardHeader component is removed from dashboard layout",
+        "No duplicate user account dropdowns on the page",
+        "Single source of auth controls (marketing header's account dropdown)",
+        "Logout functionality works from the marketing header on dashboard pages",
         "Typecheck passes",
         "Lint passes",
-        "pnpm build succeeds"
+        "Verify in browser using dev-browser skill: confirm only one user menu exists, test logout"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Removed cv-checker from VALID_TOOL_SLUGS array in src/app/[locale]/(marketing)/tools/[tool]/page.tsx. Route now shows invalid tool error. Pre-existing build errors in /404 and /500 pages (Pages Router useRef issue) are out of scope."
+      "notes": "Removed DashboardHeader import and usage from layout. Removed unused profile query."
+    },
+    {
+      "id": "US-005",
+      "title": "Ensure sidebar and header coexist without conflict",
+      "description": "As a user, I want both the header and sidebar to be usable without visual or functional conflicts.",
+      "acceptanceCriteria": [
+        "Sidebar remains at full height below the header",
+        "Sidebar navigation items are all accessible and clickable",
+        "No z-index conflicts between header and sidebar",
+        "Print styles still hide both header and sidebar (print:hidden)",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill: test clicking sidebar links while header is visible"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Verified: sidebar has h-full, header has z-50, both have print:hidden. No conflicts."
+    },
+    {
+      "id": "US-006",
+      "title": "Mobile header behavior on dashboard",
+      "description": "As a mobile user, I want the hamburger menu to work on dashboard pages so I can access navigation on small screens.",
+      "acceptanceCriteria": [
+        "Hamburger menu icon appears on mobile viewport (< 768px)",
+        "Tapping hamburger opens mobile navigation menu",
+        "Mobile menu includes all navigation links (Dashboard, Tools, Pricing)",
+        "Mobile menu includes language switcher",
+        "Mobile menu includes auth controls (account dropdown)",
+        "Menu closes when a link is tapped",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill: resize to mobile width, test hamburger menu functionality"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Verified: Mobile menu fully functional with hamburger toggle, nav links, language switcher, and auth controls."
     }
   ]
 }

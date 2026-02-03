@@ -1,7 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
-import { DashboardHeader } from '@/components/dashboard/header'
+import { Header } from '@/components/marketing/header'
 import type { Locale } from '@/lib/i18n'
 
 export default async function DashboardLayout({
@@ -21,29 +21,25 @@ export default async function DashboardLayout({
     redirect(`/${params.locale}/login`)
   }
 
-  // Get user profile
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-
   return (
-    <div className="flex h-screen bg-slate-50 print:h-auto print:bg-white">
-      {/* Sidebar - Hidden when printing */}
-      <div className="print:hidden">
-        <DashboardSidebar locale={params.locale} />
+    <div className="flex min-h-screen flex-col bg-slate-50 print:min-h-0 print:bg-white">
+      {/* Marketing Header - Sticky at top, hidden when printing */}
+      <div className="sticky top-0 z-50 print:hidden">
+        <Header />
       </div>
 
-      {/* Main content */}
-      <div className="flex flex-1 flex-col overflow-hidden print:overflow-visible">
-        {/* Header - Hidden when printing */}
-        <div className="print:hidden">
-          <DashboardHeader user={user} profile={profile} locale={params.locale} />
+      {/* Dashboard content area - fills remaining viewport height below sticky header */}
+      <div className="flex h-[calc(100vh-64px)] overflow-hidden print:h-auto print:overflow-visible">
+        {/* Sidebar - Hidden when printing */}
+        <div className="h-full print:hidden">
+          <DashboardSidebar locale={params.locale} />
         </div>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6 print:overflow-visible print:p-0">{children}</main>
+        {/* Main content */}
+        <div className="flex h-full flex-1 flex-col overflow-hidden print:overflow-visible">
+          {/* Page content */}
+          <main className="flex-1 overflow-y-auto p-6 print:overflow-visible print:p-0">{children}</main>
+        </div>
       </div>
     </div>
   )

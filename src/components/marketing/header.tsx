@@ -8,14 +8,18 @@ import { Button } from '@/components/ui/button'
 import { Menu, X, LogOut, UserPlus, ChevronDown } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 export function Header() {
   const { t, locale } = useTranslation('common')
   const router = useRouter()
+  const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+
+  // Check if current path is a dashboard route
+  const isDashboardActive = pathname?.startsWith(`/${locale}/dashboard`)
 
   // Dynamic navigation based on auth status
   const navigation = useMemo(() => [
@@ -83,15 +87,20 @@ export function Header() {
 
         {/* Desktop navigation */}
         <div className="hidden lg:flex lg:gap-x-8">
-          {navigation.map((item) => (
-            <Link
-              key={item.name}
-              href={item.href}
-              className="text-sm font-semibold leading-6 text-slate-900 transition-colors hover:text-teal-600"
-            >
-              {item.name}
-            </Link>
-          ))}
+          {navigation.map((item) => {
+            const isActive = item.href.includes('/dashboard') && isDashboardActive
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`text-sm font-semibold leading-6 transition-colors hover:text-teal-600 ${
+                  isActive ? 'text-teal-600' : 'text-slate-900'
+                }`}
+              >
+                {item.name}
+              </Link>
+            )
+          })}
         </div>
 
         {/* Desktop CTA */}
@@ -157,16 +166,21 @@ export function Header() {
       {mobileMenuOpen && (
         <div className="lg:hidden">
           <div className="space-y-2 px-4 pb-3 pt-2">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="block rounded-md px-3 py-2 text-base font-medium text-slate-900 hover:bg-slate-100"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                {item.name}
-              </Link>
-            ))}
+            {navigation.map((item) => {
+              const isActive = item.href.includes('/dashboard') && isDashboardActive
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={`block rounded-md px-3 py-2 text-base font-medium hover:bg-slate-100 ${
+                    isActive ? 'text-teal-600 bg-teal-50' : 'text-slate-900'
+                  }`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {item.name}
+                </Link>
+              )
+            })}
             <div className="mt-4 flex flex-col gap-2">
               {isLoggedIn ? (
                 <>
