@@ -14,6 +14,8 @@ interface ToolCardProps {
   href: string
   /** Text for the CTA button */
   ctaText: string
+  /** Optional preview component to render in the right panel */
+  preview?: React.ReactNode
   /** Optional additional CSS classes */
   className?: string
 }
@@ -29,6 +31,7 @@ export function ToolCard({
   description,
   href,
   ctaText,
+  preview,
   className,
 }: ToolCardProps) {
   return (
@@ -63,8 +66,14 @@ export function ToolCard({
         </Button>
       </div>
 
-      {/* Right Panel - Placeholder for live preview component */}
-      <div className="relative aspect-video md:aspect-auto md:h-auto md:w-3/5 bg-gray-100 rounded-b-lg md:rounded-b-none md:rounded-r-lg" />
+      {/* Right Panel - Preview component or placeholder */}
+      <div className="relative aspect-video md:aspect-auto md:h-auto md:w-3/5 bg-gray-100 rounded-b-lg md:rounded-b-none md:rounded-r-lg overflow-hidden">
+        {preview && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            {preview}
+          </div>
+        )}
+      </div>
     </Link>
   )
 }

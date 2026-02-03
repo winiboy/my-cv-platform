@@ -11,6 +11,12 @@ import {
   FileCheck2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import ResumeCheckerPreview from "@/components/tools/previews/resume-checker-preview";
+import GrammarCheckerPreview from "@/components/tools/previews/grammar-checker-preview";
+import ResumeReviewerPreview from "@/components/tools/previews/resume-reviewer-preview";
+import JobMatchPreview from "@/components/tools/previews/job-match-preview";
+import CoverLetterGeneratorPreview from "@/components/tools/previews/cover-letter-generator-preview";
+import CoverLetterCheckerPreview from "@/components/tools/previews/cover-letter-checker-preview";
 
 /**
  * Static metadata for the Tools page.
@@ -47,6 +53,8 @@ interface ToolDefinition {
   icon: LucideIcon;
   /** Navigation path to the tool */
   href: string;
+  /** Preview component to render in the card right panel */
+  previewComponent: React.ComponentType;
 }
 
 /**
@@ -61,6 +69,7 @@ const tools: ToolDefinition[] = [
     descriptionKey: "resumeChecker",
     icon: FileCheck,
     href: "/dashboard/tools/resume-checker",
+    previewComponent: ResumeCheckerPreview,
   },
   {
     id: "resume-grammar-checker",
@@ -68,6 +77,7 @@ const tools: ToolDefinition[] = [
     descriptionKey: "resumeGrammarChecker",
     icon: SpellCheck,
     href: "/dashboard/tools/resume-grammar-checker",
+    previewComponent: GrammarCheckerPreview,
   },
   {
     id: "resume-reviewer",
@@ -75,6 +85,7 @@ const tools: ToolDefinition[] = [
     descriptionKey: "resumeReviewer",
     icon: MessageSquareText,
     href: "/dashboard/tools/resume-reviewer",
+    previewComponent: ResumeReviewerPreview,
   },
   {
     id: "resume-job-match",
@@ -82,6 +93,7 @@ const tools: ToolDefinition[] = [
     descriptionKey: "resumeJobMatch",
     icon: Target,
     href: "/dashboard/tools/resume-job-match",
+    previewComponent: JobMatchPreview,
   },
   {
     id: "cover-letter-generator",
@@ -89,6 +101,7 @@ const tools: ToolDefinition[] = [
     descriptionKey: "coverLetterGenerator",
     icon: PenLine,
     href: "/dashboard/tools/cover-letter-generator",
+    previewComponent: CoverLetterGeneratorPreview,
   },
   {
     id: "cover-letter-checker",
@@ -96,6 +109,7 @@ const tools: ToolDefinition[] = [
     descriptionKey: "coverLetterChecker",
     icon: FileCheck2,
     href: "/dashboard/tools/cover-letter-checker",
+    previewComponent: CoverLetterCheckerPreview,
   },
 ];
 
@@ -130,16 +144,20 @@ export default async function ToolsPage({ params }: ToolsPageProps) {
       <section className="px-4 py-20 sm:px-6 md:px-8 lg:px-12 xl:px-16">
         <div className="mx-auto max-w-4xl">
           <div className="flex flex-col space-y-6">
-            {tools.map((tool) => (
-              <ToolCard
-                key={tool.id}
-                icon={tool.icon}
-                title={t.tools[tool.titleKey].title}
-                description={t.tools[tool.descriptionKey].description}
-                href={`/${locale}${tool.href}`}
-                ctaText={t.tryNow}
-              />
-            ))}
+            {tools.map((tool) => {
+              const PreviewComponent = tool.previewComponent;
+              return (
+                <ToolCard
+                  key={tool.id}
+                  icon={tool.icon}
+                  title={t.tools[tool.titleKey].title}
+                  description={t.tools[tool.descriptionKey].description}
+                  href={`/${locale}${tool.href}`}
+                  ctaText={t.tryNow}
+                  preview={<PreviewComponent />}
+                />
+              );
+            })}
           </div>
         </div>
       </section>

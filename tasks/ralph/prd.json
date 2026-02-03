@@ -128,8 +128,8 @@
         "Verify in browser: all 6 cards show live previews"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added preview prop to ToolCard, imported all 6 previews, mapped to tools"
     },
     {
       "id": "US-016",
