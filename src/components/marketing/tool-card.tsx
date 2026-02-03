@@ -40,24 +40,24 @@ export function ToolCard({
       href={href}
       className={cn(
         // Base styles - flex-col by default (mobile), md:flex-row (desktop)
-        'group flex flex-col md:flex-row rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden',
-        // Hover states: shadow elevation, scale, border color, cursor
-        'hover:border-teal-300 hover:shadow-md hover:scale-[1.02] cursor-pointer',
+        'group flex flex-col md:flex-row rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden',
+        // Hover states: subtle shadow increase and border color change
+        'hover:shadow-md hover:border-gray-300',
         // Focus states: visible ring for accessibility
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
         // Smooth transitions
-        'transition-all duration-200 ease-in-out',
+        'transition-shadow duration-200 ease-in-out',
         className
       )}
     >
       {/* Left Panel - Tool Info (~40% width on desktop) */}
       <div className="flex flex-col gap-4 p-6 md:w-2/5">
-        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-sm transition-transform group-hover:scale-105">
-          <Icon className="h-6 w-6" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-teal-50 p-3">
+          <Icon className="h-6 w-6 text-teal-600" />
         </div>
         <div className="flex flex-col gap-2">
-          <h3 className="text-xl font-semibold text-slate-900">{title}</h3>
-          <p className="text-sm leading-relaxed text-slate-600">{description}</p>
+          <h3 className="text-xl font-semibold text-gray-900">{title}</h3>
+          <p className="text-sm leading-relaxed text-gray-600">{description}</p>
         </div>
         <Button
           className="mt-2 w-fit min-h-11 bg-teal-600 hover:bg-teal-700 text-white"
@@ -68,12 +68,12 @@ export function ToolCard({
       </div>
 
       {/* Right Panel - Preview Image (~60% width on desktop) */}
-      <div className="relative aspect-video md:aspect-auto md:h-auto md:w-3/5 bg-slate-100">
+      <div className="relative aspect-video md:aspect-auto md:h-auto md:w-3/5 bg-gray-100">
         <Image
           src={imagePath}
           alt={`${title} preview`}
           fill
-          className="object-cover"
+          className="object-cover rounded-b-lg md:rounded-b-none md:rounded-r-lg"
           sizes="(max-width: 768px) 100vw, 60vw"
         />
       </div>
