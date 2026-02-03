@@ -39,40 +39,54 @@ export function ToolCard({
       href={href}
       className={cn(
         // Base styles - flex-col by default (mobile), md:flex-row (desktop)
-        'group flex flex-col md:flex-row rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden',
+        'group flex flex-col md:flex-row rounded-xl border border-gray-200 bg-white shadow-sm',
         // Hover states: subtle shadow increase and border color change
-        'hover:shadow-md hover:border-gray-300',
+        'hover:shadow-lg hover:border-gray-300',
         // Focus states: visible ring for accessibility
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
         // Smooth transitions
-        'transition-shadow duration-200 ease-in-out',
+        'transition-all duration-200 ease-in-out',
+        // Prevent content overflow
+        'overflow-hidden',
         className
       )}
     >
       {/* Left Panel - Tool Info (~40% width on desktop) */}
-      <div className="flex flex-col gap-4 p-6 md:w-2/5">
-        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-teal-50 p-3">
+      <div className="flex flex-col justify-center gap-4 p-6 md:p-8 md:w-2/5">
+        {/* Icon badge with subtle shadow */}
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-50 shadow-sm">
           <Icon className="h-6 w-6 text-teal-600" />
         </div>
+
+        {/* Title and description */}
         <div className="flex flex-col gap-2">
-          <h3 className="text-xl font-semibold text-gray-900">{title}</h3>
-          <p className="text-sm leading-relaxed text-gray-600">{description}</p>
+          <h3 className="text-xl font-semibold tracking-tight text-gray-900 group-hover:text-teal-700 transition-colors">
+            {title}
+          </h3>
+          <p className="text-sm leading-relaxed text-gray-600 line-clamp-3">
+            {description}
+          </p>
         </div>
+
+        {/* CTA Button */}
         <Button
-          className="mt-2 w-fit min-h-11 bg-teal-600 hover:bg-teal-700 text-white"
+          className="mt-2 w-fit min-h-11 bg-teal-600 hover:bg-teal-700 text-white shadow-sm"
           size="sm"
         >
           {ctaText}
         </Button>
       </div>
 
-      {/* Right Panel - Preview component or placeholder */}
-      <div className="relative aspect-video md:aspect-auto md:h-auto md:w-3/5 bg-gray-100 rounded-b-lg md:rounded-b-none md:rounded-r-lg overflow-hidden">
-        {preview && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            {preview}
-          </div>
-        )}
+      {/* Right Panel - Preview component with subtle background */}
+      <div className="relative md:w-3/5 bg-gray-50 overflow-hidden">
+        {/* Fixed aspect ratio container for mobile, flexible height for desktop */}
+        <div className="aspect-video md:aspect-auto md:h-full md:min-h-[280px] flex items-center justify-center p-4 md:p-6">
+          {preview && (
+            <div className="w-full max-w-sm transform scale-90 md:scale-95 origin-center">
+              {preview}
+            </div>
+          )}
+        </div>
       </div>
     </Link>
   )
