@@ -104,7 +104,7 @@ function getCategoryIndicatorColor(color: EvaluationCategory['color']): {
 /**
  * Circular progress gauge component for displaying the overall score.
  * Uses SVG for the circular progress ring with animated fill.
- * Shows score with /100 subscript in center.
+ * Shows score number in center.
  */
 function CircularGauge({ score, maxScore }: { score: number; maxScore: number }) {
   const { size, strokeWidth, radius } = GAUGE_CONFIG
@@ -146,13 +146,10 @@ function CircularGauge({ score, maxScore }: { score: number; maxScore: number })
         />
       </svg>
 
-      {/* Score number in center with /100 subscript */}
+      {/* Score number in center */}
       <div className="absolute inset-0 flex items-center justify-center">
         <span className={cn('text-4xl font-bold tabular-nums', colors.text)}>
           {score}
-        </span>
-        <span className="text-sm text-slate-400 ml-0.5 self-end mb-2">
-          /{maxScore}
         </span>
       </div>
     </div>
