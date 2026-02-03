@@ -30,8 +30,8 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added ResumeCheckerPreviewProps interface, DEFAULT_TRANSLATIONS, createSampleData function"
     },
     {
       "id": "US-019",

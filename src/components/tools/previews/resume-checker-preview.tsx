@@ -4,6 +4,33 @@ import { CheckCircle2, XCircle, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
+ * Translations for the ResumeCheckerPreview component.
+ * Allows internationalization of static text labels.
+ */
+export interface ResumeCheckerPreviewProps {
+  translations?: {
+    /** Label for the analyzed date line (e.g., "Analyzed on:") */
+    analyzedLabel: string
+    /** Contact information section name */
+    contactInfo: string
+    /** Summary/objective section name */
+    summaryObjective: string
+    /** Professional experience section name */
+    professionalExperience: string
+  }
+}
+
+/**
+ * Default French translations for backwards compatibility.
+ */
+const DEFAULT_TRANSLATIONS: Required<ResumeCheckerPreviewProps>['translations'] = {
+  analyzedLabel: 'Analyse le :',
+  contactInfo: 'Informations de contact',
+  summaryObjective: 'Resume/Objectif',
+  professionalExperience: 'Experience professionnelle',
+}
+
+/**
  * Section score data for the preview component.
  * Each section has a name, score, and status indicator.
  */
@@ -17,17 +44,19 @@ interface SectionScore {
 }
 
 /**
- * Hardcoded sample data matching the screenshot reference.
+ * Creates sample data with translated section names.
  * Score: 62 (amber), analyzed date, and three sections with varying scores.
  */
-const SAMPLE_DATA = {
-  overallScore: 62,
-  analyzedDate: '16 sept. 2024, 16:30',
-  sections: [
-    { name: 'Informations de contact', score: 0, status: 'fail' },
-    { name: 'Resume/Objectif', score: 80, status: 'pass' },
-    { name: 'Experience professionnelle', score: 85, status: 'pass' },
-  ] satisfies SectionScore[],
+function createSampleData(translations: Required<ResumeCheckerPreviewProps>['translations']) {
+  return {
+    overallScore: 62,
+    analyzedDate: '16 sept. 2024, 16:30',
+    sections: [
+      { name: translations.contactInfo, score: 0, status: 'fail' },
+      { name: translations.summaryObjective, score: 80, status: 'pass' },
+      { name: translations.professionalExperience, score: 85, status: 'pass' },
+    ] satisfies SectionScore[],
+  }
 }
 
 /**
@@ -195,11 +224,14 @@ function SectionRow({ section }: { section: SectionScore }) {
  * Shows a circular score gauge with overall score, analysis date, and
  * section-by-section scores with status indicators.
  *
- * This is a static display component using hardcoded sample data
+ * This is a static display component using sample data
  * matching the design in Screenshot/1-Verificateur-CV.png.
+ *
+ * @param translations - Optional translations for labels. Defaults to French.
  */
-export default function ResumeCheckerPreview() {
-  const { overallScore, analyzedDate, sections } = SAMPLE_DATA
+export default function ResumeCheckerPreview({ translations }: ResumeCheckerPreviewProps) {
+  const t = translations ?? DEFAULT_TRANSLATIONS
+  const { overallScore, analyzedDate, sections } = createSampleData(t)
 
   return (
     <div className="flex flex-col items-center gap-6 p-4">
@@ -208,7 +240,7 @@ export default function ResumeCheckerPreview() {
 
       {/* Analyzed date text */}
       <p className="text-sm text-slate-500">
-        Analyse le : {analyzedDate}
+        {t.analyzedLabel} {analyzedDate}
       </p>
 
       {/* Section scores list */}
