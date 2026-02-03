@@ -134,10 +134,10 @@ export default async function ToolsPage({ params }: ToolsPageProps) {
         </div>
       </section>
 
-      {/* Tools Grid */}
+      {/* Tools List - Single Column */}
       <section className="px-4 py-20 sm:px-6 md:px-8 lg:px-12 xl:px-16">
-        <div className="mx-auto max-w-6xl">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mx-auto max-w-4xl">
+          <div className="flex flex-col space-y-6">
             {tools.map((tool) => (
               <ToolCard
                 key={tool.id}
@@ -145,6 +145,7 @@ export default async function ToolsPage({ params }: ToolsPageProps) {
                 title={t.tools[tool.titleKey].title}
                 description={t.tools[tool.descriptionKey].description}
                 href={`/${locale}${tool.href}`}
+                imagePath={tool.imagePath}
               />
             ))}
           </div>
