@@ -77,8 +77,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added JobMatchPreviewProps, DEFAULT_TRANSLATIONS, merged translations pattern"
     },
     {
       "id": "US-022",

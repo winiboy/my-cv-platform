@@ -4,6 +4,35 @@ import { CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
+ * Translation strings for the JobMatchPreview component.
+ */
+export interface JobMatchPreviewTranslations {
+  /** Label for the match score (e.g., "Score de correspondance") */
+  scoreLabel: string
+  /** Label prefix for the analyzed date (e.g., "Analysé le") */
+  analyzedLabel: string
+  /** Label for the matching skills section (e.g., "Compétences correspondantes") */
+  matchingSkills: string
+}
+
+/**
+ * Props for the JobMatchPreview component.
+ */
+export interface JobMatchPreviewProps {
+  /** Optional translation overrides. Falls back to French defaults. */
+  translations?: JobMatchPreviewTranslations
+}
+
+/**
+ * Default French translations for the component.
+ */
+const DEFAULT_TRANSLATIONS: JobMatchPreviewTranslations = {
+  scoreLabel: 'Score de correspondance',
+  analyzedLabel: 'Analysé le',
+  matchingSkills: 'Compétences correspondantes',
+}
+
+/**
  * Skill tag data for matching skills display.
  */
 interface MatchingSkill {
@@ -134,8 +163,9 @@ function SkillTag({ skill }: { skill: MatchingSkill }) {
  * This is a static display component using hardcoded sample data
  * matching the design in Screenshot/4-Correspondance-CV-Job.png.
  */
-export default function JobMatchPreview() {
+export default function JobMatchPreview({ translations }: JobMatchPreviewProps) {
   const { matchScore, analyzedDate, matchingSkills } = SAMPLE_DATA
+  const t = { ...DEFAULT_TRANSLATIONS, ...translations }
 
   return (
     <div className="flex flex-col items-center gap-5 p-4">
@@ -144,9 +174,9 @@ export default function JobMatchPreview() {
 
       {/* Score label */}
       <div className="text-center">
-        <p className="text-sm font-medium text-slate-700">Score de correspondance</p>
+        <p className="text-sm font-medium text-slate-700">{t.scoreLabel}</p>
         <p className="text-xs text-slate-500 mt-1">
-          Analyse le {analyzedDate}
+          {t.analyzedLabel} {analyzedDate}
         </p>
       </div>
 
@@ -158,7 +188,7 @@ export default function JobMatchPreview() {
             <CheckCircle2 className="w-4 h-4 text-teal-600" aria-hidden="true" />
           </div>
           <span className="text-sm font-medium text-slate-700">
-            Competences correspondantes
+            {t.matchingSkills}
           </span>
           <span className="text-sm font-semibold text-teal-600">
             {matchingSkills.length}
