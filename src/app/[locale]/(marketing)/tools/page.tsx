@@ -33,9 +33,8 @@ interface ToolsPageProps {
 }
 
 /**
- * Tool definition with icon, translation key, and image path.
+ * Tool definition with icon and translation keys.
  * Translation key maps to tools.json translations.
- * Image paths point to preview screenshots for card backgrounds.
  */
 interface ToolDefinition {
   /** Unique identifier for the tool */
@@ -48,8 +47,6 @@ interface ToolDefinition {
   icon: LucideIcon;
   /** Navigation path to the tool */
   href: string;
-  /** Path to the preview image for the card */
-  imagePath: string;
 }
 
 /**
@@ -64,7 +61,6 @@ const tools: ToolDefinition[] = [
     descriptionKey: "resumeChecker",
     icon: FileCheck,
     href: "/dashboard/tools/resume-checker",
-    imagePath: "/images/tools/resume-checker-preview.png",
   },
   {
     id: "resume-grammar-checker",
@@ -72,7 +68,6 @@ const tools: ToolDefinition[] = [
     descriptionKey: "resumeGrammarChecker",
     icon: SpellCheck,
     href: "/dashboard/tools/resume-grammar-checker",
-    imagePath: "/images/tools/resume-grammar-checker-preview.png",
   },
   {
     id: "resume-reviewer",
@@ -80,7 +75,6 @@ const tools: ToolDefinition[] = [
     descriptionKey: "resumeReviewer",
     icon: MessageSquareText,
     href: "/dashboard/tools/resume-reviewer",
-    imagePath: "/images/tools/resume-reviewer-preview.png",
   },
   {
     id: "resume-job-match",
@@ -88,7 +82,6 @@ const tools: ToolDefinition[] = [
     descriptionKey: "resumeJobMatch",
     icon: Target,
     href: "/dashboard/tools/resume-job-match",
-    imagePath: "/images/tools/resume-job-match-preview.png",
   },
   {
     id: "cover-letter-generator",
@@ -96,7 +89,6 @@ const tools: ToolDefinition[] = [
     descriptionKey: "coverLetterGenerator",
     icon: PenLine,
     href: "/dashboard/tools/cover-letter-generator",
-    imagePath: "/images/tools/cover-letter-generator-preview.png",
   },
   {
     id: "cover-letter-checker",
@@ -104,7 +96,6 @@ const tools: ToolDefinition[] = [
     descriptionKey: "coverLetterChecker",
     icon: FileCheck2,
     href: "/dashboard/tools/cover-letter-checker",
-    imagePath: "/images/tools/cover-letter-checker-preview.png",
   },
 ];
 
@@ -146,7 +137,6 @@ export default async function ToolsPage({ params }: ToolsPageProps) {
                 title={t.tools[tool.titleKey].title}
                 description={t.tools[tool.descriptionKey].description}
                 href={`/${locale}${tool.href}`}
-                imagePath={tool.imagePath}
                 ctaText={t.tryNow}
               />
             ))}

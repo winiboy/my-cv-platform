@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -13,8 +12,6 @@ interface ToolCardProps {
   description: string
   /** Navigation destination when card is clicked */
   href: string
-  /** Path to the preview image for the right panel */
-  imagePath: string
   /** Text for the CTA button */
   ctaText: string
   /** Optional additional CSS classes */
@@ -31,7 +28,6 @@ export function ToolCard({
   title,
   description,
   href,
-  imagePath,
   ctaText,
   className,
 }: ToolCardProps) {
@@ -67,16 +63,8 @@ export function ToolCard({
         </Button>
       </div>
 
-      {/* Right Panel - Preview Image (~60% width on desktop) */}
-      <div className="relative aspect-video md:aspect-auto md:h-auto md:w-3/5 bg-gray-100">
-        <Image
-          src={imagePath}
-          alt={`${title} preview`}
-          fill
-          className="object-cover rounded-b-lg md:rounded-b-none md:rounded-r-lg"
-          sizes="(max-width: 768px) 100vw, 60vw"
-        />
-      </div>
+      {/* Right Panel - Placeholder for live preview component */}
+      <div className="relative aspect-video md:aspect-auto md:h-auto md:w-3/5 bg-gray-100 rounded-b-lg md:rounded-b-none md:rounded-r-lg" />
     </Link>
   )
 }
