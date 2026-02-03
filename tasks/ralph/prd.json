@@ -111,8 +111,8 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created with red gauge (10), Category Breakdown with Structure 0% and Ton 20% cards"
     },
     {
       "id": "US-015",
