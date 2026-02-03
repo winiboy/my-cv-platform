@@ -68,7 +68,7 @@ const tools: ToolDefinition[] = [
     titleKey: "resumeChecker",
     descriptionKey: "resumeChecker",
     icon: FileCheck,
-    href: "/dashboard/tools/resume-checker",
+    href: "/tools/resume-checker",
     previewComponent: ResumeCheckerPreview,
   },
   {
@@ -76,7 +76,7 @@ const tools: ToolDefinition[] = [
     titleKey: "resumeGrammarChecker",
     descriptionKey: "resumeGrammarChecker",
     icon: SpellCheck,
-    href: "/dashboard/tools/resume-grammar-checker",
+    href: "/tools/resume-grammar-checker",
     previewComponent: GrammarCheckerPreview,
   },
   {
@@ -84,7 +84,7 @@ const tools: ToolDefinition[] = [
     titleKey: "resumeReviewer",
     descriptionKey: "resumeReviewer",
     icon: MessageSquareText,
-    href: "/dashboard/tools/resume-reviewer",
+    href: "/tools/resume-reviewer",
     previewComponent: ResumeReviewerPreview,
   },
   {
@@ -92,7 +92,7 @@ const tools: ToolDefinition[] = [
     titleKey: "resumeJobMatch",
     descriptionKey: "resumeJobMatch",
     icon: Target,
-    href: "/dashboard/tools/resume-job-match",
+    href: "/tools/resume-job-match",
     previewComponent: JobMatchPreview,
   },
   {
@@ -100,7 +100,7 @@ const tools: ToolDefinition[] = [
     titleKey: "coverLetterGenerator",
     descriptionKey: "coverLetterGenerator",
     icon: PenLine,
-    href: "/dashboard/tools/cover-letter-generator",
+    href: "/tools/cover-letter-generator",
     previewComponent: CoverLetterGeneratorPreview,
   },
   {
@@ -108,7 +108,7 @@ const tools: ToolDefinition[] = [
     titleKey: "coverLetterChecker",
     descriptionKey: "coverLetterChecker",
     icon: FileCheck2,
-    href: "/dashboard/tools/cover-letter-checker",
+    href: "/tools/cover-letter-checker",
     previewComponent: CoverLetterCheckerPreview,
   },
 ];
