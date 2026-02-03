@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 interface ToolCardProps {
   /** Lucide icon component to display at the top of the card */
@@ -14,6 +15,8 @@ interface ToolCardProps {
   href: string
   /** Path to the preview image for the right panel */
   imagePath: string
+  /** Text for the CTA button */
+  ctaText: string
   /** Optional additional CSS classes */
   className?: string
 }
@@ -29,6 +32,7 @@ export function ToolCard({
   description,
   href,
   imagePath,
+  ctaText,
   className,
 }: ToolCardProps) {
   return (
@@ -55,6 +59,12 @@ export function ToolCard({
           <h3 className="text-xl font-semibold text-slate-900">{title}</h3>
           <p className="text-sm leading-relaxed text-slate-600">{description}</p>
         </div>
+        <Button
+          className="mt-2 w-fit bg-teal-600 hover:bg-teal-700 text-white"
+          size="sm"
+        >
+          {ctaText}
+        </Button>
       </div>
 
       {/* Right Panel - Preview Image (~60% width on desktop) */}

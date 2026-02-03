@@ -80,8 +80,8 @@
         "Verify in browser using dev-browser skill: click card and button, both navigate correctly"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added ctaText prop, Button component with teal styling, translations in all 4 locales"
     },
     {
       "id": "US-006",

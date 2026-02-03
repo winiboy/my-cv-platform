@@ -115,6 +115,7 @@ const tools: ToolDefinition[] = [
 export default async function ToolsPage({ params }: ToolsPageProps) {
   const { locale } = params;
   const t = getTranslations(locale, "tools") as {
+    tryNow: string;
     page: { title: string; subtitle: string };
     tools: Record<string, { title: string; description: string }>;
     cta: { title: string; subtitle: string; button: string };
@@ -146,6 +147,7 @@ export default async function ToolsPage({ params }: ToolsPageProps) {
                 description={t.tools[tool.descriptionKey].description}
                 href={`/${locale}${tool.href}`}
                 imagePath={tool.imagePath}
+                ctaText={t.tryNow}
               />
             ))}
           </div>
