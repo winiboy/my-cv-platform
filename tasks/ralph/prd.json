@@ -46,8 +46,8 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added GrammarCheckerPreviewProps, DEFAULT_TRANSLATIONS, buildSampleData function"
     },
     {
       "id": "US-020",

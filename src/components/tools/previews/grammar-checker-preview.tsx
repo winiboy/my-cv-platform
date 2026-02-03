@@ -3,6 +3,41 @@
 import { cn } from '@/lib/utils'
 
 /**
+ * Props interface for GrammarCheckerPreview component.
+ * Allows customization of all displayed text for i18n support.
+ */
+export interface GrammarCheckerPreviewProps {
+  translations?: {
+    scoreLabel: string
+    issuesFound: string
+    categories: {
+      all: string
+      spelling: string
+      grammar: string
+      punctuation: string
+      tense: string
+    }
+    originalLabel: string
+  }
+}
+
+/**
+ * Default translations in French.
+ */
+const DEFAULT_TRANSLATIONS: Required<GrammarCheckerPreviewProps>['translations'] = {
+  scoreLabel: 'Score grammatical',
+  issuesFound: 'problemes trouves',
+  categories: {
+    all: 'Tous',
+    spelling: 'Orthographe',
+    grammar: 'Grammaire',
+    punctuation: 'Ponctuation',
+    tense: 'Temps...',
+  },
+  originalLabel: 'Original :',
+}
+
+/**
  * Category tab data for grammar issues.
  * Each tab shows a category name and count of issues.
  */
@@ -16,24 +51,26 @@ interface CategoryTab {
 }
 
 /**
- * Hardcoded sample data matching the screenshot reference.
+ * Builds sample data with translated category names.
  * Score: 85 (green), 7 total issues across categories.
  */
-const SAMPLE_DATA = {
-  score: 85,
-  totalIssues: 7,
-  categories: [
-    { name: 'Tous', count: 7, isActive: true },
-    { name: 'Orthographe', count: 1 },
-    { name: 'Grammaire', count: 2 },
-    { name: 'Ponctuation', count: 2 },
-    { name: 'Temps...', count: 0 },
-  ] satisfies CategoryTab[],
-  sampleIssue: {
-    category: 'Ponctuation',
-    severity: 'Avertissement',
-    originalText: 'Reparation de bijoux,',
-  },
+function buildSampleData(translations: Required<GrammarCheckerPreviewProps>['translations']) {
+  return {
+    score: 85,
+    totalIssues: 7,
+    categories: [
+      { name: translations.categories.all, count: 7, isActive: true },
+      { name: translations.categories.spelling, count: 1 },
+      { name: translations.categories.grammar, count: 2 },
+      { name: translations.categories.punctuation, count: 2 },
+      { name: translations.categories.tense, count: 0 },
+    ] satisfies CategoryTab[],
+    sampleIssue: {
+      category: translations.categories.punctuation,
+      severity: 'Avertissement',
+      originalText: 'Reparation de bijoux,',
+    },
+  }
 }
 
 /**
@@ -134,10 +171,12 @@ function IssueCard({
   category,
   severity,
   originalText,
+  originalLabel,
 }: {
   category: string
   severity: string
   originalText: string
+  originalLabel: string
 }) {
   return (
     <div className="w-full rounded-lg border border-slate-200 bg-white overflow-hidden">
@@ -154,7 +193,7 @@ function IssueCard({
 
       {/* Content area with original text */}
       <div className="px-4 py-3">
-        <p className="text-xs text-slate-500 mb-1">Original :</p>
+        <p className="text-xs text-slate-500 mb-1">{originalLabel}</p>
         <p className="text-sm text-slate-700">
           <span className="bg-amber-200 px-0.5 rounded">{originalText}</span>
         </p>
@@ -171,8 +210,11 @@ function IssueCard({
  * This is a static display component using hardcoded sample data
  * matching the design in Screenshot/2-corr-gram-cv.png.
  */
-export default function GrammarCheckerPreview() {
-  const { score, totalIssues, categories, sampleIssue } = SAMPLE_DATA
+export default function GrammarCheckerPreview({
+  translations = DEFAULT_TRANSLATIONS,
+}: GrammarCheckerPreviewProps) {
+  const mergedTranslations = { ...DEFAULT_TRANSLATIONS, ...translations }
+  const { score, totalIssues, categories, sampleIssue } = buildSampleData(mergedTranslations)
 
   return (
     <div className="flex flex-col items-center gap-4 p-4">
@@ -180,11 +222,11 @@ export default function GrammarCheckerPreview() {
       <CircularGauge score={score} />
 
       {/* Score label */}
-      <p className="text-sm font-medium text-slate-600">Score grammatical</p>
+      <p className="text-sm font-medium text-slate-600">{mergedTranslations.scoreLabel}</p>
 
       {/* Issues count badge */}
       <span className="px-3 py-1 text-xs font-medium rounded-full bg-teal-100 text-teal-700">
-        {totalIssues} problemes trouves
+        {totalIssues} {mergedTranslations.issuesFound}
       </span>
 
       {/* Category tabs */}
@@ -199,6 +241,7 @@ export default function GrammarCheckerPreview() {
         category={sampleIssue.category}
         severity={sampleIssue.severity}
         originalText={sampleIssue.originalText}
+        originalLabel={mergedTranslations.originalLabel}
       />
     </div>
   )
