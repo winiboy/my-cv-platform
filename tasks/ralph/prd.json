@@ -109,8 +109,8 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added CoverLetterCheckerPreviewProps, DEFAULT_TRANSLATIONS, getSampleData function. Fixed English 'Category Breakdown' to French."
     },
     {
       "id": "US-024",

@@ -3,6 +3,39 @@
 import { cn } from '@/lib/utils'
 
 /**
+ * Translation strings for the CoverLetterCheckerPreview component.
+ */
+export interface CoverLetterCheckerPreviewTranslations {
+  scoreLabel: string
+  categoryBreakdown: string
+  structure: string
+  tone: string
+  structureDesc: string
+  toneDesc: string
+}
+
+/**
+ * Props for the CoverLetterCheckerPreview component.
+ */
+export interface CoverLetterCheckerPreviewProps {
+  translations?: CoverLetterCheckerPreviewTranslations
+}
+
+/**
+ * Default translations in French (primary language).
+ */
+const DEFAULT_TRANSLATIONS: CoverLetterCheckerPreviewTranslations = {
+  scoreLabel: 'Score global',
+  categoryBreakdown: 'Répartition par catégorie',
+  structure: 'Structure',
+  tone: 'Ton',
+  structureDesc:
+    "La lettre de motivation manque d'une structure claire et logique, avec un début et une fin peu convaincants.",
+  toneDesc:
+    "Le ton est trop informel et manque de professionnalisme, ce qui peut donner une mauvaise impression à l'employeur.",
+}
+
+/**
  * Category card data for cover letter analysis.
  * Each card shows a category name, percentage, and description.
  */
@@ -18,23 +51,24 @@ interface CategoryCard {
 /**
  * Hardcoded sample data matching the screenshot reference.
  * Score: 10 (red - very low), with Structure and Ton categories.
+ * Category names and descriptions are populated from translations.
  */
-const SAMPLE_DATA = {
-  overallScore: 10,
-  categories: [
-    {
-      name: 'Structure',
-      percentage: 0,
-      description:
-        "La lettre de motivation manque d'une structure claire et logique, avec un début et une fin peu convaincants.",
-    },
-    {
-      name: 'Ton',
-      percentage: 20,
-      description:
-        "Le ton est trop informel et manque de professionnalisme, ce qui peut donner une mauvaise impression à l'employeur.",
-    },
-  ] satisfies CategoryCard[],
+function getSampleData(t: CoverLetterCheckerPreviewTranslations) {
+  return {
+    overallScore: 10,
+    categories: [
+      {
+        name: t.structure,
+        percentage: 0,
+        description: t.structureDesc,
+      },
+      {
+        name: t.tone,
+        percentage: 20,
+        description: t.toneDesc,
+      },
+    ] satisfies CategoryCard[],
+  }
 }
 
 /**
@@ -191,8 +225,11 @@ function CategoryCardComponent({ category }: { category: CategoryCard }) {
  * This is a static display component using hardcoded sample data
  * matching the design in Screenshot/6-verif-lettre-motiv.png.
  */
-export default function CoverLetterCheckerPreview() {
-  const { overallScore, categories } = SAMPLE_DATA
+export default function CoverLetterCheckerPreview({
+  translations,
+}: CoverLetterCheckerPreviewProps) {
+  const t = translations ?? DEFAULT_TRANSLATIONS
+  const { overallScore, categories } = getSampleData(t)
 
   return (
     <div className="flex flex-col items-center gap-4 p-4">
@@ -200,11 +237,11 @@ export default function CoverLetterCheckerPreview() {
       <CircularGauge score={overallScore} />
 
       {/* Score label */}
-      <p className="text-sm font-medium text-slate-600">Score global</p>
+      <p className="text-sm font-medium text-slate-600">{t.scoreLabel}</p>
 
       {/* Category Breakdown section */}
       <div className="w-full">
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">Category Breakdown</h3>
+        <h3 className="text-sm font-semibold text-slate-700 mb-3">{t.categoryBreakdown}</h3>
 
         {/* Category cards grid */}
         <div className="flex gap-3">
