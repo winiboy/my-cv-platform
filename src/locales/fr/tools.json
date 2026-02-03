@@ -1,4 +1,5 @@
 {
+  "tryNow": "Essayer",
   "page": {
     "title": "Outils de carrière",
     "subtitle": "Tout ce dont vous avez besoin pour décrocher l'emploi de vos rêves. Notre suite d'outils gratuits vous aide à créer des CV professionnels, optimiser votre candidature et suivre vos postulations.",
@@ -724,5 +725,52 @@
     "emptyUrl": "Veuillez entrer l'URL d'une offre d'emploi",
     "extractionFailed": "Échec de l'extraction de la description du poste",
     "noDescriptionFound": "Aucune description de poste trouvée dans la réponse"
+  },
+  "previews": {
+    "analyzedLabel": "Analysé le :",
+    "resumeChecker": {
+      "contactInfo": "Coordonnées",
+      "summaryObjective": "Résumé/Objectif",
+      "professionalExperience": "Expérience professionnelle"
+    },
+    "grammarChecker": {
+      "scoreLabel": "Score grammatical",
+      "issuesFound": "{count} problèmes trouvés",
+      "categories": {
+        "all": "Tous",
+        "spelling": "Orthographe",
+        "grammar": "Grammaire",
+        "punctuation": "Ponctuation",
+        "tense": "Temps verbal"
+      },
+      "originalLabel": "Original :"
+    },
+    "resumeReviewer": {
+      "scoreLabel": "Score du CV",
+      "needsImprovement": "À améliorer",
+      "categoriesLabel": "Catégories",
+      "impact": "Impact"
+    },
+    "jobMatch": {
+      "scoreLabel": "Score de correspondance",
+      "matchingSkills": "Compétences correspondantes"
+    },
+    "coverLetterGenerator": {
+      "aiGenerated": "Contenu généré par IA",
+      "personalizedLetter": "Votre lettre de motivation personnalisée",
+      "copy": "Copier",
+      "pdf": "PDF",
+      "docx": "DOCX",
+      "improve": "Améliorer",
+      "bold": "Gras",
+      "italic": "Italique",
+      "underline": "Souligné"
+    },
+    "coverLetterChecker": {
+      "scoreLabel": "Score global",
+      "categoryBreakdown": "Répartition par catégorie",
+      "structure": "Structure",
+      "tone": "Ton"
+    }
   }
 }

@@ -1,0 +1,109 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "ralph/header-visibility",
+  "description": "Header Visibility on Dashboard Pages - Make the marketing site header visible on all dashboard pages while preserving the existing sidebar navigation for consistent branding and navigation experience.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Import marketing header into dashboard layout",
+      "description": "As a developer, I need to integrate the marketing header component into the dashboard layout so it appears above the existing sidebar/content structure.",
+      "acceptanceCriteria": [
+        "Marketing header component is imported in dashboard layout (src/app/[locale]/(dashboard)/layout.tsx)",
+        "Header renders above the existing flex container (sidebar + content)",
+        "Header maintains sticky positioning (sticky top-0 z-50)",
+        "Typecheck passes",
+        "Lint passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Added Header import and rendered above sidebar/content container with sticky wrapper."
+    },
+    {
+      "id": "US-002",
+      "title": "Adjust dashboard layout for header height",
+      "description": "As a user, I want the dashboard content to be properly positioned below the header so nothing is hidden or overlapping.",
+      "acceptanceCriteria": [
+        "Dashboard flex container accounts for header height using calc(100vh - 64px) or equivalent",
+        "Sidebar starts below the header (not behind it)",
+        "Main content area is fully visible without overlap",
+        "Scrolling behavior works correctly (header stays fixed, content scrolls)",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill: navigate to /fr/dashboard and confirm no content is hidden behind header"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Applied h-[calc(100vh-64px)] to content container. Sidebar and main content use h-full."
+    },
+    {
+      "id": "US-003",
+      "title": "Add active state to Dashboard link in header",
+      "description": "As a user, I want to see the Dashboard navigation link highlighted when I'm on any dashboard page so I know where I am in the site.",
+      "acceptanceCriteria": [
+        "Dashboard link in header shows active state styling when pathname starts with /[locale]/dashboard",
+        "Active state uses visual differentiation (text-teal-600 or similar)",
+        "Other navigation links (Tools, Pricing) show default inactive state when on dashboard",
+        "Active state logic uses usePathname() to detect current route",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill: navigate between dashboard and marketing pages, confirm correct highlight state"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Added usePathname hook and isDashboardActive detection. Applied text-teal-600 styling for desktop and mobile nav."
+    },
+    {
+      "id": "US-004",
+      "title": "Remove duplicate dashboard header",
+      "description": "As a developer, I need to remove or hide the existing minimal dashboard header's user menu since the marketing header now provides auth controls.",
+      "acceptanceCriteria": [
+        "Existing DashboardHeader component is removed from dashboard layout",
+        "No duplicate user account dropdowns on the page",
+        "Single source of auth controls (marketing header's account dropdown)",
+        "Logout functionality works from the marketing header on dashboard pages",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill: confirm only one user menu exists, test logout"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Removed DashboardHeader import and usage from layout. Removed unused profile query."
+    },
+    {
+      "id": "US-005",
+      "title": "Ensure sidebar and header coexist without conflict",
+      "description": "As a user, I want both the header and sidebar to be usable without visual or functional conflicts.",
+      "acceptanceCriteria": [
+        "Sidebar remains at full height below the header",
+        "Sidebar navigation items are all accessible and clickable",
+        "No z-index conflicts between header and sidebar",
+        "Print styles still hide both header and sidebar (print:hidden)",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill: test clicking sidebar links while header is visible"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Verified: sidebar has h-full, header has z-50, both have print:hidden. No conflicts."
+    },
+    {
+      "id": "US-006",
+      "title": "Mobile header behavior on dashboard",
+      "description": "As a mobile user, I want the hamburger menu to work on dashboard pages so I can access navigation on small screens.",
+      "acceptanceCriteria": [
+        "Hamburger menu icon appears on mobile viewport (< 768px)",
+        "Tapping hamburger opens mobile navigation menu",
+        "Mobile menu includes all navigation links (Dashboard, Tools, Pricing)",
+        "Mobile menu includes language switcher",
+        "Mobile menu includes auth controls (account dropdown)",
+        "Menu closes when a link is tapped",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill: resize to mobile width, test hamburger menu functionality"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Verified: Mobile menu fully functional with hamburger toggle, nav links, language switcher, and auth controls."
+    }
+  ]
+}
