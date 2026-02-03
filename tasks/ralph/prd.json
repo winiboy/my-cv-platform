@@ -45,8 +45,8 @@
         "Verify in browser using dev-browser skill: navigate to /en/tools and confirm single column layout"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Already implemented: max-w-4xl mx-auto and flex flex-col space-y-6 in place"
     },
     {
       "id": "US-004",
