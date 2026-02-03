@@ -4,6 +4,53 @@ import { Mail, Copy, FileText, Bold, Italic, Underline, Sparkles } from 'lucide-
 import { cn } from '@/lib/utils'
 
 /**
+ * Translations for the CoverLetterGeneratorPreview component.
+ */
+export interface CoverLetterGeneratorPreviewTranslations {
+  /** Header title text */
+  aiGenerated: string
+  /** Header subtitle text */
+  personalizedLetter: string
+  /** Copy button label */
+  copy: string
+  /** PDF button label */
+  pdf: string
+  /** DOCX button label */
+  docx: string
+  /** Improve button label */
+  improve: string
+  /** Bold formatting button label */
+  bold: string
+  /** Italic formatting button label */
+  italic: string
+  /** Underline formatting button label */
+  underline: string
+}
+
+/**
+ * Props for CoverLetterGeneratorPreview component.
+ */
+export interface CoverLetterGeneratorPreviewProps {
+  /** Optional translations for UI labels */
+  translations?: Partial<CoverLetterGeneratorPreviewTranslations>
+}
+
+/**
+ * Default translations (French/English mixed matching original design).
+ */
+const DEFAULT_TRANSLATIONS: CoverLetterGeneratorPreviewTranslations = {
+  aiGenerated: 'AI-Generated Content',
+  personalizedLetter: 'Your personalized cover letter',
+  copy: 'Copy',
+  pdf: 'PDF',
+  docx: 'DOCX',
+  improve: 'Ameliorer av...',
+  bold: 'Bold',
+  italic: 'Italic',
+  underline: 'Underline',
+}
+
+/**
  * Action button configuration for the toolbar.
  */
 interface ActionButton {
@@ -16,23 +63,22 @@ interface ActionButton {
 }
 
 /**
- * Hardcoded sample data matching the screenshot reference.
- * Shows AI-generated cover letter content with action buttons and formatting toolbar.
+ * Sample cover letter content matching the screenshot reference.
  */
-const SAMPLE_DATA = {
-  header: {
-    title: 'AI-Generated Content',
-    subtitle: 'Your personalized cover letter',
-  },
-  actionButtons: [
-    { label: 'Copy', icon: Copy },
-    { label: 'PDF', icon: FileText },
-    { label: 'DOCX', icon: FileText },
-    { label: 'Ameliorer av...', icon: Sparkles, isPrimary: true },
-  ] satisfies ActionButton[],
-  letterContent: `Cher Responsable du Recrutement,
+const SAMPLE_LETTER_CONTENT = `Cher Responsable du Recrutement,
 
-Je me permets de vous contacter pour exprimer mon interet pour le poste d'instructeur allemand suisse que vous avez annonce. En tant qu'apprenti bijoutier-joaillier passionne et motive, je suis conscient que mes competences en matiere de communication et de pedagogie pourraient etre utiles pour enseigner la langue allemande suisse a des expatries qui s'installent en Suisse. Mon experience dans la fabrication et la reparation de bijoux m'a appris l'importance de la precision, de la patience et de la capacite a expliquer...`,
+Je me permets de vous contacter pour exprimer mon interet pour le poste d'instructeur allemand suisse que vous avez annonce. En tant qu'apprenti bijoutier-joaillier passionne et motive, je suis conscient que mes competences en matiere de communication et de pedagogie pourraient etre utiles pour enseigner la langue allemande suisse a des expatries qui s'installent en Suisse. Mon experience dans la fabrication et la reparation de bijoux m'a appris l'importance de la precision, de la patience et de la capacite a expliquer...`
+
+/**
+ * Creates action buttons configuration with translations.
+ */
+function createActionButtons(t: CoverLetterGeneratorPreviewTranslations): ActionButton[] {
+  return [
+    { label: t.copy, icon: Copy },
+    { label: t.pdf, icon: FileText },
+    { label: t.docx, icon: FileText },
+    { label: t.improve, icon: Sparkles, isPrimary: true },
+  ]
 }
 
 /**
@@ -92,9 +138,19 @@ function FormatButton({
  *
  * This is a static display component using hardcoded sample data
  * matching the design in Screenshot/5-Lettre-de-motivation.png.
+ *
+ * @param props - Component props
+ * @param props.translations - Optional translations for UI labels
  */
-export default function CoverLetterGeneratorPreview() {
-  const { header, actionButtons, letterContent } = SAMPLE_DATA
+export default function CoverLetterGeneratorPreview({
+  translations,
+}: CoverLetterGeneratorPreviewProps) {
+  const t: CoverLetterGeneratorPreviewTranslations = {
+    ...DEFAULT_TRANSLATIONS,
+    ...translations,
+  }
+
+  const actionButtons = createActionButtons(t)
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -105,9 +161,9 @@ export default function CoverLetterGeneratorPreview() {
         </div>
         <div className="flex flex-col">
           <h3 className="text-sm font-semibold text-slate-800">
-            {header.title}
+            {t.aiGenerated}
           </h3>
-          <p className="text-xs text-slate-500">{header.subtitle}</p>
+          <p className="text-xs text-slate-500">{t.personalizedLetter}</p>
         </div>
       </div>
 
@@ -120,14 +176,14 @@ export default function CoverLetterGeneratorPreview() {
 
       {/* Formatting toolbar */}
       <div className="flex items-center gap-0.5 border-b border-slate-200 pb-2">
-        <FormatButton icon={Bold} label="Bold" />
-        <FormatButton icon={Italic} label="Italic" />
-        <FormatButton icon={Underline} label="Underline" />
+        <FormatButton icon={Bold} label={t.bold} />
+        <FormatButton icon={Italic} label={t.italic} />
+        <FormatButton icon={Underline} label={t.underline} />
       </div>
 
       {/* Letter content preview */}
       <div className="text-sm text-slate-700 leading-relaxed">
-        <p className="whitespace-pre-line line-clamp-6">{letterContent}</p>
+        <p className="whitespace-pre-line line-clamp-6">{SAMPLE_LETTER_CONTENT}</p>
       </div>
     </div>
   )

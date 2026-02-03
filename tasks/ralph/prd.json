@@ -93,8 +93,8 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added CoverLetterGeneratorPreviewProps, DEFAULT_TRANSLATIONS, createActionButtons helper"
     },
     {
       "id": "US-023",
