@@ -33,49 +33,78 @@ interface ToolsPageProps {
 }
 
 /**
- * Tool definition with icon and translation key.
+ * Tool definition with icon, translation key, and image path.
  * Translation key maps to tools.json translations.
+ * Image paths point to preview screenshots for card backgrounds.
  */
 interface ToolDefinition {
+  /** Unique identifier for the tool */
+  id: string;
+  /** Translation key for i18n (maps to tools.json) */
+  titleKey: string;
+  /** Translation key for description (same as titleKey, nested) */
+  descriptionKey: string;
+  /** Lucide icon component */
   icon: LucideIcon;
-  translationKey: string;
+  /** Navigation path to the tool */
   href: string;
+  /** Path to the preview image for the card */
+  imagePath: string;
 }
 
 /**
- * Tools data - defines all 6 career tools.
- * Each tool has an icon, translation key, and href.
+ * Tools data - defines all 6 career tools in display order.
+ * Order: Resume Checker, Grammar Checker, Resume Reviewer,
+ *        Job Match, Cover Letter Generator, Cover Letter Checker
  */
 const tools: ToolDefinition[] = [
   {
+    id: "resume-checker",
+    titleKey: "resumeChecker",
+    descriptionKey: "resumeChecker",
     icon: FileCheck,
-    translationKey: "resumeChecker",
-    href: "/tools/resume-checker",
+    href: "/dashboard/tools/resume-checker",
+    imagePath: "/images/tools/resume-checker-preview.png",
   },
   {
-    icon: Target,
-    translationKey: "resumeJobMatch",
-    href: "/tools/resume-job-match",
-  },
-  {
-    icon: PenLine,
-    translationKey: "coverLetterGenerator",
-    href: "/tools/cover-letter-generator",
-  },
-  {
-    icon: MessageSquareText,
-    translationKey: "resumeReviewer",
-    href: "/tools/resume-reviewer",
-  },
-  {
+    id: "resume-grammar-checker",
+    titleKey: "resumeGrammarChecker",
+    descriptionKey: "resumeGrammarChecker",
     icon: SpellCheck,
-    translationKey: "resumeGrammarChecker",
-    href: "/tools/resume-grammar-checker",
+    href: "/dashboard/tools/resume-grammar-checker",
+    imagePath: "/images/tools/resume-grammar-checker-preview.png",
   },
   {
+    id: "resume-reviewer",
+    titleKey: "resumeReviewer",
+    descriptionKey: "resumeReviewer",
+    icon: MessageSquareText,
+    href: "/dashboard/tools/resume-reviewer",
+    imagePath: "/images/tools/resume-reviewer-preview.png",
+  },
+  {
+    id: "resume-job-match",
+    titleKey: "resumeJobMatch",
+    descriptionKey: "resumeJobMatch",
+    icon: Target,
+    href: "/dashboard/tools/resume-job-match",
+    imagePath: "/images/tools/resume-job-match-preview.png",
+  },
+  {
+    id: "cover-letter-generator",
+    titleKey: "coverLetterGenerator",
+    descriptionKey: "coverLetterGenerator",
+    icon: PenLine,
+    href: "/dashboard/tools/cover-letter-generator",
+    imagePath: "/images/tools/cover-letter-generator-preview.png",
+  },
+  {
+    id: "cover-letter-checker",
+    titleKey: "coverLetterChecker",
+    descriptionKey: "coverLetterChecker",
     icon: FileCheck2,
-    translationKey: "coverLetterChecker",
-    href: "/tools/cover-letter-checker",
+    href: "/dashboard/tools/cover-letter-checker",
+    imagePath: "/images/tools/cover-letter-checker-preview.png",
   },
 ];
 
@@ -111,10 +140,10 @@ export default async function ToolsPage({ params }: ToolsPageProps) {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {tools.map((tool) => (
               <ToolCard
-                key={tool.href}
+                key={tool.id}
                 icon={tool.icon}
-                title={t.tools[tool.translationKey].title}
-                description={t.tools[tool.translationKey].description}
+                title={t.tools[tool.titleKey].title}
+                description={t.tools[tool.descriptionKey].description}
                 href={`/${locale}${tool.href}`}
               />
             ))}
