@@ -725,5 +725,52 @@
     "emptyUrl": "Please enter a job posting URL",
     "extractionFailed": "Failed to extract job description",
     "noDescriptionFound": "No job description found in the response"
+  },
+  "previews": {
+    "analyzedLabel": "Analyzed on:",
+    "resumeChecker": {
+      "contactInfo": "Contact Information",
+      "summaryObjective": "Summary/Objective",
+      "professionalExperience": "Professional Experience"
+    },
+    "grammarChecker": {
+      "scoreLabel": "Grammar Score",
+      "issuesFound": "{count} issues found",
+      "categories": {
+        "all": "All",
+        "spelling": "Spelling",
+        "grammar": "Grammar",
+        "punctuation": "Punctuation",
+        "tense": "Tense"
+      },
+      "originalLabel": "Original:"
+    },
+    "resumeReviewer": {
+      "scoreLabel": "Resume Score",
+      "needsImprovement": "Needs Improvement",
+      "categoriesLabel": "Categories",
+      "impact": "Impact"
+    },
+    "jobMatch": {
+      "scoreLabel": "Match Score",
+      "matchingSkills": "Matching Skills"
+    },
+    "coverLetterGenerator": {
+      "aiGenerated": "AI-Generated Content",
+      "personalizedLetter": "Your personalized cover letter",
+      "copy": "Copy",
+      "pdf": "PDF",
+      "docx": "DOCX",
+      "improve": "Improve",
+      "bold": "Bold",
+      "italic": "Italic",
+      "underline": "Underline"
+    },
+    "coverLetterChecker": {
+      "scoreLabel": "Overall Score",
+      "categoryBreakdown": "Category Breakdown",
+      "structure": "Structure",
+      "tone": "Tone"
+    }
   }
 }

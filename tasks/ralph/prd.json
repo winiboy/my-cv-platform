@@ -1,152 +1,131 @@
 {
   "project": "my-cv-platform",
   "branchName": "ralph/redesign-tools-page-cards",
-  "description": "Redesign Tools Page Cards V2 - Two-column layout with original card content on left and live rendered preview components on right (not static images).",
+  "description": "Fix i18n translations for all tool preview components - add translation keys and update components to use them.",
   "userStories": [
     {
-      "id": "US-008",
-      "title": "Remove static preview images from cards",
-      "description": "As a developer, I need to remove the static PNG preview images and prepare for live preview components.",
+      "id": "US-017",
+      "title": "Add preview translation keys to all locale files",
+      "description": "As a developer, I need translation keys for all preview component text in all 4 locales.",
       "acceptanceCriteria": [
-        "Remove imagePath prop from ToolCard component",
-        "Remove Image import and usage from tool-card.tsx",
-        "Remove imagePath from tools data array in tools/page.tsx",
-        "Card right panel becomes empty placeholder for now",
+        "Add 'previews' section to src/locales/en/tools.json with all preview text keys",
+        "Add 'previews' section to src/locales/fr/tools.json with French translations",
+        "Add 'previews' section to src/locales/de/tools.json with German translations",
+        "Add 'previews' section to src/locales/it/tools.json with Italian translations",
+        "Keys include: analyzedLabel, scoreLabels, categoryNames, buttonLabels, sectionHeaders",
         "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Removed imagePath prop, Image import, and placeholder div for right panel"
+      "notes": "Added previews section to all 4 locale files (en, fr, de, it)"
     },
     {
-      "id": "US-009",
-      "title": "Create ResumeCheckerPreview component",
-      "description": "As a user, I want to see a live preview of the Resume Checker results showing a score gauge and section scores.",
+      "id": "US-018",
+      "title": "Update ResumeCheckerPreview with translations",
+      "description": "As a user viewing in any locale, I want the Resume Checker preview to display in my language.",
       "acceptanceCriteria": [
-        "Create src/components/tools/previews/resume-checker-preview.tsx",
-        "Component renders: circular score gauge (62), date text, section scores (Contact Info 0, Summary 80, Experience 85)",
-        "Use sample/mock data hardcoded in component",
-        "Style to match Screenshot/1-Vérificateur-CV.png appearance",
-        "Component is static display only (no interactivity needed)",
+        "Component accepts translations prop with preview text",
+        "Replace hardcoded 'Analyse le :' with translation",
+        "Replace hardcoded section names (Informations de contact, Resume/Objectif, Experience professionnelle) with translations",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Created with SVG circular gauge, section rows with status icons"
+      "passes": false,
+      "notes": ""
     },
     {
-      "id": "US-010",
-      "title": "Create GrammarCheckerPreview component",
-      "description": "As a user, I want to see a live preview of the Grammar Checker results showing grammar score and issue categories.",
+      "id": "US-019",
+      "title": "Update GrammarCheckerPreview with translations",
+      "description": "As a user viewing in any locale, I want the Grammar Checker preview to display in my language.",
       "acceptanceCriteria": [
-        "Create src/components/tools/previews/grammar-checker-preview.tsx",
-        "Component renders: circular score (85), 'Score grammatical' label, '7 problèmes trouvés' badge",
-        "Show category tabs: Tous 7, Orthographe 1, Grammaire 2, Ponctuation 2",
-        "Show sample issue card with yellow highlight",
-        "Style to match Screenshot/2-corr-gram-cv.png appearance",
+        "Component accepts translations prop with preview text",
+        "Replace hardcoded 'Score grammatical' with translation",
+        "Replace hardcoded category tabs (Tous, Orthographe, Grammaire, Ponctuation, Temps) with translations",
+        "Replace hardcoded 'problemes trouves' badge with translation",
+        "Replace hardcoded 'Original :' label with translation",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Created with circular gauge, category tabs, and sample issue card with yellow highlight"
+      "passes": false,
+      "notes": ""
     },
     {
-      "id": "US-011",
-      "title": "Create ResumeReviewerPreview component",
-      "description": "As a user, I want to see a live preview of the Resume Reviewer results showing evaluation score and categories.",
+      "id": "US-020",
+      "title": "Update ResumeReviewerPreview with translations",
+      "description": "As a user viewing in any locale, I want the Resume Reviewer preview to display in my language.",
       "acceptanceCriteria": [
-        "Create src/components/tools/previews/resume-reviewer-preview.tsx",
-        "Component renders: circular score (58/100), 'Score du CV' label, 'À améliorer' status",
-        "Show 'Catégories' section with Impact category at 40%",
-        "Style to match Screenshot/3-evaluateur-de-cv.png appearance",
+        "Component accepts translations prop with preview text",
+        "Replace hardcoded 'Score du CV' with translation",
+        "Replace hardcoded 'À améliorer' status with translation",
+        "Replace hardcoded 'Catégories' with translation",
+        "Replace hardcoded 'Impact' category name with translation",
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Created with 58/100 gauge, À améliorer status, Categories section with Impact 40%"
+      "passes": false,
+      "notes": ""
     },
     {
-      "id": "US-012",
-      "title": "Create JobMatchPreview component",
-      "description": "As a user, I want to see a live preview of the Job Match results showing match score and matching skills.",
+      "id": "US-021",
+      "title": "Update JobMatchPreview with translations",
+      "description": "As a user viewing in any locale, I want the Job Match preview to display in my language.",
       "acceptanceCriteria": [
-        "Create src/components/tools/previews/job-match-preview.tsx",
-        "Component renders: circular score (10), 'Score de correspondance' label",
-        "Show 'Compétences correspondantes' section with skill tags",
-        "Sample tags: 'Conseil à la clientèle', 'Communication avec les clients', etc.",
-        "Style to match Screenshot/4-Correspondance-CV-Job.png appearance",
+        "Component accepts translations prop with preview text",
+        "Replace hardcoded 'Score de correspondance' with translation",
+        "Replace hardcoded 'Analyse le' with translation",
+        "Replace hardcoded 'Compétences correspondantes' with translation",
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Created with red gauge (10), matching skills section with 3 teal pill tags"
+      "passes": false,
+      "notes": ""
     },
     {
-      "id": "US-013",
-      "title": "Create CoverLetterGeneratorPreview component",
-      "description": "As a user, I want to see a live preview of the Cover Letter Generator showing a generated letter interface.",
+      "id": "US-022",
+      "title": "Update CoverLetterGeneratorPreview with translations",
+      "description": "As a user viewing in any locale, I want the Cover Letter Generator preview to display in my language.",
       "acceptanceCriteria": [
-        "Create src/components/tools/previews/cover-letter-generator-preview.tsx",
-        "Component renders: 'AI-Generated Content' header with icon",
-        "Show action buttons: Copy, PDF, DOCX, Améliorer",
-        "Show formatting toolbar: B, I, U buttons",
-        "Show sample letter text starting with 'Cher Responsable du Recrutement,'",
-        "Style to match Screenshot/5-Lettre-de-motivation.png appearance",
+        "Component accepts translations prop with preview text",
+        "Replace hardcoded 'AI-Generated Content' with translation",
+        "Replace hardcoded 'Your personalized cover letter' with translation",
+        "Replace hardcoded button labels (Copy, PDF, DOCX, Ameliorer) with translations",
+        "Replace hardcoded formatting labels (Bold, Italic, Underline) with translations",
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Created with AI header, action buttons, B/I/U toolbar, sample letter text"
+      "passes": false,
+      "notes": ""
     },
     {
-      "id": "US-014",
-      "title": "Create CoverLetterCheckerPreview component",
-      "description": "As a user, I want to see a live preview of the Cover Letter Checker showing score and category breakdown.",
+      "id": "US-023",
+      "title": "Update CoverLetterCheckerPreview with translations",
+      "description": "As a user viewing in any locale, I want the Cover Letter Checker preview to display in my language.",
       "acceptanceCriteria": [
-        "Create src/components/tools/previews/cover-letter-checker-preview.tsx",
-        "Component renders: circular score (10), 'Score global' label",
-        "Show 'Category Breakdown' section with Structure (0%) and Ton (20%) cards",
-        "Each card shows category name, percentage, and brief description",
-        "Style to match Screenshot/6-verif-lettre-motiv.png appearance",
+        "Component accepts translations prop with preview text",
+        "Replace hardcoded 'Score global' with translation",
+        "Replace hardcoded 'Category Breakdown' (English) with translation",
+        "Replace hardcoded category names (Structure, Ton) with translations",
+        "Replace hardcoded category descriptions with translations",
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "Created with red gauge (10), Category Breakdown with Structure 0% and Ton 20% cards"
+      "passes": false,
+      "notes": ""
     },
     {
-      "id": "US-015",
-      "title": "Integrate preview components into ToolCard",
-      "description": "As a user, I want each tool card to show its corresponding live preview component in the right column.",
+      "id": "US-024",
+      "title": "Pass translations from tools page to preview components",
+      "description": "As a developer, I need to wire up the translations from the tools page to each preview component.",
       "acceptanceCriteria": [
-        "Add previewComponent prop to ToolCard that accepts a React component",
-        "Right panel renders the provided preview component",
-        "Update tools/page.tsx to pass appropriate preview component to each card",
-        "Import all 6 preview components in tools/page.tsx",
-        "Each tool card displays its matching preview",
-        "Typecheck passes",
-        "Verify in browser: all 6 cards show live previews"
+        "Tools page loads preview translations from locale file",
+        "Each ToolCard receives appropriate preview translations",
+        "Preview components render with correct locale text",
+        "Test with /en/tools, /fr/tools, /de/tools, /it/tools - all show correct language",
+        "Typecheck passes"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "Added preview prop to ToolCard, imported all 6 previews, mapped to tools"
-    },
-    {
-      "id": "US-016",
-      "title": "Final styling and polish",
-      "description": "As a user, I want the two-column card layout to look polished and consistent.",
-      "acceptanceCriteria": [
-        "Left column maintains original card styling (icon, title, description, button)",
-        "Right column preview has subtle background (bg-gray-50 or similar)",
-        "Preview components scale appropriately within card",
-        "Consistent spacing between left and right columns",
-        "Cards maintain responsive behavior on mobile (stack vertically)",
-        "Typecheck passes",
-        "Lint passes"
-      ],
-      "priority": 9,
-      "passes": true,
-      "notes": "Polished styling: bg-gray-50 right panel, scaled previews, rounded-xl corners, shadow-lg hover"
+      "passes": false,
+      "notes": ""
     }
   ]
 }

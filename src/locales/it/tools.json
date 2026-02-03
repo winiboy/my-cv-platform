@@ -725,5 +725,52 @@
     "emptyUrl": "Inserisci l'URL di un'offerta di lavoro",
     "extractionFailed": "Impossibile estrarre la descrizione del lavoro",
     "noDescriptionFound": "Nessuna descrizione del lavoro trovata nella risposta"
+  },
+  "previews": {
+    "analyzedLabel": "Analizzato il:",
+    "resumeChecker": {
+      "contactInfo": "Informazioni di contatto",
+      "summaryObjective": "Riepilogo/Obiettivo",
+      "professionalExperience": "Esperienza professionale"
+    },
+    "grammarChecker": {
+      "scoreLabel": "Punteggio grammaticale",
+      "issuesFound": "{count} problemi trovati",
+      "categories": {
+        "all": "Tutti",
+        "spelling": "Ortografia",
+        "grammar": "Grammatica",
+        "punctuation": "Punteggiatura",
+        "tense": "Tempo verbale"
+      },
+      "originalLabel": "Originale:"
+    },
+    "resumeReviewer": {
+      "scoreLabel": "Punteggio del CV",
+      "needsImprovement": "Da migliorare",
+      "categoriesLabel": "Categorie",
+      "impact": "Impatto"
+    },
+    "jobMatch": {
+      "scoreLabel": "Punteggio di corrispondenza",
+      "matchingSkills": "Competenze corrispondenti"
+    },
+    "coverLetterGenerator": {
+      "aiGenerated": "Contenuto generato dall'IA",
+      "personalizedLetter": "La tua lettera di presentazione personalizzata",
+      "copy": "Copia",
+      "pdf": "PDF",
+      "docx": "DOCX",
+      "improve": "Migliora",
+      "bold": "Grassetto",
+      "italic": "Corsivo",
+      "underline": "Sottolineato"
+    },
+    "coverLetterChecker": {
+      "scoreLabel": "Punteggio complessivo",
+      "categoryBreakdown": "Ripartizione per categoria",
+      "structure": "Struttura",
+      "tone": "Tono"
+    }
   }
 }

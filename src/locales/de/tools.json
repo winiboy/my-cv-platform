@@ -725,5 +725,52 @@
     "emptyUrl": "Bitte geben Sie eine Stellenanzeigen-URL ein",
     "extractionFailed": "Stellenbeschreibung konnte nicht extrahiert werden",
     "noDescriptionFound": "Keine Stellenbeschreibung in der Antwort gefunden"
+  },
+  "previews": {
+    "analyzedLabel": "Analysiert am:",
+    "resumeChecker": {
+      "contactInfo": "Kontaktinformationen",
+      "summaryObjective": "Zusammenfassung/Ziel",
+      "professionalExperience": "Berufserfahrung"
+    },
+    "grammarChecker": {
+      "scoreLabel": "Grammatik-Score",
+      "issuesFound": "{count} Probleme gefunden",
+      "categories": {
+        "all": "Alle",
+        "spelling": "Rechtschreibung",
+        "grammar": "Grammatik",
+        "punctuation": "Zeichensetzung",
+        "tense": "Zeitform"
+      },
+      "originalLabel": "Original:"
+    },
+    "resumeReviewer": {
+      "scoreLabel": "Lebenslauf-Score",
+      "needsImprovement": "Verbesserungsbedarf",
+      "categoriesLabel": "Kategorien",
+      "impact": "Wirkung"
+    },
+    "jobMatch": {
+      "scoreLabel": "Übereinstimmungs-Score",
+      "matchingSkills": "Übereinstimmende Fähigkeiten"
+    },
+    "coverLetterGenerator": {
+      "aiGenerated": "KI-generierter Inhalt",
+      "personalizedLetter": "Ihr personalisiertes Anschreiben",
+      "copy": "Kopieren",
+      "pdf": "PDF",
+      "docx": "DOCX",
+      "improve": "Verbessern",
+      "bold": "Fett",
+      "italic": "Kursiv",
+      "underline": "Unterstrichen"
+    },
+    "coverLetterChecker": {
+      "scoreLabel": "Gesamtbewertung",
+      "categoryBreakdown": "Kategorieaufschlüsselung",
+      "structure": "Struktur",
+      "tone": "Ton"
+    }
   }
 }
