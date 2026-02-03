@@ -97,8 +97,8 @@
         "Verify in browser using dev-browser skill: resize to mobile width (375px), confirm vertical layout"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added min-h-11 to button for touch targets, aspect-video for mobile image scaling"
     },
     {
       "id": "US-007",

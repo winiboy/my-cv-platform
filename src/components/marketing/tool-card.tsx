@@ -60,7 +60,7 @@ export function ToolCard({
           <p className="text-sm leading-relaxed text-slate-600">{description}</p>
         </div>
         <Button
-          className="mt-2 w-fit bg-teal-600 hover:bg-teal-700 text-white"
+          className="mt-2 w-fit min-h-11 bg-teal-600 hover:bg-teal-700 text-white"
           size="sm"
         >
           {ctaText}
@@ -68,7 +68,7 @@ export function ToolCard({
       </div>
 
       {/* Right Panel - Preview Image (~60% width on desktop) */}
-      <div className="relative h-48 md:h-auto md:w-3/5 bg-slate-100">
+      <div className="relative aspect-video md:aspect-auto md:h-auto md:w-3/5 bg-slate-100">
         <Image
           src={imagePath}
           alt={`${title} preview`}
