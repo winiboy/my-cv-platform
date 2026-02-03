@@ -62,8 +62,8 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added ResumeReviewerPreviewProps, DEFAULT_TRANSLATIONS, createSampleData function"
     },
     {
       "id": "US-021",

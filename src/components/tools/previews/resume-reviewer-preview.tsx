@@ -4,6 +4,29 @@ import { ChevronDown, ChevronRight, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
+ * Props interface for ResumeReviewerPreview component.
+ * Allows customization of displayed text for i18n support.
+ */
+export interface ResumeReviewerPreviewProps {
+  translations?: {
+    scoreLabel: string
+    needsImprovement: string
+    categoriesLabel: string
+    impact: string
+  }
+}
+
+/**
+ * Default translations in French for the Resume Reviewer preview.
+ */
+const DEFAULT_TRANSLATIONS = {
+  scoreLabel: 'Score du CV',
+  needsImprovement: 'À améliorer',
+  categoriesLabel: 'Catégories',
+  impact: 'Impact',
+}
+
+/**
  * Category data for the resume evaluation.
  * Each category has a name, score percentage, and color indicator.
  */
@@ -19,17 +42,20 @@ interface EvaluationCategory {
 }
 
 /**
- * Hardcoded sample data matching the screenshot reference.
+ * Creates sample data matching the screenshot reference.
  * Score: 58/100 (orange - needs improvement), Impact category at 40%.
+ * Uses translations for localized text.
  */
-const SAMPLE_DATA = {
-  overallScore: 58,
-  maxScore: 100,
-  status: 'À améliorer',
-  analyzedDate: '9/16/2024, 4:30:00 PM',
-  categories: [
-    { name: 'Impact', score: 40, color: 'orange', icon: Zap },
-  ] satisfies EvaluationCategory[],
+function createSampleData(translations: typeof DEFAULT_TRANSLATIONS) {
+  return {
+    overallScore: 58,
+    maxScore: 100,
+    status: translations.needsImprovement,
+    analyzedDate: '9/16/2024, 4:30:00 PM',
+    categories: [
+      { name: translations.impact, score: 40, color: 'orange', icon: Zap },
+    ] satisfies EvaluationCategory[],
+  }
 }
 
 /**
@@ -203,8 +229,10 @@ function CategoryRow({ category }: { category: EvaluationCategory }) {
  * This is a static display component using hardcoded sample data
  * matching the design in Screenshot/3-evaluateur-de-cv.png.
  */
-export default function ResumeReviewerPreview() {
-  const { overallScore, maxScore, status, analyzedDate, categories } = SAMPLE_DATA
+export default function ResumeReviewerPreview({ translations }: ResumeReviewerPreviewProps) {
+  const mergedTranslations = { ...DEFAULT_TRANSLATIONS, ...translations }
+  const sampleData = createSampleData(mergedTranslations)
+  const { overallScore, maxScore, status, analyzedDate, categories } = sampleData
   const statusColors = getScoreColor(overallScore)
 
   return (
@@ -213,7 +241,7 @@ export default function ResumeReviewerPreview() {
       <CircularGauge score={overallScore} maxScore={maxScore} />
 
       {/* Score label */}
-      <p className="text-sm font-medium text-slate-700">Score du CV</p>
+      <p className="text-sm font-medium text-slate-700">{mergedTranslations.scoreLabel}</p>
 
       {/* Status link */}
       <a
@@ -240,7 +268,7 @@ export default function ResumeReviewerPreview() {
           className="flex items-center gap-2 text-sm font-medium text-slate-600 mb-3 hover:text-slate-800 transition-colors"
         >
           <ChevronDown className="w-4 h-4" aria-hidden="true" />
-          Catégories
+          {mergedTranslations.categoriesLabel}
         </button>
 
         {/* Category list */}
