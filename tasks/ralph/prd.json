@@ -1,109 +1,124 @@
 {
   "project": "my-cv-platform",
-  "branchName": "ralph/header-visibility",
-  "description": "Header Visibility on Dashboard Pages - Make the marketing site header visible on all dashboard pages while preserving the existing sidebar navigation for consistent branding and navigation experience.",
+  "branchName": "ralph/redesign-tools-page-cards",
+  "description": "Redesign Tools Page Cards - Convert 3-column grid to single-column layout with two-panel cards showing tool info on left and preview images on right.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Import marketing header into dashboard layout",
-      "description": "As a developer, I need to integrate the marketing header component into the dashboard layout so it appears above the existing sidebar/content structure.",
+      "title": "Add preview images to public directory",
+      "description": "As a developer, I need preview images for each tool card so they can be displayed in the new layout.",
       "acceptanceCriteria": [
-        "Marketing header component is imported in dashboard layout (src/app/[locale]/(dashboard)/layout.tsx)",
-        "Header renders above the existing flex container (sidebar + content)",
-        "Header maintains sticky positioning (sticky top-0 z-50)",
-        "Typecheck passes",
-        "Lint passes"
+        "Create directory public/images/tools/",
+        "Copy and rename Screenshot images to public/images/tools/ with web-friendly names: resume-checker-preview.png, grammar-checker-preview.png, resume-reviewer-preview.png, job-match-preview.png, cover-letter-generator-preview.png, cover-letter-checker-preview.png",
+        "Verify all 6 images exist in the target directory",
+        "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Added Header import and rendered above sidebar/content container with sticky wrapper."
+      "notes": "Added 6 preview images to public/images/tools/"
     },
     {
       "id": "US-002",
-      "title": "Adjust dashboard layout for header height",
-      "description": "As a user, I want the dashboard content to be properly positioned below the header so nothing is hidden or overlapping.",
+      "title": "Define tool card data structure with ordering",
+      "description": "As a developer, I need a constant array defining tool cards in the correct display order with image paths.",
       "acceptanceCriteria": [
-        "Dashboard flex container accounts for header height using calc(100vh - 64px) or equivalent",
-        "Sidebar starts below the header (not behind it)",
-        "Main content area is fully visible without overlap",
-        "Scrolling behavior works correctly (header stays fixed, content scrolls)",
-        "Typecheck passes",
-        "Lint passes",
-        "Verify in browser using dev-browser skill: navigate to /fr/dashboard and confirm no content is hidden behind header"
+        "Create or update tools data array in src/app/[locale]/(marketing)/tools/page.tsx or separate data file",
+        "Each tool entry includes: id, titleKey, descriptionKey, icon, href, imagePath",
+        "Tools ordered: 1) Resume Checker, 2) Grammar Checker, 3) Resume Reviewer, 4) Job Match, 5) Cover Letter Generator, 6) Cover Letter Checker",
+        "Image paths point to /images/tools/[name]-preview.png",
+        "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Applied h-[calc(100vh-64px)] to content container. Sidebar and main content use h-full."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Add active state to Dashboard link in header",
-      "description": "As a user, I want to see the Dashboard navigation link highlighted when I'm on any dashboard page so I know where I am in the site.",
+      "title": "Convert grid layout to single column",
+      "description": "As a user, I want to see tools displayed in a single column so I can scan through them more easily.",
       "acceptanceCriteria": [
-        "Dashboard link in header shows active state styling when pathname starts with /[locale]/dashboard",
-        "Active state uses visual differentiation (text-teal-600 or similar)",
-        "Other navigation links (Tools, Pricing) show default inactive state when on dashboard",
-        "Active state logic uses usePathname() to detect current route",
+        "Tools page displays cards in single vertical column",
+        "Remove existing 3-column grid CSS/classes (grid-cols-3 or similar)",
+        "Container has max-width and is centered (max-w-4xl mx-auto or similar)",
+        "Cards have vertical spacing between them (space-y-6 or gap-6)",
         "Typecheck passes",
-        "Lint passes",
-        "Verify in browser using dev-browser skill: navigate between dashboard and marketing pages, confirm correct highlight state"
+        "Verify in browser using dev-browser skill: navigate to /en/tools and confirm single column layout"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Added usePathname hook and isDashboardActive detection. Applied text-teal-600 styling for desktop and mobile nav."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Remove duplicate dashboard header",
-      "description": "As a developer, I need to remove or hide the existing minimal dashboard header's user menu since the marketing header now provides auth controls.",
+      "title": "Create two-panel card layout",
+      "description": "As a user, I want each card to show tool info on the left and a preview image on the right.",
       "acceptanceCriteria": [
-        "Existing DashboardHeader component is removed from dashboard layout",
-        "No duplicate user account dropdowns on the page",
-        "Single source of auth controls (marketing header's account dropdown)",
-        "Logout functionality works from the marketing header on dashboard pages",
+        "Each card has horizontal flex layout on desktop (md:flex-row)",
+        "Left panel (~40% width) contains: icon in colored badge, title, description",
+        "Right panel (~60% width) contains: preview image using Next.js Image component",
+        "Image has appropriate alt text for accessibility",
+        "Panels stack vertically on mobile (flex-col by default, md:flex-row)",
         "Typecheck passes",
-        "Lint passes",
-        "Verify in browser using dev-browser skill: confirm only one user menu exists, test logout"
+        "Verify in browser using dev-browser skill: confirm two-panel layout on desktop"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Removed DashboardHeader import and usage from layout. Removed unused profile query."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Ensure sidebar and header coexist without conflict",
-      "description": "As a user, I want both the header and sidebar to be usable without visual or functional conflicts.",
+      "title": "Add CTA button and card click navigation",
+      "description": "As a user, I want a clear button to access each tool while also being able to click anywhere on the card.",
       "acceptanceCriteria": [
-        "Sidebar remains at full height below the header",
-        "Sidebar navigation items are all accessible and clickable",
-        "No z-index conflicts between header and sidebar",
-        "Print styles still hide both header and sidebar (print:hidden)",
+        "Each card has a visible CTA button with text from i18n (e.g., 'Try Now' or 'Use Tool')",
+        "Button positioned in left panel, below description",
+        "Button uses existing Button component with primary/teal styling",
+        "Entire card is wrapped in Link or has onClick navigating to tool page",
+        "Button click navigates without double navigation (stopPropagation or link structure)",
+        "Add translation key for button text in locale files (en, fr, de, it)",
         "Typecheck passes",
-        "Lint passes",
-        "Verify in browser using dev-browser skill: test clicking sidebar links while header is visible"
+        "Verify in browser using dev-browser skill: click card and button, both navigate correctly"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Verified: sidebar has h-full, header has z-50, both have print:hidden. No conflicts."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Mobile header behavior on dashboard",
-      "description": "As a mobile user, I want the hamburger menu to work on dashboard pages so I can access navigation on small screens.",
+      "title": "Implement mobile responsive layout",
+      "description": "As a mobile user, I want the cards to display properly on small screens.",
       "acceptanceCriteria": [
-        "Hamburger menu icon appears on mobile viewport (< 768px)",
-        "Tapping hamburger opens mobile navigation menu",
-        "Mobile menu includes all navigation links (Dashboard, Tools, Pricing)",
-        "Mobile menu includes language switcher",
-        "Mobile menu includes auth controls (account dropdown)",
-        "Menu closes when a link is tapped",
+        "On screens < 768px (md breakpoint), card layout is vertical",
+        "Left content (icon, title, description, button) displays on top",
+        "Preview image displays below the content",
+        "Preview image scales appropriately (w-full, aspect ratio preserved)",
+        "Touch targets are appropriately sized (button min-h-11 or p-3)",
         "Typecheck passes",
-        "Lint passes",
-        "Verify in browser using dev-browser skill: resize to mobile width, test hamburger menu functionality"
+        "Verify in browser using dev-browser skill: resize to mobile width (375px), confirm vertical layout"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Verified: Mobile menu fully functional with hamburger toggle, nav links, language switcher, and auth controls."
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Style cards to match design mockups",
+      "description": "As a user, I want the cards to look polished and match the provided design screenshots.",
+      "acceptanceCriteria": [
+        "Card has subtle shadow (shadow-sm or shadow) and rounded corners (rounded-lg)",
+        "Card has border (border border-gray-200)",
+        "Card has hover state: subtle shadow increase or border color change",
+        "Left panel icon uses colored background badge (bg-teal-50 rounded-lg p-3)",
+        "Typography: title text-xl font-semibold, description text-gray-600",
+        "Consistent spacing using Tailwind scale (p-6, gap-4, etc.)",
+        "Preview image has rounded corners (rounded-lg)",
+        "Typecheck passes",
+        "Lint passes",
+        "Verify in browser using dev-browser skill: compare against Screenshot/*.png mockups"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
     }
   ]
 }

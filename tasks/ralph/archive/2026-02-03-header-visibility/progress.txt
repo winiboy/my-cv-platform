@@ -1,0 +1,75 @@
+# Ralph Progress Log
+# Feature: header-visibility
+# Started: 2026-02-03
+# Target Version: TBD
+
+---
+
+## Status: COMPLETE (6/6 stories PASS)
+
+---
+
+## Run 1 - 2026-02-03
+
+### US-001: Import marketing header into dashboard layout
+- Status: PASS
+- File: src/app/[locale]/(dashboard)/layout.tsx
+- Changes:
+  - Added import for Header from @/components/marketing/header
+  - Wrapped layout in flex column container
+  - Rendered Header above sidebar/content with sticky wrapper
+
+### US-002: Adjust dashboard layout for header height
+- Status: PASS
+- File: src/app/[locale]/(dashboard)/layout.tsx
+- Changes:
+  - Applied h-[calc(100vh-64px)] to content container below header
+  - Added h-full to sidebar and main content wrappers
+  - Ensured proper scrolling behavior
+
+### US-003: Add active state to Dashboard link in header
+- Status: PASS
+- File: src/components/marketing/header.tsx
+- Changes:
+  - Added usePathname hook import
+  - Added isDashboardActive detection logic
+  - Applied text-teal-600 styling for active Dashboard link (desktop)
+  - Applied text-teal-600 bg-teal-50 styling for active Dashboard link (mobile)
+
+### US-004: Remove duplicate dashboard header
+- Status: PASS
+- File: src/app/[locale]/(dashboard)/layout.tsx
+- Changes:
+  - Removed DashboardHeader import
+  - Removed DashboardHeader component usage from JSX
+  - Removed unused profile database query
+
+### US-005: Ensure sidebar and header coexist without conflict
+- Status: PASS (verification only)
+- Finding: All criteria already satisfied from previous stories
+- Verified: h-full on sidebar, z-50 on header, print:hidden on both
+
+### US-006: Mobile header behavior on dashboard
+- Status: PASS (verification only)
+- Finding: Mobile menu fully functional
+- Verified: Hamburger toggle, nav links, language switcher, auth controls all present
+
+---
+
+## Files Modified
+
+1. src/app/[locale]/(dashboard)/layout.tsx
+2. src/components/marketing/header.tsx
+
+---
+
+## Verification
+
+- TypeScript: PASS (pnpm tsc --noEmit)
+- Lint: Pre-existing errors only (not introduced by this feature)
+- Build: 108/108 App Router pages generated (pre-existing error page issues unrelated)
+
+---
+
+## Ready for commit
+
