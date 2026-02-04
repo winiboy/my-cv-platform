@@ -75,8 +75,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Removed githubLogin/githubSignup from all 4 locale files. Updated .env.example (gitignored). Preserved resumes.editor.github contact field keys."
     }
   ]
 }

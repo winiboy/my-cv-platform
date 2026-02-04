@@ -54,7 +54,6 @@
       "submitting": "Creating account...",
       "divider": "Or continue with",
       "googleSignup": "Continue with Google",
-      "githubSignup": "Continue with GitHub",
       "hasAccount": "Already have an account?",
       "loginLink": "Sign in",
       "terms": "By creating an account, you agree to our",
@@ -72,7 +71,6 @@
       "submitting": "Signing in...",
       "divider": "Or continue with",
       "googleLogin": "Continue with Google",
-      "githubLogin": "Continue with GitHub",
       "noAccount": "Don't have an account?",
       "signupLink": "Create account"
     },

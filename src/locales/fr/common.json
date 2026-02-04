@@ -54,7 +54,6 @@
       "submitting": "Création en cours...",
       "divider": "Ou continuer avec",
       "googleSignup": "Continuer avec Google",
-      "githubSignup": "Continuer avec GitHub",
       "hasAccount": "Vous avez déjà un compte ?",
       "loginLink": "Se connecter",
       "terms": "En créant un compte, vous acceptez nos",
@@ -72,7 +71,6 @@
       "submitting": "Connexion...",
       "divider": "Ou continuer avec",
       "googleLogin": "Continuer avec Google",
-      "githubLogin": "Continuer avec GitHub",
       "noAccount": "Vous n'avez pas de compte ?",
       "signupLink": "Créer un compte"
     },

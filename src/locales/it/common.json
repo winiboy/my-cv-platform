@@ -54,7 +54,6 @@
       "submitting": "Creazione in corso...",
       "divider": "Oppure continua con",
       "googleSignup": "Continua con Google",
-      "githubSignup": "Continua con GitHub",
       "hasAccount": "Hai già un account?",
       "loginLink": "Accedi",
       "terms": "Creando un account, accetti i nostri",
@@ -72,7 +71,6 @@
       "submitting": "Accesso in corso...",
       "divider": "Oppure continua con",
       "googleLogin": "Continua con Google",
-      "githubLogin": "Continua con GitHub",
       "noAccount": "Non hai un account?",
       "signupLink": "Crea account"
     },

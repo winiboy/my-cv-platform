@@ -54,7 +54,6 @@
       "submitting": "Wird erstellt...",
       "divider": "Oder fortfahren mit",
       "googleSignup": "Mit Google fortfahren",
-      "githubSignup": "Mit GitHub fortfahren",
       "hasAccount": "Sie haben bereits ein Konto?",
       "loginLink": "Anmelden",
       "terms": "Durch das Erstellen eines Kontos akzeptieren Sie unsere",
@@ -72,7 +71,6 @@
       "submitting": "Anmelden...",
       "divider": "Oder fortfahren mit",
       "googleLogin": "Mit Google fortfahren",
-      "githubLogin": "Mit GitHub fortfahren",
       "noAccount": "Sie haben noch kein Konto?",
       "signupLink": "Konto erstellen"
     },
