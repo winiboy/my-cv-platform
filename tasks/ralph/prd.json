@@ -1,131 +1,82 @@
 {
   "project": "my-cv-platform",
-  "branchName": "ralph/redesign-tools-page-cards",
-  "description": "Fix i18n translations for all tool preview components - add translation keys and update components to use them.",
+  "branchName": "ralph/google-oauth-fix",
+  "description": "Fix broken Google OAuth login (ERR_ADDRESS_INVALID with 0.0.0.0 redirect) and remove GitHub OAuth completely.",
   "userStories": [
     {
-      "id": "US-017",
-      "title": "Add preview translation keys to all locale files",
-      "description": "As a developer, I need translation keys for all preview component text in all 4 locales.",
+      "id": "US-001",
+      "title": "Fix NextAuth Google OAuth redirect configuration",
+      "description": "As a user, I want Google login to redirect me to the dashboard without errors.",
       "acceptanceCriteria": [
-        "Add 'previews' section to src/locales/en/tools.json with all preview text keys",
-        "Add 'previews' section to src/locales/fr/tools.json with French translations",
-        "Add 'previews' section to src/locales/de/tools.json with German translations",
-        "Add 'previews' section to src/locales/it/tools.json with Italian translations",
-        "Keys include: analyzedLabel, scoreLabels, categoryNames, buttonLabels, sectionHeaders",
+        "Identify source of 0.0.0.0 redirect in NextAuth config or callbacks",
+        "Ensure NEXTAUTH_URL uses localhost:3000 (not 0.0.0.0)",
+        "Update NextAuth callbacks to use correct base URL for redirects",
+        "Redirect to /[locale]/dashboard after successful Google login",
+        "Preserve user's locale during OAuth flow",
         "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Added previews section to all 4 locale files (en, fr, de, it)"
+      "notes": "Created src/lib/url.ts with getBaseUrl(). Fixed login-form.tsx, signup-form.tsx, callback/route.ts, middleware.ts to use unified env var strategy (NEXT_PUBLIC_APP_URL > NEXTAUTH_URL > origin fallback)."
     },
     {
-      "id": "US-018",
-      "title": "Update ResumeCheckerPreview with translations",
-      "description": "As a user viewing in any locale, I want the Resume Checker preview to display in my language.",
+      "id": "US-002",
+      "title": "Remove GitHub OAuth provider from NextAuth config",
+      "description": "As a developer, I need to remove GitHub as an authentication provider from the backend.",
       "acceptanceCriteria": [
-        "Component accepts translations prop with preview text",
-        "Replace hardcoded 'Analyse le :' with translation",
-        "Replace hardcoded section names (Informations de contact, Resume/Objectif, Experience professionnelle) with translations",
+        "Remove GitHub provider from NextAuth providers array",
+        "Remove GITHUB_ID and GITHUB_SECRET references from auth config",
+        "Remove any GitHub-specific callback handlers if present",
+        "Verify only Google provider remains (plus CredentialsProvider if used)",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Added ResumeCheckerPreviewProps interface, DEFAULT_TRANSLATIONS, createSampleData function"
+      "passes": false,
+      "notes": ""
     },
     {
-      "id": "US-019",
-      "title": "Update GrammarCheckerPreview with translations",
-      "description": "As a user viewing in any locale, I want the Grammar Checker preview to display in my language.",
+      "id": "US-003",
+      "title": "Remove GitHub login button from login page",
+      "description": "As a user, I should only see Google and email/password login options.",
       "acceptanceCriteria": [
-        "Component accepts translations prop with preview text",
-        "Replace hardcoded 'Score grammatical' with translation",
-        "Replace hardcoded category tabs (Tous, Orthographe, Grammaire, Ponctuation, Temps) with translations",
-        "Replace hardcoded 'problemes trouves' badge with translation",
-        "Replace hardcoded 'Original :' label with translation",
-        "Typecheck passes"
+        "Remove GitHub login button from /[locale]/login page",
+        "Remove any GitHub-related imports (icons, handlers)",
+        "Verify only Google OAuth button and email/password form remain",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Added GrammarCheckerPreviewProps, DEFAULT_TRANSLATIONS, buildSampleData function"
+      "passes": false,
+      "notes": ""
     },
     {
-      "id": "US-020",
-      "title": "Update ResumeReviewerPreview with translations",
-      "description": "As a user viewing in any locale, I want the Resume Reviewer preview to display in my language.",
+      "id": "US-004",
+      "title": "Remove GitHub login button from signup page",
+      "description": "As a user on the signup page, I should only see Google and email/password options.",
       "acceptanceCriteria": [
-        "Component accepts translations prop with preview text",
-        "Replace hardcoded 'Score du CV' with translation",
-        "Replace hardcoded 'À améliorer' status with translation",
-        "Replace hardcoded 'Catégories' with translation",
-        "Replace hardcoded 'Impact' category name with translation",
-        "Typecheck passes"
+        "Remove GitHub login button from /[locale]/signup page (if present)",
+        "Remove any GitHub-related imports",
+        "Verify consistent auth UI between login and signup pages",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Added ResumeReviewerPreviewProps, DEFAULT_TRANSLATIONS, createSampleData function"
+      "passes": false,
+      "notes": ""
     },
     {
-      "id": "US-021",
-      "title": "Update JobMatchPreview with translations",
-      "description": "As a user viewing in any locale, I want the Job Match preview to display in my language.",
+      "id": "US-005",
+      "title": "Update .env.example to remove GitHub variables",
+      "description": "As a developer, I need documentation updated to reflect GitHub removal.",
       "acceptanceCriteria": [
-        "Component accepts translations prop with preview text",
-        "Replace hardcoded 'Score de correspondance' with translation",
-        "Replace hardcoded 'Analyse le' with translation",
-        "Replace hardcoded 'Compétences correspondantes' with translation",
+        "Remove GITHUB_ID from .env.example",
+        "Remove GITHUB_SECRET from .env.example",
+        "Add comment noting GitHub OAuth was removed",
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Added JobMatchPreviewProps, DEFAULT_TRANSLATIONS, merged translations pattern"
-    },
-    {
-      "id": "US-022",
-      "title": "Update CoverLetterGeneratorPreview with translations",
-      "description": "As a user viewing in any locale, I want the Cover Letter Generator preview to display in my language.",
-      "acceptanceCriteria": [
-        "Component accepts translations prop with preview text",
-        "Replace hardcoded 'AI-Generated Content' with translation",
-        "Replace hardcoded 'Your personalized cover letter' with translation",
-        "Replace hardcoded button labels (Copy, PDF, DOCX, Ameliorer) with translations",
-        "Replace hardcoded formatting labels (Bold, Italic, Underline) with translations",
-        "Typecheck passes"
-      ],
-      "priority": 6,
-      "passes": true,
-      "notes": "Added CoverLetterGeneratorPreviewProps, DEFAULT_TRANSLATIONS, createActionButtons helper"
-    },
-    {
-      "id": "US-023",
-      "title": "Update CoverLetterCheckerPreview with translations",
-      "description": "As a user viewing in any locale, I want the Cover Letter Checker preview to display in my language.",
-      "acceptanceCriteria": [
-        "Component accepts translations prop with preview text",
-        "Replace hardcoded 'Score global' with translation",
-        "Replace hardcoded 'Category Breakdown' (English) with translation",
-        "Replace hardcoded category names (Structure, Ton) with translations",
-        "Replace hardcoded category descriptions with translations",
-        "Typecheck passes"
-      ],
-      "priority": 7,
-      "passes": true,
-      "notes": "Added CoverLetterCheckerPreviewProps, DEFAULT_TRANSLATIONS, getSampleData function. Fixed English 'Category Breakdown' to French."
-    },
-    {
-      "id": "US-024",
-      "title": "Pass translations from tools page to preview components",
-      "description": "As a developer, I need to wire up the translations from the tools page to each preview component.",
-      "acceptanceCriteria": [
-        "Tools page loads preview translations from locale file",
-        "Each ToolCard receives appropriate preview translations",
-        "Preview components render with correct locale text",
-        "Test with /en/tools, /fr/tools, /de/tools, /it/tools - all show correct language",
-        "Typecheck passes"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": "Added PreviewsTranslations interface, getPreviewTranslations helper, wired translations to all 6 preview components"
+      "passes": false,
+      "notes": ""
     }
   ]
 }

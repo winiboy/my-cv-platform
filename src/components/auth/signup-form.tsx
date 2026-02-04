@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { getBaseUrl } from '@/lib/url'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import type { Locale } from '@/lib/i18n'
 
@@ -102,7 +103,7 @@ export function SignupForm({ locale }: SignupFormProps) {
       const supabase = createClient()
 
       // Build callback URL with locale-aware redirect
-      const callbackUrl = new URL('/api/auth/callback', window.location.origin)
+      const callbackUrl = new URL('/api/auth/callback', getBaseUrl())
       callbackUrl.searchParams.set('next', `/${locale}/dashboard`)
 
       const { error } = await supabase.auth.signInWithOAuth({

@@ -5,6 +5,9 @@ import { updateSession } from './lib/supabase/middleware'
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // Prefer env-configured base URL to avoid 0.0.0.0 issues when dev server binds to all interfaces
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || request.nextUrl.origin).replace(/\/+$/, '')
+
   // Skip API routes, static files, Next.js internals, Sentry
   if (
     pathname.startsWith('/api') ||
@@ -37,7 +40,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Redirect to /{locale}{pathname}
-    const newUrl = new URL(`/${detectedLocale}${pathname}${request.nextUrl.search}`, request.url)
+    const newUrl = new URL(`/${detectedLocale}${pathname}${request.nextUrl.search}`, baseUrl)
 
     const response = NextResponse.redirect(newUrl)
 
@@ -66,7 +69,7 @@ export async function middleware(request: NextRequest) {
     // Check if user is authenticated
     if (!user) {
       // Not authenticated - redirect to login
-      const loginUrl = new URL(`/${locale}/login`, request.url)
+      const loginUrl = new URL(`/${locale}/login`, baseUrl)
       loginUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(loginUrl)
     }

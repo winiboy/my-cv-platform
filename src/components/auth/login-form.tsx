@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { getBaseUrl } from '@/lib/url'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import type { Locale } from '@/lib/i18n'
 
@@ -116,7 +117,7 @@ export function LoginForm({ locale }: LoginFormProps) {
       const requestedCallback = searchParams.get('callbackUrl')
       const nextUrl = getSafeRedirectUrl(requestedCallback, defaultRedirect)
 
-      const authCallbackUrl = new URL('/api/auth/callback', window.location.origin)
+      const authCallbackUrl = new URL('/api/auth/callback', getBaseUrl())
       authCallbackUrl.searchParams.set('next', nextUrl)
 
       const { error } = await supabase.auth.signInWithOAuth({

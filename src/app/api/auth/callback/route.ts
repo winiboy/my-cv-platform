@@ -25,11 +25,14 @@ export async function GET(request: NextRequest) {
   const error = requestUrl.searchParams.get('error')
   const errorDescription = requestUrl.searchParams.get('error_description')
 
+  // Prefer env-configured base URL to avoid 0.0.0.0 issues when dev server binds to all interfaces
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || requestUrl.origin).replace(/\/+$/, '')
+
   // Handle OAuth errors from provider
   if (error) {
     console.error('OAuth error:', error, errorDescription)
     // Redirect to login with error message
-    const loginUrl = new URL('/fr/login', requestUrl.origin)
+    const loginUrl = new URL('/fr/login', baseUrl)
     loginUrl.searchParams.set('error', errorDescription || error)
     return NextResponse.redirect(loginUrl)
   }
@@ -61,7 +64,7 @@ export async function GET(request: NextRequest) {
     if (exchangeError) {
       console.error('Code exchange error:', exchangeError.message)
       // Redirect to login with error
-      const loginUrl = new URL('/fr/login', requestUrl.origin)
+      const loginUrl = new URL('/fr/login', baseUrl)
       loginUrl.searchParams.set('error', exchangeError.message)
       return NextResponse.redirect(loginUrl)
     }
@@ -75,15 +78,15 @@ export async function GET(request: NextRequest) {
     let redirectUrl: URL
     if (nextPath.match(/^\/(fr|en|de|it)\//)) {
       // Already has locale
-      redirectUrl = new URL(nextPath, requestUrl.origin)
+      redirectUrl = new URL(nextPath, baseUrl)
     } else {
       // Add locale prefix
-      redirectUrl = new URL(`/${locale}${nextPath}`, requestUrl.origin)
+      redirectUrl = new URL(`/${locale}${nextPath}`, baseUrl)
     }
 
     return NextResponse.redirect(redirectUrl)
   }
 
   // No code provided - redirect to home
-  return NextResponse.redirect(new URL('/fr', requestUrl.origin))
+  return NextResponse.redirect(new URL('/fr', baseUrl))
 }
