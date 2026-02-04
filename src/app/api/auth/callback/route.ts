@@ -5,7 +5,7 @@
  * Exchanges the authorization code for a session and sets cookies.
  *
  * Flow:
- * 1. User clicks "Continue with Google/GitHub"
+ * 1. User clicks "Continue with Google"
  * 2. Redirected to OAuth provider
  * 3. Provider redirects back to Supabase
  * 4. Supabase redirects here with authorization code

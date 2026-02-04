@@ -1,13 +1,7 @@
 import { NextAuthOptions } from "next-auth";
-import GithubProvider from "next-auth/providers/github";
 
 export const authOptions: NextAuthOptions = {
-  providers: [
-    GithubProvider({
-      clientId: process.env.GITHUB_ID || "",
-      clientSecret: process.env.GITHUB_SECRET || "",
-    }),
-  ],
+  providers: [],
   pages: {
     signIn: "/login",
   },
@@ -20,5 +14,3 @@ export const authOptions: NextAuthOptions = {
     },
   },
 };
-console.log("GITHUB_ID =", process.env.GITHUB_ID);
-console.log("GITHUB_SECRET exists =", !!process.env.GITHUB_SECRET);
