@@ -61,8 +61,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Removed GitHub button and narrowed handleOAuthSignup type to 'google' only in signup-form.tsx."
     },
     {
       "id": "US-005",
