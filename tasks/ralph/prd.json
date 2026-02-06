@@ -33,8 +33,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Added 7th swatch (lines 1193-1234) using sidebarColor variable. Dashed border, white checkmark SVG, always-on selection ring for visual distinction. Click handler re-applies current values."
     },
     {
       "id": "US-003",

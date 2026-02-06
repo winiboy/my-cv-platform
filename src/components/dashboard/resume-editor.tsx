@@ -1190,6 +1190,48 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                         }}
                       />
                     ))}
+                    {/* 7th swatch: Dynamic current color indicator */}
+                    <div
+                      title="Current color"
+                      onClick={() => {
+                        setSidebarHue(sidebarHue)
+                        setSidebarBrightness(sidebarBrightness)
+                      }}
+                      style={{
+                        width: '26px',
+                        height: '26px',
+                        border: '2px dashed #94a3b8',
+                        borderRadius: '50%',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        backgroundColor: sidebarColor,
+                        boxShadow: '0 0 0 2px #3b82f6',
+                        flexShrink: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.15)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)'
+                      }}
+                    >
+                      {/* White checkmark icon */}
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </div>
                   </div>
                 </div>
                 {/* Right column: Main content sliders (70%) - independent stacking */}
