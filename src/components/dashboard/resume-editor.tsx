@@ -176,6 +176,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const [sectionGap, setSectionGap] = useState(12)
   const [headerGap, setHeaderGap] = useState(12)
   const [sidebarHue, setSidebarHue] = useState(240)
+  const [sidebarSaturation, setSidebarSaturation] = useState(85)
   const [sidebarBrightness, setSidebarBrightness] = useState(35)
   const [fontScale, setFontScale] = useState(1)
   const [sidebarOrder, setSidebarOrder] = useState<SidebarSectionId[]>(DEFAULT_SIDEBAR_ORDER)
@@ -191,8 +192,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const [hiddenMainSections, setHiddenMainSections] = useState<MainContentSectionId[]>([])
   const [isEyeDropperSupported, setIsEyeDropperSupported] = useState(false)
 
-  // Compute sidebarColor from hue and brightness
-  const sidebarColor = `hsl(${sidebarHue}, 85%, ${sidebarBrightness}%)`
+  // Compute sidebarColor from hue, saturation, and brightness
+  const sidebarColor = `hsl(${sidebarHue}, ${sidebarSaturation}%, ${sidebarBrightness}%)`
 
   // Keep resumeRef in sync with resume state
   useEffect(() => {
@@ -207,9 +208,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   /**
    * Converts a hex color string to HSL values.
    * @param hex - Color in hex format (e.g., "#ff0000" or "ff0000")
-   * @returns Object with hue (0-360) and lightness (clamped to 20-50 for slider range)
+   * @returns Object with hue (0-360), saturation (0-100), and lightness (clamped to 20-50 for slider range)
    */
-  const hexToHsl = useCallback((hex: string): { hue: number; lightness: number } => {
+  const hexToHsl = useCallback((hex: string): { hue: number; saturation: number; lightness: number } => {
     // Remove # if present
     const cleanHex = hex.replace('#', '')
 
@@ -223,9 +224,11 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     const l = (max + min) / 2
 
     let h = 0
+    let s = 0
 
     if (max !== min) {
       const d = max - min
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
       switch (max) {
         case r:
           h = ((g - b) / d + (g < b ? 6 : 0)) / 6
@@ -241,10 +244,11 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
 
     // Convert to degrees and percentage
     const hue = Math.round(h * 360)
+    const saturation = Math.round(s * 100)
     // Clamp lightness to slider range (20-50)
     const lightness = Math.round(Math.min(50, Math.max(20, l * 100)))
 
-    return { hue, lightness }
+    return { hue, saturation, lightness }
   }, [])
 
   /**
@@ -257,8 +261,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     try {
       const eyeDropper = new window.EyeDropper()
       const result = await eyeDropper.open()
-      const { hue, lightness } = hexToHsl(result.sRGBHex)
+      const { hue, saturation, lightness } = hexToHsl(result.sRGBHex)
       setSidebarHue(hue)
+      setSidebarSaturation(saturation)
       setSidebarBrightness(lightness)
     } catch (error) {
       // User cancelled the eyedropper or an error occurred - silently ignore
@@ -739,6 +744,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
         if (settings.sectionGap !== undefined) setSectionGap(settings.sectionGap)
         if (settings.headerGap !== undefined) setHeaderGap(settings.headerGap)
         if (settings.sidebarHue !== undefined) setSidebarHue(settings.sidebarHue)
+        if (settings.sidebarSaturation !== undefined) setSidebarSaturation(settings.sidebarSaturation)
         if (settings.sidebarBrightness !== undefined) setSidebarBrightness(settings.sidebarBrightness)
         if (settings.fontScale !== undefined) setFontScale(settings.fontScale)
         if (settings.sidebarOrder !== undefined) {
@@ -791,6 +797,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       }
     }
     settings.sidebarHue = sidebarHue
+    settings.sidebarSaturation = sidebarSaturation
     settings.sidebarBrightness = sidebarBrightness
     settings.fontScale = fontScale
     settings.sidebarOrder = sidebarOrder
@@ -802,7 +809,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     settings.hiddenSidebarSections = hiddenSidebarSections
     settings.hiddenMainSections = hiddenMainSections
     localStorage.setItem(`resume_slider_settings_${resume.id}`, JSON.stringify(settings))
-  }, [isSliderSettingsLoaded, sidebarHue, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, hiddenSidebarSections, hiddenMainSections, resume.id])
+  }, [isSliderSettingsLoaded, sidebarHue, sidebarSaturation, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, hiddenSidebarSections, hiddenMainSections, resume.id])
 
   // Warn user before leaving with unsaved changes
   useEffect(() => {
@@ -1236,18 +1243,19 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                     width: '100%'
                   }}>
                     {[
-                      { hex: '#2C3E50', hue: 210, lightness: 24 },
-                      { hex: '#243A5E', hue: 217, lightness: 25 },
-                      { hex: '#333333', hue: 0, lightness: 20 },
-                      { hex: '#5C6F91', hue: 218, lightness: 46 },
-                      { hex: '#2A7F7F', hue: 180, lightness: 33 },
-                      { hex: '#1F3A5F', hue: 215, lightness: 25 },
+                      { hex: '#2C3E50', hue: 210, saturation: 29, lightness: 24 },
+                      { hex: '#243A5E', hue: 217, saturation: 45, lightness: 25 },
+                      { hex: '#333333', hue: 0, saturation: 0, lightness: 20 },
+                      { hex: '#5C6F91', hue: 218, saturation: 22, lightness: 46 },
+                      { hex: '#2A7F7F', hue: 180, saturation: 50, lightness: 33 },
+                      { hex: '#1F3A5F', hue: 215, saturation: 51, lightness: 25 },
                     ].map((color, index) => (
                       <button
                         key={index}
                         type="button"
                         onClick={() => {
                           setSidebarHue(color.hue)
+                          setSidebarSaturation(color.saturation)
                           setSidebarBrightness(color.lightness)
                         }}
                         title={color.hex}
@@ -1256,7 +1264,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                           ...SWATCH_BASE_STYLE,
                           border: '2px solid #e2e8f0',
                           backgroundColor: color.hex,
-                          boxShadow: sidebarHue === color.hue && sidebarBrightness === color.lightness
+                          boxShadow: sidebarHue === color.hue && sidebarSaturation === color.saturation && sidebarBrightness === color.lightness
                             ? '0 0 0 2px #3b82f6'
                             : 'none',
                         }}
