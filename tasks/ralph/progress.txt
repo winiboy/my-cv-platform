@@ -5,7 +5,7 @@
 
 ---
 
-## Status: IN PROGRESS (3/5 stories PASS)
+## Status: IN PROGRESS (4/5 stories PASS)
 
 ---
 
@@ -28,13 +28,16 @@
 ### US-003: Align color swatches with existing slider width
 - Status: PASS
 - Priority: 3
+- Commit: 5a8bb2d
 - Changes: Container width:100%, space-between layout
 - Features: SWATCH_BASE_STYLE constant, CSS-only hover, button accessibility
-- Files: resume-editor.tsx, globals.css
 
 ### US-004: Add eyedropper tool for screen color picking
-- Status: PENDING
+- Status: PASS
 - Priority: 4
+- Changes: Created eyedropper.d.ts, added Pipette icon button
+- Features: EyeDropper API support detection, hexToHsl conversion, graceful fallback
+- Files: eyedropper.d.ts, resume-editor.tsx
 
 ### US-005: Ensure real-time color application without page reload
 - Status: PENDING

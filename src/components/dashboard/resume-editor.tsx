@@ -19,6 +19,7 @@ import {
   LayoutList,
   GripVertical,
   Mail,
+  Pipette,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n'
@@ -188,6 +189,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const [draggedMainSection, setDraggedMainSection] = useState<MainContentSectionId | null>(null)
   const [hiddenSidebarSections, setHiddenSidebarSections] = useState<SidebarSectionId[]>([])
   const [hiddenMainSections, setHiddenMainSections] = useState<MainContentSectionId[]>([])
+  const [isEyeDropperSupported, setIsEyeDropperSupported] = useState(false)
 
   // Compute sidebarColor from hue and brightness
   const sidebarColor = `hsl(${sidebarHue}, 85%, ${sidebarBrightness}%)`
@@ -196,6 +198,76 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   useEffect(() => {
     resumeRef.current = resume
   }, [resume])
+
+  // Detect EyeDropper API support on mount
+  useEffect(() => {
+    setIsEyeDropperSupported(typeof window !== 'undefined' && 'EyeDropper' in window)
+  }, [])
+
+  /**
+   * Converts a hex color string to HSL values.
+   * @param hex - Color in hex format (e.g., "#ff0000" or "ff0000")
+   * @returns Object with hue (0-360) and lightness (clamped to 20-50 for slider range)
+   */
+  const hexToHsl = useCallback((hex: string): { hue: number; lightness: number } => {
+    // Remove # if present
+    const cleanHex = hex.replace('#', '')
+
+    // Parse RGB values
+    const r = parseInt(cleanHex.substring(0, 2), 16) / 255
+    const g = parseInt(cleanHex.substring(2, 4), 16) / 255
+    const b = parseInt(cleanHex.substring(4, 6), 16) / 255
+
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    const l = (max + min) / 2
+
+    let h = 0
+
+    if (max !== min) {
+      const d = max - min
+      switch (max) {
+        case r:
+          h = ((g - b) / d + (g < b ? 6 : 0)) / 6
+          break
+        case g:
+          h = ((b - r) / d + 2) / 6
+          break
+        case b:
+          h = ((r - g) / d + 4) / 6
+          break
+      }
+    }
+
+    // Convert to degrees and percentage
+    const hue = Math.round(h * 360)
+    // Clamp lightness to slider range (20-50)
+    const lightness = Math.round(Math.min(50, Math.max(20, l * 100)))
+
+    return { hue, lightness }
+  }, [])
+
+  /**
+   * Opens the browser's native EyeDropper to pick a color from the screen.
+   * The picked color is converted to HSL and applied to the sidebar.
+   */
+  const handleEyedropperClick = useCallback(async () => {
+    if (!window.EyeDropper) return
+
+    try {
+      const eyeDropper = new window.EyeDropper()
+      const result = await eyeDropper.open()
+      const { hue, lightness } = hexToHsl(result.sRGBHex)
+      setSidebarHue(hue)
+      setSidebarBrightness(lightness)
+    } catch (error) {
+      // User cancelled the eyedropper or an error occurred - silently ignore
+      // AbortError is thrown when user presses Escape
+      if (error instanceof Error && error.name !== 'AbortError') {
+        console.error('EyeDropper error:', error)
+      }
+    }
+  }, [hexToHsl])
 
   // Resizable split pane state
   const [splitPosition, setSplitPosition] = useState(50) // Percentage
@@ -1226,6 +1298,25 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     </button>
+                    {/* Eyedropper button - only shown if EyeDropper API is supported */}
+                    {isEyeDropperSupported && (
+                      <button
+                        type="button"
+                        onClick={handleEyedropperClick}
+                        title="Pick color from screen"
+                        className="swatch-button"
+                        style={{
+                          ...SWATCH_BASE_STYLE,
+                          border: '2px solid #e2e8f0',
+                          backgroundColor: '#64748b',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Pipette className="h-4 w-4 text-white" />
+                      </button>
+                    )}
                   </div>
                 </div>
                 {/* Right column: Main content sliders (70%) - independent stacking */}
