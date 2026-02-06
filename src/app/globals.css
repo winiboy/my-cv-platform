@@ -338,6 +338,17 @@
   cursor: grabbing;
 }
 
+/* Color Swatch Buttons - Hover effect for color picker swatches */
+.swatch-button:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15) !important;
+}
+
+.swatch-button:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 /* Professional Template Font Inheritance - Ensure CV uses selected font */
 .professional-template,
 .professional-template * {

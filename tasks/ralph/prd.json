@@ -50,8 +50,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Container uses width:100% and space-between. Swatches use flex:1 with min/max constraints. SWATCH_BASE_STYLE constant for DRY. CSS-only hover via globals.css. 7th swatch is button for accessibility."
     },
     {
       "id": "US-004",

@@ -5,7 +5,7 @@
 
 ---
 
-## Status: IN PROGRESS (2/5 stories PASS)
+## Status: IN PROGRESS (3/5 stories PASS)
 
 ---
 
@@ -15,18 +15,22 @@
 - Status: PASS
 - Priority: 1
 - Commit: b3be0da
-- Changes: Added 6 circular color swatches (lines 1146-1193) below the color slider
+- Changes: Added 6 circular color swatches below the color slider
 - Colors: #2C3E50, #243A5E, #333333, #5C6F91, #2A7F7F, #1F3A5F
 
 ### US-002: Add 7th dynamic swatch showing current sidebar color
 - Status: PASS
 - Priority: 2
-- Changes: Added 7th swatch (lines 1193-1234) using sidebarColor variable
+- Commit: a38e725
+- Changes: Added 7th swatch using sidebarColor variable
 - Features: Dashed border, white checkmark SVG, always-on selection ring
 
 ### US-003: Align color swatches with existing slider width
-- Status: PENDING
+- Status: PASS
 - Priority: 3
+- Changes: Container width:100%, space-between layout
+- Features: SWATCH_BASE_STYLE constant, CSS-only hover, button accessibility
+- Files: resume-editor.tsx, globals.css
 
 ### US-004: Add eyedropper tool for screen color picking
 - Status: PENDING

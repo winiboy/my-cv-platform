@@ -113,6 +113,18 @@ const SECTION_MAPPING: Record<string, SectionId> = {
   projects: 'projects',
 }
 
+/** Base styles shared across all color swatches (predefined and dynamic) */
+const SWATCH_BASE_STYLE: React.CSSProperties = {
+  flex: 1,
+  maxWidth: '32px',
+  minWidth: '20px',
+  aspectRatio: '1',
+  height: 'auto',
+  borderRadius: '50%',
+  cursor: 'pointer',
+  transition: 'transform 0.2s, box-shadow 0.2s',
+}
+
 export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverLetters, unlinkedCoverLetters: initialUnlinkedCoverLetters, currentJobApplicationId: initialJobAppId, currentJobApplication: initialJobApp, jobApplications: initialJobApps, qualityAnalysis: initialQualityAnalysis }: ResumeEditorProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1148,7 +1160,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                     display: 'flex',
                     gap: '6px',
                     marginTop: '8px',
-                    justifyContent: 'center'
+                    justifyContent: 'space-between',
+                    width: '100%'
                   }}>
                     {[
                       { hex: '#2C3E50', hue: 210, lightness: 24 },
@@ -1160,62 +1173,43 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                     ].map((color, index) => (
                       <button
                         key={index}
+                        type="button"
                         onClick={() => {
                           setSidebarHue(color.hue)
                           setSidebarBrightness(color.lightness)
                         }}
                         title={color.hex}
+                        className="swatch-button"
                         style={{
-                          width: '26px',
-                          height: '26px',
+                          ...SWATCH_BASE_STYLE,
                           border: '2px solid #e2e8f0',
-                          borderRadius: '50%',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
                           backgroundColor: color.hex,
                           boxShadow: sidebarHue === color.hue && sidebarBrightness === color.lightness
                             ? '0 0 0 2px #3b82f6'
                             : 'none',
-                          flexShrink: 0,
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = 'scale(1.15)'
-                          e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)'
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = 'scale(1)'
-                          e.currentTarget.style.boxShadow = sidebarHue === color.hue && sidebarBrightness === color.lightness
-                            ? '0 0 0 2px #3b82f6'
-                            : 'none'
                         }}
                       />
                     ))}
-                    {/* 7th swatch: Dynamic current color indicator */}
-                    <div
+                    {/*
+                      7th swatch: Dynamic current color indicator - always shows currently selected color.
+                      No-op click handler: maintains consistent UX with other swatches while indicating current selection.
+                      Click handler exists for consistent tactile feedback with other swatches.
+                    */}
+                    <button
+                      type="button"
                       title="Current color"
+                      className="swatch-button"
                       onClick={() => {
-                        setSidebarHue(sidebarHue)
-                        setSidebarBrightness(sidebarBrightness)
+                        // Intentionally no-op: this swatch represents the current color selection
                       }}
                       style={{
-                        width: '26px',
-                        height: '26px',
+                        ...SWATCH_BASE_STYLE,
                         border: '2px dashed #94a3b8',
-                        borderRadius: '50%',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
                         backgroundColor: sidebarColor,
                         boxShadow: '0 0 0 2px #3b82f6',
-                        flexShrink: 0,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'scale(1.15)'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'scale(1)'
                       }}
                     >
                       {/* White checkmark icon */}
@@ -1231,7 +1225,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                       >
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
-                    </div>
+                    </button>
                   </div>
                 </div>
                 {/* Right column: Main content sliders (70%) - independent stacking */}
