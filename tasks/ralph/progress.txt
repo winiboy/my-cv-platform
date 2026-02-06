@@ -1,115 +1,37 @@
 # Ralph Progress Log
-# Feature: redesign-tools-page-cards
-# Started: 2026-02-03
+# Feature: pre-selected-color
+# Started: 2026-02-06
 # Target Version: TBD
 
 ---
 
-## Status: COMPLETE (16/16 stories PASS)
+## Status: IN PROGRESS (1/5 stories PASS)
 
 ---
 
-## Run 1 - 2026-02-03 (US-001 to US-007: Static images approach)
+## Stories
 
-### US-001 to US-007: Initial implementation with static PNG images
-- Status: PASS (all 7 stories)
-- Approach was later updated per user feedback
+### US-001: Add 6 predefined color swatches for sidebar
+- Status: PASS
+- Priority: 1
+- Changes: Added 6 circular color swatches (lines 1146-1193) below the color slider in resume-editor.tsx
+- Colors: #2C3E50, #243A5E, #333333, #5C6F91, #2A7F7F, #1F3A5F
+- Features: Click applies color instantly, hover effects, active state indicator
+
+### US-002: Add 7th dynamic swatch showing current sidebar color
+- Status: PENDING
+- Priority: 2
+
+### US-003: Align color swatches with existing slider width
+- Status: PENDING
+- Priority: 3
+
+### US-004: Add eyedropper tool for screen color picking
+- Status: PENDING
+- Priority: 4
+
+### US-005: Ensure real-time color application without page reload
+- Status: PENDING
+- Priority: 5
 
 ---
-
-## Run 2 - 2026-02-03 (US-008 to US-016: Live preview components)
-
-User requested change: Replace static PNG images with live rendered preview components.
-
-### US-008: Remove static preview images from cards
-- Status: PASS
-- Changes: Removed imagePath prop, Image import, placeholder for live previews
-
-### US-009: Create ResumeCheckerPreview component
-- Status: PASS
-- File: src/components/tools/previews/resume-checker-preview.tsx
-- Features: Circular gauge (62), section scores, date text
-
-### US-010: Create GrammarCheckerPreview component
-- Status: PASS
-- File: src/components/tools/previews/grammar-checker-preview.tsx
-- Features: Score (85), category tabs, sample issue card
-
-### US-011: Create ResumeReviewerPreview component
-- Status: PASS
-- File: src/components/tools/previews/resume-reviewer-preview.tsx
-- Features: Score (58/100), categories, "À améliorer" status
-
-### US-012: Create JobMatchPreview component
-- Status: PASS
-- File: src/components/tools/previews/job-match-preview.tsx
-- Features: Score (10), matching skills tags
-
-### US-013: Create CoverLetterGeneratorPreview component
-- Status: PASS
-- File: src/components/tools/previews/cover-letter-generator-preview.tsx
-- Features: AI header, action buttons, B/I/U toolbar, sample text
-
-### US-014: Create CoverLetterCheckerPreview component
-- Status: PASS
-- File: src/components/tools/previews/cover-letter-checker-preview.tsx
-- Features: Score (10), category breakdown cards
-
-### US-015: Integrate preview components into ToolCard
-- Status: PASS
-- Changes: Added preview prop, imported all 6 components, mapped to tools
-
-### US-016: Final styling and polish
-- Status: PASS
-- Changes: bg-gray-50 right panel, scaled previews, rounded-xl, shadow-lg hover
-
----
-
-## Files Created (Preview Components)
-
-1. src/components/tools/previews/resume-checker-preview.tsx
-2. src/components/tools/previews/grammar-checker-preview.tsx
-3. src/components/tools/previews/resume-reviewer-preview.tsx
-4. src/components/tools/previews/job-match-preview.tsx
-5. src/components/tools/previews/cover-letter-generator-preview.tsx
-6. src/components/tools/previews/cover-letter-checker-preview.tsx
-
-## Files Modified
-
-1. src/app/[locale]/(marketing)/tools/page.tsx
-2. src/components/marketing/tool-card.tsx
-3. src/locales/en/tools.json
-4. src/locales/fr/tools.json
-5. src/locales/de/tools.json
-6. src/locales/it/tools.json
-7. public/images/tools/ (6 images - may be unused now)
-
----
-
-## Verification
-
-- TypeScript: PASS
-- Lint: Pre-existing errors only (not introduced by this feature)
-- Build: 108/108 pages generated (pre-existing 404/500 errors unrelated)
-
----
-
-## Commits (Run 2: US-008 to US-016)
-
-1. feat(tools): US-008 remove static preview images
-2. feat(tools): US-009 create ResumeCheckerPreview component
-3. feat(tools): US-010 create GrammarCheckerPreview component
-4. feat(tools): US-011 create ResumeReviewerPreview component
-5. feat(tools): US-012 create JobMatchPreview component
-6. feat(tools): US-013 create CoverLetterGeneratorPreview component
-7. feat(tools): US-014 create CoverLetterCheckerPreview component
-8. feat(tools): US-015 integrate preview components into ToolCard
-9. feat(tools): US-016 final styling and polish
-
----
-
-## Ready for Review
-
-Branch: ralph/redesign-tools-page-cards
-Total commits: 16 (7 from Run 1 + 9 from Run 2)
-

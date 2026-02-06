@@ -1,82 +1,91 @@
 {
   "project": "my-cv-platform",
-  "branchName": "ralph/google-oauth-fix",
-  "description": "Fix broken Google OAuth login (ERR_ADDRESS_INVALID with 0.0.0.0 redirect) and remove GitHub OAuth completely.",
+  "branchName": "ralph/pre-selected-color",
+  "description": "Sidebar Color Selector - Add 7 color swatches (6 predefined + 1 dynamic current color) and an eyedropper tool to the resume editor page for quick sidebar color customization.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Fix NextAuth Google OAuth redirect configuration",
-      "description": "As a user, I want Google login to redirect me to the dashboard without errors.",
+      "title": "Add 6 predefined color swatches for sidebar",
+      "description": "As a user, I want to quickly choose from predefined colors to personalize my resume sidebar.",
       "acceptanceCriteria": [
-        "Identify source of 0.0.0.0 redirect in NextAuth config or callbacks",
-        "Ensure NEXTAUTH_URL uses localhost:3000 (not 0.0.0.0)",
-        "Update NextAuth callbacks to use correct base URL for redirects",
-        "Redirect to /[locale]/dashboard after successful Google login",
-        "Preserve user's locale during OAuth flow",
-        "Typecheck passes"
+        "Add 6 clickable color swatches below the existing color slider",
+        "Colors are exactly: #2C3E50, #243A5E, #333333, #5C6F91, #2A7F7F, #1F3A5F",
+        "Clicking a swatch immediately applies the color to the sidebar",
+        "No confirmation dialog or delay required",
+        "Swatches are circular or square with clear visual boundaries",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Created src/lib/url.ts with getBaseUrl(). Fixed login-form.tsx, signup-form.tsx, callback/route.ts, middleware.ts to use unified env var strategy (NEXT_PUBLIC_APP_URL > NEXTAUTH_URL > origin fallback)."
+      "notes": "Added 6 circular color swatches (lines 1146-1193) below color slider. Each swatch updates sidebarHue and sidebarBrightness on click. Hover effects and active state indicator included."
     },
     {
       "id": "US-002",
-      "title": "Remove GitHub OAuth provider from NextAuth config",
-      "description": "As a developer, I need to remove GitHub as an authentication provider from the backend.",
+      "title": "Add 7th dynamic swatch showing current sidebar color",
+      "description": "As a user, I want to see the current sidebar color as a swatch so I can reference or re-select it.",
       "acceptanceCriteria": [
-        "Remove GitHub provider from NextAuth providers array",
-        "Remove GITHUB_ID and GITHUB_SECRET references from auth config",
-        "Remove any GitHub-specific callback handlers if present",
-        "Verify only Google provider remains (plus CredentialsProvider if used)",
-        "Typecheck passes"
+        "7th swatch displays the current sidebar color",
+        "Swatch updates in real-time when color changes (via slider, preset, or eyedropper)",
+        "Visually distinguished from predefined swatches (e.g., border, label, or checkmark)",
+        "Clicking it re-applies the current color (no-op but consistent behavior)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Removed GithubProvider import and config from src/lib/auth.ts. Removed console.log of GitHub env vars. Updated comment in callback/route.ts."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Remove GitHub login button from login page",
-      "description": "As a user, I should only see Google and email/password login options.",
+      "title": "Align color swatches with existing slider width",
+      "description": "As a user, I want a clean visual integration where swatches align perfectly with the slider.",
       "acceptanceCriteria": [
-        "Remove GitHub login button from /[locale]/login page",
-        "Remove any GitHub-related imports (icons, handlers)",
-        "Verify only Google OAuth button and email/password form remain",
+        "All 7 swatches are positioned directly below the existing color slider",
+        "Total width of swatches matches the slider width exactly",
+        "Swatches are evenly spaced and horizontally aligned",
+        "No visual overflow or misalignment",
+        "Responsive behavior maintained on different screen sizes",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Removed GitHub button and narrowed handleOAuthLogin type to 'google' only in login-form.tsx."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Remove GitHub login button from signup page",
-      "description": "As a user on the signup page, I should only see Google and email/password options.",
+      "title": "Add eyedropper tool for screen color picking",
+      "description": "As an advanced user, I want to pick any color visible on my screen to use for the sidebar.",
       "acceptanceCriteria": [
-        "Remove GitHub login button from /[locale]/signup page (if present)",
-        "Remove any GitHub-related imports",
-        "Verify consistent auth UI between login and signup pages",
+        "Add eyedropper/pipette icon button near the color controls",
+        "Clicking activates the browser's native EyeDropper API (if supported)",
+        "Selected color is immediately applied to the sidebar",
+        "7th swatch (current color) updates to reflect the picked color",
+        "Graceful fallback or hidden button if EyeDropper API is not supported",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Removed GitHub button and narrowed handleOAuthSignup type to 'google' only in signup-form.tsx."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Update .env.example to remove GitHub variables",
-      "description": "As a developer, I need documentation updated to reflect GitHub removal.",
+      "title": "Ensure real-time color application without page reload",
+      "description": "As a user, I want all color changes to apply instantly to the sidebar preview.",
       "acceptanceCriteria": [
-        "Remove GITHUB_ID from .env.example",
-        "Remove GITHUB_SECRET from .env.example",
-        "Add comment noting GitHub OAuth was removed",
-        "Typecheck passes"
+        "Color changes from slider update sidebar in real-time (existing behavior preserved)",
+        "Color changes from predefined swatches update sidebar instantly",
+        "Color changes from eyedropper update sidebar instantly",
+        "No page reload or 'Apply' button required",
+        "Sidebar preview reflects the exact hex color selected",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Removed githubLogin/githubSignup from all 4 locale files. Updated .env.example (gitignored). Preserved resumes.editor.github contact field keys."
+      "passes": false,
+      "notes": ""
     }
   ]
 }

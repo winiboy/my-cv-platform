@@ -1143,6 +1143,54 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                       }}
                     />
                   </div>
+                  {/* Predefined Color Swatches */}
+                  <div style={{
+                    display: 'flex',
+                    gap: '6px',
+                    marginTop: '8px',
+                    justifyContent: 'center'
+                  }}>
+                    {[
+                      { hex: '#2C3E50', hue: 210, lightness: 24 },
+                      { hex: '#243A5E', hue: 217, lightness: 25 },
+                      { hex: '#333333', hue: 0, lightness: 20 },
+                      { hex: '#5C6F91', hue: 218, lightness: 46 },
+                      { hex: '#2A7F7F', hue: 180, lightness: 33 },
+                      { hex: '#1F3A5F', hue: 215, lightness: 25 },
+                    ].map((color, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setSidebarHue(color.hue)
+                          setSidebarBrightness(color.lightness)
+                        }}
+                        title={color.hex}
+                        style={{
+                          width: '26px',
+                          height: '26px',
+                          border: '2px solid #e2e8f0',
+                          borderRadius: '50%',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          backgroundColor: color.hex,
+                          boxShadow: sidebarHue === color.hue && sidebarBrightness === color.lightness
+                            ? '0 0 0 2px #3b82f6'
+                            : 'none',
+                          flexShrink: 0,
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'scale(1.15)'
+                          e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'scale(1)'
+                          e.currentTarget.style.boxShadow = sidebarHue === color.hue && sidebarBrightness === color.lightness
+                            ? '0 0 0 2px #3b82f6'
+                            : 'none'
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
                 {/* Right column: Main content sliders (70%) - independent stacking */}
                 <div style={{ width: '70%', paddingLeft: '8px' }} className="flex flex-col justify-end">
