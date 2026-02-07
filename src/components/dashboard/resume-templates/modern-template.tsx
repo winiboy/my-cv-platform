@@ -283,6 +283,47 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
           </div>
         </div>
 
+        {/* Education */}
+        {education.length > 0 && (
+          <div className="mb-8">
+            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.education || 'Education'} accentColor={ACCENT_COLOR} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {education.map((edu, index) => (
+                <div key={index}>
+                  <p
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      color: '#FFFFFF',
+                      margin: 0,
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {edu.degree}
+                    {edu.field ? ` - ${edu.field}` : ''}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: '11px',
+                      color: 'rgba(255,255,255,0.8)',
+                      margin: 0,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {edu.school}
+                    {edu.endDate
+                      ? ` | ${new Date(edu.endDate + '-01').toLocaleDateString(locale, { year: 'numeric' })}`
+                      : edu.startDate
+                        ? ` | ${new Date(edu.startDate + '-01').toLocaleDateString(locale, { year: 'numeric' })}`
+                        : ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Skills */}
         {skills.length > 0 && (
           <div className="mb-8">
@@ -604,45 +645,6 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
           </div>
         )}
 
-        {/* Education */}
-        {education.length > 0 && (
-          <div>
-            <MainSectionHeader title={dict.resumes?.editor?.sections?.education || 'Education'} accentColor={ACCENT_COLOR} />
-            <div className="space-y-3">
-              {education.map((edu, index) => (
-                <div key={index} className="relative pl-4">
-                  <div className="absolute left-0 top-2 h-2 w-2 rounded-full" style={{ backgroundColor: ACCENT_COLOR }}></div>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-bold text-slate-900">{edu.degree}</h3>
-                      <p className="text-sm" style={{ color: ACCENT_COLOR }}>
-                        {edu.school}
-                        {edu.field && ` - ${edu.field}`}
-                      </p>
-                      {edu.gpa && (
-                        <p className="text-xs text-slate-600">GPA: {edu.gpa}</p>
-                      )}
-                    </div>
-                    <p className="text-sm text-slate-600">
-                      {edu.startDate &&
-                        new Date(edu.startDate + '-01').toLocaleDateString(locale, {
-                          month: 'short',
-                          year: 'numeric',
-                        })}{' '}
-                      -{' '}
-                      {edu.endDate
-                        ? new Date(edu.endDate + '-01').toLocaleDateString(locale, {
-                            month: 'short',
-                            year: 'numeric',
-                          })
-                        : 'Present'}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
