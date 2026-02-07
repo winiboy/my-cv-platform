@@ -394,13 +394,28 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
 
         {/* Languages */}
         {languages.length > 0 && (
-          <div className="mb-8">
+          <div style={{ marginBottom: '24px' }}>
             <SidebarSectionHeader title={dict.resumes?.editor?.sections?.languages || 'Languages'} accentColor={ACCENT_COLOR} />
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {languages.map((lang, index) => (
-                <div key={index} className="flex justify-between text-sm">
-                  <span className="font-semibold">{lang.language}</span>
-                  <span style={{ color: 'rgba(255,255,255,0.7)' }}>
+                <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: '#FFFFFF',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {lang.language}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      color: 'rgba(255,255,255,0.7)',
+                      lineHeight: 1.4,
+                    }}
+                  >
                     {dict.resumes?.editor?.levels?.[lang.level.toLowerCase()] || lang.level}
                   </span>
                 </div>
@@ -409,22 +424,51 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
           </div>
         )}
 
-        {/* Certifications */}
+        {/* Certifications / Training */}
         {certifications.length > 0 && (
           <div>
-            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.certifications || 'Certifications'} accentColor={ACCENT_COLOR} />
-            <div className="space-y-3">
+            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.certifications || 'Training'} accentColor={ACCENT_COLOR} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {certifications.map((cert, index) => (
-                <div key={index} className="text-sm">
-                  <h3 className="font-bold">{cert.name}</h3>
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{cert.issuer}</p>
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                    {cert.date &&
-                      new Date(cert.date + '-01').toLocaleDateString(locale, {
+                <div key={index}>
+                  <p
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: '#FFFFFF',
+                      margin: 0,
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {cert.name}
+                  </p>
+                  {cert.issuer && (
+                    <p
+                      style={{
+                        fontSize: '11px',
+                        color: 'rgba(255,255,255,0.7)',
+                        margin: 0,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {cert.issuer}
+                    </p>
+                  )}
+                  {cert.date && (
+                    <p
+                      style={{
+                        fontSize: '10px',
+                        color: 'rgba(255,255,255,0.6)',
+                        margin: 0,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {new Date(cert.date + '-01').toLocaleDateString(locale, {
                         month: 'short',
                         year: 'numeric',
                       })}
-                  </p>
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
