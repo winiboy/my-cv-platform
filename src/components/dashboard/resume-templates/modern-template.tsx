@@ -521,10 +521,10 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
           </div>
         )}
 
-        {/* Experience */}
+        {/* Professional Experience */}
         {experiences.length > 0 && (
           <div className="mb-6">
-            <MainSectionHeader title={dict.resumes?.editor?.sections?.experience || 'Experience'} accentColor={ACCENT_COLOR}>
+            <MainSectionHeader title={dict.resumes?.editor?.sections?.experience || 'Professional Experience'} accentColor={ACCENT_COLOR}>
               {/* Font Size Slider for Section Titles - Positioned outside CV to the right */}
               {setSectionTitleFontSize && (
                 <div
@@ -553,101 +553,146 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                 </div>
               )}
             </MainSectionHeader>
-            <div className="space-y-4">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {experiences.map((exp, index) => (
-                <div key={index} className="relative pl-4">
-                  <div className="absolute left-0 top-2 h-2 w-2 rounded-full" style={{ backgroundColor: ACCENT_COLOR }}></div>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-slate-900">{exp.position}</h3>
-                      <p className="text-sm font-semibold" style={{ color: ACCENT_COLOR }}>{exp.company}</p>
-                    </div>
-                    <div className="text-right text-sm text-slate-600">
-                      <p className="font-medium">
-                        {exp.startDate &&
-                          new Date(exp.startDate + '-01').toLocaleDateString(locale, {
-                            month: 'short',
-                            year: 'numeric',
-                          })}{' '}
-                        -{' '}
-                        {exp.current
-                          ? 'Present'
-                          : exp.endDate
-                            ? new Date(exp.endDate + '-01').toLocaleDateString(locale, {
-                                month: 'short',
-                                year: 'numeric',
-                              })
-                            : 'Present'}
+                <div
+                  key={index}
+                  style={{ display: 'flex', gap: '16px', position: index === 0 ? 'relative' : undefined }}
+                >
+                  {/* Left column: position, dates, company, location */}
+                  <div style={{ width: '40%', flexShrink: 0 }}>
+                    <p
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        color: '#1a1a1a',
+                        margin: 0,
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {exp.position}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: '12px',
+                        color: '#6b7280',
+                        margin: '2px 0 0 0',
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {exp.startDate &&
+                        new Date(exp.startDate + '-01').toLocaleDateString(locale, {
+                          year: 'numeric',
+                        })}
+                      {' - '}
+                      {exp.current
+                        ? (dict.resumes?.editor?.present || 'Present')
+                        : exp.endDate
+                          ? new Date(exp.endDate + '-01').toLocaleDateString(locale, {
+                              year: 'numeric',
+                            })
+                          : (dict.resumes?.editor?.present || 'Present')}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: '#1a1a1a',
+                        margin: '8px 0 0 0',
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {exp.company}
+                    </p>
+                    {exp.location && (
+                      <p
+                        style={{
+                          fontSize: '11px',
+                          color: '#6b7280',
+                          margin: '2px 0 0 0',
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {exp.location}
                       </p>
-                      {exp.location && <p className="text-xs">{exp.location}</p>}
-                    </div>
+                    )}
                   </div>
-                  {exp.achievements && exp.achievements.length > 0 ? (
-                    <ul className="mt-2 space-y-1 text-slate-700" style={{ fontSize: `${sectionDescFontSize}px`, position: index === 0 ? 'relative' : undefined }}>
-                      {index === 0 && setSectionDescFontSize && (
-                        <div
-                          className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
-                          style={{
-                            position: 'absolute',
-                            left: '100%',
-                            top: 0,
-                            marginLeft: '48px',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
-                          <input
-                            type="range"
-                            min="10"
-                            max="18"
-                            step="1"
-                            value={sectionDescFontSize}
-                            onChange={(e) => setSectionDescFontSize(Number(e.target.value))}
-                            className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                            style={{ accentColor: ACCENT_COLOR }}
-                          />
-                          <span className="text-xs text-slate-600 font-mono">
-                            {sectionDescFontSize}px
-                          </span>
-                        </div>
-                      )}
-                      {exp.achievements.map((achievement, i) => (
-                        <li key={i} className="flex gap-2">
-                          <span style={{ color: ACCENT_COLOR }}>&#9656;</span>
-                          <span>{formatText(achievement)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : exp.description ? (
-                    <div className="mt-2 leading-relaxed text-slate-700 text-justify" style={{ fontSize: `${sectionDescFontSize}px`, position: index === 0 ? 'relative' : undefined }}>
-                      {index === 0 && setSectionDescFontSize && (
-                        <div
-                          className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
-                          style={{
-                            position: 'absolute',
-                            left: '100%',
-                            top: 0,
-                            marginLeft: '48px',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
-                          <input
-                            type="range"
-                            min="10"
-                            max="18"
-                            step="1"
-                            value={sectionDescFontSize}
-                            onChange={(e) => setSectionDescFontSize(Number(e.target.value))}
-                            className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                            style={{ accentColor: ACCENT_COLOR }}
-                          />
-                          <span className="text-xs text-slate-600 font-mono">
-                            {sectionDescFontSize}px
-                          </span>
-                        </div>
-                      )}
-                      {formatText(exp.description)}
-                    </div>
-                  ) : null}
+
+                  {/* Right column: description + achievements */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* Font size slider — only on first entry */}
+                    {index === 0 && setSectionDescFontSize && (
+                      <div
+                        className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
+                        style={{
+                          position: 'absolute',
+                          left: '100%',
+                          top: 0,
+                          marginLeft: '48px',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <input
+                          type="range"
+                          min="10"
+                          max="18"
+                          step="1"
+                          value={sectionDescFontSize}
+                          onChange={(e) => setSectionDescFontSize(Number(e.target.value))}
+                          className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                          style={{ accentColor: ACCENT_COLOR }}
+                        />
+                        <span className="text-xs text-slate-600 font-mono">
+                          {sectionDescFontSize}px
+                        </span>
+                      </div>
+                    )}
+
+                    {exp.description && (
+                      <div
+                        style={{
+                          fontSize: `${sectionDescFontSize}px`,
+                          color: '#374151',
+                          lineHeight: 1.5,
+                          textAlign: 'justify',
+                          margin: 0,
+                        }}
+                      >
+                        {formatText(exp.description)}
+                      </div>
+                    )}
+
+                    {exp.achievements && exp.achievements.length > 0 && (
+                      <ul
+                        style={{
+                          margin: exp.description ? '6px 0 0 0' : 0,
+                          padding: 0,
+                          listStyle: 'none',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '2px',
+                        }}
+                      >
+                        {exp.achievements.map((achievement, i) => (
+                          <li
+                            key={i}
+                            style={{
+                              display: 'flex',
+                              gap: '6px',
+                              fontSize: `${sectionDescFontSize}px`,
+                              color: '#374151',
+                              lineHeight: 1.5,
+                              fontStyle: 'italic',
+                            }}
+                          >
+                            <span style={{ color: ACCENT_COLOR, flexShrink: 0 }}>&#8226;</span>
+                            <span>{formatText(achievement)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
