@@ -250,10 +250,19 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
 
       {/* Right Content Area */}
       <div className="p-8 print:p-6" style={{ marginLeft: '35%', backgroundColor: 'white' }}>
-        {/* Header */}
-        <div className="mb-6 pb-4" style={{ borderBottom: `4px solid ${ACCENT_COLOR}`, position: 'relative' }}>
-          <h1 className="mb-2 font-bold text-slate-900" style={{ fontSize: `${titleFontSize}px` }}>
-            {resume.title || contact.name || 'Your Name'}
+        {/* Header: Name, Job Title, Address */}
+        <div className="mb-6" style={{ position: 'relative' }}>
+          {/* Full name — large bold uppercase with letter-spacing */}
+          <h1
+            className="font-bold uppercase text-slate-900"
+            style={{
+              fontSize: `${titleFontSize}px`,
+              letterSpacing: '0.15em',
+              lineHeight: 1.2,
+              marginBottom: '8px',
+            }}
+          >
+            {contact.name || 'Your Name'}
           </h1>
 
           {/* Font Size Slider - Positioned outside CV to the right */}
@@ -283,10 +292,43 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
               </span>
             </div>
           )}
-          {resume.summary && (
-            <div className="leading-relaxed text-slate-700 text-justify" style={{ fontSize: `${sectionDescFontSize}px` }}>{formatText(resume.summary)}</div>
+
+          {/* Job title — on gold accent highlight bar */}
+          {resume.title && (
+            <div
+              className="inline-block uppercase font-semibold tracking-wide"
+              style={{
+                backgroundColor: ACCENT_COLOR,
+                color: '#FFFFFF',
+                fontSize: '16px',
+                padding: '4px 12px',
+                marginBottom: '8px',
+              }}
+            >
+              {resume.title}
+            </div>
+          )}
+
+          {/* Address line — small gray text */}
+          {contact.location && (
+            <p
+              style={{
+                fontSize: '11px',
+                color: '#6b7280',
+                marginTop: resume.title ? '0px' : '4px',
+              }}
+            >
+              {contact.location}
+            </p>
           )}
         </div>
+
+        {/* Summary */}
+        {resume.summary && (
+          <div className="mb-6 pb-4" style={{ borderBottom: `4px solid ${ACCENT_COLOR}` }}>
+            <div className="leading-relaxed text-slate-700 text-justify" style={{ fontSize: `${sectionDescFontSize}px` }}>{formatText(resume.summary)}</div>
+          </div>
+        )}
 
         {/* Experience */}
         {experiences.length > 0 && (
