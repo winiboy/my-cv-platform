@@ -14,6 +14,64 @@ import { formatText } from '@/lib/format-text'
 const DEFAULT_SIDEBAR_COLOR = '#333333'
 const ACCENT_COLOR = '#D4A843'
 
+/** Sidebar section header -- full-width accent-colored banner with white uppercase text */
+function SidebarSectionHeader({ title, accentColor }: { title: string; accentColor: string }) {
+  return (
+    <div
+      style={{
+        backgroundColor: accentColor,
+        padding: '6px 12px',
+        marginBottom: '12px',
+        marginLeft: '-32px',
+        marginRight: '-32px',
+      }}
+    >
+      <h2
+        style={{
+          color: '#FFFFFF',
+          fontSize: '13px',
+          fontWeight: 700,
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          margin: 0,
+          lineHeight: 1.4,
+        }}
+      >
+        {title}
+      </h2>
+    </div>
+  )
+}
+
+/** Main area section header -- uppercase dark text with accent-colored horizontal rule below */
+function MainSectionHeader({ title, accentColor, children }: { title: string; accentColor: string; children?: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: '12px', position: 'relative' }}>
+      <h2
+        style={{
+          color: '#1a1a1a',
+          fontSize: '16px',
+          fontWeight: 700,
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          margin: 0,
+          paddingBottom: '6px',
+          lineHeight: 1.4,
+        }}
+      >
+        {title}
+      </h2>
+      <div
+        style={{
+          height: '2px',
+          backgroundColor: accentColor,
+        }}
+      />
+      {children}
+    </div>
+  )
+}
+
 interface ModernTemplateProps {
   resume: Resume
   locale: Locale
@@ -92,12 +150,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         <div className="p-8 print:p-6">
         {/* Contact */}
         <div className="mb-8">
-          <h2
-            className="mb-4 pb-2 text-lg font-bold uppercase tracking-wide"
-            style={{ borderBottom: `2px solid ${ACCENT_COLOR}` }}
-          >
-            {dict.resumes?.editor?.sections?.contact || 'Contact'}
-          </h2>
+          <SidebarSectionHeader title={dict.resumes?.editor?.sections?.contact || 'Contact'} accentColor={ACCENT_COLOR} />
           <div className="space-y-3" style={{ fontSize: `${contactFontSize}px`, position: 'relative' }}>
             {/* Font Size Slider for Contact - Positioned outside CV to the right */}
             {setContactFontSize && (
@@ -168,12 +221,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         {/* Skills */}
         {skills.length > 0 && (
           <div className="mb-8">
-            <h2
-              className="mb-4 pb-2 text-lg font-bold uppercase tracking-wide"
-              style={{ borderBottom: `2px solid ${ACCENT_COLOR}` }}
-            >
-              {dict.resumes?.editor?.sections?.skills || 'Skills'}
-            </h2>
+            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.skills || 'Skills'} accentColor={ACCENT_COLOR} />
             <div className="space-y-4">
               {skills.map((skillCategory, index) => (
                 <div key={index}>
@@ -200,12 +248,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         {/* Languages */}
         {languages.length > 0 && (
           <div className="mb-8">
-            <h2
-              className="mb-4 pb-2 text-lg font-bold uppercase tracking-wide"
-              style={{ borderBottom: `2px solid ${ACCENT_COLOR}` }}
-            >
-              {dict.resumes?.editor?.sections?.languages || 'Languages'}
-            </h2>
+            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.languages || 'Languages'} accentColor={ACCENT_COLOR} />
             <div className="space-y-2">
               {languages.map((lang, index) => (
                 <div key={index} className="flex justify-between text-sm">
@@ -222,12 +265,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         {/* Certifications */}
         {certifications.length > 0 && (
           <div>
-            <h2
-              className="mb-4 pb-2 text-lg font-bold uppercase tracking-wide"
-              style={{ borderBottom: `2px solid ${ACCENT_COLOR}` }}
-            >
-              {dict.resumes?.editor?.sections?.certifications || 'Certifications'}
-            </h2>
+            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.certifications || 'Certifications'} accentColor={ACCENT_COLOR} />
             <div className="space-y-3">
               {certifications.map((cert, index) => (
                 <div key={index} className="text-sm">
@@ -333,10 +371,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         {/* Experience */}
         {experiences.length > 0 && (
           <div className="mb-6">
-            <h2 className="mb-4 flex items-center gap-2 font-bold" style={{ fontSize: `${sectionTitleFontSize}px`, position: 'relative', color: ACCENT_COLOR }}>
-              <div className="h-1 w-8" style={{ backgroundColor: ACCENT_COLOR }}></div>
-              {dict.resumes?.editor?.sections?.experience || 'Experience'}
-
+            <MainSectionHeader title={dict.resumes?.editor?.sections?.experience || 'Experience'} accentColor={ACCENT_COLOR}>
               {/* Font Size Slider for Section Titles - Positioned outside CV to the right */}
               {setSectionTitleFontSize && (
                 <div
@@ -364,7 +399,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   </span>
                 </div>
               )}
-            </h2>
+            </MainSectionHeader>
             <div className="space-y-4">
               {experiences.map((exp, index) => (
                 <div key={index} className="relative pl-4">
@@ -469,10 +504,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         {/* Projects */}
         {projects.length > 0 && (
           <div className="mb-6">
-            <h2 className="mb-4 flex items-center gap-2 font-bold" style={{ fontSize: `${sectionTitleFontSize}px`, color: ACCENT_COLOR }}>
-              <div className="h-1 w-8" style={{ backgroundColor: ACCENT_COLOR }}></div>
-              {dict.resumes?.editor?.sections?.projects || 'Projects'}
-            </h2>
+            <MainSectionHeader title={dict.resumes?.editor?.sections?.projects || 'Projects'} accentColor={ACCENT_COLOR} />
             <div className="space-y-4">
               {projects.map((project, index) => (
                 <div key={index} className="relative pl-4">
@@ -504,10 +536,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         {/* Education */}
         {education.length > 0 && (
           <div>
-            <h2 className="mb-4 flex items-center gap-2 font-bold" style={{ fontSize: `${sectionTitleFontSize}px`, color: ACCENT_COLOR }}>
-              <div className="h-1 w-8" style={{ backgroundColor: ACCENT_COLOR }}></div>
-              {dict.resumes?.editor?.sections?.education || 'Education'}
-            </h2>
+            <MainSectionHeader title={dict.resumes?.editor?.sections?.education || 'Education'} accentColor={ACCENT_COLOR} />
             <div className="space-y-3">
               {education.map((edu, index) => (
                 <div key={index} className="relative pl-4">
