@@ -53,7 +53,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
     >
       {/* Left Sidebar - Dark accent, absolute full height */}
       <div
-        className="p-8 text-white print:p-6"
+        className="text-white"
         style={{
           position: 'absolute',
           top: 0,
@@ -63,6 +63,33 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
           backgroundColor: activeSidebarColor,
         }}
       >
+        {/* Photo Placeholder Zone */}
+        <div
+          style={{
+            width: '100%',
+            height: '220px',
+            backgroundColor: '#444444',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {/* User silhouette icon placeholder */}
+          <svg
+            width="80"
+            height="80"
+            viewBox="0 0 80 80"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <circle cx="40" cy="28" r="16" fill="rgba(255,255,255,0.3)" />
+            <ellipse cx="40" cy="68" rx="28" ry="18" fill="rgba(255,255,255,0.3)" />
+          </svg>
+        </div>
+
+        {/* Sidebar content with padding */}
+        <div className="p-8 print:p-6">
         {/* Contact */}
         <div className="mb-8">
           <h2
@@ -218,6 +245,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
             </div>
           </div>
         )}
+        </div>{/* End sidebar content padding wrapper */}
       </div>
 
       {/* Right Content Area */}
