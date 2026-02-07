@@ -324,26 +324,67 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
           </div>
         )}
 
-        {/* Skills */}
+        {/* Technical Skills with progress bars */}
         {skills.length > 0 && (
           <div className="mb-8">
-            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.skills || 'Skills'} accentColor={ACCENT_COLOR} />
-            <div className="space-y-4">
+            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.skills || 'Technical Skills'} accentColor={ACCENT_COLOR} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {skills.map((skillCategory, index) => (
                 <div key={index}>
-                  <h3 className="mb-2 text-sm font-bold" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                    {skillCategory.category}
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {skillCategory.items.map((skill, i) => (
-                      <span
-                        key={i}
-                        className="rounded px-2 py-1 text-xs font-medium"
-                        style={{ backgroundColor: ACCENT_COLOR, color: '#1a1a1a' }}
-                      >
-                        {skill}
-                      </span>
-                    ))}
+                  {skillCategory.category && (
+                    <p
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: '#FFFFFF',
+                        margin: '0 0 8px 0',
+                        lineHeight: 1.4,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.03em',
+                      }}
+                    >
+                      {skillCategory.category}
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {skillCategory.items.map((skill, i) => {
+                      /* Items are strings; use 70% default level */
+                      const skillName = typeof skill === 'string' ? skill : String(skill)
+                      const level = 70
+                      return (
+                        <div key={i}>
+                          <p
+                            style={{
+                              fontSize: '11px',
+                              color: '#FFFFFF',
+                              margin: '0 0 3px 0',
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            {skillName}
+                          </p>
+                          {/* Progress bar track */}
+                          <div
+                            style={{
+                              width: '100%',
+                              height: '6px',
+                              backgroundColor: 'rgba(255,255,255,0.2)',
+                              borderRadius: '3px',
+                            }}
+                          >
+                            {/* Progress bar fill */}
+                            <div
+                              style={{
+                                width: `${level}%`,
+                                height: '100%',
+                                backgroundColor: ACCENT_COLOR,
+                                borderRadius: '3px',
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               ))}
