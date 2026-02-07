@@ -361,10 +361,16 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
           )}
         </div>
 
-        {/* Summary */}
+        {/* Professional Profile / Summary */}
         {resume.summary && (
-          <div className="mb-6 pb-4" style={{ borderBottom: `4px solid ${ACCENT_COLOR}` }}>
-            <div className="leading-relaxed text-slate-700 text-justify" style={{ fontSize: `${sectionDescFontSize}px` }}>{formatText(resume.summary)}</div>
+          <div className="mb-6">
+            <MainSectionHeader title={dict.resumes?.editor?.sections?.summary || 'Professional Profile'} accentColor={ACCENT_COLOR} />
+            <div
+              className="leading-relaxed text-slate-700 text-justify"
+              style={{ fontSize: `${sectionDescFontSize}px`, lineHeight: 1.5 }}
+            >
+              {formatText(resume.summary)}
+            </div>
           </div>
         )}
 
