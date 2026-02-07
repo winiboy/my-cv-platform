@@ -43,6 +43,56 @@ function SidebarSectionHeader({ title, accentColor }: { title: string; accentCol
   )
 }
 
+/** Single contact item row: right-aligned text on the left, circular icon on the right */
+function ContactItem({ label, value, accentColor, icon }: { label: string; value: string; accentColor: string; icon: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      {/* Text block: label + value, both right-aligned, fills available space */}
+      <div style={{ flex: 1, textAlign: 'right', minWidth: 0 }}>
+        <p
+          style={{
+            fontSize: '10px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            color: 'rgba(255,255,255,0.6)',
+            margin: 0,
+            lineHeight: 1.4,
+          }}
+        >
+          {label}
+        </p>
+        <p
+          style={{
+            fontSize: '11px',
+            color: '#FFFFFF',
+            margin: 0,
+            lineHeight: 1.4,
+            wordBreak: 'break-all',
+          }}
+        >
+          {value}
+        </p>
+      </div>
+      {/* Circular icon badge */}
+      <div
+        style={{
+          width: '32px',
+          height: '32px',
+          minWidth: '32px',
+          borderRadius: '50%',
+          backgroundColor: accentColor,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {icon}
+      </div>
+    </div>
+  )
+}
+
 /** Main area section header -- uppercase dark text with accent-colored horizontal rule below */
 function MainSectionHeader({ title, accentColor, children }: { title: string; accentColor: string; children?: React.ReactNode }) {
   return (
@@ -87,7 +137,7 @@ interface ModernTemplateProps {
   setSectionDescFontSize?: (size: number) => void
 }
 
-export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSize = 36, setTitleFontSize, contactFontSize = 12, setContactFontSize, sectionTitleFontSize = 16, setSectionTitleFontSize, sectionDescFontSize = 14, setSectionDescFontSize }: ModernTemplateProps) {
+export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSize = 36, setTitleFontSize, sectionTitleFontSize = 16, setSectionTitleFontSize, sectionDescFontSize = 14, setSectionDescFontSize }: ModernTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
@@ -151,69 +201,84 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         {/* Contact */}
         <div className="mb-8">
           <SidebarSectionHeader title={dict.resumes?.editor?.sections?.contact || 'Contact'} accentColor={ACCENT_COLOR} />
-          <div className="space-y-3" style={{ fontSize: `${contactFontSize}px`, position: 'relative' }}>
-            {/* Font Size Slider for Contact - Positioned outside CV to the right */}
-            {setContactFontSize && (
-              <div
-                className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
-                style={{
-                  position: 'absolute',
-                  left: '100%',
-                  top: 0,
-                  marginLeft: '48px',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                <input
-                  type="range"
-                  min="10"
-                  max="18"
-                  step="1"
-                  value={contactFontSize}
-                  onChange={(e) => setContactFontSize(Number(e.target.value))}
-                  className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                  style={{ accentColor: ACCENT_COLOR }}
-                />
-                <span className="text-xs text-slate-600 font-mono">
-                  {contactFontSize}px
-                </span>
-              </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {contact.phone && (
+              <ContactItem
+                label="Phone"
+                value={contact.phone}
+                accentColor={ACCENT_COLOR}
+                icon={
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
+                  </svg>
+                }
+              />
             )}
             {contact.email && (
-              <div>
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>Email</p>
-                <p className="break-all">{contact.email}</p>
-              </div>
-            )}
-            {contact.phone && (
-              <div>
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>Phone</p>
-                <p>{contact.phone}</p>
-              </div>
-            )}
-            {contact.location && (
-              <div>
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>Location</p>
-                <p>{contact.location}</p>
-              </div>
-            )}
-            {contact.linkedin && (
-              <div>
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>LinkedIn</p>
-                <p className="break-all text-xs">{contact.linkedin}</p>
-              </div>
-            )}
-            {contact.github && (
-              <div>
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>GitHub</p>
-                <p className="break-all text-xs">{contact.github}</p>
-              </div>
+              <ContactItem
+                label="Email"
+                value={contact.email}
+                accentColor={ACCENT_COLOR}
+                icon={
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <path d="M22 4L12 13 2 4" />
+                  </svg>
+                }
+              />
             )}
             {contact.website && (
-              <div>
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>Website</p>
-                <p className="break-all text-xs">{contact.website}</p>
-              </div>
+              <ContactItem
+                label="Website"
+                value={contact.website}
+                accentColor={ACCENT_COLOR}
+                icon={
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M2 12h20" />
+                    <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10A15.3 15.3 0 0112 2z" />
+                  </svg>
+                }
+              />
+            )}
+            {contact.linkedin && (
+              <ContactItem
+                label="LinkedIn"
+                value={contact.linkedin}
+                accentColor={ACCENT_COLOR}
+                icon={
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-4 0v7h-4v-7a6 6 0 016-6z" />
+                    <rect x="2" y="9" width="4" height="12" />
+                    <circle cx="4" cy="4" r="2" />
+                  </svg>
+                }
+              />
+            )}
+            {contact.github && (
+              <ContactItem
+                label="GitHub"
+                value={contact.github}
+                accentColor={ACCENT_COLOR}
+                icon={
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="#FFFFFF" stroke="none" aria-hidden="true">
+                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                  </svg>
+                }
+              />
+            )}
+            {contact.location && (
+              <ContactItem
+                label="Location"
+                value={contact.location}
+                accentColor={ACCENT_COLOR}
+                icon={
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                }
+              />
             )}
           </div>
         </div>
