@@ -570,6 +570,22 @@
       "priority": 31,
       "passes": true,
       "notes": "Removed eager ML on mount, added ensureForegroundBlob useCallback helper for lazy reconstruction"
+    },
+    {
+      "id": "US-032",
+      "title": "Convert static import to dynamic for background-removal bundle elimination",
+      "description": "As a user, the editor page should load instantly without downloading the 40MB+ ONNX runtime on every page visit.",
+      "acceptanceCriteria": [
+        "No static import of @/lib/image/remove-background at top of resume-editor.tsx",
+        "All 4 call sites use dynamic await import('@/lib/image/remove-background')",
+        "ONNX runtime only downloaded when user clicks Remove BG or interacts with photo controls",
+        "Editor page loads instantly",
+        "Typecheck passes",
+        "pnpm build succeeds"
+      ],
+      "priority": 32,
+      "passes": true,
+      "notes": "Removed static import, added dynamic import() at 4 call sites: handleRemoveBackground, ensureForegroundBlob, sidebarColor effect, photoBgMode effect"
     }
   ]
 }

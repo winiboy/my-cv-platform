@@ -5,7 +5,7 @@
 
 ---
 
-## Status: COMPLETE (31/31 stories PASS)
+## Status: COMPLETE (32/32 stories PASS)
 
 ---
 
@@ -193,6 +193,12 @@
 - Commit: 300dc14
 - Changes: Removed eager ML on mount, added ensureForegroundBlob useCallback helper for lazy reconstruction
 
+### US-032: Convert static import to dynamic for background-removal bundle elimination
+- Status: PASS
+- Priority: 32
+- Commit: ebef3d5
+- Changes: Removed static import, added dynamic import() at 4 call sites: handleRemoveBackground, ensureForegroundBlob, sidebarColor effect, photoBgMode effect
+
 ---
 
 ## Files Modified
@@ -249,10 +255,11 @@
 26. 011611a - feat(moderne): US-029 update toggle icons to semantic two-column layout design
 27. d43e232 - feat(moderne): US-030 restore hasForegroundBlob state on editor remount
 28. 300dc14 - feat(moderne): US-031 lazy-reconstruct foreground Blob on demand instead of eagerly on mount
+29. ebef3d5 - perf(moderne): US-032 convert static import to dynamic for background-removal bundle elimination
 
 ---
 
 ## Ready for Review
 
 Branch: ralph/cv-moderne-redesign
-Total commits: 27
+Total commits: 28
