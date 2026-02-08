@@ -312,6 +312,26 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     }
   }, [photoUrl, isRemovingBackground, sidebarColor, resume.id, handlePhotoChange])
 
+  // Re-composite photo background when sidebar color changes (debounced)
+  useEffect(() => {
+    if (!foregroundBlobRef.current) return
+
+    const timeoutId = setTimeout(async () => {
+      // Double-check ref still exists after debounce delay
+      const foreground = foregroundBlobRef.current
+      if (!foreground) return
+
+      try {
+        const newDataUrl = await compositeWithBackground(foreground, sidebarColor)
+        handlePhotoChange(newDataUrl)
+      } catch (error) {
+        console.error('Photo re-compositing failed:', error)
+      }
+    }, 500)
+
+    return () => clearTimeout(timeoutId)
+  }, [sidebarColor, handlePhotoChange])
+
   // Resizable split pane state
   const [splitPosition, setSplitPosition] = useState(50) // Percentage
   const [isDragging, setIsDragging] = useState(false)
