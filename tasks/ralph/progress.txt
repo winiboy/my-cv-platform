@@ -5,7 +5,7 @@
 
 ---
 
-## Status: COMPLETE (23/23 stories PASS)
+## Status: COMPLETE (27/27 stories PASS)
 
 ---
 
@@ -145,6 +145,30 @@
 - Priority: 23
 - Changes: Regression check PASS: 0 diff on 4 other templates, 0 new lint errors, 108/108 build, apercu photo intact
 
+### US-024: Add blobToDataUrl helper to remove-background utility
+- Status: PASS
+- Priority: 24
+- Commit: a69aa2d
+- Changes: Added blobToDataUrl helper using FileReader.readAsDataURL
+
+### US-025: Add photoBgMode state and mode-switching logic in resume-editor
+- Status: PASS
+- Priority: 25
+- Commit: 813109c
+- Changes: Added photoBgMode state, localStorage persistence, mode-switching useEffects, handleNewPhotoUpload reset
+
+### US-026: Add toggle UI to photo zone in ModernTemplate
+- Status: PASS
+- Priority: 26
+- Commit: f8e4a86
+- Changes: Added toggle buttons (filled square + checkerboard) in bottom-left of photo zone with active/inactive styling
+
+### US-027: Wire toggle props and build validation
+- Status: PASS
+- Priority: 27
+- Commit: f85ee9b
+- Changes: Wired photoBgMode, onPhotoBgModeChange, hasForegroundBlob to ModernTemplate in modern and default cases
+
 ---
 
 ## Files Modified
@@ -192,10 +216,15 @@
 17. 333197f - feat(moderne): US-021 wire background removal flow in resume-editor
 18. f19ddb3 - fix(build): resolve onnxruntime-web SWC minifier error for background-removal
 19. ae7e5cd - feat(moderne): US-022 auto re-composite photo background on sidebar color change
+20. 17b7286 - fix(moderne): resolve CSS specificity conflict preventing Remove BG button visibility
+21. a69aa2d - feat(moderne): US-024 add blobToDataUrl helper for transparent photo mode
+22. 813109c - feat(moderne): US-025 add photoBgMode state with sidebar-color/transparent switching
+23. f8e4a86 - feat(moderne): US-026 add sidebar-color/transparent toggle buttons to photo zone
+24. f85ee9b - feat(moderne): US-027 wire photoBgMode toggle props to ModernTemplate
 
 ---
 
 ## Ready for Review
 
 Branch: ralph/cv-moderne-redesign
-Total commits: 14
+Total commits: 24

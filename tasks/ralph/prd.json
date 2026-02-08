@@ -431,6 +431,76 @@
       "priority": 23,
       "passes": true,
       "notes": "Regression check PASS: 0 diff on 4 other templates, 0 new lint errors, 108/108 build, apercu photo intact"
+    },
+    {
+      "id": "US-024",
+      "title": "Add blobToDataUrl helper to remove-background utility",
+      "description": "As a developer, I need a helper function to convert a Blob to a base64 data URL for transparent photo mode.",
+      "acceptanceCriteria": [
+        "New exported function blobToDataUrl(blob: Blob): Promise<string> in src/lib/image/remove-background.ts",
+        "Uses FileReader.readAsDataURL internally",
+        "No other files are modified",
+        "Typecheck passes"
+      ],
+      "priority": 24,
+      "passes": true,
+      "notes": "Added blobToDataUrl helper using FileReader.readAsDataURL"
+    },
+    {
+      "id": "US-025",
+      "title": "Add photoBgMode state and mode-switching logic in resume-editor",
+      "description": "As a user, I want my background mode choice (sidebar-color or transparent) to be persisted and applied correctly.",
+      "acceptanceCriteria": [
+        "New state photoBgMode of type 'sidebar-color' | 'transparent', default 'sidebar-color'",
+        "Loaded from localStorage key resume_photo_bg_mode_{resumeId} on mount",
+        "Saved to localStorage whenever value changes",
+        "Import blobToDataUrl from utility module",
+        "handleRemoveBackground applies photo based on current photoBgMode",
+        "useEffect for sidebar color re-compositing gated: only runs when photoBgMode === 'sidebar-color'",
+        "New useEffect watches photoBgMode: re-applies photo from foregroundBlobRef accordingly",
+        "New boolean state hasForegroundBlob set to true after removal, false on new photo upload",
+        "No template files modified",
+        "Typecheck passes"
+      ],
+      "priority": 25,
+      "passes": true,
+      "notes": "Added photoBgMode state, localStorage persistence, mode-switching useEffects, handleNewPhotoUpload reset"
+    },
+    {
+      "id": "US-026",
+      "title": "Add toggle UI to photo zone in ModernTemplate",
+      "description": "As a user, I want two toggle buttons on the photo zone to switch between sidebar-color background and transparent background.",
+      "acceptanceCriteria": [
+        "New props: photoBgMode, onPhotoBgModeChange, hasForegroundBlob added to ModernTemplateProps",
+        "Two small pill buttons appear when photoUrl exists, onPhotoChange provided, and hasForegroundBlob is true",
+        "Buttons visible on hover with same opacity transition pattern",
+        "One button for Color BG, one for Transparent",
+        "Active button visually highlighted",
+        "Clicking calls onPhotoBgModeChange with corresponding mode",
+        "Buttons have aria-label, keyboard accessible",
+        "No other template files modified",
+        "Typecheck passes",
+        "pnpm build succeeds"
+      ],
+      "priority": 26,
+      "passes": true,
+      "notes": "Added toggle buttons (filled square + checkerboard) in bottom-left of photo zone with active/inactive styling"
+    },
+    {
+      "id": "US-027",
+      "title": "Wire toggle props and build validation",
+      "description": "As a maintainer, I want to confirm all props are wired correctly and the build passes.",
+      "acceptanceCriteria": [
+        "photoBgMode, onPhotoBgModeChange, hasForegroundBlob passed to ModernTemplate in modern and default cases",
+        "Switching modes immediately updates photo in live preview",
+        "Choice persists across page reload via localStorage",
+        "pnpm lint passes",
+        "pnpm build succeeds",
+        "No other template files modified"
+      ],
+      "priority": 27,
+      "passes": true,
+      "notes": "Wired photoBgMode, onPhotoBgModeChange, hasForegroundBlob to ModernTemplate in modern and default cases"
     }
   ]
 }
