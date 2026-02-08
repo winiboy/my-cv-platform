@@ -1382,6 +1382,14 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                           locale={locale}
                           dict={dict}
                           sidebarColor={sidebarColor}
+                          titleFontSize={titleFontSize}
+                          setTitleFontSize={setTitleFontSize}
+                          contactFontSize={contactFontSize}
+                          setContactFontSize={setContactFontSize}
+                          sectionTitleFontSize={sectionTitleFontSize}
+                          setSectionTitleFontSize={setSectionTitleFontSize}
+                          sectionDescFontSize={sectionDescFontSize}
+                          setSectionDescFontSize={setSectionDescFontSize}
                           fontScale={fontScale}
                           fontFamily={fontFamily}
                           sidebarTopMargin={sidebarTopMargin}
@@ -1393,13 +1401,54 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                         />
                       )
                     case 'classic':
-                      return <ClassicTemplate resume={resume} locale={locale} dict={dict} />
+                      return (
+                        <ClassicTemplate
+                          resume={resume}
+                          locale={locale}
+                          dict={dict}
+                          titleFontSize={titleFontSize}
+                          setTitleFontSize={setTitleFontSize}
+                          contactFontSize={contactFontSize}
+                          setContactFontSize={setContactFontSize}
+                          sectionTitleFontSize={sectionTitleFontSize}
+                          setSectionTitleFontSize={setSectionTitleFontSize}
+                          sectionDescFontSize={sectionDescFontSize}
+                          setSectionDescFontSize={setSectionDescFontSize}
+                        />
+                      )
                     case 'minimal':
-                      return <MinimalTemplate resume={resume} locale={locale} dict={dict} />
+                      return (
+                        <MinimalTemplate
+                          resume={resume}
+                          locale={locale}
+                          dict={dict}
+                          titleFontSize={titleFontSize}
+                          setTitleFontSize={setTitleFontSize}
+                          contactFontSize={contactFontSize}
+                          setContactFontSize={setContactFontSize}
+                          sectionTitleFontSize={sectionTitleFontSize}
+                          setSectionTitleFontSize={setSectionTitleFontSize}
+                          sectionDescFontSize={sectionDescFontSize}
+                          setSectionDescFontSize={setSectionDescFontSize}
+                        />
+                      )
                     case 'creative':
-                      return <CreativeTemplate resume={resume} locale={locale} dict={dict} />
+                      return (
+                        <CreativeTemplate
+                          resume={resume}
+                          locale={locale}
+                          dict={dict}
+                          titleFontSize={titleFontSize}
+                          setTitleFontSize={setTitleFontSize}
+                          contactFontSize={contactFontSize}
+                          setContactFontSize={setContactFontSize}
+                          sectionTitleFontSize={sectionTitleFontSize}
+                          setSectionTitleFontSize={setSectionTitleFontSize}
+                          sectionDescFontSize={sectionDescFontSize}
+                          setSectionDescFontSize={setSectionDescFontSize}
+                        />
+                      )
                     case 'professional':
-                    default:
                       return (
                         <ProfessionalTemplate
                           resume={resume}
@@ -1418,6 +1467,31 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                           setSidebarWidth={setSidebarWidth}
                           hiddenSidebarSections={hiddenSidebarSections}
                           hiddenMainSections={hiddenMainSections}
+                        />
+                      )
+                    default:
+                      return (
+                        <ModernTemplate
+                          resume={resume}
+                          locale={locale}
+                          dict={dict}
+                          sidebarColor={sidebarColor}
+                          titleFontSize={titleFontSize}
+                          setTitleFontSize={setTitleFontSize}
+                          contactFontSize={contactFontSize}
+                          setContactFontSize={setContactFontSize}
+                          sectionTitleFontSize={sectionTitleFontSize}
+                          setSectionTitleFontSize={setSectionTitleFontSize}
+                          sectionDescFontSize={sectionDescFontSize}
+                          setSectionDescFontSize={setSectionDescFontSize}
+                          fontScale={fontScale}
+                          fontFamily={fontFamily}
+                          sidebarTopMargin={sidebarTopMargin}
+                          setSidebarTopMargin={setSidebarTopMargin}
+                          mainContentTopMargin={mainContentTopMargin}
+                          setMainContentTopMargin={setMainContentTopMargin}
+                          sidebarWidth={sidebarWidth}
+                          setSidebarWidth={setSidebarWidth}
                         />
                       )
                   }
