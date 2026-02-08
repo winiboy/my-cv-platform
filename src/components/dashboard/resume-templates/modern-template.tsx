@@ -172,8 +172,8 @@ interface ModernTemplateProps {
   onPhotoChange?: (dataUrl: string) => void
   onRemoveBackground?: () => void
   isRemovingBackground?: boolean
-  photoBgMode?: 'sidebar-color' | 'transparent'
-  onPhotoBgModeChange?: (mode: 'sidebar-color' | 'transparent') => void
+  photoBgMode?: 'sidebar-color' | 'content-color'
+  onPhotoBgModeChange?: (mode: 'sidebar-color' | 'content-color') => void
   hasForegroundBlob?: boolean
 }
 
@@ -875,17 +875,17 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
-                  onPhotoBgModeChange('transparent')
+                  onPhotoBgModeChange('content-color')
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
                     e.stopPropagation()
-                    onPhotoBgModeChange('transparent')
+                    onPhotoBgModeChange('content-color')
                   }
                 }}
                 aria-label="Transparent background"
-                aria-pressed={photoBgMode === 'transparent'}
+                aria-pressed={photoBgMode === 'content-color'}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -893,8 +893,8 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   width: '28px',
                   height: '28px',
                   borderRadius: '9999px',
-                  backgroundColor: photoBgMode === 'transparent' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
-                  border: photoBgMode === 'transparent' ? '2px solid #FFFFFF' : '2px solid rgba(255,255,255,0.3)',
+                  backgroundColor: photoBgMode === 'content-color' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
+                  border: photoBgMode === 'content-color' ? '2px solid #FFFFFF' : '2px solid rgba(255,255,255,0.3)',
                   cursor: 'pointer',
                   padding: 0,
                 }}

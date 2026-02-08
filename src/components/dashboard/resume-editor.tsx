@@ -199,7 +199,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const [photoUrl, setPhotoUrl] = useState<string>('')
   const [isRemovingBackground, setIsRemovingBackground] = useState(false)
   const foregroundBlobRef = useRef<Blob | null>(null)
-  const [photoBgMode, setPhotoBgMode] = useState<'sidebar-color' | 'transparent'>('sidebar-color')
+  const [photoBgMode, setPhotoBgMode] = useState<'sidebar-color' | 'content-color'>('sidebar-color')
   const [hasForegroundBlob, setHasForegroundBlob] = useState(false)
 
   // Compute sidebarColor from hue, saturation, and brightness
@@ -312,8 +312,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       foregroundBlobRef.current = blob
       setHasForegroundBlob(true)
 
-      const resultDataUrl = photoBgMode === 'transparent'
-        ? await blobToDataUrl(blob)
+      const resultDataUrl = photoBgMode === 'content-color'
+        ? await compositeWithBackground(blob, '#FFFFFF')
         : await compositeWithBackground(blob, sidebarColor)
       handlePhotoChange(resultDataUrl)
     } catch (error) {
@@ -353,8 +353,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
 
     (async () => {
       try {
-        const resultDataUrl = photoBgMode === 'transparent'
-          ? await blobToDataUrl(foreground)
+        const resultDataUrl = photoBgMode === 'content-color'
+          ? await compositeWithBackground(foreground, '#FFFFFF')
           : await compositeWithBackground(foreground, sidebarColor)
         if (!cancelled) {
           handlePhotoChange(resultDataUrl)
@@ -873,11 +873,14 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       if (savedPhoto) setPhotoUrl(savedPhoto)
     } catch {}
 
-    // Load photo background mode preference
+    // Load photo background mode preference (with legacy 'transparent' migration)
     try {
       const savedBgMode = localStorage.getItem(`resume_photo_bg_mode_${resume.id}`)
-      if (savedBgMode === 'sidebar-color' || savedBgMode === 'transparent') {
+      if (savedBgMode === 'sidebar-color' || savedBgMode === 'content-color') {
         setPhotoBgMode(savedBgMode)
+      } else if (savedBgMode === 'transparent') {
+        // Migrate legacy 'transparent' value to 'content-color'
+        setPhotoBgMode('content-color')
       }
     } catch {}
 
