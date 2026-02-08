@@ -172,9 +172,12 @@ interface ModernTemplateProps {
   onPhotoChange?: (dataUrl: string) => void
   onRemoveBackground?: () => void
   isRemovingBackground?: boolean
+  photoBgMode?: 'sidebar-color' | 'transparent'
+  onPhotoBgModeChange?: (mode: 'sidebar-color' | 'transparent') => void
+  hasForegroundBlob?: boolean
 }
 
-export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSize = 36, setTitleFontSize, sectionTitleFontSize = 16, setSectionTitleFontSize, sectionDescFontSize = 14, setSectionDescFontSize, sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections, sidebarWidth, setSidebarWidth, sidebarTopMargin, setSidebarTopMargin, mainContentTopMargin, setMainContentTopMargin, fontScale, fontFamily, photoUrl, onPhotoChange, onRemoveBackground, isRemovingBackground }: ModernTemplateProps) {
+export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSize = 36, setTitleFontSize, sectionTitleFontSize = 16, setSectionTitleFontSize, sectionDescFontSize = 14, setSectionDescFontSize, sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections, sidebarWidth, setSidebarWidth, sidebarTopMargin, setSidebarTopMargin, mainContentTopMargin, setMainContentTopMargin, fontScale, fontFamily, photoUrl, onPhotoChange, onRemoveBackground, isRemovingBackground, photoBgMode, onPhotoBgModeChange, hasForegroundBlob }: ModernTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
@@ -816,6 +819,94 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
               </svg>
               Remove BG
             </button>
+          )}
+
+          {/* Background mode toggle -- bottom-left, visible after BG removal */}
+          {photoUrl && onPhotoChange && hasForegroundBlob && !isRemovingBackground && onPhotoBgModeChange && (
+            <div
+              className="print:hidden opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              style={{
+                position: 'absolute',
+                bottom: '8px',
+                left: '8px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                zIndex: 11,
+              }}
+            >
+              {/* Sidebar color background button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onPhotoBgModeChange('sidebar-color')
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onPhotoBgModeChange('sidebar-color')
+                  }
+                }}
+                aria-label="Sidebar color background"
+                aria-pressed={photoBgMode === 'sidebar-color'}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '9999px',
+                  backgroundColor: photoBgMode === 'sidebar-color' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
+                  border: photoBgMode === 'sidebar-color' ? '2px solid #FFFFFF' : '2px solid rgba(255,255,255,0.3)',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              >
+                {/* Solid color fill icon — filled square with border */}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="2" fill="#FFFFFF" stroke="#FFFFFF" strokeWidth="2" />
+                </svg>
+              </button>
+
+              {/* Transparent background button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onPhotoBgModeChange('transparent')
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onPhotoBgModeChange('transparent')
+                  }
+                }}
+                aria-label="Transparent background"
+                aria-pressed={photoBgMode === 'transparent'}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '9999px',
+                  backgroundColor: photoBgMode === 'transparent' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
+                  border: photoBgMode === 'transparent' ? '2px solid #FFFFFF' : '2px solid rgba(255,255,255,0.3)',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              >
+                {/* Checkerboard/transparency pattern icon — clean 2x2 grid */}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="2" stroke="#FFFFFF" strokeWidth="2" fill="none" />
+                  <rect x="3" y="3" width="9" height="9" fill="#FFFFFF" />
+                  <rect x="12" y="12" width="9" height="9" fill="#FFFFFF" />
+                </svg>
+              </button>
+            </div>
           )}
 
           {/* Loading spinner overlay during background removal */}
