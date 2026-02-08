@@ -1514,6 +1514,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                           onPhotoChange={handleNewPhotoUpload}
                           onRemoveBackground={handleRemoveBackground}
                           isRemovingBackground={isRemovingBackground}
+                          photoBgMode={photoBgMode}
+                          onPhotoBgModeChange={setPhotoBgMode}
+                          hasForegroundBlob={hasForegroundBlob}
                         />
                       )
                     case 'classic':
@@ -1612,6 +1615,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                           onPhotoChange={handleNewPhotoUpload}
                           onRemoveBackground={handleRemoveBackground}
                           isRemovingBackground={isRemovingBackground}
+                          photoBgMode={photoBgMode}
+                          onPhotoBgModeChange={setPhotoBgMode}
+                          hasForegroundBlob={hasForegroundBlob}
                         />
                       )
                   }
