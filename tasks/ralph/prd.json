@@ -501,6 +501,40 @@
       "priority": 27,
       "passes": true,
       "notes": "Wired photoBgMode, onPhotoBgModeChange, hasForegroundBlob to ModernTemplate in modern and default cases"
+    },
+    {
+      "id": "US-028",
+      "title": "Rename transparent mode to content-color and composite with white",
+      "description": "As a user, the second photo background option should use the main content area color (white) instead of transparency.",
+      "acceptanceCriteria": [
+        "Union type changes from 'sidebar-color' | 'transparent' to 'sidebar-color' | 'content-color' in resume-editor.tsx",
+        "All photoBgMode === 'transparent' checks replaced with 'content-color'",
+        "blobToDataUrl calls replaced with compositeWithBackground(blob, '#FFFFFF')",
+        "localStorage migration: 'transparent' loaded as 'content-color'",
+        "No template files modified in this story",
+        "Typecheck passes"
+      ],
+      "priority": 28,
+      "passes": true,
+      "notes": "Renamed 'transparent' to 'content-color', compositeWithBackground(blob, '#FFFFFF'), localStorage migration"
+    },
+    {
+      "id": "US-029",
+      "title": "Update toggle UI and icon for content-color mode",
+      "description": "As a user, the toggle button should show a white-filled square icon and use content-color labels instead of transparent/checkerboard.",
+      "acceptanceCriteria": [
+        "ModernTemplateProps type updated: 'transparent' to 'content-color'",
+        "Second toggle button dispatches 'content-color' on click",
+        "aria-label changed to 'Content background'",
+        "aria-pressed checks 'content-color'",
+        "Checkerboard SVG replaced with white-filled square icon",
+        "No other template files modified",
+        "Typecheck passes",
+        "pnpm build succeeds"
+      ],
+      "priority": 29,
+      "passes": true,
+      "notes": "Semantic two-column layout icons (filled column = selected), opacity feedback, stronger inactive border contrast"
     }
   ]
 }

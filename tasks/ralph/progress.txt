@@ -5,7 +5,7 @@
 
 ---
 
-## Status: COMPLETE (27/27 stories PASS)
+## Status: COMPLETE (29/29 stories PASS)
 
 ---
 
@@ -169,6 +169,18 @@
 - Commit: f85ee9b
 - Changes: Wired photoBgMode, onPhotoBgModeChange, hasForegroundBlob to ModernTemplate in modern and default cases
 
+### US-028: Rename transparent mode to content-color and composite with white
+- Status: PASS
+- Priority: 28
+- Commit: 6d4052f
+- Changes: Renamed 'transparent' to 'content-color', compositeWithBackground(blob, '#FFFFFF'), localStorage migration
+
+### US-029: Update toggle UI and icon for content-color mode
+- Status: PASS
+- Priority: 29
+- Commit: 011611a
+- Changes: Semantic two-column layout icons (filled column = selected), opacity feedback, stronger inactive border contrast
+
 ---
 
 ## Files Modified
@@ -221,10 +233,12 @@
 22. 813109c - feat(moderne): US-025 add photoBgMode state with sidebar-color/transparent switching
 23. f8e4a86 - feat(moderne): US-026 add sidebar-color/transparent toggle buttons to photo zone
 24. f85ee9b - feat(moderne): US-027 wire photoBgMode toggle props to ModernTemplate
+25. 6d4052f - feat(moderne): US-028 rename transparent mode to content-color, composite with white
+26. 011611a - feat(moderne): US-029 update toggle icons to semantic two-column layout design
 
 ---
 
 ## Ready for Review
 
 Branch: ralph/cv-moderne-redesign
-Total commits: 24
+Total commits: 26
