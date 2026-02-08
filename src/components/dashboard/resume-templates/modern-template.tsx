@@ -859,18 +859,19 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   height: '28px',
                   borderRadius: '9999px',
                   backgroundColor: photoBgMode === 'sidebar-color' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
-                  border: photoBgMode === 'sidebar-color' ? '2px solid #FFFFFF' : '2px solid rgba(255,255,255,0.3)',
+                  border: photoBgMode === 'sidebar-color' ? '2px solid #FFFFFF' : '2px solid rgba(255,255,255,0.15)',
                   cursor: 'pointer',
                   padding: 0,
                 }}
               >
-                {/* Solid color fill icon — filled square with border */}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <rect x="3" y="3" width="18" height="18" rx="2" fill="#FFFFFF" stroke="#FFFFFF" strokeWidth="2" />
+                {/* Layout icon — left column filled (sidebar) */}
+                <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" style={{ opacity: photoBgMode === 'sidebar-color' ? 1 : 0.6 }}>
+                  <rect x="3" y="3" width="7" height="18" rx="1" fill="#FFFFFF" />
+                  <rect x="12" y="3" width="9" height="18" rx="1" stroke="#FFFFFF" strokeWidth="1.5" fill="none" />
                 </svg>
               </button>
 
-              {/* Transparent background button */}
+              {/* Content-color background button */}
               <button
                 type="button"
                 onClick={(e) => {
@@ -884,7 +885,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                     onPhotoBgModeChange('content-color')
                   }
                 }}
-                aria-label="Transparent background"
+                aria-label="Content background"
                 aria-pressed={photoBgMode === 'content-color'}
                 style={{
                   display: 'inline-flex',
@@ -894,16 +895,15 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   height: '28px',
                   borderRadius: '9999px',
                   backgroundColor: photoBgMode === 'content-color' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
-                  border: photoBgMode === 'content-color' ? '2px solid #FFFFFF' : '2px solid rgba(255,255,255,0.3)',
+                  border: photoBgMode === 'content-color' ? '2px solid #FFFFFF' : '2px solid rgba(255,255,255,0.15)',
                   cursor: 'pointer',
                   padding: 0,
                 }}
               >
-                {/* Checkerboard/transparency pattern icon — clean 2x2 grid */}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <rect x="3" y="3" width="18" height="18" rx="2" stroke="#FFFFFF" strokeWidth="2" fill="none" />
-                  <rect x="3" y="3" width="9" height="9" fill="#FFFFFF" />
-                  <rect x="12" y="12" width="9" height="9" fill="#FFFFFF" />
+                {/* Layout icon — right column filled (content area) */}
+                <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" style={{ opacity: photoBgMode === 'content-color' ? 1 : 0.6 }}>
+                  <rect x="3" y="3" width="7" height="18" rx="1" stroke="#FFFFFF" strokeWidth="1.5" fill="none" />
+                  <rect x="12" y="3" width="9" height="18" rx="1" fill="#FFFFFF" />
                 </svg>
               </button>
             </div>
