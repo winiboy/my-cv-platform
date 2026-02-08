@@ -738,7 +738,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                 tabIndex={0}
                 aria-label={photoUrl ? 'Change profile photo' : 'Upload profile photo'}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click() } }}
-                className="print:hidden group-hover:opacity-100"
+                className="print:hidden opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -751,11 +751,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  opacity: 0,
-                  transition: 'opacity 0.2s ease',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.opacity = '1' }}
-                onMouseLeave={(e) => { e.currentTarget.style.opacity = '0' }}
               >
                 {/* Camera icon */}
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -785,7 +781,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                 }
               }}
               aria-label="Remove photo background"
-              className="print:hidden group-hover:opacity-100"
+              className="print:hidden opacity-0 group-hover:opacity-100 transition-opacity duration-200"
               style={{
                 position: 'absolute',
                 bottom: '8px',
@@ -801,8 +797,6 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                 fontWeight: 600,
                 border: 'none',
                 cursor: 'pointer',
-                opacity: 0,
-                transition: 'opacity 0.2s ease',
                 zIndex: 10,
                 lineHeight: 1.4,
               }}
