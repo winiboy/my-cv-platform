@@ -5,7 +5,7 @@
 
 ---
 
-## Status: COMPLETE (29/29 stories PASS)
+## Status: COMPLETE (30/30 stories PASS)
 
 ---
 
@@ -181,6 +181,12 @@
 - Commit: 011611a
 - Changes: Semantic two-column layout icons (filled column = selected), opacity feedback, stronger inactive border contrast
 
+### US-030: Restore hasForegroundBlob state on editor remount
+- Status: PASS
+- Priority: 30
+- Commit: d43e232
+- Changes: Restored hasForegroundBlob from localStorage on mount, async Blob reconstruction in background
+
 ---
 
 ## Files Modified
@@ -235,6 +241,7 @@
 24. f85ee9b - feat(moderne): US-027 wire photoBgMode toggle props to ModernTemplate
 25. 6d4052f - feat(moderne): US-028 rename transparent mode to content-color, composite with white
 26. 011611a - feat(moderne): US-029 update toggle icons to semantic two-column layout design
+27. d43e232 - feat(moderne): US-030 restore hasForegroundBlob state on editor remount
 
 ---
 

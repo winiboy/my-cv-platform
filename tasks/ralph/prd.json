@@ -535,6 +535,24 @@
       "priority": 29,
       "passes": true,
       "notes": "Semantic two-column layout icons (filled column = selected), opacity feedback, stronger inactive border contrast"
+    },
+    {
+      "id": "US-030",
+      "title": "Restore hasForegroundBlob state on editor remount",
+      "description": "As a user, when I navigate away from the editor and return, the background mode toggle buttons should still be visible without needing to re-upload or re-remove the background.",
+      "acceptanceCriteria": [
+        "On mount, check if resume_photo_original_{resumeId} exists in localStorage",
+        "If yes, set hasForegroundBlob to true immediately (toggle buttons appear)",
+        "Asynchronously reconstruct foregroundBlobRef by re-running removeImageBackground",
+        "Does not call handlePhotoChange during reconstruction",
+        "Uses cancelled flag pattern for cleanup on unmount",
+        "Graceful degradation on error",
+        "Typecheck passes",
+        "pnpm build succeeds"
+      ],
+      "priority": 30,
+      "passes": true,
+      "notes": "Restored hasForegroundBlob from localStorage on mount, async Blob reconstruction in background"
     }
   ]
 }
