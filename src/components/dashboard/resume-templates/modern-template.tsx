@@ -1,4 +1,6 @@
-import React from 'react'
+'use client'
+
+import React, { useRef, useCallback } from 'react'
 import type {
   Resume,
   ResumeContact,
@@ -166,9 +168,11 @@ interface ModernTemplateProps {
   setMainContentTopMargin?: (margin: number) => void
   fontScale?: number
   fontFamily?: string
+  photoUrl?: string
+  onPhotoChange?: (dataUrl: string) => void
 }
 
-export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSize = 36, setTitleFontSize, sectionTitleFontSize = 16, setSectionTitleFontSize, sectionDescFontSize = 14, setSectionDescFontSize, sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections, sidebarWidth, setSidebarWidth, sidebarTopMargin, setSidebarTopMargin, mainContentTopMargin, setMainContentTopMargin, fontScale, fontFamily }: ModernTemplateProps) {
+export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSize = 36, setTitleFontSize, sectionTitleFontSize = 16, setSectionTitleFontSize, sectionDescFontSize = 14, setSectionDescFontSize, sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections, sidebarWidth, setSidebarWidth, sidebarTopMargin, setSidebarTopMargin, mainContentTopMargin, setMainContentTopMargin, fontScale, fontFamily, photoUrl, onPhotoChange }: ModernTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
@@ -189,6 +193,29 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
   const activeMainOrder = mainContentOrder || DEFAULT_MAIN_ORDER
   const hiddenSidebar = new Set(hiddenSidebarSections || [])
   const hiddenMain = new Set(hiddenMainSections || [])
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Reject files over 2MB
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Image must be under 2MB')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      onPhotoChange?.(dataUrl)
+    }
+    reader.readAsDataURL(file)
+
+    // Reset input so same file can be re-selected
+    e.target.value = ''
+  }, [onPhotoChange])
 
   /** Render a single sidebar section by its identifier; returns null if section has no data */
   const renderSidebarSection = (id: ModernSidebarSectionId): React.ReactNode => {
@@ -652,29 +679,91 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
           backgroundColor: activeSidebarColor,
         }}
       >
-        {/* Photo Placeholder Zone */}
+        {/* Photo Zone */}
         <div
           style={{
             width: '100%',
             height: '220px',
             backgroundColor: '#444444',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            position: 'relative',
+            overflow: 'hidden',
           }}
         >
-          {/* User silhouette icon placeholder */}
-          <svg
-            width="80"
-            height="80"
-            viewBox="0 0 80 80"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <circle cx="40" cy="28" r="16" fill="rgba(255,255,255,0.3)" />
-            <ellipse cx="40" cy="68" rx="28" ry="18" fill="rgba(255,255,255,0.3)" />
-          </svg>
+          {/* Photo or placeholder */}
+          {photoUrl ? (
+            <img
+              src={photoUrl}
+              alt="Profile"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {/* User silhouette icon placeholder */}
+              <svg width="80" height="80" viewBox="0 0 80 80" fill="none" aria-hidden="true">
+                <circle cx="40" cy="28" r="16" fill="rgba(255,255,255,0.3)" />
+                <ellipse cx="40" cy="68" rx="28" ry="18" fill="rgba(255,255,255,0.3)" />
+              </svg>
+            </div>
+          )}
+
+          {/* Upload overlay - editor only */}
+          {onPhotoChange && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleFileSelect}
+              />
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                role="button"
+                tabIndex={0}
+                aria-label={photoUrl ? 'Change profile photo' : 'Upload profile photo'}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click() } }}
+                className="print:hidden"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: 'rgba(0,0,0,0.5)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  opacity: 0,
+                  transition: 'opacity 0.2s ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = '1' }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = '0' }}
+              >
+                {/* Camera icon */}
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                <span style={{ color: 'white', fontSize: '11px', marginTop: '8px', fontWeight: 500 }}>
+                  {photoUrl ? 'Change Photo' : 'Upload Photo'}
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Sidebar content with padding */}
