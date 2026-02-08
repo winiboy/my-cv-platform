@@ -44,6 +44,7 @@ export function ResumePreviewWrapper({
   const [sidebarWidth, setSidebarWidth] = useState(30) // Default: 30%
   const [hiddenSidebarSections, setHiddenSidebarSections] = useState<('keyAchievements' | 'skills' | 'languages' | 'training')[]>([])
   const [hiddenMainSections, setHiddenMainSections] = useState<('summary' | 'experience' | 'education')[]>([])
+  const [photoUrl, setPhotoUrl] = useState<string>('')
 
   // Compute sidebarColor from hue, saturation, and brightness
   const sidebarColor = `hsl(${sidebarHue}, ${sidebarSaturation}%, ${sidebarBrightness}%)`
@@ -90,6 +91,12 @@ export function ResumePreviewWrapper({
         console.error('Failed to load slider settings:', error)
       }
     }
+
+    try {
+      const savedPhoto = localStorage.getItem(`resume_photo_${initialResume.id}`)
+      if (savedPhoto) setPhotoUrl(savedPhoto)
+    } catch {}
+
     setIsLoaded(true)
   }, [initialResume.id])
 
@@ -191,6 +198,7 @@ export function ResumePreviewWrapper({
         sidebarWidth={sidebarWidth}
         hiddenSidebarSections={hiddenSidebarSections}
         hiddenMainSections={hiddenMainSections}
+        photoUrl={photoUrl}
       />
     </>
   )

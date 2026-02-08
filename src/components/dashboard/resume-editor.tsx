@@ -195,6 +195,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const [hiddenSidebarSections, setHiddenSidebarSections] = useState<SidebarSectionId[]>([])
   const [hiddenMainSections, setHiddenMainSections] = useState<MainContentSectionId[]>([])
   const [isEyeDropperSupported, setIsEyeDropperSupported] = useState(false)
+  const [photoUrl, setPhotoUrl] = useState<string>('')
 
   // Compute sidebarColor from hue, saturation, and brightness
   const sidebarColor = `hsl(${sidebarHue}, ${sidebarSaturation}%, ${sidebarBrightness}%)`
@@ -277,6 +278,15 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       }
     }
   }, [hexToHsl])
+
+  const handlePhotoChange = useCallback((dataUrl: string) => {
+    setPhotoUrl(dataUrl)
+    try {
+      localStorage.setItem(`resume_photo_${resume.id}`, dataUrl)
+    } catch {
+      alert('Failed to save photo. Image may be too large.')
+    }
+  }, [resume.id])
 
   // Resizable split pane state
   const [splitPosition, setSplitPosition] = useState(50) // Percentage
@@ -776,6 +786,12 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
         console.error('Failed to load design settings:', error)
       }
     }
+
+    try {
+      const savedPhoto = localStorage.getItem(`resume_photo_${resume.id}`)
+      if (savedPhoto) setPhotoUrl(savedPhoto)
+    } catch {}
+
     setIsSliderSettingsLoaded(true)
   }, [resume.id])
 
@@ -1398,6 +1414,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                           setMainContentTopMargin={setMainContentTopMargin}
                           sidebarWidth={sidebarWidth}
                           setSidebarWidth={setSidebarWidth}
+                          photoUrl={photoUrl}
+                          onPhotoChange={handlePhotoChange}
                         />
                       )
                     case 'classic':
@@ -1492,6 +1510,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                           setMainContentTopMargin={setMainContentTopMargin}
                           sidebarWidth={sidebarWidth}
                           setSidebarWidth={setSidebarWidth}
+                          photoUrl={photoUrl}
+                          onPhotoChange={handlePhotoChange}
                         />
                       )
                   }
