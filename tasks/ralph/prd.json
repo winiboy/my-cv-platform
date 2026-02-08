@@ -586,6 +586,23 @@
       "priority": 32,
       "passes": true,
       "notes": "Removed static import, added dynamic import() at 4 call sites: handleRemoveBackground, ensureForegroundBlob, sidebarColor effect, photoBgMode effect"
+    },
+    {
+      "id": "US-033",
+      "title": "Prevent ensureForegroundBlob from triggering on mount via storage guard",
+      "description": "As a user, the editor should load instantly without triggering the ML model when hasForegroundBlob is restored from localStorage on mount.",
+      "acceptanceCriteria": [
+        "isRestoringFromStorage ref guards sidebarColor and photoBgMode useEffects on mount",
+        "Guard cleared via requestAnimationFrame after React processes mount state updates",
+        "No dynamic import of @/lib/image/remove-background fires on mount",
+        "Toggle buttons still appear instantly on mount",
+        "Subsequent user interactions (color change, mode switch) work correctly",
+        "Typecheck passes",
+        "pnpm build succeeds"
+      ],
+      "priority": 33,
+      "passes": true,
+      "notes": "Added isRestoringFromStorage ref guard, cleared via requestAnimationFrame after mount cycle"
     }
   ]
 }

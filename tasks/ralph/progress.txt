@@ -5,7 +5,7 @@
 
 ---
 
-## Status: COMPLETE (32/32 stories PASS)
+## Status: COMPLETE (33/33 stories PASS)
 
 ---
 
@@ -199,6 +199,12 @@
 - Commit: ebef3d5
 - Changes: Removed static import, added dynamic import() at 4 call sites: handleRemoveBackground, ensureForegroundBlob, sidebarColor effect, photoBgMode effect
 
+### US-033: Prevent ensureForegroundBlob from triggering on mount via storage guard
+- Status: PASS
+- Priority: 33
+- Commit: 0897285
+- Changes: Added isRestoringFromStorage ref guard, cleared via requestAnimationFrame after mount cycle
+
 ---
 
 ## Files Modified
@@ -256,10 +262,11 @@
 27. d43e232 - feat(moderne): US-030 restore hasForegroundBlob state on editor remount
 28. 300dc14 - feat(moderne): US-031 lazy-reconstruct foreground Blob on demand instead of eagerly on mount
 29. ebef3d5 - perf(moderne): US-032 convert static import to dynamic for background-removal bundle elimination
+30. 0897285 - perf(moderne): US-033 prevent ensureForegroundBlob from triggering on mount via storage guard
 
 ---
 
 ## Ready for Review
 
 Branch: ralph/cv-moderne-redesign
-Total commits: 28
+Total commits: 30
