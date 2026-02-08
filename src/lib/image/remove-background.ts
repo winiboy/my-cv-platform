@@ -84,3 +84,22 @@ function blobToImage(blob: Blob): Promise<HTMLImageElement> {
     img.src = url;
   });
 }
+
+/**
+ * Converts a Blob to a base64-encoded data URL string using FileReader.
+ */
+export function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      resolve(reader.result as string);
+    };
+
+    reader.onerror = () => {
+      reject(new Error('Failed to read blob as data URL'));
+    };
+
+    reader.readAsDataURL(blob);
+  });
+}
