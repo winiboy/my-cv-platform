@@ -35,6 +35,10 @@ import { ProjectsSection } from './resume-sections/projects-section'
 import { CoverLetterAssociationSection } from './resume-sections/cover-letter-association-section'
 import { JobAssociationSection } from './cover-letter-sections/job-association-section'
 import { ProfessionalTemplate } from './resume-templates/professional-template'
+import { ModernTemplate } from './resume-templates/modern-template'
+import { ClassicTemplate } from './resume-templates/classic-template'
+import { MinimalTemplate } from './resume-templates/minimal-template'
+import { CreativeTemplate } from './resume-templates/creative-template'
 import { CVAdaptationModal } from './cv-adaptation-modal'
 import { QualityWarningBanner } from './quality-warning-banner'
 import { QualityScoreBadge } from './quality-score-badge'
@@ -1369,24 +1373,55 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                   transition: isDragging ? 'none' : 'transform 0.1s ease-out',
                 }}
               >
-                <ProfessionalTemplate
-                  resume={resume}
-                  locale={locale}
-                  dict={dict}
-                  sidebarColor={sidebarColor}
-                  fontScale={fontScale}
-                  fontFamily={fontFamily}
-                  sidebarOrder={sidebarOrder}
-                  mainContentOrder={mainContentOrder}
-                  sidebarTopMargin={sidebarTopMargin}
-                  setSidebarTopMargin={setSidebarTopMargin}
-                  mainContentTopMargin={mainContentTopMargin}
-                  setMainContentTopMargin={setMainContentTopMargin}
-                  sidebarWidth={sidebarWidth}
-                  setSidebarWidth={setSidebarWidth}
-                  hiddenSidebarSections={hiddenSidebarSections}
-                  hiddenMainSections={hiddenMainSections}
-                />
+                {(() => {
+                  switch (resume.template) {
+                    case 'modern':
+                      return (
+                        <ModernTemplate
+                          resume={resume}
+                          locale={locale}
+                          dict={dict}
+                          sidebarColor={sidebarColor}
+                          fontScale={fontScale}
+                          fontFamily={fontFamily}
+                          sidebarTopMargin={sidebarTopMargin}
+                          setSidebarTopMargin={setSidebarTopMargin}
+                          mainContentTopMargin={mainContentTopMargin}
+                          setMainContentTopMargin={setMainContentTopMargin}
+                          sidebarWidth={sidebarWidth}
+                          setSidebarWidth={setSidebarWidth}
+                        />
+                      )
+                    case 'classic':
+                      return <ClassicTemplate resume={resume} locale={locale} dict={dict} />
+                    case 'minimal':
+                      return <MinimalTemplate resume={resume} locale={locale} dict={dict} />
+                    case 'creative':
+                      return <CreativeTemplate resume={resume} locale={locale} dict={dict} />
+                    case 'professional':
+                    default:
+                      return (
+                        <ProfessionalTemplate
+                          resume={resume}
+                          locale={locale}
+                          dict={dict}
+                          sidebarColor={sidebarColor}
+                          fontScale={fontScale}
+                          fontFamily={fontFamily}
+                          sidebarOrder={sidebarOrder}
+                          mainContentOrder={mainContentOrder}
+                          sidebarTopMargin={sidebarTopMargin}
+                          setSidebarTopMargin={setSidebarTopMargin}
+                          mainContentTopMargin={mainContentTopMargin}
+                          setMainContentTopMargin={setMainContentTopMargin}
+                          sidebarWidth={sidebarWidth}
+                          setSidebarWidth={setSidebarWidth}
+                          hiddenSidebarSections={hiddenSidebarSections}
+                          hiddenMainSections={hiddenMainSections}
+                        />
+                      )
+                  }
+                })()}
               </div>
             </div>
           </div>
