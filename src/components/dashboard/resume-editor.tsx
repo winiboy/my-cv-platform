@@ -873,6 +873,32 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       if (savedPhoto) setPhotoUrl(savedPhoto)
     } catch {}
 
+    // Restore hasForegroundBlob state if the original photo exists in localStorage.
+    // Step 1 (synchronous): show toggle buttons immediately.
+    // Step 2 (async): reconstruct the foreground blob in the background for re-compositing.
+    let cancelled = false
+    try {
+      const originalPhoto = localStorage.getItem(`resume_photo_original_${resume.id}`)
+      if (originalPhoto) {
+        setHasForegroundBlob(true)
+
+        // Reconstruct foregroundBlobRef asynchronously — do NOT call handlePhotoChange
+        // because the current composited photo is already correct in localStorage.
+        ;(async () => {
+          try {
+            const blob = await removeImageBackground(originalPhoto)
+            if (!cancelled) {
+              foregroundBlobRef.current = blob
+            }
+          } catch (error) {
+            console.error('Failed to reconstruct foreground blob on mount:', error)
+            // Graceful degradation: buttons remain visible but color-change
+            // re-compositing won't work until the user clicks Remove BG again.
+          }
+        })()
+      }
+    } catch {}
+
     // Load photo background mode preference (with legacy 'transparent' migration)
     try {
       const savedBgMode = localStorage.getItem(`resume_photo_bg_mode_${resume.id}`)
@@ -885,6 +911,10 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     } catch {}
 
     setIsSliderSettingsLoaded(true)
+
+    return () => {
+      cancelled = true
+    }
   }, [resume.id])
 
   // Persist photoBgMode preference to localStorage
