@@ -22,7 +22,7 @@ const DEFAULT_SIDEBAR_COLOR = '#333333'
 const ACCENT_COLOR = '#D4A843'
 
 /** Sidebar section header -- full-width accent-colored banner with white uppercase text */
-function SidebarSectionHeader({ title, accentColor }: { title: string; accentColor: string }) {
+function SidebarSectionHeader({ title, accentColor, fontScale = 1 }: { title: string; accentColor: string; fontScale?: number }) {
   return (
     <div
       style={{
@@ -36,7 +36,7 @@ function SidebarSectionHeader({ title, accentColor }: { title: string; accentCol
       <h2
         style={{
           color: '#FFFFFF',
-          fontSize: '13px',
+          fontSize: `${13 * fontScale}px`,
           fontWeight: 700,
           textTransform: 'uppercase',
           letterSpacing: '0.08em',
@@ -51,14 +51,14 @@ function SidebarSectionHeader({ title, accentColor }: { title: string; accentCol
 }
 
 /** Single contact item row: right-aligned text on the left, circular icon on the right */
-function ContactItem({ label, value, accentColor, icon }: { label: string; value: string; accentColor: string; icon: React.ReactNode }) {
+function ContactItem({ label, value, accentColor, icon, fontScale = 1 }: { label: string; value: string; accentColor: string; icon: React.ReactNode; fontScale?: number }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
       {/* Text block: label + value, both right-aligned, fills available space */}
       <div style={{ flex: 1, textAlign: 'right', minWidth: 0 }}>
         <p
           style={{
-            fontSize: '10px',
+            fontSize: `${10 * fontScale}px`,
             fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
@@ -71,7 +71,7 @@ function ContactItem({ label, value, accentColor, icon }: { label: string; value
         </p>
         <p
           style={{
-            fontSize: '11px',
+            fontSize: `${11 * fontScale}px`,
             color: '#FFFFFF',
             margin: 0,
             lineHeight: 1.4,
@@ -101,13 +101,13 @@ function ContactItem({ label, value, accentColor, icon }: { label: string; value
 }
 
 /** Main area section header -- uppercase dark text with accent-colored horizontal rule below */
-function MainSectionHeader({ title, accentColor, children }: { title: string; accentColor: string; children?: React.ReactNode }) {
+function MainSectionHeader({ title, accentColor, fontScale = 1, children }: { title: string; accentColor: string; fontScale?: number; children?: React.ReactNode }) {
   return (
     <div style={{ marginBottom: '12px', position: 'relative' }}>
       <h2
         style={{
           color: '#1a1a1a',
-          fontSize: '16px',
+          fontSize: `${16 * fontScale}px`,
           fontWeight: 700,
           textTransform: 'uppercase',
           letterSpacing: '0.08em',
@@ -146,9 +146,17 @@ interface ModernTemplateProps {
   mainContentOrder?: ModernMainContentSectionId[]
   hiddenSidebarSections?: ModernSidebarSectionId[]
   hiddenMainSections?: ModernMainContentSectionId[]
+  sidebarWidth?: number
+  setSidebarWidth?: (width: number) => void
+  sidebarTopMargin?: number
+  setSidebarTopMargin?: (margin: number) => void
+  mainContentTopMargin?: number
+  setMainContentTopMargin?: (margin: number) => void
+  fontScale?: number
+  fontFamily?: string
 }
 
-export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSize = 36, setTitleFontSize, sectionTitleFontSize = 16, setSectionTitleFontSize, sectionDescFontSize = 14, setSectionDescFontSize, sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections }: ModernTemplateProps) {
+export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSize = 36, setTitleFontSize, sectionTitleFontSize = 16, setSectionTitleFontSize, sectionDescFontSize = 14, setSectionDescFontSize, sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections, sidebarWidth, setSidebarWidth, sidebarTopMargin, setSidebarTopMargin, mainContentTopMargin, setMainContentTopMargin, fontScale, fontFamily }: ModernTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
@@ -159,6 +167,10 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
   const projects = ((resume.projects as unknown as ResumeProject[]) || []).filter(proj => proj.visible !== false)
 
   const activeSidebarColor = sidebarColor || DEFAULT_SIDEBAR_COLOR
+  const activeWidth = sidebarWidth ?? 35
+  const activeSidebarTopMargin = sidebarTopMargin ?? 0
+  const activeMainContentTopMargin = mainContentTopMargin ?? 0
+  const activeScale = fontScale ?? 1
 
   const activeSidebarOrder = sidebarOrder || DEFAULT_SIDEBAR_ORDER
   const activeMainOrder = mainContentOrder || DEFAULT_MAIN_ORDER
@@ -173,13 +185,14 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         if (!hasContactData) return null
         return (
           <div className="mb-8">
-            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.contact || 'Contact'} accentColor={ACCENT_COLOR} />
+            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.contact || 'Contact'} accentColor={ACCENT_COLOR} fontScale={activeScale} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {contact.phone && (
                 <ContactItem
                   label="Phone"
                   value={contact.phone}
                   accentColor={ACCENT_COLOR}
+                  fontScale={activeScale}
                   icon={
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
@@ -192,6 +205,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   label="Email"
                   value={contact.email}
                   accentColor={ACCENT_COLOR}
+                  fontScale={activeScale}
                   icon={
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <rect x="2" y="4" width="20" height="16" rx="2" />
@@ -205,6 +219,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   label="Website"
                   value={contact.website}
                   accentColor={ACCENT_COLOR}
+                  fontScale={activeScale}
                   icon={
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <circle cx="12" cy="12" r="10" />
@@ -219,6 +234,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   label="LinkedIn"
                   value={contact.linkedin}
                   accentColor={ACCENT_COLOR}
+                  fontScale={activeScale}
                   icon={
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-4 0v7h-4v-7a6 6 0 016-6z" />
@@ -233,6 +249,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   label="GitHub"
                   value={contact.github}
                   accentColor={ACCENT_COLOR}
+                  fontScale={activeScale}
                   icon={
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="#FFFFFF" stroke="none" aria-hidden="true">
                       <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
@@ -245,6 +262,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   label="Location"
                   value={contact.location}
                   accentColor={ACCENT_COLOR}
+                  fontScale={activeScale}
                   icon={
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
@@ -261,13 +279,13 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         if (education.length === 0) return null
         return (
           <div className="mb-8">
-            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.education || 'Education'} accentColor={ACCENT_COLOR} />
+            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.education || 'Education'} accentColor={ACCENT_COLOR} fontScale={activeScale} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {education.map((edu, index) => (
                 <div key={index}>
                   <p
                     style={{
-                      fontSize: '12px',
+                      fontSize: `${12 * activeScale}px`,
                       fontWeight: 700,
                       textTransform: 'uppercase',
                       color: '#FFFFFF',
@@ -280,7 +298,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   </p>
                   <p
                     style={{
-                      fontSize: '11px',
+                      fontSize: `${11 * activeScale}px`,
                       color: 'rgba(255,255,255,0.8)',
                       margin: 0,
                       lineHeight: 1.5,
@@ -303,14 +321,14 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         if (skills.length === 0) return null
         return (
           <div className="mb-8">
-            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.skills || 'Technical Skills'} accentColor={ACCENT_COLOR} />
+            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.skills || 'Technical Skills'} accentColor={ACCENT_COLOR} fontScale={activeScale} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {skills.map((skillCategory, index) => (
                 <div key={index}>
                   {skillCategory.category && (
                     <p
                       style={{
-                        fontSize: '12px',
+                        fontSize: `${12 * activeScale}px`,
                         fontWeight: 700,
                         color: '#FFFFFF',
                         margin: '0 0 8px 0',
@@ -330,7 +348,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                         <div key={i}>
                           <p
                             style={{
-                              fontSize: '11px',
+                              fontSize: `${11 * activeScale}px`,
                               color: '#FFFFFF',
                               margin: '0 0 3px 0',
                               lineHeight: 1.4,
@@ -369,13 +387,13 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         if (languages.length === 0) return null
         return (
           <div style={{ marginBottom: '24px' }}>
-            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.languages || 'Languages'} accentColor={ACCENT_COLOR} />
+            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.languages || 'Languages'} accentColor={ACCENT_COLOR} fontScale={activeScale} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {languages.map((lang, index) => (
                 <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span
                     style={{
-                      fontSize: '12px',
+                      fontSize: `${12 * activeScale}px`,
                       fontWeight: 700,
                       color: '#FFFFFF',
                       lineHeight: 1.4,
@@ -385,7 +403,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   </span>
                   <span
                     style={{
-                      fontSize: '11px',
+                      fontSize: `${11 * activeScale}px`,
                       color: 'rgba(255,255,255,0.7)',
                       lineHeight: 1.4,
                     }}
@@ -402,13 +420,13 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         if (certifications.length === 0) return null
         return (
           <div className="mb-8">
-            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.certifications || 'Training'} accentColor={ACCENT_COLOR} />
+            <SidebarSectionHeader title={dict.resumes?.editor?.sections?.certifications || 'Training'} accentColor={ACCENT_COLOR} fontScale={activeScale} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {certifications.map((cert, index) => (
                 <div key={index}>
                   <p
                     style={{
-                      fontSize: '12px',
+                      fontSize: `${12 * activeScale}px`,
                       fontWeight: 700,
                       color: '#FFFFFF',
                       margin: 0,
@@ -420,7 +438,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   {cert.issuer && (
                     <p
                       style={{
-                        fontSize: '11px',
+                        fontSize: `${11 * activeScale}px`,
                         color: 'rgba(255,255,255,0.7)',
                         margin: 0,
                         lineHeight: 1.5,
@@ -432,7 +450,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   {cert.date && (
                     <p
                       style={{
-                        fontSize: '10px',
+                        fontSize: `${10 * activeScale}px`,
                         color: 'rgba(255,255,255,0.6)',
                         margin: 0,
                         lineHeight: 1.5,
@@ -462,10 +480,10 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         if (!resume.summary) return null
         return (
           <div className="mb-6">
-            <MainSectionHeader title={dict.resumes?.editor?.sections?.summary || 'Professional Profile'} accentColor={ACCENT_COLOR} />
+            <MainSectionHeader title={dict.resumes?.editor?.sections?.summary || 'Professional Profile'} accentColor={ACCENT_COLOR} fontScale={activeScale} />
             <div
               className="leading-relaxed text-slate-700 text-justify"
-              style={{ fontSize: `${sectionDescFontSize}px`, lineHeight: 1.5 }}
+              style={{ fontSize: `${sectionDescFontSize * activeScale}px`, lineHeight: 1.5 }}
             >
               {formatText(resume.summary)}
             </div>
@@ -476,7 +494,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         if (experiences.length === 0) return null
         return (
           <div className="mb-6">
-            <MainSectionHeader title={dict.resumes?.editor?.sections?.experience || 'Professional Experience'} accentColor={ACCENT_COLOR}>
+            <MainSectionHeader title={dict.resumes?.editor?.sections?.experience || 'Professional Experience'} accentColor={ACCENT_COLOR} fontScale={activeScale}>
               {setSectionTitleFontSize && (
                 <div
                   className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
@@ -513,7 +531,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   <div style={{ width: '40%', flexShrink: 0 }}>
                     <p
                       style={{
-                        fontSize: '13px',
+                        fontSize: `${13 * activeScale}px`,
                         fontWeight: 700,
                         textTransform: 'uppercase',
                         color: '#1a1a1a',
@@ -525,7 +543,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                     </p>
                     <p
                       style={{
-                        fontSize: '12px',
+                        fontSize: `${12 * activeScale}px`,
                         color: '#6b7280',
                         margin: '2px 0 0 0',
                         lineHeight: 1.4,
@@ -546,7 +564,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                     </p>
                     <p
                       style={{
-                        fontSize: '12px',
+                        fontSize: `${12 * activeScale}px`,
                         fontWeight: 700,
                         color: '#1a1a1a',
                         margin: '8px 0 0 0',
@@ -558,7 +576,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                     {exp.location && (
                       <p
                         style={{
-                          fontSize: '11px',
+                          fontSize: `${11 * activeScale}px`,
                           color: '#6b7280',
                           margin: '2px 0 0 0',
                           lineHeight: 1.4,
@@ -600,7 +618,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                     {exp.description && (
                       <div
                         style={{
-                          fontSize: `${sectionDescFontSize}px`,
+                          fontSize: `${sectionDescFontSize * activeScale}px`,
                           color: '#374151',
                           lineHeight: 1.5,
                           textAlign: 'justify',
@@ -628,7 +646,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                             style={{
                               display: 'flex',
                               gap: '6px',
-                              fontSize: `${sectionDescFontSize}px`,
+                              fontSize: `${sectionDescFontSize * activeScale}px`,
                               color: '#374151',
                               lineHeight: 1.5,
                               fontStyle: 'italic',
@@ -660,6 +678,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         width: '816px',
         minHeight: '1056px',
         backgroundColor: 'white',
+        fontFamily: fontFamily,
       }}
     >
       {/* Left Sidebar - Dark accent, absolute full height */}
@@ -670,7 +689,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
           top: 0,
           bottom: 0,
           left: 0,
-          width: '35%',
+          width: `${activeWidth}%`,
           backgroundColor: activeSidebarColor,
         }}
       >
@@ -700,7 +719,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         </div>
 
         {/* Sidebar content with padding */}
-        <div className="p-8 print:p-6">
+        <div className="p-8 print:p-6" style={{ paddingTop: activeSidebarTopMargin > 0 ? `${activeSidebarTopMargin}px` : undefined }}>
         {/* Sidebar sections rendered in dynamic order */}
         {activeSidebarOrder.filter(id => !hiddenSidebar.has(id)).map(id => (
           <React.Fragment key={id}>{renderSidebarSection(id)}</React.Fragment>
@@ -709,14 +728,14 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
       </div>
 
       {/* Right Content Area */}
-      <div className="p-8 print:p-6" style={{ marginLeft: '35%', backgroundColor: 'white' }}>
+      <div className="p-8 print:p-6" style={{ marginLeft: `${activeWidth}%`, backgroundColor: 'white', paddingTop: activeMainContentTopMargin > 0 ? `${activeMainContentTopMargin}px` : undefined }}>
         {/* Header: Name, Job Title, Address */}
         <div className="mb-6" style={{ position: 'relative' }}>
           {/* Full name — large bold uppercase with letter-spacing */}
           <h1
             className="font-bold uppercase text-slate-900"
             style={{
-              fontSize: `${titleFontSize}px`,
+              fontSize: `${titleFontSize * activeScale}px`,
               letterSpacing: '0.15em',
               lineHeight: 1.2,
               marginBottom: '8px',
@@ -760,7 +779,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
               style={{
                 backgroundColor: ACCENT_COLOR,
                 color: '#FFFFFF',
-                fontSize: '16px',
+                fontSize: `${16 * activeScale}px`,
                 padding: '4px 12px',
                 marginBottom: '8px',
               }}
@@ -773,7 +792,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
           {contact.location && (
             <p
               style={{
-                fontSize: '11px',
+                fontSize: `${11 * activeScale}px`,
                 color: '#6b7280',
                 marginTop: resume.title ? '0px' : '4px',
               }}
@@ -791,14 +810,14 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         {/* Projects */}
         {projects.length > 0 && (
           <div className="mb-6">
-            <MainSectionHeader title={dict.resumes?.editor?.sections?.projects || 'Projects'} accentColor={ACCENT_COLOR} />
+            <MainSectionHeader title={dict.resumes?.editor?.sections?.projects || 'Projects'} accentColor={ACCENT_COLOR} fontScale={activeScale} />
             <div className="space-y-4">
               {projects.map((project, index) => (
                 <div key={index} className="relative pl-4">
                   <div className="absolute left-0 top-2 h-2 w-2 rounded-full" style={{ backgroundColor: ACCENT_COLOR }}></div>
                   <h3 className="text-lg font-bold text-slate-900">{project.name}</h3>
                   {project.description && (
-                    <p className="mt-1 leading-relaxed text-slate-700" style={{ fontSize: `${sectionDescFontSize}px` }}>
+                    <p className="mt-1 leading-relaxed text-slate-700" style={{ fontSize: `${sectionDescFontSize * activeScale}px` }}>
                       {project.description}
                     </p>
                   )}
