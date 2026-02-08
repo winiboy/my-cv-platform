@@ -49,6 +49,7 @@ import { QUALITY_THRESHOLD } from '@/lib/constants'
 import type { QualityAnalysis } from '@/types/quality-analysis'
 import { FontCarousel3D, FONTS } from '@/components/ui/font-carousel-3d'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
+import { removeImageBackground, compositeWithBackground } from '@/lib/image/remove-background'
 
 interface JobApplicationItem {
   id: string
@@ -196,6 +197,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const [hiddenMainSections, setHiddenMainSections] = useState<MainContentSectionId[]>([])
   const [isEyeDropperSupported, setIsEyeDropperSupported] = useState(false)
   const [photoUrl, setPhotoUrl] = useState<string>('')
+  const [isRemovingBackground, setIsRemovingBackground] = useState(false)
+  const foregroundBlobRef = useRef<Blob | null>(null)
 
   // Compute sidebarColor from hue, saturation, and brightness
   const sidebarColor = `hsl(${sidebarHue}, ${sidebarSaturation}%, ${sidebarBrightness}%)`
@@ -287,6 +290,27 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       alert('Failed to save photo. Image may be too large.')
     }
   }, [resume.id])
+
+  const handleRemoveBackground = useCallback(async () => {
+    if (!photoUrl || isRemovingBackground) return
+
+    setIsRemovingBackground(true)
+    try {
+      // Preserve the original photo before any processing
+      localStorage.setItem(`resume_photo_original_${resume.id}`, photoUrl)
+
+      const blob = await removeImageBackground(photoUrl)
+      foregroundBlobRef.current = blob
+
+      const resultDataUrl = await compositeWithBackground(blob, sidebarColor)
+      handlePhotoChange(resultDataUrl)
+    } catch (error) {
+      console.error('Background removal failed:', error)
+      alert('Failed to remove background. Please try again.')
+    } finally {
+      setIsRemovingBackground(false)
+    }
+  }, [photoUrl, isRemovingBackground, sidebarColor, resume.id, handlePhotoChange])
 
   // Resizable split pane state
   const [splitPosition, setSplitPosition] = useState(50) // Percentage
@@ -1416,6 +1440,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                           setSidebarWidth={setSidebarWidth}
                           photoUrl={photoUrl}
                           onPhotoChange={handlePhotoChange}
+                          onRemoveBackground={handleRemoveBackground}
+                          isRemovingBackground={isRemovingBackground}
                         />
                       )
                     case 'classic':
@@ -1512,6 +1538,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                           setSidebarWidth={setSidebarWidth}
                           photoUrl={photoUrl}
                           onPhotoChange={handlePhotoChange}
+                          onRemoveBackground={handleRemoveBackground}
+                          isRemovingBackground={isRemovingBackground}
                         />
                       )
                   }
