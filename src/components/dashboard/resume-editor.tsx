@@ -49,7 +49,7 @@ import { QUALITY_THRESHOLD } from '@/lib/constants'
 import type { QualityAnalysis } from '@/types/quality-analysis'
 import { FontCarousel3D, FONTS } from '@/components/ui/font-carousel-3d'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
-import { removeImageBackground, compositeWithBackground } from '@/lib/image/remove-background'
+import { removeImageBackground, compositeWithBackground, blobToDataUrl } from '@/lib/image/remove-background'
 
 interface JobApplicationItem {
   id: string
@@ -199,6 +199,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const [photoUrl, setPhotoUrl] = useState<string>('')
   const [isRemovingBackground, setIsRemovingBackground] = useState(false)
   const foregroundBlobRef = useRef<Blob | null>(null)
+  const [photoBgMode, setPhotoBgMode] = useState<'sidebar-color' | 'transparent'>('sidebar-color')
+  const [hasForegroundBlob, setHasForegroundBlob] = useState(false)
 
   // Compute sidebarColor from hue, saturation, and brightness
   const sidebarColor = `hsl(${sidebarHue}, ${sidebarSaturation}%, ${sidebarBrightness}%)`
@@ -291,6 +293,13 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     }
   }, [resume.id])
 
+  // Wrapper for user-initiated photo uploads that resets foreground state
+  const handleNewPhotoUpload = useCallback((dataUrl: string) => {
+    foregroundBlobRef.current = null
+    setHasForegroundBlob(false)
+    handlePhotoChange(dataUrl)
+  }, [handlePhotoChange])
+
   const handleRemoveBackground = useCallback(async () => {
     if (!photoUrl || isRemovingBackground) return
 
@@ -301,8 +310,11 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
 
       const blob = await removeImageBackground(photoUrl)
       foregroundBlobRef.current = blob
+      setHasForegroundBlob(true)
 
-      const resultDataUrl = await compositeWithBackground(blob, sidebarColor)
+      const resultDataUrl = photoBgMode === 'transparent'
+        ? await blobToDataUrl(blob)
+        : await compositeWithBackground(blob, sidebarColor)
       handlePhotoChange(resultDataUrl)
     } catch (error) {
       console.error('Background removal failed:', error)
@@ -310,11 +322,11 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     } finally {
       setIsRemovingBackground(false)
     }
-  }, [photoUrl, isRemovingBackground, sidebarColor, resume.id, handlePhotoChange])
+  }, [photoUrl, isRemovingBackground, sidebarColor, resume.id, handlePhotoChange, photoBgMode])
 
   // Re-composite photo background when sidebar color changes (debounced)
   useEffect(() => {
-    if (!foregroundBlobRef.current) return
+    if (!foregroundBlobRef.current || photoBgMode !== 'sidebar-color') return
 
     const timeoutId = setTimeout(async () => {
       // Double-check ref still exists after debounce delay
@@ -330,7 +342,32 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     }, 500)
 
     return () => clearTimeout(timeoutId)
-  }, [sidebarColor, handlePhotoChange])
+  }, [sidebarColor, handlePhotoChange, photoBgMode])
+
+  // Re-composite or convert to transparent when photoBgMode changes
+  useEffect(() => {
+    const foreground = foregroundBlobRef.current
+    if (!foreground) return
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const resultDataUrl = photoBgMode === 'transparent'
+          ? await blobToDataUrl(foreground)
+          : await compositeWithBackground(foreground, sidebarColor)
+        if (!cancelled) {
+          handlePhotoChange(resultDataUrl)
+        }
+      } catch (error) {
+        console.error('Photo background mode switch failed:', error)
+      }
+    })()
+
+    return () => { cancelled = true }
+    // Only react to photoBgMode changes - sidebarColor changes are handled by the debounced effect above
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoBgMode])
 
   // Resizable split pane state
   const [splitPosition, setSplitPosition] = useState(50) // Percentage
@@ -836,8 +873,23 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       if (savedPhoto) setPhotoUrl(savedPhoto)
     } catch {}
 
+    // Load photo background mode preference
+    try {
+      const savedBgMode = localStorage.getItem(`resume_photo_bg_mode_${resume.id}`)
+      if (savedBgMode === 'sidebar-color' || savedBgMode === 'transparent') {
+        setPhotoBgMode(savedBgMode)
+      }
+    } catch {}
+
     setIsSliderSettingsLoaded(true)
   }, [resume.id])
+
+  // Persist photoBgMode preference to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(`resume_photo_bg_mode_${resume.id}`, photoBgMode)
+    } catch {}
+  }, [photoBgMode, resume.id])
 
   // Clear localStorage after successful save
   useEffect(() => {
@@ -1459,7 +1511,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                           sidebarWidth={sidebarWidth}
                           setSidebarWidth={setSidebarWidth}
                           photoUrl={photoUrl}
-                          onPhotoChange={handlePhotoChange}
+                          onPhotoChange={handleNewPhotoUpload}
                           onRemoveBackground={handleRemoveBackground}
                           isRemovingBackground={isRemovingBackground}
                         />
@@ -1557,7 +1609,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                           sidebarWidth={sidebarWidth}
                           setSidebarWidth={setSidebarWidth}
                           photoUrl={photoUrl}
-                          onPhotoChange={handlePhotoChange}
+                          onPhotoChange={handleNewPhotoUpload}
                           onRemoveBackground={handleRemoveBackground}
                           isRemovingBackground={isRemovingBackground}
                         />
