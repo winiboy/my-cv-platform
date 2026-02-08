@@ -33,6 +33,7 @@ export function ResumePreviewWrapper({
   const [sectionGap, setSectionGap] = useState(12) // Default: mb-3 = 12px gap between section title and description
   const [headerGap, setHeaderGap] = useState(12) // Default: 12px gap between contact and summary section
   const [sidebarHue, setSidebarHue] = useState(240) // Default: blue hue
+  const [sidebarSaturation, setSidebarSaturation] = useState(85) // Default: 85% saturation
   const [sidebarBrightness, setSidebarBrightness] = useState(35) // Default: 35% lightness
   const [fontScale, setFontScale] = useState(1) // Default: 1 (100%)
   const [sidebarOrder, setSidebarOrder] = useState<('keyAchievements' | 'skills' | 'languages' | 'training')[]>(['keyAchievements', 'skills', 'languages', 'training'])
@@ -44,8 +45,8 @@ export function ResumePreviewWrapper({
   const [hiddenSidebarSections, setHiddenSidebarSections] = useState<('keyAchievements' | 'skills' | 'languages' | 'training')[]>([])
   const [hiddenMainSections, setHiddenMainSections] = useState<('summary' | 'experience' | 'education')[]>([])
 
-  // Compute sidebarColor from hue and brightness
-  const sidebarColor = `hsl(${sidebarHue}, 85%, ${sidebarBrightness}%)`
+  // Compute sidebarColor from hue, saturation, and brightness
+  const sidebarColor = `hsl(${sidebarHue}, ${sidebarSaturation}%, ${sidebarBrightness}%)`
 
   // Load slider settings from localStorage on mount
   useEffect(() => {
@@ -61,6 +62,7 @@ export function ResumePreviewWrapper({
         if (settings.sectionGap !== undefined) setSectionGap(settings.sectionGap)
         if (settings.headerGap !== undefined) setHeaderGap(settings.headerGap)
         if (settings.sidebarHue !== undefined) setSidebarHue(settings.sidebarHue)
+        if (settings.sidebarSaturation !== undefined) setSidebarSaturation(settings.sidebarSaturation)
         if (settings.sidebarBrightness !== undefined) setSidebarBrightness(settings.sidebarBrightness)
         if (settings.fontScale !== undefined) setFontScale(settings.fontScale)
         if (settings.sidebarOrder !== undefined) {
@@ -104,6 +106,7 @@ export function ResumePreviewWrapper({
       sectionGap,
       headerGap,
       sidebarHue,
+      sidebarSaturation,
       sidebarBrightness,
       fontScale,
       sidebarOrder,
@@ -125,7 +128,7 @@ export function ResumePreviewWrapper({
       sidebarTopMargin,
       mainContentTopMargin,
     })
-  }, [isLoaded, titleFontSize, titleGap, contactFontSize, sectionTitleFontSize, sectionDescFontSize, sectionGap, headerGap, sidebarHue, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, hiddenSidebarSections, hiddenMainSections, initialResume.id])
+  }, [isLoaded, titleFontSize, titleGap, contactFontSize, sectionTitleFontSize, sectionDescFontSize, sectionGap, headerGap, sidebarHue, sidebarSaturation, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, hiddenSidebarSections, hiddenMainSections, initialResume.id])
 
   useEffect(() => {
     // Check for draft in localStorage
