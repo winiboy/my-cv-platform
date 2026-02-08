@@ -170,9 +170,11 @@ interface ModernTemplateProps {
   fontFamily?: string
   photoUrl?: string
   onPhotoChange?: (dataUrl: string) => void
+  onRemoveBackground?: () => void
+  isRemovingBackground?: boolean
 }
 
-export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSize = 36, setTitleFontSize, sectionTitleFontSize = 16, setSectionTitleFontSize, sectionDescFontSize = 14, setSectionDescFontSize, sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections, sidebarWidth, setSidebarWidth, sidebarTopMargin, setSidebarTopMargin, mainContentTopMargin, setMainContentTopMargin, fontScale, fontFamily, photoUrl, onPhotoChange }: ModernTemplateProps) {
+export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSize = 36, setTitleFontSize, sectionTitleFontSize = 16, setSectionTitleFontSize, sectionDescFontSize = 14, setSectionDescFontSize, sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections, sidebarWidth, setSidebarWidth, sidebarTopMargin, setSidebarTopMargin, mainContentTopMargin, setMainContentTopMargin, fontScale, fontFamily, photoUrl, onPhotoChange, onRemoveBackground, isRemovingBackground }: ModernTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
@@ -681,6 +683,8 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
       >
         {/* Photo Zone */}
         <div
+          className="group"
+          aria-busy={isRemovingBackground ? true : undefined}
           style={{
             width: '100%',
             height: '220px',
@@ -734,7 +738,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                 tabIndex={0}
                 aria-label={photoUrl ? 'Change profile photo' : 'Upload profile photo'}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click() } }}
-                className="print:hidden"
+                className="print:hidden group-hover:opacity-100"
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -763,6 +767,98 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                 </span>
               </div>
             </>
+          )}
+
+          {/* Remove Background button - visible on hover when photo exists */}
+          {photoUrl && onPhotoChange && onRemoveBackground && !isRemovingBackground && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onRemoveBackground()
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onRemoveBackground()
+                }
+              }}
+              aria-label="Remove photo background"
+              className="print:hidden group-hover:opacity-100"
+              style={{
+                position: 'absolute',
+                bottom: '8px',
+                right: '8px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '4px 10px',
+                borderRadius: '9999px',
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                color: '#FFFFFF',
+                fontSize: '10px',
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                opacity: 0,
+                transition: 'opacity 0.2s ease',
+                zIndex: 10,
+                lineHeight: 1.4,
+              }}
+            >
+              {/* Magic wand icon */}
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M15 4V2" />
+                <path d="M15 16v-2" />
+                <path d="M8 9h2" />
+                <path d="M20 9h2" />
+                <path d="M17.8 11.8L19 13" />
+                <path d="M15 9h.01" />
+                <path d="M17.8 6.2L19 5" />
+                <path d="M11 6.2L9.7 5" />
+                <path d="M11 11.8L9.7 13" />
+                <path d="M3 21l9-9" />
+              </svg>
+              Remove BG
+            </button>
+          )}
+
+          {/* Loading spinner overlay during background removal */}
+          {isRemovingBackground && (
+            <div
+              className="print:hidden"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.6)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 20,
+              }}
+            >
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="white"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-label="Removing background"
+                style={{
+                  animation: 'spin 1s linear infinite',
+                }}
+              >
+                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+              </svg>
+              <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+            </div>
           )}
         </div>
 
