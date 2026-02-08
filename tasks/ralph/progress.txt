@@ -1,60 +1,164 @@
 # Ralph Progress Log
-# Feature: pre-selected-color
-# Started: 2026-02-06
+# Feature: cv-moderne-redesign
+# Started: 2026-02-07
 # Target Version: TBD
 
 ---
 
-## Status: COMPLETE (5/5 stories PASS)
+## Status: COMPLETE (23/23 stories PASS)
 
 ---
 
 ## Stories
 
-### US-001: Add 6 predefined color swatches for sidebar
+### US-001: Scaffold two-column layout with dark sidebar and color props
 - Status: PASS
 - Priority: 1
-- Commit: b3be0da
-- Changes: Added 6 circular color swatches below the color slider
-- Colors: #2C3E50, #243A5E, #333333, #5C6F91, #2A7F7F, #1F3A5F
+- Commit: ffa7514
+- Changes: Two-column layout with absolute sidebar, sidebarColor prop, teal to inline styles migration
 
-### US-002: Add 7th dynamic swatch showing current sidebar color
+### US-002: Add photo placeholder zone at top of sidebar
 - Status: PASS
 - Priority: 2
-- Commit: a38e725
-- Changes: Added 7th swatch using sidebarColor variable
-- Features: Dashed border, white checkmark SVG, always-on selection ring
+- Commit: 79c2637
+- Changes: Photo placeholder zone with SVG user silhouette at top of sidebar
 
-### US-003: Align color swatches with existing slider width
+### US-003: Add header section (name, job title, address) at top-right
 - Status: PASS
 - Priority: 3
-- Commit: 5a8bb2d
-- Changes: Container width:100%, space-between layout
-- Features: SWATCH_BASE_STYLE constant, CSS-only hover, button accessibility
+- Commit: 7d0f08d
+- Changes: Header with large name, gold accent title bar, and address line
 
-### US-004: Add eyedropper tool for screen color picking
+### US-004: Add banner-style section headers for sidebar and main area
 - Status: PASS
 - Priority: 4
-- Commit: bdeaf4d
-- Changes: Created eyedropper.d.ts, added Pipette icon button
-- Features: EyeDropper API support detection, hexToHsl conversion, graceful fallback
+- Commit: 381824a
+- Changes: SidebarSectionHeader and MainSectionHeader reusable sub-components
 
-### US-005: Ensure real-time color application without page reload
+### US-005: Add Professional Profile / Summary section on right area
 - Status: PASS
 - Priority: 5
+- Commit: 901915b
+- Changes: Professional Profile section with MainSectionHeader and formatText
+
+### US-006: Add Contact section in sidebar with icons
+- Status: PASS
+- Priority: 6
+- Commit: 3ca5800
+- Changes: Contact section with circular accent-colored icons (phone, email, globe, pin)
+
+### US-007: Add Education section in sidebar
+- Status: PASS
+- Priority: 7
+- Commit: 1f2ef6c
+- Changes: Education entries with bold uppercase degree, institution, and year
+
+### US-008: Add Technical Skills section with progress bars in sidebar
+- Status: PASS
+- Priority: 8
+- Commit: 3f4c7b6
+- Changes: Skills with horizontal progress bars, accent color fill, level mapping
+
+### US-009: Add Professional Experience section on right main area
+- Status: PASS
+- Priority: 9
+- Commit: e8fcfcb
+- Changes: Experience section with job title, dates, company, description, achievements
+
+### US-010: Add Languages and Certifications sections
+- Status: PASS
+- Priority: 10
+- Commit: a8a7aeb
+- Changes: Languages with name/level, certifications with name/issuer/date
+
+### US-011: Add section reordering and show/hide controls
+- Status: PASS
+- Priority: 11
+- Commit: 58c9821
+- Changes: Section ordering with sidebarOrder/mainContentOrder, hidden section support
+
+### US-012: Add sidebar width, top margin, and font scale controls
+- Status: PASS
+- Priority: 12
+- Commit: ae3c816
+- Changes: sidebarWidth, topMargin, fontScale, fontFamily props with defaults
+
+### US-013: Color picker integration and real-time preview
+- Status: PASS
+- Priority: 13
+- Commit: cb8dce3
+- Changes: deriveAccentColor from HSL sidebarColor, real-time color updates
+
+### US-014: Final regression check and build validation
+- Status: PASS
+- Priority: 14
 - Type: Verification story
-- Notes: All criteria met by US-001 through US-004. React state management ensures synchronous updates.
+- Notes: Zero diff on other templates, 108/108 build, pre-existing errors only
+
+### US-015: Fix editor live preview to use correct template based on resume.template
+- Status: PASS
+- Priority: 15
+- Commit: 2950241
+- Changes: Editor now uses switch/case on resume.template to render correct template
+
+### US-016: Remove all font size sliders from CV Moderne template
+- Status: PASS
+- Priority: 16
+- Changes: All font size sliders removed from Moderne template (3 blocks, 83 lines deleted)
+
+### US-017: Add photo display and upload overlay to ModernTemplate
+- Status: PASS
+- Priority: 17
+- Changes: Photo overlay with camera icon, hover transition, file input, 2MB check, accessibility
+
+### US-018: Wire photo state through editor, preview, and apercu
+- Status: PASS
+- Priority: 18
+- Changes: photoUrl state in editor + wrapper, localStorage resume_photo_{id}, onPhotoChange in editor only
+
+### US-019: Install background-removal dependency and create utility module
+- Status: PASS
+- Priority: 19
+- Commit: fffd761
+- Changes: Installed @imgly/background-removal, created src/lib/image/remove-background.ts with removeImageBackground and compositeWithBackground
+
+### US-020: Add Remove Background button to photo zone in ModernTemplate
+- Status: PASS
+- Priority: 20
+- Commit: 0766fa4
+- Changes: Added Remove BG pill button in bottom-right of photo zone with hover transition, loading spinner, accessibility
+
+### US-021: Wire background removal flow in resume-editor
+- Status: PASS
+- Priority: 21
+- Commit: 333197f
+- Changes: Wired handleRemoveBackground in editor, saves original photo, stores foreground Blob in ref for re-compositing
+
+### US-022: Re-apply sidebar color when color changes after background removal
+- Status: PASS
+- Priority: 22
+- Commit: ae7e5cd
+- Changes: Added debounced useEffect on sidebarColor change, re-composites via Canvas only (no ML re-run)
+
+### US-023: Build validation and regression check
+- Status: PASS
+- Priority: 23
+- Changes: Regression check PASS: 0 diff on 4 other templates, 0 new lint errors, 108/108 build, apercu photo intact
 
 ---
 
-## Files Created
-
-1. src/types/eyedropper.d.ts - TypeScript declarations for EyeDropper API
-
 ## Files Modified
 
-1. src/components/dashboard/resume-editor.tsx - Color swatches, eyedropper, SWATCH_BASE_STYLE
-2. src/app/globals.css - CSS hover effects for .swatch-button
+1. src/components/dashboard/resume-templates/modern-template.tsx - Complete redesign
+2. src/components/dashboard/resume-preview.tsx - Pass new props to ModernTemplate
+3. src/components/dashboard/resume-editor.tsx - Template switch/case for editor live preview
+
+## Files NOT Modified (verified)
+
+1. src/components/dashboard/resume-templates/professional-template.tsx
+2. src/components/dashboard/resume-templates/classic-template.tsx
+3. src/components/dashboard/resume-templates/minimal-template.tsx
+4. src/components/dashboard/resume-templates/creative-template.tsx
 
 ---
 
@@ -63,19 +167,35 @@
 - TypeScript: PASS
 - Lint: Pre-existing errors only (not introduced by this feature)
 - Build: 108/108 pages generated (pre-existing 404/500 errors unrelated)
+- Regression: Zero diff on all other templates vs main
 
 ---
 
 ## Commits
 
-1. b3be0da - feat(color): US-001 add 6 predefined color swatches for sidebar
-2. a38e725 - feat(color): US-002 add 7th dynamic swatch showing current color
-3. 5a8bb2d - feat(color): US-003 align swatches with slider width
-4. bdeaf4d - feat(color): US-004 add eyedropper tool for screen color picking
+1. ffa7514 - feat(moderne): US-001 scaffold two-column layout with dark sidebar and color props
+2. 79c2637 - feat(moderne): US-002 add photo placeholder zone at top of sidebar
+3. 7d0f08d - feat(moderne): US-003 add header section with name, job title accent bar, and address
+4. 381824a - feat(moderne): US-004 add banner-style section headers for sidebar and main area
+5. 901915b - feat(moderne): US-005 add Professional Profile summary section with MainSectionHeader
+6. 3ca5800 - feat(moderne): US-006 add contact section in sidebar with circular accent icons
+7. 1f2ef6c - feat(moderne): US-007 add education section in sidebar with degree/institution/year
+8. 3f4c7b6 - feat(moderne): US-008 add technical skills section with progress bars in sidebar
+9. e8fcfcb - feat(moderne): US-009 add professional experience section on right main area
+10. a8a7aeb - feat(moderne): US-010 add languages and certifications sections in sidebar
+11. 58c9821 - feat(moderne): US-011 add section reordering and show/hide controls
+12. ae3c816 - feat(moderne): US-012 add sidebar width, top margin, and font scale controls
+13. cb8dce3 - feat(moderne): US-013 color picker integration with derived accent color
+14. 2950241 - fix(moderne): US-015 editor live preview now uses correct template based on resume.template
+15. fffd761 - feat(moderne): US-019 add background removal utility with @imgly/background-removal
+16. 0766fa4 - feat(moderne): US-020 add Remove Background button to photo zone overlay
+17. 333197f - feat(moderne): US-021 wire background removal flow in resume-editor
+18. f19ddb3 - fix(build): resolve onnxruntime-web SWC minifier error for background-removal
+19. ae7e5cd - feat(moderne): US-022 auto re-composite photo background on sidebar color change
 
 ---
 
 ## Ready for Review
 
-Branch: ralph/pre-selected-color
-Total commits: 4
+Branch: ralph/cv-moderne-redesign
+Total commits: 14

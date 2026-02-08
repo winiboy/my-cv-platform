@@ -1,91 +1,436 @@
 {
   "project": "my-cv-platform",
-  "branchName": "ralph/pre-selected-color",
-  "description": "Sidebar Color Selector - Add 7 color swatches (6 predefined + 1 dynamic current color) and an eyedropper tool to the resume editor page for quick sidebar color customization.",
+  "branchName": "ralph/cv-moderne-redesign",
+  "description": "CV Moderne Template Redesign - Redesign the Modern template to match reference design (Moderne_v01.webp) with two-column layout, photo zone, banner headers, progress bar skills, and full Professional template feature parity.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Add 6 predefined color swatches for sidebar",
-      "description": "As a user, I want to quickly choose from predefined colors to personalize my resume sidebar.",
+      "title": "Scaffold two-column layout with dark sidebar and color props",
+      "description": "As a developer, I need the CV Moderne template to use a two-column layout (dark sidebar ~35%, white main ~65%) with sidebarColor prop support, replacing the current single-column teal layout.",
       "acceptanceCriteria": [
-        "Add 6 clickable color swatches below the existing color slider",
-        "Colors are exactly: #2C3E50, #243A5E, #333333, #5C6F91, #2A7F7F, #1F3A5F",
-        "Clicking a swatch immediately applies the color to the sidebar",
-        "No confirmation dialog or delay required",
-        "Swatches are circular or square with clear visual boundaries",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Replace current ModernTemplate layout with two-column structure: left sidebar (~35%) and right main area (~65%)",
+        "Sidebar has dark charcoal background (#333333) by default",
+        "Right main area has white background",
+        "Sidebar spans full height of the CV page",
+        "Add sidebarColor prop to ModernTemplate (same pattern as ProfessionalTemplate)",
+        "Default accent color is gold (#D4A843)",
+        "Update resume-preview.tsx to pass sidebarColor to ModernTemplate if not already",
+        "Existing data parsing (contact, experience, education, skills, languages, certifications) is preserved",
+        "No other template files are modified",
+        "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Added 6 circular color swatches (lines 1146-1193) below color slider. Each swatch updates sidebarHue and sidebarBrightness on click. Hover effects and active state indicator included."
+      "notes": "Two-column layout with absolute sidebar, sidebarColor prop, teal→inline styles migration"
     },
     {
       "id": "US-002",
-      "title": "Add 7th dynamic swatch showing current sidebar color",
-      "description": "As a user, I want to see the current sidebar color as a swatch so I can reference or re-select it.",
+      "title": "Add photo placeholder zone at top of sidebar",
+      "description": "As a user, I want a photo placeholder zone at the top of the left sidebar so I can display my profile photo on the CV.",
       "acceptanceCriteria": [
-        "7th swatch displays the current sidebar color",
-        "Swatch updates in real-time when color changes (via slider, preset, or eyedropper)",
-        "Visually distinguished from predefined swatches (e.g., border, label, or checkmark)",
-        "Clicking it re-applies the current color (no-op but consistent behavior)",
+        "Photo zone is positioned at the top of the sidebar, before any sections",
+        "Zone is rectangular, filling the full width of the sidebar",
+        "If no photo data exists, a neutral gray placeholder with a user icon is displayed",
+        "Zone height is approximately 200-250px matching reference proportions",
+        "No other template files are modified",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Added 7th swatch (lines 1193-1234) using sidebarColor variable. Dashed border, white checkmark SVG, always-on selection ring for visual distinction. Click handler re-applies current values."
+      "notes": "Photo placeholder zone with SVG user silhouette at top of sidebar"
     },
     {
       "id": "US-003",
-      "title": "Align color swatches with existing slider width",
-      "description": "As a user, I want a clean visual integration where swatches align perfectly with the slider.",
+      "title": "Add header section (name, job title, address) at top-right",
+      "description": "As a user, I want my name, job title, and address displayed prominently at the top-right of the CV matching the reference layout.",
       "acceptanceCriteria": [
-        "All 7 swatches are positioned directly below the existing color slider",
-        "Total width of swatches matches the slider width exactly",
-        "Swatches are evenly spaced and horizontally aligned",
-        "No visual overflow or misalignment",
-        "Responsive behavior maintained on different screen sizes",
+        "Full name displayed in large bold typography at top of the right/main area",
+        "Job title displayed below name with accent-colored (gold) underline or highlight bar",
+        "Address line displayed below job title in smaller text",
+        "Typography hierarchy matches reference: name is largest, title is medium with accent, address is small",
+        "Accent color uses the sidebarColor/accent prop (gold default)",
+        "No other template files are modified",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Container uses width:100% and space-between. Swatches use flex:1 with min/max constraints. SWATCH_BASE_STYLE constant for DRY. CSS-only hover via globals.css. 7th swatch is button for accessibility."
+      "notes": "Header with large name, gold accent title bar, and address line"
     },
     {
       "id": "US-004",
-      "title": "Add eyedropper tool for screen color picking",
-      "description": "As an advanced user, I want to pick any color visible on my screen to use for the sidebar.",
+      "title": "Add banner-style section headers for sidebar and main area",
+      "description": "As a user, I want section headers to appear as colored background banners with uppercase text for clear visual hierarchy.",
       "acceptanceCriteria": [
-        "Add eyedropper/pipette icon button near the color controls",
-        "Clicking activates the browser's native EyeDropper API (if supported)",
-        "Selected color is immediately applied to the sidebar",
-        "7th swatch (current color) updates to reflect the picked color",
-        "Graceful fallback or hidden button if EyeDropper API is not supported",
+        "Sidebar section headers render as horizontal banners with accent-colored (gold) background and white/dark text",
+        "Main area section headers render with uppercase text and a horizontal rule below, matching reference",
+        "All header text is uppercase and uses appropriate font weight",
+        "Banner/header colors respect the accent color prop",
+        "Create reusable SidebarSectionHeader and MainSectionHeader sub-components within the template file",
+        "No other template files are modified",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Created eyedropper.d.ts for TypeScript types. Added Pipette icon, isEyeDropperSupported state, hexToHsl converter, handleEyedropperClick handler. Button hidden in unsupported browsers."
+      "notes": "SidebarSectionHeader and MainSectionHeader reusable sub-components"
     },
     {
       "id": "US-005",
-      "title": "Ensure real-time color application without page reload",
-      "description": "As a user, I want all color changes to apply instantly to the sidebar preview.",
+      "title": "Add Professional Profile / Summary section on right area",
+      "description": "As a user, I want a Professional Profile summary section at the top of the right main area.",
       "acceptanceCriteria": [
-        "Color changes from slider update sidebar in real-time (existing behavior preserved)",
-        "Color changes from predefined swatches update sidebar instantly",
-        "Color changes from eyedropper update sidebar instantly",
-        "No page reload or 'Apply' button required",
-        "Sidebar preview reflects the exact hex color selected",
+        "Professional Profile section renders below the header (name/title) on the right side",
+        "Uses the MainSectionHeader component from US-004",
+        "Summary text displays with proper spacing and line height",
+        "Content comes from the existing resume summary field",
+        "Section is hidden if summary is empty",
+        "No other template files are modified",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "Verification story - all criteria met by US-001 through US-004. React state management ensures synchronous updates: setSidebarHue/setSidebarBrightness -> computed sidebarColor -> ProfessionalTemplate re-render. Build passes."
+      "notes": "Professional Profile section with MainSectionHeader and formatText"
+    },
+    {
+      "id": "US-006",
+      "title": "Add Contact section in sidebar with icons",
+      "description": "As a user, I want my contact details displayed in the left sidebar with circular icons matching the reference design.",
+      "acceptanceCriteria": [
+        "Contact section appears in the sidebar below the photo zone",
+        "Uses the SidebarSectionHeader component from US-004",
+        "Each contact item (phone, email, website, address) shows with a circular icon on the right side",
+        "Icons use accent-colored circular backgrounds with white icons inside",
+        "Labels are right-aligned, icons are on the right (matching reference layout)",
+        "Empty fields are hidden",
+        "No other template files are modified",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Contact section with circular accent-colored icons (phone, email, globe, pin)"
+    },
+    {
+      "id": "US-007",
+      "title": "Add Education section in sidebar",
+      "description": "As a user, I want my education history displayed in the left sidebar matching the reference design.",
+      "acceptanceCriteria": [
+        "Education section appears in the sidebar below Contact",
+        "Uses the SidebarSectionHeader component from US-004",
+        "Each entry shows: degree in bold uppercase, institution name, and year",
+        "Entries are stacked vertically with consistent spacing",
+        "All education data from the existing data model is rendered",
+        "Only visible education entries are shown (visible !== false filter)",
+        "No other template files are modified",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Education entries with bold uppercase degree, institution, and year"
+    },
+    {
+      "id": "US-008",
+      "title": "Add Technical Skills section with progress bars in sidebar",
+      "description": "As a user, I want my skills displayed with visual progress bars in the sidebar.",
+      "acceptanceCriteria": [
+        "Skills section appears in the sidebar below Education",
+        "Uses the SidebarSectionHeader component from US-004",
+        "Each skill shows a label and a horizontal progress bar",
+        "Progress bars use the accent color (gold default) as fill on a gray/dark track",
+        "Skill proficiency mapped to bar width (use level field if available, default 70% otherwise)",
+        "Only visible skills are shown",
+        "No other template files are modified",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "Skills with horizontal progress bars, accent color fill, level mapping"
+    },
+    {
+      "id": "US-009",
+      "title": "Add Professional Experience section on right main area",
+      "description": "As a user, I want my work experience displayed on the right with job title, dates, company, location, description, and bullet points.",
+      "acceptanceCriteria": [
+        "Experience section appears on the right side below Professional Profile",
+        "Uses the MainSectionHeader component from US-004",
+        "Each entry displays: job title (bold), date range, company name, location",
+        "Description text and bullet points render correctly using renderFormattedText or equivalent",
+        "Layout matches reference: structured entries with clear visual separation",
+        "Only visible experience entries are shown",
+        "No other template files are modified",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "Experience section with job title, dates, company, description, achievements"
+    },
+    {
+      "id": "US-010",
+      "title": "Add Languages and Certifications sections",
+      "description": "As a user, I want my languages and certifications displayed in the CV Moderne for full parity with Professional template.",
+      "acceptanceCriteria": [
+        "Languages section renders in the sidebar (below skills) using SidebarSectionHeader",
+        "Each language shows name and proficiency level",
+        "Certifications/Training section renders in the sidebar using SidebarSectionHeader",
+        "Each certification shows name, issuer, and date",
+        "Sections are hidden when data is empty",
+        "Only visible entries are shown",
+        "No other template files are modified",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "Languages with name/level, certifications with name/issuer/date"
+    },
+    {
+      "id": "US-011",
+      "title": "Add section reordering and show/hide controls",
+      "description": "As a user, I want to reorder sections within each column and show/hide sections, matching Professional template functionality.",
+      "acceptanceCriteria": [
+        "Add sidebarOrder and mainContentOrder props to ModernTemplate (same pattern as Professional)",
+        "Add hiddenSidebarSections and hiddenMainSections props",
+        "Sidebar sections render in the order specified by sidebarOrder",
+        "Main content sections render in the order specified by mainContentOrder",
+        "Hidden sections are not rendered",
+        "Update resume-preview.tsx to pass ordering/hidden props to ModernTemplate",
+        "Default order matches reference: sidebar=[contact, education, skills, languages, training], main=[summary, experience]",
+        "No other template files are modified",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "Section ordering with sidebarOrder/mainContentOrder, hidden section support"
+    },
+    {
+      "id": "US-012",
+      "title": "Add sidebar width, top margin, and font scale controls",
+      "description": "As a user, I want to adjust sidebar width, top margins, and font scaling, matching Professional template controls.",
+      "acceptanceCriteria": [
+        "Add sidebarWidth prop with default ~35% (same pattern as Professional)",
+        "Add sidebarTopMargin and mainContentTopMargin props",
+        "Add fontScale and fontFamily props",
+        "Sidebar width adjusts based on sidebarWidth prop",
+        "Top margins adjust based on respective props",
+        "Font sizes scale proportionally with fontScale",
+        "Update resume-preview.tsx to pass these props to ModernTemplate if not already",
+        "No other template files are modified",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "sidebarWidth, topMargin, fontScale, fontFamily props with defaults"
+    },
+    {
+      "id": "US-013",
+      "title": "Color picker integration and real-time preview",
+      "description": "As a user, I want the color picker to override the accent color in real-time across all Moderne template elements.",
+      "acceptanceCriteria": [
+        "Color picker selection overrides the accent color (banners, highlights, progress bars, icons)",
+        "Sidebar background color derived from sidebarColor prop (dark variant)",
+        "Accent elements (headers, progress bars, icons) use a lighter/gold variant of the color",
+        "Color changes apply in real-time without page reload",
+        "Default colors match reference when no color is selected (gold accent, dark sidebar)",
+        "No other template's color behavior is affected",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": "deriveAccentColor from HSL sidebarColor, real-time color updates"
+    },
+    {
+      "id": "US-014",
+      "title": "Final regression check and build validation",
+      "description": "As a maintainer, I want to confirm that no other template is affected and the build passes.",
+      "acceptanceCriteria": [
+        "CV Professional template file is unmodified (git diff shows no changes)",
+        "CV Classic template file is unmodified",
+        "CV Minimalist template file is unmodified",
+        "CV Creative template file is unmodified",
+        "No shared UI components are altered",
+        "pnpm lint passes",
+        "pnpm build succeeds",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": "Zero diff on other templates, 108/108 build, pre-existing errors only"
+    },
+    {
+      "id": "US-015",
+      "title": "Fix editor live preview to use correct template based on resume.template",
+      "description": "As a user, I want the live preview in the editor to display the same template design as the Aperçu page, so that what I see while editing matches the final output.",
+      "acceptanceCriteria": [
+        "resume-editor.tsx renders the correct template based on resume.template value (modern, classic, minimal, creative, professional)",
+        "When resume.template is 'modern', the editor preview shows ModernTemplate (not ProfessionalTemplate)",
+        "All template-specific props (sidebarColor, fontScale, fontFamily, sidebarOrder, etc.) are passed correctly to each template",
+        "Editor preview matches the Aperçu page design for all templates",
+        "No other template files are modified",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": "Editor now uses switch/case on resume.template to render correct template. ModernTemplate uses its own default section ordering."
+    },
+    {
+      "id": "US-016",
+      "title": "Remove all font size sliders from CV Moderne template",
+      "description": "As a user, I want the CV Moderne template to not display font size slider controls in the live preview or aperçu.",
+      "acceptanceCriteria": [
+        "No <input type='range'> elements remain inside modern-template.tsx",
+        "No print:hidden slider containers remain in the template",
+        "Font sizes still apply correctly to rendered CV text",
+        "No other template files are modified",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "All font size sliders removed from Moderne template (3 blocks, 83 lines deleted)"
+    },
+    {
+      "id": "US-017",
+      "title": "Add photo display and upload overlay to ModernTemplate",
+      "description": "As a user, I want to upload a photo via an elegant hover overlay on the photo placeholder zone in the editor live preview.",
+      "acceptanceCriteria": [
+        "Add photoUrl and onPhotoChange props to ModernTemplateProps",
+        "When photoUrl is provided, render an <img> with object-fit:cover replacing the silhouette SVG",
+        "When onPhotoChange is provided, show a hover overlay with camera icon and 'Upload Photo' text on the photo zone",
+        "Overlay uses opacity transition (0 to 1 on hover) with semi-transparent dark backdrop",
+        "Clicking overlay triggers a hidden <input type='file' accept='image/*'>",
+        "onPhotoChange callback is called with the base64 dataUrl of the selected image",
+        "When onPhotoChange is NOT provided (apercu), no overlay appears",
+        "Files over 2MB are rejected with an alert",
+        "Silhouette placeholder remains when no photo is uploaded",
+        "No other template files are modified",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": "Photo overlay with camera icon, hover transition, file input, 2MB check, accessibility (role=button, tabIndex, onKeyDown, aria-hidden)"
+    },
+    {
+      "id": "US-018",
+      "title": "Wire photo state through editor, preview, and apercu",
+      "description": "As a user, I want my uploaded photo to persist in localStorage and appear in both the editor and apercu pages.",
+      "acceptanceCriteria": [
+        "resume-editor.tsx: add photoUrl state, load from localStorage key resume_photo_{resumeId} on mount",
+        "resume-editor.tsx: handlePhotoChange saves base64 to localStorage and updates state",
+        "resume-editor.tsx: pass photoUrl and onPhotoChange to ModernTemplate in the 'modern' and default cases",
+        "resume-preview.tsx: add photoUrl and onPhotoChange to ResumePreviewProps, forward to ModernTemplate",
+        "resume-preview-wrapper.tsx: add photoUrl state, load from localStorage on mount, pass to ResumePreview (without onPhotoChange)",
+        "Photo persists after page reload",
+        "Photo appears in apercu without upload control",
+        "No template files are modified",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": true,
+      "notes": "photoUrl state in editor + wrapper, localStorage resume_photo_{id}, onPhotoChange in editor only, apercu displays photo without upload control"
+    },
+    {
+      "id": "US-019",
+      "title": "Install background-removal dependency and create utility module",
+      "description": "As a developer, I need the @imgly/background-removal library installed and a reusable utility module that encapsulates the background removal + color compositing pipeline.",
+      "acceptanceCriteria": [
+        "@imgly/background-removal is added to package.json dependencies",
+        "pnpm install succeeds without errors",
+        "New file src/lib/image/remove-background.ts is created",
+        "The module exports an async function removeImageBackground(imageSource: string) that returns a transparent-background Blob",
+        "The module exports an async function compositeWithBackground(foregroundBlob: Blob, backgroundColor: string) that returns a base64 data URL",
+        "removeImageBackground calls removeBackground() from @imgly/background-removal",
+        "compositeWithBackground draws the background color on a Canvas, then composites the foreground on top",
+        "Both functions accept an optional progress callback",
+        "No existing files are modified (except package.json)",
+        "Typecheck passes",
+        "pnpm build succeeds"
+      ],
+      "priority": 19,
+      "passes": true,
+      "notes": "Installed @imgly/background-removal, created src/lib/image/remove-background.ts with removeImageBackground and compositeWithBackground"
+    },
+    {
+      "id": "US-020",
+      "title": "Add Remove Background button to photo zone in ModernTemplate",
+      "description": "As a user, I want a Remove Background button on the photo zone so I can trigger automatic background removal of my uploaded photo.",
+      "acceptanceCriteria": [
+        "A new button appears on the photo zone overlay only when photoUrl exists and onPhotoChange is provided",
+        "The button shows a scissors/wand icon with text",
+        "The button is only visible on hover (same opacity transition pattern as upload overlay)",
+        "Clicking the button calls a new onRemoveBackground callback prop",
+        "The onRemoveBackground prop is optional; when absent, the button does not render",
+        "Button has aria-label, is keyboard-accessible",
+        "No other template files are modified",
+        "Typecheck passes",
+        "pnpm build succeeds"
+      ],
+      "priority": 20,
+      "passes": true,
+      "notes": "Added Remove BG pill button in bottom-right of photo zone with hover transition, loading spinner, accessibility"
+    },
+    {
+      "id": "US-021",
+      "title": "Wire background removal flow in resume-editor",
+      "description": "As a user, when I click Remove Background in the editor, I want the photo to be processed and the background replaced with the current sidebar color, with a loading indicator during processing.",
+      "acceptanceCriteria": [
+        "resume-editor.tsx imports removeImageBackground and compositeWithBackground from src/lib/image/remove-background.ts",
+        "A new handleRemoveBackground callback calls removeImageBackground then compositeWithBackground with the current sidebarColor",
+        "On success, handlePhotoChange is called with the composited data URL to update state and localStorage",
+        "A isRemovingBackground boolean state tracks processing status",
+        "During processing, the photo zone shows a loading spinner or progress indicator",
+        "On error, an alert or inline error message is shown",
+        "onRemoveBackground and isRemovingBackground props are passed to ModernTemplate in modern and default switch cases",
+        "The original unprocessed photo is saved to localStorage key resume_photo_original_{resumeId} before processing",
+        "After successful removal, the processed photo replaces the original in state and localStorage (resume_photo_{resumeId})",
+        "Typecheck passes",
+        "pnpm build succeeds"
+      ],
+      "priority": 21,
+      "passes": true,
+      "notes": "Wired handleRemoveBackground in editor, saves original photo, stores foreground Blob in ref for re-compositing"
+    },
+    {
+      "id": "US-022",
+      "title": "Re-apply sidebar color when color changes after background removal",
+      "description": "As a user, if I change the sidebar color after removing the photo background, I want the photo background to automatically update to match the new color.",
+      "acceptanceCriteria": [
+        "When sidebarColor changes (hue, saturation, or brightness), if resume_photo_original_{resumeId} exists in localStorage, compositeWithBackground is re-run with the new color",
+        "Re-processing is debounced (500ms minimum) to avoid running on every slider tick",
+        "Only Canvas compositing runs on color change (NOT the full ML model), using the cached foreground Blob",
+        "A subtle loading indicator appears during re-processing",
+        "If no original photo exists (background was never removed), color changes do not trigger any photo processing",
+        "Typecheck passes",
+        "pnpm build succeeds"
+      ],
+      "priority": 22,
+      "passes": true,
+      "notes": "Added debounced useEffect on sidebarColor change, re-composites via Canvas only (no ML re-run)"
+    },
+    {
+      "id": "US-023",
+      "title": "Build validation and regression check",
+      "description": "As a maintainer, I want to confirm that no other template is affected and the build passes after adding background removal.",
+      "acceptanceCriteria": [
+        "CV Professional template file is unmodified",
+        "CV Classic template file is unmodified",
+        "CV Minimalist template file is unmodified",
+        "CV Creative template file is unmodified",
+        "No shared UI components are altered (except new file in src/lib/image/)",
+        "pnpm lint passes",
+        "pnpm build succeeds",
+        "The photo with removed background renders correctly in the live preview",
+        "The photo with removed background renders correctly in the Apercu page"
+      ],
+      "priority": 23,
+      "passes": true,
+      "notes": "Regression check PASS: 0 diff on 4 other templates, 0 new lint errors, 108/108 build, apercu photo intact"
     }
   ]
 }
