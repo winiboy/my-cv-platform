@@ -49,7 +49,6 @@ import { QUALITY_THRESHOLD } from '@/lib/constants'
 import type { QualityAnalysis } from '@/types/quality-analysis'
 import { FontCarousel3D, FONTS } from '@/components/ui/font-carousel-3d'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
-import { removeImageBackground, compositeWithBackground, blobToDataUrl } from '@/lib/image/remove-background'
 
 interface JobApplicationItem {
   id: string
@@ -308,6 +307,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       // Preserve the original photo before any processing
       localStorage.setItem(`resume_photo_original_${resume.id}`, photoUrl)
 
+      const { removeImageBackground, compositeWithBackground } = await import('@/lib/image/remove-background')
+
       const blob = await removeImageBackground(photoUrl)
       foregroundBlobRef.current = blob
       setHasForegroundBlob(true)
@@ -334,6 +335,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       const originalPhoto = localStorage.getItem(`resume_photo_original_${resume.id}`)
       if (!originalPhoto) return null
 
+      const { removeImageBackground } = await import('@/lib/image/remove-background')
       const blob = await removeImageBackground(originalPhoto)
       foregroundBlobRef.current = blob
       return blob
@@ -355,6 +357,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
         const foreground = await ensureForegroundBlob()
         if (!foreground) return
 
+        const { compositeWithBackground } = await import('@/lib/image/remove-background')
         const newDataUrl = await compositeWithBackground(foreground, sidebarColor)
         handlePhotoChange(newDataUrl)
       } catch (error) {
@@ -378,6 +381,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
         const foreground = await ensureForegroundBlob()
         if (!foreground || cancelled) return
 
+        const { compositeWithBackground } = await import('@/lib/image/remove-background')
         const resultDataUrl = photoBgMode === 'content-color'
           ? await compositeWithBackground(foreground, '#FFFFFF')
           : await compositeWithBackground(foreground, sidebarColor)
