@@ -198,6 +198,11 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const [photoUrl, setPhotoUrl] = useState<string>('')
   const [isRemovingBackground, setIsRemovingBackground] = useState(false)
   const foregroundBlobRef = useRef<Blob | null>(null)
+  // Guard to prevent ensureForegroundBlob from firing on mount.
+  // When localStorage restores hasForegroundBlob/photoBgMode, the dependent useEffects
+  // would otherwise trigger the 40MB ML model download. This ref stays true until
+  // the mount useEffect completes, causing those effects to skip their first run.
+  const isRestoringFromStorage = useRef(true)
   const [photoBgMode, setPhotoBgMode] = useState<'sidebar-color' | 'content-color'>('sidebar-color')
   const [hasForegroundBlob, setHasForegroundBlob] = useState(false)
 
@@ -349,6 +354,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   // Uses ensureForegroundBlob for lazy reconstruction — the ML model only runs
   // on the first color change after a page load, not on mount.
   useEffect(() => {
+    // Skip during mount — localStorage restore of hasForegroundBlob/sidebarColor
+    // would otherwise trigger the 40MB ML model download on every editor open.
+    if (isRestoringFromStorage.current) return
     if (photoBgMode !== 'sidebar-color') return
     if (!foregroundBlobRef.current && !hasForegroundBlob) return
 
@@ -372,6 +380,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   // Uses ensureForegroundBlob for lazy reconstruction — the ML model only runs
   // when the user actually toggles the mode, not on mount.
   useEffect(() => {
+    // Skip during mount — localStorage restore of photoBgMode would otherwise
+    // trigger the 40MB ML model download on every editor open.
+    if (isRestoringFromStorage.current) return
     if (!foregroundBlobRef.current && !hasForegroundBlob) return
 
     let cancelled = false;
@@ -925,6 +936,15 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     } catch {}
 
     setIsSliderSettingsLoaded(true)
+
+    // Clear the mount guard after React has flushed all state updates from this
+    // effect and their dependent useEffects have already executed (and been skipped
+    // by the isRestoringFromStorage guard). Using requestAnimationFrame ensures the
+    // guard persists through the entire mount cycle before allowing user-initiated
+    // changes to trigger ensureForegroundBlob.
+    requestAnimationFrame(() => {
+      isRestoringFromStorage.current = false
+    })
   }, [resume.id])
 
   // Persist photoBgMode preference to localStorage
