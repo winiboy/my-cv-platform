@@ -324,16 +324,37 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     }
   }, [photoUrl, isRemovingBackground, sidebarColor, resume.id, handlePhotoChange, photoBgMode])
 
-  // Re-composite photo background when sidebar color changes (debounced)
+  // Lazy helper: returns the foreground blob, reconstructing it from localStorage if needed.
+  // This avoids running the ~40MB ML model on every mount — reconstruction only happens
+  // when the user actually interacts with color or mode controls.
+  const ensureForegroundBlob = useCallback(async (): Promise<Blob | null> => {
+    if (foregroundBlobRef.current) return foregroundBlobRef.current
+
+    try {
+      const originalPhoto = localStorage.getItem(`resume_photo_original_${resume.id}`)
+      if (!originalPhoto) return null
+
+      const blob = await removeImageBackground(originalPhoto)
+      foregroundBlobRef.current = blob
+      return blob
+    } catch (error) {
+      console.error('Lazy foreground blob reconstruction failed:', error)
+      return null
+    }
+  }, [resume.id])
+
+  // Re-composite photo background when sidebar color changes (debounced).
+  // Uses ensureForegroundBlob for lazy reconstruction — the ML model only runs
+  // on the first color change after a page load, not on mount.
   useEffect(() => {
-    if (!foregroundBlobRef.current || photoBgMode !== 'sidebar-color') return
+    if (photoBgMode !== 'sidebar-color') return
+    if (!foregroundBlobRef.current && !hasForegroundBlob) return
 
     const timeoutId = setTimeout(async () => {
-      // Double-check ref still exists after debounce delay
-      const foreground = foregroundBlobRef.current
-      if (!foreground) return
-
       try {
+        const foreground = await ensureForegroundBlob()
+        if (!foreground) return
+
         const newDataUrl = await compositeWithBackground(foreground, sidebarColor)
         handlePhotoChange(newDataUrl)
       } catch (error) {
@@ -342,17 +363,21 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     }, 500)
 
     return () => clearTimeout(timeoutId)
-  }, [sidebarColor, handlePhotoChange, photoBgMode])
+  }, [sidebarColor, handlePhotoChange, photoBgMode, hasForegroundBlob, ensureForegroundBlob])
 
-  // Re-composite or convert to transparent when photoBgMode changes
+  // Re-composite or convert to transparent when photoBgMode changes.
+  // Uses ensureForegroundBlob for lazy reconstruction — the ML model only runs
+  // when the user actually toggles the mode, not on mount.
   useEffect(() => {
-    const foreground = foregroundBlobRef.current
-    if (!foreground) return
+    if (!foregroundBlobRef.current && !hasForegroundBlob) return
 
     let cancelled = false;
 
     (async () => {
       try {
+        const foreground = await ensureForegroundBlob()
+        if (!foreground || cancelled) return
+
         const resultDataUrl = photoBgMode === 'content-color'
           ? await compositeWithBackground(foreground, '#FFFFFF')
           : await compositeWithBackground(foreground, sidebarColor)
@@ -873,29 +898,14 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       if (savedPhoto) setPhotoUrl(savedPhoto)
     } catch {}
 
-    // Restore hasForegroundBlob state if the original photo exists in localStorage.
-    // Step 1 (synchronous): show toggle buttons immediately.
-    // Step 2 (async): reconstruct the foreground blob in the background for re-compositing.
-    let cancelled = false
+    // Restore hasForegroundBlob flag if the original photo exists in localStorage.
+    // The actual foreground blob is NOT reconstructed here — that happens lazily
+    // in ensureForegroundBlob() when the user interacts with color/mode controls.
+    // This avoids loading the ~40MB ML model on every editor mount.
     try {
       const originalPhoto = localStorage.getItem(`resume_photo_original_${resume.id}`)
       if (originalPhoto) {
         setHasForegroundBlob(true)
-
-        // Reconstruct foregroundBlobRef asynchronously — do NOT call handlePhotoChange
-        // because the current composited photo is already correct in localStorage.
-        ;(async () => {
-          try {
-            const blob = await removeImageBackground(originalPhoto)
-            if (!cancelled) {
-              foregroundBlobRef.current = blob
-            }
-          } catch (error) {
-            console.error('Failed to reconstruct foreground blob on mount:', error)
-            // Graceful degradation: buttons remain visible but color-change
-            // re-compositing won't work until the user clicks Remove BG again.
-          }
-        })()
       }
     } catch {}
 
@@ -911,10 +921,6 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     } catch {}
 
     setIsSliderSettingsLoaded(true)
-
-    return () => {
-      cancelled = true
-    }
   }, [resume.id])
 
   // Persist photoBgMode preference to localStorage
