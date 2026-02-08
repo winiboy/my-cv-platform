@@ -5,7 +5,7 @@
 
 ---
 
-## Status: COMPLETE (30/30 stories PASS)
+## Status: COMPLETE (31/31 stories PASS)
 
 ---
 
@@ -187,6 +187,12 @@
 - Commit: d43e232
 - Changes: Restored hasForegroundBlob from localStorage on mount, async Blob reconstruction in background
 
+### US-031: Lazy-reconstruct foreground Blob on demand instead of eagerly on mount
+- Status: PASS
+- Priority: 31
+- Commit: 300dc14
+- Changes: Removed eager ML on mount, added ensureForegroundBlob useCallback helper for lazy reconstruction
+
 ---
 
 ## Files Modified
@@ -242,10 +248,11 @@
 25. 6d4052f - feat(moderne): US-028 rename transparent mode to content-color, composite with white
 26. 011611a - feat(moderne): US-029 update toggle icons to semantic two-column layout design
 27. d43e232 - feat(moderne): US-030 restore hasForegroundBlob state on editor remount
+28. 300dc14 - feat(moderne): US-031 lazy-reconstruct foreground Blob on demand instead of eagerly on mount
 
 ---
 
 ## Ready for Review
 
 Branch: ralph/cv-moderne-redesign
-Total commits: 26
+Total commits: 27

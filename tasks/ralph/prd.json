@@ -553,6 +553,23 @@
       "priority": 30,
       "passes": true,
       "notes": "Restored hasForegroundBlob from localStorage on mount, async Blob reconstruction in background"
+    },
+    {
+      "id": "US-031",
+      "title": "Lazy-reconstruct foreground Blob on demand instead of eagerly on mount",
+      "description": "As a user, the editor should load instantly without running the ML background-removal model on every mount.",
+      "acceptanceCriteria": [
+        "No removeImageBackground call in mount useEffect",
+        "ensureForegroundBlob helper caches Blob in ref after first reconstruction",
+        "sidebarColor useEffect calls ensureForegroundBlob lazily",
+        "photoBgMode useEffect calls ensureForegroundBlob lazily",
+        "Toggle buttons still appear instantly on mount",
+        "Typecheck passes",
+        "pnpm build succeeds"
+      ],
+      "priority": 31,
+      "passes": true,
+      "notes": "Removed eager ML on mount, added ensureForegroundBlob useCallback helper for lazy reconstruction"
     }
   ]
 }
