@@ -37,8 +37,26 @@ function getPackageVersion() {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  webpack: (config) => {
-    return config; // ensures Webpack is used
+  // Disable SWC minification in favor of standard Terser.
+  // onnxruntime-web (dependency of @imgly/background-removal) uses
+  // `new URL("file.mjs", import.meta.url)` which causes webpack to emit
+  // .mjs files as separate assets. The SWC minifier does not handle
+  // ESM syntax (import.meta, top-level import/export) in these emitted
+  // assets, while Terser correctly detects .mjs extensions and sets
+  // `module: true` before minifying.
+  swcMinify: false,
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'onnxruntime-node': false,
+      };
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        module: false,
+      };
+    }
+    return config;
   },
   env: {
     NEXT_PUBLIC_GIT_BRANCH: getGitBranch(),
