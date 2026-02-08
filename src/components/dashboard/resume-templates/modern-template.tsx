@@ -507,34 +507,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         if (experiences.length === 0) return null
         return (
           <div className="mb-6">
-            <MainSectionHeader title={dict.resumes?.editor?.sections?.experience || 'Professional Experience'} accentColor={accentColor} fontScale={activeScale}>
-              {setSectionTitleFontSize && (
-                <div
-                  className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
-                  style={{
-                    position: 'absolute',
-                    left: '100%',
-                    top: 0,
-                    marginLeft: '48px',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  <input
-                    type="range"
-                    min="12"
-                    max="24"
-                    step="1"
-                    value={sectionTitleFontSize}
-                    onChange={(e) => setSectionTitleFontSize(Number(e.target.value))}
-                    className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                    style={{ accentColor: accentColor }}
-                  />
-                  <span className="text-xs text-slate-600 font-mono">
-                    {sectionTitleFontSize}px
-                  </span>
-                </div>
-              )}
-            </MainSectionHeader>
+            <MainSectionHeader title={dict.resumes?.editor?.sections?.experience || 'Professional Experience'} accentColor={accentColor} fontScale={activeScale} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {experiences.map((exp, index) => (
                 <div
@@ -601,33 +574,6 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    {index === 0 && setSectionDescFontSize && (
-                      <div
-                        className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
-                        style={{
-                          position: 'absolute',
-                          left: '100%',
-                          top: 0,
-                          marginLeft: '48px',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        <input
-                          type="range"
-                          min="10"
-                          max="18"
-                          step="1"
-                          value={sectionDescFontSize}
-                          onChange={(e) => setSectionDescFontSize(Number(e.target.value))}
-                          className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                          style={{ accentColor: accentColor }}
-                        />
-                        <span className="text-xs text-slate-600 font-mono">
-                          {sectionDescFontSize}px
-                        </span>
-                      </div>
-                    )}
-
                     {exp.description && (
                       <div
                         style={{
@@ -756,34 +702,6 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
           >
             {contact.name || 'Your Name'}
           </h1>
-
-          {/* Font Size Slider - Positioned outside CV to the right */}
-          {setTitleFontSize && (
-            <div
-              className="print:hidden flex items-center gap-2 bg-white rounded-lg border border-slate-200 px-3 py-2 shadow-sm"
-              style={{
-                position: 'absolute',
-                left: '100%',
-                top: 0,
-                marginLeft: '48px',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              <input
-                type="range"
-                min="16"
-                max="48"
-                step="2"
-                value={titleFontSize}
-                onChange={(e) => setTitleFontSize(Number(e.target.value))}
-                className="w-32 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                style={{ accentColor: accentColor }}
-              />
-              <span className="text-xs text-slate-600 font-mono">
-                {titleFontSize}px
-              </span>
-            </div>
-          )}
 
           {/* Job title — on gold accent highlight bar */}
           {resume.title && (
