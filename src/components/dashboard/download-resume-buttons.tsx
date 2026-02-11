@@ -29,10 +29,6 @@ export function DownloadResumeButtons({ pdfLabel, wordLabel, dict, template }: D
       const localStorageKey = `resume_slider_settings_${resumeId}`
       const savedSettings = localStorage.getItem(localStorageKey)
 
-      // DEBUG: Log data flow for alignment verification
-      console.log('[DOCX Export Debug] localStorage key:', localStorageKey)
-      console.log('[DOCX Export Debug] savedSettings exists:', !!savedSettings)
-
       // Build query params
       const queryParams = new URLSearchParams()
       queryParams.set('locale', locale || 'fr')
@@ -41,13 +37,6 @@ export function DownloadResumeButtons({ pdfLabel, wordLabel, dict, template }: D
       if (savedSettings) {
         try {
           const settings = JSON.parse(savedSettings)
-
-          // DEBUG: Log alignment values being sent to DOCX
-          console.log('[DOCX Export Debug] Alignment values from localStorage:', {
-            sidebarWidth: settings.sidebarWidth,
-            sidebarTopMargin: settings.sidebarTopMargin,
-            mainContentTopMargin: settings.mainContentTopMargin,
-          })
 
           // Typography settings
           if (settings.fontFamily) queryParams.set('fontFamily', settings.fontFamily)
@@ -75,8 +64,22 @@ export function DownloadResumeButtons({ pdfLabel, wordLabel, dict, template }: D
       }
 
       const requestUrl = `/api/resumes/${resumeId}/download-docx?${queryParams.toString()}`
-      console.log('[DOCX Export Debug] Full request URL:', requestUrl)
-      const response = await fetch(requestUrl)
+
+      // Read photo data from localStorage for embedding in DOCX
+      let photoBase64: string | undefined
+      try {
+        const savedPhoto = localStorage.getItem(`resume_photo_${resumeId}`)
+        if (savedPhoto) photoBase64 = savedPhoto
+      } catch {}
+
+      // Use POST when photo data is available (too large for query string)
+      const response = photoBase64
+        ? await fetch(requestUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ photoBase64 }),
+          })
+        : await fetch(requestUrl)
       if (!response.ok) throw new Error('Failed to download')
 
       const blob = await response.blob()

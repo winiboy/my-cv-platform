@@ -4,6 +4,7 @@ import {
   Packer,
   Paragraph,
   TextRun,
+  ImageRun,
   AlignmentType,
   Table,
   TableRow,
@@ -88,6 +89,10 @@ const SPACING = {
   ACHIEVEMENT_GAP: 2,                // gap between achievement items
 }
 
+// Modern template default colors (matching modern-template.tsx constants)
+const DEFAULT_SIDEBAR_COLOR_HEX = '333333'
+const DEFAULT_ACCENT_COLOR_HEX = 'D4A843'
+
 // Modern template section types
 type ModernSidebarSectionId = 'contact' | 'education' | 'skills' | 'languages' | 'training'
 type ModernMainContentSectionId = 'summary' | 'experience'
@@ -95,10 +100,6 @@ type ModernMainContentSectionId = 'summary' | 'experience'
 // Default section orders (matching modern-template.tsx)
 const DEFAULT_SIDEBAR_ORDER: ModernSidebarSectionId[] = ['contact', 'education', 'skills', 'languages', 'training']
 const DEFAULT_MAIN_ORDER: ModernMainContentSectionId[] = ['summary', 'experience']
-
-// Default colors (matching modern-template.tsx)
-// Default accent gold: #D4A843 — used as fallback when no sidebar color is set
-// (The value is computed dynamically via deriveAccentColorHex in practice.)
 
 /**
  * Derive accent color hex from sidebar HSL values.
@@ -111,14 +112,44 @@ function deriveAccentColorHex(sidebarHue: number, sidebarBrightness: number): st
   return hslToHex(sidebarHue, s, l)
 }
 
+/**
+ * Detect the image type from a base64 data URL or raw base64 string.
+ * Returns a docx-compatible type or null if unrecognized.
+ */
+function detectImageType(base64: string): 'jpg' | 'png' | 'gif' | 'bmp' | null {
+  if (base64.startsWith('data:image/jpeg') || base64.startsWith('data:image/jpg')) return 'jpg'
+  if (base64.startsWith('data:image/png')) return 'png'
+  if (base64.startsWith('data:image/gif')) return 'gif'
+  if (base64.startsWith('data:image/bmp')) return 'bmp'
+
+  // Check raw base64 magic bytes (no data URL prefix)
+  // JPEG starts with /9j/, PNG starts with iVBOR
+  if (base64.startsWith('/9j/')) return 'jpg'
+  if (base64.startsWith('iVBOR')) return 'png'
+  if (base64.startsWith('R0lGOD')) return 'gif'
+
+  return null
+}
+
+/**
+ * Extract raw base64 data from a data URL. If already raw, returns as-is.
+ */
+function extractBase64Data(dataUrl: string): string {
+  const commaIndex = dataUrl.indexOf(',')
+  if (commaIndex !== -1 && dataUrl.startsWith('data:')) {
+    return dataUrl.substring(commaIndex + 1)
+  }
+  return dataUrl
+}
+
 // ============================================================
 // MODERN TEMPLATE DOCX GENERATOR
 // ============================================================
 
 /**
  * Generate a DOCX buffer for the Modern template.
- * Layout: 2-column table — sidebar (left, colored) + main content (right, white).
- * Sidebar: photo zone (skipped), contact, education, skills, languages, training.
+ * Layout: 2-column table -- sidebar (left, colored) + main content (right, white).
+ * Sidebar: photo zone, contact, education, skills, languages, training.
  * Main: name + title header, summary, experience, projects.
  */
 export async function generateModernDocx(
@@ -138,6 +169,8 @@ export async function generateModernDocx(
     mainContentOrder: mainContentOrderRaw,
     hiddenSidebarSections: hiddenSidebarRaw,
     hiddenMainSections: hiddenMainRaw,
+    hasCustomColors,
+    photoBase64,
   } = settings
 
   // Cast section ID arrays to their specific union types
@@ -163,11 +196,22 @@ export async function generateModernDocx(
   const projects = (resume.projects || []).filter((project: any) => project.visible !== false)
   const languages = (resume.languages || []).filter((lang: any) => lang.visible !== false)
 
-  // Calculate sidebar color from hue and brightness
-  const sidebarColorHex = hslToHex(sidebarHue, 85, sidebarBrightness)
+  // ============================================================
+  // COLOR LOGIC (matching modern-template.tsx exactly)
+  // When the user hasn't customized colors, use the template defaults:
+  //   sidebar = #333333, accent = #D4A843
+  // When the user has customized, compute from HSL values.
+  // ============================================================
+  let sidebarColorHex: string
+  let accentColorHex: string
 
-  // Derive accent color (matching modern-template.tsx logic)
-  const accentColorHex = deriveAccentColorHex(sidebarHue, sidebarBrightness)
+  if (hasCustomColors) {
+    sidebarColorHex = hslToHex(sidebarHue, 85, sidebarBrightness)
+    accentColorHex = deriveAccentColorHex(sidebarHue, sidebarBrightness)
+  } else {
+    sidebarColorHex = DEFAULT_SIDEBAR_COLOR_HEX
+    accentColorHex = DEFAULT_ACCENT_COLOR_HEX
+  }
 
   // Calculate scaled font sizes
   const scaledFontSizes = {
@@ -205,6 +249,16 @@ export async function generateModernDocx(
 
   // Right indent for main content to prevent text touching the edge
   const mainContentRightIndent = convertInchesToTwip(0.15)
+
+  // No-border definition for nested tables
+  const noBorders = {
+    top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    bottom: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    left: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    right: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    insideHorizontal: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+    insideVertical: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
+  } as const
 
   // ============================================================
   // HELPER: Create a sidebar section header paragraph
@@ -266,9 +320,55 @@ export async function generateModernDocx(
   }
 
   // ============================================================
+  // PHOTO EMBEDDING (Defect 1)
+  // Convert base64 photo data to ImageRun for the sidebar
+  // ============================================================
+  let photoImageRun: ImageRun | null = null
+
+  if (photoBase64) {
+    try {
+      const imageType = detectImageType(photoBase64)
+      if (imageType) {
+        const rawBase64 = extractBase64Data(photoBase64)
+        const imageBuffer = Buffer.from(rawBase64, 'base64')
+
+        // docx library v9.5.1 expects pixels for transformation dimensions
+        // and internally converts to EMUs (pixels * 9525).
+        const sidebarInches = (sidebarWidthPercent / 100) * 8.5
+        // Subtract cell padding (0.33" left + 0.33" right) to fit within cell content
+        const imageWidthPx = Math.round((sidebarInches - 0.66) * 96)
+        // Photo zone height matches the 220px zone in the template
+        const imageHeightPx = 220
+
+        photoImageRun = new ImageRun({
+          type: imageType,
+          data: imageBuffer,
+          transformation: {
+            width: imageWidthPx,
+            height: imageHeightPx,
+          },
+        })
+      }
+    } catch {
+      // Photo embedding failed silently -- continue without photo
+    }
+  }
+
+  // ============================================================
   // BUILD SIDEBAR CONTENT
   // ============================================================
   const sidebarParagraphs: Paragraph[] = []
+
+  // Add photo at the top of sidebar if available
+  if (photoImageRun) {
+    sidebarParagraphs.push(
+      new Paragraph({
+        children: [photoImageRun],
+        spacing: { after: pxToTwips(12) },
+        alignment: AlignmentType.CENTER,
+      })
+    )
+  }
 
   // Apply sidebar top margin as initial spacing
   if (sidebarTopMargin > 0) {
@@ -351,7 +451,7 @@ export async function generateModernDocx(
     if (sectionId === 'education' && education.length > 0) {
       sidebarParagraphs.push(
         createSidebarSectionHeader(
-          (dict as any).resumes?.template?.education || 'Education'
+          (dict as any).resumes?.editor?.sections?.education || 'Education'
         )
       )
 
@@ -404,7 +504,7 @@ export async function generateModernDocx(
     if (sectionId === 'skills' && skills.length > 0) {
       sidebarParagraphs.push(
         createSidebarSectionHeader(
-          (dict as any).resumes?.template?.skills || 'Skills'
+          (dict as any).resumes?.editor?.sections?.skills || 'Technical Skills'
         )
       )
 
@@ -494,7 +594,7 @@ export async function generateModernDocx(
     if (sectionId === 'languages' && languages.length > 0) {
       sidebarParagraphs.push(
         createSidebarSectionHeader(
-          (dict as any).resumes?.template?.languages || 'Languages'
+          (dict as any).resumes?.editor?.sections?.languages || 'Languages'
         )
       )
 
@@ -503,7 +603,7 @@ export async function generateModernDocx(
         const itemEndSpacing = isLast ? sectionSpacingAfter : pxToTwips(SPACING.LANGUAGE_ITEM_GAP)
 
         // Language name (left) + level (right-aligned via tab)
-        const levelText = (dict as any).resumes?.levels?.[lang.level] || lang.level
+        const levelText = (dict as any).resumes?.editor?.levels?.[lang.level?.toLowerCase()] || lang.level
         sidebarParagraphs.push(
           new Paragraph({
             children: [
@@ -537,7 +637,7 @@ export async function generateModernDocx(
     if (sectionId === 'training' && certifications.length > 0) {
       sidebarParagraphs.push(
         createSidebarSectionHeader(
-          (dict as any).resumes?.template?.training || 'Training'
+          (dict as any).resumes?.editor?.sections?.certifications || 'Training'
         )
       )
 
@@ -696,7 +796,7 @@ export async function generateModernDocx(
     if (sectionId === 'summary' && resume.summary) {
       mainContentParagraphs.push(
         createMainSectionHeader(
-          (dict as any).resumes?.template?.summary || 'Summary'
+          (dict as any).resumes?.editor?.sections?.summary || 'Professional Profile'
         )
       )
 
@@ -740,25 +840,27 @@ export async function generateModernDocx(
       }
     }
 
-    // --- EXPERIENCE ---
+    // --- EXPERIENCE (Defect 3: 2-column inner layout) ---
     if (sectionId === 'experience' && experiences.length > 0) {
       mainContentParagraphs.push(
         createMainSectionHeader(
-          (dict as any).resumes?.template?.experience || 'Experience'
+          (dict as any).resumes?.editor?.sections?.experience || 'Professional Experience'
         )
       )
 
       // Modern template experience layout:
       // Left 40%: position, dates, company, location
       // Right 60%: description + achievements
-      // In DOCX we render linearly since nested tables are complex.
-      // We follow the Professional pattern: position + date on one line, then company, then description.
+      // Rendered as nested tables within the main content area
       experiences.forEach((exp: any, i: number) => {
         const isLastExp = i === experiences.length - 1
         const hasProjectsAfter = projects.length > 0
 
+        // --- Build LEFT column paragraphs (40%) ---
+        const leftParagraphs: Paragraph[] = []
+
         // Position (bold uppercase)
-        mainContentParagraphs.push(
+        leftParagraphs.push(
           new Paragraph({
             children: [
               new TextRun({
@@ -770,14 +872,13 @@ export async function generateModernDocx(
               }),
             ],
             spacing: { after: pxToTwips(2) },
-            indent: { right: mainContentRightIndent },
           })
         )
 
         // Date range
         const dateText = formatDateRange(exp.startDate, exp.endDate, exp.current, locale as Locale, dict)
         if (dateText) {
-          mainContentParagraphs.push(
+          leftParagraphs.push(
             new Paragraph({
               children: [
                 new TextRun({
@@ -788,14 +889,13 @@ export async function generateModernDocx(
                 }),
               ],
               spacing: { after: pxToTwips(8) },
-              indent: { right: mainContentRightIndent },
             })
           )
         }
 
         // Company (bold)
         if (exp.company) {
-          mainContentParagraphs.push(
+          leftParagraphs.push(
             new Paragraph({
               children: [
                 new TextRun({
@@ -806,15 +906,14 @@ export async function generateModernDocx(
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: exp.location ? pxToTwips(2) : pxToTwips(8) },
-              indent: { right: mainContentRightIndent },
+              spacing: { after: exp.location ? pxToTwips(2) : 0 },
             })
           )
         }
 
         // Location
         if (exp.location) {
-          mainContentParagraphs.push(
+          leftParagraphs.push(
             new Paragraph({
               children: [
                 new TextRun({
@@ -824,23 +923,22 @@ export async function generateModernDocx(
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: pxToTwips(8) },
-              indent: { right: mainContentRightIndent },
+              spacing: { after: 0 },
             })
           )
         }
 
+        // Ensure at least one paragraph in left column
+        if (leftParagraphs.length === 0) {
+          leftParagraphs.push(new Paragraph({ children: [] }))
+        }
+
+        // --- Build RIGHT column paragraphs (60%) ---
+        const rightParagraphs: Paragraph[] = []
+
         // Description
         if (exp.description) {
           const descAlignment = extractAlignment(exp.description) || AlignmentType.JUSTIFIED
-
-          // Calculate spacing after description
-          const hasAchievements = exp.achievements && exp.achievements.length > 0
-          const descSpacingAfter = hasAchievements
-            ? pxToTwips(6) // margin before achievements list
-            : (!isLastExp
-                ? pxToTwips(SPACING.EXPERIENCE_ITEM_GAP)
-                : (isLastSection && !hasProjectsAfter ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN)))
 
           if (isHtmlList(exp.description)) {
             const listParagraphs = parseHtmlListToParagraphs(
@@ -851,11 +949,11 @@ export async function generateModernDocx(
                 font: primaryFont,
               },
               pxToTwips(4),
-              descSpacingAfter,
-              { right: mainContentRightIndent },
+              exp.achievements && exp.achievements.length > 0 ? pxToTwips(6) : 0,
+              undefined,
               descAlignment
             )
-            mainContentParagraphs.push(...listParagraphs)
+            rightParagraphs.push(...listParagraphs)
           } else {
             const descRuns = parseHtmlToDocxRuns(exp.description, {
               size: scaledFontSizes.body,
@@ -863,16 +961,15 @@ export async function generateModernDocx(
               font: primaryFont,
             })
 
-            mainContentParagraphs.push(
+            rightParagraphs.push(
               new Paragraph({
                 children: descRuns,
                 spacing: {
-                  after: descSpacingAfter,
+                  after: exp.achievements && exp.achievements.length > 0 ? pxToTwips(6) : 0,
                   line: Math.round(240 * LINE_HEIGHTS.BODY),
                   lineRule: LineRuleType.AUTO,
                 },
                 alignment: descAlignment,
-                indent: { right: mainContentRightIndent },
               })
             )
           }
@@ -883,26 +980,10 @@ export async function generateModernDocx(
           exp.achievements.forEach((achievement: string, j: number) => {
             const isLastAchievement = j === exp.achievements.length - 1
 
-            const achievementRuns = parseHtmlToDocxRuns(achievement, {
-              size: scaledFontSizes.body,
-              color: COLORS.BODY_TEXT,
-              font: primaryFont,
-            })
+            // Strip HTML and create a single italic TextRun for the achievement text
+            const achievementText = achievement.replace(/<[^>]+>/g, '').trim()
 
-            // Apply italic to all achievement runs (matching Preview)
-            const italicRuns = achievementRuns.map((run: any) => {
-              // Re-create TextRun with italic set
-              // Since we can't modify runs, we parse again with italic override
-              return run
-            })
-
-            const achievementSpacingAfter = !isLastAchievement
-              ? pxToTwips(SPACING.ACHIEVEMENT_GAP)
-              : (!isLastExp
-                  ? pxToTwips(SPACING.EXPERIENCE_ITEM_GAP)
-                  : (isLastSection && !hasProjectsAfter ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN)))
-
-            mainContentParagraphs.push(
+            rightParagraphs.push(
               new Paragraph({
                 children: [
                   new TextRun({
@@ -910,30 +991,90 @@ export async function generateModernDocx(
                     size: scaledFontSizes.body,
                     color: accentColorHex,
                     font: primaryFont,
+                    italics: true,
                   }),
-                  ...italicRuns,
+                  new TextRun({
+                    text: achievementText,
+                    size: scaledFontSizes.body,
+                    color: COLORS.BODY_TEXT,
+                    font: primaryFont,
+                    italics: true,
+                  }),
                 ],
                 spacing: {
-                  after: achievementSpacingAfter,
+                  after: isLastAchievement ? 0 : pxToTwips(SPACING.ACHIEVEMENT_GAP),
                   line: Math.round(240 * LINE_HEIGHTS.BODY),
                   lineRule: LineRuleType.AUTO,
                 },
-                indent: { right: mainContentRightIndent },
               })
             )
           })
         }
 
-        // If no description and no achievements, add spacing between experiences
-        if (!exp.description && (!exp.achievements || exp.achievements.length === 0)) {
-          if (!isLastExp) {
-            mainContentParagraphs.push(
-              new Paragraph({
-                spacing: { after: pxToTwips(SPACING.EXPERIENCE_ITEM_GAP) },
-                children: [],
-              })
-            )
-          }
+        // Ensure at least one paragraph in right column
+        if (rightParagraphs.length === 0) {
+          rightParagraphs.push(new Paragraph({ children: [] }))
+        }
+
+        // --- Create 2-column nested table for this experience entry ---
+        // Calculate column widths: 40% left, 60% right of available main content width
+        // Subtract cell margins from available width for inner table
+        const innerTableWidth = mainContentWidthTwips - convertInchesToTwip(0.66)
+        const leftColumnWidth = Math.round(innerTableWidth * 0.4)
+        const rightColumnWidth = innerTableWidth - leftColumnWidth
+
+        const experienceTable = new Table({
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({
+                  children: leftParagraphs,
+                  width: { size: leftColumnWidth, type: WidthType.DXA },
+                  verticalAlign: VerticalAlign.TOP,
+                  margins: {
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    right: pxToTwips(16), // gap: 16px between columns
+                  },
+                  borders: noBorders,
+                }),
+                new TableCell({
+                  children: rightParagraphs,
+                  width: { size: rightColumnWidth, type: WidthType.DXA },
+                  verticalAlign: VerticalAlign.TOP,
+                  margins: {
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                  },
+                  borders: noBorders,
+                }),
+              ],
+            }),
+          ],
+          width: { size: innerTableWidth, type: WidthType.DXA },
+          columnWidths: [leftColumnWidth, rightColumnWidth],
+          layout: TableLayoutType.FIXED,
+          borders: noBorders,
+        })
+
+        // Cast Table to Paragraph[] type; resolved at assembly via mainContentChildren union cast
+        mainContentParagraphs.push(experienceTable as unknown as Paragraph)
+
+        // Add spacing after this experience entry
+        const expEndSpacing = isLastExp
+          ? (isLastSection && !hasProjectsAfter ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN))
+          : pxToTwips(SPACING.EXPERIENCE_ITEM_GAP)
+
+        if (expEndSpacing > 0) {
+          mainContentParagraphs.push(
+            new Paragraph({
+              spacing: { after: expEndSpacing },
+              children: [],
+            })
+          )
         }
       })
     }
@@ -974,26 +1115,40 @@ export async function generateModernDocx(
         })
       )
 
-      // Project description
+      // Project description (Defect 4: use HTML parsing instead of raw text)
       if (project.description) {
-        mainContentParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: project.description,
-                size: scaledFontSizes.body,
-                color: COLORS.BODY_TEXT,
-                font: primaryFont,
-              }),
-            ],
-            spacing: {
-              after: project.technologies && project.technologies.length > 0 ? pxToTwips(8) : itemEndSpacing,
-              line: Math.round(240 * LINE_HEIGHTS.BODY),
-              lineRule: LineRuleType.AUTO,
+        if (isHtmlList(project.description)) {
+          const listParagraphs = parseHtmlListToParagraphs(
+            project.description,
+            {
+              size: scaledFontSizes.body,
+              color: COLORS.BODY_TEXT,
+              font: primaryFont,
             },
-            indent: { left: pxToTwips(16), right: mainContentRightIndent },
+            pxToTwips(4),
+            project.technologies && project.technologies.length > 0 ? pxToTwips(8) : itemEndSpacing,
+            { left: pxToTwips(16), right: mainContentRightIndent }
+          )
+          mainContentParagraphs.push(...listParagraphs)
+        } else {
+          const descRuns = parseHtmlToDocxRuns(project.description, {
+            size: scaledFontSizes.body,
+            color: COLORS.BODY_TEXT,
+            font: primaryFont,
           })
-        )
+
+          mainContentParagraphs.push(
+            new Paragraph({
+              children: descRuns,
+              spacing: {
+                after: project.technologies && project.technologies.length > 0 ? pxToTwips(8) : itemEndSpacing,
+                line: Math.round(240 * LINE_HEIGHTS.BODY),
+                lineRule: LineRuleType.AUTO,
+              },
+              indent: { left: pxToTwips(16), right: mainContentRightIndent },
+            })
+          )
+        }
       }
 
       // Technologies
@@ -1020,6 +1175,10 @@ export async function generateModernDocx(
   // CREATE DOCUMENT WITH TABLE LAYOUT
   // ============================================================
 
+  // Cast mainContentParagraphs to the union type that TableCell accepts
+  // This allows Tables (from experience section) alongside Paragraphs
+  const mainContentChildren: (Paragraph | Table)[] = mainContentParagraphs as unknown as (Paragraph | Table)[]
+
   // Sidebar cell
   const sidebarCell = new TableCell({
     children: sidebarParagraphs.length > 0
@@ -1042,10 +1201,10 @@ export async function generateModernDocx(
     },
   })
 
-  // Main content cell
+  // Main content cell -- accepts both Paragraph and Table children
   const mainContentCell = new TableCell({
-    children: mainContentParagraphs.length > 0
-      ? mainContentParagraphs
+    children: mainContentChildren.length > 0
+      ? mainContentChildren
       : [new Paragraph({ children: [] })],
     margins: {
       top: convertInchesToTwip(0.33),
