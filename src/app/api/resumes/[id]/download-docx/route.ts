@@ -4,6 +4,7 @@ import { type Locale } from '@/lib/i18n'
 import { pxToTwips, type DocxGeneratorSettings } from './docx-helpers'
 import { generateProfessionalDocx } from './docx-professional'
 import { generateModernDocx } from './docx-modern'
+import { generateClassicDocx } from './docx-classic'
 
 // ============================================================
 // SUPPORTED TEMPLATES
@@ -131,6 +132,9 @@ export async function GET(
         break
 
       case 'classic':
+        buffer = await generateClassicDocx(resume, settings)
+        break
+
       case 'minimal':
       case 'creative':
         return NextResponse.json(
