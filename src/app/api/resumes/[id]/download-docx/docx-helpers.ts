@@ -6,6 +6,29 @@ import {
 import type { Locale } from '@/lib/i18n'
 
 // ============================================================
+// SHARED TYPES FOR ALL DOCX GENERATORS
+// ============================================================
+
+/**
+ * Settings passed from the route dispatcher to each template-specific generator.
+ * All generators receive the same shape so the route remains template-agnostic.
+ */
+export interface DocxGeneratorSettings {
+  fontFamily: string
+  fontScale: number
+  locale: string
+  sidebarHue: number
+  sidebarBrightness: number
+  sidebarWidth: number
+  sidebarTopMargin: number
+  mainContentTopMargin: number
+  sidebarOrder: string[]
+  mainContentOrder: string[]
+  hiddenSidebarSections: string[]
+  hiddenMainSections: string[]
+}
+
+// ============================================================
 // UNIT CONVERSION UTILITIES
 // ============================================================
 
