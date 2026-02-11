@@ -259,6 +259,13 @@ export async function generateModernDocx(
   // Right indent for main content to prevent text touching the edge
   const mainContentRightIndent = convertInchesToTwip(0.15)
 
+  // Sidebar text indentation — replaces cell margins (which are 0 for edge-to-edge photo).
+  // All non-photo sidebar paragraphs use this left/right indent.
+  const sidebarTextIndent = {
+    left: convertInchesToTwip(0.33),
+    right: convertInchesToTwip(0.33),
+  }
+
   // No-border definition for nested tables
   const noBorders = {
     top: { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' },
@@ -286,6 +293,7 @@ export async function generateModernDocx(
           characterSpacing: 8, // letterSpacing 0.08em approximation
         }),
       ],
+      indent: sidebarTextIndent,
       spacing: { after: pxToTwips(SPACING.SIDEBAR_SECTION_HEADER_MB) },
       shading: {
         type: ShadingType.SOLID,
@@ -344,9 +352,8 @@ export async function generateModernDocx(
         // docx library v9.5.1 expects pixels for transformation dimensions
         // and internally converts to EMUs (pixels * 9525).
         const sidebarInches = (sidebarWidthPercent / 100) * 8.5
-        // Subtract only minimal padding (0.08" each side) to fill the sidebar as closely
-        // as possible. The preview photo fills the full sidebar width edge-to-edge.
-        const imageWidthPx = Math.round((sidebarInches - 0.16) * 96)
+        // Photo fills the full sidebar width edge-to-edge, matching the preview
+        const imageWidthPx = Math.round(sidebarInches * 96)
         // Photo zone height matches the 220px zone in the template
         const imageHeightPx = 220
 
@@ -369,22 +376,39 @@ export async function generateModernDocx(
   // ============================================================
   const sidebarParagraphs: Paragraph[] = []
 
-  // Add photo at the top of sidebar if available
+  // Add photo at the top of sidebar if available — no spacing after, left-aligned
+  // to fill the sidebar edge-to-edge (cell margins are 0)
   if (photoImageRun) {
     sidebarParagraphs.push(
       new Paragraph({
         children: [photoImageRun],
-        spacing: { after: pxToTwips(12) },
-        alignment: AlignmentType.CENTER,
+        spacing: { after: 0 },
+        alignment: AlignmentType.LEFT,
       })
     )
   }
 
-  // Apply sidebar top margin as initial spacing
+  // Cell margins are 0, so recreate vertical padding via paragraph spacing.
+  // When a photo is present: photo is flush top, then add 0.25" gap before text.
+  // When no photo: add 0.25" top padding (previously from cell margin).
+  const topPaddingBeforeText = convertInchesToTwip(0.25)
   if (sidebarTopMargin > 0) {
     sidebarParagraphs.push(
       new Paragraph({
-        spacing: { after: pxToTwips(sidebarTopMargin) },
+        spacing: {
+          before: photoImageRun ? topPaddingBeforeText : topPaddingBeforeText,
+          after: pxToTwips(sidebarTopMargin),
+        },
+        indent: sidebarTextIndent,
+        children: [],
+      })
+    )
+  } else {
+    // Always add the top padding spacer paragraph before first text content
+    sidebarParagraphs.push(
+      new Paragraph({
+        spacing: { before: topPaddingBeforeText, after: 0 },
+        indent: sidebarTextIndent,
         children: [],
       })
     )
@@ -435,6 +459,7 @@ export async function generateModernDocx(
                 characterSpacing: 5, // letterSpacing 0.05em
               }),
             ],
+            indent: sidebarTextIndent,
             spacing: { after: 0 },
           })
         )
@@ -457,6 +482,7 @@ export async function generateModernDocx(
                 font: primaryFont,
               }),
             ],
+            indent: sidebarTextIndent,
             spacing: { after: itemEndSpacing },
           })
         )
@@ -488,6 +514,7 @@ export async function generateModernDocx(
                 font: primaryFont,
               }),
             ],
+            indent: sidebarTextIndent,
             spacing: { after: 0 },
           })
         )
@@ -510,6 +537,7 @@ export async function generateModernDocx(
                 font: primaryFont,
               }),
             ],
+            indent: sidebarTextIndent,
             spacing: { after: itemEndSpacing },
           })
         )
@@ -542,6 +570,7 @@ export async function generateModernDocx(
                   characterSpacing: 3, // letterSpacing 0.03em
                 }),
               ],
+              indent: sidebarTextIndent,
               spacing: { after: pxToTwips(8) }, // margin 0 0 8px 0
             })
           )
@@ -562,7 +591,7 @@ export async function generateModernDocx(
               },
               pxToTwips(4),
               categoryEndSpacing,
-              undefined,
+              sidebarTextIndent,
               skillsAlignment
             )
             sidebarParagraphs.push(...listParagraphs)
@@ -576,6 +605,7 @@ export async function generateModernDocx(
             sidebarParagraphs.push(
               new Paragraph({
                 children: skillsRuns,
+                indent: sidebarTextIndent,
                 spacing: { after: categoryEndSpacing },
                 alignment: skillsAlignment,
               })
@@ -598,6 +628,7 @@ export async function generateModernDocx(
                     font: primaryFont,
                   }),
                 ],
+                indent: sidebarTextIndent,
                 spacing: { after: itemSpacing },
               })
             )
@@ -637,6 +668,7 @@ export async function generateModernDocx(
                 font: primaryFont,
               }),
             ],
+            indent: sidebarTextIndent,
             spacing: { after: itemEndSpacing },
             tabStops: [
               {
@@ -673,6 +705,7 @@ export async function generateModernDocx(
                 font: primaryFont,
               }),
             ],
+            indent: sidebarTextIndent,
             spacing: { after: cert.issuer || cert.date ? 0 : itemEndSpacing },
           })
         )
@@ -689,6 +722,7 @@ export async function generateModernDocx(
                   font: primaryFont,
                 }),
               ],
+              indent: sidebarTextIndent,
               spacing: { after: cert.date ? 0 : itemEndSpacing },
             })
           )
@@ -709,6 +743,7 @@ export async function generateModernDocx(
                   font: primaryFont,
                 }),
               ],
+              indent: sidebarTextIndent,
               spacing: { after: itemEndSpacing },
             })
           )
@@ -1202,7 +1237,8 @@ export async function generateModernDocx(
   // This allows Tables (from experience section) alongside Paragraphs
   const mainContentChildren: (Paragraph | Table)[] = mainContentParagraphs as unknown as (Paragraph | Table)[]
 
-  // Sidebar cell
+  // Sidebar cell — margins set to 0 so the photo fills edge-to-edge.
+  // Text content uses paragraph-level indentation instead (applied below).
   const sidebarCell = new TableCell({
     children: sidebarParagraphs.length > 0
       ? sidebarParagraphs
@@ -1212,10 +1248,10 @@ export async function generateModernDocx(
       color: 'auto',
     },
     margins: {
-      top: convertInchesToTwip(0.25),
-      bottom: convertInchesToTwip(0.25),
-      left: convertInchesToTwip(0.33),
-      right: convertInchesToTwip(0.33),
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
     },
     verticalAlign: VerticalAlign.TOP,
     width: {
