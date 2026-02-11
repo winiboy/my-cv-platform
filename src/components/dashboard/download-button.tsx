@@ -15,9 +15,10 @@ interface DownloadButtonProps {
   label: string
   wordLabel?: string
   dict?: DownloadButtonDict
+  template?: string
 }
 
-export function DownloadButton({ label, wordLabel, dict }: DownloadButtonProps) {
+export function DownloadButton({ label, wordLabel, dict, template }: DownloadButtonProps) {
   const params = useParams()
   const resumeId = params?.id as string
   const locale = params?.locale as string
@@ -35,6 +36,7 @@ export function DownloadButton({ label, wordLabel, dict }: DownloadButtonProps) 
       // Build query params
       const queryParams = new URLSearchParams()
       queryParams.set('locale', locale || 'fr')
+      if (template) queryParams.set('template', template)
 
       if (savedSettings) {
         try {

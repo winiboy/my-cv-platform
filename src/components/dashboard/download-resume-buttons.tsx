@@ -15,9 +15,10 @@ interface DownloadResumeButtonsProps {
   pdfLabel: string
   wordLabel: string
   dict?: DownloadResumeButtonsDict
+  template?: string
 }
 
-export function DownloadResumeButtons({ pdfLabel, wordLabel, dict }: DownloadResumeButtonsProps) {
+export function DownloadResumeButtons({ pdfLabel, wordLabel, dict, template }: DownloadResumeButtonsProps) {
   const params = useParams()
   const resumeId = params?.id as string
   const locale = params?.locale as string
@@ -35,6 +36,7 @@ export function DownloadResumeButtons({ pdfLabel, wordLabel, dict }: DownloadRes
       // Build query params
       const queryParams = new URLSearchParams()
       queryParams.set('locale', locale || 'fr')
+      if (template) queryParams.set('template', template)
 
       if (savedSettings) {
         try {
