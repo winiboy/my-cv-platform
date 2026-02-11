@@ -5,6 +5,7 @@ import { pxToTwips, type DocxGeneratorSettings } from './docx-helpers'
 import { generateProfessionalDocx } from './docx-professional'
 import { generateModernDocx } from './docx-modern'
 import { generateClassicDocx } from './docx-classic'
+import { generateMinimalDocx } from './docx-minimal'
 
 // ============================================================
 // SUPPORTED TEMPLATES
@@ -136,6 +137,9 @@ export async function GET(
         break
 
       case 'minimal':
+        buffer = await generateMinimalDocx(resume, settings)
+        break
+
       case 'creative':
         return NextResponse.json(
           { error: `DOCX export for template "${template}" is not yet implemented` },
