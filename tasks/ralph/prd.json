@@ -1,608 +1,171 @@
 {
   "project": "my-cv-platform",
-  "branchName": "ralph/cv-moderne-redesign",
-  "description": "CV Moderne Template Redesign - Redesign the Modern template to match reference design (Moderne_v01.webp) with two-column layout, photo zone, banner headers, progress bar skills, and full Professional template feature parity.",
+  "branchName": "ralph/word-export",
+  "description": "Word Export V2 - Multi-Template DOCX Generation. Extract shared helpers from the monolithic Professional DOCX route, refactor into a template-dispatch architecture, and build DOCX generators for all 5 templates (Professional, Modern, Classic, Minimal, Creative).",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Scaffold two-column layout with dark sidebar and color props",
-      "description": "As a developer, I need the CV Moderne template to use a two-column layout (dark sidebar ~35%, white main ~65%) with sidebarColor prop support, replacing the current single-column teal layout.",
+      "title": "Extract shared DOCX helpers into docx-helpers.ts",
+      "description": "As a developer, I need all reusable utility functions and constants extracted from route.ts into a dedicated shared module so that all template generators can reuse them.",
       "acceptanceCriteria": [
-        "Replace current ModernTemplate layout with two-column structure: left sidebar (~35%) and right main area (~65%)",
-        "Sidebar has dark charcoal background (#333333) by default",
-        "Right main area has white background",
-        "Sidebar spans full height of the CV page",
-        "Add sidebarColor prop to ModernTemplate (same pattern as ProfessionalTemplate)",
-        "Default accent color is gold (#D4A843)",
-        "Update resume-preview.tsx to pass sidebarColor to ModernTemplate if not already",
-        "Existing data parsing (contact, experience, education, skills, languages, certifications) is preserved",
-        "No other template files are modified",
-        "Typecheck passes"
+        "New file created: src/app/api/resumes/[id]/download-docx/docx-helpers.ts",
+        "The following functions are exported from docx-helpers.ts: pxToHalfPoints, pxToTwips, hslToHex, oklchToHex, extractPrimaryFont, stripHtml, isHtmlList, parseHtmlListToParagraphs, parseHtmlToDocxRuns, extractAlignment, formatDateRange, renderInlineBullets",
+        "The following constants/types are exported: COLORS, DocxTextRunOptions interface",
+        "route.ts imports all helpers from docx-helpers.ts instead of defining them locally",
+        "route.ts continues to produce identical DOCX output (zero behavioral change)",
+        "No other files outside the download-docx directory are modified",
+        "Typecheck passes (pnpm lint)",
+        "Build passes (pnpm build)"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": "Two-column layout with absolute sidebar, sidebarColor prop, teal→inline styles migration"
+      "passes": true
     },
     {
       "id": "US-002",
-      "title": "Add photo placeholder zone at top of sidebar",
-      "description": "As a user, I want a photo placeholder zone at the top of the left sidebar so I can display my profile photo on the CV.",
+      "title": "Refactor route to template dispatcher + extract Professional generator",
+      "description": "As a developer, I need route.ts refactored into a slim dispatcher that detects the template and delegates to the correct generator. The Professional template generation logic moves into its own module.",
       "acceptanceCriteria": [
-        "Photo zone is positioned at the top of the sidebar, before any sections",
-        "Zone is rectangular, filling the full width of the sidebar",
-        "If no photo data exists, a neutral gray placeholder with a user icon is displayed",
-        "Zone height is approximately 200-250px matching reference proportions",
-        "No other template files are modified",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "New file created: src/app/api/resumes/[id]/download-docx/professional-generator.ts",
+        "professional-generator.ts exports a function generateProfessionalDocx that accepts resume data, styling params, translations, and returns a Document object",
+        "route.ts is now a slim dispatcher: auth, data fetch, param parsing, template detection, generator dispatch, Packer.toBuffer, response",
+        "Template detection reads 'template' query param, falls back to resume.template from DB, falls back to 'professional'",
+        "When template is 'professional', dispatcher calls generateProfessionalDocx",
+        "For other templates, dispatcher returns a 501 'Template not yet supported' response (temporary, until generators are built)",
+        "Professional DOCX output is identical to before refactor (zero behavioral change)",
+        "No other files outside the download-docx directory are modified",
+        "Typecheck passes (pnpm lint)",
+        "Build passes (pnpm build)"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Photo placeholder zone with SVG user silhouette at top of sidebar"
+      "passes": true
     },
     {
       "id": "US-003",
-      "title": "Add header section (name, job title, address) at top-right",
-      "description": "As a user, I want my name, job title, and address displayed prominently at the top-right of the CV matching the reference layout.",
+      "title": "Modern template DOCX generator",
+      "description": "As a user with a Modern template resume, I want the DOCX export to reflect the Modern layout with a dark sidebar, accent-colored section banners, contact info, and a structured main content area.",
       "acceptanceCriteria": [
-        "Full name displayed in large bold typography at top of the right/main area",
-        "Job title displayed below name with accent-colored (gold) underline or highlight bar",
-        "Address line displayed below job title in smaller text",
-        "Typography hierarchy matches reference: name is largest, title is medium with accent, address is small",
-        "Accent color uses the sidebarColor/accent prop (gold default)",
-        "No other template files are modified",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "New file created: src/app/api/resumes/[id]/download-docx/modern-generator.ts",
+        "Exports generateModernDocx function that returns a Document object",
+        "Layout: 2-column table with dark sidebar (~35%) and white main (~65%)",
+        "Sidebar contains: Contact info (phone, email, website, linkedin, github, location), Education, Skills (category + items as text), Languages, Certifications/Training",
+        "Sidebar section headers use accent-colored shading with white uppercase text",
+        "Main content contains: Name (large bold), Job title with accent highlight, Summary, Experience (position, dates, company, location, achievements/description)",
+        "Accent color derived from sidebarColor using same HSL logic as modern-template.tsx",
+        "Uses shared helpers from docx-helpers.ts for HTML parsing, date formatting, unit conversion",
+        "route.ts dispatcher updated to call generateModernDocx when template is 'modern'",
+        "Generated DOCX opens correctly in Word/LibreOffice",
+        "No React template files are modified",
+        "Typecheck passes (pnpm lint)",
+        "Build passes (pnpm build)"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Header with large name, gold accent title bar, and address line"
+      "passes": true
     },
     {
       "id": "US-004",
-      "title": "Add banner-style section headers for sidebar and main area",
-      "description": "As a user, I want section headers to appear as colored background banners with uppercase text for clear visual hierarchy.",
+      "title": "Classic template DOCX generator",
+      "description": "As a user with a Classic template resume, I want the DOCX export to reflect the Classic layout with a centered header, serif typography, and traditional single-column sections.",
       "acceptanceCriteria": [
-        "Sidebar section headers render as horizontal banners with accent-colored (gold) background and white/dark text",
-        "Main area section headers render with uppercase text and a horizontal rule below, matching reference",
-        "All header text is uppercase and uses appropriate font weight",
-        "Banner/header colors respect the accent color prop",
-        "Create reusable SidebarSectionHeader and MainSectionHeader sub-components within the template file",
-        "No other template files are modified",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "New file created: src/app/api/resumes/[id]/download-docx/classic-generator.ts",
+        "Exports generateClassicDocx function that returns a Document object",
+        "Layout: Single-column with generous page margins (matching p-12 from template)",
+        "Header: CV title centered in large serif bold uppercase, contact info centered with bullet separators, bottom border",
+        "Sections rendered in order: Summary, Experience, Education, Skills, Projects, Languages + Certifications",
+        "Section headers: serif font, bold, uppercase, bottom border line",
+        "Experience items: position + date on same line (left/right), company + location italic, achievements as disc bullets",
+        "Skills rendered as 'Category: item1, item2, item3' format",
+        "Uses shared helpers from docx-helpers.ts",
+        "route.ts dispatcher updated to call generateClassicDocx when template is 'classic'",
+        "Generated DOCX opens correctly in Word/LibreOffice",
+        "No React template files are modified",
+        "Typecheck passes (pnpm lint)",
+        "Build passes (pnpm build)"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "SidebarSectionHeader and MainSectionHeader reusable sub-components"
+      "passes": true
     },
     {
       "id": "US-005",
-      "title": "Add Professional Profile / Summary section on right area",
-      "description": "As a user, I want a Professional Profile summary section at the top of the right main area.",
+      "title": "Minimal template DOCX generator",
+      "description": "As a user with a Minimal template resume, I want the DOCX export to reflect the Minimal layout with wide margins, light typography, and generous whitespace.",
       "acceptanceCriteria": [
-        "Professional Profile section renders below the header (name/title) on the right side",
-        "Uses the MainSectionHeader component from US-004",
-        "Summary text displays with proper spacing and line height",
-        "Content comes from the existing resume summary field",
-        "Section is hidden if summary is empty",
-        "No other template files are modified",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "New file created: src/app/api/resumes/[id]/download-docx/minimal-generator.ts",
+        "Exports generateMinimalDocx function that returns a Document object",
+        "Layout: Single-column with extra-wide page margins (matching p-16 from template)",
+        "Header: CV title centered in large light/thin font, contact info spaced with gaps, thin bottom border",
+        "Section headers: uppercase, wide letter-spacing, light gray color, thin bottom border",
+        "Sections rendered in order: Summary, Experience, Projects, Education, Skills, Languages + Certifications",
+        "Experience items: position (medium weight) + date (right-aligned), company in light weight, small dot bullets for achievements",
+        "Skills rendered as category name followed by items spaced horizontally",
+        "Uses em-dash for date ranges (matching template's ' — ' separator)",
+        "Uses shared helpers from docx-helpers.ts",
+        "route.ts dispatcher updated to call generateMinimalDocx when template is 'minimal'",
+        "Generated DOCX opens correctly in Word/LibreOffice",
+        "No React template files are modified",
+        "Typecheck passes (pnpm lint)",
+        "Build passes (pnpm build)"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Professional Profile section with MainSectionHeader and formatText"
+      "passes": true
     },
     {
       "id": "US-006",
-      "title": "Add Contact section in sidebar with icons",
-      "description": "As a user, I want my contact details displayed in the left sidebar with circular icons matching the reference design.",
+      "title": "Creative template DOCX generator",
+      "description": "As a user with a Creative template resume, I want the DOCX export to reflect the Creative layout with a colored header, summary in header, and a two-column body.",
       "acceptanceCriteria": [
-        "Contact section appears in the sidebar below the photo zone",
-        "Uses the SidebarSectionHeader component from US-004",
-        "Each contact item (phone, email, website, address) shows with a circular icon on the right side",
-        "Icons use accent-colored circular backgrounds with white icons inside",
-        "Labels are right-aligned, icons are on the right (matching reference layout)",
-        "Empty fields are hidden",
-        "No other template files are modified",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "New file created: src/app/api/resumes/[id]/download-docx/creative-generator.ts",
+        "Exports generateCreativeDocx function that returns a Document object",
+        "Layout: Full-width colored header section followed by 2-column body table (1/3 + 2/3)",
+        "Header: Purple background shading, name in large bold white uppercase, summary in white, contact items with bullet dots",
+        "Left column (1/3): Skills (bullet lists per category), Languages (name + level text), Certifications (name, issuer, date)",
+        "Right column (2/3): Experience (position, company in accent color, date badge, achievements with triangle bullets), Projects (name, description), Education (degree, school, date)",
+        "Section headers: bold uppercase with accent color, prefixed with vertical bar marker character",
+        "Uses solid purple color approximation for gradient (DOCX does not support gradients)",
+        "Uses shared helpers from docx-helpers.ts",
+        "route.ts dispatcher updated to call generateCreativeDocx when template is 'creative'",
+        "Generated DOCX opens correctly in Word/LibreOffice",
+        "No React template files are modified",
+        "Typecheck passes (pnpm lint)",
+        "Build passes (pnpm build)"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Contact section with circular accent-colored icons (phone, email, globe, pin)"
+      "passes": true
     },
     {
       "id": "US-007",
-      "title": "Add Education section in sidebar",
-      "description": "As a user, I want my education history displayed in the left sidebar matching the reference design.",
+      "title": "Pass template parameter from download buttons",
+      "description": "As a user, when I click the Word download button, the correct template name should be sent to the API so the right DOCX generator is used.",
       "acceptanceCriteria": [
-        "Education section appears in the sidebar below Contact",
-        "Uses the SidebarSectionHeader component from US-004",
-        "Each entry shows: degree in bold uppercase, institution name, and year",
-        "Entries are stacked vertically with consistent spacing",
-        "All education data from the existing data model is rendered",
-        "Only visible education entries are shown (visible !== false filter)",
-        "No other template files are modified",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "download-button.tsx reads template name from localStorage settings (resume_slider_settings_{resumeId} contains template field) or from a new prop",
+        "download-button.tsx adds 'template' query parameter to the DOCX download URL",
+        "download-resume-buttons.tsx applies the same change",
+        "When no template info is available, the parameter is omitted (API falls back to DB field)",
+        "Existing PDF download behavior is unaffected",
+        "No API route files are modified in this story",
+        "Typecheck passes (pnpm lint)",
+        "Build passes (pnpm build)"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "Education entries with bold uppercase degree, institution, and year"
+      "passes": true
     },
     {
       "id": "US-008",
-      "title": "Add Technical Skills section with progress bars in sidebar",
-      "description": "As a user, I want my skills displayed with visual progress bars in the sidebar.",
+      "title": "Verify all 5 templates and regression test Professional",
+      "description": "As a maintainer, I want to confirm that all 5 template generators produce valid DOCX files and that the Professional template output is unchanged from baseline.",
       "acceptanceCriteria": [
-        "Skills section appears in the sidebar below Education",
-        "Uses the SidebarSectionHeader component from US-004",
-        "Each skill shows a label and a horizontal progress bar",
-        "Progress bars use the accent color (gold default) as fill on a gray/dark track",
-        "Skill proficiency mapped to bar width (use level field if available, default 70% otherwise)",
-        "Only visible skills are shown",
-        "No other template files are modified",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": "Skills with horizontal progress bars, accent color fill, level mapping"
-    },
-    {
-      "id": "US-009",
-      "title": "Add Professional Experience section on right main area",
-      "description": "As a user, I want my work experience displayed on the right with job title, dates, company, location, description, and bullet points.",
-      "acceptanceCriteria": [
-        "Experience section appears on the right side below Professional Profile",
-        "Uses the MainSectionHeader component from US-004",
-        "Each entry displays: job title (bold), date range, company name, location",
-        "Description text and bullet points render correctly using renderFormattedText or equivalent",
-        "Layout matches reference: structured entries with clear visual separation",
-        "Only visible experience entries are shown",
-        "No other template files are modified",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 9,
-      "passes": true,
-      "notes": "Experience section with job title, dates, company, description, achievements"
-    },
-    {
-      "id": "US-010",
-      "title": "Add Languages and Certifications sections",
-      "description": "As a user, I want my languages and certifications displayed in the CV Moderne for full parity with Professional template.",
-      "acceptanceCriteria": [
-        "Languages section renders in the sidebar (below skills) using SidebarSectionHeader",
-        "Each language shows name and proficiency level",
-        "Certifications/Training section renders in the sidebar using SidebarSectionHeader",
-        "Each certification shows name, issuer, and date",
-        "Sections are hidden when data is empty",
-        "Only visible entries are shown",
-        "No other template files are modified",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": "Languages with name/level, certifications with name/issuer/date"
-    },
-    {
-      "id": "US-011",
-      "title": "Add section reordering and show/hide controls",
-      "description": "As a user, I want to reorder sections within each column and show/hide sections, matching Professional template functionality.",
-      "acceptanceCriteria": [
-        "Add sidebarOrder and mainContentOrder props to ModernTemplate (same pattern as Professional)",
-        "Add hiddenSidebarSections and hiddenMainSections props",
-        "Sidebar sections render in the order specified by sidebarOrder",
-        "Main content sections render in the order specified by mainContentOrder",
-        "Hidden sections are not rendered",
-        "Update resume-preview.tsx to pass ordering/hidden props to ModernTemplate",
-        "Default order matches reference: sidebar=[contact, education, skills, languages, training], main=[summary, experience]",
-        "No other template files are modified",
-        "Typecheck passes"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": "Section ordering with sidebarOrder/mainContentOrder, hidden section support"
-    },
-    {
-      "id": "US-012",
-      "title": "Add sidebar width, top margin, and font scale controls",
-      "description": "As a user, I want to adjust sidebar width, top margins, and font scaling, matching Professional template controls.",
-      "acceptanceCriteria": [
-        "Add sidebarWidth prop with default ~35% (same pattern as Professional)",
-        "Add sidebarTopMargin and mainContentTopMargin props",
-        "Add fontScale and fontFamily props",
-        "Sidebar width adjusts based on sidebarWidth prop",
-        "Top margins adjust based on respective props",
-        "Font sizes scale proportionally with fontScale",
-        "Update resume-preview.tsx to pass these props to ModernTemplate if not already",
-        "No other template files are modified",
-        "Typecheck passes"
-      ],
-      "priority": 12,
-      "passes": true,
-      "notes": "sidebarWidth, topMargin, fontScale, fontFamily props with defaults"
-    },
-    {
-      "id": "US-013",
-      "title": "Color picker integration and real-time preview",
-      "description": "As a user, I want the color picker to override the accent color in real-time across all Moderne template elements.",
-      "acceptanceCriteria": [
-        "Color picker selection overrides the accent color (banners, highlights, progress bars, icons)",
-        "Sidebar background color derived from sidebarColor prop (dark variant)",
-        "Accent elements (headers, progress bars, icons) use a lighter/gold variant of the color",
-        "Color changes apply in real-time without page reload",
-        "Default colors match reference when no color is selected (gold accent, dark sidebar)",
-        "No other template's color behavior is affected",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 13,
-      "passes": true,
-      "notes": "deriveAccentColor from HSL sidebarColor, real-time color updates"
-    },
-    {
-      "id": "US-014",
-      "title": "Final regression check and build validation",
-      "description": "As a maintainer, I want to confirm that no other template is affected and the build passes.",
-      "acceptanceCriteria": [
-        "CV Professional template file is unmodified (git diff shows no changes)",
-        "CV Classic template file is unmodified",
-        "CV Minimalist template file is unmodified",
-        "CV Creative template file is unmodified",
+        "Professional template DOCX: route still returns 200 with valid .docx Content-Type for template=professional",
+        "Modern template DOCX: route returns 200 with valid .docx for template=modern",
+        "Classic template DOCX: route returns 200 with valid .docx for template=classic",
+        "Minimal template DOCX: route returns 200 with valid .docx for template=minimal",
+        "Creative template DOCX: route returns 200 with valid .docx for template=creative",
+        "Default (no template param): falls back correctly to resume.template from DB or professional",
+        "No React template component files are modified (git diff shows zero changes)",
         "No shared UI components are altered",
         "pnpm lint passes",
-        "pnpm build succeeds",
-        "Typecheck passes"
-      ],
-      "priority": 14,
-      "passes": true,
-      "notes": "Zero diff on other templates, 108/108 build, pre-existing errors only"
-    },
-    {
-      "id": "US-015",
-      "title": "Fix editor live preview to use correct template based on resume.template",
-      "description": "As a user, I want the live preview in the editor to display the same template design as the Aperçu page, so that what I see while editing matches the final output.",
-      "acceptanceCriteria": [
-        "resume-editor.tsx renders the correct template based on resume.template value (modern, classic, minimal, creative, professional)",
-        "When resume.template is 'modern', the editor preview shows ModernTemplate (not ProfessionalTemplate)",
-        "All template-specific props (sidebarColor, fontScale, fontFamily, sidebarOrder, etc.) are passed correctly to each template",
-        "Editor preview matches the Aperçu page design for all templates",
-        "No other template files are modified",
-        "Typecheck passes"
-      ],
-      "priority": 15,
-      "passes": true,
-      "notes": "Editor now uses switch/case on resume.template to render correct template. ModernTemplate uses its own default section ordering."
-    },
-    {
-      "id": "US-016",
-      "title": "Remove all font size sliders from CV Moderne template",
-      "description": "As a user, I want the CV Moderne template to not display font size slider controls in the live preview or aperçu.",
-      "acceptanceCriteria": [
-        "No <input type='range'> elements remain inside modern-template.tsx",
-        "No print:hidden slider containers remain in the template",
-        "Font sizes still apply correctly to rendered CV text",
-        "No other template files are modified",
-        "Typecheck passes"
-      ],
-      "priority": 16,
-      "passes": true,
-      "notes": "All font size sliders removed from Moderne template (3 blocks, 83 lines deleted)"
-    },
-    {
-      "id": "US-017",
-      "title": "Add photo display and upload overlay to ModernTemplate",
-      "description": "As a user, I want to upload a photo via an elegant hover overlay on the photo placeholder zone in the editor live preview.",
-      "acceptanceCriteria": [
-        "Add photoUrl and onPhotoChange props to ModernTemplateProps",
-        "When photoUrl is provided, render an <img> with object-fit:cover replacing the silhouette SVG",
-        "When onPhotoChange is provided, show a hover overlay with camera icon and 'Upload Photo' text on the photo zone",
-        "Overlay uses opacity transition (0 to 1 on hover) with semi-transparent dark backdrop",
-        "Clicking overlay triggers a hidden <input type='file' accept='image/*'>",
-        "onPhotoChange callback is called with the base64 dataUrl of the selected image",
-        "When onPhotoChange is NOT provided (apercu), no overlay appears",
-        "Files over 2MB are rejected with an alert",
-        "Silhouette placeholder remains when no photo is uploaded",
-        "No other template files are modified",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
-      ],
-      "priority": 17,
-      "passes": true,
-      "notes": "Photo overlay with camera icon, hover transition, file input, 2MB check, accessibility (role=button, tabIndex, onKeyDown, aria-hidden)"
-    },
-    {
-      "id": "US-018",
-      "title": "Wire photo state through editor, preview, and apercu",
-      "description": "As a user, I want my uploaded photo to persist in localStorage and appear in both the editor and apercu pages.",
-      "acceptanceCriteria": [
-        "resume-editor.tsx: add photoUrl state, load from localStorage key resume_photo_{resumeId} on mount",
-        "resume-editor.tsx: handlePhotoChange saves base64 to localStorage and updates state",
-        "resume-editor.tsx: pass photoUrl and onPhotoChange to ModernTemplate in the 'modern' and default cases",
-        "resume-preview.tsx: add photoUrl and onPhotoChange to ResumePreviewProps, forward to ModernTemplate",
-        "resume-preview-wrapper.tsx: add photoUrl state, load from localStorage on mount, pass to ResumePreview (without onPhotoChange)",
-        "Photo persists after page reload",
-        "Photo appears in apercu without upload control",
-        "No template files are modified",
-        "Typecheck passes"
-      ],
-      "priority": 18,
-      "passes": true,
-      "notes": "photoUrl state in editor + wrapper, localStorage resume_photo_{id}, onPhotoChange in editor only, apercu displays photo without upload control"
-    },
-    {
-      "id": "US-019",
-      "title": "Install background-removal dependency and create utility module",
-      "description": "As a developer, I need the @imgly/background-removal library installed and a reusable utility module that encapsulates the background removal + color compositing pipeline.",
-      "acceptanceCriteria": [
-        "@imgly/background-removal is added to package.json dependencies",
-        "pnpm install succeeds without errors",
-        "New file src/lib/image/remove-background.ts is created",
-        "The module exports an async function removeImageBackground(imageSource: string) that returns a transparent-background Blob",
-        "The module exports an async function compositeWithBackground(foregroundBlob: Blob, backgroundColor: string) that returns a base64 data URL",
-        "removeImageBackground calls removeBackground() from @imgly/background-removal",
-        "compositeWithBackground draws the background color on a Canvas, then composites the foreground on top",
-        "Both functions accept an optional progress callback",
-        "No existing files are modified (except package.json)",
-        "Typecheck passes",
         "pnpm build succeeds"
       ],
-      "priority": 19,
-      "passes": true,
-      "notes": "Installed @imgly/background-removal, created src/lib/image/remove-background.ts with removeImageBackground and compositeWithBackground"
-    },
-    {
-      "id": "US-020",
-      "title": "Add Remove Background button to photo zone in ModernTemplate",
-      "description": "As a user, I want a Remove Background button on the photo zone so I can trigger automatic background removal of my uploaded photo.",
-      "acceptanceCriteria": [
-        "A new button appears on the photo zone overlay only when photoUrl exists and onPhotoChange is provided",
-        "The button shows a scissors/wand icon with text",
-        "The button is only visible on hover (same opacity transition pattern as upload overlay)",
-        "Clicking the button calls a new onRemoveBackground callback prop",
-        "The onRemoveBackground prop is optional; when absent, the button does not render",
-        "Button has aria-label, is keyboard-accessible",
-        "No other template files are modified",
-        "Typecheck passes",
-        "pnpm build succeeds"
-      ],
-      "priority": 20,
-      "passes": true,
-      "notes": "Added Remove BG pill button in bottom-right of photo zone with hover transition, loading spinner, accessibility"
-    },
-    {
-      "id": "US-021",
-      "title": "Wire background removal flow in resume-editor",
-      "description": "As a user, when I click Remove Background in the editor, I want the photo to be processed and the background replaced with the current sidebar color, with a loading indicator during processing.",
-      "acceptanceCriteria": [
-        "resume-editor.tsx imports removeImageBackground and compositeWithBackground from src/lib/image/remove-background.ts",
-        "A new handleRemoveBackground callback calls removeImageBackground then compositeWithBackground with the current sidebarColor",
-        "On success, handlePhotoChange is called with the composited data URL to update state and localStorage",
-        "A isRemovingBackground boolean state tracks processing status",
-        "During processing, the photo zone shows a loading spinner or progress indicator",
-        "On error, an alert or inline error message is shown",
-        "onRemoveBackground and isRemovingBackground props are passed to ModernTemplate in modern and default switch cases",
-        "The original unprocessed photo is saved to localStorage key resume_photo_original_{resumeId} before processing",
-        "After successful removal, the processed photo replaces the original in state and localStorage (resume_photo_{resumeId})",
-        "Typecheck passes",
-        "pnpm build succeeds"
-      ],
-      "priority": 21,
-      "passes": true,
-      "notes": "Wired handleRemoveBackground in editor, saves original photo, stores foreground Blob in ref for re-compositing"
-    },
-    {
-      "id": "US-022",
-      "title": "Re-apply sidebar color when color changes after background removal",
-      "description": "As a user, if I change the sidebar color after removing the photo background, I want the photo background to automatically update to match the new color.",
-      "acceptanceCriteria": [
-        "When sidebarColor changes (hue, saturation, or brightness), if resume_photo_original_{resumeId} exists in localStorage, compositeWithBackground is re-run with the new color",
-        "Re-processing is debounced (500ms minimum) to avoid running on every slider tick",
-        "Only Canvas compositing runs on color change (NOT the full ML model), using the cached foreground Blob",
-        "A subtle loading indicator appears during re-processing",
-        "If no original photo exists (background was never removed), color changes do not trigger any photo processing",
-        "Typecheck passes",
-        "pnpm build succeeds"
-      ],
-      "priority": 22,
-      "passes": true,
-      "notes": "Added debounced useEffect on sidebarColor change, re-composites via Canvas only (no ML re-run)"
-    },
-    {
-      "id": "US-023",
-      "title": "Build validation and regression check",
-      "description": "As a maintainer, I want to confirm that no other template is affected and the build passes after adding background removal.",
-      "acceptanceCriteria": [
-        "CV Professional template file is unmodified",
-        "CV Classic template file is unmodified",
-        "CV Minimalist template file is unmodified",
-        "CV Creative template file is unmodified",
-        "No shared UI components are altered (except new file in src/lib/image/)",
-        "pnpm lint passes",
-        "pnpm build succeeds",
-        "The photo with removed background renders correctly in the live preview",
-        "The photo with removed background renders correctly in the Apercu page"
-      ],
-      "priority": 23,
-      "passes": true,
-      "notes": "Regression check PASS: 0 diff on 4 other templates, 0 new lint errors, 108/108 build, apercu photo intact"
-    },
-    {
-      "id": "US-024",
-      "title": "Add blobToDataUrl helper to remove-background utility",
-      "description": "As a developer, I need a helper function to convert a Blob to a base64 data URL for transparent photo mode.",
-      "acceptanceCriteria": [
-        "New exported function blobToDataUrl(blob: Blob): Promise<string> in src/lib/image/remove-background.ts",
-        "Uses FileReader.readAsDataURL internally",
-        "No other files are modified",
-        "Typecheck passes"
-      ],
-      "priority": 24,
-      "passes": true,
-      "notes": "Added blobToDataUrl helper using FileReader.readAsDataURL"
-    },
-    {
-      "id": "US-025",
-      "title": "Add photoBgMode state and mode-switching logic in resume-editor",
-      "description": "As a user, I want my background mode choice (sidebar-color or transparent) to be persisted and applied correctly.",
-      "acceptanceCriteria": [
-        "New state photoBgMode of type 'sidebar-color' | 'transparent', default 'sidebar-color'",
-        "Loaded from localStorage key resume_photo_bg_mode_{resumeId} on mount",
-        "Saved to localStorage whenever value changes",
-        "Import blobToDataUrl from utility module",
-        "handleRemoveBackground applies photo based on current photoBgMode",
-        "useEffect for sidebar color re-compositing gated: only runs when photoBgMode === 'sidebar-color'",
-        "New useEffect watches photoBgMode: re-applies photo from foregroundBlobRef accordingly",
-        "New boolean state hasForegroundBlob set to true after removal, false on new photo upload",
-        "No template files modified",
-        "Typecheck passes"
-      ],
-      "priority": 25,
-      "passes": true,
-      "notes": "Added photoBgMode state, localStorage persistence, mode-switching useEffects, handleNewPhotoUpload reset"
-    },
-    {
-      "id": "US-026",
-      "title": "Add toggle UI to photo zone in ModernTemplate",
-      "description": "As a user, I want two toggle buttons on the photo zone to switch between sidebar-color background and transparent background.",
-      "acceptanceCriteria": [
-        "New props: photoBgMode, onPhotoBgModeChange, hasForegroundBlob added to ModernTemplateProps",
-        "Two small pill buttons appear when photoUrl exists, onPhotoChange provided, and hasForegroundBlob is true",
-        "Buttons visible on hover with same opacity transition pattern",
-        "One button for Color BG, one for Transparent",
-        "Active button visually highlighted",
-        "Clicking calls onPhotoBgModeChange with corresponding mode",
-        "Buttons have aria-label, keyboard accessible",
-        "No other template files modified",
-        "Typecheck passes",
-        "pnpm build succeeds"
-      ],
-      "priority": 26,
-      "passes": true,
-      "notes": "Added toggle buttons (filled square + checkerboard) in bottom-left of photo zone with active/inactive styling"
-    },
-    {
-      "id": "US-027",
-      "title": "Wire toggle props and build validation",
-      "description": "As a maintainer, I want to confirm all props are wired correctly and the build passes.",
-      "acceptanceCriteria": [
-        "photoBgMode, onPhotoBgModeChange, hasForegroundBlob passed to ModernTemplate in modern and default cases",
-        "Switching modes immediately updates photo in live preview",
-        "Choice persists across page reload via localStorage",
-        "pnpm lint passes",
-        "pnpm build succeeds",
-        "No other template files modified"
-      ],
-      "priority": 27,
-      "passes": true,
-      "notes": "Wired photoBgMode, onPhotoBgModeChange, hasForegroundBlob to ModernTemplate in modern and default cases"
-    },
-    {
-      "id": "US-028",
-      "title": "Rename transparent mode to content-color and composite with white",
-      "description": "As a user, the second photo background option should use the main content area color (white) instead of transparency.",
-      "acceptanceCriteria": [
-        "Union type changes from 'sidebar-color' | 'transparent' to 'sidebar-color' | 'content-color' in resume-editor.tsx",
-        "All photoBgMode === 'transparent' checks replaced with 'content-color'",
-        "blobToDataUrl calls replaced with compositeWithBackground(blob, '#FFFFFF')",
-        "localStorage migration: 'transparent' loaded as 'content-color'",
-        "No template files modified in this story",
-        "Typecheck passes"
-      ],
-      "priority": 28,
-      "passes": true,
-      "notes": "Renamed 'transparent' to 'content-color', compositeWithBackground(blob, '#FFFFFF'), localStorage migration"
-    },
-    {
-      "id": "US-029",
-      "title": "Update toggle UI and icon for content-color mode",
-      "description": "As a user, the toggle button should show a white-filled square icon and use content-color labels instead of transparent/checkerboard.",
-      "acceptanceCriteria": [
-        "ModernTemplateProps type updated: 'transparent' to 'content-color'",
-        "Second toggle button dispatches 'content-color' on click",
-        "aria-label changed to 'Content background'",
-        "aria-pressed checks 'content-color'",
-        "Checkerboard SVG replaced with white-filled square icon",
-        "No other template files modified",
-        "Typecheck passes",
-        "pnpm build succeeds"
-      ],
-      "priority": 29,
-      "passes": true,
-      "notes": "Semantic two-column layout icons (filled column = selected), opacity feedback, stronger inactive border contrast"
-    },
-    {
-      "id": "US-030",
-      "title": "Restore hasForegroundBlob state on editor remount",
-      "description": "As a user, when I navigate away from the editor and return, the background mode toggle buttons should still be visible without needing to re-upload or re-remove the background.",
-      "acceptanceCriteria": [
-        "On mount, check if resume_photo_original_{resumeId} exists in localStorage",
-        "If yes, set hasForegroundBlob to true immediately (toggle buttons appear)",
-        "Asynchronously reconstruct foregroundBlobRef by re-running removeImageBackground",
-        "Does not call handlePhotoChange during reconstruction",
-        "Uses cancelled flag pattern for cleanup on unmount",
-        "Graceful degradation on error",
-        "Typecheck passes",
-        "pnpm build succeeds"
-      ],
-      "priority": 30,
-      "passes": true,
-      "notes": "Restored hasForegroundBlob from localStorage on mount, async Blob reconstruction in background"
-    },
-    {
-      "id": "US-031",
-      "title": "Lazy-reconstruct foreground Blob on demand instead of eagerly on mount",
-      "description": "As a user, the editor should load instantly without running the ML background-removal model on every mount.",
-      "acceptanceCriteria": [
-        "No removeImageBackground call in mount useEffect",
-        "ensureForegroundBlob helper caches Blob in ref after first reconstruction",
-        "sidebarColor useEffect calls ensureForegroundBlob lazily",
-        "photoBgMode useEffect calls ensureForegroundBlob lazily",
-        "Toggle buttons still appear instantly on mount",
-        "Typecheck passes",
-        "pnpm build succeeds"
-      ],
-      "priority": 31,
-      "passes": true,
-      "notes": "Removed eager ML on mount, added ensureForegroundBlob useCallback helper for lazy reconstruction"
-    },
-    {
-      "id": "US-032",
-      "title": "Convert static import to dynamic for background-removal bundle elimination",
-      "description": "As a user, the editor page should load instantly without downloading the 40MB+ ONNX runtime on every page visit.",
-      "acceptanceCriteria": [
-        "No static import of @/lib/image/remove-background at top of resume-editor.tsx",
-        "All 4 call sites use dynamic await import('@/lib/image/remove-background')",
-        "ONNX runtime only downloaded when user clicks Remove BG or interacts with photo controls",
-        "Editor page loads instantly",
-        "Typecheck passes",
-        "pnpm build succeeds"
-      ],
-      "priority": 32,
-      "passes": true,
-      "notes": "Removed static import, added dynamic import() at 4 call sites: handleRemoveBackground, ensureForegroundBlob, sidebarColor effect, photoBgMode effect"
-    },
-    {
-      "id": "US-033",
-      "title": "Prevent ensureForegroundBlob from triggering on mount via storage guard",
-      "description": "As a user, the editor should load instantly without triggering the ML model when hasForegroundBlob is restored from localStorage on mount.",
-      "acceptanceCriteria": [
-        "isRestoringFromStorage ref guards sidebarColor and photoBgMode useEffects on mount",
-        "Guard cleared via requestAnimationFrame after React processes mount state updates",
-        "No dynamic import of @/lib/image/remove-background fires on mount",
-        "Toggle buttons still appear instantly on mount",
-        "Subsequent user interactions (color change, mode switch) work correctly",
-        "Typecheck passes",
-        "pnpm build succeeds"
-      ],
-      "priority": 33,
-      "passes": true,
-      "notes": "Added isRestoringFromStorage ref guard, cleared via requestAnimationFrame after mount cycle"
+      "priority": 8,
+      "passes": true
     }
   ]
 }
