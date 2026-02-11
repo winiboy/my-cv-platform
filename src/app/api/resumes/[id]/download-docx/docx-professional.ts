@@ -121,8 +121,8 @@ export async function generateProfessionalDocx(
     description: project.description || ''
   }))
 
-  // Calculate sidebar color from hue and brightness
-  const sidebarColorHex = hslToHex(sidebarHue, 85, sidebarBrightness)
+  // Calculate sidebar color from hue, saturation, and brightness
+  const sidebarColorHex = hslToHex(sidebarHue, settings.sidebarSaturation ?? 85, sidebarBrightness)
 
   // Calculate scaled font sizes
   const scaledFontSizes = {

@@ -18,6 +18,7 @@ export interface DocxGeneratorSettings {
   fontScale: number
   locale: string
   sidebarHue: number
+  sidebarSaturation: number
   sidebarBrightness: number
   sidebarWidth: number
   sidebarTopMargin: number

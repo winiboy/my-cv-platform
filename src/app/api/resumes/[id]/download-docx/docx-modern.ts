@@ -106,8 +106,8 @@ const DEFAULT_MAIN_ORDER: ModernMainContentSectionId[] = ['summary', 'experience
  * Mirrors the deriveAccentColor function in modern-template.tsx:
  *   h stays the same, s += 20 (max 100), l += 25 (max 65)
  */
-function deriveAccentColorHex(sidebarHue: number, sidebarBrightness: number): string {
-  const s = Math.min(85 + 20, 100) // base saturation 85 + 20
+function deriveAccentColorHex(sidebarHue: number, sidebarSaturation: number, sidebarBrightness: number): string {
+  const s = Math.min(sidebarSaturation + 20, 100)
   const l = Math.min(sidebarBrightness + 25, 65)
   return hslToHex(sidebarHue, s, l)
 }
@@ -212,9 +212,11 @@ export async function generateModernDocx(
   let sidebarColorHex: string
   let accentColorHex: string
 
+  const sidebarSaturation = settings.sidebarSaturation ?? 85
+
   if (hasCustomColors) {
-    sidebarColorHex = hslToHex(sidebarHue, 85, sidebarBrightness)
-    accentColorHex = deriveAccentColorHex(sidebarHue, sidebarBrightness)
+    sidebarColorHex = hslToHex(sidebarHue, sidebarSaturation, sidebarBrightness)
+    accentColorHex = deriveAccentColorHex(sidebarHue, sidebarSaturation, sidebarBrightness)
   } else {
     sidebarColorHex = DEFAULT_SIDEBAR_COLOR_HEX
     accentColorHex = DEFAULT_ACCENT_COLOR_HEX

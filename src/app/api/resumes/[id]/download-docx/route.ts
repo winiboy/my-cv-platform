@@ -33,15 +33,17 @@ async function handleDocxGeneration(
   const fontFamily = searchParams.get('fontFamily') || 'Arial, Helvetica, sans-serif'
   const fontScale = parseFloat(searchParams.get('fontScale') || '1')
   const sidebarHueRaw = searchParams.get('sidebarHue')
+  const sidebarSaturationRaw = searchParams.get('sidebarSaturation')
   const sidebarBrightnessRaw = searchParams.get('sidebarBrightness')
   const sidebarHue = parseInt(sidebarHueRaw || '240')
+  const sidebarSaturation = parseInt(sidebarSaturationRaw || '85')
   const sidebarBrightness = parseInt(sidebarBrightnessRaw || '35')
   const sidebarWidthPercent = parseFloat(searchParams.get('sidebarWidth') || '30')
   const sidebarTopMarginRaw = searchParams.get('sidebarTopMargin')
   const mainContentTopMarginRaw = searchParams.get('mainContentTopMargin')
 
   // Detect whether the user explicitly set color values via the UI
-  const hasCustomColors = sidebarHueRaw !== null || sidebarBrightnessRaw !== null
+  const hasCustomColors = sidebarHueRaw !== null || sidebarSaturationRaw !== null || sidebarBrightnessRaw !== null
 
   // Parse with defaults
   const sidebarTopMargin = sidebarTopMarginRaw ? parseInt(sidebarTopMarginRaw) : 64
@@ -95,6 +97,7 @@ async function handleDocxGeneration(
     fontScale,
     locale,
     sidebarHue,
+    sidebarSaturation,
     sidebarBrightness,
     sidebarWidth: sidebarWidthPercent,
     sidebarTopMargin,

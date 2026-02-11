@@ -42,8 +42,9 @@ export function DownloadResumeButtons({ pdfLabel, wordLabel, dict, template }: D
           if (settings.fontFamily) queryParams.set('fontFamily', settings.fontFamily)
           if (settings.fontScale !== undefined) queryParams.set('fontScale', String(settings.fontScale))
 
-          // Color settings (pass hue and brightness separately for HSL conversion)
+          // Color settings (pass hue, saturation, and brightness separately for HSL conversion)
           if (settings.sidebarHue !== undefined) queryParams.set('sidebarHue', String(settings.sidebarHue))
+          if (settings.sidebarSaturation !== undefined) queryParams.set('sidebarSaturation', String(settings.sidebarSaturation))
           if (settings.sidebarBrightness !== undefined) queryParams.set('sidebarBrightness', String(settings.sidebarBrightness))
 
           // Layout settings
