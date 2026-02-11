@@ -257,14 +257,24 @@ export function parseHtmlToDocxRuns(
 
   const { size, color, font } = options
 
+  // Decode HTML entities first so encoded tags become real tags
+  const decoded = html
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+
   // Check if content is HTML
-  const isHtml = /<[^>]+>/.test(html)
+  const isHtml = /<[^>]+>/.test(decoded)
 
   if (!isHtml) {
     // Plain text - return single TextRun
     return [
       new TextRun({
-        text: html.replace(/\n/g, ' ').trim(),
+        text: decoded.replace(/\n/g, ' ').trim(),
         size,
         color,
         font,
@@ -278,7 +288,7 @@ export function parseHtmlToDocxRuns(
   // We'll process the HTML sequentially to preserve formatting
 
   // First, normalize the HTML - replace block elements with markers
-  let processedHtml = html
+  let processedHtml = decoded
     // Handle line breaks
     .replace(/<br\s*\/?>/gi, '\n')
     // Handle paragraphs and divs - add line breaks
@@ -286,6 +296,8 @@ export function parseHtmlToDocxRuns(
     .replace(/<\/div>/gi, '\n')
     .replace(/<p[^>]*>/gi, '')
     .replace(/<div[^>]*>/gi, '')
+    // Strip strikethrough tags but keep their text content (preview does not show strikethrough)
+    .replace(/<\/?(s|strike|del)[^>]*>/gi, '')
 
   // Handle lists - differentiate between ordered (ol) and unordered (ul) lists
   // Process ordered lists first - replace <li> with numbered items

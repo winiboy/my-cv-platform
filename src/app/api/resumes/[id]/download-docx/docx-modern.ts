@@ -173,12 +173,19 @@ export async function generateModernDocx(
     photoBase64,
   } = settings
 
-  // Cast section ID arrays to their specific union types
-  const sidebarOrder = (sidebarOrderRaw.length > 0
-    ? sidebarOrderRaw
+  // Validate incoming section IDs against Modern template's known sections.
+  // The route defaults are for the Professional template and may not match.
+  const validSidebarIds = new Set<string>(DEFAULT_SIDEBAR_ORDER)
+  const validMainIds = new Set<string>(DEFAULT_MAIN_ORDER)
+
+  const filteredSidebar = sidebarOrderRaw.filter(id => validSidebarIds.has(id))
+  const filteredMain = mainContentOrderRaw.filter(id => validMainIds.has(id))
+
+  const sidebarOrder = (filteredSidebar.length > 0
+    ? filteredSidebar
     : DEFAULT_SIDEBAR_ORDER) as ModernSidebarSectionId[]
-  const mainContentOrder = (mainContentOrderRaw.length > 0
-    ? mainContentOrderRaw
+  const mainContentOrder = (filteredMain.length > 0
+    ? filteredMain
     : DEFAULT_MAIN_ORDER) as ModernMainContentSectionId[]
   const hiddenSidebarSections = hiddenSidebarRaw as ModernSidebarSectionId[]
   const hiddenMainSections = hiddenMainRaw as ModernMainContentSectionId[]
@@ -335,8 +342,9 @@ export async function generateModernDocx(
         // docx library v9.5.1 expects pixels for transformation dimensions
         // and internally converts to EMUs (pixels * 9525).
         const sidebarInches = (sidebarWidthPercent / 100) * 8.5
-        // Subtract cell padding (0.33" left + 0.33" right) to fit within cell content
-        const imageWidthPx = Math.round((sidebarInches - 0.66) * 96)
+        // Subtract only minimal padding (0.08" each side) to fill the sidebar as closely
+        // as possible. The preview photo fills the full sidebar width edge-to-edge.
+        const imageWidthPx = Math.round((sidebarInches - 0.16) * 96)
         // Photo zone height matches the 220px zone in the template
         const imageHeightPx = 220
 
@@ -400,14 +408,14 @@ export async function generateModernDocx(
         )
       )
 
-      // Contact items: label (uppercase, dimmed) + value (white) per line
-      const contactEntries: { label: string; value: string }[] = []
-      if (contact.phone) contactEntries.push({ label: 'Phone', value: contact.phone })
-      if (contact.email) contactEntries.push({ label: 'Email', value: contact.email })
-      if (contact.website) contactEntries.push({ label: 'Website', value: contact.website })
-      if (contact.linkedin) contactEntries.push({ label: 'LinkedIn', value: contact.linkedin })
-      if (contact.github) contactEntries.push({ label: 'GitHub', value: contact.github })
-      if (contact.location) contactEntries.push({ label: 'Location', value: contact.location })
+      // Contact items: emoji icon + label (uppercase, dimmed) + value (white) per line
+      const contactEntries: { label: string; value: string; icon: string }[] = []
+      if (contact.phone) contactEntries.push({ label: 'Phone', value: contact.phone, icon: '\u{1F4DE}' })
+      if (contact.email) contactEntries.push({ label: 'Email', value: contact.email, icon: '\u{2709}\uFE0F' })
+      if (contact.website) contactEntries.push({ label: 'Website', value: contact.website, icon: '\u{1F310}' })
+      if (contact.linkedin) contactEntries.push({ label: 'LinkedIn', value: contact.linkedin, icon: '\u{1F517}' })
+      if (contact.github) contactEntries.push({ label: 'GitHub', value: contact.github, icon: '\u{1F4BB}' })
+      if (contact.location) contactEntries.push({ label: 'Location', value: contact.location, icon: '\u{1F4CD}' })
 
       contactEntries.forEach((entry, i) => {
         const isLast = i === contactEntries.length - 1
@@ -429,11 +437,17 @@ export async function generateModernDocx(
           })
         )
 
-        // Value line
+        // Value line (with emoji icon prefix)
         const itemEndSpacing = isLast ? sectionSpacingAfter : pxToTwips(SPACING.CONTACT_ITEM_GAP)
         sidebarParagraphs.push(
           new Paragraph({
             children: [
+              new TextRun({
+                text: `${entry.icon} `,
+                size: scaledFontSizes.contactValue,
+                color: COLORS.WHITE,
+                font: primaryFont,
+              }),
               new TextRun({
                 text: entry.value,
                 size: scaledFontSizes.contactValue,
@@ -802,7 +816,7 @@ export async function generateModernDocx(
 
       const sectionEndSpacing = isLastSection ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN)
 
-      const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.JUSTIFIED
+      const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.LEFT
 
       if (isHtmlList(resume.summary)) {
         const listParagraphs = parseHtmlListToParagraphs(
@@ -938,7 +952,7 @@ export async function generateModernDocx(
 
         // Description
         if (exp.description) {
-          const descAlignment = extractAlignment(exp.description) || AlignmentType.JUSTIFIED
+          const descAlignment = extractAlignment(exp.description) || AlignmentType.LEFT
 
           if (isHtmlList(exp.description)) {
             const listParagraphs = parseHtmlListToParagraphs(
@@ -980,8 +994,15 @@ export async function generateModernDocx(
           exp.achievements.forEach((achievement: string, j: number) => {
             const isLastAchievement = j === exp.achievements.length - 1
 
-            // Strip HTML and create a single italic TextRun for the achievement text
-            const achievementText = achievement.replace(/<[^>]+>/g, '').trim()
+            // Decode HTML entities then strip HTML tags for the achievement text
+            const achievementText = achievement
+              .replace(/&amp;/g, '&')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .replace(/&nbsp;/g, ' ')
+              .replace(/&quot;/g, '"')
+              .replace(/<[^>]+>/g, '')
+              .trim()
 
             rightParagraphs.push(
               new Paragraph({
@@ -1222,7 +1243,8 @@ export async function generateModernDocx(
   // Page height: US Letter = 11"
   const pageHeightTwips = convertInchesToTwip(11)
 
-  // Row height with buffer for OOXML trailing paragraph
+  // Row minimum height = full page minus trailing paragraph buffer.
+  // AT_LEAST allows the row to grow when content exceeds one page.
   const trailingParagraphBuffer = 500
   const rowHeightTwips = pageHeightTwips - trailingParagraphBuffer
 
@@ -1230,10 +1252,10 @@ export async function generateModernDocx(
     rows: [
       new TableRow({
         children: [sidebarCell, mainContentCell],
-        cantSplit: true,
+        cantSplit: false,
         height: {
           value: rowHeightTwips,
-          rule: HeightRule.EXACT,
+          rule: HeightRule.ATLEAST,
         },
       }),
     ],
