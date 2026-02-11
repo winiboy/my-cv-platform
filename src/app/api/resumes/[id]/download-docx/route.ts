@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { type Locale } from '@/lib/i18n'
 import { pxToTwips, type DocxGeneratorSettings } from './docx-helpers'
 import { generateProfessionalDocx } from './docx-professional'
+import { generateModernDocx } from './docx-modern'
 
 // ============================================================
 // SUPPORTED TEMPLATES
@@ -126,6 +127,9 @@ export async function GET(
         break
 
       case 'modern':
+        buffer = await generateModernDocx(resume, settings)
+        break
+
       case 'classic':
       case 'minimal':
       case 'creative':
