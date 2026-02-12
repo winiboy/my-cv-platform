@@ -20,7 +20,12 @@ import {
   TableLayoutType,
   PageOrientation,
   ShadingType,
+  HorizontalPositionRelativeFrom,
+  VerticalPositionRelativeFrom,
+  TextWrappingType,
+  DocumentGridType,
 } from 'docx'
+import JSZip from 'jszip'
 import {
   pxToHalfPoints,
   pxToTwips,
@@ -140,6 +145,108 @@ function extractBase64Data(dataUrl: string): string {
     return dataUrl.substring(commaIndex + 1)
   }
   return dataUrl
+}
+
+/**
+ * Parse original image dimensions from PNG or JPEG binary data.
+ * PNG: width at bytes 16-19, height at bytes 20-23 (big-endian uint32).
+ * JPEG: iterate marker segments to find SOF0/SOF1/SOF2 for dimensions.
+ */
+function parseImageDimensions(
+  buffer: Buffer,
+  imageType: 'jpg' | 'png' | 'gif' | 'bmp'
+): { width: number; height: number } | null {
+  try {
+    if (imageType === 'png') {
+      // PNG IHDR chunk: width at offset 16, height at offset 20 (big-endian)
+      if (buffer.length < 24) return null
+      const width = buffer.readUInt32BE(16)
+      const height = buffer.readUInt32BE(20)
+      if (width > 0 && height > 0) return { width, height }
+      return null
+    }
+
+    if (imageType === 'jpg') {
+      // JPEG: verify SOI marker (0xFF 0xD8)
+      if (buffer.length < 2 || buffer[0] !== 0xff || buffer[1] !== 0xd8) return null
+
+      let offset = 2
+      while (offset < buffer.length - 1) {
+        // Scan for 0xFF marker prefix, skipping fill bytes (0xFF 0xFF)
+        if (buffer[offset] !== 0xff) {
+          offset++
+          continue
+        }
+        // Skip consecutive 0xFF fill bytes
+        while (offset < buffer.length - 1 && buffer[offset + 1] === 0xff) {
+          offset++
+        }
+        if (offset >= buffer.length - 1) break
+
+        const marker = buffer[offset + 1]
+        offset += 2
+
+        // SOF0 (0xC0), SOF1 (0xC1), SOF2 (0xC2) — Start of Frame markers
+        if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2) {
+          // Skip 2-byte segment length + 1-byte precision
+          if (offset + 7 > buffer.length) return null
+          const height = buffer.readUInt16BE(offset + 3)
+          const width = buffer.readUInt16BE(offset + 5)
+          if (width > 0 && height > 0) return { width, height }
+          return null
+        }
+
+        // SOS (0xDA) — Start of Scan: no more parseable markers
+        if (marker === 0xda) break
+        // EOI (0xD9) — End of Image
+        if (marker === 0xd9) break
+
+        // Other marker: read 2-byte length and skip
+        if (offset + 2 > buffer.length) break
+        const segmentLength = buffer.readUInt16BE(offset)
+        if (segmentLength < 2) break
+        offset += segmentLength
+      }
+      return null
+    }
+
+    // GIF and BMP not supported for cropping
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Calculate OOXML srcRect crop percentages to achieve CSS object-fit: cover.
+ * Values are in 100,000ths of the source image dimensions (e.g., 25000 = 25%).
+ */
+function calculateCoverCropPercents(
+  origWidth: number,
+  origHeight: number,
+  zoneWidth: number,
+  zoneHeight: number
+): { l: number; t: number; r: number; b: number } {
+  const origRatio = origWidth / origHeight
+  const zoneRatio = zoneWidth / zoneHeight
+
+  if (origRatio > zoneRatio) {
+    // Image is wider than zone — crop left and right
+    const scale = zoneHeight / origHeight
+    const visibleWidth = zoneWidth / scale
+    const cropEach = (origWidth - visibleWidth) / 2
+    const cropPercent = Math.round((cropEach / origWidth) * 100000)
+    return { l: cropPercent, r: cropPercent, t: 0, b: 0 }
+  } else if (origRatio < zoneRatio) {
+    // Image is taller than zone — crop top and bottom
+    const scale = zoneWidth / origWidth
+    const visibleHeight = zoneHeight / scale
+    const cropEach = (origHeight - visibleHeight) / 2
+    const cropPercent = Math.round((cropEach / origHeight) * 100000)
+    return { t: cropPercent, b: cropPercent, l: 0, r: 0 }
+  }
+
+  return { l: 0, t: 0, r: 0, b: 0 }
 }
 
 // ============================================================
@@ -338,9 +445,12 @@ export async function generateModernDocx(
 
   // ============================================================
   // PHOTO EMBEDDING (Defect 1)
-  // Convert base64 photo data to ImageRun for the sidebar
+  // Convert base64 photo data to ImageRun for the sidebar.
+  // Crop values are calculated here and applied via ZIP post-processing
+  // after Packer.toBuffer(), since the docx library has no srcRect API.
   // ============================================================
   let photoImageRun: ImageRun | null = null
+  let photoCropValues: { l: number; t: number; r: number; b: number } | null = null
 
   if (photoBase64) {
     try {
@@ -349,20 +459,58 @@ export async function generateModernDocx(
         const rawBase64 = extractBase64Data(photoBase64)
         const imageBuffer = Buffer.from(rawBase64, 'base64')
 
-        // docx library v9.5.1 expects pixels for transformation dimensions
-        // and internally converts to EMUs (pixels * 9525).
         const sidebarInches = (sidebarWidthPercent / 100) * 8.5
-        // Photo fills the full sidebar width edge-to-edge, matching the preview
-        const imageWidthPx = Math.round(sidebarInches * 96)
-        // Photo zone height matches the 220px zone in the template
-        const imageHeightPx = 220
+        const zoneWidthPx = Math.round(sidebarInches * 96)
+        const zoneHeightPx = 220
 
+        // Parse original dimensions to calculate object-fit: cover crop
+        const origDims = parseImageDimensions(imageBuffer, imageType)
+        if (origDims) {
+          photoCropValues = calculateCoverCropPercents(
+            origDims.width, origDims.height,
+            zoneWidthPx, zoneHeightPx
+          )
+          // Skip no-op crop (all zeros)
+          if (photoCropValues.l === 0 && photoCropValues.t === 0 &&
+              photoCropValues.r === 0 && photoCropValues.b === 0) {
+            photoCropValues = null
+          }
+        }
+
+        // "In Front of Text" = floating with wrap NONE and behindDocument false.
+        // Transformation uses zone dimensions; srcRect cropping (applied in
+        // post-processing) ensures the source is cropped to matching aspect
+        // ratio before being stretched to fill, preventing distortion.
+        //
+        // Word adds internal rendering spacing inside table cells that cannot
+        // be eliminated via cell margins or paragraph spacing alone. We use a
+        // negative vertical offset (~32px = 304800 EMU) to push the image UP
+        // to compensate for this gap. The anchor is PARAGRAPH-relative with
+        // layoutInCell: true so Word positions relative to the cell content
+        // then the negative offset pulls the photo flush to the cell top.
+        const photoNegativeOffsetEmu = -304800 // -32px in EMU (32 * 9525)
         photoImageRun = new ImageRun({
           type: imageType,
           data: imageBuffer,
           transformation: {
-            width: imageWidthPx,
-            height: imageHeightPx,
+            width: zoneWidthPx,
+            height: zoneHeightPx,
+          },
+          floating: {
+            horizontalPosition: {
+              relative: HorizontalPositionRelativeFrom.COLUMN,
+              offset: 0,
+            },
+            verticalPosition: {
+              relative: VerticalPositionRelativeFrom.PARAGRAPH,
+              offset: photoNegativeOffsetEmu,
+            },
+            wrap: {
+              type: TextWrappingType.NONE,
+            },
+            behindDocument: false,
+            layoutInCell: true,
+            allowOverlap: false,
           },
         })
       }
@@ -376,27 +524,35 @@ export async function generateModernDocx(
   // ============================================================
   const sidebarParagraphs: Paragraph[] = []
 
-  // Add photo at the top of sidebar if available — no spacing after, left-aligned
-  // to fill the sidebar edge-to-edge (cell margins are 0)
+  // Photo anchor paragraph — placed inside the sidebar cell so it does not
+  // create an extra page before the table. The floating image uses
+  // layoutInCell: true with PARAGRAPH-relative vertical positioning and a
+  // negative offset to compensate for Word's internal cell rendering gap.
+  // line: 1 (EXACT) makes the anchor take near-zero vertical space.
   if (photoImageRun) {
     sidebarParagraphs.push(
       new Paragraph({
         children: [photoImageRun],
-        spacing: { after: 0 },
-        alignment: AlignmentType.LEFT,
+        spacing: { before: 0, after: 0, line: 1, lineRule: LineRuleType.EXACT },
       })
     )
   }
 
   // Cell margins are 0, so recreate vertical padding via paragraph spacing.
-  // When a photo is present: photo is flush top, then add 0.25" gap before text.
-  // When no photo: add 0.25" top padding (previously from cell margin).
+  // With "In Front of Text" wrapping, the floating photo does NOT push text down,
+  // so we must manually offset sidebar text below the 220px photo zone + 32px gap.
+  // The anchor paragraph is now outside the table, so the full offset applies here.
+  // When no photo: use the original 0.25" top padding.
   const topPaddingBeforeText = convertInchesToTwip(0.25)
+  const photoZoneOffset = photoImageRun
+    ? pxToTwips(220) + pxToTwips(32)  // 3780 twips = 252px (220px photo + 32px gap)
+    : topPaddingBeforeText
+
   if (sidebarTopMargin > 0) {
     sidebarParagraphs.push(
       new Paragraph({
         spacing: {
-          before: photoImageRun ? topPaddingBeforeText : topPaddingBeforeText,
+          before: photoZoneOffset,
           after: pxToTwips(sidebarTopMargin),
         },
         indent: sidebarTextIndent,
@@ -407,7 +563,7 @@ export async function generateModernDocx(
     // Always add the top padding spacer paragraph before first text content
     sidebarParagraphs.push(
       new Paragraph({
-        spacing: { before: topPaddingBeforeText, after: 0 },
+        spacing: { before: photoZoneOffset, after: 0 },
         indent: sidebarTextIndent,
         children: [],
       })
@@ -1303,6 +1459,15 @@ export async function generateModernDocx(
     },
     columnWidths: [sidebarWidthTwips, mainContentWidthTwips],
     layout: TableLayoutType.FIXED,
+    // Explicit table-level cell margins at 0 to prevent Word from applying
+    // its default (~0.08") which contributes to the gap above the photo.
+    // The Table constructor maps `margins` to `<w:tblCellMar>` in OOXML.
+    margins: {
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+    },
     borders: {
       top: { style: BorderStyle.NONE },
       bottom: { style: BorderStyle.NONE },
@@ -1347,7 +1512,17 @@ export async function generateModernDocx(
               right: 0,
               bottom: 0,
               left: 0,
+              header: 0,
+              footer: 0,
             },
+          },
+          // Set linePitch to minimum (1 twip) to prevent Word from snapping
+          // the first line in a cell to a grid line at 360 twips from the top.
+          // Default linePitch of 360 causes Word to add ~18pt of implicit
+          // space before the first paragraph in each cell.
+          grid: {
+            linePitch: 1,
+            type: DocumentGridType.DEFAULT,
           },
         },
         children: [
@@ -1368,6 +1543,31 @@ export async function generateModernDocx(
   })
 
   // Generate buffer
-  const buffer = await Packer.toBuffer(doc)
+  let buffer = await Packer.toBuffer(doc)
+
+  // Post-process: apply OOXML srcRect cropping for object-fit: cover on photo.
+  // The docx library always emits an empty <a:srcRect/> inside <pic:blipFill>.
+  // We replace the first occurrence with computed crop values via ZIP manipulation.
+  if (photoCropValues) {
+    try {
+      const zip = await JSZip.loadAsync(buffer)
+      const docXmlFile = zip.file('word/document.xml')
+      if (docXmlFile) {
+        let xml = await docXmlFile.async('string')
+        const srcRectTag = `<a:srcRect l="${photoCropValues.l}" t="${photoCropValues.t}" r="${photoCropValues.r}" b="${photoCropValues.b}"/>`
+        // The docx library may serialize as self-closing or open/close tag
+        if (xml.includes('<a:srcRect/>')) {
+          xml = xml.replace('<a:srcRect/>', srcRectTag)
+        } else if (xml.includes('<a:srcRect></a:srcRect>')) {
+          xml = xml.replace('<a:srcRect></a:srcRect>', srcRectTag)
+        }
+        zip.file('word/document.xml', xml)
+        buffer = await zip.generateAsync({ type: 'nodebuffer' }) as Buffer
+      }
+    } catch {
+      // srcRect post-processing failed — return uncropped DOCX
+    }
+  }
+
   return buffer as Buffer
 }
