@@ -1,81 +1,63 @@
 # Ralph Progress Log
-# Feature: word-export (Multi-Template DOCX Generation)
-# Started: 2026-02-10
+# Feature: modern-fix (Remove HTML Tags from Modern CV)
+# Started: 2026-02-22
 # Target Version: TBD
 
 ---
 
-## Status: COMPLETE (8/8 stories PASS)
+## Status: COMPLETE (5/5 stories PASS)
 
 ---
 
 ## Stories
 
-### US-001: Extract shared DOCX helpers into docx-helpers.ts
+### US-001: Audit HTML tag leakage points in Modern CV
 - Status: PASS
-- Commit: a09caeb
+- Commit: (audit only — no code changes)
 - Priority: 1
 
-### US-002: Refactor route to template dispatcher + extract Professional generator
+#### Audit Findings
+
+**ROOT CAUSE:** Modern template preview uses `formatText()` (plain-text parser) instead of `renderFormattedText()` (HTML-aware parser) for fields that store HTML from RichTextEditor.
+
+**Field → Rendering → Surface → Risk:**
+
+| Field | Preview Function | DOCX Function | Risk |
+|-------|-----------------|---------------|------|
+| resume.summary | formatText() @ line 533 | parseHtmlToDocxRuns() | HIGH — tags leak in preview |
+| exp.description | formatText() @ line 619 | parseHtmlToDocxRuns() | HIGH — tags leak in preview |
+| exp.achievements[] | formatText() @ line 647 | manual decode+strip @ 1191-1197 | MEDIUM — tags leak in preview |
+| project.description | raw {interpolation} @ line 1022 | parseHtmlToDocxRuns() | HIGH — tags leak in preview |
+| skillCategory.items | direct render @ line 389 | TextRun (plain text) | NONE — plain text |
+| skillCategory.skillsHtml | NOT USED in preview | parseHtmlToDocxRuns() @ 737-769 | MISMATCH — DOCX reads HTML, preview reads items |
+
+**Surface equivalence:**
+- PDF = browser print of preview → same leakage as preview
+- Apercu = same component as preview → same leakage as preview
+- DOCX = separate pipeline → mostly correct, minor improvement possible for achievements
+
+**Fix strategy:**
+- Preview/Apercu/PDF: Replace `formatText()` with `renderFormattedText()` for summary, description, achievements. Wrap project.description in `renderFormattedText()`.
+- DOCX: Consider using `parseHtmlToDocxRuns()` for achievements instead of manual decode+strip.
+
+### US-002: Sanitize HTML in Modern CV live preview and Apercu
 - Status: PASS
-- Commit: 2da602e
+- Commit: a0c7d20
 - Priority: 2
 
-### US-003: Modern template DOCX generator
+### US-003: Sanitize HTML in Modern CV PDF export
 - Status: PASS
-- Commit: 45a83e3
+- Commit: (no changes needed — PDF uses window.print() which renders the already-sanitized preview DOM from US-002)
 - Priority: 3
 
-### US-004: Classic template DOCX generator
+### US-004: Sanitize HTML in Modern CV DOCX export
 - Status: PASS
-- Commit: fb2f52e
+- Commit: d696786
 - Priority: 4
 
-### US-005: Minimal template DOCX generator
+### US-005: Verify zero-tag guarantee across all surfaces
 - Status: PASS
-- Commit: 6011814
+- Commit: (verification only — no code changes)
 - Priority: 5
-
-### US-006: Creative template DOCX generator
-- Status: PASS
-- Commit: dd8bd05
-- Priority: 6
-
-### US-007: Pass template parameter from download buttons
-- Status: PASS
-- Commit: 6bdf044
-- Priority: 7
-
-### US-008: Verify all 5 templates and regression test Professional
-- Status: PASS
-- Verification only (no separate commit)
-- Priority: 8
-
----
-
-## Files Created
-
-1. src/app/api/resumes/[id]/download-docx/docx-helpers.ts (US-001)
-2. src/app/api/resumes/[id]/download-docx/docx-professional.ts (US-002)
-3. src/app/api/resumes/[id]/download-docx/docx-modern.ts (US-003)
-4. src/app/api/resumes/[id]/download-docx/docx-classic.ts (US-004)
-5. src/app/api/resumes/[id]/download-docx/docx-minimal.ts (US-005)
-6. src/app/api/resumes/[id]/download-docx/docx-creative.ts (US-006)
-
-## Files Modified
-
-1. src/app/api/resumes/[id]/download-docx/route.ts (US-001, US-002, US-003-006, US-007)
-2. src/components/dashboard/download-button.tsx (US-007)
-3. src/components/dashboard/download-resume-buttons.tsx (US-007)
-4. src/components/dashboard/resume-preview-page-client.tsx (US-007)
-5. src/app/[locale]/(dashboard)/resumes/[id]/preview/page.tsx (US-007)
-
-## Files NOT Modified (verified)
-
-1. src/components/dashboard/resume-templates/professional-template.tsx
-2. src/components/dashboard/resume-templates/modern-template.tsx
-3. src/components/dashboard/resume-templates/classic-template.tsx
-4. src/components/dashboard/resume-templates/minimal-template.tsx
-5. src/components/dashboard/resume-templates/creative-template.tsx
 
 ---
