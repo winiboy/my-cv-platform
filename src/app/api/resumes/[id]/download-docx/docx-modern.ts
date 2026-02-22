@@ -1187,15 +1187,14 @@ export async function generateModernDocx(
           exp.achievements.forEach((achievement: string, j: number) => {
             const isLastAchievement = j === exp.achievements.length - 1
 
-            // Decode HTML entities then strip HTML tags for the achievement text
-            const achievementText = achievement
-              .replace(/&amp;/g, '&')
-              .replace(/&lt;/g, '<')
-              .replace(/&gt;/g, '>')
-              .replace(/&nbsp;/g, ' ')
-              .replace(/&quot;/g, '"')
-              .replace(/<[^>]+>/g, '')
-              .trim()
+            // Strip any existing <em>/<i> tags to prevent nested italic toggling,
+            // then wrap in <em> to match preview italic baseline
+            const cleanAchievement = achievement.replace(/<\/?(?:em|i)>/gi, '')
+            const achievementRuns = parseHtmlToDocxRuns(`<em>${cleanAchievement}</em>`, {
+              size: scaledFontSizes.body,
+              color: COLORS.BODY_TEXT,
+              font: primaryFont,
+            })
 
             rightParagraphs.push(
               new Paragraph({
@@ -1207,13 +1206,7 @@ export async function generateModernDocx(
                     font: primaryFont,
                     italics: true,
                   }),
-                  new TextRun({
-                    text: achievementText,
-                    size: scaledFontSizes.body,
-                    color: COLORS.BODY_TEXT,
-                    font: primaryFont,
-                    italics: true,
-                  }),
+                  ...achievementRuns,
                 ],
                 spacing: {
                   after: isLastAchievement ? 0 : pxToTwips(SPACING.ACHIEVEMENT_GAP),
