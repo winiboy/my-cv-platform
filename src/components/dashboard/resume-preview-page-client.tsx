@@ -52,6 +52,7 @@ export function ResumePreviewPageClient({ resume, locale, dict }: ResumePreviewP
           <DownloadButton
             label={dict.resumes?.downloadPDF || 'Download PDF'}
             wordLabel={dict.resumes?.downloadWord || 'Download Word'}
+            template={resume.template}
           />
         </div>
       </div>

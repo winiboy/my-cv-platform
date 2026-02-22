@@ -58,6 +58,7 @@ export default async function ResumePreviewPage({ params }: ResumePreviewPagePro
         <DownloadResumeButtons
           pdfLabel={dict.resumes?.downloadPDF || 'Download PDF'}
           wordLabel={dict.resumes?.downloadWord || 'Download Word'}
+          template={resume.template}
         />
       </div>
 

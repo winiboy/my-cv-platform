@@ -1,272 +1,63 @@
 # Ralph Progress Log
-# Feature: cv-moderne-redesign
-# Started: 2026-02-07
+# Feature: modern-fix (Remove HTML Tags from Modern CV)
+# Started: 2026-02-22
 # Target Version: TBD
 
 ---
 
-## Status: COMPLETE (33/33 stories PASS)
+## Status: COMPLETE (5/5 stories PASS)
 
 ---
 
 ## Stories
 
-### US-001: Scaffold two-column layout with dark sidebar and color props
+### US-001: Audit HTML tag leakage points in Modern CV
 - Status: PASS
+- Commit: (audit only — no code changes)
 - Priority: 1
-- Commit: ffa7514
-- Changes: Two-column layout with absolute sidebar, sidebarColor prop, teal to inline styles migration
 
-### US-002: Add photo placeholder zone at top of sidebar
+#### Audit Findings
+
+**ROOT CAUSE:** Modern template preview uses `formatText()` (plain-text parser) instead of `renderFormattedText()` (HTML-aware parser) for fields that store HTML from RichTextEditor.
+
+**Field → Rendering → Surface → Risk:**
+
+| Field | Preview Function | DOCX Function | Risk |
+|-------|-----------------|---------------|------|
+| resume.summary | formatText() @ line 533 | parseHtmlToDocxRuns() | HIGH — tags leak in preview |
+| exp.description | formatText() @ line 619 | parseHtmlToDocxRuns() | HIGH — tags leak in preview |
+| exp.achievements[] | formatText() @ line 647 | manual decode+strip @ 1191-1197 | MEDIUM — tags leak in preview |
+| project.description | raw {interpolation} @ line 1022 | parseHtmlToDocxRuns() | HIGH — tags leak in preview |
+| skillCategory.items | direct render @ line 389 | TextRun (plain text) | NONE — plain text |
+| skillCategory.skillsHtml | NOT USED in preview | parseHtmlToDocxRuns() @ 737-769 | MISMATCH — DOCX reads HTML, preview reads items |
+
+**Surface equivalence:**
+- PDF = browser print of preview → same leakage as preview
+- Apercu = same component as preview → same leakage as preview
+- DOCX = separate pipeline → mostly correct, minor improvement possible for achievements
+
+**Fix strategy:**
+- Preview/Apercu/PDF: Replace `formatText()` with `renderFormattedText()` for summary, description, achievements. Wrap project.description in `renderFormattedText()`.
+- DOCX: Consider using `parseHtmlToDocxRuns()` for achievements instead of manual decode+strip.
+
+### US-002: Sanitize HTML in Modern CV live preview and Apercu
 - Status: PASS
+- Commit: a0c7d20
 - Priority: 2
-- Commit: 79c2637
-- Changes: Photo placeholder zone with SVG user silhouette at top of sidebar
 
-### US-003: Add header section (name, job title, address) at top-right
+### US-003: Sanitize HTML in Modern CV PDF export
 - Status: PASS
+- Commit: (no changes needed — PDF uses window.print() which renders the already-sanitized preview DOM from US-002)
 - Priority: 3
-- Commit: 7d0f08d
-- Changes: Header with large name, gold accent title bar, and address line
 
-### US-004: Add banner-style section headers for sidebar and main area
+### US-004: Sanitize HTML in Modern CV DOCX export
 - Status: PASS
+- Commit: d696786
 - Priority: 4
-- Commit: 381824a
-- Changes: SidebarSectionHeader and MainSectionHeader reusable sub-components
 
-### US-005: Add Professional Profile / Summary section on right area
+### US-005: Verify zero-tag guarantee across all surfaces
 - Status: PASS
+- Commit: (verification only — no code changes)
 - Priority: 5
-- Commit: 901915b
-- Changes: Professional Profile section with MainSectionHeader and formatText
-
-### US-006: Add Contact section in sidebar with icons
-- Status: PASS
-- Priority: 6
-- Commit: 3ca5800
-- Changes: Contact section with circular accent-colored icons (phone, email, globe, pin)
-
-### US-007: Add Education section in sidebar
-- Status: PASS
-- Priority: 7
-- Commit: 1f2ef6c
-- Changes: Education entries with bold uppercase degree, institution, and year
-
-### US-008: Add Technical Skills section with progress bars in sidebar
-- Status: PASS
-- Priority: 8
-- Commit: 3f4c7b6
-- Changes: Skills with horizontal progress bars, accent color fill, level mapping
-
-### US-009: Add Professional Experience section on right main area
-- Status: PASS
-- Priority: 9
-- Commit: e8fcfcb
-- Changes: Experience section with job title, dates, company, description, achievements
-
-### US-010: Add Languages and Certifications sections
-- Status: PASS
-- Priority: 10
-- Commit: a8a7aeb
-- Changes: Languages with name/level, certifications with name/issuer/date
-
-### US-011: Add section reordering and show/hide controls
-- Status: PASS
-- Priority: 11
-- Commit: 58c9821
-- Changes: Section ordering with sidebarOrder/mainContentOrder, hidden section support
-
-### US-012: Add sidebar width, top margin, and font scale controls
-- Status: PASS
-- Priority: 12
-- Commit: ae3c816
-- Changes: sidebarWidth, topMargin, fontScale, fontFamily props with defaults
-
-### US-013: Color picker integration and real-time preview
-- Status: PASS
-- Priority: 13
-- Commit: cb8dce3
-- Changes: deriveAccentColor from HSL sidebarColor, real-time color updates
-
-### US-014: Final regression check and build validation
-- Status: PASS
-- Priority: 14
-- Type: Verification story
-- Notes: Zero diff on other templates, 108/108 build, pre-existing errors only
-
-### US-015: Fix editor live preview to use correct template based on resume.template
-- Status: PASS
-- Priority: 15
-- Commit: 2950241
-- Changes: Editor now uses switch/case on resume.template to render correct template
-
-### US-016: Remove all font size sliders from CV Moderne template
-- Status: PASS
-- Priority: 16
-- Changes: All font size sliders removed from Moderne template (3 blocks, 83 lines deleted)
-
-### US-017: Add photo display and upload overlay to ModernTemplate
-- Status: PASS
-- Priority: 17
-- Changes: Photo overlay with camera icon, hover transition, file input, 2MB check, accessibility
-
-### US-018: Wire photo state through editor, preview, and apercu
-- Status: PASS
-- Priority: 18
-- Changes: photoUrl state in editor + wrapper, localStorage resume_photo_{id}, onPhotoChange in editor only
-
-### US-019: Install background-removal dependency and create utility module
-- Status: PASS
-- Priority: 19
-- Commit: fffd761
-- Changes: Installed @imgly/background-removal, created src/lib/image/remove-background.ts with removeImageBackground and compositeWithBackground
-
-### US-020: Add Remove Background button to photo zone in ModernTemplate
-- Status: PASS
-- Priority: 20
-- Commit: 0766fa4
-- Changes: Added Remove BG pill button in bottom-right of photo zone with hover transition, loading spinner, accessibility
-
-### US-021: Wire background removal flow in resume-editor
-- Status: PASS
-- Priority: 21
-- Commit: 333197f
-- Changes: Wired handleRemoveBackground in editor, saves original photo, stores foreground Blob in ref for re-compositing
-
-### US-022: Re-apply sidebar color when color changes after background removal
-- Status: PASS
-- Priority: 22
-- Commit: ae7e5cd
-- Changes: Added debounced useEffect on sidebarColor change, re-composites via Canvas only (no ML re-run)
-
-### US-023: Build validation and regression check
-- Status: PASS
-- Priority: 23
-- Changes: Regression check PASS: 0 diff on 4 other templates, 0 new lint errors, 108/108 build, apercu photo intact
-
-### US-024: Add blobToDataUrl helper to remove-background utility
-- Status: PASS
-- Priority: 24
-- Commit: a69aa2d
-- Changes: Added blobToDataUrl helper using FileReader.readAsDataURL
-
-### US-025: Add photoBgMode state and mode-switching logic in resume-editor
-- Status: PASS
-- Priority: 25
-- Commit: 813109c
-- Changes: Added photoBgMode state, localStorage persistence, mode-switching useEffects, handleNewPhotoUpload reset
-
-### US-026: Add toggle UI to photo zone in ModernTemplate
-- Status: PASS
-- Priority: 26
-- Commit: f8e4a86
-- Changes: Added toggle buttons (filled square + checkerboard) in bottom-left of photo zone with active/inactive styling
-
-### US-027: Wire toggle props and build validation
-- Status: PASS
-- Priority: 27
-- Commit: f85ee9b
-- Changes: Wired photoBgMode, onPhotoBgModeChange, hasForegroundBlob to ModernTemplate in modern and default cases
-
-### US-028: Rename transparent mode to content-color and composite with white
-- Status: PASS
-- Priority: 28
-- Commit: 6d4052f
-- Changes: Renamed 'transparent' to 'content-color', compositeWithBackground(blob, '#FFFFFF'), localStorage migration
-
-### US-029: Update toggle UI and icon for content-color mode
-- Status: PASS
-- Priority: 29
-- Commit: 011611a
-- Changes: Semantic two-column layout icons (filled column = selected), opacity feedback, stronger inactive border contrast
-
-### US-030: Restore hasForegroundBlob state on editor remount
-- Status: PASS
-- Priority: 30
-- Commit: d43e232
-- Changes: Restored hasForegroundBlob from localStorage on mount, async Blob reconstruction in background
-
-### US-031: Lazy-reconstruct foreground Blob on demand instead of eagerly on mount
-- Status: PASS
-- Priority: 31
-- Commit: 300dc14
-- Changes: Removed eager ML on mount, added ensureForegroundBlob useCallback helper for lazy reconstruction
-
-### US-032: Convert static import to dynamic for background-removal bundle elimination
-- Status: PASS
-- Priority: 32
-- Commit: ebef3d5
-- Changes: Removed static import, added dynamic import() at 4 call sites: handleRemoveBackground, ensureForegroundBlob, sidebarColor effect, photoBgMode effect
-
-### US-033: Prevent ensureForegroundBlob from triggering on mount via storage guard
-- Status: PASS
-- Priority: 33
-- Commit: 0897285
-- Changes: Added isRestoringFromStorage ref guard, cleared via requestAnimationFrame after mount cycle
 
 ---
-
-## Files Modified
-
-1. src/components/dashboard/resume-templates/modern-template.tsx - Complete redesign
-2. src/components/dashboard/resume-preview.tsx - Pass new props to ModernTemplate
-3. src/components/dashboard/resume-editor.tsx - Template switch/case for editor live preview
-
-## Files NOT Modified (verified)
-
-1. src/components/dashboard/resume-templates/professional-template.tsx
-2. src/components/dashboard/resume-templates/classic-template.tsx
-3. src/components/dashboard/resume-templates/minimal-template.tsx
-4. src/components/dashboard/resume-templates/creative-template.tsx
-
----
-
-## Verification
-
-- TypeScript: PASS
-- Lint: Pre-existing errors only (not introduced by this feature)
-- Build: 108/108 pages generated (pre-existing 404/500 errors unrelated)
-- Regression: Zero diff on all other templates vs main
-
----
-
-## Commits
-
-1. ffa7514 - feat(moderne): US-001 scaffold two-column layout with dark sidebar and color props
-2. 79c2637 - feat(moderne): US-002 add photo placeholder zone at top of sidebar
-3. 7d0f08d - feat(moderne): US-003 add header section with name, job title accent bar, and address
-4. 381824a - feat(moderne): US-004 add banner-style section headers for sidebar and main area
-5. 901915b - feat(moderne): US-005 add Professional Profile summary section with MainSectionHeader
-6. 3ca5800 - feat(moderne): US-006 add contact section in sidebar with circular accent icons
-7. 1f2ef6c - feat(moderne): US-007 add education section in sidebar with degree/institution/year
-8. 3f4c7b6 - feat(moderne): US-008 add technical skills section with progress bars in sidebar
-9. e8fcfcb - feat(moderne): US-009 add professional experience section on right main area
-10. a8a7aeb - feat(moderne): US-010 add languages and certifications sections in sidebar
-11. 58c9821 - feat(moderne): US-011 add section reordering and show/hide controls
-12. ae3c816 - feat(moderne): US-012 add sidebar width, top margin, and font scale controls
-13. cb8dce3 - feat(moderne): US-013 color picker integration with derived accent color
-14. 2950241 - fix(moderne): US-015 editor live preview now uses correct template based on resume.template
-15. fffd761 - feat(moderne): US-019 add background removal utility with @imgly/background-removal
-16. 0766fa4 - feat(moderne): US-020 add Remove Background button to photo zone overlay
-17. 333197f - feat(moderne): US-021 wire background removal flow in resume-editor
-18. f19ddb3 - fix(build): resolve onnxruntime-web SWC minifier error for background-removal
-19. ae7e5cd - feat(moderne): US-022 auto re-composite photo background on sidebar color change
-20. 17b7286 - fix(moderne): resolve CSS specificity conflict preventing Remove BG button visibility
-21. a69aa2d - feat(moderne): US-024 add blobToDataUrl helper for transparent photo mode
-22. 813109c - feat(moderne): US-025 add photoBgMode state with sidebar-color/transparent switching
-23. f8e4a86 - feat(moderne): US-026 add sidebar-color/transparent toggle buttons to photo zone
-24. f85ee9b - feat(moderne): US-027 wire photoBgMode toggle props to ModernTemplate
-25. 6d4052f - feat(moderne): US-028 rename transparent mode to content-color, composite with white
-26. 011611a - feat(moderne): US-029 update toggle icons to semantic two-column layout design
-27. d43e232 - feat(moderne): US-030 restore hasForegroundBlob state on editor remount
-28. 300dc14 - feat(moderne): US-031 lazy-reconstruct foreground Blob on demand instead of eagerly on mount
-29. ebef3d5 - perf(moderne): US-032 convert static import to dynamic for background-removal bundle elimination
-30. 0897285 - perf(moderne): US-033 prevent ensureForegroundBlob from triggering on mount via storage guard
-
----
-
-## Ready for Review
-
-Branch: ralph/cv-moderne-redesign
-Total commits: 30
