@@ -12,7 +12,7 @@ import type {
   ResumeProject,
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
-import { formatText } from '@/lib/format-text'
+import { renderFormattedText } from '@/lib/format-text'
 
 export type ModernSidebarSectionId = 'contact' | 'education' | 'skills' | 'languages' | 'training'
 export type ModernMainContentSectionId = 'summary' | 'experience'
@@ -530,7 +530,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
               className="leading-relaxed text-slate-700 text-justify"
               style={{ fontSize: `${sectionDescFontSize * activeScale}px`, lineHeight: 1.5 }}
             >
-              {formatText(resume.summary)}
+              {renderFormattedText(resume.summary)}
             </div>
           </div>
         )
@@ -616,7 +616,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                           margin: 0,
                         }}
                       >
-                        {formatText(exp.description)}
+                        {renderFormattedText(exp.description)}
                       </div>
                     )}
 
@@ -644,7 +644,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                             }}
                           >
                             <span style={{ color: accentColor, flexShrink: 0 }}>&#8226;</span>
-                            <span>{formatText(achievement)}</span>
+                            <span>{renderFormattedText(achievement)}</span>
                           </li>
                         ))}
                       </ul>
@@ -1018,9 +1018,9 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                   <div className="absolute left-0 top-2 h-2 w-2 rounded-full" style={{ backgroundColor: accentColor }}></div>
                   <h3 className="text-lg font-bold text-slate-900">{project.name}</h3>
                   {project.description && (
-                    <p className="mt-1 leading-relaxed text-slate-700" style={{ fontSize: `${sectionDescFontSize * activeScale}px` }}>
-                      {project.description}
-                    </p>
+                    <div className="mt-1 leading-relaxed text-slate-700" style={{ fontSize: `${sectionDescFontSize * activeScale}px` }}>
+                      {renderFormattedText(project.description)}
+                    </div>
                   )}
                   {project.technologies && project.technologies.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
