@@ -119,3 +119,85 @@ export function embedLayoutSettings(
   // Fallback for unexpected types — treat as empty
   return { items: [], layoutSettings: settings }
 }
+
+// ---------- Editor → Modern template section-ID mapping ----------
+
+/** Editor sidebar section IDs (used by the drag-and-drop UI). */
+type EditorSidebarId = 'keyAchievements' | 'skills' | 'languages' | 'training'
+
+/** Editor main-content section IDs. */
+type EditorMainId = 'summary' | 'experience' | 'education'
+
+/** Modern template sidebar section IDs. */
+type ModernSidebarId = 'contact' | 'education' | 'skills' | 'languages' | 'training'
+
+/** Modern template main-content section IDs. */
+type ModernMainId = 'summary' | 'experience'
+
+/** IDs shared between editor sidebar and Modern sidebar. */
+const SHARED_SIDEBAR_IDS: ReadonlySet<string> = new Set(['skills', 'languages', 'training'])
+
+/** IDs valid in Modern main content. */
+const VALID_MODERN_MAIN_IDS: ReadonlySet<string> = new Set(['summary', 'experience'])
+
+interface ModernMappedOrder {
+  modernSidebarOrder: ModernSidebarId[]
+  modernMainOrder: ModernMainId[]
+  hiddenModernSidebar: ModernSidebarId[]
+  hiddenModernMain: ModernMainId[]
+}
+
+/**
+ * Maps editor-level section order and visibility to the Modern template's
+ * section IDs, which differ from the editor's generic set.
+ *
+ * Key differences:
+ * - Modern sidebar always starts with 'contact', then 'education',
+ *   followed by the shared sections (skills, languages, training)
+ *   in the order the user chose in the editor.
+ * - Modern sidebar does NOT have 'keyAchievements'.
+ * - Modern main only contains 'summary' and 'experience'
+ *   ('education' lives in the Modern sidebar).
+ * - Hidden-section mapping follows the same rules, plus:
+ *   if 'education' is hidden in the editor main, it becomes
+ *   hidden in the Modern sidebar.
+ */
+export function mapEditorOrderToModern(
+  editorSidebarOrder: EditorSidebarId[],
+  editorMainOrder: EditorMainId[],
+  hiddenSidebar: EditorSidebarId[],
+  hiddenMain: EditorMainId[],
+): ModernMappedOrder {
+  // --- Sidebar order ---
+  // 'contact' is always first, 'education' always second,
+  // then the shared IDs in the user's chosen order.
+  const sharedInOrder = editorSidebarOrder.filter(
+    (id): id is ModernSidebarId & EditorSidebarId => SHARED_SIDEBAR_IDS.has(id),
+  )
+  const modernSidebarOrder: ModernSidebarId[] = ['contact', 'education', ...sharedInOrder]
+
+  // --- Main order ---
+  const modernMainOrder = editorMainOrder.filter(
+    (id): id is ModernMainId => VALID_MODERN_MAIN_IDS.has(id),
+  )
+
+  // --- Hidden sidebar ---
+  const hiddenSidebarSet = new Set<string>(hiddenSidebar)
+  const hiddenModernSidebar: ModernSidebarId[] = []
+  // If 'education' is hidden in editor main, hide it in Modern sidebar too
+  if ((hiddenMain as string[]).includes('education')) {
+    hiddenModernSidebar.push('education')
+  }
+  for (const id of sharedInOrder) {
+    if (hiddenSidebarSet.has(id)) {
+      hiddenModernSidebar.push(id)
+    }
+  }
+
+  // --- Hidden main ---
+  const hiddenModernMain = hiddenMain.filter(
+    (id): id is ModernMainId => VALID_MODERN_MAIN_IDS.has(id),
+  )
+
+  return { modernSidebarOrder, modernMainOrder, hiddenModernSidebar, hiddenModernMain }
+}

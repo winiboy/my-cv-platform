@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   User,
@@ -24,7 +24,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n'
 import type { Resume, ResumeSkillCategory } from '@/types/database'
-import { extractLayoutSettings, embedLayoutSettings, migrateSidebarOrder } from '@/lib/layout-settings'
+import { extractLayoutSettings, embedLayoutSettings, migrateSidebarOrder, mapEditorOrderToModern } from '@/lib/layout-settings'
 import { ContactSection } from './resume-sections/contact-section'
 import { SummarySection } from './resume-sections/summary-section'
 import { ExperienceSection } from './resume-sections/experience-section'
@@ -212,6 +212,12 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
 
   // Compute sidebarColor from hue, saturation, and brightness
   const sidebarColor = `hsl(${sidebarHue}, ${sidebarSaturation}%, ${sidebarBrightness}%)`
+
+  // Map editor section IDs to Modern template section IDs for live preview
+  const { modernSidebarOrder, modernMainOrder, hiddenModernSidebar, hiddenModernMain } = useMemo(
+    () => mapEditorOrderToModern(sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections),
+    [sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections],
+  )
 
   // Keep resumeRef in sync with resume state
   useEffect(() => {
@@ -1641,6 +1647,10 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                           setMainContentTopMargin={setMainContentTopMargin}
                           sidebarWidth={sidebarWidth}
                           setSidebarWidth={setSidebarWidth}
+                          sidebarOrder={modernSidebarOrder}
+                          mainContentOrder={modernMainOrder}
+                          hiddenSidebarSections={hiddenModernSidebar}
+                          hiddenMainSections={hiddenModernMain}
                           photoUrl={photoUrl}
                           onPhotoChange={handleNewPhotoUpload}
                           onRemoveBackground={handleRemoveBackground}
@@ -1742,6 +1752,10 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                           setMainContentTopMargin={setMainContentTopMargin}
                           sidebarWidth={sidebarWidth}
                           setSidebarWidth={setSidebarWidth}
+                          sidebarOrder={modernSidebarOrder}
+                          mainContentOrder={modernMainOrder}
+                          hiddenSidebarSections={hiddenModernSidebar}
+                          hiddenMainSections={hiddenModernMain}
                           photoUrl={photoUrl}
                           onPhotoChange={handleNewPhotoUpload}
                           onRemoveBackground={handleRemoveBackground}

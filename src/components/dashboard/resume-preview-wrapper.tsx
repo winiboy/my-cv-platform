@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Resume } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
-import { extractLayoutSettings, migrateSidebarOrder } from '@/lib/layout-settings'
+import { extractLayoutSettings, migrateSidebarOrder, mapEditorOrderToModern } from '@/lib/layout-settings'
 import { ResumePreview } from './resume-preview'
 
 interface ResumePreviewWrapperProps {
@@ -49,6 +49,12 @@ export function ResumePreviewWrapper({
 
   // Compute sidebarColor from hue, saturation, and brightness
   const sidebarColor = `hsl(${sidebarHue}, ${sidebarSaturation}%, ${sidebarBrightness}%)`
+
+  // Map editor section IDs to Modern template section IDs for the Apercu preview
+  const { modernSidebarOrder, modernMainOrder, hiddenModernSidebar, hiddenModernMain } = useMemo(
+    () => mapEditorOrderToModern(sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections),
+    [sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections],
+  )
 
   // Load slider settings on mount: first from Supabase data, then localStorage may override
   useEffect(() => {
@@ -199,6 +205,10 @@ export function ResumePreviewWrapper({
         sidebarWidth={sidebarWidth}
         hiddenSidebarSections={hiddenSidebarSections}
         hiddenMainSections={hiddenMainSections}
+        modernSidebarOrder={modernSidebarOrder}
+        modernMainContentOrder={modernMainOrder}
+        hiddenModernSidebarSections={hiddenModernSidebar}
+        hiddenModernMainSections={hiddenModernMain}
         photoUrl={photoUrl}
       />
     </>
