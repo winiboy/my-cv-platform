@@ -24,6 +24,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n'
 import type { Resume, ResumeSkillCategory } from '@/types/database'
+import { extractLayoutSettings, embedLayoutSettings, migrateSidebarOrder } from '@/lib/layout-settings'
 import { ContactSection } from './resume-sections/contact-section'
 import { SummarySection } from './resume-sections/summary-section'
 import { ExperienceSection } from './resume-sections/experience-section'
@@ -205,6 +206,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const isRestoringFromStorage = useRef(true)
   const [photoBgMode, setPhotoBgMode] = useState<'sidebar-color' | 'content-color'>('sidebar-color')
   const [hasForegroundBlob, setHasForegroundBlob] = useState(false)
+  const layoutSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Prevents the Supabase persist effect from firing on mount when restoring settings
+  const isInitialLayoutLoadRef = useRef(true)
 
   // Compute sidebarColor from hue, saturation, and brightness
   const sidebarColor = `hsl(${sidebarHue}, ${sidebarSaturation}%, ${sidebarBrightness}%)`
@@ -434,7 +438,14 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
         languages: resume.languages,
         certifications: resume.certifications,
         projects: resume.projects,
-        custom_sections: resume.custom_sections,
+        custom_sections: resume.template === 'modern'
+          ? embedLayoutSettings(resume.custom_sections, {
+              sidebarOrder,
+              mainContentOrder,
+              hiddenSidebarSections,
+              hiddenMainSections,
+            })
+          : resume.custom_sections,
       }
 
       const result = await (supabase.from('resumes') as any).update(updates).eq('id', resume.id)
@@ -866,7 +877,25 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       }
     }
 
-    // Load design settings for live preview
+    // Load layout settings from Supabase data (persisted in custom_sections JSONB).
+    // This provides cross-device persistence. localStorage settings below may override.
+    const supabaseLayout = extractLayoutSettings(initialResume.custom_sections)
+    if (supabaseLayout) {
+      if (supabaseLayout.sidebarOrder) {
+        setSidebarOrder(migrateSidebarOrder(supabaseLayout.sidebarOrder) as SidebarSectionId[])
+      }
+      if (supabaseLayout.mainContentOrder) {
+        setMainContentOrder(supabaseLayout.mainContentOrder as MainContentSectionId[])
+      }
+      if (supabaseLayout.hiddenSidebarSections) {
+        setHiddenSidebarSections(supabaseLayout.hiddenSidebarSections as SidebarSectionId[])
+      }
+      if (supabaseLayout.hiddenMainSections) {
+        setHiddenMainSections(supabaseLayout.hiddenMainSections as MainContentSectionId[])
+      }
+    }
+
+    // Load design settings for live preview (localStorage may override Supabase layout)
     const savedSettings = localStorage.getItem(`resume_slider_settings_${resume.id}`)
     if (savedSettings) {
       try {
@@ -883,18 +912,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
         if (settings.sidebarBrightness !== undefined) setSidebarBrightness(settings.sidebarBrightness)
         if (settings.fontScale !== undefined) setFontScale(settings.fontScale)
         if (settings.sidebarOrder !== undefined) {
-          // Migration: Add 'languages' if missing from saved order
-          let order = settings.sidebarOrder as SidebarSectionId[]
-          if (!order.includes('languages')) {
-            // Insert 'languages' after 'skills' or at position 2
-            const skillsIndex = order.indexOf('skills')
-            if (skillsIndex >= 0) {
-              order = [...order.slice(0, skillsIndex + 1), 'languages', ...order.slice(skillsIndex + 1)]
-            } else {
-              order = [...order, 'languages']
-            }
-          }
-          setSidebarOrder(order)
+          setSidebarOrder(migrateSidebarOrder(settings.sidebarOrder) as SidebarSectionId[])
         }
         if (settings.mainContentOrder !== undefined) setMainContentOrder(settings.mainContentOrder)
         if (settings.fontFamily !== undefined) setFontFamily(settings.fontFamily)
@@ -945,6 +963,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     requestAnimationFrame(() => {
       isRestoringFromStorage.current = false
     })
+    // initialResume.custom_sections is read for Supabase layout settings but intentionally
+    // excluded: this is a mount-only effect keyed on resume.id, not on prop changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resume.id])
 
   // Persist photoBgMode preference to localStorage
@@ -989,6 +1010,53 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     settings.hiddenMainSections = hiddenMainSections
     localStorage.setItem(`resume_slider_settings_${resume.id}`, JSON.stringify(settings))
   }, [isSliderSettingsLoaded, sidebarHue, sidebarSaturation, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, hiddenSidebarSections, hiddenMainSections, resume.id])
+
+  // Persist layout settings (section order + hidden sections) to Supabase with debounce.
+  // This ensures cross-device persistence without flooding the database on rapid drag operations.
+  // Only fires for the Modern template, and skips the first mount-triggered execution.
+  useEffect(() => {
+    if (!isSliderSettingsLoaded) return
+
+    // Only Modern template uses layout settings in custom_sections
+    if (resumeRef.current.template !== 'modern') return
+
+    // Skip the first execution triggered by restoring settings on mount
+    if (isInitialLayoutLoadRef.current) {
+      isInitialLayoutLoadRef.current = false
+      return
+    }
+
+    if (layoutSaveTimerRef.current) {
+      clearTimeout(layoutSaveTimerRef.current)
+    }
+
+    layoutSaveTimerRef.current = setTimeout(() => {
+      const supabase = createClient()
+      const currentResume = resumeRef.current
+      const newCustomSections = embedLayoutSettings(currentResume.custom_sections, {
+        sidebarOrder,
+        mainContentOrder,
+        hiddenSidebarSections,
+        hiddenMainSections,
+      });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = (supabase.from('resumes') as any)
+        .update({ custom_sections: newCustomSections })
+        .eq('id', currentResume.id)
+      result.then(({ error }: { error: unknown }) => {
+        if (error) {
+          console.error('Failed to persist layout settings to Supabase:', error)
+        }
+      })
+    }, 500)
+
+    return () => {
+      if (layoutSaveTimerRef.current) {
+        clearTimeout(layoutSaveTimerRef.current)
+      }
+    }
+  }, [isSliderSettingsLoaded, sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections])
 
   // Warn user before leaving with unsaved changes
   useEffect(() => {

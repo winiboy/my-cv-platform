@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { Resume } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
+import { extractLayoutSettings, migrateSidebarOrder } from '@/lib/layout-settings'
 import { ResumePreview } from './resume-preview'
 
 interface ResumePreviewWrapperProps {
@@ -49,8 +50,26 @@ export function ResumePreviewWrapper({
   // Compute sidebarColor from hue, saturation, and brightness
   const sidebarColor = `hsl(${sidebarHue}, ${sidebarSaturation}%, ${sidebarBrightness}%)`
 
-  // Load slider settings from localStorage on mount
+  // Load slider settings on mount: first from Supabase data, then localStorage may override
   useEffect(() => {
+    // Load layout settings from Supabase data (persisted in custom_sections JSONB)
+    const supabaseLayout = extractLayoutSettings(initialResume.custom_sections)
+    if (supabaseLayout) {
+      if (supabaseLayout.sidebarOrder) {
+        setSidebarOrder(migrateSidebarOrder(supabaseLayout.sidebarOrder) as ('keyAchievements' | 'skills' | 'languages' | 'training')[])
+      }
+      if (supabaseLayout.mainContentOrder) {
+        setMainContentOrder(supabaseLayout.mainContentOrder as ('summary' | 'experience' | 'education')[])
+      }
+      if (supabaseLayout.hiddenSidebarSections) {
+        setHiddenSidebarSections(supabaseLayout.hiddenSidebarSections as ('keyAchievements' | 'skills' | 'languages' | 'training')[])
+      }
+      if (supabaseLayout.hiddenMainSections) {
+        setHiddenMainSections(supabaseLayout.hiddenMainSections as ('summary' | 'experience' | 'education')[])
+      }
+    }
+
+    // localStorage settings override Supabase values (supports local customization)
     const savedSettings = localStorage.getItem(`resume_slider_settings_${initialResume.id}`)
     if (savedSettings) {
       try {
@@ -67,18 +86,7 @@ export function ResumePreviewWrapper({
         if (settings.sidebarBrightness !== undefined) setSidebarBrightness(settings.sidebarBrightness)
         if (settings.fontScale !== undefined) setFontScale(settings.fontScale)
         if (settings.sidebarOrder !== undefined) {
-          // Migration: Add 'languages' if missing from saved order
-          let order = settings.sidebarOrder as ('keyAchievements' | 'skills' | 'languages' | 'training')[]
-          if (!order.includes('languages')) {
-            // Insert 'languages' after 'skills' or at position 2
-            const skillsIndex = order.indexOf('skills')
-            if (skillsIndex >= 0) {
-              order = [...order.slice(0, skillsIndex + 1), 'languages', ...order.slice(skillsIndex + 1)]
-            } else {
-              order = [...order, 'languages']
-            }
-          }
-          setSidebarOrder(order)
+          setSidebarOrder(migrateSidebarOrder(settings.sidebarOrder) as ('keyAchievements' | 'skills' | 'languages' | 'training')[])
         }
         if (settings.mainContentOrder !== undefined) setMainContentOrder(settings.mainContentOrder)
         if (settings.fontFamily !== undefined) setFontFamily(settings.fontFamily)
@@ -128,13 +136,6 @@ export function ResumePreviewWrapper({
     const localStorageKey = `resume_slider_settings_${initialResume.id}`
     localStorage.setItem(localStorageKey, JSON.stringify(settings))
 
-    // DEBUG: Log alignment values being saved
-    console.log('[Preview Save Debug] localStorage key:', localStorageKey)
-    console.log('[Preview Save Debug] Alignment values saved:', {
-      sidebarWidth,
-      sidebarTopMargin,
-      mainContentTopMargin,
-    })
   }, [isLoaded, titleFontSize, titleGap, contactFontSize, sectionTitleFontSize, sectionDescFontSize, sectionGap, headerGap, sidebarHue, sidebarSaturation, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, hiddenSidebarSections, hiddenMainSections, initialResume.id])
 
   useEffect(() => {

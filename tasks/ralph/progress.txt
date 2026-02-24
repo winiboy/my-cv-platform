@@ -1,63 +1,77 @@
 # Ralph Progress Log
-# Feature: modern-fix (Remove HTML Tags from Modern CV)
-# Started: 2026-02-22
+# Feature: edit-sidebar-content (Fix Drag-and-Drop Section Reordering for Modern CV)
+# Started: 2026-02-24
 # Target Version: TBD
 
 ---
 
-## Status: COMPLETE (5/5 stories PASS)
+## Status: IN PROGRESS (1/6 stories PASS)
 
 ---
 
 ## Stories
 
-### US-001: Audit HTML tag leakage points in Modern CV
+### US-001: Explore current drag-and-drop and section ordering data model
 - Status: PASS
-- Commit: (audit only — no code changes)
+- Commit: (exploration only — no code changes)
 - Priority: 1
 
-#### Audit Findings
+#### Findings
 
-**ROOT CAUSE:** Modern template preview uses `formatText()` (plain-text parser) instead of `renderFormattedText()` (HTML-aware parser) for fields that store HTML from RichTextEditor.
+**ROOT CAUSE:** Section order is stored in localStorage only — never saved to Supabase. The handleSave() function (resume-editor.tsx:419-457) does NOT include sidebarOrder or mainContentOrder. Database schema has no fields for section ordering.
 
-**Field → Rendering → Surface → Risk:**
+**Current flow:**
+- Editor drag-drop → React state → localStorage (resume_slider_settings_{id})
+- Live Preview reads from localStorage (resume-preview-wrapper.tsx:54-93)
+- DOCX export reads from localStorage via query params (download-button.tsx:26-99)
+- PDF export uses Live Preview DOM (window.print)
+- ALL work within a session, but order is LOST on Supabase reload (new device/cleared storage)
 
-| Field | Preview Function | DOCX Function | Risk |
-|-------|-----------------|---------------|------|
-| resume.summary | formatText() @ line 533 | parseHtmlToDocxRuns() | HIGH — tags leak in preview |
-| exp.description | formatText() @ line 619 | parseHtmlToDocxRuns() | HIGH — tags leak in preview |
-| exp.achievements[] | formatText() @ line 647 | manual decode+strip @ 1191-1197 | MEDIUM — tags leak in preview |
-| project.description | raw {interpolation} @ line 1022 | parseHtmlToDocxRuns() | HIGH — tags leak in preview |
-| skillCategory.items | direct render @ line 389 | TextRun (plain text) | NONE — plain text |
-| skillCategory.skillsHtml | NOT USED in preview | parseHtmlToDocxRuns() @ 737-769 | MISMATCH — DOCX reads HTML, preview reads items |
+**Section IDs:**
+- Editor sidebar: keyAchievements, skills, languages, training
+- Editor main: summary, experience, education
+- Modern template sidebar: contact, education, skills, languages, training
+- Modern template main: summary, experience
 
-**Surface equivalence:**
-- PDF = browser print of preview → same leakage as preview
-- Apercu = same component as preview → same leakage as preview
-- DOCX = separate pipeline → mostly correct, minor improvement possible for achievements
+**Section ID mismatch:** Editor and Modern template use different default section lists.
+
+**Key files:**
+- resume-editor.tsx: drag-drop (1204-1341), state (186-187), localStorage save (982-991), handleSave (419-457)
+- modern-template.tsx: renders in order (953-955, 1007-1009), receives props (197-200)
+- resume-preview-wrapper.tsx: loads from localStorage (54-93)
+- download-button.tsx: reads localStorage for DOCX params (26-99)
+- docx-modern.ts: accepts and uses section order (275-296)
+- database.ts: NO section order fields exist
 
 **Fix strategy:**
-- Preview/Apercu/PDF: Replace `formatText()` with `renderFormattedText()` for summary, description, achievements. Wrap project.description in `renderFormattedText()`.
-- DOCX: Consider using `parseHtmlToDocxRuns()` for achievements instead of manual decode+strip.
+1. Add sidebarSectionOrder and mainSectionOrder to resume JSONB content
+2. Update handleSave() to persist these fields to Supabase
+3. Load from Supabase on mount (with localStorage as cache/fallback)
+4. Modern template renderer already consumes order — just needs correct data flow
 
-### US-002: Sanitize HTML in Modern CV live preview and Apercu
-- Status: PASS
-- Commit: a0c7d20
+### US-002: Add section order fields to resume data model and persist on drop
+- Status: PENDING
+- Commit: —
 - Priority: 2
 
-### US-003: Sanitize HTML in Modern CV PDF export
-- Status: PASS
-- Commit: (no changes needed — PDF uses window.print() which renders the already-sanitized preview DOM from US-002)
+### US-003: Modern template Live Preview and Aperçu consume persisted section order
+- Status: PENDING
+- Commit: —
 - Priority: 3
 
-### US-004: Sanitize HTML in Modern CV DOCX export
-- Status: PASS
-- Commit: d696786
+### US-004: PDF export reflects persisted section order for Modern template
+- Status: PENDING
+- Commit: —
 - Priority: 4
 
-### US-005: Verify zero-tag guarantee across all surfaces
-- Status: PASS
-- Commit: (verification only — no code changes)
+### US-005: DOCX export reflects persisted section order for Modern template
+- Status: PENDING
+- Commit: —
 - Priority: 5
+
+### US-006: End-to-end verification of section reordering across all surfaces
+- Status: PENDING
+- Commit: —
+- Priority: 6
 
 ---
