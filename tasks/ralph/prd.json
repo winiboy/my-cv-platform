@@ -17,8 +17,8 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Exploration documented in progress.txt"
     },
     {
       "id": "US-002",
@@ -34,8 +34,8 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Commit 74dcc9a — persist via custom_sections JSONB, Modern-only guard, debounced save"
     },
     {
       "id": "US-003",
@@ -53,8 +53,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Commit 4dcfa84 — mapEditorOrderToModern + useMemo, props passed to both ModernTemplate sites"
     },
     {
       "id": "US-004",
@@ -67,8 +67,8 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "No changes needed — PDF uses window.print() on Live Preview DOM, fixed by US-003"
     },
     {
       "id": "US-005",
@@ -83,8 +83,8 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Commit cb1eb2a — replaced manual ID filtering with mapEditorOrderToModern()"
     },
     {
       "id": "US-006",
@@ -105,8 +105,8 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "All 12 E2E verification items PASS — full data flow verified across all 4 surfaces"
     }
   ]
 }

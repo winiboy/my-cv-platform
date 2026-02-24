@@ -5,7 +5,7 @@
 
 ---
 
-## Status: IN PROGRESS (1/6 stories PASS)
+## Status: COMPLETE (6/6 stories PASS)
 
 ---
 
@@ -20,58 +20,46 @@
 
 **ROOT CAUSE:** Section order is stored in localStorage only — never saved to Supabase. The handleSave() function (resume-editor.tsx:419-457) does NOT include sidebarOrder or mainContentOrder. Database schema has no fields for section ordering.
 
-**Current flow:**
-- Editor drag-drop → React state → localStorage (resume_slider_settings_{id})
-- Live Preview reads from localStorage (resume-preview-wrapper.tsx:54-93)
-- DOCX export reads from localStorage via query params (download-button.tsx:26-99)
-- PDF export uses Live Preview DOM (window.print)
-- ALL work within a session, but order is LOST on Supabase reload (new device/cleared storage)
-
-**Section IDs:**
-- Editor sidebar: keyAchievements, skills, languages, training
-- Editor main: summary, experience, education
-- Modern template sidebar: contact, education, skills, languages, training
-- Modern template main: summary, experience
-
-**Section ID mismatch:** Editor and Modern template use different default section lists.
-
-**Key files:**
-- resume-editor.tsx: drag-drop (1204-1341), state (186-187), localStorage save (982-991), handleSave (419-457)
-- modern-template.tsx: renders in order (953-955, 1007-1009), receives props (197-200)
-- resume-preview-wrapper.tsx: loads from localStorage (54-93)
-- download-button.tsx: reads localStorage for DOCX params (26-99)
-- docx-modern.ts: accepts and uses section order (275-296)
-- database.ts: NO section order fields exist
-
-**Fix strategy:**
-1. Add sidebarSectionOrder and mainSectionOrder to resume JSONB content
-2. Update handleSave() to persist these fields to Supabase
-3. Load from Supabase on mount (with localStorage as cache/fallback)
-4. Modern template renderer already consumes order — just needs correct data flow
+**Section ID mismatch:** Editor uses (keyAchievements, skills, languages, training / summary, experience, education) while Modern template uses (contact, education, skills, languages, training / summary, experience).
 
 ### US-002: Add section order fields to resume data model and persist on drop
-- Status: PENDING
-- Commit: —
+- Status: PASS
+- Commit: 74dcc9a
 - Priority: 2
 
 ### US-003: Modern template Live Preview and Aperçu consume persisted section order
-- Status: PENDING
-- Commit: —
+- Status: PASS
+- Commit: 4dcfa84
 - Priority: 3
 
 ### US-004: PDF export reflects persisted section order for Modern template
-- Status: PENDING
-- Commit: —
+- Status: PASS
+- Commit: (no changes needed — PDF uses window.print() on Live Preview DOM, fixed by US-003)
 - Priority: 4
 
 ### US-005: DOCX export reflects persisted section order for Modern template
-- Status: PENDING
-- Commit: —
+- Status: PASS
+- Commit: cb1eb2a
 - Priority: 5
 
 ### US-006: End-to-end verification of section reordering across all surfaces
-- Status: PENDING
-- Commit: —
+- Status: PASS
+- Commit: (verification only — no code changes)
 - Priority: 6
+
+#### E2E Verification Results
+
+- Sidebar reorder → Live Preview updated — PASS
+- Sidebar reorder → Aperçu updated — PASS
+- Sidebar reorder → PDF updated — PASS
+- Sidebar reorder → DOCX updated — PASS
+- Main content reorder → Live Preview updated — PASS
+- Main content reorder → Aperçu updated — PASS
+- Main content reorder → PDF updated — PASS
+- Main content reorder → DOCX updated — PASS
+- Order persists across page refresh — PASS
+- No regressions on other templates — PASS
+- Modern-only isolation confirmed — PASS
+- Backward compatibility with legacy resumes — PASS
 
 ---
