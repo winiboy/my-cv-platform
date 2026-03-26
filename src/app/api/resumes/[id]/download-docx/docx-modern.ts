@@ -39,6 +39,7 @@ import {
   COLORS,
   type DocxGeneratorSettings,
 } from './docx-helpers'
+import { mapEditorOrderToModern } from '@/lib/layout-settings'
 
 // ============================================================
 // FONT SIZE CONSTANTS (matching modern-template.tsx)
@@ -280,22 +281,30 @@ export async function generateModernDocx(
     photoBase64,
   } = settings
 
-  // Validate incoming section IDs against Modern template's known sections.
-  // The route defaults are for the Professional template and may not match.
-  const validSidebarIds = new Set<string>(DEFAULT_SIDEBAR_ORDER)
-  const validMainIds = new Set<string>(DEFAULT_MAIN_ORDER)
+  // Map editor-format section IDs to Modern template section IDs.
+  // The editor uses generic IDs (e.g. 'keyAchievements', 'education' in main)
+  // while Modern has 'contact' and 'education' in the sidebar.
+  // mapEditorOrderToModern handles this translation, matching Live Preview behavior.
+  const {
+    modernSidebarOrder,
+    modernMainOrder,
+    hiddenModernSidebar,
+    hiddenModernMain,
+  } = mapEditorOrderToModern(
+    sidebarOrderRaw as ('keyAchievements' | 'skills' | 'languages' | 'training')[],
+    mainContentOrderRaw as ('summary' | 'experience' | 'education')[],
+    hiddenSidebarRaw as ('keyAchievements' | 'skills' | 'languages' | 'training')[],
+    hiddenMainRaw as ('summary' | 'experience' | 'education')[],
+  )
 
-  const filteredSidebar = sidebarOrderRaw.filter(id => validSidebarIds.has(id))
-  const filteredMain = mainContentOrderRaw.filter(id => validMainIds.has(id))
-
-  const sidebarOrder = (filteredSidebar.length > 0
-    ? filteredSidebar
+  const sidebarOrder = (modernSidebarOrder.length > 0
+    ? modernSidebarOrder
     : DEFAULT_SIDEBAR_ORDER) as ModernSidebarSectionId[]
-  const mainContentOrder = (filteredMain.length > 0
-    ? filteredMain
+  const mainContentOrder = (modernMainOrder.length > 0
+    ? modernMainOrder
     : DEFAULT_MAIN_ORDER) as ModernMainContentSectionId[]
-  const hiddenSidebarSections = hiddenSidebarRaw as ModernSidebarSectionId[]
-  const hiddenMainSections = hiddenMainRaw as ModernMainContentSectionId[]
+  const hiddenSidebarSections = hiddenModernSidebar as ModernSidebarSectionId[]
+  const hiddenMainSections = hiddenModernMain as ModernMainContentSectionId[]
 
   // Load translations
   const dict = getTranslations(locale as Locale, 'common')

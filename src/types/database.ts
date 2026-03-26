@@ -119,6 +119,17 @@ export interface CustomSection {
   content: string
 }
 
+/**
+ * Layout settings persisted to Supabase inside the custom_sections JSONB column.
+ * Controls section ordering and visibility for the Modern template sidebar and main content.
+ */
+export interface ResumeLayoutSettings {
+  sidebarOrder?: string[]
+  mainContentOrder?: string[]
+  hiddenSidebarSections?: string[]
+  hiddenMainSections?: string[]
+}
+
 export interface AnalysisRecommendation {
   category: string
   priority: 'low' | 'medium' | 'high'
