@@ -198,7 +198,7 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
   return (
     <div className="relative bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6 hover:shadow-lg transition-shadow">
       {/* Badges container */}
-      <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+      <div className="absolute top-4 right-14 flex flex-col items-end gap-2">
         {/* Score badge */}
         {coverLetter.analysis_score !== null && (
           <div
@@ -226,7 +226,7 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
       </div>
 
       {/* Menu button */}
-      <div className="absolute top-4 left-4">
+      <div className="absolute top-4 right-4">
         <button
           onClick={() => setShowMenu(!showMenu)}
           className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
@@ -237,7 +237,7 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
 
         {/* Dropdown menu */}
         {showMenu && (
-          <div className="absolute left-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-10">
+          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-10">
             <Link
               href={`/${locale}/dashboard/cover-letters/${coverLetter.id}/edit`}
               className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
