@@ -1,65 +1,20 @@
 # Ralph Progress Log
-# Feature: edit-sidebar-content (Fix Drag-and-Drop Section Reordering for Modern CV)
-# Started: 2026-02-24
+# Feature: move-3-dot-menu (Move kebab menu top-right on resume tiles)
+# Branch: feature/3-dot
+# Started: 2026-04-12
 # Target Version: TBD
 
 ---
 
-## Status: COMPLETE (6/6 stories PASS)
+## Status: COMPLETE (1/1 stories PASS)
 
 ---
 
 ## Stories
 
-### US-001: Explore current drag-and-drop and section ordering data model
+### US-001: Move resume tile kebab menu to top-right
 - Status: PASS
-- Commit: (exploration only — no code changes)
+- Commit: TBD
 - Priority: 1
-
-#### Findings
-
-**ROOT CAUSE:** Section order is stored in localStorage only — never saved to Supabase. The handleSave() function (resume-editor.tsx:419-457) does NOT include sidebarOrder or mainContentOrder. Database schema has no fields for section ordering.
-
-**Section ID mismatch:** Editor uses (keyAchievements, skills, languages, training / summary, experience, education) while Modern template uses (contact, education, skills, languages, training / summary, experience).
-
-### US-002: Add section order fields to resume data model and persist on drop
-- Status: PASS
-- Commit: 74dcc9a
-- Priority: 2
-
-### US-003: Modern template Live Preview and Aperçu consume persisted section order
-- Status: PASS
-- Commit: 4dcfa84
-- Priority: 3
-
-### US-004: PDF export reflects persisted section order for Modern template
-- Status: PASS
-- Commit: (no changes needed — PDF uses window.print() on Live Preview DOM, fixed by US-003)
-- Priority: 4
-
-### US-005: DOCX export reflects persisted section order for Modern template
-- Status: PASS
-- Commit: cb1eb2a
-- Priority: 5
-
-### US-006: End-to-end verification of section reordering across all surfaces
-- Status: PASS
-- Commit: (verification only — no code changes)
-- Priority: 6
-
-#### E2E Verification Results
-
-- Sidebar reorder → Live Preview updated — PASS
-- Sidebar reorder → Aperçu updated — PASS
-- Sidebar reorder → PDF updated — PASS
-- Sidebar reorder → DOCX updated — PASS
-- Main content reorder → Live Preview updated — PASS
-- Main content reorder → Aperçu updated — PASS
-- Main content reorder → PDF updated — PASS
-- Main content reorder → DOCX updated — PASS
-- Order persists across page refresh — PASS
-- No regressions on other templates — PASS
-- Modern-only isolation confirmed — PASS
-- Backward compatibility with legacy resumes — PASS
 
 ---
