@@ -1,6 +1,6 @@
 {
   "name": "my-cv-platform",
-  "version": "0.53.57",
+  "version": "0.53.58",
   "private": true,
   "scripts": {
     "dev": "next dev",

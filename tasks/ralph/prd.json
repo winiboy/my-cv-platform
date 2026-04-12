@@ -1,112 +1,27 @@
 {
   "project": "my-cv-platform",
-  "branchName": "ralph/edit-sidebar-content",
-  "description": "Fix drag-and-drop section reordering for Modern CV template — persist order to Supabase and propagate to Live Preview, Aperçu, PDF, and DOCX exports.",
+  "branchName": "ralph/move-3-dot-menu",
+  "description": "Move the 3-dot (kebab) action menu on resume tiles from top-left to top-right so it matches the job-application tiles. Minimal Tailwind class swap scoped strictly to the resume tile component, zero regression on other pages.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Explore current drag-and-drop and section ordering data model",
-      "description": "As a developer, I need to understand how the editor drag-and-drop currently works, what state it updates, and how sections are rendered in the Modern template, so I can plan the fix.",
+      "title": "Move resume tile kebab menu to top-right",
+      "description": "As a user viewing my resumes dashboard, I want the 3-dot action menu to appear in the top-right corner of each resume tile so it matches the job-applications page.",
       "acceptanceCriteria": [
-        "Identify the editor components handling drag-and-drop for sidebar and main content sections",
-        "Identify what state or data structure is updated when a section is dragged and dropped",
-        "Identify whether the ordering is persisted to Supabase or only held in local React state",
-        "Identify the section keys used for sidebar and main content in the Modern template (e.g., 'skills', 'experience')",
-        "Identify how the Modern template renderer reads and orders sections in resume-preview.tsx",
-        "Document findings in progress.txt",
-        "Typecheck passes"
-      ],
-      "priority": 1,
-      "passes": true,
-      "notes": "Exploration documented in progress.txt"
-    },
-    {
-      "id": "US-002",
-      "title": "Add section order fields to resume data model and persist on drop",
-      "description": "As a user editing a Modern CV, I want my sidebar and main content section reordering to be saved to the database immediately when I drop a section, so my changes are not lost.",
-      "acceptanceCriteria": [
-        "Resume JSONB content field supports sidebarSectionOrder (string[]) and mainSectionOrder (string[]) — or equivalent fields identified in US-001",
-        "When a user drags and drops a sidebar section, the new order is saved to Supabase immediately",
-        "When a user drags and drops a main content section, the new order is saved to Supabase immediately",
-        "Order persists across page refreshes",
-        "If no custom order is stored (existing resumes), the default section order is used as fallback",
-        "No changes to other templates' data or behavior",
-        "Typecheck passes"
-      ],
-      "priority": 2,
-      "passes": true,
-      "notes": "Commit 74dcc9a — persist via custom_sections JSONB, Modern-only guard, debounced save"
-    },
-    {
-      "id": "US-003",
-      "title": "Modern template Live Preview and Aperçu consume persisted section order",
-      "description": "As a user, I want the Live Preview and Aperçu to immediately reflect the section order I configured via drag-and-drop, so I get instant visual feedback.",
-      "acceptanceCriteria": [
-        "Modern template renderer in resume-preview.tsx reads sidebarSectionOrder and mainSectionOrder from resume data",
-        "Sidebar sections render in the persisted order",
-        "Main content sections render in the persisted order",
-        "After dropping a section, Live Preview updates in the same render cycle (no refresh needed)",
-        "Aperçu shows the same persisted order when opened",
-        "Fallback to default order when no custom order is stored",
-        "Only the Modern template rendering is affected — other templates unchanged",
+        "Resume tile kebab button is absolutely positioned in the top-right corner of the card",
+        "Top/right offsets visually match the job-application tile kebab button",
+        "Dropdown menu opens right-aligned to the button (same as job-application tiles)",
+        "Clicking the button still opens the same actions menu (edit, delete, duplicate, etc.)",
+        "Change is a minimal Tailwind class swap — no structural JSX refactor",
+        "No modifications to job-application tile component or any other tile/page",
+        "pnpm lint passes",
+        "pnpm build passes",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 3,
-      "passes": true,
-      "notes": "Commit 4dcfa84 — mapEditorOrderToModern + useMemo, props passed to both ModernTemplate sites"
-    },
-    {
-      "id": "US-004",
-      "title": "PDF export reflects persisted section order for Modern template",
-      "description": "As a user, I want my PDF export to reflect the section order I configured via drag-and-drop, so the exported document matches my intent.",
-      "acceptanceCriteria": [
-        "PDF export of a Modern CV renders sidebar sections in the persisted order",
-        "PDF export of a Modern CV renders main content sections in the persisted order",
-        "No changes to PDF export for other templates",
-        "Typecheck passes"
-      ],
-      "priority": 4,
-      "passes": true,
-      "notes": "No changes needed — PDF uses window.print() on Live Preview DOM, fixed by US-003"
-    },
-    {
-      "id": "US-005",
-      "title": "DOCX export reflects persisted section order for Modern template",
-      "description": "As a user, I want my DOCX export to reflect the section order I configured via drag-and-drop, so the exported Word document matches my intent.",
-      "acceptanceCriteria": [
-        "docx-modern.ts reads sidebarSectionOrder and mainSectionOrder from resume data",
-        "DOCX export renders sidebar sections in the persisted order",
-        "DOCX export renders main content sections in the persisted order",
-        "Fallback to default order when no custom order is stored",
-        "No changes to DOCX export for other templates",
-        "Typecheck passes"
-      ],
-      "priority": 5,
-      "passes": true,
-      "notes": "Commit cb1eb2a — replaced manual ID filtering with mapEditorOrderToModern()"
-    },
-    {
-      "id": "US-006",
-      "title": "End-to-end verification of section reordering across all surfaces",
-      "description": "As a user, I want confidence that section reordering works correctly across all outputs of the Modern CV template.",
-      "acceptanceCriteria": [
-        "Sidebar reorder → Live Preview updated — PASS",
-        "Sidebar reorder → Aperçu updated — PASS",
-        "Sidebar reorder → PDF export updated — PASS",
-        "Sidebar reorder → DOCX export updated — PASS",
-        "Main content reorder → Live Preview updated — PASS",
-        "Main content reorder → Aperçu updated — PASS",
-        "Main content reorder → PDF export updated — PASS",
-        "Main content reorder → DOCX export updated — PASS",
-        "Order persists across page refresh — PASS",
-        "No regressions on other templates — PASS",
-        "Modern-only isolation confirmed — PASS",
-        "Typecheck passes"
-      ],
-      "priority": 6,
-      "passes": true,
-      "notes": "All 12 E2E verification items PASS — full data flow verified across all 4 surfaces"
+      "priority": 1,
+      "passes": false,
+      "notes": ""
     }
   ]
 }

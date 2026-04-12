@@ -127,7 +127,7 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
   return (
     <div className="relative bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6 hover:shadow-lg transition-shadow">
       {/* Badges container */}
-      <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+      <div className="absolute top-4 right-14 flex flex-col items-end gap-2">
         {/* Unsaved changes badge */}
         {hasUnsavedChanges && (
           <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-medium rounded">
@@ -142,34 +142,10 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
             {(resumesDict.default as string) || 'Default'}
           </div>
         )}
-        {/* Linked cover letters badge */}
-        {linkedCoverLetterIds && linkedCoverLetterIds.length > 0 && (
-          <Link
-            href={
-              linkedCoverLetterIds.length === 1
-                ? `/${locale}/dashboard/cover-letters/${linkedCoverLetterIds[0]}/edit`
-                : `/${locale}/dashboard/cover-letters`
-            }
-            className="flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-medium rounded hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors cursor-pointer"
-          >
-            <FileText className="h-3 w-3" />
-            {linkedCoverLetterIds.length} {(resumesDict.linkedCoverLetters as string) || 'cover letter(s)'}
-          </Link>
-        )}
-        {/* Linked job badge */}
-        {linkedJob && (
-          <JobLinkBadge
-            jobId={linkedJob.id}
-            jobTitle={linkedJob.job_title}
-            companyName={linkedJob.company_name}
-            locale={locale}
-            dict={dict}
-          />
-        )}
       </div>
 
       {/* Menu button */}
-      <div className="absolute top-4 left-4">
+      <div className="absolute top-4 right-4">
         <button
           onClick={() => setShowMenu(!showMenu)}
           className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
@@ -180,7 +156,7 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
 
         {/* Dropdown menu */}
         {showMenu && (
-          <div className="absolute left-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-10">
+          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-10">
             <Link
               href={`/${locale}/dashboard/resumes/${resume.id}/edit`}
               className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
@@ -224,9 +200,9 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
         )}
       </div>
 
-      {/* Card content */}
-      <Link href={`/${locale}/dashboard/resumes/${resume.id}/edit`} className="block">
-        <div className="flex items-start gap-4 mb-4">
+      {/* Card content — Link wraps only the title area to avoid nested <a> tags */}
+      <Link href={`/${locale}/dashboard/resumes/${resume.id}/edit`} className="block mb-4">
+        <div className="flex items-start gap-4">
           <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
             <FileText className="h-6 w-6 text-teal-600 dark:text-teal-400" />
           </div>
@@ -237,11 +213,39 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
             </p>
           </div>
         </div>
-
-        <div className="text-xs text-slate-500 dark:text-slate-500">
-          {(resumesDict.updated as string) || 'Updated'} {formatDate(resume.updated_at)}
-        </div>
       </Link>
+
+      {/* Linked entities badges — outside parent Link to avoid nested <a> tags */}
+      {((linkedCoverLetterIds && linkedCoverLetterIds.length > 0) || linkedJob) && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {linkedCoverLetterIds && linkedCoverLetterIds.length > 0 && (
+            <Link
+              href={
+                linkedCoverLetterIds.length === 1
+                  ? `/${locale}/dashboard/cover-letters/${linkedCoverLetterIds[0]}/edit`
+                  : `/${locale}/dashboard/cover-letters`
+              }
+              className="flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-medium rounded hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors cursor-pointer"
+            >
+              <FileText className="h-3 w-3" />
+              {linkedCoverLetterIds.length} {(resumesDict.linkedCoverLetters as string) || 'cover letter(s)'}
+            </Link>
+          )}
+          {linkedJob && (
+            <JobLinkBadge
+              jobId={linkedJob.id}
+              jobTitle={linkedJob.job_title}
+              companyName={linkedJob.company_name}
+              locale={locale}
+              dict={dict}
+            />
+          )}
+        </div>
+      )}
+
+      <div className="text-xs text-slate-500 dark:text-slate-500">
+        {(resumesDict.updated as string) || 'Updated'} {formatDate(resume.updated_at)}
+      </div>
     </div>
   )
 }
