@@ -197,34 +197,6 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
 
   return (
     <div className="relative bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6 hover:shadow-lg transition-shadow">
-      {/* Badges container */}
-      <div className="absolute top-4 right-14 flex flex-col items-end gap-2">
-        {/* Score badge */}
-        {coverLetter.analysis_score !== null && (
-          <div
-            className={`px-2 py-1 text-xs font-medium rounded ${
-              coverLetter.analysis_score >= 80
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                : coverLetter.analysis_score >= 60
-                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
-                : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-            }`}
-          >
-            {coverLetter.analysis_score}%
-          </div>
-        )}
-        {/* Linked job badge */}
-        {linkedJob && (
-          <JobLinkBadge
-            jobId={linkedJob.id}
-            jobTitle={linkedJob.job_title}
-            companyName={linkedJob.company_name}
-            locale={locale}
-            dict={dict}
-          />
-        )}
-      </div>
-
       {/* Menu button */}
       <div className="absolute top-4 right-4">
         <button
@@ -279,9 +251,9 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
         )}
       </div>
 
-      {/* Card content */}
-      <Link href={`/${locale}/dashboard/cover-letters/${coverLetter.id}/edit`} className="block">
-        <div className="flex items-start gap-4 mb-4">
+      {/* Card content — Link wraps only the title area to avoid nested <a> tags */}
+      <Link href={`/${locale}/dashboard/cover-letters/${coverLetter.id}/edit`} className="block mb-4">
+        <div className="flex items-start gap-4">
           <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
             <FileText className="h-6 w-6 text-purple-600 dark:text-purple-400" />
           </div>
@@ -295,25 +267,48 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
             )}
           </div>
         </div>
+      </Link>
 
-        {/* Linked resume badge */}
-        {linkedResumeName && linkedResumeId && (
-          <div className="mb-3">
+      {/* Badges row — outside parent Link to avoid nested <a> tags */}
+      {(coverLetter.analysis_score !== null || (linkedResumeName && linkedResumeId) || linkedJob) && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {coverLetter.analysis_score !== null && (
+            <div
+              className={`px-2 py-1 text-xs font-medium rounded ${
+                coverLetter.analysis_score >= 80
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                  : coverLetter.analysis_score >= 60
+                  ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
+                  : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+              }`}
+            >
+              {coverLetter.analysis_score}%
+            </div>
+          )}
+          {linkedResumeName && linkedResumeId && (
             <Link
               href={`/${locale}/dashboard/resumes/${linkedResumeId}/edit`}
-              onClick={(e) => e.stopPropagation()}
               className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 text-xs font-medium rounded hover:bg-teal-200 dark:hover:bg-teal-900/50 transition-colors"
             >
               <FileText className="h-3 w-3" />
               {(coverLettersDict.linkedTo as string) || 'Linked to'}: {linkedResumeName}
             </Link>
-          </div>
-        )}
-
-        <div className="text-xs text-slate-500 dark:text-slate-500">
-          {(coverLettersDict.updated as string) || 'Updated'} {formatDate(coverLetter.updated_at)}
+          )}
+          {linkedJob && (
+            <JobLinkBadge
+              jobId={linkedJob.id}
+              jobTitle={linkedJob.job_title}
+              companyName={linkedJob.company_name}
+              locale={locale}
+              dict={dict}
+            />
+          )}
         </div>
-      </Link>
+      )}
+
+      <div className="text-xs text-slate-500 dark:text-slate-500">
+        {(coverLettersDict.updated as string) || 'Updated'} {formatDate(coverLetter.updated_at)}
+      </div>
     </div>
   )
 }
