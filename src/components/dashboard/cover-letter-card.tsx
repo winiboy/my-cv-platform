@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { FileText, MoreVertical, Pencil, Trash2, Copy, Download, Loader2 } from 'lucide-react'
 import type { CoverLetter } from '@/types/database'
@@ -29,6 +29,28 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
   const [showMenu, setShowMenu] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isExportingPdf, setIsExportingPdf] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  /**
+   * Close the kebab dropdown when the user clicks anywhere outside
+   * the popup or the toggle button. Excluding the button from the
+   * outside-check prevents a toggle race where the open click would
+   * immediately be treated as an outside click and re-close the menu.
+   */
+  const handleClickOutside = useCallback((event: MouseEvent) => {
+    const target = event.target as Node | null
+    if (!target) return
+    if (menuRef.current?.contains(target)) return
+    if (buttonRef.current?.contains(target)) return
+    setShowMenu(false)
+  }, [])
+
+  useEffect(() => {
+    if (!showMenu) return
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showMenu, handleClickOutside])
 
   const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
   const commonDict = (dict.common || {}) as Record<string, unknown>
@@ -200,6 +222,7 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
       {/* Menu button */}
       <div className="absolute top-4 right-4">
         <button
+          ref={buttonRef}
           onClick={() => setShowMenu(!showMenu)}
           className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
           disabled={isDeleting}
@@ -209,7 +232,7 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
 
         {/* Dropdown menu */}
         {showMenu && (
-          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-10">
+          <div ref={menuRef} className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-10">
             <Link
               href={`/${locale}/dashboard/cover-letters/${coverLetter.id}/edit`}
               className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
