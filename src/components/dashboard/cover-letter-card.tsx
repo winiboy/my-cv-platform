@@ -83,6 +83,23 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
     }
   }, [])
 
+  /**
+   * Close the kebab dropdown when the user presses Escape and return
+   * focus to the toggle button for accessibility. Listener is gated on
+   * the open state so it is only attached while the popup is visible.
+   */
+  useEffect(() => {
+    if (!showMenu) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowMenu(false)
+        buttonRef.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [showMenu])
+
   const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
   const commonDict = (dict.common || {}) as Record<string, unknown>
 
