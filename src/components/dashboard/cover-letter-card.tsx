@@ -9,6 +9,8 @@ import { useRouter } from 'next/navigation'
 import { sanitizeHtml } from '@/lib/html-utils'
 import { JobLinkBadge } from '@/components/dashboard/entity-link-badge'
 
+const HOVER_DISMISS_DELAY_MS = 200
+
 interface LinkedJobInfo {
   id: string
   job_title: string
@@ -31,6 +33,7 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
   const [isExportingPdf, setIsExportingPdf] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /**
    * Close the kebab dropdown when the user clicks anywhere outside
@@ -51,6 +54,34 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showMenu, handleClickOutside])
+
+  /**
+   * Hover-out dismiss: when the cursor leaves the popup bounds, start
+   * a short grace timer before closing. Re-entering the popup within
+   * the grace window cancels the timer, so brief cursor excursions do
+   * not dismiss the menu.
+   */
+  const handlePopupMouseLeave = useCallback(() => {
+    hoverTimerRef.current = setTimeout(() => {
+      setShowMenu(false)
+      hoverTimerRef.current = null
+    }, HOVER_DISMISS_DELAY_MS)
+  }, [])
+
+  const handlePopupMouseEnter = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current)
+      hoverTimerRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current)
+      }
+    }
+  }, [])
 
   const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
   const commonDict = (dict.common || {}) as Record<string, unknown>
@@ -232,7 +263,12 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
 
         {/* Dropdown menu */}
         {showMenu && (
-          <div ref={menuRef} className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-10">
+          <div
+            ref={menuRef}
+            onMouseEnter={handlePopupMouseEnter}
+            onMouseLeave={handlePopupMouseLeave}
+            className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-10"
+          >
             <Link
               href={`/${locale}/dashboard/cover-letters/${coverLetter.id}/edit`}
               className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
