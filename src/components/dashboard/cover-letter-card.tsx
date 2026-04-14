@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { FileText, MoreVertical, Pencil, Trash2, Copy, Download, Loader2 } from 'lucide-react'
 import type { CoverLetter } from '@/types/database'
@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { sanitizeHtml } from '@/lib/html-utils'
 import { JobLinkBadge } from '@/components/dashboard/entity-link-badge'
+
+const HOVER_DISMISS_DELAY_MS = 200
 
 interface LinkedJobInfo {
   id: string
@@ -29,6 +31,74 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
   const [showMenu, setShowMenu] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isExportingPdf, setIsExportingPdf] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  /**
+   * Close the kebab dropdown when the user clicks anywhere outside
+   * the popup or the toggle button. Excluding the button from the
+   * outside-check prevents a toggle race where the open click would
+   * immediately be treated as an outside click and re-close the menu.
+   */
+  const handleClickOutside = useCallback((event: MouseEvent) => {
+    const target = event.target as Node | null
+    if (!target) return
+    if (menuRef.current?.contains(target)) return
+    if (buttonRef.current?.contains(target)) return
+    setShowMenu(false)
+  }, [])
+
+  useEffect(() => {
+    if (!showMenu) return
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showMenu, handleClickOutside])
+
+  /**
+   * Hover-out dismiss: when the cursor leaves the popup bounds, start
+   * a short grace timer before closing. Re-entering the popup within
+   * the grace window cancels the timer, so brief cursor excursions do
+   * not dismiss the menu.
+   */
+  const handlePopupMouseLeave = useCallback(() => {
+    hoverTimerRef.current = setTimeout(() => {
+      setShowMenu(false)
+      hoverTimerRef.current = null
+    }, HOVER_DISMISS_DELAY_MS)
+  }, [])
+
+  const handlePopupMouseEnter = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current)
+      hoverTimerRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current)
+      }
+    }
+  }, [])
+
+  /**
+   * Close the kebab dropdown when the user presses Escape and return
+   * focus to the toggle button for accessibility. Listener is gated on
+   * the open state so it is only attached while the popup is visible.
+   */
+  useEffect(() => {
+    if (!showMenu) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowMenu(false)
+        buttonRef.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [showMenu])
 
   const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
   const commonDict = (dict.common || {}) as Record<string, unknown>
@@ -200,6 +270,7 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
       {/* Menu button */}
       <div className="absolute top-4 right-4">
         <button
+          ref={buttonRef}
           onClick={() => setShowMenu(!showMenu)}
           className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
           disabled={isDeleting}
@@ -209,7 +280,12 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
 
         {/* Dropdown menu */}
         {showMenu && (
-          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-10">
+          <div
+            ref={menuRef}
+            onMouseEnter={handlePopupMouseEnter}
+            onMouseLeave={handlePopupMouseLeave}
+            className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-10"
+          >
             <Link
               href={`/${locale}/dashboard/cover-letters/${coverLetter.id}/edit`}
               className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
