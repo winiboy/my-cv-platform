@@ -1434,9 +1434,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
           >
             {/* Sliders Container - NOT scaled, fixed 15px gaps */}
             <div className="flex justify-center" style={{ marginBottom: '15px' }}>
-              <div style={{ width: `${816 * previewScale}px` }} className="flex">
-                {/* Left column: Sidebar sliders (30%) - independent stacking */}
-                <div style={{ width: '30%', paddingRight: '8px' }} className="flex flex-col justify-end">
+              <div style={{ width: `${816 * previewScale}px` }} className="flex flex-wrap gap-y-3">
+                {/* Left column: Sidebar sliders - independent stacking */}
+                <div style={{ flex: '1 1 200px', minWidth: '200px', paddingRight: '8px' }} className="flex flex-col justify-end">
                   {/* Brightness Slider - fixed 15px above Color slider */}
                   <div style={{ marginBottom: '15px' }}>
                     <div className="flex items-center gap-2">
@@ -1580,8 +1580,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                     )}
                   </div>
                 </div>
-                {/* Right column: Main content sliders (70%) - independent stacking */}
-                <div style={{ width: '70%', paddingLeft: '8px' }} className="flex flex-col justify-end">
+                {/* Right column: Main content sliders - independent stacking */}
+                <div style={{ flex: '2 1 220px', minWidth: '220px', paddingLeft: '8px' }} className="flex flex-col justify-end">
                   {/* 3D Font Carousel - Above Font Size slider */}
                   <div style={{ marginBottom: '15px' }}>
                     <FontCarousel3D
