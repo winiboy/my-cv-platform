@@ -28,6 +28,23 @@ interface FontCarousel3DProps {
   onFontChange: (fontFamily: string) => void
 }
 
+const VISIBLE_ITEMS = 5
+const HALF_VISIBLE = 2
+const ITEM_HEIGHT = 22
+// Per-slot vertical distance in the flat stack: keeps ±1 neighbors clearly
+// above/below the teal center bar without visual overlap.
+const SLOT_SPACING = 30
+
+// Wrap scroll renders the same list across slots via modulo. If the list is
+// shorter than the visible window, a single font would appear in multiple
+// slots simultaneously — a confusing duplicate. Guard against that at module
+// load so a future edit that trims FONTS trips immediately.
+if (FONTS.length < VISIBLE_ITEMS) {
+  throw new Error(
+    `FontCarousel3D: FONTS.length (${FONTS.length}) must be >= VISIBLE_ITEMS (${VISIBLE_ITEMS}) for wrap scroll to render unique entries per slot.`
+  )
+}
+
 export function FontCarousel3D({ selectedFont, onFontChange }: FontCarousel3DProps) {
   // Find current index based on selected font family
   const getCurrentIndex = useCallback(() => {
@@ -36,7 +53,8 @@ export function FontCarousel3D({ selectedFont, onFontChange }: FontCarousel3DPro
   }, [selectedFont])
 
   const [currentIndex, setCurrentIndex] = useState(getCurrentIndex)
-  const [rotationOffset, setRotationOffset] = useState(0) // For smooth animation
+  // Vertical pixel offset during slot-to-slot animation (0 when at rest).
+  const [slotOffset, setSlotOffset] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const animationRef = useRef<number | null>(null)
@@ -49,26 +67,28 @@ export function FontCarousel3D({ selectedFont, onFontChange }: FontCarousel3DPro
     }
   }, [selectedFont, getCurrentIndex, currentIndex, isAnimating])
 
-  const VISIBLE_ITEMS = 3 // Number of items visible at once (reduced for half height)
-  const ITEM_HEIGHT = 24 // Height of each item
-  const ROTATION_PER_ITEM = 360 / FONTS.length // Degrees per item
-
-  // Animate to a target index
+  // Animate to a target index using shortest-path wrap logic.
   const animateToIndex = useCallback((targetIndex: number) => {
     if (isAnimating) return
-
-    // Normalize target index for infinite loop
-    let normalizedTarget = ((targetIndex % FONTS.length) + FONTS.length) % FONTS.length
+    if (targetIndex === currentIndex) return
 
     setIsAnimating(true)
 
-    // Calculate shortest rotation path
-    let diff = normalizedTarget - currentIndex
-    if (diff > FONTS.length / 2) diff -= FONTS.length
-    if (diff < -FONTS.length / 2) diff += FONTS.length
-
-    const startOffset = rotationOffset
-    const targetOffset = startOffset + diff * ROTATION_PER_ITEM
+    // Shortest-path diff across the circular list: prefer the direction that
+    // travels fewer slots. Ties (|diff| === FONTS.length / 2, e.g. 7 for 14)
+    // are intentionally left with the raw sign from `targetIndex - currentIndex`
+    // — the strict `>` / `<` comparisons below do NOT trigger on equality, so
+    // a click that is exactly half the list away animates in the "natural"
+    // signed direction of the subtraction. Do not change to `>=` / `<=`;
+    // that would flip tie direction and feel inconsistent.
+    const rawDiff = targetIndex - currentIndex
+    let diff = rawDiff
+    if (diff > FONTS.length / 2) {
+      diff -= FONTS.length
+    } else if (diff < -FONTS.length / 2) {
+      diff += FONTS.length
+    }
+    const targetOffset = diff * SLOT_SPACING
     const duration = 200 // ms
     const startTime = performance.now()
 
@@ -79,31 +99,30 @@ export function FontCarousel3D({ selectedFont, onFontChange }: FontCarousel3DPro
       // Ease out cubic
       const eased = 1 - Math.pow(1 - progress, 3)
 
-      const newOffset = startOffset + (targetOffset - startOffset) * eased
-      setRotationOffset(newOffset)
+      setSlotOffset(targetOffset * eased)
 
       if (progress < 1) {
         animationRef.current = requestAnimationFrame(animate)
       } else {
-        setCurrentIndex(normalizedTarget)
-        setRotationOffset(0)
+        setCurrentIndex(targetIndex)
+        setSlotOffset(0)
+        onFontChange(FONTS[targetIndex].family)
         setIsAnimating(false)
-        onFontChange(FONTS[normalizedTarget].family)
       }
     }
 
     animationRef.current = requestAnimationFrame(animate)
-  }, [currentIndex, isAnimating, rotationOffset, onFontChange, ROTATION_PER_ITEM])
+  }, [currentIndex, isAnimating, onFontChange])
 
-  // Handle wheel scroll
+  // Handle wheel scroll with wrap in both directions.
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault()
     if (isAnimating) return
 
     if (e.deltaY > 0) {
-      animateToIndex(currentIndex + 1)
+      animateToIndex((currentIndex + 1) % FONTS.length)
     } else if (e.deltaY < 0) {
-      animateToIndex(currentIndex - 1)
+      animateToIndex((currentIndex - 1 + FONTS.length) % FONTS.length)
     }
   }, [currentIndex, isAnimating, animateToIndex])
 
@@ -125,77 +144,57 @@ export function FontCarousel3D({ selectedFont, onFontChange }: FontCarousel3DPro
     }
   }, [])
 
-  // Navigate up
+  // Navigate up (wrap)
   const goUp = () => {
-    if (!isAnimating) {
-      animateToIndex(currentIndex - 1)
-    }
+    if (isAnimating) return
+    animateToIndex((currentIndex - 1 + FONTS.length) % FONTS.length)
   }
 
-  // Navigate down
+  // Navigate down (wrap)
   const goDown = () => {
-    if (!isAnimating) {
-      animateToIndex(currentIndex + 1)
-    }
+    if (isAnimating) return
+    animateToIndex((currentIndex + 1) % FONTS.length)
   }
 
-  // Calculate which items to show and their transforms
-  const getVisibleItems = () => {
-    const items = []
-    const halfVisible = Math.floor(VISIBLE_ITEMS / 2)
+  // Wrap window: iterate fixed slot positions [-HALF_VISIBLE, +HALF_VISIBLE]
+  // and map each slot to a font via modulo, so the list cycles continuously.
+  const visibleItems: Array<{
+    font: (typeof FONTS)[number]
+    index: number
+    slot: number
+    style: { itemY: number; opacity: number; scale: number; isCenter: boolean }
+  }> = []
+  for (let s = -HALF_VISIBLE; s <= HALF_VISIBLE; s++) {
+    const itemIndex = (currentIndex + s + FONTS.length) % FONTS.length
 
-    for (let offset = -halfVisible; offset <= halfVisible; offset++) {
-      // Calculate the actual index in the fonts array (with wrapping)
-      let itemIndex = ((currentIndex + offset) % FONTS.length + FONTS.length) % FONTS.length
+    const itemY = s * SLOT_SPACING - slotOffset
+    const dist = Math.abs(s - slotOffset / SLOT_SPACING)
+    const opacity = Math.max(0.15, 1 - dist * 0.35)
+    const scale = Math.max(0.85, 1 - dist * 0.08)
+    const isCenter = Math.abs(s * SLOT_SPACING - slotOffset) < SLOT_SPACING / 2
 
-      // Calculate rotation angle including animation offset
-      const baseAngle = offset * ROTATION_PER_ITEM
-      const animatedAngle = baseAngle - rotationOffset
-
-      // 3D transform calculations
-      const radius = 40 // Radius of the 3D drum (smaller for reduced height)
-      const rotateX = animatedAngle
-      const translateZ = radius
-      const translateY = Math.sin((animatedAngle * Math.PI) / 180) * radius * 0.8
-
-      // Opacity and scale based on position
-      const normalizedPosition = Math.abs(animatedAngle) / (ROTATION_PER_ITEM * halfVisible)
-      const opacity = Math.max(0.2, 1 - normalizedPosition * 0.6)
-      const scale = Math.max(0.7, 1 - normalizedPosition * 0.25)
-
-      // Is this the center (selected) item?
-      const isCenter = Math.abs(animatedAngle) < ROTATION_PER_ITEM / 2
-
-      items.push({
-        font: FONTS[itemIndex],
-        index: itemIndex,
-        offset,
-        style: {
-          transform: `rotateX(${rotateX}deg) translateZ(${translateZ}px)`,
-          opacity,
-          scale,
-          translateY,
-          isCenter,
-        },
-      })
-    }
-
-    return items
+    visibleItems.push({
+      font: FONTS[itemIndex],
+      index: itemIndex,
+      slot: s,
+      style: {
+        itemY,
+        opacity,
+        scale,
+        isCenter,
+      },
+    })
   }
-
-  const visibleItems = getVisibleItems()
 
   return (
     <div className="flex items-center gap-1 select-none">
-      {/* 3D Carousel Container */}
+      {/* Flat vertical stack container */}
       <div
         ref={containerRef}
         className="relative overflow-hidden"
         style={{
           width: '180px',
-          height: `${VISIBLE_ITEMS * ITEM_HEIGHT}px`,
-          perspective: '300px',
-          perspectiveOrigin: 'center center',
+          height: `${VISIBLE_ITEMS * SLOT_SPACING}px`,
           background: 'linear-gradient(to bottom, rgba(226, 232, 240, 0.98), rgba(203, 213, 225, 0.98))',
           borderRadius: '8px',
           cursor: 'ns-resize',
@@ -204,13 +203,13 @@ export function FontCarousel3D({ selectedFont, onFontChange }: FontCarousel3DPro
       >
         {/* Gradient overlays for fade effect at top and bottom */}
         <div
-          className="absolute inset-x-0 top-0 h-4 z-10 pointer-events-none"
+          className="absolute inset-x-0 top-0 h-5 z-10 pointer-events-none"
           style={{
             background: 'linear-gradient(to bottom, rgba(226, 232, 240, 0.98), transparent)',
           }}
         />
         <div
-          className="absolute inset-x-0 bottom-0 h-4 z-10 pointer-events-none"
+          className="absolute inset-x-0 bottom-0 h-5 z-10 pointer-events-none"
           style={{
             background: 'linear-gradient(to top, rgba(203, 213, 225, 0.98), transparent)',
           }}
@@ -229,29 +228,31 @@ export function FontCarousel3D({ selectedFont, onFontChange }: FontCarousel3DPro
           }}
         />
 
-        {/* 3D Drum with items */}
-        <div
-          className="relative w-full h-full"
-          style={{
-            transformStyle: 'preserve-3d',
-          }}
-        >
-          {visibleItems.map(({ font, index, style }) => (
-            <div
-              key={`${font.name}-${index}`}
-              className="absolute inset-x-0 flex items-center justify-center transition-all duration-75"
+        {/* Flat stack items */}
+        <div className="relative w-full h-full">
+          {visibleItems.map(({ font, index, slot, style }) => (
+            <button
+              type="button"
+              key={`slot-${slot}`}
+              onClick={() => animateToIndex(index)}
+              disabled={isAnimating}
+              aria-label={`Select font ${font.name}`}
+              aria-current={index === currentIndex ? 'true' : undefined}
+              className="flex items-center justify-center transition-all duration-75 bg-transparent border-0 p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1"
               style={{
+                position: 'absolute',
                 top: '50%',
+                left: 0,
+                width: '100%',
                 height: `${ITEM_HEIGHT}px`,
                 marginTop: `-${ITEM_HEIGHT / 2}px`,
-                transform: `${style.transform} translateY(${style.translateY}px) scale(${style.scale})`,
+                transform: `translateY(${style.itemY}px) scale(${style.scale})`,
                 opacity: style.opacity,
-                transformStyle: 'preserve-3d',
-                backfaceVisibility: 'hidden',
+                cursor: index === currentIndex ? 'default' : 'pointer',
               }}
             >
               <span
-                className={`text-sm font-medium px-3 py-1 rounded whitespace-nowrap transition-colors ${
+                className={`text-sm font-medium px-3 py-0.5 rounded whitespace-nowrap transition-colors ${
                   style.isCenter
                     ? 'text-slate-800'
                     : 'text-slate-400'
@@ -263,7 +264,7 @@ export function FontCarousel3D({ selectedFont, onFontChange }: FontCarousel3DPro
               >
                 {font.name}
               </span>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -271,6 +272,7 @@ export function FontCarousel3D({ selectedFont, onFontChange }: FontCarousel3DPro
       {/* Up/Down Navigation Buttons */}
       <div className="flex flex-col gap-0.5">
         <button
+          type="button"
           onClick={goUp}
           disabled={isAnimating}
           className="w-6 h-6 flex items-center justify-center rounded bg-slate-200 hover:bg-slate-300 active:bg-slate-400 transition-colors disabled:opacity-50"
@@ -282,6 +284,7 @@ export function FontCarousel3D({ selectedFont, onFontChange }: FontCarousel3DPro
           <ChevronUp className="w-4 h-4 text-slate-600" />
         </button>
         <button
+          type="button"
           onClick={goDown}
           disabled={isAnimating}
           className="w-6 h-6 flex items-center justify-center rounded bg-slate-200 hover:bg-slate-300 active:bg-slate-400 transition-colors disabled:opacity-50"
