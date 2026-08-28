@@ -6,15 +6,52 @@ without checking anything are prohibited.
 
 ## Available today
 
-| Command | Runs | CI status | Baseline at 30fc5d9 |
+| Command | Runs | CI status | Baseline at dce3750 |
 |---|---|---|---|
 | `pnpm lint` | ESLint 9 flat config over the repo | Reported, **not required** | 311 problems (237 errors, 74 warnings) |
 | `pnpm typecheck` | `tsc --noEmit` | **Required** | 0 errors |
-| `pnpm test` | Vitest, pure-function unit tests | **Required** | 76 tests passing |
+| `pnpm test` | Vitest, pure-function unit tests | **Required** | 89 tests passing |
 | `pnpm build` | `next build` | **Required** | Success |
+
+The three required commands run in one CI job, `Verify (required)`, in that
+order — typecheck, test, build — so a logic regression fails before the
+slower build step.
 
 `pnpm test:watch` runs the same suite in watch mode for local development; it
 is not used by CI.
+
+## Branch protection
+
+`main` is protected as of 2026-08-28 (Phase 28). The settings live in GitHub,
+not in this repository, so they are recorded here to stay auditable and
+restorable:
+
+| Setting | Value | Why |
+|---|---|---|
+| Required status check | `Verify (required)` | The only check that gates. The lint job is deliberately excluded — see below. |
+| Strict (branch up to date) | `true` | A PR must be current with `main` before merging, so two individually-green PRs cannot break `main` together. |
+| Enforce for administrators | `true` | `gh pr merge --admin` no longer works for anyone. |
+| Required approving reviews | `0` | A PR is required, but the sole maintainer can merge it. GitHub does not permit self-approval, so any higher count would deadlock the repository. |
+| Force pushes | denied | |
+| Branch deletion | denied | |
+
+Protection was deliberately not enabled before Phase 07. CI had failed on
+every run since April 2026, so a required check would have deadlocked the
+repository rather than protected it. It became meaningful only once
+`Verify (required)` was genuinely green.
+
+**On the administrator setting.** PR #15 was merged with `--admin` while
+required checks were failing — a documented one-time exception taken before
+the CI defect was fixed. `enforce_admins: true` makes that route unavailable
+rather than merely discouraged. The consequence is deliberate: if CI breaks
+badly enough to need a bypass, protection must be explicitly disabled first,
+which is a visible, auditable act rather than a flag on a merge command.
+
+Restore these settings with:
+
+```bash
+gh api -X PUT repos/winiboy/my-cv-platform/branches/main/protection --input <file>
+```
 
 ## Unit test scope
 
