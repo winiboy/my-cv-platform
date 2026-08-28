@@ -45,34 +45,28 @@ are listed below.
 
 Ordered by severity. None has been fixed; all are reported for a decision.
 
-### S1 — UPDATE policies omit `WITH CHECK`, permitting ownership transfer
+### S1 — WITHDRAWN: UPDATE policies omit `WITH CHECK` (not exploitable)
 
-`profiles`, `resumes`, `job_applications`, `career_goals` and `ai_suggestions`
-all declare UPDATE as:
+> **Corrected by Phase 26.** This finding was wrong. It was reached by reading
+> the migrations without executing them; the local stack disproved it.
+> See [`rls-audit.md`](rls-audit.md), checks 21-26.
 
-```sql
-CREATE POLICY "..." ON public.resumes FOR UPDATE
-  USING (auth.uid() = user_id);
-```
+The observation was accurate: `profiles`, `resumes`, `job_applications`,
+`career_goals` and `ai_suggestions` declare UPDATE with `USING` and no
+`WITH CHECK`, while `cover_letters` declares both. The catalog confirms it —
+`pg_policy.polwithcheck` is null for those five and non-null for
+`cover_letters`.
 
-`USING` decides which existing rows may be updated. It does **not** constrain
-the resulting row. Without a `WITH CHECK`, a user may update a row they own
-and set `user_id` to a different user's id — moving a row out of their own
-account and into someone else's.
+The stated consequence does not follow. PostgreSQL substitutes the `USING`
+expression as the check expression when a policy omits `WITH CHECK`, so
+`auth.uid() = user_id` is applied to the *new* row as well as the old one.
+Attempting to reassign ownership is refused on all five tables with
+`new row violates row-level security policy`, identically to `cover_letters`.
 
-This is an inconsistency rather than a deliberate design: `cover_letters`, the
-most recently written table, does it correctly —
-
-```sql
-CREATE POLICY "Users can update their own cover letters"
-  ON public.cover_letters FOR UPDATE
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-```
-
-The practical reach depends on whether the application ever sends `user_id` in
-an update payload, which Phase 26 should establish. The policy should not rely
-on the client omitting the column.
+The five-versus-one difference is therefore a stylistic inconsistency with no
+behavioural consequence. Adding the redundant `WITH CHECK` clauses would make
+the intent explicit and would remove a trap for future readers, but it closes
+no hole. It is not a security fix and should not be prioritised as one.
 
 ### S2 — `handle_new_user()` is SECURITY DEFINER with a mutable `search_path`
 
