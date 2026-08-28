@@ -34,6 +34,16 @@ export function migrateSidebarOrder(order: string[]): string[] {
     )
   )
 
+  // No recognized IDs at all (empty or fully unrecognized input): fall back to
+  // the canonical default order rather than building one up from scratch.
+  // Without this, 'languages' would be pushed onto the empty array below and
+  // become the first section, which is not the default the editor and the
+  // templates use. VALID_SIDEBAR_IDS is declared in canonical default order,
+  // so it doubles as that default — see the test that pins the order literally.
+  if (filtered.length === 0) {
+    return [...VALID_SIDEBAR_IDS]
+  }
+
   // Ensure 'languages' is present
   if (!filtered.includes('languages')) {
     const skillsIndex = filtered.indexOf('skills')
