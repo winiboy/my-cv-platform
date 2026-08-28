@@ -58,6 +58,44 @@ describe('migrateSidebarOrder', () => {
     migrateSidebarOrder(input)
     expect(input).toEqual(snapshot)
   })
+
+  it('collapses a repeated section id to a single entry', () => {
+    const result = migrateSidebarOrder(['skills', 'skills'])
+    expect(result).toEqual(['skills', 'languages', 'keyAchievements', 'training'])
+  })
+
+  it('treats a duplicated input the same as the de-duplicated equivalent', () => {
+    expect(migrateSidebarOrder(['skills', 'skills'])).toEqual(migrateSidebarOrder(['skills']))
+    expect(migrateSidebarOrder(['languages', 'languages', 'skills'])).toEqual(
+      migrateSidebarOrder(['languages', 'skills']),
+    )
+  })
+
+  it('keeps the first occurrence when an id repeats later', () => {
+    const result = migrateSidebarOrder(['training', 'skills', 'training'])
+    expect(result).toEqual(['training', 'skills', 'languages', 'keyAchievements'])
+  })
+
+  it('collapses a fully repeated input to one entry', () => {
+    const result = migrateSidebarOrder(['training', 'training', 'training'])
+    expect(result).toEqual(['training', 'languages', 'keyAchievements', 'skills'])
+  })
+
+  it('never returns a duplicate section id', () => {
+    const inputs = [
+      [],
+      ['skills', 'skills'],
+      ['languages', 'languages', 'skills'],
+      ['training', 'training', 'training'],
+      ['skills', 'bogus', 'skills', 'bogus'],
+      ['keyAchievements', 'skills', 'languages', 'training', 'keyAchievements'],
+    ]
+    for (const input of inputs) {
+      const result = migrateSidebarOrder(input)
+      expect(new Set(result).size).toBe(result.length)
+      expect(result).toHaveLength(4)
+    }
+  })
 })
 
 describe('extractLayoutSettings', () => {
