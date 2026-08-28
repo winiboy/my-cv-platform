@@ -3,6 +3,9 @@
   "version": "0.54.3",
   "private": true,
   "packageManager": "pnpm@10.25.0",
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
