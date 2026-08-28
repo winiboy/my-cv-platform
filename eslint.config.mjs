@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Agent worktrees hold a full duplicate copy of src/. Linting them double
+    // counted every problem locally (623 instead of 311) and made local lint
+    // disagree with CI, where these untracked directories do not exist.
+    ".claude/**",
   ]),
 ]);
 

@@ -8,7 +8,7 @@ without checking anything are prohibited.
 
 | Command | Runs | CI status | Baseline at 30fc5d9 |
 |---|---|---|---|
-| `pnpm lint` | ESLint 9 flat config over the repo | Reported, **not required** | 623 problems (476 errors, 147 warnings) |
+| `pnpm lint` | ESLint 9 flat config over the repo | Reported, **not required** | 311 problems (237 errors, 74 warnings) |
 | `pnpm typecheck` | `tsc --noEmit` | **Required** | 0 errors |
 | `pnpm build` | `next build` | **Required** | Success |
 
@@ -21,11 +21,19 @@ layer lands, and become required CI checks at that point.
 
 ## Why lint is not a required check
 
-Lint currently reports 476 errors, of which 458 are
-`@typescript-eslint/no-explicit-any` and 132 more are unused-variable
-warnings. Only 8 are auto-fixable. Eliminating this debt is a typing project
-across most of `src/`, and it must not be attempted before a test suite
-exists to catch regressions.
+Lint currently reports 237 errors, of which 229 are
+`@typescript-eslint/no-explicit-any`, plus 66 unused-variable warnings.
+Eliminating this debt is a typing project across most of `src/`.
+
+The debt concentrates heavily: `src/app/api/resumes/[id]/download-docx`
+(61 problems across the five DOCX generators),
+`src/components/dashboard/resume-sections` (31) and
+`src/components/dashboard` (27) account for roughly half of it.
+
+Note that `.claude/**` is excluded from linting. Agent worktrees under
+`.claude/worktrees/` contain a full duplicate copy of `src/`, which double
+counted every problem (623 instead of 311) and made local lint disagree with
+CI, where those untracked directories do not exist.
 
 Project rules forbid weakening a lint rule to obtain a green result, so
 downgrading `no-explicit-any` is not an option. Instead CI runs lint in a
