@@ -17,13 +17,21 @@ const VALID_SIDEBAR_IDS = ['keyAchievements', 'skills', 'languages', 'training']
 /**
  * Migrates a sidebar order array to ensure 'languages' is present.
  * Inserts 'languages' after 'skills' if possible, otherwise appends it.
- * Also filters out any IDs that are not in the known valid set and appends
- * any missing defaults.
+ * Also filters out any IDs that are not in the known valid set, collapses
+ * repeated IDs to their first occurrence, and appends any missing defaults.
+ *
+ * A repeated ID would otherwise render the same section twice and produce
+ * duplicate React keys, so de-duplication happens before any insertion.
  */
 export function migrateSidebarOrder(order: string[]): string[] {
-  // Filter to only known valid IDs
-  const filtered = order.filter((id): id is string =>
-    VALID_SIDEBAR_IDS.includes(id as typeof VALID_SIDEBAR_IDS[number])
+  // Filter to only known valid IDs, keeping the first occurrence of each.
+  // Set iteration order is insertion order, so the user's chosen order stands.
+  const filtered = Array.from(
+    new Set(
+      order.filter((id): id is string =>
+        VALID_SIDEBAR_IDS.includes(id as typeof VALID_SIDEBAR_IDS[number])
+      )
+    )
   )
 
   // Ensure 'languages' is present
