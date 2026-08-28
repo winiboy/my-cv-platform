@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import Groq from 'groq-sdk'
-
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-})
+import { getGroqClient } from '@/lib/ai/client'
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,6 +48,16 @@ Only output the translated text, nothing else.
 
 Text to translate:
 ${text}`
+
+    let groq
+    try {
+      groq = getGroqClient()
+    } catch {
+      return NextResponse.json(
+        { error: 'GROQ_API_KEY not configured' },
+        { status: 503 }
+      )
+    }
 
     const completion = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
