@@ -10,7 +10,7 @@ without checking anything are prohibited.
 |---|---|---|---|
 | `pnpm lint` | ESLint 9 flat config over the repo | Reported, **not required** | 311 problems (237 errors, 74 warnings) |
 | `pnpm typecheck` | `tsc --noEmit` | **Required** | 0 errors |
-| `pnpm test` | Vitest, pure-function unit tests | **Required** | 27 tests passing |
+| `pnpm test` | Vitest, pure-function unit tests | **Required** | 76 tests passing |
 | `pnpm build` | `next build` | **Required** | Success |
 
 `pnpm test:watch` runs the same suite in watch mode for local development; it
