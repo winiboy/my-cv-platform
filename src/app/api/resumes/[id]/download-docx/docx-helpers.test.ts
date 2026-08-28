@@ -92,6 +92,28 @@ describe('hslToHex', () => {
   it('pads single-digit channels to two characters', () => {
     expect(hslToHex(240, 85, 35)).toBe('0D0DA5')
   })
+
+  // The sidebar hue slider is min="0" max="360", so 360 is a value the user can
+  // actually select, and Preview renders it as red. Before hue normalization the
+  // branch chain stopped at `h < 360`, leaving r/g/b at 0 and exporting a
+  // near-black sidebar instead.
+  it('treats hue 360 as red rather than black', () => {
+    expect(hslToHex(360, 100, 50)).toBe('FF0000')
+  })
+
+  it('produces the same colour for hue 360 as for hue 0', () => {
+    expect(hslToHex(360, 85, 35)).toBe(hslToHex(0, 85, 35))
+  })
+
+  it('wraps hues above 360 back into the circle', () => {
+    expect(hslToHex(420, 100, 50)).toBe(hslToHex(60, 100, 50))
+    expect(hslToHex(720, 100, 50)).toBe(hslToHex(0, 100, 50))
+  })
+
+  it('wraps negative hues back into the circle', () => {
+    expect(hslToHex(-60, 100, 50)).toBe(hslToHex(300, 100, 50))
+    expect(hslToHex(-360, 100, 50)).toBe(hslToHex(0, 100, 50))
+  })
 })
 
 describe('oklchToHex', () => {

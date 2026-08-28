@@ -61,6 +61,10 @@ export function pxToTwips(px: number): number {
  * Input: "hsl(240, 85%, 35%)" or computed from hue/brightness
  */
 export function hslToHex(h: number, s: number, l: number): string {
+  // Hue is cyclic. The sidebar hue slider is min="0" max="360", so 360 is
+  // user-selectable and must resolve to red like 0, not fall through every
+  // branch below and leave r/g/b at their initial 0 (black).
+  h = ((h % 360) + 360) % 360
   s /= 100
   l /= 100
 
