@@ -7,6 +7,15 @@ import {
   migrateSidebarOrder,
 } from './layout-settings'
 
+/**
+ * The default sidebar order declared at every editor/preview call site
+ * (resume-editor, resume-preview-wrapper, resume-preview, professional-template,
+ * download-docx route). Written out literally rather than imported, so that
+ * reordering VALID_SIDEBAR_IDS in the module under test fails these tests
+ * instead of silently redefining the default.
+ */
+const CANONICAL_SIDEBAR_ORDER = ['keyAchievements', 'skills', 'languages', 'training']
+
 const SETTINGS: ResumeLayoutSettings = {
   sidebarOrder: ['skills', 'languages'],
   mainContentOrder: ['summary', 'experience'],
@@ -79,6 +88,34 @@ describe('migrateSidebarOrder', () => {
   it('collapses a fully repeated input to one entry', () => {
     const result = migrateSidebarOrder(['training', 'training', 'training'])
     expect(result).toEqual(['training', 'languages', 'keyAchievements', 'skills'])
+  })
+
+  it('falls back to the canonical default when the input is empty', () => {
+    expect(migrateSidebarOrder([])).toEqual(CANONICAL_SIDEBAR_ORDER)
+  })
+
+  it('falls back to the canonical default when every id is unrecognized', () => {
+    expect(migrateSidebarOrder(['legacyId'])).toEqual(CANONICAL_SIDEBAR_ORDER)
+    expect(migrateSidebarOrder(['contact', 'education'])).toEqual(CANONICAL_SIDEBAR_ORDER)
+  })
+
+  it('returns the canonical order unchanged when it is given verbatim', () => {
+    expect(migrateSidebarOrder([...CANONICAL_SIDEBAR_ORDER])).toEqual(CANONICAL_SIDEBAR_ORDER)
+  })
+
+  it('still honours a customized order that contains a recognized id', () => {
+    expect(migrateSidebarOrder(['training', 'skills'])).toEqual([
+      'training',
+      'skills',
+      'languages',
+      'keyAchievements',
+    ])
+    expect(migrateSidebarOrder(['skills', 'bogus', 'keyAchievements'])).toEqual([
+      'skills',
+      'languages',
+      'keyAchievements',
+      'training',
+    ])
   })
 
   it('never returns a duplicate section id', () => {

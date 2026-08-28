@@ -1,0 +1,21 @@
+{
+  "_comment": "Branch protection for main, applied 2026-08-28 (Phase 28). This file is a record, not an active configuration: GitHub does not read it. Apply or restore with `gh api -X PUT repos/winiboy/my-cv-platform/branches/main/protection --input .github/branch-protection.json`. Keep it in step with the table in docs/engineering/quality-contract.md.",
+  "required_status_checks": {
+    "strict": true,
+    "contexts": ["Verify (required)"]
+  },
+  "enforce_admins": true,
+  "required_pull_request_reviews": {
+    "required_approving_review_count": 0,
+    "dismiss_stale_reviews": false,
+    "require_code_owner_reviews": false
+  },
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "required_linear_history": false,
+  "required_conversation_resolution": false,
+  "block_creations": false,
+  "lock_branch": false,
+  "allow_fork_syncing": false
+}
