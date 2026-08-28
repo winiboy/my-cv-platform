@@ -121,13 +121,12 @@ earlier in a caller's search path cannot influence what it executes.
 ### US-002: `resume_analyses` deletion behaviour is explicit
 
 **Description:**
-As a user, I want the deletion behaviour of my resume analyses to be a stated
-decision rather than an omission, so that the policy set matches intent.
+As a user, I want to delete my own resume analyses, so that I can remove
+results I no longer want kept.
 
-> **Blocked pending approval.** The direction is undetermined — see
-> [Open Questions](#open-questions). Criteria are written for the "add the
-> policy" branch and must be replaced wholesale if the append-only branch is
-> chosen at approval.
+> **Direction decided 2026-08-28:** add the DELETE policy. The omission in
+> `001_initial_schema.sql` is treated as an oversight — every other user-owned
+> table in that migration grants DELETE to the owner.
 
 **Acceptance Criteria:**
 
@@ -261,8 +260,6 @@ policy behaves as intended.
 
 ## BLOCKER Conditions
 
-- The `resume_analyses` DELETE direction is not decided at approval — US-002
-  cannot be implemented in either direction without it.
 - `cv_generation_logs` contains rows whose `user_id` has no matching
   `public.profiles` row, making the US-004 foreign key unachievable without a
   data decision that this PRD does not authorize.
@@ -311,18 +308,14 @@ policy behaves as intended.
 
 ## Open Questions
 
-1. **BLOCKING — should users be able to delete their own resume analyses?**
-   The audit could establish that they currently cannot, but not whether that
-   is intended. Two directions, and US-002 differs completely between them:
-   - *Add the DELETE policy.* Users can remove their own analyses. Matches the
-     other six user-owned tables and is what the current acceptance criteria
-     describe.
-   - *Record append-only as deliberate.* No policy is added; the migration
-     carries a comment stating the omission is intentional, and the audit
-     document is updated to reclassify D2 from defect to design.
+None blocking.
 
-   This is a product decision, not a technical one, and cannot be inferred from
-   the repository.
+**Resolved 2026-08-28 — resume_analyses DELETE (US-002).** The audit
+established that users currently cannot delete their own analyses, but not
+whether that was intended. Resolved in favour of adding the DELETE policy,
+on the grounds that every other user-owned table in `001_initial_schema.sql`
+grants DELETE to the owner, making the omission an oversight rather than a
+design choice. The append-only alternative was considered and rejected.
 
 ## Approval Gate
 
