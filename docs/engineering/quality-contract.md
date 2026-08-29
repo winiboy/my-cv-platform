@@ -11,11 +11,15 @@ without checking anything are prohibited.
 | `pnpm lint` | ESLint 9 flat config over the repo | Reported, **not required** | 311 problems (237 errors, 74 warnings) |
 | `pnpm typecheck` | `tsc --noEmit` | **Required** | 0 errors |
 | `pnpm test` | Vitest, pure-function unit tests | **Required** | 89 tests passing |
+| `pnpm test:integration` | Vitest, route handlers against a local Supabase stack | **Required** | 11 tests passing |
 | `pnpm build` | `next build` | **Required** | Success |
 
-The three required commands run in one CI job, `Verify (required)`, in that
-order — typecheck, test, build — so a logic regression fails before the
-slower build step.
+`typecheck`, `test` and `build` run in one CI job, `Verify (required)`, in that
+order, so a logic regression fails before the slower build step.
+
+`test:integration` runs in its own job, `Integration (required)`, because it
+must start a database first. That job also runs the RLS audit — see below for
+why both are needed.
 
 `pnpm test:watch` runs the same suite in watch mode for local development; it
 is not used by CI.
@@ -64,12 +68,45 @@ Tests must fail when behaviour regresses, not merely execute the code. Where
 a function's current behaviour looks wrong, the defect is reported rather
 than encoded as an expected value — a test that asserts a bug cements it.
 
+## Integration test scope
+
+`*.integration.test.ts`, run by `vitest.integration.config.mts`. These call
+real route handlers against the real local Supabase stack: real Zod
+validation, real queries, real auth, real database.
+
+Start the stack first:
+
+```bash
+pnpm supabase start
+pnpm test:integration
+```
+
+The single seam is `createServerSupabaseClient`, replaced so a test can act as
+a chosen user without reconstructing cookie and session plumbing. Everything
+past that seam is real.
+
+**These tests do not cover RLS, and it matters that they look like they do.**
+Verified by experiment: disabling RLS on `cover_letters` leaves all eleven
+tests passing, because each route also filters with `.eq('user_id', user.id)`
+and that alone satisfies every ownership assertion.
+
+That is defense in depth working — two independent layers, either sufficient —
+but the consequence is that the integration suite cannot detect RLS being
+weakened. `supabase/tests/rls-audit.sql` covers the policy layer, and the CI
+job runs both. Neither substitutes for the other.
+
+Also not covered here: cookie and session translation, and middleware. Both
+need a running server and belong to E2E.
+
+`src/test/integration/supabase.ts` refuses to run against any non-local host.
+These helpers create and delete users, so that guard is enforcement rather
+than convention.
+
 ## Not yet available
 
-`pnpm test:integration` and `pnpm test:e2e` are intentionally absent.
-Integration tests (Phase 11), Playwright (Phase 12) and visual regression
-(Phase 13) each add their script when that layer lands, and become required
-CI checks at that point.
+`pnpm test:e2e` is intentionally absent. Playwright (Phase 12) and visual
+regression (Phase 13) each add their script when that layer lands, and become
+required CI checks at that point.
 
 ## Why lint is not a required check
 
