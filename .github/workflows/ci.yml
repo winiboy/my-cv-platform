@@ -36,6 +36,55 @@ jobs:
       - name: Build
         run: pnpm build
 
+  integration:
+    name: Integration (required)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Starts Postgres, GoTrue, PostgREST and Storage, applying every
+      # migration in supabase/migrations. Excluding the containers the suite
+      # does not use keeps startup to roughly a minute.
+      - name: Start Supabase
+        run: pnpm supabase start -x studio,imgproxy,mailpit,realtime,vector,edge-runtime,logflare,supavisor,postgres-meta
+
+      - name: Integration tests
+        run: pnpm test:integration
+
+      # Effective RLS behaviour. The integration suite above deliberately does
+      # not cover this: each route also filters by user_id, so its ownership
+      # assertions hold even with RLS disabled. This asserts the policy layer.
+      - name: RLS audit
+        run: |
+          set -euo pipefail
+          docker exec -i supabase_db_my-cv-platform \
+            psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            < supabase/tests/rls-audit.sql | tee rls-audit-output.txt
+          # Match the verdict column specifically. A bare "FAIL" grep would
+          # also match the word appearing in a check's intent text.
+          if grep -qE '\|\s*FAIL\s*$' rls-audit-output.txt; then
+            echo "::error::RLS audit reported a FAIL verdict"
+            exit 1
+          fi
+
+      - name: Stop Supabase
+        if: always()
+        run: pnpm supabase stop --no-backup
+
   lint-debt-report:
     name: Lint debt (non-blocking)
     runs-on: ubuntu-latest
