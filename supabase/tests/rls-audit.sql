@@ -34,6 +34,17 @@
 \set GL '00000000-0000-4000-8000-0000000000d2'
 \set SN '00000000-0000-4000-8000-0000000000c9'
 
+-- Fixtures private to the M3 block at the tail of this file. That block updates
+-- every row it touches, and an update it performs must not be observable by any
+-- other check, so it owns its own rows rather than borrowing shared ones. :C is
+-- a third identity that exists only because public.profiles is 1:1 with
+-- auth.users: a private profile row cannot be seeded without a private user.
+\set C   '00000000-0000-4000-8000-00000000000c'
+\set R4  '00000000-0000-4000-8000-0000000000f4'
+\set JA2 '00000000-0000-4000-8000-0000000000d3'
+\set CG2 '00000000-0000-4000-8000-0000000000e2'
+\set CL2 '00000000-0000-4000-8000-0000000000c2'
+
 BEGIN;
 
 CREATE TEMP TABLE results (
@@ -50,12 +61,16 @@ VALUES
  (:'A', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
   'a@example.test', '', now(), now(), '{"provider":"email"}'::jsonb, '{}'::jsonb),
  (:'B', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-  'b@example.test', '', now(), now(), '{"provider":"email"}'::jsonb, '{}'::jsonb);
+  'b@example.test', '', now(), now(), '{"provider":"email"}'::jsonb, '{}'::jsonb),
+ (:'C', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+  'c@example.test', '', now(), now(), '{"provider":"email"}'::jsonb, '{}'::jsonb);
 
--- profiles may already exist via handle_new_user(); ensure both are present.
+-- profiles may already exist via handle_new_user(); ensure all three are present.
 INSERT INTO public.profiles (id, email) VALUES (:'A', 'a@example.test')
   ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.profiles (id, email) VALUES (:'B', 'b@example.test')
+  ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.profiles (id, email) VALUES (:'C', 'c@example.test')
   ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.resumes (id, user_id, title) VALUES (:'R1', :'A', 'A private');
@@ -75,6 +90,24 @@ INSERT INTO public.career_goals (id, user_id, title) VALUES (:'CG', :'A', 'A goa
 INSERT INTO public.ai_suggestions (id, user_id, suggestion_type, suggestion_content) VALUES (:'AS', :'A', 'resume_improvement', 'seed');
 INSERT INTO public.cover_letters (id, user_id) VALUES (:'CL', :'A');
 INSERT INTO public.cv_generation_logs (id, user_id, resume_id) VALUES (:'GL', :'A', :'R1');
+
+-- M3 fixtures. One owned row per table carrying an updated_at trigger, seeded
+-- here so they are part of the single baseline every check sees rather than
+-- appearing mid-run. Each is read and written by the M3 block alone.
+--
+-- :JA2 exists because :JA cannot serve: the owner-positive-control block
+-- deletes :JA, so an M3 check against it at the tail would find no row and
+-- report a failure that says nothing about the trigger. The other three follow
+-- the same rule for the same reason - :R1, :CG and :CL happen to survive today,
+-- but a check that depends on that is a check that breaks when an unrelated
+-- section is appended above it.
+--
+-- :C's profile is the exception that proves the rule: profiles is 1:1 with
+-- auth.users, so :C is seeded above alongside :A and :B rather than here.
+INSERT INTO public.resumes (id, user_id, title) VALUES (:'R4', :'A', 'A M3 timestamp fixture');
+INSERT INTO public.job_applications (id, user_id, company_name, job_title) VALUES (:'JA2', :'A', 'M3 Co', 'Engineer');
+INSERT INTO public.career_goals (id, user_id, title) VALUES (:'CG2', :'A', 'A M3 goal');
+INSERT INTO public.cover_letters (id, user_id) VALUES (:'CL2', :'A');
 
 -- ---------------------------------------------------------------------------
 -- Runner. p_expect = -1 means "the statement must be refused".
@@ -151,9 +184,11 @@ END $fn$;
 -- populate the profile row on signup.
 --
 -- This section runs immediately after the fixtures block, and not at the tail
--- of the script, because it is the only section that mutates shared state: it
--- adds a third auth.users row and, through the trigger, a third
--- public.profiles row. Running it here folds that state into the one baseline
+-- of the script, because it mutates shared state: it adds a fourth
+-- auth.users row and, through the trigger, a fourth public.profiles row.
+-- (Fourth, not third: the M3 section below seeds identity :C in the fixtures
+-- block, so three users exist before this section runs.)
+-- Running it here folds that state into the one baseline
 -- every later check sees, so no check can silently inherit mid-script drift
 -- depending on where it happens to be appended.
 -- ---------------------------------------------------------------------------
@@ -381,6 +416,110 @@ SELECT pg_temp.chk_db('resume_analyses','SELECT','D2 cascade removed the child a
 -- this point starts from the same baseline as one appended above it.
 SELECT pg_temp.chk_db('cv_generation_logs','SELECT','D2 :GL survives the cascade block',
   format('SELECT 1 FROM public.cv_generation_logs WHERE id=%L AND resume_id=%L',:'GL',:'R1'),1);
+
+-- ---------------------------------------------------------------------------
+-- Finding M3: one updated_at trigger function.
+--
+-- Two catalog claims and five behavioural ones.
+--
+-- The catalog claims - the duplicate function is gone, and the cover_letters
+-- trigger executes the survivor - are properties of pg_proc and pg_trigger, not
+-- of what any end user may do, so they go through chk_db. The third catalog
+-- check is the one that makes this story's title testable: it counts the
+-- non-internal triggers in `public` that execute update_updated_at_column and
+-- expects all five. It also pins the table set the behavioural checks below
+-- must cover, so adding a sixth updated_at trigger without a matching
+-- behavioural check makes this check fail rather than letting the gap pass
+-- unnoticed.
+--
+-- The behavioural claims are claims about an owner updating their own row, so
+-- they go through chk under the real `authenticated` role - never chk_db, which
+-- would answer the same question as a privileged session and prove nothing
+-- about the path a user actually takes.
+--
+-- WHY THESE ARE NOT WRITTEN AS "updated_at got bigger".
+--
+-- The whole script runs inside one transaction. PostgreSQL's now() returns the
+-- transaction start time and does not advance within it, and the trigger body
+-- is `NEW.updated_at = NOW()`. A fixture row inserted above already carries
+-- updated_at = now() from its column default, so an update performed here
+-- writes the value the row already holds. `updated_at > <value read before>`
+-- would therefore be false even with a perfectly working trigger, and
+-- `updated_at >= <value read before>` would be true even with no trigger at
+-- all. Neither shape discriminates; both would be recording the clock, not the
+-- trigger.
+--
+-- What the trigger actually guarantees is narrower and is testable without any
+-- clock movement: whatever updated_at the statement supplies, the row ends up
+-- with now(). So each check supplies a deliberately wrong value - a timestamp
+-- from the year 2000, which the transaction clock can never equal - and asserts
+-- through RETURNING that the stored value is now() instead.
+--
+-- The update and the assertion are one statement on purpose. A data-modifying
+-- CTE returns the post-trigger row image, so the outer SELECT counts 1 exactly
+-- when the trigger overwrote the sentinel and 0 when it did not. Splitting them
+-- into an update check plus a separate read would let the read pass on a row the
+-- update never matched. Fixture rows are private to this block, so the year-2000
+-- write is unobservable elsewhere - and in the failing case, where the sentinel
+-- survives, it is confined to a row nothing else reads.
+--
+-- Mutation-tested: dropping any of the five triggers turns the corresponding
+-- check FAIL, with `0 row(s)` against an expected `1 row(s)`.
+-- ---------------------------------------------------------------------------
+SELECT pg_temp.chk_db('update_cover_letters_updated_at','CATALOG','M3 duplicate function no longer exists',
+  'SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = ''public'' AND p.proname = ''update_cover_letters_updated_at''',0);
+
+SELECT pg_temp.chk_db('cover_letters','CATALOG','M3 update trigger executes update_updated_at_column',
+  'SELECT 1 FROM pg_trigger t
+     JOIN pg_class c ON c.oid = t.tgrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     JOIN pg_proc p ON p.oid = t.tgfoid
+     JOIN pg_namespace pn ON pn.oid = p.pronamespace
+     WHERE NOT t.tgisinternal AND t.tgname = ''trigger_cover_letters_updated_at''
+       AND n.nspname = ''public'' AND c.relname = ''cover_letters''
+       AND pn.nspname = ''public'' AND p.proname = ''update_updated_at_column''',1);
+
+SELECT pg_temp.chk_db('pg_trigger','CATALOG','M3 all five public triggers share one function',
+  'SELECT 1 FROM pg_trigger t
+     JOIN pg_class c ON c.oid = t.tgrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     JOIN pg_proc p ON p.oid = t.tgfoid
+     JOIN pg_namespace pn ON pn.oid = p.pronamespace
+     WHERE NOT t.tgisinternal AND n.nspname = ''public''
+       AND pn.nspname = ''public'' AND p.proname = ''update_updated_at_column''',5);
+
+SELECT pg_temp.chk('cover_letters','A','UPDATE','M3 own update sets updated_at to now()',:'A',
+  format('WITH bumped AS (
+            UPDATE public.cover_letters SET updated_at = TIMESTAMPTZ ''2000-01-01 00:00:00+00''
+             WHERE id = %L RETURNING updated_at)
+          SELECT 1 FROM bumped WHERE updated_at = now()',:'CL2'),1);
+
+SELECT pg_temp.chk('resumes','A','UPDATE','M3 own update sets updated_at to now()',:'A',
+  format('WITH bumped AS (
+            UPDATE public.resumes SET updated_at = TIMESTAMPTZ ''2000-01-01 00:00:00+00''
+             WHERE id = %L RETURNING updated_at)
+          SELECT 1 FROM bumped WHERE updated_at = now()',:'R4'),1);
+
+SELECT pg_temp.chk('job_applications','A','UPDATE','M3 own update sets updated_at to now()',:'A',
+  format('WITH bumped AS (
+            UPDATE public.job_applications SET updated_at = TIMESTAMPTZ ''2000-01-01 00:00:00+00''
+             WHERE id = %L RETURNING updated_at)
+          SELECT 1 FROM bumped WHERE updated_at = now()',:'JA2'),1);
+
+SELECT pg_temp.chk('career_goals','A','UPDATE','M3 own update sets updated_at to now()',:'A',
+  format('WITH bumped AS (
+            UPDATE public.career_goals SET updated_at = TIMESTAMPTZ ''2000-01-01 00:00:00+00''
+             WHERE id = %L RETURNING updated_at)
+          SELECT 1 FROM bumped WHERE updated_at = now()',:'CG2'),1);
+
+-- :C updates :C's own profile: same owner-scoped claim as the four above, on the
+-- one table whose fixture had to be an identity rather than a row.
+SELECT pg_temp.chk('profiles','C','UPDATE','M3 own update sets updated_at to now()',:'C',
+  format('WITH bumped AS (
+            UPDATE public.profiles SET updated_at = TIMESTAMPTZ ''2000-01-01 00:00:00+00''
+             WHERE id = %L RETURNING updated_at)
+          SELECT 1 FROM bumped WHERE updated_at = now()',:'C'),1);
 
 \echo ''
 \echo '================ RLS AUDIT RESULTS ================'

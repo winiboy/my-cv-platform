@@ -150,7 +150,7 @@
         "Out of scope: Any change to application behaviour, UI, or exports."
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

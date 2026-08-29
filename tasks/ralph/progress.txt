@@ -6,7 +6,7 @@
 
 ---
 
-## Status: IN PROGRESS (2/5 stories PASS)
+## Status: IN PROGRESS (3/5 stories PASS)
 
 ---
 
@@ -213,6 +213,115 @@ Governance:
 Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-002 resume_analyses deletion behaviour is explicit
+
+FINAL: PASS
+
+---
+
+## US-003: One updated_at trigger function
+Status: PASS
+Priority: 3
+Branch: chore/rls-schema-hardening
+Baseline HEAD: 3785674
+
+Scope:
+- Scope check: PASS
+- Changed paths: supabase/migrations/006_rls_schema_hardening.sql (M3 section
+  appended), supabase/tests/rls-audit.sql
+- Migrations 001-005 not edited; no application source changed.
+
+Checks:
+- pnpm supabase db reset: PASS - exit 0, 001-006 applied from empty.
+- RLS audit harness: PASS - 55/55 (was 47 after US-002). All 47 prior checks
+  still pass.
+- Catalog: PASS - all five public triggers now execute
+  update_updated_at_column; update_cover_letters_updated_at count = 0.
+- FR-5: PASS - policies still 28, rls_tables=8. This story adds no policy.
+- Idempotency: PASS - M3 section re-applied twice against an already-migrated
+  database. The second run emits "NOTICE: function ... does not exist,
+  skipping" and succeeds, which is the already-gone path FR-2 requires.
+- Mutation: PASS - dropping only trigger_cover_letters_updated_at flips three
+  checks, including the BEHAVIOURAL one (0 rows where 1 expected), so the
+  sentinel design detects a non-firing trigger rather than passing vacuously.
+- pnpm typecheck: PASS - exit 0.
+- pnpm test: PASS - 89 passing.
+- pnpm test:integration: PASS - 11 passing.
+- pnpm lint: PASS - 311 problems, baseline unchanged.
+- pnpm build: PASS - exit 0, 108/108 static pages.
+
+Specialized validation:
+- Database: PASS - FUNCTION_TRIGGER_CHANGE. Trigger repointed before the
+  function was dropped, because DROP FUNCTION would cascade to the trigger.
+  No CASCADE on the drop, so an unknown dependent fails loudly.
+- Browser / Visual / Export: NOT_APPLICABLE.
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no UI affected.
+- code-reviewer: PASS, first pass, no critical or major findings. One minor
+  documentation fix applied (see below).
+
+This story drops a function, unlike US-001 and US-002:
+- FR-3 forbids deleting rows and dropping columns; it does not cover catalog
+  objects, and criterion 1 in the same acceptance list mandates this drop.
+  code-reviewer adjudicated the same reading independently.
+
+The NOW() problem, and why the obvious check would have been worthless:
+- The harness runs in ONE transaction, and NOW() returns transaction start
+  time. A fixture inserted in that transaction already carries
+  updated_at = NOW(), so the trigger writes the same value. Measured:
+  'updated_at > previous' is FALSE with a working trigger; 'updated_at >=
+  previous' is TRUE with no trigger at all. Neither records anything.
+- The check instead supplies a sentinel the transaction clock can never equal
+  and asserts the post-trigger image in a single data-modifying CTE:
+    WITH bumped AS (UPDATE ... SET updated_at = '2000-01-01' ... RETURNING
+    updated_at) SELECT 1 FROM bumped WHERE updated_at = now()
+  One statement, not two: RETURNING yields the post-trigger row, so a row the
+  update never matched cannot pass. code-reviewer re-derived this with five
+  probes rather than accepting the argument, and confirmed the now() equality
+  is guaranteed rather than incidental - both the trigger body and the outer
+  SELECT resolve to transaction_timestamp().
+- The check proves the narrower property "the trigger overwrites a
+  caller-supplied updated_at with transaction time". Literal cross-transaction
+  advancement would require committing, which the harness ROLLBACK contract
+  forbids.
+
+Acceptance criteria:
+- AC-01 duplicate function gone: PASS - pg_proc count 0.
+- AC-02 cover_letters trigger executes update_updated_at_column: PASS -
+  pg_trigger to pg_proc join.
+- AC-03 cover_letters update still advances updated_at: PASS - sentinel check,
+  actor A, role-scoped; mutation-verified.
+- AC-04 every other updated_at table still advances: PASS - profiles, resumes,
+  job_applications and career_goals each covered by a role-scoped sentinel
+  check. A catalog check pins the trigger set at five, so criterion 4 is
+  asserted over a known set rather than an assumed one.
+
+Notes for US-004 and US-005:
+- New fixtures seeded in the FIXTURES BLOCK, not the tail: :R4, :JA2, :CG2,
+  :CL2 (owner A, one per table) and :C (a third auth identity, because
+  public.profiles is 1:1 with auth.users so a private profile needs a private
+  user). Private fixtures were used even where a shared row survives today,
+  because a check that relies on surviving breaks when a section is appended
+  above it.
+- :R1, :GL, :CL, :CG remain intact at the end of the run. US-004's
+  cv_generation_logs baseline is confirmed intact by check 47.
+- The sentinel checks pin the trigger body to now()/transaction_timestamp().
+  A rewrite to clock_timestamp() would fail them. Same brittleness tradeoff
+  the file already documents for the D2 policy-string check.
+- DEFERRED, carried from US-002: the docs/engineering/rls-audit.md closure
+  note is owned by US-005 and now covers S2 (US-001), D2 (US-002) and M3
+  (US-003). If US-005 is dropped, this must be reassigned, not lost.
+
+Governance:
+- Permission pollution stripped; no .claude/ change committed.
+- One minor fix applied on review: the S2 placement comment said the signup
+  fixture adds a "third" auth.users and profiles row. With :C seeded it is the
+  fourth. That comment is the stated justification for S2's position, so the
+  off-by-one mattered more than a typo would.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 one updated_at trigger function
 
 FINAL: PASS
 

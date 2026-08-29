@@ -77,3 +77,45 @@ DROP POLICY IF EXISTS "Users can delete own analyses" ON public.resume_analyses;
 CREATE POLICY "Users can delete own analyses"
   ON public.resume_analyses FOR DELETE
   USING (auth.uid() = user_id);
+
+
+-- ----------------------------------------------------------------------------
+-- Finding M3 — collapse two identical updated_at trigger functions into one.
+--
+-- 001_initial_schema.sql defined public.update_updated_at_column(), and
+-- 003_cover_letters.sql defined public.update_cover_letters_updated_at() with an
+-- equivalent body: `NEW.updated_at = NOW(); RETURN NEW;`. Four of the five
+-- updated_at triggers in `public` already execute the first; cover_letters is
+-- the only caller of the second. Two copies of one behaviour is a maintenance
+-- hazard, not a behavioural difference, so the duplicate is removed and its one
+-- trigger repointed at the shared function. Timestamp maintenance is unchanged
+-- on every table, which is why this is invisible to the application.
+--
+-- Order is load-bearing. Dropping update_cover_letters_updated_at() while
+-- trigger_cover_letters_updated_at still executes it would be refused outright,
+-- or — with CASCADE — would silently take the trigger with it and leave
+-- cover_letters without updated_at maintenance. The trigger is therefore
+-- repointed first, and the function dropped only once nothing references it.
+--
+-- The drop is deliberately written without CASCADE. If some dependent this
+-- migration does not know about still exists, the statement must fail loudly
+-- rather than quietly remove it.
+--
+-- Dropping a now-unreferenced function is not the destructive change FR-3
+-- forbids: no column is dropped and no row is deleted. Criterion 1 of this
+-- story requires the function to be gone.
+--
+-- PostgreSQL has no ALTER TRIGGER ... EXECUTE FUNCTION, so repointing means
+-- replacing the trigger. DROP ... IF EXISTS then CREATE mirrors the idiom used
+-- for the policy above and is idempotent: re-applying converges on this
+-- definition from any starting state, including one where the trigger already
+-- executes the shared function and the duplicate is already gone.
+-- ----------------------------------------------------------------------------
+DROP TRIGGER IF EXISTS trigger_cover_letters_updated_at ON public.cover_letters;
+
+CREATE TRIGGER trigger_cover_letters_updated_at
+  BEFORE UPDATE ON public.cover_letters
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+
+DROP FUNCTION IF EXISTS public.update_cover_letters_updated_at();
