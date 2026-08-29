@@ -49,3 +49,31 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+
+-- ----------------------------------------------------------------------------
+-- Finding D2 — give resume_analyses owners an explicit DELETE policy.
+--
+-- 001_initial_schema.sql gave resume_analyses SELECT and INSERT policies but no
+-- DELETE, so an owner's delete matched no policy and affected 0 rows: analyses
+-- were append-only from the user's side and removable only by cascade from the
+-- parent resume. Every other user-owned table in that migration grants DELETE
+-- to its owner, so the omission is treated as an oversight and closed here.
+--
+-- USING mirrors the SELECT policy exactly. DELETE takes no WITH CHECK — there
+-- is no post-image row to validate — so USING alone is the whole predicate, and
+-- it restricts the delete to rows the caller already owns.
+--
+-- DROP ... IF EXISTS then CREATE, because CREATE POLICY has no OR REPLACE and
+-- ALTER POLICY would fail when the policy is absent. The pair is idempotent and
+-- converges on this definition whatever the starting state.
+--
+-- Cascade deletion from public.resumes is untouched: the ON DELETE CASCADE on
+-- resume_analyses.resume_id is enforced by the constraint's internal referential
+-- trigger, which does not consult row-level policies.
+-- ----------------------------------------------------------------------------
+DROP POLICY IF EXISTS "Users can delete own analyses" ON public.resume_analyses;
+
+CREATE POLICY "Users can delete own analyses"
+  ON public.resume_analyses FOR DELETE
+  USING (auth.uid() = user_id);

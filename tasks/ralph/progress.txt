@@ -6,7 +6,7 @@
 
 ---
 
-## Status: IN PROGRESS (1/5 stories PASS)
+## Status: IN PROGRESS (2/5 stories PASS)
 
 ---
 
@@ -109,6 +109,110 @@ Standing check for US-002, US-004 and US-005:
 Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 handle_new_user() resolves names deterministically
+
+FINAL: PASS
+
+---
+
+## US-002: resume_analyses deletion behaviour is explicit
+Status: PASS
+Priority: 2
+Branch: chore/rls-schema-hardening
+Baseline HEAD: 9540ae9
+
+Scope:
+- Scope check: PASS
+- Changed paths: supabase/migrations/006_rls_schema_hardening.sql (US-002
+  section appended), supabase/tests/rls-audit.sql
+- Migrations 001-005 not edited; no application source changed.
+
+Checks:
+- pnpm supabase db reset: PASS - exit 0, 001-006 applied from empty.
+- RLS audit harness: PASS - 47/47 (was 40 after US-001). All 40 prior checks
+  still pass.
+- FR-5: PASS - policies 27 -> 28, rls_tables=8. Exactly one policy added.
+- Idempotency: PASS - 006 re-applied, no error, count still 28.
+- Negative control: PASS - dropping the DELETE policy flips the own-delete and
+  catalog checks to FAIL.
+- Discrimination control: PASS - recreating the policy as USING (true) flips
+  the new unqualified-delete check to FAIL reporting 2 rows destroyed.
+- pnpm typecheck: PASS - exit 0.
+- pnpm test: PASS - 89 passing.
+- pnpm test:integration: PASS - 11 passing.
+- pnpm lint: PASS - 311 problems, baseline unchanged.
+- pnpm build: PASS - exit 0, 108/108 static pages.
+
+Specialized validation:
+- Database: PASS - RLS_POLICY_CHANGE, additive. Catalog verified: polcmd='d',
+  qual exactly (auth.uid() = user_id), permissive, no with_check.
+- Browser / Visual / Export: NOT_APPLICABLE.
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no UI affected.
+- code-reviewer: PASS on re-review, after an initial FAIL.
+
+An existing check was deliberately modified, not weakened:
+- The harness previously asserted 'A deletes own analysis -> 0 rows', which
+  passed precisely because no DELETE policy existed; it documented the defect.
+  Its expectation is now 1. Coverage increased 40 -> 47; no check was removed
+  or neutered. code-reviewer confirmed this is the "correcting a check that
+  documented a defect" case, not the "weakening coverage" case.
+
+Review history:
+- First pass FAIL, two critical findings, both proven by execution:
+  * Criterion 3's check could not fail when the criterion was violated.
+    PostgreSQL pre-filters a column-referencing DELETE through the SELECT
+    policy, so 'DELETE ... WHERE id=<A's>' as B returns 0 regardless of the
+    DELETE predicate. Under USING (true) an UNQUALIFIED delete as B destroys
+    A's rows - criterion 3 false in reality while the harness reported PASS.
+    Reproduced independently by the orchestrator before acting.
+  * The cascade test deleted :R1, which cascades to :GL via
+    cv_generation_logs.resume_id NOT NULL ON DELETE CASCADE - the only
+    cv_generation_logs fixture. US-004's "verified by execution" criteria
+    would have passed vacuously against rows that no longer existed.
+- Fixed: added a role-scoped unqualified-delete check for B; seeded a private
+  parent resume :R3 and re-parented :AN2 onto it so :R1 and :GL survive; added
+  check 47 asserting :GL survival as a permanent property.
+- Re-review PASS, no remaining findings.
+
+Notes for US-003, US-004 and US-005:
+- Standing check (from US-001 review): any criterion phrased "verified by
+  execution" must be asserted by a check whose actor column reads A, B or
+  anon. A 'db:' actor is the privileged runner and proves nothing about policy.
+- Second standing check (from US-002 review): a criterion about what a user
+  CANNOT do needs a statement shape that would actually succeed if the policy
+  were wrong. A column-referencing DELETE is pre-filtered by the SELECT policy
+  and cannot discriminate on its own.
+- Check 13 encodes a fixture invariant: it expects 0 because B owns no
+  analyses. Seeding a B-owned analysis in a later story would turn it into a
+  false FAIL. The comment states this at the check.
+- :R1 and :GL are intact at the end of the run and are the stable tail
+  baseline. :AN and :JA are consumed mid-run; :AN2 and :R3 are consumed by the
+  cascade block. A story needing any of those must seed its own fixture.
+- DEFERRED: the docs/engineering/rls-audit.md closure note for finding D2 is
+  owned by US-005, which already carries a docs change. The PRD appends that
+  verification line to every story mechanically; updating the document five
+  times is churn. If US-005 is dropped - the PRD names it as the story to drop
+  under time pressure - this note must be reassigned, not lost. It currently
+  covers S2 (US-001) and D2 (US-002).
+
+Acceptance criteria:
+- AC-01 DELETE policy with owner qualifier: PASS - catalog check; qual is
+  exactly (auth.uid() = user_id).
+- AC-02 own delete affects exactly 1 row: PASS - role-scoped check, actor A;
+  flips to FAIL when the policy is dropped.
+- AC-03 deleting another user's analysis affects 0 rows: PASS - asserted by a
+  pair. The by-id check constrains the SELECT policy; the unqualified check
+  constrains the DELETE predicate and fires under an over-permissive policy.
+- AC-04 cascade from parent resume unchanged: PASS - private :R3/:AN2 pair;
+  child present before the parent delete, absent after.
+
+Governance:
+- Permission pollution stripped; no .claude/ change committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 resume_analyses deletion behaviour is explicit
 
 FINAL: PASS
 

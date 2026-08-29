@@ -24,7 +24,9 @@
 \set B  '00000000-0000-4000-8000-00000000000b'
 \set R1 '00000000-0000-4000-8000-0000000000f1'
 \set R2 '00000000-0000-4000-8000-0000000000f2'
+\set R3 '00000000-0000-4000-8000-0000000000f3'
 \set AN '00000000-0000-4000-8000-0000000000a1'
+\set AN2 '00000000-0000-4000-8000-0000000000a2'
 \set JA '00000000-0000-4000-8000-0000000000d1'
 \set CG '00000000-0000-4000-8000-0000000000e1'
 \set AS '00000000-0000-4000-8000-0000000000b1'
@@ -59,6 +61,15 @@ INSERT INTO public.profiles (id, email) VALUES (:'B', 'b@example.test')
 INSERT INTO public.resumes (id, user_id, title) VALUES (:'R1', :'A', 'A private');
 INSERT INTO public.resumes (id, user_id, title, is_public) VALUES (:'R2', :'A', 'A public', true);
 INSERT INTO public.resume_analyses (id, user_id, resume_id) VALUES (:'AN', :'A', :'R1');
+-- :R3 / :AN2 are a private parent/child pair owned by A, seeded solely for the
+-- D2 cascade check and read by nothing else. The cascade check deletes its
+-- parent, so that parent must be one no other check depends on: deleting :R1
+-- would cascade away :GL, the only cv_generation_logs fixture, and silently
+-- vacate any later check that reads it. Giving the cascade its own parent keeps
+-- :R1 and :GL alive to the end of the run and makes the D2 block
+-- order-independent.
+INSERT INTO public.resumes (id, user_id, title) VALUES (:'R3', :'A', 'A cascade parent');
+INSERT INTO public.resume_analyses (id, user_id, resume_id) VALUES (:'AN2', :'A', :'R3');
 INSERT INTO public.job_applications (id, user_id, company_name, job_title) VALUES (:'JA', :'A', 'ACME', 'Engineer');
 INSERT INTO public.career_goals (id, user_id, title) VALUES (:'CG', :'A', 'A goal');
 INSERT INTO public.ai_suggestions (id, user_id, suggestion_type, suggestion_content) VALUES (:'AS', :'A', 'resume_improvement', 'seed');
@@ -197,8 +208,37 @@ SELECT pg_temp.chk('resume_analyses','B','SELECT','read A analysis',:'B',
   format('SELECT * FROM public.resume_analyses WHERE id=%L',:'AN'),0);
 SELECT pg_temp.chk('resume_analyses','B','INSERT','forge row owned by A',:'B',
   format('INSERT INTO public.resume_analyses (user_id) VALUES (%L)',:'A'),-1);
-SELECT pg_temp.chk('resume_analyses','A','DELETE','delete own analysis',:'A',
+-- These three are ordered, not merely adjacent. B must fail against a row that
+-- is still there, so both of B's deletes run first; A's delete then consumes
+-- :AN. Before the D2 policy landed the last check expected 0 and passed for the
+-- wrong reason - it was recording the missing DELETE policy, not an isolation
+-- guarantee.
+--
+-- The first check below is TRUE but NON-DISCRIMINATING ON ITS OWN, and must not
+-- be read as the whole of criterion 3. Its predicate references a column, so
+-- PostgreSQL applies the SELECT policy to find candidate rows before the DELETE
+-- policy is ever consulted against them. :AN is invisible to B, so the delete
+-- matches nothing and reports 0 rows whatever the DELETE policy says - it would
+-- report 0 even under `USING (true)`, where B can in fact destroy A's analysis.
+-- The check therefore constrains the SELECT policy, not the DELETE policy.
+--
+-- The second check is the one that discriminates. An unqualified DELETE has no
+-- predicate for the SELECT policy to pre-filter, so every row is offered
+-- directly to the DELETE policy and the result counts exactly the rows that
+-- policy permits B to remove. Under the correct owner-scoped policy B owns no
+-- analysis, so it removes 0 rows and A's fixtures are untouched, which keeps
+-- this non-destructive and leaves the ordering the checks around it depend on
+-- intact. Under `USING (true)` it removes A's rows and FAILs - the failure the
+-- qualified check structurally cannot produce.
+--
+-- Together with the catalog assertion in the D2 section below, these are the
+-- only guards against an over-permissive DELETE policy on this table.
+SELECT pg_temp.chk('resume_analyses','B','DELETE','D2 delete A analysis by id',:'B',
   format('DELETE FROM public.resume_analyses WHERE id=%L',:'AN'),0);
+SELECT pg_temp.chk('resume_analyses','B','DELETE','D2 delete all analyses unqualified',:'B',
+  'DELETE FROM public.resume_analyses',0);
+SELECT pg_temp.chk('resume_analyses','A','DELETE','D2 delete own analysis',:'A',
+  format('DELETE FROM public.resume_analyses WHERE id=%L',:'AN'),1);
 
 SELECT pg_temp.chk('job_applications','B','SELECT','read A application',:'B',
   format('SELECT * FROM public.job_applications WHERE id=%L',:'JA'),0);
@@ -277,6 +317,70 @@ SELECT pg_temp.chk('cover_letters','A','UPDATE','rename own row',:'A',
   format('UPDATE public.cover_letters SET title=''renamed'' WHERE id=%L',:'CL'),1);
 SELECT pg_temp.chk('job_applications','A','DELETE','delete own row',:'A',
   format('DELETE FROM public.job_applications WHERE id=%L',:'JA'),1);
+
+-- ---------------------------------------------------------------------------
+-- Finding D2: resume_analyses owners can delete their own analyses.
+--
+-- The behavioural criteria - A deletes its own analysis (1 row), and B removes
+-- 0 rows both by id and unqualified - are asserted in the cross-user isolation
+-- block above, through pg_temp.chk under the real `authenticated` role. They
+-- live there because they need :AN alive and are ordered against each other;
+-- see the comment at those checks, which also explains why the unqualified
+-- delete is the one that actually discriminates.
+--
+-- What is left here is the catalog assertion and the cascade regression.
+--
+-- The cascade check operates on :R3 / :AN2, a parent/child pair seeded for it
+-- alone. It could equally use :R1, whose analyses cascade the same way, but
+-- :R1 is read by the S1, S3 and owner-positive-control sections and is the
+-- parent of :GL, the only cv_generation_logs fixture, whose resume_id is
+-- NOT NULL ... ON DELETE CASCADE. Deleting :R1 here would destroy :GL and
+-- would force this block to the tail of the file, where any check appended
+-- after it would silently inherit that drift - a later cv_generation_logs
+-- check would read 0 rows because the row was gone, not because a policy
+-- held. Using a private parent removes the ordering constraint entirely: this
+-- block touches nothing any other check reads, and :R1 and :GL survive to the
+-- end of the run as a stable baseline.
+-- ---------------------------------------------------------------------------
+
+-- This assertion compares the policy expression as an exact string, so a
+-- semantically identical qualifier written the other way round -
+-- `USING (user_id = auth.uid())` - would FAIL it. That is accepted: the
+-- acceptance criterion is phrased as this literal, and a normalising comparison
+-- would need either an expression parser or a looser match that could accept
+-- predicates this check exists to reject. The tradeoff is a check that can fail
+-- on a harmless rewrite, and the fix in that case is to update this literal
+-- deliberately rather than to relax the comparison.
+SELECT pg_temp.chk_db('resume_analyses','CATALOG','D2 DELETE policy exists with owner qualifier',
+  'SELECT 1 FROM pg_policy p
+     JOIN pg_class c ON c.oid = p.polrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = ''public'' AND c.relname = ''resume_analyses''
+       AND p.polcmd = ''d''
+       AND pg_get_expr(p.polqual, p.polrelid) = ''(auth.uid() = user_id)''',1);
+
+-- The two reads around the cascade go through chk_db, not chk, because the
+-- claim under test is referential, not policy-scoped: the child row must be
+-- physically present and then physically absent. A role-scoped read would
+-- answer a different question - what that role can see - and would make this
+-- regression test's verdict depend on the resume_analyses SELECT policy staying
+-- correct, coupling it to a policy it is not about. Asserting presence
+-- unconditionally keeps the cascade evidence independent of RLS. The delete of
+-- the parent in between is a user action, so that one is role-scoped.
+SELECT pg_temp.chk_db('resume_analyses','SELECT','D2 cascade fixture present before parent delete',
+  format('SELECT 1 FROM public.resume_analyses WHERE id=%L',:'AN2'),1);
+
+SELECT pg_temp.chk('resumes','A','DELETE','D2 delete own parent resume',:'A',
+  format('DELETE FROM public.resumes WHERE id=%L',:'R3'),1);
+
+SELECT pg_temp.chk_db('resume_analyses','SELECT','D2 cascade removed the child analysis',
+  format('SELECT 1 FROM public.resume_analyses WHERE id=%L',:'AN2'),0);
+
+-- Order-independence guard for the block above: :R1 and its cv_generation_logs
+-- child :GL must still be present after the cascade, so a check appended below
+-- this point starts from the same baseline as one appended above it.
+SELECT pg_temp.chk_db('cv_generation_logs','SELECT','D2 :GL survives the cascade block',
+  format('SELECT 1 FROM public.cv_generation_logs WHERE id=%L AND resume_id=%L',:'GL',:'R1'),1);
 
 \echo ''
 \echo '================ RLS AUDIT RESULTS ================'
