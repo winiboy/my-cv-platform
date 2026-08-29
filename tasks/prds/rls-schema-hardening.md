@@ -1,6 +1,24 @@
 # PRD: RLS and schema hardening follow-up migration
 
-**Status:** DRAFT
+**Status:** APPROVED — 2026-08-29, by the repository owner (winiboy).
+
+*Line written by Claude on the owner's explicit instruction, not by the owner.
+Stated plainly so the provenance is not mistaken.*
+
+What the approval consists of: the owner decided the one blocking open
+question (US-002's DELETE direction, in favour of adding the policy), then
+directed execution of the migration and of US-001, then — when `code-reviewer`
+flagged that this line still read DRAFT — chose to have the approval recorded
+here rather than leave the gate open or edit it themselves.
+
+Note on evidence. An earlier version of this line cited
+[PR #21](https://github.com/winiboy/my-cv-platform/pull/21) as proof of
+approval. That was wrong and `code-reviewer` was right to reject it: #21 is
+the PR that merged this document *as a draft* and opened the gate below. A PR
+that establishes a gate cannot evidence its closure. The approval is an
+instruction given in the session dated above; the repository holds no
+independent artifact of it, and this line should be read as that instruction
+transcribed, not as a second source confirming it.
 
 ## Objective
 
@@ -319,5 +337,11 @@ design choice. The append-only alternative was considered and rejected.
 
 ## Approval Gate
 
-This PRD is a draft. Explicit human approval is required before conversion to
-`prd.json` or implementation.
+**Closed.** Explicit human approval was required before conversion to
+`prd.json` or implementation, and was given on 2026-08-29 by the repository
+owner. See the Status line, including its note on what that evidence is and
+is not.
+
+Conversion to `tasks/ralph/prd.json` and story execution are authorised.
+Deploying the resulting migration to any hosted environment is **not** — that
+remains a separate decision, and FR-7 confines this work to the local stack.
