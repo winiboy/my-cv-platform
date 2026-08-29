@@ -32,7 +32,7 @@ restorable:
 
 | Setting | Value | Why |
 |---|---|---|
-| Required status check | `Verify (required)` | The only check that gates. The lint job is deliberately excluded — see below. |
+| Required status checks | `Verify (required)`, `Integration (required)` | The checks that gate. The lint job is deliberately excluded — see below. `Integration (required)` was added 2026-08-29, once it had passed on `main`: requiring a check before it exists there would block the PR introducing it. |
 | Strict (branch up to date) | `true` | A PR must be current with `main` before merging, so two individually-green PRs cannot break `main` together. |
 | Enforce for administrators | `true` | `gh pr merge --admin` no longer works for anyone. |
 | Required approving reviews | `0` | A PR is required, but the sole maintainer can merge it. GitHub does not permit self-approval, so any higher count would deadlock the repository. |
