@@ -30,6 +30,7 @@
 \set AS '00000000-0000-4000-8000-0000000000b1'
 \set CL '00000000-0000-4000-8000-0000000000c1'
 \set GL '00000000-0000-4000-8000-0000000000d2'
+\set SN '00000000-0000-4000-8000-0000000000c9'
 
 BEGIN;
 
@@ -96,6 +97,89 @@ BEGIN
           CASE WHEN p_expect = -1 THEN 'refused' ELSE p_expect || ' row(s)' END,
           a, v);
 END $fn$;
+
+-- ---------------------------------------------------------------------------
+-- Sibling runner for checks that are not about an end-user role: catalog
+-- assertions and privileged fixtures such as the signup trigger, which no
+-- `authenticated` or `anon` role is granted. Same results table, same
+-- PASS/FAIL contract, no role switching.
+--
+-- The actor is NOT a parameter. This runner executes as the privileged session
+-- user, so an actor label supplied by the caller could describe an identity the
+-- statement never ran under, and the resulting row would be indistinguishable
+-- from a genuine role-scoped chk() row. Deriving the actor from current_user
+-- means a chk_db row can only ever present itself as `db:<role>`, never as
+-- `A`, `B` or `anon`. The role is pinned on entry so the recorded identity is
+-- established here rather than inherited from whatever ran last.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION pg_temp.chk_db(
+  p_tbl text, p_op text, p_intent text,
+  p_sql text, p_expect integer)
+RETURNS void LANGUAGE plpgsql AS $fn$
+DECLARE n integer; v text; a text;
+BEGIN
+  PERFORM set_config('role', 'postgres', true);
+  BEGIN
+    EXECUTE p_sql;
+    GET DIAGNOSTICS n = ROW_COUNT;
+    a := n || ' row(s)';
+    v := CASE WHEN p_expect >= 0 AND n = p_expect THEN 'PASS' ELSE 'FAIL' END;
+  EXCEPTION WHEN others THEN
+    a := 'refused: ' || split_part(regexp_replace(SQLERRM, '\s+', ' ', 'g'), '.', 1);
+    v := CASE WHEN p_expect = -1 THEN 'PASS' ELSE 'FAIL' END;
+  END;
+  INSERT INTO results (tbl, actor, op, intent, expected, actual, verdict)
+  VALUES (p_tbl, 'db:' || current_user, p_op, p_intent,
+          CASE WHEN p_expect = -1 THEN 'refused' ELSE p_expect || ' row(s)' END,
+          a, v);
+END $fn$;
+
+-- ---------------------------------------------------------------------------
+-- Finding S2: handle_new_user() must resolve unqualified names through a
+-- pinned search_path, keep SECURITY DEFINER, keep its trigger, and still
+-- populate the profile row on signup.
+--
+-- This section runs immediately after the fixtures block, and not at the tail
+-- of the script, because it is the only section that mutates shared state: it
+-- adds a third auth.users row and, through the trigger, a third
+-- public.profiles row. Running it here folds that state into the one baseline
+-- every later check sees, so no check can silently inherit mid-script drift
+-- depending on where it happens to be appended.
+-- ---------------------------------------------------------------------------
+SELECT pg_temp.chk_db('handle_new_user','CATALOG','S2 search_path pinned to public, pg_temp',
+  'SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = ''public'' AND p.proname = ''handle_new_user''
+       AND p.proconfig @> ARRAY[''search_path=public, pg_temp'']',1);
+
+SELECT pg_temp.chk_db('handle_new_user','CATALOG','S2 still SECURITY DEFINER',
+  'SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = ''public'' AND p.proname = ''handle_new_user'' AND p.prosecdef',1);
+
+-- The function is replaced in place, never dropped: a DROP would have cascaded
+-- this trigger away.
+SELECT pg_temp.chk_db('handle_new_user','CATALOG','S2 on_auth_user_created trigger survives',
+  'SELECT 1 FROM pg_trigger t
+     JOIN pg_class c ON c.oid = t.tgrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     JOIN pg_proc p ON p.oid = t.tgfoid
+     WHERE NOT t.tgisinternal AND t.tgname = ''on_auth_user_created''
+       AND n.nspname = ''auth'' AND c.relname = ''users''
+       AND p.proname = ''handle_new_user''',1);
+
+-- This check observes the INSERT only, never the trigger: the trigger evidence
+-- is the catalog check above and the profile check below.
+SELECT pg_temp.chk_db('auth.users','INSERT','S2 signup fixture row inserted',
+  format('INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password,
+                                  created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+          VALUES (%L, ''00000000-0000-0000-0000-000000000000'', ''authenticated'', ''authenticated'',
+                  %L, '''', now(), now(), ''{"provider":"email"}''::jsonb, %L::jsonb)',
+    :'SN', 'signup@example.test',
+    '{"full_name":"Signup Fixture","avatar_url":"https://example.test/avatar.png"}'),1);
+
+SELECT pg_temp.chk_db('profiles','SELECT','S2 signup still populates the profile row',
+  format('SELECT 1 FROM public.profiles
+            WHERE id = %L AND email = %L AND full_name = %L AND avatar_url = %L',
+    :'SN', 'signup@example.test', 'Signup Fixture', 'https://example.test/avatar.png'),1);
 
 -- ---------------------------------------------------------------------------
 -- Cross-user isolation: B must not see or touch A's rows.

@@ -1,0 +1,115 @@
+# Ralph Progress Log
+# Feature: rls-schema-hardening (Phase 26 follow-up migration)
+# PRD: tasks/prds/rls-schema-hardening.md (APPROVED 2026-08-29)
+# Branch: chore/rls-schema-hardening
+# Started: 2026-08-29
+
+---
+
+## Status: IN PROGRESS (1/5 stories PASS)
+
+---
+
+## Stories
+
+## US-001: handle_new_user() resolves names deterministically
+Status: PASS
+Priority: 1
+Branch: chore/rls-schema-hardening
+Baseline HEAD: ba3dd5cf50f669e879e6e9637002ebf3c5ed008b
+
+Scope:
+- Scope check: PASS
+- Changed paths: supabase/migrations/006_rls_schema_hardening.sql (new),
+  supabase/tests/rls-audit.sql
+- Migrations 001-005 not edited; no application source changed.
+
+Checks:
+- pnpm supabase db reset: PASS - exit 0, migrations 001-006 applied in order
+  from an empty database.
+- RLS audit harness: PASS - 40/40, the 35 pre-existing checks unchanged.
+- Idempotency: PASS - migration re-applied against an already-migrated
+  database, no error; trigger OID 17899 stable across re-application.
+- Catalog state: PASS - proconfig = {"search_path=public, pg_temp"},
+  prosecdef = t.
+- FR-5 invariants: PASS - rls_tables=8, policies=27.
+- Mutation check: PASS - ALTER FUNCTION ... RESET search_path flips check 1
+  to FAIL (1 FAIL / 39 PASS), so the new assertion bites rather than passing
+  vacuously. Restored by db reset.
+- pnpm typecheck: PASS - exit 0.
+- pnpm test: PASS - 89 passing.
+- pnpm test:integration: PASS - 11 passing.
+- pnpm lint: PASS - 311 problems, baseline unchanged.
+- pnpm build: PASS - exit 0, 108/108 static pages.
+
+Specialized validation:
+- Database: PASS - database-migration skill. FUNCTION_TRIGGER_CHANGE,
+  non-destructive. history_match/static_review/apply/schema_postcheck all
+  PASS; referential_integrity and backfill NOT_APPLICABLE; type_alignment
+  PASS (handle_new_user is a trigger function, absent from the generated
+  types, public Functions block is empty).
+- Browser: NOT_APPLICABLE - no UI surface.
+- Visual: NOT_APPLICABLE - no rendered output.
+- Export: NOT_APPLICABLE - no export path touched.
+- Security: NOT_APPLICABLE as a separate pass - the RLS/ownership evidence
+  required by this story is carried by the audit harness above; broader
+  application security review is Phase 30.
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no UI affected.
+- code-reviewer: PASS on re-review, after an initial FAIL.
+
+Review history:
+- First pass FAIL. Two defects in the audit harness, both demonstrated rather
+  than asserted:
+  * pg_temp.chk_db took the actor label as free text while executing as the
+    privileged session user, so a row could report actor 'A' for a result no
+    user role could achieve. Reviewer reproduced a false PASS for US-002's
+    exact criterion against a database with no such policy.
+  * The 'signup fixture fires the trigger' check asserted only an INSERT
+    rowcount and could not observe the trigger; it stayed PASS when the
+    function body was gutted.
+  Also: the S2 fixture mutated shared state at the tail of the script with no
+  isolation, and the migration header forbade the appending that FR-1
+  requires.
+- All four returned to senior-coder and fixed. p_actor removed from the
+  signature outright so impersonation is structurally impossible rather than
+  discouraged; actor derived as 'db:' || current_user; role pinned at entry.
+  Intent string corrected. S2 section relocated ahead of the role-scoped
+  checks so every check, including any appended by later stories, observes
+  one baseline. Header reworded.
+- Re-review PASS on all four, verified independently by the reviewer,
+  including re-running its own attack with a hostile role set beforehand.
+
+Acceptance criteria:
+- AC-01 search_path pinned: PASS - proconfig contains
+  'search_path=public, pg_temp'; harness check 1; mutation-tested.
+- AC-02 remains SECURITY DEFINER: PASS - prosecdef = t; harness check 2.
+- AC-03 signup still populates the profile row: PASS - harness checks 4 and 5;
+  profile row carries id, email, full_name and avatar_url.
+- AC-04 function replaced, trigger not dropped: PASS - CREATE OR REPLACE with
+  no DROP in the file; trigger OID stable at 17899 across re-application;
+  harness check 3.
+
+Governance:
+- Permission pollution detected and stripped on each occurrence; no
+  .claude/ change committed.
+- PRD approval gate: raised by code-reviewer as a BLOCKER while the PRD still
+  read DRAFT. Resolved by the owner and recorded in commit 06c4fd9, separately
+  from this story commit. The first attempt at that record cited PR #21 as
+  evidence; the reviewer rejected it as circular, since #21 merged the draft
+  and opened the gate. Corrected to state that the approval is a session
+  instruction with no independent repository artifact.
+
+Standing check for US-002, US-004 and US-005:
+- Any acceptance criterion phrased 'verified by execution' must be asserted by
+  a check whose actor column reads A, B or anon. A 'db:' actor means the
+  result came from the privileged runner and proves nothing about policy.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 handle_new_user() resolves names deterministically
+
+FINAL: PASS
+
+---
