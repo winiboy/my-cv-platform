@@ -52,7 +52,15 @@ try {
     $state | Add-Member -NotePropertyName 'mode'    -NotePropertyValue 'STANDARD' -Force
     $state | Add-Member -NotePropertyName 'endedAt' -NotePropertyValue $now       -Force
     $state | Add-Member -NotePropertyName 'endedBy' -NotePropertyValue 'post-commit hook: story commit landed' -Force
-    $state | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $statePath -Encoding UTF8
+
+    # WriteAllText with an explicit BOM-less encoder, not Set-Content -Encoding
+    # UTF8: on PowerShell 5.1 that writes a UTF-8 BOM. PowerShell's own
+    # ConvertFrom-Json tolerates it, so the hook kept working, but JSON.parse
+    # rejects it outright - any node tooling reading this file would fail on a
+    # state file the hook itself had written. (utf8NoBOM is PS 7+, unavailable
+    # under the #Requires -Version 5.1 above.)
+    $json = $state | ConvertTo-Json -Depth 6
+    [System.IO.File]::WriteAllText($statePath, $json, (New-Object System.Text.UTF8Encoding($false)))
 
     $msg = "FAST TRACK ended: the commit for $storyId landed, so approval mode is back to STANDARD. Start the next story with /story-start."
     $out = @{ systemMessage = $msg } | ConvertTo-Json -Depth 4 -Compress
