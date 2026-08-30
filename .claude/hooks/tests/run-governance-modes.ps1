@@ -188,6 +188,23 @@ Test-PostHook 'POST git add leaves it'        'git add -- src/a.ts'          'FA
 Test-PostHook 'POST STANDARD stays STANDARD'  'git commit -m "x"'            'STANDARD'   'STANDARD'
 Test-PostHook 'POST chained commit ends it'   'git add -- a && git commit -m "x"' 'FAST_TRACK' 'STANDARD'
 
+# The state file the hook writes must be parseable by tooling that is not
+# PowerShell. Set-Content -Encoding UTF8 on PS 5.1 emits a BOM; ConvertFrom-Json
+# tolerates it and JSON.parse does not, so the hook could write a file it could
+# still read but node could not. Caught in real use, not by inspection.
+$bomDir = Join-Path $root 'bomcheck'
+New-FixtureRepo -Path $bomDir -State @{ storyId = 'US-951'; mode = 'FAST_TRACK'; activatedAt = $past; expiresOn = $future }
+(@{ tool_name = 'Bash'; cwd = $bomDir; tool_input = @{ command = 'git commit -m "x"' } } | ConvertTo-Json -Compress -Depth 6) |
+    & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $POSTHOOK | Out-Null
+$bytes = [System.IO.File]::ReadAllBytes((Join-Path $bomDir '.claude\governance-state.json'))
+$hasBom = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
+$results += [pscustomobject]@{
+    Name = 'POST writes BOM-less JSON'
+    Decision = $(if ($hasBom) { 'has-BOM' } else { 'no-BOM' })
+    Expected = 'no-BOM'
+    Status = $(if ($hasBom) { 'FAIL' } else { 'PASS' })
+}
+
 foreach ($r in $results) {
     "{0,-42} decision={1,-13} expected={2,-13} {3}" -f $r.Name, $r.Decision, $r.Expected, $r.Status
 }

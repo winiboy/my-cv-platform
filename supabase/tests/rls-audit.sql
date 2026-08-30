@@ -20,6 +20,43 @@
 \set ON_ERROR_STOP on
 \pset pager off
 
+-- Refuse to run against a database that has real users.
+--
+-- This script writes fixture rows to auth.users and every public table before
+-- rolling back. The rollback makes it safe on a scratch database; it does not
+-- make it safe to point at one people depend on, where a connection dropped
+-- mid-run leaves the fixtures behind. The header has always said "never run
+-- this against a deployed environment" - this enforces it.
+--
+-- The check is deliberately "has any user" rather than any attempt to detect
+-- a hosted host: a fresh staging project is empty and legitimately auditable,
+-- and a populated local database is just as unsafe as a populated hosted one.
+-- What matters is whether anything is there to lose.
+--
+-- Override for the rare legitimate case (auditing a staging database that has
+-- been deliberately seeded) with:  -v allow_populated=1
+\set allow_populated :allow_populated
+SELECT CASE
+  WHEN :'allow_populated' <> ':allow_populated' THEN false
+  WHEN (SELECT count(*) FROM auth.users) > 0 THEN true
+  ELSE false
+END AS abort_run \gset
+
+\if :abort_run
+\echo ''
+\echo 'REFUSING TO RUN: this database already contains auth.users rows.'
+\echo ''
+\echo 'This script seeds fixtures into auth.users and every public table. It'
+\echo 'rolls back, but an interrupted run would leave them behind, so it is'
+\echo 'only safe on a database with nothing to lose.'
+\echo ''
+\echo 'Use supabase/tests/preflight-006.sql instead - it is read-only and safe'
+\echo 'against any environment. To audit a deliberately-seeded staging database,'
+\echo 're-run this with:  -v allow_populated=1'
+\echo ''
+\quit
+\endif
+
 \set A  '00000000-0000-4000-8000-00000000000a'
 \set B  '00000000-0000-4000-8000-00000000000b'
 \set R1 '00000000-0000-4000-8000-0000000000f1'
