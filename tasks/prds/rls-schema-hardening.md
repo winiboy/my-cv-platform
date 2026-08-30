@@ -180,9 +180,22 @@ As a maintainer, I want every user-owned table to key ownership to
       `ON DELETE CASCADE`.
 - [ ] The existing SELECT and INSERT policies still restrict rows to
       `auth.uid() = user_id` — verified by execution, not by inspection.
-- [ ] `writeGenerationLog` in
+- [ ] `logGenerationAttempt` in
       [`generation-logs.ts`](../../src/lib/supabase/generation-logs.ts) still
       inserts successfully for an authenticated user.
+
+      *Corrected 2026-08-29 during US-004: this criterion originally named
+      `writeGenerationLog`, which does not exist anywhere in `src/`. The
+      drafting error was Claude's — the name was written from memory rather
+      than read from the file. `logGenerationAttempt` is the only insert
+      function in the named module, so the criterion's meaning is unchanged
+      and this is a factual correction, not a scope change.*
+
+      *Ratified by the repository owner (winiboy) on 2026-08-29, after
+      `code-reviewer` independently confirmed that `writeGenerationLog`
+      appears nowhere in the repository and that `logGenerationAttempt` is
+      the module's only insert path (one caller,
+      `src/lib/ai/iterative-generator.ts:341`).*
 - [ ] The migration aborts with a clear error rather than silently dropping
       rows if any existing `user_id` has no matching `profiles` row.
 

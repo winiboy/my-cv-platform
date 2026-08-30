@@ -107,7 +107,7 @@ Standing check for US-002, US-004 and US-005:
   result came from the privileged runner and proves nothing about policy.
 
 Commit:
-- Story commit: THIS_COMMIT
+- Story commit: 9540ae9
 - Commit message: ralph: US-001 handle_new_user() resolves names deterministically
 
 FINAL: PASS
@@ -211,7 +211,7 @@ Governance:
 - Permission pollution stripped; no .claude/ change committed.
 
 Commit:
-- Story commit: THIS_COMMIT
+- Story commit: 3785674
 - Commit message: ralph: US-002 resume_analyses deletion behaviour is explicit
 
 FINAL: PASS
@@ -320,8 +320,103 @@ Governance:
   off-by-one mattered more than a typo would.
 
 Commit:
-- Story commit: THIS_COMMIT
+- Story commit: 630df6a
 - Commit message: ralph: US-003 one updated_at trigger function
+
+FINAL: PASS
+
+---
+US-004  cv_generation_logs shares the ownership root
+Date: 2026-08-29
+Branch: chore/rls-schema-hardening
+Story commit: recorded in git log; this entry ships in that commit
+
+Scope: PASS
+- supabase/migrations/006_rls_schema_hardening.sql  (D3 section appended)
+- supabase/tests/rls-audit.sql                      (D3 fixtures + 9 checks, 55 -> 64)
+- supabase/tests/d3-abort-path.sql                  (NEW)
+- src/lib/supabase/generation-logs.integration.test.ts (NEW, 3 tests)
+- tasks/prds/rls-schema-hardening.md                (criterion 3 name correction)
+- tasks/ralph/prd.json                              (same correction + story status)
+Migrations 001-005 untouched. src/lib/supabase/generation-logs.ts unmodified (FR-6).
+
+Acceptance criteria:
+- AC1 fkey references public.profiles(id) ON DELETE CASCADE: PASS (checks 56/57)
+- AC2 SELECT/INSERT still restrict to auth.uid()=user_id, by execution: PASS
+      (checks 59/60 via pg_temp.chk, actor A, real authenticated role)
+- AC3 logGenerationAttempt still inserts for an authenticated user: PASS
+      (3 integration tests; 14/14 suite)
+- AC4 migration aborts with a clear error, drops nothing, on orphans: PASS
+      (d3-abort-path.sql, 5/5, exit 0)
+
+Validation:
+- RLS harness: PASS 64/64
+- d3-abort-path.sql: PASS 5/5, exit 0
+- Typecheck: PASS   Unit: PASS 89   Integration: PASS 14
+- Lint: 311 problems (237/74) - baseline unchanged
+- Build: PASS, 108/108 static pages
+- FK public.profiles confdeltype=c; policies 28; RLS tables 8
+- code-reviewer: PASS (second round)
+- Browser / ui-expert: NOT_APPLICABLE - no UI surface
+
+FAIL and fix (first review round):
+- Check 64 asserted the transitive-cascade property but could not fail on it.
+  :GL3 was seeded against :RTC, a resume owned by the SAME user being deleted,
+  so the log vanished via cv_generation_logs_resume_id_fkey -> resumes ->
+  profiles, independently of the user_id key this story added. With the
+  user_id FK dropped entirely, check 64 still reported PASS.
+  Fixed by pointing :GL3 at :R1 (owner :A, survives to end of run), making the
+  user_id hop the only route. Same mutation now yields FAIL (0 expected,
+  1 actual). :RTC removed. Verified independently, both before and after.
+- Two comments claiming "both hops are asserted" corrected in rls-audit.sql
+  and 006; only the final check is load-bearing.
+- The criterion-4 rationale claimed the guarded state was unreachable once the
+  constraint exists. That is false - DDL is transactional and the harness runs
+  in BEGIN...ROLLBACK. Rewritten to the real reason: this file cannot invoke
+  the guard, so a check here would re-implement 006's orphan query, and a copy
+  passes while the real block is broken.
+
+Third occurrence of one pattern: a check asserting a true statement it cannot
+fail on (US-002 shipped one, US-003's placement rationale rested on a premise
+that measured false, US-004 check 64). Common thread per senior-coder: writing
+the justification for why a check discriminates in the same pass as the check,
+letting a confident comment substitute for the experiment. Corrective adopted:
+run a mutation for EVERY check before reporting, including ones believed
+obvious. Two assertions (57 under RESTRICT, 59/60 under dropped policies) were
+being asserted on faith until that was applied.
+
+Evidence notes worth carrying:
+- Without the guard, 006 STILL errors, via PostgreSQL's generic FK violation.
+  So "an error was raised" is not evidence of AC4; only the assertion on the
+  message distinguishes a clear error from a terse one. That is AC4's content.
+- In that message assertion the LIKE '%cv_generation_logs%' conjunct is not
+  discriminating on its own - the generic error contains it too. The
+  '%1 row(s)%' conjunct carries the assertion.
+- Constructing an orphan has a trap: if the orphan's resume belongs to the
+  same user, deleting that user's profile cascades the orphan away before the
+  guard sees it. The resume must belong to a surviving user.
+- d3-abort-path.sql runs verbatim in PowerShell. In Git Bash, MSYS rewrites
+  the container path; MSYS_NO_PATHCONV=1 is needed. Shell artifact, not a
+  script defect.
+
+Governance:
+- Permission pollution stripped twice; no .claude/ change committed.
+- PRD correction: criterion 3 named writeGenerationLog, which exists nowhere
+  in src/. Claude drafting error, written from memory rather than read.
+  Corrected to logGenerationAttempt (the module's only insert path, one
+  caller at src/lib/ai/iterative-generator.ts:341). code-reviewer independently
+  confirmed the factual basis and judged the correction legitimate rather than
+  a BLOCKER: one possible referent, no behaviour invented. RATIFIED by the
+  repository owner (winiboy) on 2026-08-29. Recorded in the .md; prd.json
+  carries the correction annotation but not the ratification note (cosmetic).
+
+Deferred, not lost:
+- docs/engineering/rls-audit.md closure note is owned by US-005 and now covers
+  S2, D2, M3 and D3. If US-005 is dropped this must be reassigned.
+- Optional, declined to keep the reviewed artifact intact: a package.json
+  test:db:abort-path script so the abort evidence is invoked rather than
+  remembered; a second orphan plus a '%2 row(s)%' assertion so a guard that
+  miscounts when n>1 is caught; an MSYS_NO_PATHCONV note in the script header.
 
 FINAL: PASS
 

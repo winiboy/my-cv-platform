@@ -45,6 +45,16 @@
 \set CG2 '00000000-0000-4000-8000-0000000000e2'
 \set CL2 '00000000-0000-4000-8000-0000000000c2'
 
+-- Fixtures private to the D3 block at the tail of this file.
+--
+-- :NP is an auth.users identity with NO public.profiles row - the state that
+-- tells the two candidate foreign keys apart. :TC owns :GL3 and nothing else;
+-- the transitive-cascade check deletes :TC's account to observe :GL3 disappear.
+\set NP  '00000000-0000-4000-8000-00000000000d'
+\set TC  '00000000-0000-4000-8000-00000000000e'
+\set GL2 '00000000-0000-4000-8000-0000000000d4'
+\set GL3 '00000000-0000-4000-8000-0000000000d5'
+
 BEGIN;
 
 CREATE TEMP TABLE results (
@@ -108,6 +118,39 @@ INSERT INTO public.resumes (id, user_id, title) VALUES (:'R4', :'A', 'A M3 times
 INSERT INTO public.job_applications (id, user_id, company_name, job_title) VALUES (:'JA2', :'A', 'M3 Co', 'Engineer');
 INSERT INTO public.career_goals (id, user_id, title) VALUES (:'CG2', :'A', 'A M3 goal');
 INSERT INTO public.cover_letters (id, user_id) VALUES (:'CL2', :'A');
+
+-- D3 fixtures. Seeded here, with everything else, for the reason the M3 block
+-- gives: state that appears mid-run makes a check's verdict depend on where it
+-- was appended. Both identities are read and written by the D3 block alone.
+--
+-- The on_auth_user_created trigger creates a profiles row for each of these, so
+-- :NP's is deleted immediately afterwards to produce the one state that
+-- discriminates between the two candidate foreign keys: an id that exists in
+-- auth.users but not in public.profiles. Under the pre-migration key that id is
+-- an acceptable user_id; under the post-migration key it is not.
+INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password,
+                        created_at, updated_at, raw_app_meta_data, raw_user_meta_data)
+VALUES
+ (:'NP', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+  'np@example.test', '', now(), now(), '{"provider":"email"}'::jsonb, '{}'::jsonb),
+ (:'TC', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+  'tc@example.test', '', now(), now(), '{"provider":"email"}'::jsonb, '{}'::jsonb);
+
+DELETE FROM public.profiles WHERE id = :'NP';
+
+-- :GL3 is owned by :TC but hangs off :R1, a resume owned by :A.
+--
+-- The parent's owner is the whole point of this fixture, and getting it wrong
+-- silently disarms the cascade check at the tail. cv_generation_logs has TWO
+-- cascade paths into an account: user_id -> profiles, and resume_id -> resumes
+-- -> profiles. If :GL3's resume also belonged to :TC, deleting :TC would remove
+-- the log through the resume_id path no matter what the user_id key does - and
+-- the check would keep passing with the user_id constraint dropped altogether,
+-- asserting a true statement it cannot fail on. Verified by mutation, not by
+-- reasoning: with a :TC-owned parent the check passes with no user_id foreign
+-- key; with :R1 as parent it fails, because :A survives and :R1 with it, so the
+-- user_id hop is the only route by which :GL3 can disappear.
+INSERT INTO public.cv_generation_logs (id, user_id, resume_id) VALUES (:'GL3', :'TC', :'R1');
 
 -- ---------------------------------------------------------------------------
 -- Runner. p_expect = -1 means "the statement must be refused".
@@ -184,13 +227,16 @@ END $fn$;
 -- populate the profile row on signup.
 --
 -- This section runs immediately after the fixtures block, and not at the tail
--- of the script, because it mutates shared state: it adds a fourth
--- auth.users row and, through the trigger, a fourth public.profiles row.
--- (Fourth, not third: the M3 section below seeds identity :C in the fixtures
--- block, so three users exist before this section runs.)
--- Running it here folds that state into the one baseline
--- every later check sees, so no check can silently inherit mid-script drift
--- depending on where it happens to be appended.
+-- of the script, because it mutates shared state: it adds one more auth.users
+-- row and, through the trigger, one more public.profiles row, on top of the
+-- identities the fixtures block seeds. Running it here folds that state into the
+-- one baseline every later check sees, so no check can silently inherit
+-- mid-script drift depending on where it happens to be appended.
+--
+-- Stated without a running total on purpose: an earlier revision said "a fourth
+-- auth.users row" and went stale the moment the D3 fixtures added two more
+-- identities. No check here depends on how many users exist, so the count was
+-- only ever a maintenance liability.
 -- ---------------------------------------------------------------------------
 SELECT pg_temp.chk_db('handle_new_user','CATALOG','S2 search_path pinned to public, pg_temp',
   'SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -520,6 +566,116 @@ SELECT pg_temp.chk('profiles','C','UPDATE','M3 own update sets updated_at to now
             UPDATE public.profiles SET updated_at = TIMESTAMPTZ ''2000-01-01 00:00:00+00''
              WHERE id = %L RETURNING updated_at)
           SELECT 1 FROM bumped WHERE updated_at = now()',:'C'),1);
+
+-- ---------------------------------------------------------------------------
+-- Finding D3: cv_generation_logs.user_id keys ownership to public.profiles.
+--
+-- Four claims: the catalog shape of the constraint, the behaviour that
+-- distinguishes the new key from the old one, the owner's unchanged SELECT and
+-- INSERT access, and the transitive cascade.
+--
+-- WHICH RUNNER, AND WHY.
+--
+-- The owner-access checks are claims about what an end user may do, so they go
+-- through chk under the real `authenticated` role. Everything else here is
+-- referential or catalog state - which table a constraint points at, whether a
+-- row is physically present - so it goes through chk_db, for the same reason the
+-- D2 cascade block does: a role-scoped read would answer "what can this role
+-- see", making the verdict depend on the SELECT policy staying correct and
+-- coupling this evidence to a policy it is not about.
+--
+-- The auth.users delete is chk_db because deleting an account is not a user-role
+-- capability at all - neither `authenticated` nor `anon` is granted it. The
+-- application performs it through the admin API. chk_db labels itself
+-- `db:postgres`, so no row here can misrepresent itself as an end user.
+--
+-- THE CHECK THAT ACTUALLY DISCRIMINATES.
+--
+-- The catalog checks would catch the constraint being repointed, but a catalog
+-- assertion only ever restates the migration. The insert against :NP is the
+-- behavioural counterpart, and it is the one that fires: :NP exists in
+-- auth.users and has no profiles row, so under the pre-migration key that insert
+-- SUCCEEDS and this check reports `1 row(s)` against an expected `refused`.
+-- Mutation-tested by repointing the constraint back at auth.users, which turns
+-- it FAIL. A random UUID would not discriminate - it violates both keys.
+--
+-- WHAT IS NOT ASSERTED HERE.
+--
+-- The migration's orphan pre-check, which must abort rather than drop rows, has
+-- no check in this file, and the omission is deliberate.
+--
+-- The reason is NOT that the guarded state is unreachable. It is perfectly
+-- reachable here: DDL is transactional in PostgreSQL and this whole script
+-- already runs inside BEGIN ... ROLLBACK, so a check could drop the constraint,
+-- insert an orphan, exercise the guard and roll back with no lasting effect.
+--
+-- The reason is that this file has no way to invoke the real guard. A check
+-- here would have to re-implement the orphan query that 006 already contains,
+-- and a copy passes happily while the block it claims to cover is broken - a
+-- worse failure mode than no check, because it reads as coverage. The only
+-- alternative is to have this audit script execute a migration file, which is
+-- not its role: it audits the state a migration produced, it does not run
+-- migrations. So the guard is exercised where it can be invoked for real, by
+-- \i-including 006 itself - see supabase/tests/d3-abort-path.sql.
+-- ---------------------------------------------------------------------------
+SELECT pg_temp.chk_db('cv_generation_logs','CATALOG','D3 user_id fkey references public.profiles(id)',
+  'SELECT 1 FROM pg_constraint c
+     JOIN pg_class t ON t.oid = c.conrelid
+     JOIN pg_namespace tn ON tn.oid = t.relnamespace
+     JOIN pg_class rt ON rt.oid = c.confrelid
+     JOIN pg_namespace rn ON rn.oid = rt.relnamespace
+     WHERE c.conname = ''cv_generation_logs_user_id_fkey'' AND c.contype = ''f''
+       AND tn.nspname = ''public'' AND t.relname = ''cv_generation_logs''
+       AND rn.nspname = ''public'' AND rt.relname = ''profiles''
+       AND c.conkey = ARRAY[(SELECT attnum FROM pg_attribute
+                              WHERE attrelid = t.oid AND attname = ''user_id'')]
+       AND c.confkey = ARRAY[(SELECT attnum FROM pg_attribute
+                               WHERE attrelid = rt.oid AND attname = ''id'')]',1);
+
+SELECT pg_temp.chk_db('cv_generation_logs','CATALOG','D3 user_id fkey is ON DELETE CASCADE',
+  'SELECT 1 FROM pg_constraint c
+     WHERE c.conname = ''cv_generation_logs_user_id_fkey''
+       AND c.conrelid = ''public.cv_generation_logs''::regclass
+       AND c.confdeltype = ''c''',1);
+
+SELECT pg_temp.chk_db('cv_generation_logs','INSERT','D3 log owned by an auth user with no profile is refused',
+  format('INSERT INTO public.cv_generation_logs (user_id, resume_id) VALUES (%L,%L)',:'NP',:'R1'),-1);
+
+-- Owner positive control. The isolation block above proves B cannot read A's log
+-- or forge one owned by A; neither of those fires if the policies became
+-- restrictive rather than over-permissive, because a policy that permits nothing
+-- also returns 0 rows and refuses the forge. These two are the other half: they
+-- fail if the SELECT or INSERT policy stops admitting the owner, which is the
+-- regression a foreign-key swap could plausibly cause.
+SELECT pg_temp.chk('cv_generation_logs','A','SELECT','D3 read own log',:'A',
+  format('SELECT * FROM public.cv_generation_logs WHERE id=%L',:'GL'),1);
+
+SELECT pg_temp.chk('cv_generation_logs','A','INSERT','D3 insert own log',:'A',
+  format('INSERT INTO public.cv_generation_logs (id,user_id,resume_id) VALUES (%L,%L,%L)',
+         :'GL2',:'A',:'R1'),1);
+
+-- Transitive cascade: deleting an auth user must still remove its logs, now via
+-- public.profiles rather than directly. This is the regression that would follow
+-- from repointing the key at a parent whose own delete behaviour did not
+-- cascade.
+--
+-- What each check carries, stated precisely, because an earlier revision of this
+-- comment claimed more than the checks delivered. The profiles read asserts only
+-- that the intermediate row is gone - it says nothing about cv_generation_logs
+-- and would pass with no user_id foreign key at all. The load-bearing one is the
+-- final check, and it is load-bearing only because :GL3's resume belongs to a
+-- surviving user; see the fixture comment for why the other choice disarms it.
+SELECT pg_temp.chk_db('cv_generation_logs','SELECT','D3 cascade fixture present before account delete',
+  format('SELECT 1 FROM public.cv_generation_logs WHERE id=%L',:'GL3'),1);
+
+SELECT pg_temp.chk_db('auth.users','DELETE','D3 delete the owning auth user',
+  format('DELETE FROM auth.users WHERE id=%L',:'TC'),1);
+
+SELECT pg_temp.chk_db('profiles','SELECT','D3 cascade removed the intermediate profile',
+  format('SELECT 1 FROM public.profiles WHERE id=%L',:'TC'),0);
+
+SELECT pg_temp.chk_db('cv_generation_logs','SELECT','D3 cascade removed the log transitively',
+  format('SELECT 1 FROM public.cv_generation_logs WHERE id=%L',:'GL3'),0);
 
 \echo ''
 \echo '================ RLS AUDIT RESULTS ================'

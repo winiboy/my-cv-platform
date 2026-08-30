@@ -119,3 +119,82 @@ CREATE TRIGGER trigger_cover_letters_updated_at
   EXECUTE FUNCTION public.update_updated_at_column();
 
 DROP FUNCTION IF EXISTS public.update_cover_letters_updated_at();
+
+
+-- ----------------------------------------------------------------------------
+-- Finding D3 — key cv_generation_logs ownership to public.profiles.
+--
+-- 005_cv_generation_logs.sql pointed cv_generation_logs.user_id at
+-- auth.users(id), while the other seven user-owned tables in `public` point at
+-- public.profiles(id). One ownership root means joins, future policy work and
+-- cascade reasoning all follow a single key path instead of two.
+--
+-- NET DELETE BEHAVIOUR IS UNCHANGED, which is why this is invisible to the
+-- application. public.profiles.id itself is `REFERENCES auth.users(id) ON
+-- DELETE CASCADE`, so deleting an auth user still removes its logs — now in two
+-- hops (auth.users -> profiles -> cv_generation_logs) rather than one. The
+-- reachable set is identical because profiles is 1:1 with auth.users and is
+-- created by the on_auth_user_created trigger. Asserted, not assumed: the
+-- transitive cascade has a regression check in supabase/tests/rls-audit.sql,
+-- built so that the log it watches hangs off a resume owned by a *surviving*
+-- user. cv_generation_logs reaches an account by two cascade paths - user_id
+-- and resume_id -> resumes - and only that fixture choice isolates the one this
+-- constraint controls.
+--
+-- The whole section is one DO block so the swap is atomic under any caller. A
+-- bare DROP followed by a bare ADD would, if the ADD failed outside a
+-- transaction, leave the column with no foreign key at all — a silent widening
+-- of what user_id may hold. Inside a DO block the ADD's failure rolls the DROP
+-- back with it, so the outcome is always either the old constraint or the new
+-- one, never neither.
+--
+-- The swap is unconditional rather than guarded on the current state, so it
+-- converges on this definition from any starting point: pointing at auth.users,
+-- pointing at profiles already, or missing entirely. Re-applying revalidates the
+-- table, which is the cost of that convergence and is negligible at this table's
+-- size. DROP ... IF EXISTS makes the pair idempotent (FR-2).
+--
+-- WHY THE ORPHAN PRE-CHECK EXISTS.
+--
+-- ADD CONSTRAINT already refuses to create a foreign key that existing rows
+-- violate, so the pre-check is not what makes this safe — PostgreSQL's own
+-- validation is. What the pre-check adds is a *legible* failure. The built-in
+-- error reports "violates foreign key constraint" and names one offending row;
+-- it does not tell the operator how many rows are affected, which decision they
+-- are facing, or that this migration is deliberately declining to make it for
+-- them. Repointing an ownership key is exactly the situation where a terse
+-- referential error invites someone to reach for a DELETE.
+--
+-- So the count is taken first and, if it is non-zero, the migration stops before
+-- touching the constraint. It never deletes, reassigns or otherwise resolves the
+-- orphans: FR-3 forbids destructive data change, and choosing between creating
+-- the missing profile, reassigning the log and discarding it is a data decision
+-- this PRD does not authorize. Stopping leaves the database exactly as it was.
+-- ----------------------------------------------------------------------------
+DO $$
+DECLARE
+  orphan_count bigint;
+BEGIN
+  SELECT count(*) INTO orphan_count
+  FROM public.cv_generation_logs l
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.profiles p WHERE p.id = l.user_id
+  );
+
+  IF orphan_count > 0 THEN
+    RAISE EXCEPTION
+      'public.cv_generation_logs has % row(s) whose user_id has no matching public.profiles row; cannot repoint cv_generation_logs_user_id_fkey at public.profiles(id)',
+      orphan_count
+      USING
+        ERRCODE = 'foreign_key_violation',
+        DETAIL  = 'Migration 006 (finding D3) stopped before altering the constraint. No row was deleted, reassigned or modified, and the existing foreign key is intact.',
+        HINT    = 'List the affected owners with: SELECT DISTINCT user_id FROM public.cv_generation_logs l WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = l.user_id); Then decide per owner - create the missing profiles row, reassign the log, or delete it - record that decision, and re-run this migration once the query returns no rows.';
+  END IF;
+
+  ALTER TABLE public.cv_generation_logs
+    DROP CONSTRAINT IF EXISTS cv_generation_logs_user_id_fkey;
+
+  ALTER TABLE public.cv_generation_logs
+    ADD CONSTRAINT cv_generation_logs_user_id_fkey
+    FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+END $$;

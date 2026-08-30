@@ -160,7 +160,7 @@
       "acceptanceCriteria": [
         "cv_generation_logs_user_id_fkey references public.profiles(id) with ON DELETE CASCADE.",
         "The existing SELECT and INSERT policies still restrict rows to auth.uid() = user_id - verified by execution, not by inspection.",
-        "writeGenerationLog in src/lib/supabase/generation-logs.ts still inserts successfully for an authenticated user.",
+        "logGenerationAttempt in src/lib/supabase/generation-logs.ts still inserts successfully for an authenticated user. (Corrected 2026-08-29: originally named writeGenerationLog, which does not exist in src/. Claude drafting error; logGenerationAttempt is the only insert function in that module, so meaning is unchanged.)",
         "The migration aborts with a clear error rather than silently dropping rows if any existing user_id has no matching profiles row.",
         "FR-1: All changes land in one new forward migration. No already-applied migration file is edited.",
         "FR-2: The migration is idempotent where PostgreSQL permits it (CREATE OR REPLACE, DROP ... IF EXISTS, policy drop-then-create), so a re-run against an already-migrated database does not error.",
@@ -200,7 +200,7 @@
         "Out of scope: Any change to application behaviour, UI, or exports."
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
