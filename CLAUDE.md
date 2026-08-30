@@ -181,3 +181,43 @@ Primary shell: PowerShell.
 ## 18. Engineering Principle
 Prefer deterministic behavior, explicit state ownership, small scoped changes, reusable architecture, reproducible verification, evidence-based PASS decisions, and security by design.
 When quality and speed conflict, quality wins.
+
+## 19. Governance Approval Modes
+Every user story starts by asking which approval mode applies, via
+`AskUserQuestion`. Never assume it; never inherit it from a previous story.
+
+* **STANDARD** — existing behaviour; unlisted actions prompt.
+* **FAST TRACK** — routine local implementation auto-approved for **one story
+  only**: lint, typecheck, test, build, dev server, local Supabase,
+  `git add --` with explicit paths, and source-file edits.
+
+Fast Track ends when the story's commit lands (enforced by a `PostToolUse`
+hook, not by instruction), when the story is abandoned, when the user says
+"exit fast track", or after 24 hours — whichever is first.
+
+### Non-negotiable gates — both modes
+These always prompt and are never auto-approved: `git commit` · `git push` ·
+`gh pr create|merge|edit` · `git merge` · `git rebase` · branch or tag
+deletion · `rm -rf` · adding dependencies · non-local database commands
+(`supabase db push|link`, remote `psql`) · `vercel` · `gh api` writes · edits
+to `.github/**`, `package.json`, `pnpm-lock.yaml`, `vercel.json`,
+`supabase/migrations/**`, `.claude/settings*` and `.claude/hooks/**`.
+
+Fast Track speeds up writing code. It never speeds up shipping code.
+
+Stricter rules still win: `.env` access and destructive git
+(`push --force`, `reset --hard`, `git clean`, `commit -a`) are **denied**,
+not prompted, and on `main` every mutating command is denied whatever the
+mode (§5).
+
+### Where this is enforced
+`.claude/hooks/pre-tool-guard.ps1`, not instructions. It returns `ask`, which
+overrides any `allow` rule, so an "always allow" click cannot ungate a
+protected action; `.claude/settings.json` is a second layer, not the primary
+one. Mode lives in `.claude/governance-state.json` (gitignored) — missing,
+malformed, story-less or expired state reads as STANDARD, since absent state
+must never grant. Read it at session start and after compaction.
+
+### Commands
+`/story-start <id>` — ask the mode, write state, print what is active.
+`/governance [standard|fast-track]` — report or switch; switching up confirms.

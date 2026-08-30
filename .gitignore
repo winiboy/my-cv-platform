@@ -45,3 +45,8 @@ yarn-error.log*
 # Test artifacts
 lint-report.txt
 rls-audit-output.txt
+
+# Governance approval mode — per-developer session state, not repo config.
+# A fresh clone has no state file, which the hook reads as STANDARD. That is
+# the intended fallback: absent state must never grant anything.
+.claude/governance-state.json
