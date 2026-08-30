@@ -2,7 +2,17 @@
 $ErrorActionPreference = 'Stop'
 
 $hook = Join-Path (Get-Location).Path '.claude/hooks/pre-tool-guard.ps1'
-$featCwd = (Get-Location).Path
+
+# $featCwd is assigned below, to a fixture repo rather than to this project.
+#
+# It used to be (Get-Location).Path - the real working copy - which made every
+# expectation here depend on whatever governance mode happened to be active,
+# since the hook reads .claude/governance-state.json from the cwd it is given.
+# With FAST TRACK on, 23 cases flipped from no-decision to allow and this suite
+# failed for a reason that had nothing to do with Phase 05.
+#
+# Phase 05's semantics are mode-independent, so its fixtures must be too. A
+# fixture repo has no governance state, which the hook reads as STANDARD.
 
 # Ephemeral test repos rooted in TEMP
 $root = Join-Path $env:TEMP 'phase-05-3-fixtures'
@@ -37,6 +47,7 @@ $repoRalphBad      = New-Repo 'r-ralph-bad' 'ralph/foo'
 $repoRalphNoBn     = New-Repo 'r-ralph-nobn' 'ralph/foo'
 $repoRalphEmptyBn  = New-Repo 'r-ralph-emptybn' 'ralph/foo'
 $repoChoreWithPrd  = New-Repo 'r-chore-with-prd' 'chore/x'
+$featCwd           = New-Repo 'r-feature' 'chore/feature-work'
 
 Set-PrdJson $repoRalphMatch    '{"project":"p","branchName":"ralph/foo"}'
 Set-PrdJson $repoRalphMismatch '{"project":"p","branchName":"ralph/foo"}'
