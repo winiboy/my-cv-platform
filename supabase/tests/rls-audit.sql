@@ -677,6 +677,106 @@ SELECT pg_temp.chk_db('profiles','SELECT','D3 cascade removed the intermediate p
 SELECT pg_temp.chk_db('cv_generation_logs','SELECT','D3 cascade removed the log transitively',
   format('SELECT 1 FROM public.cv_generation_logs WHERE id=%L',:'GL3'),0);
 
+-- ---------------------------------------------------------------------------
+-- Finding S1 (WITHDRAWN): the five UPDATE policies that omitted WITH CHECK now
+-- state it.
+--
+-- READ THE NEXT PARAGRAPH BEFORE ADDING ANYTHING TO THIS BLOCK.
+--
+-- The change these checks cover is a NO-OP behaviourally. PostgreSQL already
+-- substituted USING as the check expression, so no statement any role can issue
+-- returns a different answer before and after it. That has a direct consequence
+-- for this file: the six `S1 reassign own row to B` checks in the S1 section
+-- above CANNOT discriminate this change. They pass identically with the clauses
+-- and without them - mutation-tested by reverting all five policies to their
+-- pre-migration shape, which leaves those six at PASS while every check in this
+-- block goes FAIL. They belong to this finding by name and they are worth
+-- keeping, but as a regression guard on the behaviour, not as evidence that the
+-- clauses exist. Anything added here that asserts what a user may do will have
+-- the same defect, and will read as coverage while proving nothing.
+--
+-- So the evidence is catalog state, and only catalog state, which is why every
+-- check here goes through chk_db: whether pg_policy.polwithcheck is populated is
+-- not a claim about any end-user capability, and running it under a user role
+-- would neither be possible nor mean anything.
+--
+-- WHY THE EXPRESSION IS COMPARED, NOT JUST ITS PRESENCE.
+--
+-- Each per-table check matches pg_get_expr(polwithcheck, ...) against a literal
+-- rather than testing IS NOT NULL. pg_get_expr returns NULL for a null
+-- expression and the equality then matches nothing, so these subsume the
+-- presence test - and they additionally catch a clause that exists but says the
+-- wrong thing. profiles is why that matters: it keys ownership on `id`, not
+-- `user_id`, so the plausible error here is a uniform expression applied across
+-- all five. Mutation-tested by setting the profiles clause to `(true)`, which
+-- leaves polwithcheck non-null and turns only the profiles check FAIL.
+--
+-- The comparison is an exact string match, with the same tradeoff the D2
+-- catalog check documents: a semantically identical rewrite would fail it, and
+-- the response is to update the literal deliberately, not to loosen the match.
+--
+-- The last check pins the set. It counts UPDATE policies in `public` that still
+-- omit the clause and expects none, so a sixth table added later without one is
+-- caught here rather than passing unnoticed because nobody added a per-table
+-- check for it. It reads polcmd = 'w' only: a FOR ALL policy (polcmd = '*')
+-- would also carry a check expression, but none exists in this schema and this
+-- story is about the UPDATE policies. It is the weaker of the two shapes on its
+-- own - it is satisfied by any non-null expression, including a wrong one - so
+-- it complements the per-table checks rather than replacing them.
+--
+-- cover_letters is not asserted here. It has declared WITH CHECK since
+-- 003_cover_letters.sql, was the control the S1 investigation measured the other
+-- five against, and is untouched by the migration; the set-pinning check below
+-- covers it incidentally, which is the right weight for a table this change does
+-- not alter.
+-- ---------------------------------------------------------------------------
+SELECT pg_temp.chk_db('profiles','CATALOG','S1 UPDATE policy states WITH CHECK (auth.uid() = id)',
+  'SELECT 1 FROM pg_policy p
+     JOIN pg_class c ON c.oid = p.polrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = ''public'' AND c.relname = ''profiles''
+       AND p.polcmd = ''w''
+       AND pg_get_expr(p.polwithcheck, p.polrelid) = ''(auth.uid() = id)''',1);
+
+SELECT pg_temp.chk_db('resumes','CATALOG','S1 UPDATE policy states WITH CHECK (auth.uid() = user_id)',
+  'SELECT 1 FROM pg_policy p
+     JOIN pg_class c ON c.oid = p.polrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = ''public'' AND c.relname = ''resumes''
+       AND p.polcmd = ''w''
+       AND pg_get_expr(p.polwithcheck, p.polrelid) = ''(auth.uid() = user_id)''',1);
+
+SELECT pg_temp.chk_db('job_applications','CATALOG','S1 UPDATE policy states WITH CHECK (auth.uid() = user_id)',
+  'SELECT 1 FROM pg_policy p
+     JOIN pg_class c ON c.oid = p.polrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = ''public'' AND c.relname = ''job_applications''
+       AND p.polcmd = ''w''
+       AND pg_get_expr(p.polwithcheck, p.polrelid) = ''(auth.uid() = user_id)''',1);
+
+SELECT pg_temp.chk_db('career_goals','CATALOG','S1 UPDATE policy states WITH CHECK (auth.uid() = user_id)',
+  'SELECT 1 FROM pg_policy p
+     JOIN pg_class c ON c.oid = p.polrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = ''public'' AND c.relname = ''career_goals''
+       AND p.polcmd = ''w''
+       AND pg_get_expr(p.polwithcheck, p.polrelid) = ''(auth.uid() = user_id)''',1);
+
+SELECT pg_temp.chk_db('ai_suggestions','CATALOG','S1 UPDATE policy states WITH CHECK (auth.uid() = user_id)',
+  'SELECT 1 FROM pg_policy p
+     JOIN pg_class c ON c.oid = p.polrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = ''public'' AND c.relname = ''ai_suggestions''
+       AND p.polcmd = ''w''
+       AND pg_get_expr(p.polwithcheck, p.polrelid) = ''(auth.uid() = user_id)''',1);
+
+SELECT pg_temp.chk_db('pg_policy','CATALOG','S1 no UPDATE policy in public omits WITH CHECK',
+  'SELECT 1 FROM pg_policy p
+     JOIN pg_class c ON c.oid = p.polrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = ''public'' AND p.polcmd = ''w''
+       AND p.polwithcheck IS NULL',0);
+
 \echo ''
 \echo '================ RLS AUDIT RESULTS ================'
 SELECT seq, tbl, actor, op, intent, expected, actual, verdict FROM results ORDER BY seq;

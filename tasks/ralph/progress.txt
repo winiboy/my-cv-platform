@@ -421,3 +421,99 @@ Deferred, not lost:
 FINAL: PASS
 
 ---
+US-005  UPDATE policies state their check expression explicitly
+Date: 2026-08-29
+Branch: chore/rls-schema-hardening
+Story commit: recorded in git log; this entry ships in that commit
+
+Scope: PASS
+- supabase/migrations/006_rls_schema_hardening.sql  (S1 section appended)
+- supabase/tests/rls-audit.sql                      (6 catalog checks, 64 -> 70)
+- supabase/tests/d3-abort-path.sql                  (repaired, see below)
+- docs/engineering/rls-audit.md                     (S1/S2/D2/D3/M3 notes)
+Migrations 001-005 untouched. No application source (FR-6 permits docs here).
+
+Acceptance criteria:
+- AC1 five UPDATE policies have non-null polwithcheck: PASS (checks 65-69)
+- AC2 ownership reassignment still refused on all six: PASS (checks 28-33)
+- AC3 migration comment states readability, closes no vulnerability: PASS
+- AC4 S1 doc section records the clauses without reinstating the finding: PASS
+
+Validation:
+- RLS harness: PASS 70/70
+- d3-abort-path.sql: PASS 5/5, exit 0
+- Typecheck: PASS   Unit: PASS 89   Integration: PASS 14
+- Lint: 311 problems (237/74) - baseline unchanged
+- Build: PASS, 108/108 static pages
+- Idempotency: 006 applied twice against a migrated DB, exit 0 both times
+- code-reviewer: PASS (first round, no Critical or Major)
+- Browser / ui-expert: NOT_APPLICABLE - no UI surface
+
+This story changes NO behaviour. PostgreSQL already applies USING as the
+WITH CHECK expression when the latter is omitted. Finding S1 was investigated
+and WITHDRAWN; it was never a vulnerability, and this closes nothing.
+
+Proven, not asserted: reverting all five policies to the pre-migration shape
+yields 6 FAIL / 64 PASS - checks 65-70 fire, and checks 28-33 ALL still report
+"refused". The behavioural set cannot discriminate this story, which is
+simultaneously the proof of the story's own premise. senior-coder added no
+behavioural check and stated plainly that 65-70 (catalog, chk_db) are the
+evidence while 28-33 are regression guards. code-reviewer confirmed that is
+the honest call rather than a gap, and the harness says so in the file for
+the next author.
+
+Check 70 (no UPDATE policy omits the clause) is the weaker shape: under a
+mutation setting profiles to WITH CHECK (true), check 65 FAILs and 70 PASSes.
+Both earn their place - presence alone is satisfied by a wrong expression.
+
+d3-abort-path.sql was BROKEN by this story's own append, exactly as US-004's
+author predicted in a comment: the D3 guard stopped being the last failing
+statement, so arm 1 captured "current transaction is aborted" instead of the
+guard's message. Repaired at the mechanism rather than by reordering 006 to
+hide it: ON_ERROR_ROLLBACK on around the arm-1 include, plus a space-free
+sentinel pre-set into LAST_ERROR_MESSAGE because :ERROR can no longer stand
+for "it raised". code-reviewer verified the repair is robust to a future
+append - a benign appended statement no longer breaks the assertion, while an
+appended FAILING statement still stops the test, which is correct. The old
+coupling was positional; what remains is semantic and fails loudly.
+
+Incidental, verified and recorded in the doc: on profiles, reassignment is
+refused even with WITH CHECK (true), because the SELECT policy is applied to
+the post-update row and the primary key sits behind it. Relaxing the SELECT
+policy changes the error to a duplicate-key violation. Check 32 was therefore
+doubly non-discriminating.
+
+Documentation debt from US-002 CLOSED: docs/engineering/rls-audit.md now
+records S2, D2, D3 and M3 as closed by migration 006, and S1 as still
+withdrawn with the clauses now present. S3 deliberately left CONFIRMED and
+open - out of scope, needs its own PRD.
+
+Closing catalog snapshot (verification criterion 20), on a fresh reset:
+- handle_new_user: prosecdef=t, proconfig={"search_path=public, pg_temp"}
+- resume_analyses: SELECT/INSERT/DELETE, DELETE USING (auth.uid() = user_id)
+- six UPDATE policies: all explicit; profiles on id, the rest on user_id
+- cv_generation_logs_user_id_fkey -> public.profiles, confdeltype=c
+- 8 RLS tables, 28 policies, relforcerowsecurity false throughout
+
+Governance:
+- Permission pollution stripped repeatedly; no .claude/ change in this commit.
+  A DELIBERATE .claude/settings.local.json change was made this session at the
+  owner's request (gating git commit behind ask, allowing read-only inspection
+  commands). It is unrelated to US-005 and is committed separately.
+
+Known limits, not blocking:
+- Check 70 filters polcmd='w' only. A future FOR ALL policy (polcmd='*') with
+  no check expression would bypass the set-pinning assertion.
+  polcmd IN ('w','*') would close it.
+- Under ON_ERROR_ROLLBACK, arm 1 of d3-abort-path now really executes the
+  statements after the guard, undone by ROLLBACK TO SAVEPOINT. A future
+  statement in 006 that cannot be rolled back would genuinely run there.
+  Nothing in 006 is in that class today.
+- Optional and declined to keep the reviewed artifact intact: widening check
+  70's filter, and rewrapping one 133-char line in rls-audit.md.
+
+CONTRACT COMPLETE: US-001 through US-005 all PASS.
+
+FINAL: PASS
+
+---

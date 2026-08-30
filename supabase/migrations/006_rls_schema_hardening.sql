@@ -198,3 +198,83 @@ BEGIN
     ADD CONSTRAINT cv_generation_logs_user_id_fkey
     FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
 END $$;
+
+
+-- ----------------------------------------------------------------------------
+-- Finding S1 (WITHDRAWN) — write the check expression out on the five UPDATE
+-- policies that leave it implicit.
+--
+-- THIS IS A READABILITY CHANGE AND CLOSES NO VULNERABILITY. There was no
+-- vulnerability to close. Nothing a user can do differs before and after this
+-- section, on any table.
+--
+-- PostgreSQL uses a policy's USING expression as its check expression when
+-- WITH CHECK is omitted, so `USING (auth.uid() = user_id)` alone already
+-- constrains the post-update row and already refuses an ownership transfer.
+-- The earlier audit read the null pg_policy.polwithcheck as an open hole and
+-- concluded a user could reassign a row they own to someone else. Executing
+-- that exact attack on all six tables — the owner updating their own row to
+-- set the ownership column to another user — refused on all six, the five
+-- without the clause behaving identically to cover_letters, which has it.
+-- The finding was withdrawn on that evidence; see the S1 section of
+-- docs/engineering/rls-audit.md.
+--
+-- What is left is a documentation defect in the schema itself: a reader has to
+-- know the substitution rule to tell a deliberately-omitted clause from a
+-- forgotten one. Stating the expression removes that inference. It is worth
+-- doing for the next reader and worth nothing at all for security.
+--
+-- Behavioural equivalence is what makes this safe, and it is also what makes it
+-- untestable by behaviour: the reassignment checks in
+-- supabase/tests/rls-audit.sql pass identically with and without these clauses,
+-- so they are regression guards here, not evidence. The evidence is the catalog
+-- assertion that polwithcheck is now non-null and carries the expected
+-- expression, which is what the S1 block of that file adds.
+--
+-- EACH POLICY KEEPS ITS OWN EXPRESSION. profiles keys ownership on its primary
+-- key, `auth.uid() = id`; the other four key on `auth.uid() = user_id`. Copying
+-- one expression across all five would not compile against profiles, which has
+-- no user_id column — and a uniform-looking edit is exactly the shape of change
+-- that gets applied without checking. Each ALTER below sets a check expression
+-- equal to the USING expression of the policy it targets, which is the
+-- expression PostgreSQL was already substituting there, and changes nothing
+-- else about that policy.
+--
+-- ALTER POLICY, not DROP + CREATE, on purpose. ALTER sets the check expression
+-- in place: the policy is never absent, so the policy count cannot dip even
+-- momentarily (FR-5), the USING expression is carried over untouched rather
+-- than retyped from this file, and there is no window in which the table's
+-- UPDATE is unprotected. It is idempotent by nature — assigning the same
+-- expression again changes nothing — which satisfies FR-2 without the
+-- drop-then-create idiom used above for a policy that had to be created.
+--
+-- ALTER POLICY has no IF EXISTS, so a missing policy aborts the migration. That
+-- is the wanted behaviour: these five policies are created by
+-- 001_initial_schema.sql and their absence means the database is not in the
+-- state this migration was written against, which should stop loudly rather
+-- than be papered over.
+-- ----------------------------------------------------------------------------
+ALTER POLICY "Users can update own profile"
+  ON public.profiles
+  WITH CHECK (auth.uid() = id);
+
+ALTER POLICY "Users can update own resumes"
+  ON public.resumes
+  WITH CHECK (auth.uid() = user_id);
+
+ALTER POLICY "Users can update own applications"
+  ON public.job_applications
+  WITH CHECK (auth.uid() = user_id);
+
+ALTER POLICY "Users can update own goals"
+  ON public.career_goals
+  WITH CHECK (auth.uid() = user_id);
+
+ALTER POLICY "Users can update own suggestions"
+  ON public.ai_suggestions
+  WITH CHECK (auth.uid() = user_id);
+
+-- cover_letters is deliberately absent from that list. Its UPDATE policy was
+-- written with WITH CHECK in 003_cover_letters.sql and is the control the S1
+-- investigation compared the other five against; touching it here would remove
+-- the one policy in the schema that never needed this change.

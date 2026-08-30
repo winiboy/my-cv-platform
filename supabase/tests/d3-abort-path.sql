@@ -109,15 +109,51 @@ END $$;
 -- ---------------------------------------------------------------------------
 -- Arm 1: the real migration must refuse to run.
 -- ---------------------------------------------------------------------------
+-- WHY ON_ERROR_ROLLBACK, AND WHY :ERROR NO LONGER ANSWERS "DID IT RAISE?".
+--
+-- 006 is no longer a file whose last failing statement is the D3 guard: US-005
+-- appended an S1 section after it. Without ON_ERROR_ROLLBACK, the guard aborts
+-- the transaction and every appended statement then fails with "current
+-- transaction is aborted", so :LAST_ERROR_MESSAGE at the end of the include is
+-- that collateral message and not the guard's. This is the relocation the
+-- previous revision of this comment said would be needed, and it arrived exactly
+-- as predicted - the assertion below failed loudly and named the string it got.
+--
+-- ON_ERROR_ROLLBACK wraps each statement of the include in an implicit
+-- savepoint, so the guard's abort undoes the guard's own statement and leaves
+-- the transaction usable. The statements after it then succeed, and
+-- :LAST_ERROR_MESSAGE still holds the guard's message, because psql updates that
+-- variable only on error and never clears it on success. What this asserts is
+-- therefore unchanged, and it no longer depends on where in 006 the guard sits.
+--
+-- Nothing is weakened by letting the include continue. The guarded work - the
+-- orphan count and the constraint swap - is one DO block, one statement, so a
+-- fired guard means the swap did not happen whether or not the rest of the file
+-- runs. And arm 1 ends in ROLLBACK TO SAVEPOINT regardless, which is why the
+-- comment on arm 2 notes that arm 1's own after-the-fact assertions would be
+-- vacuous.
+--
+-- The cost is that :ERROR now reports the *last* statement, which succeeds, so
+-- it can no longer stand for "the migration raised". A sentinel replaces it:
+-- :LAST_ERROR_MESSAGE is set to a value no error can produce, and the include
+-- having changed it is the signal that something raised. The sentinel is
+-- deliberately space-free - psql's \set concatenates its arguments, so a
+-- sentinel with spaces would not survive being passed through a variable.
+\set d3_no_error 'd3-abort-path-nothing-raised'
+\set LAST_ERROR_MESSAGE :d3_no_error
+
 SAVEPOINT before_migration;
 
 \set ON_ERROR_STOP off
+\set ON_ERROR_ROLLBACK on
 \i :d3_migration
-\set fired :ERROR
 \set errmsg :LAST_ERROR_MESSAGE
+\set ON_ERROR_ROLLBACK off
 \set ON_ERROR_STOP on
 
 ROLLBACK TO SAVEPOINT before_migration;
+
+SELECT (:'errmsg' IS DISTINCT FROM :'d3_no_error') AS fired \gset
 
 -- Assertions branch with \if rather than testing the variable inside a DO block:
 -- psql does not interpolate its variables into dollar-quoted text, so :'fired'
@@ -134,13 +170,11 @@ ROLLBACK TO SAVEPOINT before_migration;
 -- The message must be the guard's own, and must carry what an operator needs:
 -- the table, and how many rows are affected.
 --
--- This reads the LAST error, which is the guard's only while the D3 block is the
--- final failing statement in 006. Should a later story append statements after
--- it, they would fail with "current transaction is aborted" and this assertion
--- would report that string instead - a loud, self-explaining failure rather than
--- a silent one, and the signal to move this check. Demonstrated, not supposed:
--- a mutant with a DELETE appended after the guard fails here with "current
--- transaction is aborted", exactly as described.
+-- This reads the last error the include produced. Under ON_ERROR_ROLLBACK that
+-- is the guard's message as long as no statement after the guard also fails; if
+-- one did, this assertion reports that string instead - a loud, self-explaining
+-- failure rather than a silent one. Demonstrated, not supposed: a mutant with a
+-- failing statement appended after the guard fails here and echoes what it got.
 SELECT (:'errmsg' LIKE '%cv_generation_logs%'
         AND :'errmsg' LIKE '%1 row(s)%') AS msg_names_table_and_count \gset
 
