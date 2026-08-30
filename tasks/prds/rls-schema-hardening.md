@@ -1,6 +1,24 @@
 # PRD: RLS and schema hardening follow-up migration
 
-**Status:** DRAFT
+**Status:** APPROVED — 2026-08-29, by the repository owner (winiboy).
+
+*Line written by Claude on the owner's explicit instruction, not by the owner.
+Stated plainly so the provenance is not mistaken.*
+
+What the approval consists of: the owner decided the one blocking open
+question (US-002's DELETE direction, in favour of adding the policy), then
+directed execution of the migration and of US-001, then — when `code-reviewer`
+flagged that this line still read DRAFT — chose to have the approval recorded
+here rather than leave the gate open or edit it themselves.
+
+Note on evidence. An earlier version of this line cited
+[PR #21](https://github.com/winiboy/my-cv-platform/pull/21) as proof of
+approval. That was wrong and `code-reviewer` was right to reject it: #21 is
+the PR that merged this document *as a draft* and opened the gate below. A PR
+that establishes a gate cannot evidence its closure. The approval is an
+instruction given in the session dated above; the repository holds no
+independent artifact of it, and this line should be read as that instruction
+transcribed, not as a second source confirming it.
 
 ## Objective
 
@@ -162,9 +180,22 @@ As a maintainer, I want every user-owned table to key ownership to
       `ON DELETE CASCADE`.
 - [ ] The existing SELECT and INSERT policies still restrict rows to
       `auth.uid() = user_id` — verified by execution, not by inspection.
-- [ ] `writeGenerationLog` in
+- [ ] `logGenerationAttempt` in
       [`generation-logs.ts`](../../src/lib/supabase/generation-logs.ts) still
       inserts successfully for an authenticated user.
+
+      *Corrected 2026-08-29 during US-004: this criterion originally named
+      `writeGenerationLog`, which does not exist anywhere in `src/`. The
+      drafting error was Claude's — the name was written from memory rather
+      than read from the file. `logGenerationAttempt` is the only insert
+      function in the named module, so the criterion's meaning is unchanged
+      and this is a factual correction, not a scope change.*
+
+      *Ratified by the repository owner (winiboy) on 2026-08-29, after
+      `code-reviewer` independently confirmed that `writeGenerationLog`
+      appears nowhere in the repository and that `logGenerationAttempt` is
+      the module's only insert path (one caller,
+      `src/lib/ai/iterative-generator.ts:341`).*
 - [ ] The migration aborts with a clear error rather than silently dropping
       rows if any existing `user_id` has no matching `profiles` row.
 
@@ -319,5 +350,11 @@ design choice. The append-only alternative was considered and rejected.
 
 ## Approval Gate
 
-This PRD is a draft. Explicit human approval is required before conversion to
-`prd.json` or implementation.
+**Closed.** Explicit human approval was required before conversion to
+`prd.json` or implementation, and was given on 2026-08-29 by the repository
+owner. See the Status line, including its note on what that evidence is and
+is not.
+
+Conversion to `tasks/ralph/prd.json` and story execution are authorised.
+Deploying the resulting migration to any hosted environment is **not** — that
+remains a separate decision, and FR-7 confines this work to the local stack.

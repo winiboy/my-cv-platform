@@ -1,0 +1,27 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "ralph/move-3-dot-menu",
+  "description": "Move the 3-dot (kebab) action menu on resume tiles from top-left to top-right so it matches the job-application tiles. Minimal Tailwind class swap scoped strictly to the resume tile component, zero regression on other pages.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Move resume tile kebab menu to top-right",
+      "description": "As a user viewing my resumes dashboard, I want the 3-dot action menu to appear in the top-right corner of each resume tile so it matches the job-applications page.",
+      "acceptanceCriteria": [
+        "Resume tile kebab button is absolutely positioned in the top-right corner of the card",
+        "Top/right offsets visually match the job-application tile kebab button",
+        "Dropdown menu opens right-aligned to the button (same as job-application tiles)",
+        "Clicking the button still opens the same actions menu (edit, delete, duplicate, etc.)",
+        "Change is a minimal Tailwind class swap — no structural JSX refactor",
+        "No modifications to job-application tile component or any other tile/page",
+        "pnpm lint passes",
+        "pnpm build passes",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

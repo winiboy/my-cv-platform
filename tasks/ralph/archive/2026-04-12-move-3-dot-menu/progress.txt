@@ -1,0 +1,20 @@
+# Ralph Progress Log
+# Feature: move-3-dot-menu (Move kebab menu top-right on resume tiles)
+# Branch: feature/3-dot
+# Started: 2026-04-12
+# Target Version: TBD
+
+---
+
+## Status: COMPLETE (1/1 stories PASS)
+
+---
+
+## Stories
+
+### US-001: Move resume tile kebab menu to top-right
+- Status: PASS
+- Commit: TBD
+- Priority: 1
+
+---
