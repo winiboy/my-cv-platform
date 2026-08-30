@@ -17,6 +17,163 @@ function Emit-Deny {
 
 function Emit-Noop { exit 0 }
 
+# --- Governance approval modes -------------------------------------------
+#
+# Phase 05 emitted only 'deny' or nothing, deliberately: the hook could
+# restrict but never grant, so permissions stayed the single authority.
+#
+# Two decisions are added here, and the contract change is intentional:
+#
+#   Emit-Ask   forces a prompt even when a permission rule would allow the
+#              command. This is the backstop for the non-negotiable gates -
+#              it survives an 'allow' entry appended by an "always allow"
+#              click, which is exactly how git commit was ungated before.
+#
+#   Emit-Allow grants routine local work while FAST TRACK is active for one
+#              user story. This is the only path by which the hook grants
+#              anything, it is scoped to a single story, and it is evaluated
+#              AFTER every deny rule, so nothing Phase 05 blocked is reachable
+#              through it.
+#
+# Precedence, unchanged in spirit: DENY > ASK > ALLOW > no decision.
+
+function Emit-Ask {
+    param([string]$Reason)
+    $payload = @{
+        hookSpecificOutput = @{
+            hookEventName            = 'PreToolUse'
+            permissionDecision       = 'ask'
+            permissionDecisionReason = $Reason
+        }
+    }
+    [Console]::Out.Write(($payload | ConvertTo-Json -Depth 6 -Compress))
+    exit 0
+}
+
+function Emit-Allow {
+    param([string]$Reason)
+    $payload = @{
+        hookSpecificOutput = @{
+            hookEventName            = 'PreToolUse'
+            permissionDecision       = 'allow'
+            permissionDecisionReason = $Reason
+        }
+    }
+    [Console]::Out.Write(($payload | ConvertTo-Json -Depth 6 -Compress))
+    exit 0
+}
+
+# Reads .claude/governance-state.json. Returns 'STANDARD' unless FAST TRACK is
+# recorded AND unexpired AND names a story. Any malformed, missing or expired
+# state falls back to STANDARD - the safe direction, since STANDARD grants
+# nothing beyond what permissions already allow.
+function Get-GovernanceMode {
+    param([string]$Cwd)
+    try {
+        $statePath = Join-Path $Cwd '.claude\governance-state.json'
+        if (-not (Test-Path -LiteralPath $statePath)) { return 'STANDARD' }
+        $raw = Get-Content -LiteralPath $statePath -Raw -ErrorAction Stop
+        if ([string]::IsNullOrWhiteSpace($raw)) { return 'STANDARD' }
+        $state = $raw | ConvertFrom-Json -ErrorAction Stop
+
+        $mode = [string](Get-Field $state 'mode')
+        if ($mode -ne 'FAST_TRACK') { return 'STANDARD' }
+
+        # A mode with no story cannot expire, so it is not a mode.
+        $storyId = [string](Get-Field $state 'storyId')
+        if ([string]::IsNullOrWhiteSpace($storyId)) { return 'STANDARD' }
+
+        $expires = [string](Get-Field $state 'expiresOn')
+        if (-not [string]::IsNullOrWhiteSpace($expires)) {
+            $parsed = [datetime]::MinValue
+            if ([datetime]::TryParse($expires, [ref]$parsed)) {
+                if ((Get-Date).ToUniversalTime() -gt $parsed.ToUniversalTime()) { return 'STANDARD' }
+            }
+        }
+        return 'FAST_TRACK'
+    } catch {
+        return 'STANDARD'
+    }
+}
+
+# The non-negotiable gates. These force a prompt in BOTH modes.
+# Anything already caught by a deny rule never reaches here.
+$script:ProtectedCommandRules = @(
+    @{ Pat = '^git\s+commit(\s|$)';                    Reason = 'git commit' },
+    @{ Pat = '^git\s+push(\s|$)';                      Reason = 'git push' },
+    @{ Pat = '^git\s+merge(\s|$)';                     Reason = 'git merge' },
+    @{ Pat = '^git\s+rebase(\s|$)';                    Reason = 'git rebase' },
+    @{ Pat = '^git\s+branch\s+-(d|D)(\s|$)';           Reason = 'branch deletion' },
+    @{ Pat = '^git\s+push\s+.*--delete(\s|$)';         Reason = 'remote branch deletion' },
+    @{ Pat = '^git\s+tag\s+-d(\s|$)';                  Reason = 'tag deletion' },
+    @{ Pat = '^gh\s+pr\s+(create|merge|edit|close|reopen|ready|review)(\s|$)'; Reason = 'pull request action' },
+    @{ Pat = '^gh\s+release(\s|$)';                    Reason = 'release publication' },
+    @{ Pat = '^gh\s+api\s+.*-X\s*(PUT|POST|PATCH|DELETE)'; Reason = 'GitHub API write' },
+    @{ Pat = '^(pnpm|npm|yarn)\s+(add|install)\s+\S';  Reason = 'adding a dependency' },
+    @{ Pat = '^(pnpm|npm|yarn)\s+publish(\s|$)';       Reason = 'package publication' },
+    @{ Pat = '^rm\s+(-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r)(\s|$)'; Reason = 'recursive force delete' },
+    @{ Pat = '^supabase\s+(db\s+push|link|migration\s+up)(\s|$)'; Reason = 'non-local database command' },
+    @{ Pat = '^(pnpm|npx)\s+supabase\s+(db\s+push|link|migration\s+up)(\s|$)'; Reason = 'non-local database command' },
+    @{ Pat = '^psql\s+.*(-h|--host)\s*(?!localhost|127\.0\.0\.1)'; Reason = 'psql against a non-local host' },
+    @{ Pat = '^vercel(\s|$)';                          Reason = 'deployment command' }
+)
+
+function Test-CommandIsProtected {
+    param([string]$Command)
+    $c = $Command.Trim()
+    foreach ($rule in $script:ProtectedCommandRules) {
+        if ($c -match $rule.Pat) { return $rule.Reason }
+    }
+    return $null
+}
+
+# Routine local work FAST TRACK may grant. Deliberately excludes package
+# installs, network calls and arbitrary interpreters (node -e, python): those
+# are either on the protected list above or stay subject to normal prompting.
+$script:FastTrackCommandPatterns = @(
+    '^pnpm\s+(lint|typecheck|build|test|test:watch|test:integration)(\s|$)',
+    '^pnpm\s+exec\s+(eslint|tsc|vitest)(\s|$)',
+    '^pnpm\s+dev(\s|$)',
+    '^git\s+(status|diff|log|show|rev-parse|ls-files|for-each-ref|cat-file|branch\s*$|merge-base)(\s|$)',
+    '^git\s+add\s+--\s',
+    '^(pnpm|npx)\s+supabase\s+(start|stop|status|db\s+reset)(\s|$)',
+    '^docker\s+(ps|logs)(\s|$)',
+    '^docker\s+exec\s+-i\s+supabase_db_[A-Za-z0-9_-]+\s+psql\s',
+    '^(ls|cat|head|tail|wc|sort|uniq|grep|find|echo|od|which|where)(\s|$)'
+)
+
+function Test-CommandIsFastTrackRoutine {
+    param([string]$Command)
+    $c = $Command.Trim()
+    foreach ($pat in $script:FastTrackCommandPatterns) {
+        if ($c -match $pat) { return $true }
+    }
+    return $false
+}
+
+# Paths that force a prompt in BOTH modes even for Write/Edit.
+# .env is already denied outright by Test-PathIsSecret; these are the files
+# where an edit is legitimate but must never be silent.
+function Test-PathIsProtectedForEdit {
+    param([string]$RawPath)
+    if ([string]::IsNullOrWhiteSpace($RawPath)) { return $null }
+    # Note: Normalize-Path/Get-Basename take -Path, while Test-PathIsSecret
+    # takes -RawPath. Passing the wrong name fails silently under
+    # $ErrorActionPreference='Continue' and this returns $null, which reads as
+    # "not protected" - the unsafe direction. The governance suite catches it.
+    $p = (Normalize-Path -Path $RawPath)
+    $base = Get-Basename -Path $p
+    if ($p -match '(^|/)\.github/workflows/')      { return 'CI workflow' }
+    if ($p -match '(^|/)\.github/')                { return 'CI configuration' }
+    if ($base -eq 'package.json')                  { return 'package manifest (dependencies)' }
+    if ($base -eq 'pnpm-lock.yaml')                { return 'dependency lockfile' }
+    if ($base -eq 'vercel.json')                   { return 'deployment configuration' }
+    if ($p -match '(^|/)supabase/migrations/')     { return 'database migration' }
+    if ($p -match '(^|/)\.claude/settings')        { return 'permission configuration' }
+    if ($p -match '(^|/)\.claude/hooks/')          { return 'governance hook' }
+    return $null
+}
+
 function Get-Field {
     param($Object, [string]$Name)
     if ($null -eq $Object) { return $null }
@@ -416,6 +573,20 @@ switch ($toolName) {
                 Emit-Deny "Phase 05 hook: $ralphReason"
             }
         }
+
+        # Files where an edit is legitimate but must never be silent, in
+        # either mode: CI config, dependency manifests, migrations, and the
+        # governance machinery itself. Without this, FAST TRACK could rewrite
+        # the very hook enforcing it.
+        $protectedEdit = Test-PathIsProtectedForEdit -RawPath $filePath
+        if ($protectedEdit) {
+            Emit-Ask "Governance gate: editing $protectedEdit ($filePath) always requires explicit approval, in both modes."
+        }
+
+        if ((Get-GovernanceMode -Cwd $cwd) -eq 'FAST_TRACK') {
+            Emit-Allow 'FAST TRACK: routine source edit, auto-approved for this user story.'
+        }
+
         Emit-Noop
     }
 
@@ -428,8 +599,11 @@ switch ($toolName) {
             Emit-Deny "Phase 05 hook: secret .env access blocked - $secretReason"
         }
 
-        if (Test-CommandIsReadOnly -Command $command) { Emit-Noop }
-
+        # Deny rules run before the read-only short-circuit so that the gate
+        # and grant checks below can sit ahead of it without ever seeing a
+        # command Phase 05 blocks. Read-only commands match none of these, so
+        # hoisting them changes no Phase 05 verdict - asserted by the 162-case
+        # suite, which still passes unchanged.
         $destroyReason = Test-CommandIsDestructiveGit -Command $command
         if ($destroyReason) {
             Emit-Deny "Phase 05 hook: destructive Git command blocked - $destroyReason"
@@ -439,6 +613,30 @@ switch ($toolName) {
         if ($stagingReason) {
             Emit-Deny "Phase 05 hook: unsafe git staging blocked - $stagingReason. Use explicit paths: git add -- src/file1 src/file2"
         }
+
+        # Non-negotiable gates, and the scoped FAST TRACK grant. Both sit
+        # ahead of the read-only short-circuit, because several routine
+        # commands FAST TRACK should grant (git status, pnpm lint) are
+        # classified read-only and would otherwise exit before being granted.
+        #
+        # Both are skipped entirely on main. Phase 05 forbids repository
+        # mutation there outright, and forbidden must beat prompted: without
+        # this guard, 'git commit' on main downgraded from deny to ask, and
+        # FAST TRACK would have granted mutating commands on main. Caught by
+        # the Phase 05 suite's MAIN cases, not by inspection.
+        if (-not $isMain) {
+            $protected = Test-CommandIsProtected -Command $command
+            if ($protected) {
+                Emit-Ask "Governance gate: $protected always requires explicit approval, in both STANDARD and FAST TRACK mode."
+            }
+
+            if ((Get-GovernanceMode -Cwd $cwd) -eq 'FAST_TRACK' -and (Test-CommandIsFastTrackRoutine -Command $command)) {
+                Emit-Allow 'FAST TRACK: routine local command, auto-approved for this user story.'
+            }
+        }
+
+        # Phase 05, unchanged: harmless inspection stays possible on main.
+        if (Test-CommandIsReadOnly -Command $command) { Emit-Noop }
 
         if ($isMain) {
             $preview = $command.Trim()

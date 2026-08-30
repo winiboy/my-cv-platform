@@ -1,4 +1,90 @@
 {
+  "permissions": {
+    "ask": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git merge:*)",
+      "Bash(git rebase:*)",
+      "Bash(git branch -d:*)",
+      "Bash(git branch -D:*)",
+      "Bash(git tag -d:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr edit:*)",
+      "Bash(gh pr close:*)",
+      "Bash(gh pr reopen:*)",
+      "Bash(gh release:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm install:*)",
+      "Bash(npm install:*)",
+      "Bash(yarn add:*)",
+      "Bash(pnpm publish:*)",
+      "Bash(vercel:*)",
+      "Bash(supabase db push:*)",
+      "Bash(supabase link:*)",
+      "Bash(pnpm supabase db push:*)",
+      "Bash(pnpm supabase link:*)",
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Edit(.github/**)",
+      "Edit(package.json)",
+      "Edit(pnpm-lock.yaml)",
+      "Edit(vercel.json)",
+      "Edit(supabase/migrations/**)",
+      "Edit(.claude/settings.json)",
+      "Edit(.claude/settings.local.json)",
+      "Edit(.claude/hooks/**)",
+      "Write(.github/**)",
+      "Write(supabase/migrations/**)",
+      "Write(.claude/hooks/**)"
+    ],
+    "allow": [
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm dev)",
+      "Bash(pnpm exec eslint:*)",
+      "Bash(pnpm exec tsc:*)",
+      "Bash(pnpm exec vitest:*)",
+      "Bash(pnpm supabase start:*)",
+      "Bash(pnpm supabase stop:*)",
+      "Bash(pnpm supabase status:*)",
+      "Bash(pnpm supabase db reset:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git ls-files:*)",
+      "Bash(git fetch:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker exec -i supabase_db_my-cv-platform psql:*)"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean:*)",
+      "Bash(git stash drop:*)",
+      "Bash(git stash clear:*)",
+      "Bash(git commit -a:*)",
+      "Bash(git commit -am:*)",
+      "Bash(git commit --all:*)",
+      "Bash(git add .)",
+      "Bash(git add -A:*)",
+      "Bash(git add --all:*)",
+      "Bash(rm -rf /:*)",
+      "Bash(rm -rf ~:*)",
+      "Bash(npm:*)",
+      "Bash(yarn:*)",
+      "Bash(bun:*)",
+      "Read(.env)",
+      "Read(.env.local)",
+      "Read(.env.*.local)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -7,6 +93,18 @@
           {
             "type": "command",
             "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${CLAUDE_PROJECT_DIR}\\.claude\\hooks\\pre-tool-guard.ps1\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git commit:*)",
+            "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${CLAUDE_PROJECT_DIR}\\.claude\\hooks\\post-commit-governance.ps1\""
           }
         ]
       }
