@@ -1,6 +1,13 @@
 # PRD: Authentication redirects land the user where they intended
 
-**Status:** DRAFT
+**Status:** APPROVED — 2026-08-31, by the repository owner (winiboy)
+
+*Evidence: the owner instructed `prd-to-json` to be run against this PRD by
+path, which is meaningful only for an approved PRD, and separately merged
+[PR #31](https://github.com/winiboy/my-cv-platform/pull/31) (`d338d8e`) whose
+description stated that approving it constitutes the approval CLAUDE.md §8
+requires. The instruction is the primary evidence: a PR that merges a draft
+cannot by itself prove that draft was approved.*
 
 ## Objective
 
@@ -279,8 +286,16 @@ arrive at that page after signing in, so that the link works.
 
 ## Open Questions
 
-- None blocking beyond BLOCKER-1, which is resolved by measuring sign-up's
-  actual behavior as the first step of US-002 rather than by a decision.
+- None.
+
+*Wording corrected 2026-08-31, after approval, before conversion. This section
+previously read "None blocking beyond BLOCKER-1, which is resolved by
+measuring sign-up's actual behavior as the first step of US-002 rather than by
+a decision." BLOCKER-1 already appears under BLOCKER Conditions, where
+`prd-to-json` carries it into every story's acceptance criteria, so the
+cross-reference was redundant and left this section reading as neither
+resolved nor unresolved. No requirement, scope or acceptance criterion
+changed. Authorized by the repository owner (winiboy).*
 
 ## Approval Gate
 
