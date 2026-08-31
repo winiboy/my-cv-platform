@@ -37,6 +37,13 @@ function getPackageVersion() {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Build output directory. Overridable so the E2E suite can build into
+  // .next-e2e instead of sharing .next with a dev server the developer may
+  // already have running - a shared cache between two Next processes produced
+  // intermittent "Unexpected end of JSON input" 500s. Defaults to .next, so
+  // normal builds and deploys are unaffected.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
+
   // Disable SWC minification in favor of standard Terser.
   // onnxruntime-web (dependency of @imgly/background-removal) uses
   // `new URL("file.mjs", import.meta.url)` which causes webpack to emit

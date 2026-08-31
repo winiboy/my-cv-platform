@@ -11,7 +11,8 @@ without checking anything are prohibited.
 | `pnpm lint` | ESLint 9 flat config over the repo | Reported, **not required** | 311 problems (237 errors, 74 warnings) |
 | `pnpm typecheck` | `tsc --noEmit` | **Required** | 0 errors |
 | `pnpm test` | Vitest, pure-function unit tests | **Required** | 89 tests passing |
-| `pnpm test:integration` | Vitest, route handlers against a local Supabase stack | **Required** | 11 tests passing |
+| `pnpm test:integration` | Vitest, route handlers against a local Supabase stack | **Required** | 14 tests passing |
+| `pnpm test:e2e` | Playwright, real browser against a production build | Reported, **not required** | 5 passing, 1 `fixme` |
 | `pnpm build` | `next build` | **Required** | Success |
 
 `typecheck`, `test` and `build` run in one CI job, `Verify (required)`, in that
@@ -102,11 +103,32 @@ need a running server and belong to E2E.
 These helpers create and delete users, so that guard is enforcement rather
 than convention.
 
+## E2E scope
+
+`pnpm test:e2e` drives a real browser against a production build of the app
+talking to the local Supabase stack. It covers the one layer the integration
+suite deliberately does not reach: the login form, the browser Supabase
+client, the cookies it writes, and the server reading them back.
+
+It builds into `.next-e2e` and runs `next start` rather than `next dev`. Both
+are for determinism, not realism: sharing `.next` with a dev server produced
+intermittent `Unexpected end of JSON input` 500s that failed two tests on one
+run and passed them on the next with no code change. Against a build the same
+suite runs roughly six times faster and has been repeatably clean.
+
+It is **not yet a required check**. It has never run on GitHub's hardware, and
+a flaky required check is worse than no check — promote it after a few green
+runs on `main`, the way Integration was.
+
+Tests create and delete users, so `src/test/local-stack.ts` refuses any
+non-local Supabase host. That matters more here than for the integration
+suite: the app reads `.env.local`, which points at a real project, so a run
+that failed to override it would create users in production.
+
 ## Not yet available
 
-`pnpm test:e2e` is intentionally absent. Playwright (Phase 12) and visual
-regression (Phase 13) each add their script when that layer lands, and become
-required CI checks at that point.
+`pnpm test:visual` is intentionally absent. Visual regression (Phase 13) adds
+its script when that layer lands.
 
 ## Why lint is not a required check
 

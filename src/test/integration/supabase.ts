@@ -12,44 +12,23 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/supabase'
+import {
+  LOCAL_SUPABASE_URL,
+  LOCAL_ANON_KEY,
+  LOCAL_SERVICE_KEY,
+  assertLocalSupabase,
+} from '../local-stack'
 
-const LOCAL_URL = 'http://127.0.0.1:54321'
-
-const LOCAL_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
-
-const LOCAL_SERVICE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU'
-
-export const SUPABASE_URL = process.env.TEST_SUPABASE_URL ?? LOCAL_URL
+export const SUPABASE_URL = process.env.TEST_SUPABASE_URL ?? LOCAL_SUPABASE_URL
 export const SUPABASE_ANON_KEY = process.env.TEST_SUPABASE_ANON_KEY ?? LOCAL_ANON_KEY
 const SUPABASE_SERVICE_KEY =
   process.env.TEST_SUPABASE_SERVICE_KEY ?? LOCAL_SERVICE_KEY
 
-/**
- * Refuse to run against anything that is not unambiguously local.
- *
- * `.claude/rules/testing.md` and roadmap Phase 11 both require that
- * destructive integration tests never point at a deployed environment. This
- * is the enforcement, not a convention: these helpers delete users.
- */
-function assertLocal(url: string): void {
-  let host: string
-  try {
-    host = new URL(url).hostname
-  } catch {
-    throw new Error(`Refusing to run integration tests: malformed URL ${url}`)
-  }
-  if (host !== '127.0.0.1' && host !== 'localhost' && host !== '::1') {
-    throw new Error(
-      `Refusing to run integration tests against non-local host "${host}". ` +
-        `These tests create and delete users. Point TEST_SUPABASE_URL at a ` +
-        `local stack (pnpm supabase start) or leave it unset.`
-    )
-  }
-}
-
-assertLocal(SUPABASE_URL)
+// `.claude/rules/testing.md` and roadmap Phase 11 both require that
+// destructive tests never point at a deployed environment. Enforced here, not
+// merely documented: these helpers delete users. Shared with the E2E suite so
+// the two cannot drift.
+assertLocalSupabase(SUPABASE_URL, 'Integration tests')
 
 /** Service-role client. Bypasses RLS — use only for fixture setup and teardown. */
 export function adminClient(): SupabaseClient<Database> {

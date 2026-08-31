@@ -129,3 +129,49 @@ jobs:
         with:
           name: lint-report
           path: lint-report.txt
+
+  e2e:
+    name: E2E (non-blocking)
+    runs-on: ubuntu-latest
+    # Not a required check yet, deliberately. It is deterministic locally -
+    # five consecutive clean runs - but it has never run on GitHub's hardware,
+    # and a flaky required check is worse than no check. Promote it once it has
+    # a few green runs on main, the way Integration was promoted.
+    continue-on-error: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Only chromium. The suite declares a single chromium project, so
+      # installing webkit and firefox would add minutes for browsers nothing runs.
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Start Supabase
+        run: pnpm supabase start -x studio,imgproxy,mailpit,realtime,vector,edge-runtime,logflare,supavisor,postgres-meta
+
+      # playwright.config.ts builds the app and starts it itself, pinned to the
+      # local stack. It refuses to run against a non-local Supabase host.
+      - name: Run E2E tests
+        run: pnpm test:e2e
+
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

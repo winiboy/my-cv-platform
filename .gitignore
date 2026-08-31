@@ -50,3 +50,8 @@ rls-audit-output.txt
 # A fresh clone has no state file, which the hook reads as STANDARD. That is
 # the intended fallback: absent state must never grant anything.
 .claude/governance-state.json
+
+# E2E build output (see playwright.config.ts)
+.next-e2e/
+test-results/
+playwright-report/
