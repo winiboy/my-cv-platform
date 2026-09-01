@@ -101,39 +101,48 @@ base.describe('unauthenticated access', () => {
 })
 
 /**
- * KNOWN BUG, found by this suite. Marked fixme so it is recorded without
- * being asserted as correct and without turning the suite red.
+ * A successful login must land on the dashboard with no further interaction.
  *
- * A successful login does not land the user on the dashboard. The form calls
- * router.push() as soon as signInWithPassword resolves, but the auth cookie
- * has not been persisted yet, so the RSC request for the dashboard is
- * unauthenticated, the layout redirects to /login, and nothing retries.
+ * This was a `fixme` recording a login that never left /login. The mechanism
+ * recorded with it - that `router.push()` fires before the auth cookie is
+ * persisted - did not survive measurement: the Cookie header on the dashboard
+ * RSC request was checked directly and carries the session every time.
+ * `_saveSession` writes `document.cookie` synchronously and is awaited before
+ * `signInWithPassword` resolves (@supabase/ssr 0.8 browser storage adapter,
+ * auth-js 2.87 GoTrueClient), so the cookie cannot be missing at `push()`.
  *
- * Measured against the local stack:
+ * The symptom did not reproduce under any of: 12 unthrottled attempts, the
+ * dashboard RSC response delayed 0.5-3s, CPU throttled 4x/10x/20x, or the
+ * sign-in response delayed 1-3s. So this test is asserting the behaviour, not
+ * reproducing a known-failing case - it passed on the unfixed form too. It is
+ * kept because the behaviour is worth pinning, but it is NOT a regression test
+ * for that defect, and it must not be cited as proof that one was fixed.
  *
- *     t+   47ms  cookie=no   url=/en/login
- *     t+  558ms  cookie=YES  url=/en/login
- *     t+ 3613ms  cookie=YES  url=/en/login     <- never leaves
- *     explicit goto /en/dashboard              -> holds, survives reload
+ * The three assertions below are one each for the three ways that can be
+ * wrong, and they are deliberately not interchangeable:
  *
- * The session is valid the whole time. The user is signed in and stuck on the
- * login form. In production this may be intermittent rather than reliable,
- * since it is a race - which makes it the kind of defect that is easy to
- * dismiss as a one-off report.
- *
- * Fixing it is a change to production behaviour and needs its own PRD, so it
- * is out of scope here. When it is fixed this test starts passing, Playwright
- * reports the unexpected pass, and the workaround in fixtures/auth.ts should
- * be removed with it.
+ *  - the URL, because the symptom was never leaving /login;
+ *  - the 10s budget, because a fix that navigates eventually is still a fix
+ *    the user experiences as a dead button;
+ *  - the reload, because a client-side route change to /dashboard with no
+ *    server-readable session behind it satisfies the first two and is still
+ *    the bug. Only the reload forces the server to prove it has the session.
  */
-base.fixme('a successful login lands on the dashboard by itself', async ({ page }) => {
+base('a successful login lands on the dashboard by itself', async ({ page }) => {
   const user = await createTestUser()
   try {
     await page.goto('/en/login')
     await page.fill('#email', user.email)
     await page.fill('#password', TEST_PASSWORD)
+
+    const submittedAt = Date.now()
     await page.click('button[type="submit"]')
-    await page.waitForURL(/\/en\/dashboard/, { timeout: 15_000 })
+    await page.waitForURL(/\/en\/dashboard/, { timeout: 10_000 })
+    const elapsed = Date.now() - submittedAt
+    baseExpect(elapsed, 'the dashboard must be reached within 10s of submitting').toBeLessThan(10_000)
+
+    await page.reload()
+    await baseExpect(page, 'the destination must survive a reload').toHaveURL(/\/en\/dashboard/)
   } finally {
     await deleteTestUser(user.id)
   }

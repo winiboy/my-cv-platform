@@ -74,29 +74,10 @@ export async function loginAs(page: Page, user: TestUser, locale = 'en'): Promis
   await page.fill('#password', user.password)
   await page.click('button[type="submit"]')
 
-  // Wait for the session cookie rather than for the redirect.
-  //
-  // WORKAROUND for a real application bug, not a test convenience. The form's
-  // router.push() fires before signInWithPassword has persisted the cookie, so
-  // the RSC request for the dashboard goes out unauthenticated, the dashboard
-  // layout's getUser() finds nothing and redirects back to /login - and
-  // nothing retries. Measured: the cookie lands at ~558ms while the URL is
-  // still /login at 3.6s and stays there.
-  //
-  // The session itself is valid throughout: an explicit navigation reaches the
-  // dashboard immediately and survives a reload. So this waits for the real
-  // signal and then navigates itself.
-  //
-  // See the `test.fixme` in e2e/auth.spec.ts, which documents the broken
-  // redirect without asserting it is correct. Remove this workaround when that
-  // starts passing.
-  await page.waitForFunction(
-    () => document.cookie.split(';').some((c) => c.trim().startsWith('sb-') && c.includes('auth-token')),
-    undefined,
-    { timeout: 30_000 }
-  )
-  await page.goto(`/${locale}/dashboard`)
-  await page.waitForURL(new RegExp(`/${locale}/dashboard`), { timeout: 60_000 })
+  // Wait for the redirect the form itself performs. The fixture deliberately
+  // does not navigate on the form's behalf: doing so would hide a regression
+  // in the post-login redirect from every test that logs in.
+  await page.waitForURL(new RegExp(`/${locale}/dashboard`), { timeout: 30_000 })
 }
 
 /**

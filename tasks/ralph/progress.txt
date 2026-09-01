@@ -9,3 +9,72 @@ The previous contract (chore/rls-schema-hardening, 5 stories, all PASS) is
 archived at tasks/ralph/archive/2026-08-31-rls-schema-hardening/.
 
 ---
+US-001  Signing in lands on the dashboard without further action
+Date: 2026-09-01
+Branch: fix/login-redirect
+Baseline HEAD: b593c5f
+
+RESULT: NOT_REPRODUCIBLE - story withdrawn, not implemented, not passed.
+
+senior-coder declined to implement and returned a BLOCKER rather than ship a
+change whose test passes identically before and after. That was the correct
+call and it is the reason this was caught.
+
+Evidence the premise is false:
+- The Cookie header on the dashboard RSC request was read directly with
+  request.allHeaders() - headers() omits Cookie, which is likely how the
+  original reading was taken - and carries the session every time:
+    REQ t+200ms /en/dashboard?_rsc=74ftp cookieHeaderHasAuth=YES
+- @supabase/ssr 0.8's browser storage adapter writes document.cookie
+  synchronously, and auth-js 2.87 awaits _saveSession before
+  signInWithPassword resolves. The cookie cannot be missing at push().
+  onAuthStateChange('SIGNED_IN') fires after that write, so the signal the
+  story pointed at would have been a no-op.
+- Not reproduced under: 12 unthrottled attempts, CPU throttling 4x/10x/20x,
+  sign-in response delayed 1-3s, dashboard RSC delayed 0.5-3s.
+- The converted test PASSES against the unfixed login form.
+- I tested my own escape hatch - that the original measurement was in next dev
+  and E2E had since moved to a production build. It passes in dev too.
+
+Most likely cause of the original observation: it was taken during the session
+that later found the dev server returning "SyntaxError: Unexpected end of JSON
+input" and bare "Internal Server Error" pages from a corrupted .next cache -
+the defect that prompted moving E2E onto a production build. The measurement
+was real; the environment was broken, and the inference drawn from it was not.
+
+Kept from this story, shipped under the closure commit rather than as a story
+commit, because both stand on their own:
+- e2e/auth.spec.ts: the test.fixme became a normal passing test. Its comment
+  records the falsified mechanism and states it must not be cited as proof a
+  defect was fixed.
+- e2e/fixtures/auth.ts: the cookie-wait workaround is gone. loginAs now waits
+  on the redirect the form performs, so a real regression in the post-login
+  redirect can no longer hide from every test that logs in. Strictly better
+  than the workaround it replaces.
+
+US-002 withdrawn with it: its defect was inferred from the shared router.push
+pattern, and BLOCKER-1 recorded exactly that. The blocker did its job - it
+named the assumption, and the assumption was the weak part. Sign-up still has
+no browser coverage; that is a missing test, not a defect, and needs its own
+story.
+
+Findings from the investigation, none in scope, each worth its own story:
+- login-form.tsx:97 router.refresh() issues a second sequential RSC fetch of
+  the same route and roughly doubles time-to-dashboard. Measured: 6305ms
+  landing under a 3000ms delay. Real cost, no defect behind it.
+- middleware.ts:74 discards refreshed auth cookies. updateSession rebuilds the
+  response with Set-Cookie when Supabase rotates the token, but the
+  unauthenticated branch returns a fresh NextResponse.redirect and drops them.
+  Latent session-loss bug.
+- /en/forgot-password returns 404 while login-form.tsx:240 links to it.
+
+Checks (on the test-side changes only; src/ untouched):
+- E2E: PASS 6 passed, three consecutive runs (1.1m, 52.5s, 50.8s)
+- Unit: PASS 89   Integration: PASS 14   Typecheck: PASS
+- Lint: 311 problems - exactly baseline   Build: PASS
+- code-reviewer: NOT_RUN - no production code changed and the story is
+  withdrawn rather than passed, so there is no implementation to review.
+
+FINAL: NOT_REPRODUCIBLE (not PASS)
+
+---
