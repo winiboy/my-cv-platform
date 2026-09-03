@@ -1,518 +1,199 @@
-# Ralph Progress Log
-# Feature: rls-schema-hardening (Phase 26 follow-up migration)
-# PRD: tasks/prds/rls-schema-hardening.md (APPROVED 2026-08-29)
-# Branch: chore/rls-schema-hardening
-# Started: 2026-08-29
+Ralph execution log
+===================
+
+Contract: fix/login-redirect (authentication redirect defects)
+PRD: tasks/prds/login-redirect.md
+Started: 2026-08-31
+
+The previous contract (chore/rls-schema-hardening, 5 stories, all PASS) is
+archived at tasks/ralph/archive/2026-08-31-rls-schema-hardening/.
 
 ---
+US-001  Signing in lands on the dashboard without further action
+Date: 2026-09-01
+Branch: fix/login-redirect
+Baseline HEAD: b593c5f
 
-## Status: IN PROGRESS (3/5 stories PASS)
+RESULT: NOT_REPRODUCIBLE - story withdrawn, not implemented, not passed.
+
+senior-coder declined to implement and returned a BLOCKER rather than ship a
+change whose test passes identically before and after. That was the correct
+call and it is the reason this was caught.
+
+Evidence the premise is false:
+- The Cookie header on the dashboard RSC request was read directly with
+  request.allHeaders() - headers() omits Cookie, which is likely how the
+  original reading was taken - and carries the session every time:
+    REQ t+200ms /en/dashboard?_rsc=74ftp cookieHeaderHasAuth=YES
+- @supabase/ssr 0.8's browser storage adapter writes document.cookie
+  synchronously, and auth-js 2.87 awaits _saveSession before
+  signInWithPassword resolves. The cookie cannot be missing at push().
+  onAuthStateChange('SIGNED_IN') fires after that write, so the signal the
+  story pointed at would have been a no-op.
+- Not reproduced under: 12 unthrottled attempts, CPU throttling 4x/10x/20x,
+  sign-in response delayed 1-3s, dashboard RSC delayed 0.5-3s.
+- The converted test PASSES against the unfixed login form.
+- I tested my own escape hatch - that the original measurement was in next dev
+  and E2E had since moved to a production build. It passes in dev too.
+
+Most likely cause of the original observation: it was taken during the session
+that later found the dev server returning "SyntaxError: Unexpected end of JSON
+input" and bare "Internal Server Error" pages from a corrupted .next cache -
+the defect that prompted moving E2E onto a production build. The measurement
+was real; the environment was broken, and the inference drawn from it was not.
+
+Kept from this story, shipped under the closure commit rather than as a story
+commit, because both stand on their own:
+- e2e/auth.spec.ts: the test.fixme became a normal passing test. Its comment
+  records the falsified mechanism and states it must not be cited as proof a
+  defect was fixed.
+- e2e/fixtures/auth.ts: the cookie-wait workaround is gone. loginAs now waits
+  on the redirect the form performs, so a real regression in the post-login
+  redirect can no longer hide from every test that logs in. Strictly better
+  than the workaround it replaces.
+
+US-002 withdrawn with it: its defect was inferred from the shared router.push
+pattern, and BLOCKER-1 recorded exactly that. The blocker did its job - it
+named the assumption, and the assumption was the weak part. Sign-up still has
+no browser coverage; that is a missing test, not a defect, and needs its own
+story.
+
+Findings from the investigation, none in scope, each worth its own story:
+- login-form.tsx:97 router.refresh() issues a second sequential RSC fetch of
+  the same route and roughly doubles time-to-dashboard. Measured: 6305ms
+  landing under a 3000ms delay. Real cost, no defect behind it.
+- middleware.ts:74 discards refreshed auth cookies. updateSession rebuilds the
+  response with Set-Cookie when Supabase rotates the token, but the
+  unauthenticated branch returns a fresh NextResponse.redirect and drops them.
+  Latent session-loss bug.
+- /en/forgot-password returns 404 while login-form.tsx:240 links to it.
+
+Checks (on the test-side changes only; src/ untouched):
+- E2E: PASS 6 passed, three consecutive runs (1.1m, 52.5s, 50.8s)
+- Unit: PASS 89   Integration: PASS 14   Typecheck: PASS
+- Lint: 311 problems - exactly baseline   Build: PASS
+- code-reviewer: NOT_RUN - no production code changed and the story is
+  withdrawn rather than passed, so there is no implementation to review.
+
+FINAL: NOT_REPRODUCIBLE (not PASS)
 
 ---
-
-## Stories
-
-## US-001: handle_new_user() resolves names deterministically
+## US-003: A deep link survives the sign-in detour
 Status: PASS
 Priority: 1
-Branch: chore/rls-schema-hardening
-Baseline HEAD: ba3dd5cf50f669e879e6e9637002ebf3c5ed008b
+Branch: fix/login-redirect
+Baseline HEAD: 5191b3c
 
 Scope:
 - Scope check: PASS
-- Changed paths: supabase/migrations/006_rls_schema_hardening.sql (new),
-  supabase/tests/rls-audit.sql
-- Migrations 001-005 not edited; no application source changed.
+- Changed paths: src/middleware.ts, src/components/auth/login-form.tsx,
+  e2e/auth.spec.ts
+- Untouched, deliberately: signup-form.tsx (was US-002, withdrawn),
+  router.refresh() at login-form.tsx, the dropped-auth-cookie branch in
+  middleware.ts, /api/auth/callback. No dependency change.
 
 Checks:
-- pnpm supabase db reset: PASS - exit 0, migrations 001-006 applied in order
-  from an empty database.
-- RLS audit harness: PASS - 40/40, the 35 pre-existing checks unchanged.
-- Idempotency: PASS - migration re-applied against an already-migrated
-  database, no error; trigger OID 17899 stable across re-application.
-- Catalog state: PASS - proconfig = {"search_path=public, pg_temp"},
-  prosecdef = t.
-- FR-5 invariants: PASS - rls_tables=8, policies=27.
-- Mutation check: PASS - ALTER FUNCTION ... RESET search_path flips check 1
-  to FAIL (1 FAIL / 39 PASS), so the new assertion bites rather than passing
-  vacuously. Restored by db reset.
-- pnpm typecheck: PASS - exit 0.
-- pnpm test: PASS - 89 passing.
-- pnpm test:integration: PASS - 11 passing.
-- pnpm lint: PASS - 311 problems, baseline unchanged.
-- pnpm build: PASS - exit 0, 108/108 static pages.
+- E2E: PASS 21/21, deterministic across three consecutive runs
+- Unit: PASS 89   Integration: PASS 14   Typecheck: PASS
+- Lint: 311 problems (237/74) - exactly baseline
+- Build: PASS
 
 Specialized validation:
-- Database: PASS - database-migration skill. FUNCTION_TRIGGER_CHANGE,
-  non-destructive. history_match/static_review/apply/schema_postcheck all
-  PASS; referential_integrity and backfill NOT_APPLICABLE; type_alignment
-  PASS (handle_new_user is a trigger function, absent from the generated
-  types, public Functions block is empty).
-- Browser: NOT_APPLICABLE - no UI surface.
-- Visual: NOT_APPLICABLE - no rendered output.
-- Export: NOT_APPLICABLE - no export path touched.
-- Security: NOT_APPLICABLE as a separate pass - the RLS/ownership evidence
-  required by this story is carried by the audit harness above; broader
-  application security review is Phase 30.
+- Browser: PASS - every hostile destination refused by execution, each with a
+  network-level guard asserting no request leaves for evil.test
+- Security: PASS - security-review, 0 critical/high/medium, 1 INFO
+- Visual / Export / Database: NOT_APPLICABLE
 
 Agents:
-- ui-expert: NOT_APPLICABLE - no UI affected.
-- code-reviewer: PASS on re-review, after an initial FAIL.
-
-Review history:
-- First pass FAIL. Two defects in the audit harness, both demonstrated rather
-  than asserted:
-  * pg_temp.chk_db took the actor label as free text while executing as the
-    privileged session user, so a row could report actor 'A' for a result no
-    user role could achieve. Reviewer reproduced a false PASS for US-002's
-    exact criterion against a database with no such policy.
-  * The 'signup fixture fires the trigger' check asserted only an INSERT
-    rowcount and could not observe the trigger; it stayed PASS when the
-    function body was gutted.
-  Also: the S2 fixture mutated shared state at the tail of the script with no
-  isolation, and the migration header forbade the appending that FR-1
-  requires.
-- All four returned to senior-coder and fixed. p_actor removed from the
-  signature outright so impersonation is structurally impossible rather than
-  discouraged; actor derived as 'db:' || current_user; role pinned at entry.
-  Intent string corrected. S2 section relocated ahead of the role-scoped
-  checks so every check, including any appended by later stories, observes
-  one baseline. Header reworded.
-- Re-review PASS on all four, verified independently by the reviewer,
-  including re-running its own attack with a hostile role set beforehand.
+- ui-expert: NOT_APPLICABLE - no visual surface changed; the change is a
+  redirect destination and a string validator
+- code-reviewer: PASS on the second round (FAIL on the first)
 
 Acceptance criteria:
-- AC-01 search_path pinned: PASS - proconfig contains
-  'search_path=public, pg_temp'; harness check 1; mutation-tested.
-- AC-02 remains SECURITY DEFINER: PASS - prosecdef = t; harness check 2.
-- AC-03 signup still populates the profile row: PASS - harness checks 4 and 5;
-  profile row carries id, email, full_name and avatar_url.
-- AC-04 function replaced, trigger not dropped: PASS - CREATE OR REPLACE with
-  no DROP in the file; trigger OID stable at 17899 across re-application;
-  harness check 3.
+- AC1 deep link survives sign-in: PASS - /en/dashboard/resumes?sort=updated
+  returns intact after login, verified in browser
+- AC2 ?callbackUrl entry points still work: PASS - E2E 9 and 11
+- AC3 non-single-slash destination rejected: PASS
+- AC4 rejection asserted by execution: PASS - E2E 12-21
+- AC5 verified in a real browser: PASS
 
-Governance:
-- Permission pollution detected and stripped on each occurrence; no
-  .claude/ change committed.
-- PRD approval gate: raised by code-reviewer as a BLOCKER while the PRD still
-  read DRAFT. Resolved by the owner and recorded in commit 06c4fd9, separately
-  from this story commit. The first attempt at that record cited PR #21 as
-  evidence; the reviewer rejected it as circular, since #21 merged the draft
-  and opened the gate. Corrected to state that the approval is a session
-  instruction with no independent repository artifact.
+WHAT THIS STORY ACTUALLY FOUND
 
-Standing check for US-002, US-004 and US-005:
-- Any acceptance criterion phrased 'verified by execution' must be asserted by
-  a check whose actor column reads A, B or anon. A 'db:' actor means the
-  result came from the privileged runner and proves nothing about policy.
+The named defect was a parameter-name mismatch: middleware wrote ?redirect,
+the login form read ?callbackUrl, so every deep link was discarded. Fixed by
+aligning on callbackUrl - the name with five live producers and the only
+reader - rather than reading both, which would have created two spellings for
+one concept. The deep link's own query string now travels with it.
+
+But the story also exposed a LIVE OPEN REDIRECT in shipped code. Because
+?callbackUrl was already read via the marketing tools links, an attacker could
+send /en/login?callbackUrl=/\evil.test and land a signed-in user off-origin
+from a legitimate login flow. Five inputs defeated the old validator:
+/\evil.test, /\evil.test, and raw TAB, LF and CR variants. All confirmed by
+execution, not inspection.
+
+AND THE FIRST FIX INTRODUCED A DIFFERENT ONE
+
+Round 1 tightened the validator and shipped a NEW open redirect on a class the
+old code handled safely. getSafeRedirectUrl validated the parsed URL object -
+correctly same-origin - then returned resolved.pathname, which for /.//evil.test
+is the string "//evil.test". Six dot-segment inputs escaped. code-reviewer
+navigated a real browser off-origin to prove it (chrome-error://chromewebdata/,
+page title evil.test) and traced Next 14.2.33's useNavigate -> isExternalURL ->
+handleExternalUrl -> location.assign.
+
+Fixed by extracting isSingleSlashRelativePath() and applying it to BOTH the
+candidate and the reconstruction, immediately before returning.
+
+Final differential, verified independently: old validator 5 escapes, new
+validator 0 across 22 hostile inputs in 4 classes, 9/9 legitimate destinations
+preserved.
+
+THE LESSON, WORTH CARRYING
+
+Validate the representation you RETURN, not the one you inspected. The origin
+check was not lying - `resolved` genuinely was same-origin. The danger was
+created afterwards, by serializing it back to a string that could begin with //.
+
+Two related process notes:
+- My own differential declared the round-1 validator clean. It was not. I chose
+  probes matching the bug I already knew about, so dot-segments were absent. A
+  clean differential over the wrong probe set is indistinguishable from a clean
+  differential.
+- code-reviewer found a THIRD representation neither of us had considered:
+  Next's addBasePath -> normalizePathTrailingSlash rewrites the approved string
+  after validation. It ported those helpers and re-fuzzed through the real
+  chain - 13,139 inputs, 243 strings altered downstream, 0 that became unsafe,
+  because the transform only strips a trailing slash and cannot manufacture a
+  leading //. If basePath or trailingSlash is ever configured, that chain needs
+  a fresh look.
+- It also caught a stale-build hazard: its own round-1 server still held the
+  port and would have served the vulnerable bundle. It verified the served
+  bundle text directly rather than trusting the build.
+
+Exhaustive re-hunt for a further class: 67,412 generated inputs over a hostile
+alphabet, including Unicode solidus lookalikes, encoded traversals, query and
+fragment smuggling and @-userinfo forms. Zero escapes, zero legitimate
+destinations broken.
+
+Carried forward, not blocking:
+- getSafeRedirectUrl has no unit coverage. Accepted for this story on scope
+  grounds - extraction is a structural change and the PRD names E2E as the
+  primary evidence. NOT accepted on the grounds first offered, that it would
+  change the unit count from 89: a test count is not a number to protect, and
+  the regression constraint says those tests must keep passing, not that
+  coverage must not grow. A pure string function guarding an open redirect
+  deserves a layer that can run 60,000 cases in a second. Worth its own story.
+- /api/auth/callback still does not validate `next`. Safe by construction - the
+  locale prefix neutralises //evil.test - but by accident rather than by
+  validation. Its own story.
+- router.refresh() at login-form.tsx roughly doubles time-to-dashboard.
+- middleware.ts drops refreshed auth cookies on the unauthenticated branch.
+  This change routes more traffic through that branch, so it matters more now.
 
 Commit:
-- Story commit: 9540ae9
-- Commit message: ralph: US-001 handle_new_user() resolves names deterministically
-
-FINAL: PASS
-
----
-
-## US-002: resume_analyses deletion behaviour is explicit
-Status: PASS
-Priority: 2
-Branch: chore/rls-schema-hardening
-Baseline HEAD: 9540ae9
-
-Scope:
-- Scope check: PASS
-- Changed paths: supabase/migrations/006_rls_schema_hardening.sql (US-002
-  section appended), supabase/tests/rls-audit.sql
-- Migrations 001-005 not edited; no application source changed.
-
-Checks:
-- pnpm supabase db reset: PASS - exit 0, 001-006 applied from empty.
-- RLS audit harness: PASS - 47/47 (was 40 after US-001). All 40 prior checks
-  still pass.
-- FR-5: PASS - policies 27 -> 28, rls_tables=8. Exactly one policy added.
-- Idempotency: PASS - 006 re-applied, no error, count still 28.
-- Negative control: PASS - dropping the DELETE policy flips the own-delete and
-  catalog checks to FAIL.
-- Discrimination control: PASS - recreating the policy as USING (true) flips
-  the new unqualified-delete check to FAIL reporting 2 rows destroyed.
-- pnpm typecheck: PASS - exit 0.
-- pnpm test: PASS - 89 passing.
-- pnpm test:integration: PASS - 11 passing.
-- pnpm lint: PASS - 311 problems, baseline unchanged.
-- pnpm build: PASS - exit 0, 108/108 static pages.
-
-Specialized validation:
-- Database: PASS - RLS_POLICY_CHANGE, additive. Catalog verified: polcmd='d',
-  qual exactly (auth.uid() = user_id), permissive, no with_check.
-- Browser / Visual / Export: NOT_APPLICABLE.
-
-Agents:
-- ui-expert: NOT_APPLICABLE - no UI affected.
-- code-reviewer: PASS on re-review, after an initial FAIL.
-
-An existing check was deliberately modified, not weakened:
-- The harness previously asserted 'A deletes own analysis -> 0 rows', which
-  passed precisely because no DELETE policy existed; it documented the defect.
-  Its expectation is now 1. Coverage increased 40 -> 47; no check was removed
-  or neutered. code-reviewer confirmed this is the "correcting a check that
-  documented a defect" case, not the "weakening coverage" case.
-
-Review history:
-- First pass FAIL, two critical findings, both proven by execution:
-  * Criterion 3's check could not fail when the criterion was violated.
-    PostgreSQL pre-filters a column-referencing DELETE through the SELECT
-    policy, so 'DELETE ... WHERE id=<A's>' as B returns 0 regardless of the
-    DELETE predicate. Under USING (true) an UNQUALIFIED delete as B destroys
-    A's rows - criterion 3 false in reality while the harness reported PASS.
-    Reproduced independently by the orchestrator before acting.
-  * The cascade test deleted :R1, which cascades to :GL via
-    cv_generation_logs.resume_id NOT NULL ON DELETE CASCADE - the only
-    cv_generation_logs fixture. US-004's "verified by execution" criteria
-    would have passed vacuously against rows that no longer existed.
-- Fixed: added a role-scoped unqualified-delete check for B; seeded a private
-  parent resume :R3 and re-parented :AN2 onto it so :R1 and :GL survive; added
-  check 47 asserting :GL survival as a permanent property.
-- Re-review PASS, no remaining findings.
-
-Notes for US-003, US-004 and US-005:
-- Standing check (from US-001 review): any criterion phrased "verified by
-  execution" must be asserted by a check whose actor column reads A, B or
-  anon. A 'db:' actor is the privileged runner and proves nothing about policy.
-- Second standing check (from US-002 review): a criterion about what a user
-  CANNOT do needs a statement shape that would actually succeed if the policy
-  were wrong. A column-referencing DELETE is pre-filtered by the SELECT policy
-  and cannot discriminate on its own.
-- Check 13 encodes a fixture invariant: it expects 0 because B owns no
-  analyses. Seeding a B-owned analysis in a later story would turn it into a
-  false FAIL. The comment states this at the check.
-- :R1 and :GL are intact at the end of the run and are the stable tail
-  baseline. :AN and :JA are consumed mid-run; :AN2 and :R3 are consumed by the
-  cascade block. A story needing any of those must seed its own fixture.
-- DEFERRED: the docs/engineering/rls-audit.md closure note for finding D2 is
-  owned by US-005, which already carries a docs change. The PRD appends that
-  verification line to every story mechanically; updating the document five
-  times is churn. If US-005 is dropped - the PRD names it as the story to drop
-  under time pressure - this note must be reassigned, not lost. It currently
-  covers S2 (US-001) and D2 (US-002).
-
-Acceptance criteria:
-- AC-01 DELETE policy with owner qualifier: PASS - catalog check; qual is
-  exactly (auth.uid() = user_id).
-- AC-02 own delete affects exactly 1 row: PASS - role-scoped check, actor A;
-  flips to FAIL when the policy is dropped.
-- AC-03 deleting another user's analysis affects 0 rows: PASS - asserted by a
-  pair. The by-id check constrains the SELECT policy; the unqualified check
-  constrains the DELETE predicate and fires under an over-permissive policy.
-- AC-04 cascade from parent resume unchanged: PASS - private :R3/:AN2 pair;
-  child present before the parent delete, absent after.
-
-Governance:
-- Permission pollution stripped; no .claude/ change committed.
-
-Commit:
-- Story commit: 3785674
-- Commit message: ralph: US-002 resume_analyses deletion behaviour is explicit
-
-FINAL: PASS
-
----
-
-## US-003: One updated_at trigger function
-Status: PASS
-Priority: 3
-Branch: chore/rls-schema-hardening
-Baseline HEAD: 3785674
-
-Scope:
-- Scope check: PASS
-- Changed paths: supabase/migrations/006_rls_schema_hardening.sql (M3 section
-  appended), supabase/tests/rls-audit.sql
-- Migrations 001-005 not edited; no application source changed.
-
-Checks:
-- pnpm supabase db reset: PASS - exit 0, 001-006 applied from empty.
-- RLS audit harness: PASS - 55/55 (was 47 after US-002). All 47 prior checks
-  still pass.
-- Catalog: PASS - all five public triggers now execute
-  update_updated_at_column; update_cover_letters_updated_at count = 0.
-- FR-5: PASS - policies still 28, rls_tables=8. This story adds no policy.
-- Idempotency: PASS - M3 section re-applied twice against an already-migrated
-  database. The second run emits "NOTICE: function ... does not exist,
-  skipping" and succeeds, which is the already-gone path FR-2 requires.
-- Mutation: PASS - dropping only trigger_cover_letters_updated_at flips three
-  checks, including the BEHAVIOURAL one (0 rows where 1 expected), so the
-  sentinel design detects a non-firing trigger rather than passing vacuously.
-- pnpm typecheck: PASS - exit 0.
-- pnpm test: PASS - 89 passing.
-- pnpm test:integration: PASS - 11 passing.
-- pnpm lint: PASS - 311 problems, baseline unchanged.
-- pnpm build: PASS - exit 0, 108/108 static pages.
-
-Specialized validation:
-- Database: PASS - FUNCTION_TRIGGER_CHANGE. Trigger repointed before the
-  function was dropped, because DROP FUNCTION would cascade to the trigger.
-  No CASCADE on the drop, so an unknown dependent fails loudly.
-- Browser / Visual / Export: NOT_APPLICABLE.
-
-Agents:
-- ui-expert: NOT_APPLICABLE - no UI affected.
-- code-reviewer: PASS, first pass, no critical or major findings. One minor
-  documentation fix applied (see below).
-
-This story drops a function, unlike US-001 and US-002:
-- FR-3 forbids deleting rows and dropping columns; it does not cover catalog
-  objects, and criterion 1 in the same acceptance list mandates this drop.
-  code-reviewer adjudicated the same reading independently.
-
-The NOW() problem, and why the obvious check would have been worthless:
-- The harness runs in ONE transaction, and NOW() returns transaction start
-  time. A fixture inserted in that transaction already carries
-  updated_at = NOW(), so the trigger writes the same value. Measured:
-  'updated_at > previous' is FALSE with a working trigger; 'updated_at >=
-  previous' is TRUE with no trigger at all. Neither records anything.
-- The check instead supplies a sentinel the transaction clock can never equal
-  and asserts the post-trigger image in a single data-modifying CTE:
-    WITH bumped AS (UPDATE ... SET updated_at = '2000-01-01' ... RETURNING
-    updated_at) SELECT 1 FROM bumped WHERE updated_at = now()
-  One statement, not two: RETURNING yields the post-trigger row, so a row the
-  update never matched cannot pass. code-reviewer re-derived this with five
-  probes rather than accepting the argument, and confirmed the now() equality
-  is guaranteed rather than incidental - both the trigger body and the outer
-  SELECT resolve to transaction_timestamp().
-- The check proves the narrower property "the trigger overwrites a
-  caller-supplied updated_at with transaction time". Literal cross-transaction
-  advancement would require committing, which the harness ROLLBACK contract
-  forbids.
-
-Acceptance criteria:
-- AC-01 duplicate function gone: PASS - pg_proc count 0.
-- AC-02 cover_letters trigger executes update_updated_at_column: PASS -
-  pg_trigger to pg_proc join.
-- AC-03 cover_letters update still advances updated_at: PASS - sentinel check,
-  actor A, role-scoped; mutation-verified.
-- AC-04 every other updated_at table still advances: PASS - profiles, resumes,
-  job_applications and career_goals each covered by a role-scoped sentinel
-  check. A catalog check pins the trigger set at five, so criterion 4 is
-  asserted over a known set rather than an assumed one.
-
-Notes for US-004 and US-005:
-- New fixtures seeded in the FIXTURES BLOCK, not the tail: :R4, :JA2, :CG2,
-  :CL2 (owner A, one per table) and :C (a third auth identity, because
-  public.profiles is 1:1 with auth.users so a private profile needs a private
-  user). Private fixtures were used even where a shared row survives today,
-  because a check that relies on surviving breaks when a section is appended
-  above it.
-- :R1, :GL, :CL, :CG remain intact at the end of the run. US-004's
-  cv_generation_logs baseline is confirmed intact by check 47.
-- The sentinel checks pin the trigger body to now()/transaction_timestamp().
-  A rewrite to clock_timestamp() would fail them. Same brittleness tradeoff
-  the file already documents for the D2 policy-string check.
-- DEFERRED, carried from US-002: the docs/engineering/rls-audit.md closure
-  note is owned by US-005 and now covers S2 (US-001), D2 (US-002) and M3
-  (US-003). If US-005 is dropped, this must be reassigned, not lost.
-
-Governance:
-- Permission pollution stripped; no .claude/ change committed.
-- One minor fix applied on review: the S2 placement comment said the signup
-  fixture adds a "third" auth.users and profiles row. With :C seeded it is the
-  fourth. That comment is the stated justification for S2's position, so the
-  off-by-one mattered more than a typo would.
-
-Commit:
-- Story commit: 630df6a
-- Commit message: ralph: US-003 one updated_at trigger function
-
-FINAL: PASS
-
----
-US-004  cv_generation_logs shares the ownership root
-Date: 2026-08-29
-Branch: chore/rls-schema-hardening
-Story commit: recorded in git log; this entry ships in that commit
-
-Scope: PASS
-- supabase/migrations/006_rls_schema_hardening.sql  (D3 section appended)
-- supabase/tests/rls-audit.sql                      (D3 fixtures + 9 checks, 55 -> 64)
-- supabase/tests/d3-abort-path.sql                  (NEW)
-- src/lib/supabase/generation-logs.integration.test.ts (NEW, 3 tests)
-- tasks/prds/rls-schema-hardening.md                (criterion 3 name correction)
-- tasks/ralph/prd.json                              (same correction + story status)
-Migrations 001-005 untouched. src/lib/supabase/generation-logs.ts unmodified (FR-6).
-
-Acceptance criteria:
-- AC1 fkey references public.profiles(id) ON DELETE CASCADE: PASS (checks 56/57)
-- AC2 SELECT/INSERT still restrict to auth.uid()=user_id, by execution: PASS
-      (checks 59/60 via pg_temp.chk, actor A, real authenticated role)
-- AC3 logGenerationAttempt still inserts for an authenticated user: PASS
-      (3 integration tests; 14/14 suite)
-- AC4 migration aborts with a clear error, drops nothing, on orphans: PASS
-      (d3-abort-path.sql, 5/5, exit 0)
-
-Validation:
-- RLS harness: PASS 64/64
-- d3-abort-path.sql: PASS 5/5, exit 0
-- Typecheck: PASS   Unit: PASS 89   Integration: PASS 14
-- Lint: 311 problems (237/74) - baseline unchanged
-- Build: PASS, 108/108 static pages
-- FK public.profiles confdeltype=c; policies 28; RLS tables 8
-- code-reviewer: PASS (second round)
-- Browser / ui-expert: NOT_APPLICABLE - no UI surface
-
-FAIL and fix (first review round):
-- Check 64 asserted the transitive-cascade property but could not fail on it.
-  :GL3 was seeded against :RTC, a resume owned by the SAME user being deleted,
-  so the log vanished via cv_generation_logs_resume_id_fkey -> resumes ->
-  profiles, independently of the user_id key this story added. With the
-  user_id FK dropped entirely, check 64 still reported PASS.
-  Fixed by pointing :GL3 at :R1 (owner :A, survives to end of run), making the
-  user_id hop the only route. Same mutation now yields FAIL (0 expected,
-  1 actual). :RTC removed. Verified independently, both before and after.
-- Two comments claiming "both hops are asserted" corrected in rls-audit.sql
-  and 006; only the final check is load-bearing.
-- The criterion-4 rationale claimed the guarded state was unreachable once the
-  constraint exists. That is false - DDL is transactional and the harness runs
-  in BEGIN...ROLLBACK. Rewritten to the real reason: this file cannot invoke
-  the guard, so a check here would re-implement 006's orphan query, and a copy
-  passes while the real block is broken.
-
-Third occurrence of one pattern: a check asserting a true statement it cannot
-fail on (US-002 shipped one, US-003's placement rationale rested on a premise
-that measured false, US-004 check 64). Common thread per senior-coder: writing
-the justification for why a check discriminates in the same pass as the check,
-letting a confident comment substitute for the experiment. Corrective adopted:
-run a mutation for EVERY check before reporting, including ones believed
-obvious. Two assertions (57 under RESTRICT, 59/60 under dropped policies) were
-being asserted on faith until that was applied.
-
-Evidence notes worth carrying:
-- Without the guard, 006 STILL errors, via PostgreSQL's generic FK violation.
-  So "an error was raised" is not evidence of AC4; only the assertion on the
-  message distinguishes a clear error from a terse one. That is AC4's content.
-- In that message assertion the LIKE '%cv_generation_logs%' conjunct is not
-  discriminating on its own - the generic error contains it too. The
-  '%1 row(s)%' conjunct carries the assertion.
-- Constructing an orphan has a trap: if the orphan's resume belongs to the
-  same user, deleting that user's profile cascades the orphan away before the
-  guard sees it. The resume must belong to a surviving user.
-- d3-abort-path.sql runs verbatim in PowerShell. In Git Bash, MSYS rewrites
-  the container path; MSYS_NO_PATHCONV=1 is needed. Shell artifact, not a
-  script defect.
-
-Governance:
-- Permission pollution stripped twice; no .claude/ change committed.
-- PRD correction: criterion 3 named writeGenerationLog, which exists nowhere
-  in src/. Claude drafting error, written from memory rather than read.
-  Corrected to logGenerationAttempt (the module's only insert path, one
-  caller at src/lib/ai/iterative-generator.ts:341). code-reviewer independently
-  confirmed the factual basis and judged the correction legitimate rather than
-  a BLOCKER: one possible referent, no behaviour invented. RATIFIED by the
-  repository owner (winiboy) on 2026-08-29. Recorded in the .md; prd.json
-  carries the correction annotation but not the ratification note (cosmetic).
-
-Deferred, not lost:
-- docs/engineering/rls-audit.md closure note is owned by US-005 and now covers
-  S2, D2, M3 and D3. If US-005 is dropped this must be reassigned.
-- Optional, declined to keep the reviewed artifact intact: a package.json
-  test:db:abort-path script so the abort evidence is invoked rather than
-  remembered; a second orphan plus a '%2 row(s)%' assertion so a guard that
-  miscounts when n>1 is caught; an MSYS_NO_PATHCONV note in the script header.
-
-FINAL: PASS
-
----
-US-005  UPDATE policies state their check expression explicitly
-Date: 2026-08-29
-Branch: chore/rls-schema-hardening
-Story commit: recorded in git log; this entry ships in that commit
-
-Scope: PASS
-- supabase/migrations/006_rls_schema_hardening.sql  (S1 section appended)
-- supabase/tests/rls-audit.sql                      (6 catalog checks, 64 -> 70)
-- supabase/tests/d3-abort-path.sql                  (repaired, see below)
-- docs/engineering/rls-audit.md                     (S1/S2/D2/D3/M3 notes)
-Migrations 001-005 untouched. No application source (FR-6 permits docs here).
-
-Acceptance criteria:
-- AC1 five UPDATE policies have non-null polwithcheck: PASS (checks 65-69)
-- AC2 ownership reassignment still refused on all six: PASS (checks 28-33)
-- AC3 migration comment states readability, closes no vulnerability: PASS
-- AC4 S1 doc section records the clauses without reinstating the finding: PASS
-
-Validation:
-- RLS harness: PASS 70/70
-- d3-abort-path.sql: PASS 5/5, exit 0
-- Typecheck: PASS   Unit: PASS 89   Integration: PASS 14
-- Lint: 311 problems (237/74) - baseline unchanged
-- Build: PASS, 108/108 static pages
-- Idempotency: 006 applied twice against a migrated DB, exit 0 both times
-- code-reviewer: PASS (first round, no Critical or Major)
-- Browser / ui-expert: NOT_APPLICABLE - no UI surface
-
-This story changes NO behaviour. PostgreSQL already applies USING as the
-WITH CHECK expression when the latter is omitted. Finding S1 was investigated
-and WITHDRAWN; it was never a vulnerability, and this closes nothing.
-
-Proven, not asserted: reverting all five policies to the pre-migration shape
-yields 6 FAIL / 64 PASS - checks 65-70 fire, and checks 28-33 ALL still report
-"refused". The behavioural set cannot discriminate this story, which is
-simultaneously the proof of the story's own premise. senior-coder added no
-behavioural check and stated plainly that 65-70 (catalog, chk_db) are the
-evidence while 28-33 are regression guards. code-reviewer confirmed that is
-the honest call rather than a gap, and the harness says so in the file for
-the next author.
-
-Check 70 (no UPDATE policy omits the clause) is the weaker shape: under a
-mutation setting profiles to WITH CHECK (true), check 65 FAILs and 70 PASSes.
-Both earn their place - presence alone is satisfied by a wrong expression.
-
-d3-abort-path.sql was BROKEN by this story's own append, exactly as US-004's
-author predicted in a comment: the D3 guard stopped being the last failing
-statement, so arm 1 captured "current transaction is aborted" instead of the
-guard's message. Repaired at the mechanism rather than by reordering 006 to
-hide it: ON_ERROR_ROLLBACK on around the arm-1 include, plus a space-free
-sentinel pre-set into LAST_ERROR_MESSAGE because :ERROR can no longer stand
-for "it raised". code-reviewer verified the repair is robust to a future
-append - a benign appended statement no longer breaks the assertion, while an
-appended FAILING statement still stops the test, which is correct. The old
-coupling was positional; what remains is semantic and fails loudly.
-
-Incidental, verified and recorded in the doc: on profiles, reassignment is
-refused even with WITH CHECK (true), because the SELECT policy is applied to
-the post-update row and the primary key sits behind it. Relaxing the SELECT
-policy changes the error to a duplicate-key violation. Check 32 was therefore
-doubly non-discriminating.
-
-Documentation debt from US-002 CLOSED: docs/engineering/rls-audit.md now
-records S2, D2, D3 and M3 as closed by migration 006, and S1 as still
-withdrawn with the clauses now present. S3 deliberately left CONFIRMED and
-open - out of scope, needs its own PRD.
-
-Closing catalog snapshot (verification criterion 20), on a fresh reset:
-- handle_new_user: prosecdef=t, proconfig={"search_path=public, pg_temp"}
-- resume_analyses: SELECT/INSERT/DELETE, DELETE USING (auth.uid() = user_id)
-- six UPDATE policies: all explicit; profiles on id, the rest on user_id
-- cv_generation_logs_user_id_fkey -> public.profiles, confdeltype=c
-- 8 RLS tables, 28 policies, relforcerowsecurity false throughout
-
-Governance:
-- Permission pollution stripped repeatedly; no .claude/ change in this commit.
-  A DELIBERATE .claude/settings.local.json change was made this session at the
-  owner's request (gating git commit behind ask, allowing read-only inspection
-  commands). It is unrelated to US-005 and is committed separately.
-
-Known limits, not blocking:
-- Check 70 filters polcmd='w' only. A future FOR ALL policy (polcmd='*') with
-  no check expression would bypass the set-pinning assertion.
-  polcmd IN ('w','*') would close it.
-- Under ON_ERROR_ROLLBACK, arm 1 of d3-abort-path now really executes the
-  statements after the guard, undone by ROLLBACK TO SAVEPOINT. A future
-  statement in 006 that cannot be rolled back would genuinely run there.
-  Nothing in 006 is in that class today.
-- Optional and declined to keep the reviewed artifact intact: widening check
-  70's filter, and rewrapping one 133-char line in rls-audit.md.
-
-CONTRACT COMPLETE: US-001 through US-005 all PASS.
+- Story commit: recorded in git log; this entry ships in that commit
+- Commit message: ralph: US-003 a deep link survives the sign-in detour
 
 FINAL: PASS
 

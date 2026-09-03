@@ -1,6 +1,19 @@
 # PRD: Authentication redirects land the user where they intended
 
-**Status:** DRAFT
+**Status:** APPROVED — 2026-08-31, by the repository owner (winiboy)
+
+**Amended 2026-09-01, authorized by the repository owner:** US-001 and US-002
+are WITHDRAWN. Defect A was not reproducible and its mechanism was falsified
+during execution — see the Defect A section. US-003 remains live and is
+unchanged; its defect is a static parameter mismatch, re-verified after the
+investigation. Scope narrowed; no requirement was added or weakened.
+
+*Evidence: the owner instructed `prd-to-json` to be run against this PRD by
+path, which is meaningful only for an approved PRD, and separately merged
+[PR #31](https://github.com/winiboy/my-cv-platform/pull/31) (`d338d8e`) whose
+description stated that approving it constitutes the approval CLAUDE.md §8
+requires. The instruction is the primary evidence: a PR that merges a draft
+cannot by itself prove that draft was approved.*
 
 ## Objective
 
@@ -12,7 +25,43 @@ destination without further action.
 Two independent defects prevent that today. Both were found by the E2E suite
 added in Phase 12; neither is caught by any other layer.
 
-### Defect A — the post-authentication navigation loses the race
+### Defect A — WITHDRAWN 2026-09-01. Not reproducible; mechanism falsified.
+
+**This defect does not exist. The section below is the original claim, kept
+because the reasoning that produced it is worth being able to re-read.**
+
+The premise was that the auth cookie is not persisted when `router.push()`
+fires. Measurement contradicts it. The `Cookie` header on the dashboard RSC
+request was read directly with `request.allHeaders()` — `headers()` omits
+Cookie, which is likely how the original reading was taken — and carries the
+session every time:
+
+```
+REQ t+200ms /en/dashboard?_rsc=74ftp cookieHeaderHasAuth=YES
+```
+
+The library source agrees: `@supabase/ssr` 0.8's browser storage adapter
+writes `document.cookie` synchronously, and auth-js 2.87 awaits
+`_saveSession` before `signInWithPassword` resolves. The cookie cannot be
+missing at `push()`. `onAuthStateChange('SIGNED_IN')` fires *after* that
+write, so waiting on it would be a no-op.
+
+The symptom did not reproduce under 12 unthrottled attempts, CPU throttling at
+4x/10x/20x, the sign-in response delayed 1–3s, or the dashboard RSC delayed
+0.5–3s. It reproduces in neither `next dev` nor a production build.
+
+**Most likely cause of the original observation:** it was taken during the
+session that later found the dev server returning `SyntaxError: Unexpected end
+of JSON input` and bare `Internal Server Error` pages from a corrupted `.next`
+cache — the defect that prompted moving E2E onto a production build. The
+measurement was real; the environment was broken, and the inference drawn from
+it was wrong.
+
+US-001 and US-002 are withdrawn. US-003 is unaffected: its defect is a static
+parameter-name mismatch, not a timing observation, and was re-verified after
+this investigation.
+
+*Original claim follows.*
 
 [`login-form.tsx:92-97`](../../src/components/auth/login-form.tsx) calls
 `router.push()` as soon as `signInWithPassword` resolves. The auth cookie has
@@ -108,7 +157,24 @@ introduce an open redirect.
 
 ## User Stories
 
-### US-001: Signing in lands on the dashboard without further action
+### US-001: WITHDRAWN — Signing in lands on the dashboard without further action
+
+**Withdrawn 2026-09-01: the defect is not reproducible and its mechanism was
+falsified. See Defect A.** Signing in already lands on the dashboard, in both
+`next dev` and a production build, under every latency and throttling
+condition tried.
+
+Two of its deliverables were kept because they stand on their own, and shipped
+under the closure commit rather than as a story commit:
+
+- the `test.fixme` became a normal passing test that pins the behaviour and
+  states in its own comment that it passed against the unfixed form and must
+  not be cited as proof a defect was fixed;
+- the cookie-wait workaround was removed from `loginAs`, which now waits on
+  the redirect the form itself performs — so a genuine regression in the
+  post-login redirect can no longer hide from every test that logs in.
+
+*Original story follows, unmodified.*
 
 **Description:**
 As a returning user, I want signing in to take me to my dashboard, so that I
@@ -128,7 +194,19 @@ do not have to work out whether my sign-in succeeded.
 - [ ] Invalid credentials still show the existing error and write no session
       cookie.
 
-### US-002: Signing up lands on the dashboard without further action
+### US-002: WITHDRAWN — Signing up lands on the dashboard without further action
+
+**Withdrawn 2026-09-01, resolving BLOCKER-1 against the story.** BLOCKER-1
+recorded that sign-up's defect was inferred from the shared `router.push`
+pattern rather than measured. That inference rested entirely on Defect A,
+which is withdrawn, so the premise is gone. The blocker did its job: it named
+the assumption, and the assumption turned out to be the weak part.
+
+Sign-up still has no browser coverage. That is a genuine gap, but it is a
+missing test rather than a defect, and it needs its own story rather than one
+built on a withdrawn premise.
+
+*Original story follows, unmodified.*
 
 **Description:**
 As a new user, I want completing sign-up to take me into the product, so that
@@ -279,8 +357,16 @@ arrive at that page after signing in, so that the link works.
 
 ## Open Questions
 
-- None blocking beyond BLOCKER-1, which is resolved by measuring sign-up's
-  actual behavior as the first step of US-002 rather than by a decision.
+- None.
+
+*Wording corrected 2026-08-31, after approval, before conversion. This section
+previously read "None blocking beyond BLOCKER-1, which is resolved by
+measuring sign-up's actual behavior as the first step of US-002 rather than by
+a decision." BLOCKER-1 already appears under BLOCKER Conditions, where
+`prd-to-json` carries it into every story's acceptance criteria, so the
+cross-reference was redundant and left this section reading as neither
+resolved nor unresolved. No requirement, scope or acceptance criterion
+changed. Authorized by the repository owner (winiboy).*
 
 ## Approval Gate
 
