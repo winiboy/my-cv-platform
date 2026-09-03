@@ -20,6 +20,7 @@ const eslintConfig = defineConfig([
     // .gitignore, and the default only knows about ".next" - so the first E2E
     // run took lint from 311 problems to 46,067 by linting compiled bundles.
     ".next-e2e/**",
+    ".next-verify/**",
     "test-results/**",
     "playwright-report/**",
   ]),
