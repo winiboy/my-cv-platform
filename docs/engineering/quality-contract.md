@@ -14,6 +14,18 @@ without checking anything are prohibited.
 | `pnpm test:integration` | Vitest, route handlers against a local Supabase stack | **Required** | 14 tests passing |
 | `pnpm test:e2e` | Playwright, real browser against a production build | Reported, **not required** | 5 passing, 1 `fixme` |
 | `pnpm build` | `next build` | **Required** | Success |
+| `pnpm build:verify` | `next build` into `.next-verify` | Local convenience | Same result as `pnpm build` |
+
+**Use `pnpm build:verify` when a dev server is running.** A plain `pnpm build`
+writes into `.next`, the directory a running `next dev` reads, leaving
+`.next/cache` holding both development and production webpack packs — the dev
+server then invalidates and rebuilds against all of it. Observed here: 1.6 GB
+of mixed cache and a dev server that felt broken rather than merely cold.
+Nothing warns you, because both commands succeed.
+
+CI and releases should keep using `pnpm build`; nothing shares the directory
+there. `playwright.config.ts` already builds into `.next-e2e` for the same
+reason.
 
 `typecheck`, `test` and `build` run in one CI job, `Verify (required)`, in that
 order, so a logic regression fails before the slower build step.
