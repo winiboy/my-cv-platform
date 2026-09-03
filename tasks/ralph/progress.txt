@@ -78,3 +78,123 @@ Checks (on the test-side changes only; src/ untouched):
 FINAL: NOT_REPRODUCIBLE (not PASS)
 
 ---
+## US-003: A deep link survives the sign-in detour
+Status: PASS
+Priority: 1
+Branch: fix/login-redirect
+Baseline HEAD: 5191b3c
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/middleware.ts, src/components/auth/login-form.tsx,
+  e2e/auth.spec.ts
+- Untouched, deliberately: signup-form.tsx (was US-002, withdrawn),
+  router.refresh() at login-form.tsx, the dropped-auth-cookie branch in
+  middleware.ts, /api/auth/callback. No dependency change.
+
+Checks:
+- E2E: PASS 21/21, deterministic across three consecutive runs
+- Unit: PASS 89   Integration: PASS 14   Typecheck: PASS
+- Lint: 311 problems (237/74) - exactly baseline
+- Build: PASS
+
+Specialized validation:
+- Browser: PASS - every hostile destination refused by execution, each with a
+  network-level guard asserting no request leaves for evil.test
+- Security: PASS - security-review, 0 critical/high/medium, 1 INFO
+- Visual / Export / Database: NOT_APPLICABLE
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no visual surface changed; the change is a
+  redirect destination and a string validator
+- code-reviewer: PASS on the second round (FAIL on the first)
+
+Acceptance criteria:
+- AC1 deep link survives sign-in: PASS - /en/dashboard/resumes?sort=updated
+  returns intact after login, verified in browser
+- AC2 ?callbackUrl entry points still work: PASS - E2E 9 and 11
+- AC3 non-single-slash destination rejected: PASS
+- AC4 rejection asserted by execution: PASS - E2E 12-21
+- AC5 verified in a real browser: PASS
+
+WHAT THIS STORY ACTUALLY FOUND
+
+The named defect was a parameter-name mismatch: middleware wrote ?redirect,
+the login form read ?callbackUrl, so every deep link was discarded. Fixed by
+aligning on callbackUrl - the name with five live producers and the only
+reader - rather than reading both, which would have created two spellings for
+one concept. The deep link's own query string now travels with it.
+
+But the story also exposed a LIVE OPEN REDIRECT in shipped code. Because
+?callbackUrl was already read via the marketing tools links, an attacker could
+send /en/login?callbackUrl=/\evil.test and land a signed-in user off-origin
+from a legitimate login flow. Five inputs defeated the old validator:
+/\evil.test, /\evil.test, and raw TAB, LF and CR variants. All confirmed by
+execution, not inspection.
+
+AND THE FIRST FIX INTRODUCED A DIFFERENT ONE
+
+Round 1 tightened the validator and shipped a NEW open redirect on a class the
+old code handled safely. getSafeRedirectUrl validated the parsed URL object -
+correctly same-origin - then returned resolved.pathname, which for /.//evil.test
+is the string "//evil.test". Six dot-segment inputs escaped. code-reviewer
+navigated a real browser off-origin to prove it (chrome-error://chromewebdata/,
+page title evil.test) and traced Next 14.2.33's useNavigate -> isExternalURL ->
+handleExternalUrl -> location.assign.
+
+Fixed by extracting isSingleSlashRelativePath() and applying it to BOTH the
+candidate and the reconstruction, immediately before returning.
+
+Final differential, verified independently: old validator 5 escapes, new
+validator 0 across 22 hostile inputs in 4 classes, 9/9 legitimate destinations
+preserved.
+
+THE LESSON, WORTH CARRYING
+
+Validate the representation you RETURN, not the one you inspected. The origin
+check was not lying - `resolved` genuinely was same-origin. The danger was
+created afterwards, by serializing it back to a string that could begin with //.
+
+Two related process notes:
+- My own differential declared the round-1 validator clean. It was not. I chose
+  probes matching the bug I already knew about, so dot-segments were absent. A
+  clean differential over the wrong probe set is indistinguishable from a clean
+  differential.
+- code-reviewer found a THIRD representation neither of us had considered:
+  Next's addBasePath -> normalizePathTrailingSlash rewrites the approved string
+  after validation. It ported those helpers and re-fuzzed through the real
+  chain - 13,139 inputs, 243 strings altered downstream, 0 that became unsafe,
+  because the transform only strips a trailing slash and cannot manufacture a
+  leading //. If basePath or trailingSlash is ever configured, that chain needs
+  a fresh look.
+- It also caught a stale-build hazard: its own round-1 server still held the
+  port and would have served the vulnerable bundle. It verified the served
+  bundle text directly rather than trusting the build.
+
+Exhaustive re-hunt for a further class: 67,412 generated inputs over a hostile
+alphabet, including Unicode solidus lookalikes, encoded traversals, query and
+fragment smuggling and @-userinfo forms. Zero escapes, zero legitimate
+destinations broken.
+
+Carried forward, not blocking:
+- getSafeRedirectUrl has no unit coverage. Accepted for this story on scope
+  grounds - extraction is a structural change and the PRD names E2E as the
+  primary evidence. NOT accepted on the grounds first offered, that it would
+  change the unit count from 89: a test count is not a number to protect, and
+  the regression constraint says those tests must keep passing, not that
+  coverage must not grow. A pure string function guarding an open redirect
+  deserves a layer that can run 60,000 cases in a second. Worth its own story.
+- /api/auth/callback still does not validate `next`. Safe by construction - the
+  locale prefix neutralises //evil.test - but by accident rather than by
+  validation. Its own story.
+- router.refresh() at login-form.tsx roughly doubles time-to-dashboard.
+- middleware.ts drops refreshed auth cookies on the unauthenticated branch.
+  This change routes more traffic through that branch, so it matters more now.
+
+Commit:
+- Story commit: recorded in git log; this entry ships in that commit
+- Commit message: ralph: US-003 a deep link survives the sign-in detour
+
+FINAL: PASS
+
+---

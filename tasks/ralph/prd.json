@@ -48,7 +48,7 @@
         "Out of scope: Password reset, email confirmation, and account deletion flows."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "US-001 and US-002 were withdrawn 2026-09-01 as not reproducible; see tasks/prds/login-redirect.md. This story is unaffected - its defect is a static parameter-name mismatch, re-verified after that investigation."
     }
   ]

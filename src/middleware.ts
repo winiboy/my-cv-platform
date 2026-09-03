@@ -68,9 +68,19 @@ export async function middleware(request: NextRequest) {
   if (isProtectedRoute) {
     // Check if user is authenticated
     if (!user) {
-      // Not authenticated - redirect to login
+      // Not authenticated - redirect to login, remembering where they meant
+      // to go.
+      //
+      // The parameter is `callbackUrl` because that is the one the login form
+      // reads, and because the marketing tools pages already link to
+      // /login?callbackUrl=... directly. This used to write `redirect`, which
+      // nothing read, so every deep link was silently discarded.
+      //
+      // The search string travels with the path: a deep link that comes back
+      // without its own query parameters has not survived the detour, it has
+      // been truncated. The login form validates whatever it reads back.
       const loginUrl = new URL(`/${locale}/login`, baseUrl)
-      loginUrl.searchParams.set('redirect', pathname)
+      loginUrl.searchParams.set('callbackUrl', `${pathname}${request.nextUrl.search}`)
       return NextResponse.redirect(loginUrl)
     }
   }

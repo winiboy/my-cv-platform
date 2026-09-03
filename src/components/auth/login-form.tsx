@@ -13,21 +13,102 @@ interface LoginFormProps {
 }
 
 /**
+ * Origin used only to resolve a candidate destination during validation. It is
+ * never navigated to and never returned; it exists so the URL parser - the
+ * thing that decides where the browser actually goes - can be asked directly
+ * whether a candidate stays on our own origin.
+ */
+const VALIDATION_ORIGIN = 'http://callback-validation.invalid'
+
+/**
+ * Characters a URL parser removes *before* it parses. Any check against the
+ * literal string has to remove them first, or it is validating a string the
+ * browser will never see.
+ */
+const URL_STRIPPED_CHARACTERS = /[\t\n\r]/g
+
+/**
+ * True if `value` is a relative path that cannot open a URL authority.
+ *
+ * The second character decides as much as the first: '//' opens an authority,
+ * and '\' is folded to '/' before that decision is made.
+ *
+ * This is applied to the string that will actually be navigated - which is not
+ * necessarily the string that was validated. See `getSafeRedirectUrl`.
+ */
+function isSingleSlashRelativePath(value: string): boolean {
+  return value.startsWith('/') && value[1] !== '/' && value[1] !== '\\'
+}
+
+/**
  * Validates and returns a safe redirect URL.
- * Only allows relative paths starting with '/' to prevent open redirect attacks.
+ * Only allows single-slash relative paths, to prevent open redirect attacks.
  * Returns the fallback URL if validation fails.
+ *
+ * A literal `startsWith('/') && !startsWith('//')` test is not equivalent to
+ * "stays on this origin". Five strings defeat it, all verified by execution
+ * against this app:
+ *
+ *   /\evil.test     one leading slash, so it passes a literal check - but
+ *                   WHATWG URL parsing treats '\' as '/' in a special-scheme
+ *                   URL, so the browser resolves it to http://evil.test/.
+ *   /\\evil.test    the same fold, doubled.
+ *   /<TAB>/…        a raw tab, reaching this function decoded from %09 in the
+ *   /<LF>/…         query string. A URL parser strips tab, newline and
+ *   /<CR>/…         carriage return BEFORE parsing, so what a literal check
+ *                   sees and what the browser resolves are two different
+ *                   strings - and the one the browser resolves is the
+ *                   protocol-relative //evil.test.
+ *
+ * Note the literal three-character text "%09" is NOT this bug: it survives as
+ * a percent-encoded path segment and stays on our origin, so it stays allowed.
+ *
+ * THE RETURNED STRING IS THE THING THAT GETS NAVIGATED, so it is the thing
+ * that must satisfy the rule. Validating the parsed URL is not enough, because
+ * this function returns a *different representation* of it - a path string,
+ * re-resolved later by the router. Dot-segment normalization can turn a
+ * genuinely same-origin URL into a pathname that begins with '//':
+ *
+ *   /.//evil.test   parses same-origin (the single leading slash makes it
+ *   /..//evil.test  path-relative, so an origin check passes honestly), yet
+ *                   `resolved.pathname` is "//evil.test" - protocol-relative
+ *                   all over again once anything resolves it.
+ *
+ * An earlier version of this function checked only the parsed URL and shipped
+ * exactly that hole: safe on all six dot-segment inputs before, escaping on
+ * all six after. Hence the final re-check on the reconstructed value.
  */
 function getSafeRedirectUrl(callbackUrl: string | null, fallbackUrl: string): string {
   if (!callbackUrl) {
     return fallbackUrl
   }
 
-  // Only allow relative paths starting with '/' to prevent open redirect
-  if (callbackUrl.startsWith('/') && !callbackUrl.startsWith('//')) {
-    return callbackUrl
+  const candidate = callbackUrl.replace(URL_STRIPPED_CHARACTERS, '')
+
+  if (!isSingleSlashRelativePath(candidate)) {
+    return fallbackUrl
   }
 
-  return fallbackUrl
+  // The parser gets a say, so anything the check above did not anticipate
+  // still has to resolve to our own origin.
+  let resolved: URL
+  try {
+    resolved = new URL(candidate, VALIDATION_ORIGIN)
+  } catch {
+    return fallbackUrl
+  }
+
+  if (resolved.origin !== VALIDATION_ORIGIN) {
+    return fallbackUrl
+  }
+
+  // Re-check what was reconstructed, not what was parsed.
+  const destination = `${resolved.pathname}${resolved.search}${resolved.hash}`
+  if (!isSingleSlashRelativePath(destination)) {
+    return fallbackUrl
+  }
+
+  return destination
 }
 
 export function LoginForm({ locale }: LoginFormProps) {
