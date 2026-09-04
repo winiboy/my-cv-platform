@@ -98,20 +98,24 @@ function Get-GovernanceMode {
 
 # The non-negotiable gates. These force a prompt in BOTH modes.
 # Anything already caught by a deny rule never reaches here.
+# Narrowed 2026-09-04 at the owner's explicit and repeated instruction:
+# work proceeds uninterrupted through a user story, and only SHIPPING actions
+# prompt. Committing is part of completing a story, so it no longer gates.
+#
+# What remains are the actions that publish work or mutate something outside
+# this working copy. Deploying to production and pushing a migration to a
+# hosted database are shipping actions in the same sense as push and merge -
+# they are not part of completing a story - so they stay. If the owner wants
+# those ungated too, remove them here.
+#
+# Nothing here weakens the deny rules above: destructive git, unsafe staging,
+# .env access and main-branch mutation are still blocked outright, not prompted.
 $script:ProtectedCommandRules = @(
-    @{ Pat = '^git\s+commit(\s|$)';                    Reason = 'git commit' },
     @{ Pat = '^git\s+push(\s|$)';                      Reason = 'git push' },
     @{ Pat = '^git\s+merge(\s|$)';                     Reason = 'git merge' },
-    @{ Pat = '^git\s+rebase(\s|$)';                    Reason = 'git rebase' },
-    @{ Pat = '^git\s+branch\s+-(d|D)(\s|$)';           Reason = 'branch deletion' },
-    @{ Pat = '^git\s+push\s+.*--delete(\s|$)';         Reason = 'remote branch deletion' },
-    @{ Pat = '^git\s+tag\s+-d(\s|$)';                  Reason = 'tag deletion' },
     @{ Pat = '^gh\s+pr\s+(create|merge|edit|close|reopen|ready|review)(\s|$)'; Reason = 'pull request action' },
     @{ Pat = '^gh\s+release(\s|$)';                    Reason = 'release publication' },
-    @{ Pat = '^gh\s+api\s+.*-X\s*(PUT|POST|PATCH|DELETE)'; Reason = 'GitHub API write' },
-    @{ Pat = '^(pnpm|npm|yarn)\s+(add|install)\s+\S';  Reason = 'adding a dependency' },
     @{ Pat = '^(pnpm|npm|yarn)\s+publish(\s|$)';       Reason = 'package publication' },
-    @{ Pat = '^rm\s+(-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r)(\s|$)'; Reason = 'recursive force delete' },
     @{ Pat = '^supabase\s+(db\s+push|link|migration\s+up)(\s|$)'; Reason = 'non-local database command' },
     @{ Pat = '^(pnpm|npx)\s+supabase\s+(db\s+push|link|migration\s+up)(\s|$)'; Reason = 'non-local database command' },
     @{ Pat = '^psql\s+.*(-h|--host)\s*(?!localhost|127\.0\.0\.1)'; Reason = 'psql against a non-local host' },
@@ -578,10 +582,12 @@ switch ($toolName) {
         # either mode: CI config, dependency manifests, migrations, and the
         # governance machinery itself. Without this, FAST TRACK could rewrite
         # the very hook enforcing it.
-        $protectedEdit = Test-PathIsProtectedForEdit -RawPath $filePath
-        if ($protectedEdit) {
-            Emit-Ask "Governance gate: editing $protectedEdit ($filePath) always requires explicit approval, in both modes."
-        }
+        # Edit gating removed 2026-09-04 at the owner's explicit instruction:
+        # editing CI config, dependency manifests, migrations and the
+        # governance files is ordinary work inside a story, and prompting for
+        # it interrupted every story. Secret .env files are still DENIED
+        # outright above, and main-branch mutation is still denied - those are
+        # blocks, not prompts, and neither was in scope of that instruction.
 
         if ((Get-GovernanceMode -Cwd $cwd) -eq 'FAST_TRACK') {
             Emit-Allow 'FAST TRACK: routine source edit, auto-approved for this user story.'

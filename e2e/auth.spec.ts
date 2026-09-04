@@ -1,4 +1,12 @@
-import { test, expect, createTestUser, deleteTestUser, TEST_PASSWORD } from './fixtures/auth'
+import {
+  test,
+  expect,
+  createTestUser,
+  deleteTestUser,
+  mintExpiredRevokedSessionCookie,
+  AUTH_COOKIE_NAME,
+  TEST_PASSWORD,
+} from './fixtures/auth'
 import { test as base, expect as baseExpect, type Page } from '@playwright/test'
 
 /**
@@ -97,6 +105,90 @@ base.describe('unauthenticated access', () => {
     await page.waitForTimeout(3_000)
     const cookies = await context.cookies()
     baseExpect(cookies.find((c) => c.name.startsWith('sb-') && c.name.includes('auth-token'))).toBeUndefined()
+  })
+})
+
+/**
+ * A dead session must be cleared by the redirect that rejects it.
+ *
+ * When a session has expired AND its refresh token is rejected, @supabase/ssr
+ * queues a removal of the auth cookie on the response `updateSession` builds.
+ * The protected-route branch of src/middleware.ts used to return a fresh
+ * `NextResponse.redirect`, discarding that removal, so the dead cookie stayed
+ * in the browser and every later request paid another failed refresh round
+ * trip to Supabase.
+ *
+ * Two things about this test are load-bearing and neither is optional:
+ *
+ *  - The session is genuinely expired and genuinely revoked. A malformed or
+ *    truncated cookie produces NO cookie operations at all, so a test built on
+ *    one passes against the broken middleware too and proves nothing. See
+ *    `mintExpiredRevokedSessionCookie`.
+ *
+ *  - The redirect is NOT followed. /en/login runs the very same middleware,
+ *    fails the very same refresh, and - not being a protected route - returns
+ *    the Supabase response itself, removal included. So the cookie ends up
+ *    cleared one hop later whether or not the defect is fixed. Following the
+ *    redirect would therefore make every assertion below pass in both states.
+ *    Stopping at the 307 is the entire reason this test discriminates.
+ *
+ * Asserting on the destination URL would prove nothing either: the redirect is
+ * byte-for-byte identical in both states. Only the Set-Cookie distinguishes
+ * them.
+ */
+base.describe('an expired session with a revoked refresh token', () => {
+  base('the login redirect clears the dead auth cookie', async ({ context, baseURL }) => {
+    const user = await createTestUser()
+    try {
+      const cookie = await mintExpiredRevokedSessionCookie(user)
+      await context.addCookies([{ ...cookie, url: baseURL! }])
+
+      const response = await context.request.get(`${baseURL}/en/dashboard`, { maxRedirects: 0 })
+
+      // Prove the request took the branch under test before asserting on what
+      // that branch returned. A 200 here would mean the dead session was
+      // somehow accepted; a 404 would mean this test is measuring a page that
+      // no longer exists.
+      baseExpect(response.status(), 'a dead session must be redirected, not served').toBe(307)
+      baseExpect(
+        response.headers()['location'],
+        'the redirect must be the protected-route login redirect'
+      ).toContain('/en/login')
+
+      // headersArray, not headers(): multiple Set-Cookie headers are collapsed
+      // into one comma-joined string by headers(), and a cookie value can
+      // itself contain a comma, so splitting that back apart is guesswork.
+      const setCookieHeaders = response
+        .headersArray()
+        .filter((h) => h.name.toLowerCase() === 'set-cookie')
+        .map((h) => h.value)
+
+      const authCookieHeader = setCookieHeaders.find((h) => h.startsWith(`${AUTH_COOKIE_NAME}=`))
+
+      baseExpect(
+        authCookieHeader,
+        `the redirect that rejects a dead session must carry Supabase's removal of ` +
+          `${AUTH_COOKIE_NAME}; got Set-Cookie: ${JSON.stringify(setCookieHeaders)}`
+      ).toBeDefined()
+
+      // Present is not enough - it has to actually expire the cookie rather
+      // than re-set it.
+      baseExpect(
+        authCookieHeader!,
+        `${AUTH_COOKIE_NAME} must be expired, not merely re-sent`
+      ).toMatch(/(^|;)\s*(max-age=0|expires=)/i)
+
+      // The consequence, in the client the user actually has. This is not a
+      // second opinion on the header: because the redirect was not followed,
+      // the jar reflects this one response and nothing else.
+      const jar = await context.cookies()
+      baseExpect(
+        jar.find((c) => c.name === AUTH_COOKIE_NAME),
+        'the dead cookie must be gone from the browser after the redirect'
+      ).toBeUndefined()
+    } finally {
+      await deleteTestUser(user.id)
+    }
   })
 })
 
