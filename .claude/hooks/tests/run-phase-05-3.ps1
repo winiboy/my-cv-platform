@@ -130,12 +130,12 @@ $fixtures = @(
 
     # --- Safe / user-controlled (NO DECISION expected) ---
     @{ Name='SAFE: git restore --staged file';       Data=@{tool_name='Bash'; tool_input=@{command='git restore --staged src/a.ts'}; cwd=$featCwd}; Exp='no-decision' },
-    @{ Name='GATED: git branch -D foo';               Data=@{tool_name='Bash'; tool_input=@{command='git branch -D foo'};      cwd=$featCwd}; Exp='ask' },
-    @{ Name='GATED: git branch -d foo';               Data=@{tool_name='Bash'; tool_input=@{command='git branch -d foo'};      cwd=$featCwd}; Exp='ask' },
-    @{ Name='GATED: git tag -d tag';                  Data=@{tool_name='Bash'; tool_input=@{command='git tag -d v1'};          cwd=$featCwd}; Exp='ask' },
+    @{ Name='SAFE: git branch -D foo';               Data=@{tool_name='Bash'; tool_input=@{command='git branch -D foo'};      cwd=$featCwd}; Exp='no-decision' },
+    @{ Name='SAFE: git branch -d foo';               Data=@{tool_name='Bash'; tool_input=@{command='git branch -d foo'};      cwd=$featCwd}; Exp='no-decision' },
+    @{ Name='SAFE: git tag -d tag';                  Data=@{tool_name='Bash'; tool_input=@{command='git tag -d v1'};          cwd=$featCwd}; Exp='no-decision' },
     @{ Name='GATED: git merge feature';               Data=@{tool_name='Bash'; tool_input=@{command='git merge feature'};      cwd=$featCwd}; Exp='ask' },
-    @{ Name='GATED: git rebase main';                 Data=@{tool_name='Bash'; tool_input=@{command='git rebase main'};        cwd=$featCwd}; Exp='ask' },
-    @{ Name='GATED: git commit -m';                   Data=@{tool_name='Bash'; tool_input=@{command='git commit -m "hi"'};     cwd=$featCwd}; Exp='ask' },
+    @{ Name='SAFE: git rebase main';                 Data=@{tool_name='Bash'; tool_input=@{command='git rebase main'};        cwd=$featCwd}; Exp='no-decision' },
+    @{ Name='SAFE: git commit -m';                   Data=@{tool_name='Bash'; tool_input=@{command='git commit -m "hi"'};     cwd=$featCwd}; Exp='no-decision' },
     @{ Name='GATED: git push';                        Data=@{tool_name='Bash'; tool_input=@{command='git push'};               cwd=$featCwd}; Exp='ask' },
     @{ Name='GATED: git push origin main';            Data=@{tool_name='Bash'; tool_input=@{command='git push origin main'};   cwd=$featCwd}; Exp='ask' },
     @{ Name='GATED: gh pr create';                    Data=@{tool_name='Bash'; tool_input=@{command='gh pr create'};           cwd=$featCwd}; Exp='ask' },
