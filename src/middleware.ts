@@ -81,7 +81,27 @@ export async function middleware(request: NextRequest) {
       // been truncated. The login form validates whatever it reads back.
       const loginUrl = new URL(`/${locale}/login`, baseUrl)
       loginUrl.searchParams.set('callbackUrl', `${pathname}${request.nextUrl.search}`)
-      return NextResponse.redirect(loginUrl)
+
+      const redirectResponse = NextResponse.redirect(loginUrl)
+
+      // Carry over whatever `updateSession` queued. A fresh response starts
+      // with no cookies, and returning one discards them.
+      //
+      // The case this matters for is narrow but real: a session that has
+      // expired AND whose refresh token the auth server rejects. Supabase then
+      // queues a removal of the auth cookie, and dropping it leaves a dead
+      // credential in the browser - not a lost session, but a cookie that can
+      // never work again and that every subsequent request spends another
+      // failed refresh round trip on until the user signs in again.
+      //
+      // Copying the response's cookies onto the redirect is the documented
+      // @supabase/ssr middleware pattern, and the reason `updateSession`
+      // returns its response rather than only the user.
+      for (const cookie of supabaseResponse.cookies.getAll()) {
+        redirectResponse.cookies.set(cookie)
+      }
+
+      return redirectResponse
     }
   }
 
