@@ -131,13 +131,17 @@ jobs:
           path: lint-report.txt
 
   e2e:
-    name: E2E (non-blocking)
+    name: E2E (required)
     runs-on: ubuntu-latest
-    # Not a required check yet, deliberately. It is deterministic locally -
-    # five consecutive clean runs - but it has never run on GitHub's hardware,
-    # and a flaky required check is worse than no check. Promote it once it has
-    # a few green runs on main, the way Integration was promoted.
-    continue-on-error: true
+    # Promoted to a required check on 2026-09-05, on evidence rather than
+    # confidence: 10 consecutive runs on GitHub's hardware, each verified at
+    # STEP level rather than by the job conclusion. That distinction mattered -
+    # continue-on-error made the job report success even on failure, so the
+    # green job badges it accumulated were not proof of anything until the
+    # "Run E2E tests" step was checked directly. All 10 were genuine.
+    #
+    # Duration 3.98-5.36 min, so this is now the longest job. It runs in
+    # parallel with Verify, which takes ~3 min, so it sets the wall clock.
 
     steps:
       - name: Checkout repository

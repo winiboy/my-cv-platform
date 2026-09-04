@@ -12,7 +12,7 @@ without checking anything are prohibited.
 | `pnpm typecheck` | `tsc --noEmit` | **Required** | 0 errors |
 | `pnpm test` | Vitest, pure-function unit tests | **Required** | 89 tests passing |
 | `pnpm test:integration` | Vitest, route handlers against a local Supabase stack | **Required** | 14 tests passing |
-| `pnpm test:e2e` | Playwright, real browser against a production build | Reported, **not required** | 5 passing, 1 `fixme` |
+| `pnpm test:e2e` | Playwright, real browser against a production build | **Required** | 22 passing |
 | `pnpm build` | `next build` | **Required** | Success |
 | `pnpm build:verify` | `next build` into `.next-verify` | Local convenience | Same result as `pnpm build` |
 
@@ -128,9 +128,20 @@ intermittent `Unexpected end of JSON input` 500s that failed two tests on one
 run and passed them on the next with no code change. Against a build the same
 suite runs roughly six times faster and has been repeatably clean.
 
-It is **not yet a required check**. It has never run on GitHub's hardware, and
-a flaky required check is worse than no check — promote it after a few green
-runs on `main`, the way Integration was.
+It became a **required check** on 2026-09-05, on evidence rather than
+confidence: 10 consecutive runs on GitHub's hardware, each verified at *step*
+level. That distinction was the point — the job carried `continue-on-error`,
+so it reported success even when it failed, and the green job badges it
+accumulated proved nothing until the `Run E2E tests` step itself was checked.
+All 10 were genuine.
+
+At 3.98–5.36 minutes it is now the longest job. It runs in parallel with
+`Verify` (~3 min), so it sets the wall clock for a PR.
+
+Known harness limitation: two runs launched back to back collide at
+`webServer` startup, because `reuseExistingServer` is false and each run
+starts its own server. CI runs it once per job so it is unaffected, but
+locally `pnpm test:e2e` needs a moment between runs.
 
 Tests create and delete users, so `src/test/local-stack.ts` refuses any
 non-local Supabase host. That matters more here than for the integration
