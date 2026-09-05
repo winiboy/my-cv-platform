@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# The template carries no real values, only placeholders, and documents the
+# required variables (GROQ_API_KEY, GROQ_MODEL, ...). The blanket rule above
+# hid it, so the documentation could never reach anyone.
+!.env.example
 
 # vercel
 .vercel

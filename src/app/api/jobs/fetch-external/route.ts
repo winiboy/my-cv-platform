@@ -3,7 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { isRedirectContent } from '@/lib/adzuna-client'
 import Groq from 'groq-sdk'
 
-import { getGroqClient } from "@/lib/ai/client";
+import { getGroqClient, MODELS } from "@/lib/ai/client";
 
 
 /**
@@ -410,7 +410,7 @@ async function processAndRespond(
 
       // Translate description
       const descriptionCompletion = await groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
+        model: MODELS.BALANCED,
         messages: [
           {
             role: 'system',
@@ -433,7 +433,7 @@ async function processAndRespond(
       // Translate title if present
       if (extractedData.title) {
         const titleCompletion = await groq.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
+          model: MODELS.BALANCED,
           messages: [
             {
               role: 'system',
