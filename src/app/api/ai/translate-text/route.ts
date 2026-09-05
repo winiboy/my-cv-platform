@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getGroqClient } from '@/lib/ai/client'
+import { getGroqClient, MODELS } from '@/lib/ai/client'
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,7 +60,7 @@ ${text}`
     }
 
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: MODELS.BALANCED,
       messages: [
         {
           role: 'system',
