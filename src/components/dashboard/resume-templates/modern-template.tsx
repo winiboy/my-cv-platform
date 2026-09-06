@@ -663,6 +663,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
 
   return (
     <div
+      data-testid="resume-document"
       className="mx-auto shadow-lg print:shadow-none"
       style={{
         position: 'relative',

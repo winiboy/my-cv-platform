@@ -42,7 +42,10 @@ export default defineConfig({
   // Agent worktrees under .claude/ hold a full duplicate copy of the repo.
   // Without this every spec would be collected twice, as happened to lint and
   // to the unit suite before they were excluded.
-  testIgnore: ['**/node_modules/**', '**/.claude/**', '**/.next/**'],
+  // `e2e/visual` is excluded rather than merged in: it has its own config with
+  // screenshot-specific settings that would be wrong here, and running it on
+  // this config would compare against no baseline at all and silently pass.
+  testIgnore: ['**/node_modules/**', '**/.claude/**', '**/.next/**', '**/visual/**'],
 
   timeout: 90_000,
   expect: { timeout: 15_000 },

@@ -48,7 +48,7 @@ export function CreativeTemplate({
   const projects = ((resume.projects as unknown as ResumeProject[]) || []).filter(proj => proj.visible !== false)
 
   return (
-    <div className="mx-auto bg-white shadow-lg print:shadow-none" style={{ width: '8.5in' }}>
+    <div data-testid="resume-document" className="mx-auto bg-white shadow-lg print:shadow-none" style={{ width: '8.5in' }}>
       {/* Header with gradient background */}
       <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 p-10 text-white print:p-8" style={{ position: 'relative' }}>
         <div className="relative z-10">
