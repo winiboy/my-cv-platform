@@ -238,6 +238,7 @@ export function ProfessionalTemplate({
 
   return (
     <div
+      data-testid="resume-document"
       className="professional-template mx-auto shadow-lg print:shadow-none print:bg-transparent"
       style={{
         width: '816px',
@@ -280,7 +281,7 @@ export function ProfessionalTemplate({
             {/* Contact Name - Candidate Name */}
             <p
               className="font-semibold"
-              style={{ fontSize: `${scaledNameFontSize}px`, lineHeight: HEADING_LINE_HEIGHT, textAlign: 'justify' }}
+              style={{ fontSize: `${scaledNameFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}
             >
               {contact.name || 'Your Name'}
             </p>
@@ -449,7 +450,7 @@ export function ProfessionalTemplate({
                   <div className="space-y-4">
                     {certifications.slice(0, 3).map((cert, index) => (
                       <div key={index}>
-                        <h3 className="mb-1 font-bold" style={{ fontSize: `${scaledJobTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT, textAlign: 'justify' }}>
+                        <h3 className="mb-1 font-bold" style={{ fontSize: `${scaledJobTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
                           {cert.name}
                         </h3>
                         <p style={{ fontSize: `${scaledMetaFontSize}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>{cert.issuer}</p>

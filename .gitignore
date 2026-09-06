@@ -62,3 +62,8 @@ playwright-report/
 
 # Verification build output (see scripts/build-verify.mjs)
 .next-verify/
+
+# Visual regression build output (see playwright.visual.config.ts).
+# The baselines under e2e/visual/__screenshots__ are deliberately NOT ignored:
+# they are the approved reference and must be reviewable in a diff.
+.next-visual/

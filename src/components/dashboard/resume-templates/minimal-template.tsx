@@ -48,7 +48,7 @@ export function MinimalTemplate({
   const projects = ((resume.projects as unknown as ResumeProject[]) || []).filter(proj => proj.visible !== false)
 
   return (
-    <div className="mx-auto bg-white shadow-lg print:shadow-none" style={{ width: '8.5in' }}>
+    <div data-testid="resume-document" className="mx-auto bg-white shadow-lg print:shadow-none" style={{ width: '8.5in' }}>
       <div className="space-y-10 p-16 print:p-10">
         {/* Header: CV Title and Contact */}
         <div className="space-y-4 pb-6 border-b border-slate-300" style={{ position: 'relative' }}>

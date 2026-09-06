@@ -148,6 +148,24 @@ non-local Supabase host. That matters more here than for the integration
 suite: the app reads `.env.local`, which points at a real project, so a run
 that failed to override it would create users in production.
 
+### `pnpm test:visual`
+
+Pixel comparison of the five resume templates, rendered through the real
+preview route, against committed baselines. Requires the local Supabase stack.
+
+This is the only layer that can see a rendering regression: unit tests do not
+render, integration tests stop at the server, and the E2E suite asserts on
+URLs, text and cookies — none of which move when a column shifts.
+
+**Local only, deliberately.** Baselines are per-platform because Windows and
+Linux rasterise text differently, and only `win32` baselines are committed. A
+CI job would fail every run for a reason unrelated to correctness. Promoting it
+requires Linux baselines generated in CI itself.
+
+Baseline updates are an approval decision, not a test fix. See
+`docs/engineering/visual-regression.md` for the rules, the thresholds, and the
+truncation guard.
+
 ## Provider health — the layer no test can be
 
 Every suite above tests *the code*. None of them can see the AI provider
@@ -240,8 +258,7 @@ does not appear anywhere in the captured payload.
 
 ## Not yet available
 
-`pnpm test:visual` is intentionally absent. Visual regression (Phase 13) adds
-its script when that layer lands.
+Every layer named by the roadmap now has a script.
 
 ## Why lint is not a required check
 

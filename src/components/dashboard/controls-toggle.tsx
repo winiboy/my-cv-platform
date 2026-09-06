@@ -16,6 +16,7 @@ export function ControlsToggle({ showControls, onToggle, label = 'Show Controls'
         <span className="text-sm font-medium text-slate-700">{label}</span>
         <div className="relative">
           <input
+            data-testid="controls-toggle"
             type="checkbox"
             checked={showControls}
             onChange={(e) => onToggle(e.target.checked)}

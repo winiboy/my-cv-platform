@@ -21,6 +21,9 @@ const eslintConfig = defineConfig([
     // run took lint from 311 problems to 46,067 by linting compiled bundles.
     ".next-e2e/**",
     ".next-verify/**",
+    // Same again for the visual suite's build output: its first run took lint
+    // from 311 problems to 32,980. Every new NEXT_DIST_DIR needs a line here.
+    ".next-visual/**",
     "test-results/**",
     "playwright-report/**",
   ]),
