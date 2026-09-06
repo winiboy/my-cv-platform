@@ -1,6 +1,13 @@
 {
   "permissions": {
     "allow": [
+      "WebFetch(*)",
+      "Grep(*)",
+      "Glob(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Read(*)",
+      "Bash(*)",
       "Bash(Select-String:*)",
       "Bash(awk:*)",
       "Bash(base64:*)",

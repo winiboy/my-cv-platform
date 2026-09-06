@@ -17,6 +17,14 @@
       "Bash(pnpm supabase link:*)"
     ],
     "allow": [
+      "WebSearch",
+      "WebFetch(*)",
+      "Grep(*)",
+      "Glob(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Read(*)",
+      "Bash(*)",
       "Bash(pnpm lint:*)",
       "Bash(pnpm typecheck:*)",
       "Bash(pnpm test:*)",

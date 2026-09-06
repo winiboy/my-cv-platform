@@ -1,0 +1,109 @@
+# Scheduled check that the AI provider still works.
+#
+# Deliberately NOT part of ci.yml. That runs per pull request and checks the
+# code; this checks the world. A Groq model retirement breaks every AI tool in
+# the product without a single line of code changing, so no per-PR check can
+# ever see it — the last one was found by the owner clicking a button in the UI
+# after an unknown period of 500s.
+#
+# It gates itself on the provider key being configured and skips cleanly when
+# it is not, rather than failing red every morning. A check nobody trusts is
+# worse than no check, and this repository has no GROQ_API_KEY secret today.
+name: AI provider health
+
+on:
+  schedule:
+    # 07:23 UTC daily. Off the hour on purpose: GitHub's scheduler is heavily
+    # congested on the hour and delays runs queued there.
+    - cron: '23 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A scheduled run and a manual one racing each other would spend the owner's
+# Groq budget twice to answer the same question.
+concurrency:
+  group: ai-health
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Provider reachable
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # `secrets` is not available in a job-level `if`, so the gate is a step
+      # that publishes an output the later steps key on.
+      - name: Check whether a provider check is possible
+        id: gate
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          AI_HEALTH_URL: ${{ secrets.AI_HEALTH_URL }}
+        run: |
+          set -euo pipefail
+          if [ -n "${AI_HEALTH_URL}" ] || [ -n "${GROQ_API_KEY}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "configured=false" >> "$GITHUB_OUTPUT"
+          echo "::notice::Skipped: no GROQ_API_KEY secret is configured, so this run cannot reach the provider."
+          {
+            echo "## AI provider health — skipped"
+            echo
+            echo 'No `GROQ_API_KEY` secret is configured in this repository, so'
+            echo 'there is nothing this run can check. It exits green rather than'
+            echo 'red: a job that fails every morning for a known reason trains'
+            echo 'everyone to ignore it.'
+            echo
+            echo 'To make this check live, add either:'
+            echo
+            echo '- `GROQ_API_KEY` — probes Groq directly with the model id the app'
+            echo '  would use, or'
+            echo '- `AI_HEALTH_URL` (e.g. `https://<host>/api/health/ai`) plus'
+            echo '  `HEALTH_CHECK_TOKEN` — probes the deployed endpoint, which also'
+            echo '  verifies the running app can reach the provider. Preferred.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup Node.js
+        if: steps.gate.outputs.configured == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      # No `pnpm install`: the probe is plain Node using built-in fetch and
+      # imports nothing from node_modules, so the dependency install this would
+      # otherwise need is pure cost.
+      - name: Probe the AI provider
+        if: steps.gate.outputs.configured == 'true'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ secrets.GROQ_MODEL }}
+          AI_HEALTH_URL: ${{ secrets.AI_HEALTH_URL }}
+          HEALTH_CHECK_TOKEN: ${{ secrets.HEALTH_CHECK_TOKEN }}
+        run: node scripts/ai-health-probe.mjs
+
+      - name: Record the verdict
+        if: always() && steps.gate.outputs.configured == 'true'
+        run: |
+          {
+            echo "## AI provider health"
+            echo
+            if [ "${{ job.status }}" = "success" ]; then
+              echo 'The provider answered. The AI tools are working.'
+            else
+              echo '**The AI provider check failed.** Every AI tool in the app is'
+              echo 'likely returning 500 right now. The most common cause is a'
+              echo 'retired Groq model: check'
+              echo 'https://console.groq.com/docs/models for a current id and set'
+              echo '`GROQ_MODEL` in the deployment environment. No code change or'
+              echo 'redeploy of new code is required.'
+              echo
+              echo 'See the step log above for the provider status and error code.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
