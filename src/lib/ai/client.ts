@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs'
 import Groq from 'groq-sdk'
 
 // Initialize Groq client
@@ -24,23 +25,47 @@ export function getGroqClient() {
 const FALLBACK_BALANCED_MODEL = 'openai/gpt-oss-120b'
 const FALLBACK_FAST_MODEL = 'openai/gpt-oss-20b'
 
+/** Where a resolved model id came from. Reported by the health check. */
+export type ModelSource = 'env' | 'default'
+
+/** A resolved model id together with its provenance. Contains no secrets. */
+export interface ResolvedModel {
+  readonly id: string
+  readonly source: ModelSource
+}
+
 /**
  * Reads a model id from the environment, treating unset and blank as absent so
  * that an empty variable in a `.env` file cannot send an empty model id to the
  * API.
  */
-function resolveModel(configured: string | undefined, fallback: string): string {
+function resolveModel(configured: string | undefined, fallback: string): ResolvedModel {
   const trimmed = configured?.trim()
-  return trimmed ? trimmed : fallback
+  return trimmed ? { id: trimmed, source: 'env' } : { id: fallback, source: 'default' }
 }
 
+const BALANCED_MODEL = resolveModel(process.env.GROQ_MODEL, FALLBACK_BALANCED_MODEL)
+const FAST_MODEL = resolveModel(process.env.GROQ_MODEL_FAST, FALLBACK_FAST_MODEL)
+
+/**
+ * The resolved model ids and where each came from.
+ *
+ * Exposed so `/api/health/ai` can report the effective configuration without
+ * re-deriving it — the model ids the health check reports are by construction
+ * the ones every AI tool actually uses, not a second opinion about them.
+ */
+export const MODEL_CONFIGURATION = {
+  balanced: BALANCED_MODEL,
+  fast: FAST_MODEL,
+} as const
+
 /** Default model, overridable with `GROQ_MODEL`. */
-export const DEFAULT_MODEL = resolveModel(process.env.GROQ_MODEL, FALLBACK_BALANCED_MODEL)
+export const DEFAULT_MODEL = BALANCED_MODEL.id
 
 // Model options for different use cases
 export const MODELS = {
   // Fast and efficient for most tasks, overridable with `GROQ_MODEL_FAST`
-  FAST: resolveModel(process.env.GROQ_MODEL_FAST, FALLBACK_FAST_MODEL),
+  FAST: FAST_MODEL.id,
 
   // Balanced performance and quality (recommended)
   BALANCED: DEFAULT_MODEL,
@@ -95,6 +120,64 @@ function isReasoningEffortUnsupported(error: unknown): boolean {
 }
 
 /**
+ * Coarse classification of a provider failure.
+ *
+ * Every value here is safe to return to a caller: it names the *class* of
+ * failure without carrying the provider's message, the API key, or any prompt
+ * content. The detail belongs in Sentry, not in an HTTP body.
+ */
+export type AiFailureReason =
+  | 'model_not_found'
+  | 'unauthorized'
+  | 'rate_limited'
+  | 'provider_error'
+  | 'network_error'
+
+/**
+ * A failed completion, carrying enough non-sensitive structure for the health
+ * check to say *why* the provider is unhealthy.
+ *
+ * The message is deliberately identical to the plain `Error` this replaces:
+ * ten routes surface `error.message` to the client, so changing the text would
+ * change ten user-visible strings for no reason.
+ */
+export class AiCompletionError extends Error {
+  constructor(
+    readonly reason: AiFailureReason,
+    readonly model: string,
+    readonly providerStatus?: number
+  ) {
+    super('Failed to generate AI completion')
+    this.name = 'AiCompletionError'
+  }
+}
+
+/**
+ * Maps a provider rejection onto a safe reason code.
+ *
+ * A model retirement surfaces as `model_not_found` — either as the body's
+ * error code or as a bare 404 — which is the case this whole health check
+ * exists to catch.
+ */
+function classifyFailure(error: unknown): { reason: AiFailureReason; status?: number } {
+  if (!(error instanceof Groq.APIError)) {
+    // No HTTP response at all: DNS, TLS, timeout, connection reset.
+    return { reason: 'network_error' }
+  }
+
+  const status = error.status
+  const body = error.error as { error?: { code?: unknown } } | undefined
+  if (body?.error?.code === 'model_not_found') {
+    return { reason: 'model_not_found', status }
+  }
+
+  if (status === 404) return { reason: 'model_not_found', status }
+  if (status === 401 || status === 403) return { reason: 'unauthorized', status }
+  if (status === 429) return { reason: 'rate_limited', status }
+  return { reason: 'provider_error', status }
+}
+
+/**
  * Generate a completion using Groq
  */
 export async function generateCompletion(
@@ -104,6 +187,8 @@ export async function generateCompletion(
     temperature?: number
     maxTokens?: number
     reasoningEffort?: ReasoningEffort
+    /** Names the calling feature in Sentry so a probe is distinguishable from real traffic. */
+    operation?: string
   } = {}
 ) {
   const {
@@ -111,6 +196,7 @@ export async function generateCompletion(
     temperature = 0.7,
     maxTokens = 1000,
     reasoningEffort = DEFAULT_REASONING_EFFORT,
+    operation = 'generateCompletion',
   } = options
 
   const groq = getGroqClient()
@@ -150,7 +236,28 @@ export async function generateCompletion(
       usage: completion.usage,
     }
   } catch (error) {
+    const { reason, status } = classifyFailure(error)
+
+    // The single capture point for all ten consumers. A Groq model retirement
+    // broke every AI tool at once and nothing reported it, because the routes
+    // only wrote to console.error — invisible in production. Capturing here
+    // rather than per route also keeps the next retirement from being a
+    // seven-file change.
+    //
+    // The prompt is deliberately absent: it carries user resume content, which
+    // .claude/rules/security.md forbids logging. Only the model id, the
+    // operation and the request shape go out.
+    Sentry.captureException(error, {
+      tags: {
+        area: 'ai',
+        ai_operation: operation,
+        ai_failure_reason: reason,
+        ai_model: model,
+      },
+      extra: { model, operation, providerStatus: status, maxTokens, temperature, reasoningEffort },
+    })
+
     console.error('Groq API error:', error)
-    throw new Error('Failed to generate AI completion')
+    throw new AiCompletionError(reason, model, status)
   }
 }

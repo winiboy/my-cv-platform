@@ -148,6 +148,96 @@ non-local Supabase host. That matters more here than for the integration
 suite: the app reads `.env.local`, which points at a real project, so a run
 that failed to override it would create users in production.
 
+## Provider health — the layer no test can be
+
+Every suite above tests *the code*. None of them can see the AI provider
+breaking, and that is deliberate: `src/lib/ai/client.test.ts` mocks the Groq
+SDK, no test holds an API key, and CI has no `GROQ_API_KEY` secret. A test that
+called Groq for real would be non-deterministic, cost money on every PR, and
+fail on a fork.
+
+The cost of that gap has already been paid. Groq retired a hosted model, every
+AI tool in the product began returning 500, and nothing noticed for an unknown
+period — not the unit tests, not the integration tests, not E2E, not CI. The
+owner found it by clicking a button in the UI. No amount of test coverage would
+have caught it, because not a single line of code had changed.
+
+Three things close it:
+
+| Layer | What it catches |
+|---|---|
+| `GET /api/health/ai` | Whether the running app can actually complete a Groq request, on demand |
+| `.github/workflows/ai-health.yml` | The same, daily, unprompted |
+| `Sentry.captureException` in `generateCompletion` | Every real user-facing AI failure, as it happens |
+
+### `GET /api/health/ai`
+
+Two depths, because a live check spends tokens and must not become a free way
+for anyone to run down the Groq budget.
+
+**Unauthenticated** — configuration only. Reports whether an API key is present
+(a boolean; never the value, never its length) and which model ids resolve,
+each tagged `env` or `default`. Makes no provider call and costs nothing.
+
+**Authenticated** with `Authorization: Bearer <HEALTH_CHECK_TOKEN>` —
+additionally performs one 32-token completion through the same
+`generateCompletion` path production uses, and reports the model actually used
+and the latency. Probing the SDK directly would have proved that Groq works
+while saying nothing about whether *the app* can reach it.
+
+Status codes are the contract, because an uptime monitor watches those and not
+the body:
+
+| Code | Meaning |
+|---|---|
+| `200` | The checked depth is healthy |
+| `503` | The key is missing, or the provider rejected the call — a retired model lands here |
+| `401` | A bearer token was supplied but is wrong, malformed, or `HEALTH_CHECK_TOKEN` is not configured |
+
+**The deep check fails closed.** With `HEALTH_CHECK_TOKEN` unset there is no
+correct credential, so the deep check is unavailable rather than open. The
+unauthenticated depth keeps working.
+
+The body never carries the API key, a provider stack trace, or the provider's
+own error text — only a short reason code such as `model_not_found`. The detail
+goes to Sentry.
+
+Verified by making the check fail the way a real retirement does — setting
+`GROQ_MODEL` to a nonexistent id and confirming a 503 rather than a 200. A
+health check that cannot report unhealthy is worse than none, so that path is
+proven rather than assumed, both here and in
+`src/app/api/health/ai/route.test.ts`.
+
+### The scheduled workflow
+
+`.github/workflows/ai-health.yml` runs daily and on `workflow_dispatch`. It is
+deliberately **not** in `ci.yml`: that runs per pull request and checks the
+code, while this checks the world.
+
+It prefers the deployed endpoint (`AI_HEALTH_URL` + `HEALTH_CHECK_TOKEN` as
+secrets) and otherwise calls Groq directly via `scripts/ai-health-probe.mjs`,
+using the model id the application would use. The probe reads the fallback id
+out of `src/lib/ai/client.ts` rather than copying it — a copy is exactly what
+made the last retirement a three-file change — and a test asserts that parse
+still resolves.
+
+**It skips cleanly when no `GROQ_API_KEY` secret exists**, which is the state
+of this repository today, printing what to add rather than failing red. A job
+that fails every morning for a known reason trains everyone to ignore it, and
+a check nobody trusts is worse than no check. It becomes live the moment the
+secret is added; nothing else needs changing.
+
+### Sentry
+
+`generateCompletion` captures every provider failure, tagged with the model id,
+the calling operation and a coarse reason. One capture point covers all ten
+consumers — adding it to each route would recreate the duplication that made
+the retirement a three-file change in the first place.
+
+The prompt is deliberately never captured: it carries user resume content,
+which `.claude/rules/security.md` forbids logging. A test asserts the prompt
+does not appear anywhere in the captured payload.
+
 ## Not yet available
 
 `pnpm test:visual` is intentionally absent. Visual regression (Phase 13) adds
