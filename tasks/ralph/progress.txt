@@ -1,0 +1,119 @@
+# Ralph progress — Milestone C Part 1, Layout State
+# Contract: tasks/ralph/prd.json
+# PRD: tasks/prds/milestone-c-part-1-layout-state.md
+
+## US-001: The print path is covered before any rendering changes
+Status: PASS
+Priority: 1
+Branch: ralph/milestone-c-part-1-layout-state
+Baseline HEAD: 8eb4e07
+
+Scope:
+- Scope check: PASS
+- Changed paths:
+    e2e/visual/resume-templates.spec.ts
+    docs/engineering/visual-regression.md
+    e2e/visual/__screenshots__/win32/{professional,modern,classic,minimal,creative}-print.png (new)
+    e2e/visual/__screenshots__/win32/professional.png (re-blessed, see below)
+- Production code changed: NONE. `git diff -- src/` empty at commit time.
+
+Checks:
+- pnpm typecheck: PASS — 0 errors
+- pnpm lint: PASS — 311 problems (237 errors, 74 warnings), exactly the tracked baseline
+- pnpm test: PASS — 121 passed
+- pnpm test:integration: PASS — 14 passed
+- pnpm test:e2e: PASS — 22 passed
+- pnpm test:visual: PASS — 10 passed (5 screen + 5 print)
+- pnpm build:verify: PASS — exit 0
+
+Specialized validation:
+- Browser: NOT_APPLICABLE — no interaction behaviour changed
+- Visual: PASS — the suite is the deliverable; see mutation evidence below
+- Export: NOT_APPLICABLE — DOCX untouched; PDF production path unchanged
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE — no trust boundary touched
+
+Agents:
+- ui-expert: NOT_APPLICABLE — no UI change; zero production code modified
+- code-reviewer: PASS (second pass). First pass returned FAIL; see below.
+
+Acceptance criteria:
+- AC-01 (print capture for all five templates): PASS — `playwright test --list`
+  enumerates 10 tests, 5 `renders as approved` + 5 `prints as approved`.
+- AC-02 (print baselines committed and visibly distinct): PASS — differing
+  pixels under exact RGBA equality, overlapping region only:
+    professional 88,602 | modern 105,405 | classic 146,738 (+44,880 outside
+    overlap) | minimal 136,210 (+39,168) | creative 388,932 (+60,384)
+  professional and modern are 816x1056 in BOTH media because each pins
+  minHeight: '1056px'; identical dimensions do not mean identical content, and
+  these deltas are what prove print media is in effect for those two.
+- AC-03 (proven to detect a print-only change): PASS — two mutations, both
+  reverted:
+    (a) classic `print:p-8` -> `print:p-6`: print FAILED at 69,737 px
+        (816x1340 -> 816x1324, exactly the two 8px padding edges), while the
+        same template's SCREEN baseline PASSED. Tolerance is 120 px.
+    (b) `print:hidden` stripped from all 26 template sites at once: creative
+        print FAILED at 1,112 px (two font-size sliders rendering over the
+        EXPERIENCE column); the other four print baselines and all five screen
+        baselines passed. This measured the real reach of the utility.
+- AC-04 (truncation guard applies to print): PASS — `expectFitsWithoutStitching`
+  takes the medium and is called AFTER `emulateMedia`, re-reading boundingBox.
+  Print heights 1340/1663/1080/1056/1056 against a 2600 viewport. Load-bearing:
+  classic is 1395px on screen but 1340px in print, so a screen measurement
+  would have been guarding a number that no longer described the capture.
+- AC-05 (no production code changes): PASS — `git diff -- src/` empty. The
+  existing `resume-document` and `controls-toggle` test ids were sufficient.
+
+Review history:
+- code-reviewer pass 1: FAIL. `print:hidden` — the largest class of print
+  utility — was not under observation. `showControls` defaults to true, so a
+  real user prints with controls ON and `print:hidden` is the sole mechanism
+  keeping sliders out of their PDF; the spec unchecked the controls, which
+  removes them from the DOM entirely. Deleting `print:hidden` anywhere would
+  have left both baselines byte-identical and the suite green.
+- Fix: `openPreviewDocument` gained `controls: 'off' | 'as-shipped'`. The print
+  test uses 'as-shipped' and asserts the toggle is checked, so a change to the
+  default fails loudly rather than silently dropping coverage.
+- code-reviewer pass 2: PASS, no Critical or Major. Every measurement
+  independently re-derived from source and Git history.
+
+Known limits, recorded rather than rounded up:
+- `print:hidden` coverage is 2 of 26 template sites. 12 are absolutely
+  positioned past the 816px box and clipped; 8 in professional are gated on
+  props `resume-preview-wrapper.tsx` never passes at any `showControls` value
+  (dead code on this route, worth filing); 4 in modern are hover-only or
+  background-removal-only.
+- `print:shadow-none` is uncapturable by an element screenshot — a box-shadow
+  falls outside the element clip.
+- `pnpm test:visual` is NOT a CI gate. No Linux baselines exist. The print path
+  is now coverable; it is not yet guarded.
+- Open Minor from review 2: the 2 observed creative sites can decay to 0
+  without any test going red. Filed as follow-up rather than fixed here.
+
+Baseline re-blessed during this story:
+- `professional.png`, approved by the owner on 2026-09-07.
+- 879 px across 10 rows (y 620-629, x 81-220), one text line; wrap point
+  unchanged, nothing below it moved.
+- Cause: commit 6e0dd91 — the commit that INTRODUCED the baseline — also
+  removed `textAlign: 'justify'` from the cert.name <h3> and the contact-name
+  <p>, while its message claimed "six data-testid attributes and nothing else.
+  No template rendering was altered." That claim was false; unrelated
+  uncommitted changes were swept in during staging. The PNG was captured before
+  those removals, so the baseline disagreed with the code shipped in its own PR.
+- The general rule this establishes is recorded in
+  docs/engineering/visual-regression.md: a baseline that disagrees with
+  unchanged code is a bug in the baseline, and re-blessing it requires the
+  disagreement be written down.
+
+Harness limitation found during this story:
+- `pnpm test:visual` and `pnpm test:e2e` cannot run from a `.claude/worktrees/`
+  checkout. Both configs carry `testIgnore: ['**/.claude/**']` and Playwright
+  matches it against the absolute path, so an agent worktree matches its own
+  ignore rule and reports "No tests found". All verification for this story ran
+  in the main checkout.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 the print path is covered before any rendering changes
+
+FINAL: PASS
