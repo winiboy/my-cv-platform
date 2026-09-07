@@ -1,12 +1,20 @@
-# PRD: Resume Rendering Unification (Milestone C)
+# PRD: Resume Rendering Unification — Part 1, Layout State (Milestone C)
 
 **Status:** DRAFT
 
+**Followed by:** `tasks/prds/milestone-c-part-2-exports-and-parity.md`, which
+makes the export and editing surfaces consume what this part establishes. It
+cannot start until this part is complete.
+
+The milestone was split here because an eight-story contract is not reviewably
+scoped, and because the two halves fail differently: this one risks **losing
+user data**, the second risks **changing exported output**. Different risks
+deserve separate approval decisions.
+
 ## Objective
 
-Make one persisted, typed layout model the single source of truth for how a
-resume renders, so that the Editor, Live Preview, Preview, PDF and DOCX all
-derive from it rather than from four competing stores.
+Establish one persisted, typed layout model as the single source of truth for
+resume layout state, replacing the four competing stores that hold it today.
 
 ## Context / Current Behavior
 
@@ -70,25 +78,28 @@ product produces — has no automated coverage of any kind.
 
 ## Scope
 
+- Automated visual coverage of the print path, established **before** any
+  layout code changes.
 - A single typed layout model covering every layout property that affects
   rendering, with one set of defaults.
 - Server-side persistence of that model, with localStorage demoted to a cache.
 - A one-time migration of existing localStorage settings into that store.
-- Exports (DOCX) reading the persisted model rather than URL parameters.
-- Editor and Preview sharing one state owner.
-- Reducing the DOCX generators' duplication of template layout.
-- Automated visual coverage of the print path.
-- Parity validation across Preview, PDF and DOCX from one fixture.
 
 ## Out of Scope
 
-- Any change to how a resume *looks*. This milestone changes where layout state
+- Any change to how a resume *looks*. This part changes where layout state
   lives, not what it renders to. Visual output is the invariant.
+- **Everything in Part 2:** exports reading the persisted model, one state owner
+  across Editor and Preview, reducing the DOCX generators' duplication, and
+  cross-surface parity validation. Those depend on this part and are approved
+  separately.
 - New layout capabilities, new templates, or removing existing ones.
 - Cover letter rendering and its separate template.
 - The AI tools, the job-application surfaces, and the dashboard.
 - Redesigning the editor's UI.
 - Migrating the PDF path off `window.print()`.
+- Moving the photo out of localStorage — decided against; see Resolved
+  Decisions.
 
 ## Impact Assessment
 
@@ -97,8 +108,9 @@ product produces — has no automated coverage of any kind.
 - **Internationalization:** Not affected — layout state carries no user-facing
   copy. Locale continues to reach templates as it does today.
 - **Resume model / templates:** Affected — this is the milestone's subject.
-- **Exports:** Affected — DOCX changes its input source; PDF changes only
-  insofar as the print stylesheet is touched.
+- **Exports:** Not affected by this part. DOCX continues to read its 14 query
+  parameters until Part 2 removes them. PDF is captured under test here but its
+  production path is unchanged.
 - **Database / persistence:** Affected — the persisted layout shape widens, via
   migration.
 - **Security / authorization:** Affected — a widened `custom_sections` payload
@@ -200,82 +212,6 @@ persistence ships, so that my resume does not silently revert.
 - [ ] The migration is evidenced by a test that seeds localStorage, loads the
       resume, and asserts the persisted result.
 
-### US-005: Exports read the persisted model
-
-**Description:**
-As a user, I want my DOCX to match what I see, without the browser having to
-describe my layout to the server.
-
-**Acceptance Criteria:**
-
-- [ ] `download-docx/route.ts` derives layout from the resume record.
-- [ ] The 14 layout query parameters and their client-side assembly in
-      `download-button.tsx` and `download-resume-buttons.tsx` are removed.
-- [ ] A generated DOCX reflects layout settings saved on a different device.
-- [ ] Export output is validated as a generated artifact, not by a successful
-      HTTP response.
-- [ ] The photo **remains in localStorage** (decided 2026-09-07) and is
-      documented as a deliberate, named exception to FR-1 and FR-3 rather than
-      left as an oversight.
-- [ ] The consequence is written down: because the photo is not server-side,
-      the DOCX route continues to receive it as base64 in the request body.
-      That single client-supplied input survives the removal of the 14 query
-      parameters, and it is the one respect in which the server still cannot
-      render the resume unaided.
-- [ ] The exception is scoped to the photo alone. No other layout property may
-      use the request body as a transport.
-
-### US-006: Editor and Preview share one state owner
-
-**Description:**
-As a developer, I want one component to own layout state, so that the editor
-and the preview cannot disagree about it.
-
-**Acceptance Criteria:**
-
-- [ ] Layout state is owned in one place and consumed by both surfaces.
-- [ ] The duplicated `useState` declarations in `resume-editor.tsx` and
-      `resume-preview-wrapper.tsx` no longer both hold authoritative copies.
-- [ ] Editing a layout control updates the Live Preview with no additional
-      synchronisation code.
-- [ ] `pnpm test:visual` passes unchanged — screen and print.
-
-### US-007: DOCX stops reimplementing template layout
-
-**Description:**
-As a developer, I want the DOCX generators to consume a shared description of
-each template's layout, so that a template change does not require a parallel
-edit in a second implementation.
-
-**Acceptance Criteria:**
-
-- [ ] Section order, visibility and typography scaling derive from the shared
-      model rather than from per-generator logic.
-- [ ] Duplicated layout constants are removed from the generators in favour of
-      the shared defaults.
-- [ ] Each template is converted independently, with export evidence per
-      template, so a defect is attributable to one conversion.
-- [ ] Format-specific rendering remains permitted; semantic content, order,
-      visibility and typography intent are preserved per
-      `.claude/rules/exports.md`.
-- [ ] Every converted template's DOCX is validated as a generated artifact.
-
-### US-008: Parity across the three surfaces is demonstrated
-
-**Description:**
-As a maintainer, I want one fixture proven to render consistently to Preview,
-PDF and DOCX, so that "unified" is evidenced rather than asserted.
-
-**Acceptance Criteria:**
-
-- [ ] One fixture resume, with non-default layout settings, renders to all
-      three surfaces under test.
-- [ ] Section order and visibility match across all three.
-- [ ] Typography intent and colour match to the degree each format supports,
-      with any format limitation recorded as an explicit finding rather than
-      accepted silently.
-- [ ] The comparison runs as a repeatable command.
-
 ## Functional Requirements
 
 - **FR-1:** One typed model is the single source of truth for resume layout
@@ -283,17 +219,17 @@ PDF and DOCX, so that "unified" is evidenced rather than asserted.
 - **FR-2:** Layout state persists to the account and is readable server-side.
 - **FR-3:** localStorage may cache layout state but must never be
   authoritative. Where both a persisted and a local value exist, the persisted
-  value wins. The photo is the single named exception (US-005).
-- **FR-4:** URL parameters must not carry canonical layout state. The photo
-  continues to travel in the DOCX request body, as the documented consequence
-  of FR-3's exception.
-- **FR-5:** Defaults are declared once and consumed everywhere.
-- **FR-6:** Untrusted persisted state must be validated before it reaches
+  value wins. The photo is the single named exception, and stays browser-local.
+- **FR-4:** Defaults are declared once and consumed everywhere.
+- **FR-5:** Untrusted persisted state must be validated before it reaches
   rendering, and must degrade to defaults rather than failing.
-- **FR-7:** Rendered output must not change except where a story explicitly
+- **FR-6:** Rendered output must not change except where a story explicitly
   requires it; visual baselines are the contract.
-- **FR-8:** Template isolation holds — a change for one template must not alter
+- **FR-7:** Template isolation holds — a change for one template must not alter
   another through shared defaults or fallbacks.
+- **FR-8:** The DOCX query parameters remain in place and functional throughout
+  this part. Removing them is Part 2's work, and doing it early would break
+  export while the persisted model has no consumer.
 
 ## Regression Constraints
 
@@ -321,11 +257,11 @@ PDF and DOCX, so that "unified" is evidenced rather than asserted.
   green without an understood cause is a FAIL.
 - `database-migration` evidence for US-003, including forward migration against
   a non-production database.
-- `security-review` for US-003 and US-005: widened user-controlled payload,
-  ownership, and the removal of the export parameter surface.
-- `export-validation` for US-005 and US-007: a generated DOCX inspected for
-  content and fidelity, not an HTTP 200.
-- `ui-expert` for US-006 with rendered evidence per its contract.
+- `security-review` for US-003: a widened user-controlled payload written to the
+  database and read back into rendering, plus ownership evidence.
+- `export-validation` for US-003 and US-004: DOCX must still generate correctly
+  from the unchanged query parameters after the persistence change. This part
+  does not improve export, but it must not break it.
 - `code-reviewer` on every story.
 
 ## FAIL Conditions
@@ -337,9 +273,11 @@ PDF and DOCX, so that "unified" is evidenced rather than asserted.
   end of the story that claimed to remove it.
 - Existing user customization is lost by the persistence change.
 - A template's rendering changes as a side effect of work on another template.
-- DOCX or PDF silently omits, reorders or rewrites supported content while
-  claiming Preview parity.
-- Layout state is read from URL parameters after US-005.
+- DOCX or PDF output changes at all during this part. Neither is being improved
+  here; any change is a regression.
+- The precedence rule is implemented as an unqualified "persisted wins",
+  letting empty defaults overwrite a real local customization at the migration
+  boundary.
 
 ## BLOCKER Conditions
 
@@ -356,11 +294,9 @@ PDF and DOCX, so that "unified" is evidenced rather than asserted.
   localStorage now. Shipping persistence without the migration destroys them on
   the day it deploys, with no error and no obvious cause. This is the single
   highest risk in the milestone.
-- **Baselines absorbing regressions.** Eight stories all gated by the same
+- **Baselines absorbing regressions.** Four stories gated by the same
   screenshots creates sustained pressure to update a baseline rather than
   explain a diff. The approval rule exists for this; it will be tested.
-- **US-007 is large.** ~6,500 lines across five generators. Converting all five
-  in one story would make any defect unattributable.
 - **The photo stays browser-local by decision**, so it keeps the properties the
   rest of this milestone removes: it does not follow the user to another
   device, and clearing browser data destroys it. That is now an accepted,
@@ -396,8 +332,8 @@ PDF and DOCX, so that "unified" is evidenced rather than asserted.
 
 ## Resolved Decisions
 
-Both questions that previously blocked US-003, US-004 and US-005 were decided
-by the owner on 2026-09-07:
+Both were decided by the owner on 2026-09-07. The first governs US-003 and
+US-004 here; the second governs Part 2's export story and is repeated there.
 
 1. **Precedence: the persisted value wins.** Qualified as "persisted wins when
    persisted settings exist" — see US-003. The qualification is not a softening
@@ -406,8 +342,10 @@ by the owner on 2026-09-07:
    exists to prevent. The accepted cost is that a layout edit made while the
    persist call fails is discarded on the next load rather than retained.
 2. **The photo stays in localStorage**, as a named exception to FR-1 and FR-3.
-   Its consequence — the DOCX route continues to receive the photo as base64 in
-   the request body — is recorded in US-005 rather than left to be discovered.
+   It is therefore excluded from the persistence work here, and keeps the
+   properties this part removes from everything else: it does not follow the
+   user to another device, and clearing browser data destroys it. Its export
+   consequence is recorded in Part 2.
 
 ## Open Questions
 
