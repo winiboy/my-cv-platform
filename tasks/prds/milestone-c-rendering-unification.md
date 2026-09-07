@@ -164,9 +164,14 @@ account, so that my resume looks the same on another device.
 - [ ] Settings saved on one browser session are present on a different session
       for the same user, evidenced by an E2E test that saves in one context and
       reads in another.
-- [ ] localStorage is a cache: it may serve a fast first paint, but the
-      persisted value is authoritative on conflict, and the precedence is
-      stated in one place.
+- [ ] localStorage is a cache: it may serve a fast first paint, but **the
+      persisted value wins on conflict** (decided 2026-09-07). The precedence
+      is implemented and stated in exactly one place.
+- [ ] The rule is qualified precisely: persisted wins **when persisted settings
+      exist for that resume**. Absent them, the local values are adopted and
+      become the persisted ones — see US-004. An unqualified "persisted wins"
+      would let empty defaults beat a real local customization at the migration
+      boundary, which is the data loss US-004 exists to prevent.
 - [ ] RLS evidence covers the widened payload: `OWNER_B` cannot read or write
       `OWNER_A`'s layout settings.
 - [ ] Malformed or oversized persisted settings degrade to defaults rather than
@@ -186,8 +191,12 @@ persistence ships, so that my resume does not silently revert.
 - [ ] The migration runs once per resume and is idempotent.
 - [ ] A resume with no local settings is unaffected — no defaults are written
       over an intentional server-side value.
-- [ ] A resume with *both* local settings and persisted settings resolves by a
-      single stated rule, and that rule is tested.
+- [ ] A resume with *both* local settings and persisted settings resolves to
+      the **persisted** value, and that is tested. The local value is not
+      promoted over an existing persisted one.
+- [ ] A resume with local settings and **no** persisted settings adopts the
+      local values. This is the migration, and it is the one case where local
+      data reaches the store.
 - [ ] The migration is evidenced by a test that seeds localStorage, loads the
       resume, and asserts the persisted result.
 
@@ -205,8 +214,16 @@ describe my layout to the server.
 - [ ] A generated DOCX reflects layout settings saved on a different device.
 - [ ] Export output is validated as a generated artifact, not by a successful
       HTTP response.
-- [ ] The photo path is resolved explicitly: either persisted like other layout
-      state, or documented as a deliberate exception with its reason.
+- [ ] The photo **remains in localStorage** (decided 2026-09-07) and is
+      documented as a deliberate, named exception to FR-1 and FR-3 rather than
+      left as an oversight.
+- [ ] The consequence is written down: because the photo is not server-side,
+      the DOCX route continues to receive it as base64 in the request body.
+      That single client-supplied input survives the removal of the 14 query
+      parameters, and it is the one respect in which the server still cannot
+      render the resume unaided.
+- [ ] The exception is scoped to the photo alone. No other layout property may
+      use the request body as a transport.
 
 ### US-006: Editor and Preview share one state owner
 
@@ -264,8 +281,12 @@ PDF and DOCX, so that "unified" is evidenced rather than asserted.
 - **FR-1:** One typed model is the single source of truth for resume layout
   state; no surface may hold an independent authoritative copy.
 - **FR-2:** Layout state persists to the account and is readable server-side.
-- **FR-3:** localStorage may cache layout state but must never be authoritative.
-- **FR-4:** URL parameters must not carry canonical layout state.
+- **FR-3:** localStorage may cache layout state but must never be
+  authoritative. Where both a persisted and a local value exist, the persisted
+  value wins. The photo is the single named exception (US-005).
+- **FR-4:** URL parameters must not carry canonical layout state. The photo
+  continues to travel in the DOCX request body, as the documented consequence
+  of FR-3's exception.
 - **FR-5:** Defaults are declared once and consumed everywhere.
 - **FR-6:** Untrusted persisted state must be validated before it reaches
   rendering, and must degrade to defaults rather than failing.
@@ -322,9 +343,6 @@ PDF and DOCX, so that "unified" is evidenced rather than asserted.
 
 ## BLOCKER Conditions
 
-- The precedence rule for a resume holding both local and persisted settings
-  cannot be decided from this PRD (see Open Questions).
-- The photo's storage destination is undecided at US-005.
 - Print-media capture proves infeasible in the harness, leaving US-001
   unsatisfiable — the remaining stories must not proceed on screen coverage
   alone.
@@ -343,8 +361,15 @@ PDF and DOCX, so that "unified" is evidenced rather than asserted.
   explain a diff. The approval rule exists for this; it will be tested.
 - **US-007 is large.** ~6,500 lines across five generators. Converting all five
   in one story would make any defect unattributable.
-- **Photo as base64 in localStorage** may be large; moving it to persistence has
-  storage and payload implications not yet measured.
+- **The photo stays browser-local by decision**, so it keeps the properties the
+  rest of this milestone removes: it does not follow the user to another
+  device, and clearing browser data destroys it. That is now an accepted,
+  documented limitation rather than a defect — but it should be stated to users
+  somewhere, and this PRD does not cover doing so.
+- **Persisted-wins discards a failed save.** If a layout edit is made and the
+  persist call fails, the next load serves the persisted value and the edit is
+  gone. Accepted as part of the precedence decision; worth a retry or a visible
+  failure state, neither of which is in scope here.
 - **The professional template's justified sidebar headings** are a known
   pre-existing defect with a fix in flight. Sequencing must avoid two changes
   to that template's baseline colliding.
@@ -369,15 +394,24 @@ PDF and DOCX, so that "unified" is evidenced rather than asserted.
   truncation guard.
 - `.claude/rules/resumes.md`, `.claude/rules/exports.md`, `CLAUDE.md` §10.
 
+## Resolved Decisions
+
+Both questions that previously blocked US-003, US-004 and US-005 were decided
+by the owner on 2026-09-07:
+
+1. **Precedence: the persisted value wins.** Qualified as "persisted wins when
+   persisted settings exist" — see US-003. The qualification is not a softening
+   of the decision; without it, empty defaults would beat real local
+   customization on the first load after deploy, which is the failure US-004
+   exists to prevent. The accepted cost is that a layout edit made while the
+   persist call fails is discarded on the next load rather than retained.
+2. **The photo stays in localStorage**, as a named exception to FR-1 and FR-3.
+   Its consequence — the DOCX route continues to receive the photo as base64 in
+   the request body — is recorded in US-005 rather than left to be discovered.
+
 ## Open Questions
 
-1. **Precedence when a resume has both local and persisted settings.** Newest
-   wins requires a timestamp that localStorage does not currently carry.
-   Persisted wins is simplest but discards local edits made while offline.
-   Local wins reproduces today's bug. **Blocking for US-003 and US-004.**
-2. **Where does the photo belong?** Persisted with layout state, moved to
-   Supabase Storage, or left in localStorage as a documented exception.
-   **Blocking for US-005.**
+- None.
 
 ## Approval Gate
 
