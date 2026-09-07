@@ -213,7 +213,7 @@ does not reach these: they are refusals, not questions.
 shipping list, which overrides any `allow` rule, so an "always allow" click
 cannot ungate a shipping action. `.claude/settings.json` is a second layer.
 
-Covered by `run-phase-05-3.ps1` (162 cases) and `run-governance-modes.ps1` (61).
+Covered by `run-phase-05-3.ps1` (173 cases) and `run-governance-modes.ps1` (61).
 Change the policy in the hook and the tests together, or the tests will
 assert a policy that no longer exists.
 

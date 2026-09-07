@@ -257,6 +257,30 @@ $ReadOnlyCommandPatterns = @(
     '^git\s+remote(\s+-v)?(\s|$)',
     '^git\s+stash\s+list(\s|$)',
     '^git\s+for-each-ref(\s|$)',
+
+    # Leaving 'main' is not mutating it.
+    #
+    # Without these, landing on main was a dead end: every write is denied
+    # there, and no command in this list could move off it. That is not a
+    # hypothetical - `gh pr merge --delete-branch` deletes the branch you are
+    # standing on, git falls back to main, and the session is stranded with no
+    # way to start the next piece of work.
+    #
+    # Deliberately narrow. Only a bare branch name is accepted:
+    #   - the first character class excludes '-', so 'checkout -f <branch>'
+    #     and 'switch --discard-changes' are NOT matched; both throw away
+    #     uncommitted work,
+    #   - the lookahead excludes '.' and '..', so 'checkout .' is not matched,
+    #   - the trailing anchor excludes a pathspec, so 'checkout main -- src/x'
+    #     is not matched; that restores a file rather than switching branch.
+    #
+    # This is the second of two guards, not the only one:
+    # Test-CommandIsDestructiveGit already denies 'checkout --' and
+    # 'checkout .' higher up the Bash branch, before this list is consulted.
+    '^git\s+switch\s+-c\s+[A-Za-z0-9._/][A-Za-z0-9._/-]*\s*$',
+    '^git\s+checkout\s+-b\s+[A-Za-z0-9._/][A-Za-z0-9._/-]*\s*$',
+    '^git\s+switch\s+(?!\.{1,2}\s*$)[A-Za-z0-9._/][A-Za-z0-9._/-]*\s*$',
+    '^git\s+checkout\s+(?!\.{1,2}\s*$)[A-Za-z0-9._/][A-Za-z0-9._/-]*\s*$',
     '^pnpm\s+lint(\s|$)',
     '^pnpm\s+build(\s|$)',
     '^pnpm\s+exec\s+tsc(\s|$)',
@@ -315,6 +339,14 @@ $DestructiveCommandPatterns = @(
     @{ Pat = '^git\s+stash\s+clear(\s|$)';             Reason = 'git stash clear removes all stashes' },
     @{ Pat = '^git\s+checkout\s+--(\s|$)';             Reason = 'git checkout -- <path> discards worktree changes' },
     @{ Pat = '^git\s+checkout\s+\.(\s|$)';             Reason = 'git checkout . discards worktree changes' },
+    # Found while allowing branch switching below: these discard uncommitted
+    # work exactly as the two above do, but were absent from this list, so they
+    # were denied on main only by the catch-all and allowed outright on a
+    # feature branch. The omission predates that change; leaving it would make
+    # the branch-switch patterns look like the cause.
+    @{ Pat = '^git\s+checkout\s+(-f|--force)(\s|$)';   Reason = 'git checkout -f discards worktree changes' },
+    @{ Pat = '^git\s+switch\s+(-f|--force|--discard-changes)(\s|$)'; Reason = 'git switch --discard-changes discards worktree changes' },
+    @{ Pat = '^git\s+checkout\s+\S+\s+--(\s|$)';       Reason = 'git checkout <ref> -- <path> overwrites worktree files' },
     @{ Pat = '^git\s+rebase\s+-i(\s|$)';               Reason = 'interactive rebase can rewrite history' },
     @{ Pat = '^git\s+commit\s+-a(\s|$)';               Reason = 'git commit -a implicitly stages all modified files' },
     @{ Pat = '^git\s+commit\s+-am(\s|$)';              Reason = 'git commit -am implicitly stages all modified files' },
