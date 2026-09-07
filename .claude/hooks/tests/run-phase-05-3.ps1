@@ -161,6 +161,27 @@ $fixtures = @(
     @{ Name='MAIN: Bash git commit on main';         Data=@{tool_name='Bash';  tool_input=@{command='git commit -m x'};       cwd=$repoMain}; Exp='deny' },
     @{ Name='MAIN: Bash git add file on main';       Data=@{tool_name='Bash';  tool_input=@{command='git add src/x'};         cwd=$repoMain}; Exp='deny' },
 
+    # --- Leaving main is allowed; discarding work on the way out is not ---
+    #
+    # Landing on main used to be a dead end: writes denied, and no command
+    # able to move off it. `gh pr merge --delete-branch` puts you there.
+    # These assert the escape exists AND that it did not widen into a way to
+    # throw away uncommitted work.
+    @{ Name='MAIN: git switch -c new branch';        Data=@{tool_name='Bash';  tool_input=@{command='git switch -c docs/prd-x'};   cwd=$repoMain}; Exp='no-decision' },
+    @{ Name='MAIN: git checkout -b new branch';      Data=@{tool_name='Bash';  tool_input=@{command='git checkout -b docs/prd-x'}; cwd=$repoMain}; Exp='no-decision' },
+    @{ Name='MAIN: git switch existing branch';      Data=@{tool_name='Bash';  tool_input=@{command='git switch chore/feature-work'}; cwd=$repoMain}; Exp='no-decision' },
+    @{ Name='MAIN: git checkout existing branch';    Data=@{tool_name='Bash';  tool_input=@{command='git checkout chore/feature-work'}; cwd=$repoMain}; Exp='no-decision' },
+    @{ Name='MAIN: git checkout -f discards work';   Data=@{tool_name='Bash';  tool_input=@{command='git checkout -f main'};       cwd=$repoMain}; Exp='deny' },
+    @{ Name='MAIN: git switch --discard-changes';    Data=@{tool_name='Bash';  tool_input=@{command='git switch --discard-changes main'}; cwd=$repoMain}; Exp='deny' },
+    @{ Name='MAIN: git checkout . on main';          Data=@{tool_name='Bash';  tool_input=@{command='git checkout .'};             cwd=$repoMain}; Exp='deny' },
+    @{ Name='MAIN: git checkout -- file on main';    Data=@{tool_name='Bash';  tool_input=@{command='git checkout -- src/a.ts'};   cwd=$repoMain}; Exp='deny' },
+    @{ Name='MAIN: git checkout branch -- pathspec'; Data=@{tool_name='Bash';  tool_input=@{command='git checkout main -- src/a.ts'}; cwd=$repoMain}; Exp='deny' },
+
+    # The same four escapes must not become a bypass on a feature branch
+    # either: they are read-only classifications, not grants.
+    @{ Name='DESTROY: git checkout -f on feature';   Data=@{tool_name='Bash';  tool_input=@{command='git checkout -f main'};       cwd=$featCwd}; Exp='deny' },
+    @{ Name='DESTROY: git checkout branch -- path';  Data=@{tool_name='Bash';  tool_input=@{command='git checkout main -- src/a.ts'}; cwd=$featCwd}; Exp='deny' },
+
     # ==================================================================
     # Phase 05.4 - Semantic .env* policy (adversarial DENY + ALLOW)
     # ==================================================================
