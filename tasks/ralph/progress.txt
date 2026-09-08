@@ -117,3 +117,212 @@ Commit:
 - Commit message: ralph: US-001 the print path is covered before any rendering changes
 
 FINAL: PASS
+
+## US-002: One typed layout model with one set of defaults
+Status: PASS
+Priority: 2
+Branch: ralph/milestone-c-part-1-layout-state
+Baseline HEAD: ac56a11
+
+Scope:
+- Scope check: PASS
+- Changed paths (9, all under src/):
+    src/lib/layout-settings.ts
+    src/lib/layout-settings.test.ts
+    src/components/dashboard/resume-preview-wrapper.tsx
+    src/components/dashboard/resume-editor.tsx
+    src/components/dashboard/resume-preview.tsx
+    src/components/dashboard/resume-templates/professional-template.tsx
+    src/app/api/resumes/[id]/download-docx/route.ts
+    src/app/api/resumes/[id]/download-docx/docx-professional.ts
+    src/app/api/resumes/[id]/download-docx/docx-modern.ts
+- No e2e/ changes. No visual baseline moved (git status -- e2e/ clean before
+  and after every visual run). test:visual:update never run.
+
+Checks:
+- pnpm typecheck: PASS - 0 errors
+- pnpm lint: PASS - 310 problems (236 errors, 74 warnings). One BELOW the 311
+  baseline, because the editor's Record<string, any> merge accumulator was
+  deleted by the D-8 fix. No placeholder was added to hit the number. The
+  regression constraint is "does not exceed 311".
+- pnpm test: PASS - 171 passed (was 121; +50 new)
+- pnpm test:integration: PASS - 14 passed
+- pnpm test:e2e: PASS - 22 passed
+- pnpm test:visual: PASS - 10 passed, screen and print, against UNCHANGED
+  baselines. Re-run independently by the orchestrator, not only reported.
+- pnpm build:verify: PASS - exit 0
+
+Specialized validation:
+- Browser: NOT_APPLICABLE - no interaction behaviour changed
+- Visual: PASS - 10/10 against unchanged baselines; the binding evidence that
+  FR-6 ("rendered output must not change") holds
+- Export: NOT_APPLICABLE - DOCX output unchanged; the route's query parameters
+  remain in place per Part 1 FR-8
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE - no trust boundary changed. Noted for Part 2:
+  download-docx/route.ts still JSON.parses four user-supplied query params
+  BEFORE the auth check, so a malformed value yields a 500 to an
+  unauthenticated caller.
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no UI change; rendering proven unchanged
+- code-reviewer: PASS (fourth pass). Passes 1, 2 and 3 returned FAIL; see the
+  review history below. This line was deliberately left PENDING until the
+  verdict existed - pre-filling it is what failed pass 3.
+
+Acceptance criteria:
+- AC-01 (single exported type): PASS - ResumeLayoutModel, 19 properties, the
+  union of the resume_slider_settings_* blob, ResumeLayoutSettings and the DOCX
+  layout query parameters. locale and template deliberately excluded: they are
+  not layout state.
+- AC-02 (one defaults constant, consumed): PASS - DEFAULT_RESUME_LAYOUT,
+  frozen. Consumed by the four named sites plus resume-preview.tsx and
+  professional-template.tsx, which were a fifth and sixth copy the criterion
+  did not name. docx-classic/minimal/creative hold no shared layout default, so
+  there was nothing for them to consume.
+- AC-03 (parse and serialize in one module, tested): PASS - parseLayoutModel,
+  resolveLayoutModel, serializeLayoutModel in src/lib/layout-settings.ts. Both
+  writers now serialize through it; the editor's hand-rolled writer was the
+  reason review pass 2 failed.
+- AC-04 (defaults preserved exactly; divergences reported): PASS - every value
+  pinned literally by HISTORICAL_DEFAULTS in the test file, so editing the
+  surviving constant fails the suite. Findings D-1..D-9 below.
+- AC-05 (test:visual unchanged): PASS - 10 passed, baselines untouched.
+
+FINDINGS REGISTER (AC-4)
+
+D-1 fontFamily - REFUTED. FONTS[4].family is byte-identical to the literals in
+  the wrapper and the DOCX route. Consolidated; pinned by a named test.
+
+D-2 the three slider copies - CONFIRMED IDENTICAL. All 14 numeric values agree
+  across resume-preview-wrapper.tsx, resume-editor.tsx and
+  download-docx/route.ts. Resolution: one constant.
+
+D-3 Preview vs DOCX title size - CONFIRMED. REPORTED, NOT FIXED.
+  The wrapper seeds titleFontSize = 24 for EVERY template and always passes it,
+  so each template component's own prop default is dead code in the app path:
+      professional  Preview 22  DOCX 22  (consistent; accepts no prop)
+      modern        Preview 24  DOCX 36
+      classic       Preview 24  DOCX 36
+      minimal       Preview 24  DOCX 48
+      creative      Preview 24  DOCX 48
+  Four templates diverge, not one. Resolution: reported. Fixing it changes
+  Preview or DOCX pixels, which FR-6, AC-5 and the PRD FAIL condition forbid in
+  this part. Needs its own approved story.
+
+D-4 seven slider properties never reach DOCX - CONFIRMED. REPORTED, NOT FIXED.
+  DocxGeneratorSettings carries no titleFontSize, titleGap, contactFontSize,
+  sectionTitleFontSize, sectionDescFontSize, sectionGap or headerGap, and the
+  download buttons never send them. The generators' per-template FONT_SIZES are
+  hardcoded stand-ins. This is the mechanism behind D-3.
+
+D-5 DEFAULT_SIDEBAR_ORDER declared twice - NOT A DIVERGENCE. resume-editor.tsx
+  used the editor vocabulary; docx-modern.ts uses the Modern-template
+  vocabulary. Two legitimate domains, bridged by mapEditorOrderToModern. The
+  editor's copy now consumes the shared default; docx-modern's stays as
+  template identity. Its copy is in fact unreachable, since
+  mapEditorOrderToModern always returns a non-empty array - dead, but removing
+  it is unrelated cleanup.
+
+D-6 professional-template hardcodes TITLE_GAP=8, SECTION_GAP=12, HEADER_GAP=12
+  and ignores the gap sliders; HEADER_GAP is unused. REPORTED, NOT FIXED.
+  Values happen to equal the shared defaults. Wiring fixed template spacing to
+  a slider the template does not honour would create a false dependency and put
+  template isolation (FR-7) at risk.
+
+D-7 titleGap, sectionGap and headerGap have NO producing control anywhere.
+  REPORTED, NOT FIXED. resume-preview.tsx declares setTitleGap, setSectionGap
+  and setHeaderGap as props and never forwards them to any template. Dead-end
+  props, pre-existing. Their LAYOUT_CONTROL_RANGES entries are null with the
+  reason recorded. Same class as the US-001 finding about 8 professional
+  print:hidden sites gated on props the wrapper never passes.
+
+D-8 mainContentTopMargin lower bound rejected reachable user state.
+  INTRODUCED BY THIS STORY. FIXED.
+  The first implementation assumed a zero floor for every margin. The
+  main-content drag handle clamps to Math.max(-20, ...) in
+  professional-template.tsx:168, and setMainContentTopMargin is wired live in
+  resume-preview.tsx and resume-editor.tsx, both persisting to
+  resume_slider_settings_*. Every value from -20 to -1 was dropped by
+  parseLayoutModel and refilled with the default 24 - a silent 44px jump on
+  reload, with no user action, breaching the PRD FAIL condition on output
+  change. Found by code-reviewer pass 1, not by the implementation.
+  Resolution: LAYOUT_CONTROL_RANGES now records what each control can actually
+  emit, each entry citing the clamp it mirrors, and NUMERIC_RANGES widens
+  outward from those rather than from assumed floors. mainContentTopMargin is
+  [-200, 500]. Out-of-range values are still dropped, never clamped - clamping
+  would itself be an output change. Boundary tests were verified to FAIL
+  against the old bound before the bound was fixed.
+
+D-9 editor typography edits are never persisted. PRE-EXISTING. REPORTED, NOT
+  FIXED. The editor holds all seven typography keys as state, loads them, and
+  forwards the four font sizes to Classic, Minimal and Creative, where each
+  renders as a live slider - but its save effect's dependency list omits all
+  seven, so an in-editor font-size change is never written, and the next
+  unrelated save writes the stored value back over it. This is why the
+  serializer is seeded from the stored blob rather than from editor state:
+  seeding from state would newly persist typography edits, a behaviour change
+  out of scope here.
+
+D-10 Modern accepts four font-size props and attaches no control to any.
+  PRE-EXISTING. REPORTED, NOT FIXED. modern-template.tsx has zero range inputs.
+  It destructures setTitleFontSize, setSectionTitleFontSize and
+  setSectionDescFontSize and never calls them; it styles text with only
+  titleFontSize and sectionDescFontSize; sectionTitleFontSize is destructured
+  but never read; contactFontSize is declared as a prop type and never
+  destructured at all, while resume-preview.tsx forwards it. Same dead-end-prop
+  class as D-7. Found because two successive attempts to describe this in a
+  comment - the orchestrator's and the reviewer's proposed correction - were
+  both factually wrong; the third was written from the code.
+
+Deliberate behaviour change, malformed input only:
+- Validation now runs before layout state reaches rendering (FR-5).
+  titleFontSize: "abc" previously produced fontSize: "abcpx"; it now falls back
+  to 24. sidebarHue: 400 previously wrapped to hue 40 via CSS; it now falls
+  back to 240. Neither is reachable from any control. No well-formed value
+  changes, and every value the controls can produce is asserted to survive.
+- Persisted-format change: both writers now emit the model's fixed key order,
+  so every existing blob is rewritten on first load, and the editor now drops
+  unknown non-model keys instead of merging them forward. Verified inert - the
+  only readers of resume_slider_settings_* are the editor, the wrapper and the
+  two download buttons, and all read model keys only. The photo lives under a
+  separate resume_photo_* key.
+
+Review history:
+- code-reviewer pass 1: FAIL. Critical: mainContentTopMargin bound rejected
+  reachable user state (D-8). Major: the editor's serializer was never
+  consolidated, so AC-3 was unmet and the two writers disagreed - the wrapper
+  healed a corrupt value in rendering while the editor wrote it straight back.
+- code-reviewer pass 2: FAIL. Critical: D-8 was reported as recorded when no
+  such record existed in the tree - progress.txt had no US-002 section. Major:
+  the comment justifying the serializer's seed source misstated the mechanism,
+  implying the editor does not hold the seven typography keys when it does.
+- code-reviewer pass 3: FAIL. Critical: the rewritten comment corrected the
+  pass-2 error and introduced a new one, claiming Modern renders the font sizes
+  as sliders. It does not - modern-template.tsx has zero range inputs. The
+  false claim had been copied into D-9. Major, and this one is the
+  orchestrator's: PASS had been written into this file for Status, the
+  code-reviewer line and FINAL before pass 3 had issued any verdict. That is
+  the mirror of the pass-2 failure - pass 2 caught a record claiming something
+  existed that did not; this was a record asserting an event that had not
+  happened. THIS_COMMIT reads as a placeholder; PASS does not.
+- code-reviewer pass 4: PASS. No Critical, Major or Minor. Every claim in the
+  corrected comment re-derived from source, including that Modern reads only
+  titleFontSize and sectionDescFontSize; all four shifted citations resolved to
+  the construct they name.
+
+Deferred to later stories, recorded so they are not lost:
+- D-3, D-4, D-6, D-7, D-9, D-10 above.
+- download-docx/route.ts parses its query parameters by hand rather than
+  through parseLayoutModel, and JSON.parses four of them before the auth check.
+- The download buttons forward raw localStorage to that route without
+  validation. Both belong to the Part 2 export work that FR-8 holds in place.
+- Dead ?? branches in docx-modern.ts and docx-professional.ts:
+  DocxGeneratorSettings.sidebarSaturation is a required number, so the fallback
+  cannot fire.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 one typed layout model with one set of defaults
+
+FINAL: PASS

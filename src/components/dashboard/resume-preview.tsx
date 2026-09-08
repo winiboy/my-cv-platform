@@ -8,9 +8,22 @@ import { ClassicTemplate } from './resume-templates/classic-template'
 import { MinimalTemplate } from './resume-templates/minimal-template'
 import { CreativeTemplate } from './resume-templates/creative-template'
 import { ProfessionalTemplate } from './resume-templates/professional-template'
+import {
+  DEFAULT_RESUME_LAYOUT,
+  type EditorMainId,
+  type EditorSidebarId,
+} from '@/lib/layout-settings'
 
-type SidebarSectionId = 'keyAchievements' | 'skills' | 'languages' | 'training'
-type MainContentSectionId = 'summary' | 'experience' | 'education'
+type SidebarSectionId = EditorSidebarId
+type MainContentSectionId = EditorMainId
+
+/**
+ * Sidebar colour is stored as its HSL components, so the default is composed
+ * from them rather than restated as a literal. Composing keeps one source for
+ * the colour: changing the default hue in DEFAULT_RESUME_LAYOUT moves this
+ * fallback with it instead of leaving the two disagreeing.
+ */
+const DEFAULT_SIDEBAR_COLOR = `hsl(${DEFAULT_RESUME_LAYOUT.sidebarHue}, ${DEFAULT_RESUME_LAYOUT.sidebarSaturation}%, ${DEFAULT_RESUME_LAYOUT.sidebarBrightness}%)`
 
 interface ResumePreviewProps {
   resume: Resume
@@ -34,16 +47,16 @@ interface ResumePreviewProps {
   setSidebarColor?: (color: string) => void
   fontScale?: number
   fontFamily?: string
-  sidebarOrder?: SidebarSectionId[]
-  mainContentOrder?: MainContentSectionId[]
+  sidebarOrder?: readonly SidebarSectionId[]
+  mainContentOrder?: readonly MainContentSectionId[]
   sidebarTopMargin?: number
   setSidebarTopMargin?: (margin: number) => void
   mainContentTopMargin?: number
   setMainContentTopMargin?: (margin: number) => void
   sidebarWidth?: number
   setSidebarWidth?: (width: number) => void
-  hiddenSidebarSections?: SidebarSectionId[]
-  hiddenMainSections?: MainContentSectionId[]
+  hiddenSidebarSections?: readonly SidebarSectionId[]
+  hiddenMainSections?: readonly MainContentSectionId[]
   modernSidebarOrder?: ModernSidebarSectionId[]
   modernMainContentOrder?: ModernMainContentSectionId[]
   hiddenModernSidebarSections?: ModernSidebarSectionId[]
@@ -56,34 +69,34 @@ export function ResumePreview({
   resume,
   locale,
   dict,
-  titleFontSize = 24,
+  titleFontSize = DEFAULT_RESUME_LAYOUT.titleFontSize,
   setTitleFontSize,
-  titleGap = 8,
+  titleGap = DEFAULT_RESUME_LAYOUT.titleGap,
   setTitleGap,
-  contactFontSize = 12,
+  contactFontSize = DEFAULT_RESUME_LAYOUT.contactFontSize,
   setContactFontSize,
-  sectionTitleFontSize = 16,
+  sectionTitleFontSize = DEFAULT_RESUME_LAYOUT.sectionTitleFontSize,
   setSectionTitleFontSize,
-  sectionDescFontSize = 14,
+  sectionDescFontSize = DEFAULT_RESUME_LAYOUT.sectionDescFontSize,
   setSectionDescFontSize,
-  sectionGap = 12,
+  sectionGap = DEFAULT_RESUME_LAYOUT.sectionGap,
   setSectionGap,
-  headerGap = 12,
+  headerGap = DEFAULT_RESUME_LAYOUT.headerGap,
   setHeaderGap,
-  sidebarColor = 'hsl(240, 85%, 35%)',
+  sidebarColor = DEFAULT_SIDEBAR_COLOR,
   setSidebarColor,
-  fontScale = 1,
-  fontFamily = "Arial, Helvetica, sans-serif",
-  sidebarOrder = ['keyAchievements', 'skills', 'languages', 'training'],
-  mainContentOrder = ['summary', 'experience', 'education'],
-  sidebarTopMargin = 64,
+  fontScale = DEFAULT_RESUME_LAYOUT.fontScale,
+  fontFamily = DEFAULT_RESUME_LAYOUT.fontFamily,
+  sidebarOrder = DEFAULT_RESUME_LAYOUT.sidebarOrder,
+  mainContentOrder = DEFAULT_RESUME_LAYOUT.mainContentOrder,
+  sidebarTopMargin = DEFAULT_RESUME_LAYOUT.sidebarTopMargin,
   setSidebarTopMargin,
-  mainContentTopMargin = 24,
+  mainContentTopMargin = DEFAULT_RESUME_LAYOUT.mainContentTopMargin,
   setMainContentTopMargin,
-  sidebarWidth = 30,
+  sidebarWidth = DEFAULT_RESUME_LAYOUT.sidebarWidth,
   setSidebarWidth,
-  hiddenSidebarSections = [],
-  hiddenMainSections = [],
+  hiddenSidebarSections = DEFAULT_RESUME_LAYOUT.hiddenSidebarSections,
+  hiddenMainSections = DEFAULT_RESUME_LAYOUT.hiddenMainSections,
   modernSidebarOrder,
   modernMainContentOrder,
   hiddenModernSidebarSections,

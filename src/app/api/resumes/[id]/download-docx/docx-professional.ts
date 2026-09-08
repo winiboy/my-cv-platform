@@ -32,6 +32,7 @@ import {
   COLORS,
   type DocxGeneratorSettings,
 } from './docx-helpers'
+import { DEFAULT_RESUME_LAYOUT } from '@/lib/layout-settings'
 
 // ============================================================
 // FONT SIZE CONSTANTS (matching professional-template.tsx)
@@ -122,7 +123,11 @@ export async function generateProfessionalDocx(
   }))
 
   // Calculate sidebar color from hue, saturation, and brightness
-  const sidebarColorHex = hslToHex(sidebarHue, settings.sidebarSaturation ?? 85, sidebarBrightness)
+  const sidebarColorHex = hslToHex(
+    sidebarHue,
+    settings.sidebarSaturation ?? DEFAULT_RESUME_LAYOUT.sidebarSaturation,
+    sidebarBrightness,
+  )
 
   // Calculate scaled font sizes
   const scaledFontSizes = {

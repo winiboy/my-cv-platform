@@ -24,7 +24,18 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n'
 import type { Resume, ResumeSkillCategory } from '@/types/database'
-import { extractLayoutSettings, embedLayoutSettings, migrateSidebarOrder, mapEditorOrderToModern } from '@/lib/layout-settings'
+import {
+  DEFAULT_RESUME_LAYOUT,
+  embedLayoutSettings,
+  extractLayoutSettings,
+  mapEditorOrderToModern,
+  migrateSidebarOrder,
+  parseLayoutModel,
+  resolveLayoutModel,
+  serializeLayoutModel,
+  type EditorMainId,
+  type EditorSidebarId,
+} from '@/lib/layout-settings'
 import { ContactSection } from './resume-sections/contact-section'
 import { SummarySection } from './resume-sections/summary-section'
 import { ExperienceSection } from './resume-sections/experience-section'
@@ -48,7 +59,7 @@ import { GenerationProgress } from './generation-progress'
 import { BelowThresholdWarning } from './below-threshold-warning'
 import { QUALITY_THRESHOLD } from '@/lib/constants'
 import type { QualityAnalysis } from '@/types/quality-analysis'
-import { FontCarousel3D, FONTS } from '@/components/ui/font-carousel-3d'
+import { FontCarousel3D } from '@/components/ui/font-carousel-3d'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
 
 interface JobApplicationItem {
@@ -100,13 +111,10 @@ const SECTIONS = [
   { id: 'editMainContent' as const, label: 'Edit Main Content', icon: LayoutList },
 ]
 
-// Sidebar section IDs for ordering
-type SidebarSectionId = 'keyAchievements' | 'skills' | 'languages' | 'training'
-const DEFAULT_SIDEBAR_ORDER: SidebarSectionId[] = ['keyAchievements', 'skills', 'languages', 'training']
-
-// Main content section IDs for ordering
-type MainContentSectionId = 'summary' | 'experience' | 'education'
-const DEFAULT_MAIN_CONTENT_ORDER: MainContentSectionId[] = ['summary', 'experience', 'education']
+// Section IDs for ordering. Aliased to the shared editor vocabulary so this
+// file cannot drift from the one layout model.
+type SidebarSectionId = EditorSidebarId
+type MainContentSectionId = EditorMainId
 
 const SECTION_MAPPING: Record<string, SectionId> = {
   contact: 'contact',
@@ -172,29 +180,32 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const [adaptationJobTitle, setAdaptationJobTitle] = useState('')
   const [adaptationCompany, setAdaptationCompany] = useState('')
 
-  // Design settings for live preview (loaded from localStorage)
-  const [titleFontSize, setTitleFontSize] = useState(24)
-  const [titleGap, setTitleGap] = useState(8)
-  const [contactFontSize, setContactFontSize] = useState(12)
-  const [sectionTitleFontSize, setSectionTitleFontSize] = useState(16)
-  const [sectionDescFontSize, setSectionDescFontSize] = useState(14)
-  const [sectionGap, setSectionGap] = useState(12)
-  const [headerGap, setHeaderGap] = useState(12)
-  const [sidebarHue, setSidebarHue] = useState(240)
-  const [sidebarSaturation, setSidebarSaturation] = useState(85)
-  const [sidebarBrightness, setSidebarBrightness] = useState(35)
-  const [fontScale, setFontScale] = useState(1)
-  const [sidebarOrder, setSidebarOrder] = useState<SidebarSectionId[]>(DEFAULT_SIDEBAR_ORDER)
-  const [mainContentOrder, setMainContentOrder] = useState<MainContentSectionId[]>(DEFAULT_MAIN_CONTENT_ORDER)
-  const [fontFamily, setFontFamily] = useState<string>(FONTS[4].family) // Default to Arial
-  const [sidebarTopMargin, setSidebarTopMargin] = useState(64) // Default: 64px
-  const [mainContentTopMargin, setMainContentTopMargin] = useState(24) // Default: 24px
-  const [sidebarWidth, setSidebarWidth] = useState(30) // Default: 30%
+  // Design settings for live preview (loaded from localStorage). Every initial
+  // value comes from DEFAULT_RESUME_LAYOUT so the editor, the preview and the
+  // DOCX route cannot drift apart; the arrays are copied because the shared
+  // default is frozen.
+  const [titleFontSize, setTitleFontSize] = useState(DEFAULT_RESUME_LAYOUT.titleFontSize)
+  const [titleGap, setTitleGap] = useState(DEFAULT_RESUME_LAYOUT.titleGap)
+  const [contactFontSize, setContactFontSize] = useState(DEFAULT_RESUME_LAYOUT.contactFontSize)
+  const [sectionTitleFontSize, setSectionTitleFontSize] = useState(DEFAULT_RESUME_LAYOUT.sectionTitleFontSize)
+  const [sectionDescFontSize, setSectionDescFontSize] = useState(DEFAULT_RESUME_LAYOUT.sectionDescFontSize)
+  const [sectionGap, setSectionGap] = useState(DEFAULT_RESUME_LAYOUT.sectionGap)
+  const [headerGap, setHeaderGap] = useState(DEFAULT_RESUME_LAYOUT.headerGap)
+  const [sidebarHue, setSidebarHue] = useState(DEFAULT_RESUME_LAYOUT.sidebarHue)
+  const [sidebarSaturation, setSidebarSaturation] = useState(DEFAULT_RESUME_LAYOUT.sidebarSaturation)
+  const [sidebarBrightness, setSidebarBrightness] = useState(DEFAULT_RESUME_LAYOUT.sidebarBrightness)
+  const [fontScale, setFontScale] = useState(DEFAULT_RESUME_LAYOUT.fontScale)
+  const [sidebarOrder, setSidebarOrder] = useState<SidebarSectionId[]>([...DEFAULT_RESUME_LAYOUT.sidebarOrder])
+  const [mainContentOrder, setMainContentOrder] = useState<MainContentSectionId[]>([...DEFAULT_RESUME_LAYOUT.mainContentOrder])
+  const [fontFamily, setFontFamily] = useState<string>(DEFAULT_RESUME_LAYOUT.fontFamily) // Arial — FONTS[4]
+  const [sidebarTopMargin, setSidebarTopMargin] = useState(DEFAULT_RESUME_LAYOUT.sidebarTopMargin)
+  const [mainContentTopMargin, setMainContentTopMargin] = useState(DEFAULT_RESUME_LAYOUT.mainContentTopMargin)
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_RESUME_LAYOUT.sidebarWidth)
   const [isSliderSettingsLoaded, setIsSliderSettingsLoaded] = useState(false)
   const [draggedSection, setDraggedSection] = useState<SidebarSectionId | null>(null)
   const [draggedMainSection, setDraggedMainSection] = useState<MainContentSectionId | null>(null)
-  const [hiddenSidebarSections, setHiddenSidebarSections] = useState<SidebarSectionId[]>([])
-  const [hiddenMainSections, setHiddenMainSections] = useState<MainContentSectionId[]>([])
+  const [hiddenSidebarSections, setHiddenSidebarSections] = useState<SidebarSectionId[]>([...DEFAULT_RESUME_LAYOUT.hiddenSidebarSections])
+  const [hiddenMainSections, setHiddenMainSections] = useState<MainContentSectionId[]>([...DEFAULT_RESUME_LAYOUT.hiddenMainSections])
   const [isEyeDropperSupported, setIsEyeDropperSupported] = useState(false)
   const [photoUrl, setPhotoUrl] = useState<string>('')
   const [isRemovingBackground, setIsRemovingBackground] = useState(false)
@@ -901,35 +912,39 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       }
     }
 
-    // Load design settings for live preview (localStorage may override Supabase layout)
+    // Load design settings for live preview (localStorage may override Supabase layout).
+    // parseLayoutModel returns only the keys this blob actually carries, so a
+    // blob that never mentioned section order leaves the account's order alone.
+    // It is total: a malformed blob yields no keys instead of throwing, and an
+    // individually unusable value falls back to its default rather than
+    // reaching a style attribute.
     const savedSettings = localStorage.getItem(`resume_slider_settings_${resume.id}`)
     if (savedSettings) {
+      let settings: ReturnType<typeof parseLayoutModel> = {}
       try {
-        const settings = JSON.parse(savedSettings)
-        if (settings.titleFontSize !== undefined) setTitleFontSize(settings.titleFontSize)
-        if (settings.titleGap !== undefined) setTitleGap(settings.titleGap)
-        if (settings.contactFontSize !== undefined) setContactFontSize(settings.contactFontSize)
-        if (settings.sectionTitleFontSize !== undefined) setSectionTitleFontSize(settings.sectionTitleFontSize)
-        if (settings.sectionDescFontSize !== undefined) setSectionDescFontSize(settings.sectionDescFontSize)
-        if (settings.sectionGap !== undefined) setSectionGap(settings.sectionGap)
-        if (settings.headerGap !== undefined) setHeaderGap(settings.headerGap)
-        if (settings.sidebarHue !== undefined) setSidebarHue(settings.sidebarHue)
-        if (settings.sidebarSaturation !== undefined) setSidebarSaturation(settings.sidebarSaturation)
-        if (settings.sidebarBrightness !== undefined) setSidebarBrightness(settings.sidebarBrightness)
-        if (settings.fontScale !== undefined) setFontScale(settings.fontScale)
-        if (settings.sidebarOrder !== undefined) {
-          setSidebarOrder(migrateSidebarOrder(settings.sidebarOrder) as SidebarSectionId[])
-        }
-        if (settings.mainContentOrder !== undefined) setMainContentOrder(settings.mainContentOrder)
-        if (settings.fontFamily !== undefined) setFontFamily(settings.fontFamily)
-        if (settings.sidebarTopMargin !== undefined) setSidebarTopMargin(settings.sidebarTopMargin)
-        if (settings.mainContentTopMargin !== undefined) setMainContentTopMargin(settings.mainContentTopMargin)
-        if (settings.sidebarWidth !== undefined) setSidebarWidth(settings.sidebarWidth)
-        if (settings.hiddenSidebarSections !== undefined) setHiddenSidebarSections(settings.hiddenSidebarSections)
-        if (settings.hiddenMainSections !== undefined) setHiddenMainSections(settings.hiddenMainSections)
+        settings = parseLayoutModel(JSON.parse(savedSettings))
       } catch (error) {
         console.error('Failed to load design settings:', error)
       }
+      if (settings.titleFontSize !== undefined) setTitleFontSize(settings.titleFontSize)
+      if (settings.titleGap !== undefined) setTitleGap(settings.titleGap)
+      if (settings.contactFontSize !== undefined) setContactFontSize(settings.contactFontSize)
+      if (settings.sectionTitleFontSize !== undefined) setSectionTitleFontSize(settings.sectionTitleFontSize)
+      if (settings.sectionDescFontSize !== undefined) setSectionDescFontSize(settings.sectionDescFontSize)
+      if (settings.sectionGap !== undefined) setSectionGap(settings.sectionGap)
+      if (settings.headerGap !== undefined) setHeaderGap(settings.headerGap)
+      if (settings.sidebarHue !== undefined) setSidebarHue(settings.sidebarHue)
+      if (settings.sidebarSaturation !== undefined) setSidebarSaturation(settings.sidebarSaturation)
+      if (settings.sidebarBrightness !== undefined) setSidebarBrightness(settings.sidebarBrightness)
+      if (settings.fontScale !== undefined) setFontScale(settings.fontScale)
+      if (settings.sidebarOrder !== undefined) setSidebarOrder([...settings.sidebarOrder])
+      if (settings.mainContentOrder !== undefined) setMainContentOrder([...settings.mainContentOrder])
+      if (settings.fontFamily !== undefined) setFontFamily(settings.fontFamily)
+      if (settings.sidebarTopMargin !== undefined) setSidebarTopMargin(settings.sidebarTopMargin)
+      if (settings.mainContentTopMargin !== undefined) setMainContentTopMargin(settings.mainContentTopMargin)
+      if (settings.sidebarWidth !== undefined) setSidebarWidth(settings.sidebarWidth)
+      if (settings.hiddenSidebarSections !== undefined) setHiddenSidebarSections([...settings.hiddenSidebarSections])
+      if (settings.hiddenMainSections !== undefined) setHiddenMainSections([...settings.hiddenMainSections])
     }
 
     try {
@@ -993,28 +1008,54 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   useEffect(() => {
     if (!isSliderSettingsLoaded) return // Don't save until initial load is complete
 
-    const savedSettings = localStorage.getItem(`resume_slider_settings_${resume.id}`)
-    let settings: Record<string, any> = {}
-    if (savedSettings) {
-      try {
-        settings = JSON.parse(savedSettings)
-      } catch (error) {
-        console.error('Failed to parse slider settings:', error)
-      }
+    // Serialization lives in layout-settings, not here. This write names 12 of
+    // the model's 19 properties, but the editor is not ignorant of the other
+    // seven: it declares the typography sizes and gaps as state above, loads
+    // them on mount, and forwards the four font sizes to Classic, Minimal and
+    // Creative, where each renders as a slider the user can drag. Modern is
+    // handed all four and attaches no control to any of them: two only style
+    // text, and `sectionTitleFontSize` and `contactFontSize` are never read.
+    // What this effect has never done is depend on them — the dependency list
+    // below omits all seven — so a typography change is not persisted, and the
+    // next save triggered by anything else writes the stored value back over
+    // it. That is pre-existing behaviour, not something introduced here.
+    // Seeding the seven from the stored blob preserves it exactly; seeding
+    // them from state would start persisting typography edits, which is a
+    // behaviour change and out of scope for this story.
+    //
+    // Resolving rather than merging the raw blob is the point of the change:
+    // the previous merge carried unknown keys forward and, worse, wrote back
+    // values that this component's own loader had just rejected, so a corrupt
+    // `titleFontSize` survived every save even though nothing ever rendered
+    // it. Anything unusable now falls back to its default here exactly as it
+    // already did on load, which is what makes the two agree.
+    const storageKey = `resume_slider_settings_${resume.id}`
+    let stored: unknown = null
+    try {
+      const savedSettings = localStorage.getItem(storageKey)
+      if (savedSettings) stored = JSON.parse(savedSettings)
+    } catch (error) {
+      console.error('Failed to parse slider settings:', error)
     }
-    settings.sidebarHue = sidebarHue
-    settings.sidebarSaturation = sidebarSaturation
-    settings.sidebarBrightness = sidebarBrightness
-    settings.fontScale = fontScale
-    settings.sidebarOrder = sidebarOrder
-    settings.mainContentOrder = mainContentOrder
-    settings.fontFamily = fontFamily
-    settings.sidebarTopMargin = sidebarTopMargin
-    settings.mainContentTopMargin = mainContentTopMargin
-    settings.sidebarWidth = sidebarWidth
-    settings.hiddenSidebarSections = hiddenSidebarSections
-    settings.hiddenMainSections = hiddenMainSections
-    localStorage.setItem(`resume_slider_settings_${resume.id}`, JSON.stringify(settings))
+
+    localStorage.setItem(
+      storageKey,
+      serializeLayoutModel({
+        ...resolveLayoutModel(stored),
+        sidebarHue,
+        sidebarSaturation,
+        sidebarBrightness,
+        fontScale,
+        sidebarOrder,
+        mainContentOrder,
+        fontFamily,
+        sidebarTopMargin,
+        mainContentTopMargin,
+        sidebarWidth,
+        hiddenSidebarSections,
+        hiddenMainSections,
+      }),
+    )
   }, [isSliderSettingsLoaded, sidebarHue, sidebarSaturation, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, hiddenSidebarSections, hiddenMainSections, resume.id])
 
   // Persist layout settings (section order + hidden sections) to Supabase with debounce.

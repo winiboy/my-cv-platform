@@ -114,7 +114,7 @@
         "Out of scope: Moving the photo out of localStorage — decided against; see Resolved Decisions."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
