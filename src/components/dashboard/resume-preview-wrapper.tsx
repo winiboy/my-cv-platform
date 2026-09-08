@@ -3,7 +3,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Resume } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
-import { extractLayoutSettings, migrateSidebarOrder, mapEditorOrderToModern } from '@/lib/layout-settings'
+import {
+  DEFAULT_RESUME_LAYOUT,
+  extractLayoutSettings,
+  mapEditorOrderToModern,
+  migrateSidebarOrder,
+  parseLayoutModel,
+  serializeLayoutModel,
+  type EditorMainId,
+  type EditorSidebarId,
+} from '@/lib/layout-settings'
 import { ResumePreview } from './resume-preview'
 
 interface ResumePreviewWrapperProps {
@@ -26,25 +35,28 @@ export function ResumePreviewWrapper({
   const [resume, setResume] = useState<Resume>(initialResume)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
-  const [titleFontSize, setTitleFontSize] = useState(24) // Default: text-2xl = 24px
-  const [titleGap, setTitleGap] = useState(8) // Default: mb-2 = 8px gap between title and contact
-  const [contactFontSize, setContactFontSize] = useState(12) // Default: text-xs = 12px
-  const [sectionTitleFontSize, setSectionTitleFontSize] = useState(16) // Default: text-base = 16px
-  const [sectionDescFontSize, setSectionDescFontSize] = useState(14) // Default: text-sm = 14px
-  const [sectionGap, setSectionGap] = useState(12) // Default: mb-3 = 12px gap between section title and description
-  const [headerGap, setHeaderGap] = useState(12) // Default: 12px gap between contact and summary section
-  const [sidebarHue, setSidebarHue] = useState(240) // Default: blue hue
-  const [sidebarSaturation, setSidebarSaturation] = useState(85) // Default: 85% saturation
-  const [sidebarBrightness, setSidebarBrightness] = useState(35) // Default: 35% lightness
-  const [fontScale, setFontScale] = useState(1) // Default: 1 (100%)
-  const [sidebarOrder, setSidebarOrder] = useState<('keyAchievements' | 'skills' | 'languages' | 'training')[]>(['keyAchievements', 'skills', 'languages', 'training'])
-  const [mainContentOrder, setMainContentOrder] = useState<('summary' | 'experience' | 'education')[]>(['summary', 'experience', 'education'])
-  const [fontFamily, setFontFamily] = useState("Arial, Helvetica, sans-serif")
-  const [sidebarTopMargin, setSidebarTopMargin] = useState(64) // Default: 64px (mb-16)
-  const [mainContentTopMargin, setMainContentTopMargin] = useState(24) // Default: 24px
-  const [sidebarWidth, setSidebarWidth] = useState(30) // Default: 30%
-  const [hiddenSidebarSections, setHiddenSidebarSections] = useState<('keyAchievements' | 'skills' | 'languages' | 'training')[]>([])
-  const [hiddenMainSections, setHiddenMainSections] = useState<('summary' | 'experience' | 'education')[]>([])
+  // Layout state. Every initial value comes from DEFAULT_RESUME_LAYOUT so the
+  // preview, the editor and the DOCX route cannot drift apart; the arrays are
+  // copied because the shared default is frozen.
+  const [titleFontSize, setTitleFontSize] = useState(DEFAULT_RESUME_LAYOUT.titleFontSize)
+  const [titleGap, setTitleGap] = useState(DEFAULT_RESUME_LAYOUT.titleGap)
+  const [contactFontSize, setContactFontSize] = useState(DEFAULT_RESUME_LAYOUT.contactFontSize)
+  const [sectionTitleFontSize, setSectionTitleFontSize] = useState(DEFAULT_RESUME_LAYOUT.sectionTitleFontSize)
+  const [sectionDescFontSize, setSectionDescFontSize] = useState(DEFAULT_RESUME_LAYOUT.sectionDescFontSize)
+  const [sectionGap, setSectionGap] = useState(DEFAULT_RESUME_LAYOUT.sectionGap)
+  const [headerGap, setHeaderGap] = useState(DEFAULT_RESUME_LAYOUT.headerGap)
+  const [sidebarHue, setSidebarHue] = useState(DEFAULT_RESUME_LAYOUT.sidebarHue)
+  const [sidebarSaturation, setSidebarSaturation] = useState(DEFAULT_RESUME_LAYOUT.sidebarSaturation)
+  const [sidebarBrightness, setSidebarBrightness] = useState(DEFAULT_RESUME_LAYOUT.sidebarBrightness)
+  const [fontScale, setFontScale] = useState(DEFAULT_RESUME_LAYOUT.fontScale)
+  const [sidebarOrder, setSidebarOrder] = useState<EditorSidebarId[]>([...DEFAULT_RESUME_LAYOUT.sidebarOrder])
+  const [mainContentOrder, setMainContentOrder] = useState<EditorMainId[]>([...DEFAULT_RESUME_LAYOUT.mainContentOrder])
+  const [fontFamily, setFontFamily] = useState(DEFAULT_RESUME_LAYOUT.fontFamily)
+  const [sidebarTopMargin, setSidebarTopMargin] = useState(DEFAULT_RESUME_LAYOUT.sidebarTopMargin)
+  const [mainContentTopMargin, setMainContentTopMargin] = useState(DEFAULT_RESUME_LAYOUT.mainContentTopMargin)
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_RESUME_LAYOUT.sidebarWidth)
+  const [hiddenSidebarSections, setHiddenSidebarSections] = useState<EditorSidebarId[]>([...DEFAULT_RESUME_LAYOUT.hiddenSidebarSections])
+  const [hiddenMainSections, setHiddenMainSections] = useState<EditorMainId[]>([...DEFAULT_RESUME_LAYOUT.hiddenMainSections])
   const [photoUrl, setPhotoUrl] = useState<string>('')
 
   // Compute sidebarColor from hue, saturation, and brightness
@@ -62,48 +74,52 @@ export function ResumePreviewWrapper({
     const supabaseLayout = extractLayoutSettings(initialResume.custom_sections)
     if (supabaseLayout) {
       if (supabaseLayout.sidebarOrder) {
-        setSidebarOrder(migrateSidebarOrder(supabaseLayout.sidebarOrder) as ('keyAchievements' | 'skills' | 'languages' | 'training')[])
+        setSidebarOrder(migrateSidebarOrder(supabaseLayout.sidebarOrder) as EditorSidebarId[])
       }
       if (supabaseLayout.mainContentOrder) {
-        setMainContentOrder(supabaseLayout.mainContentOrder as ('summary' | 'experience' | 'education')[])
+        setMainContentOrder(supabaseLayout.mainContentOrder as EditorMainId[])
       }
       if (supabaseLayout.hiddenSidebarSections) {
-        setHiddenSidebarSections(supabaseLayout.hiddenSidebarSections as ('keyAchievements' | 'skills' | 'languages' | 'training')[])
+        setHiddenSidebarSections(supabaseLayout.hiddenSidebarSections as EditorSidebarId[])
       }
       if (supabaseLayout.hiddenMainSections) {
-        setHiddenMainSections(supabaseLayout.hiddenMainSections as ('summary' | 'experience' | 'education')[])
+        setHiddenMainSections(supabaseLayout.hiddenMainSections as EditorMainId[])
       }
     }
 
-    // localStorage settings override Supabase values (supports local customization)
+    // localStorage settings override Supabase values (supports local customization).
+    // parseLayoutModel returns only the keys this blob actually carries, so a
+    // blob that never mentioned section order leaves the account's order alone.
+    // It is total: a malformed blob yields no keys instead of throwing, and an
+    // individually unusable value falls back to its default rather than
+    // reaching a style attribute.
     const savedSettings = localStorage.getItem(`resume_slider_settings_${initialResume.id}`)
     if (savedSettings) {
+      let settings: ReturnType<typeof parseLayoutModel> = {}
       try {
-        const settings = JSON.parse(savedSettings)
-        if (settings.titleFontSize !== undefined) setTitleFontSize(settings.titleFontSize)
-        if (settings.titleGap !== undefined) setTitleGap(settings.titleGap)
-        if (settings.contactFontSize !== undefined) setContactFontSize(settings.contactFontSize)
-        if (settings.sectionTitleFontSize !== undefined) setSectionTitleFontSize(settings.sectionTitleFontSize)
-        if (settings.sectionDescFontSize !== undefined) setSectionDescFontSize(settings.sectionDescFontSize)
-        if (settings.sectionGap !== undefined) setSectionGap(settings.sectionGap)
-        if (settings.headerGap !== undefined) setHeaderGap(settings.headerGap)
-        if (settings.sidebarHue !== undefined) setSidebarHue(settings.sidebarHue)
-        if (settings.sidebarSaturation !== undefined) setSidebarSaturation(settings.sidebarSaturation)
-        if (settings.sidebarBrightness !== undefined) setSidebarBrightness(settings.sidebarBrightness)
-        if (settings.fontScale !== undefined) setFontScale(settings.fontScale)
-        if (settings.sidebarOrder !== undefined) {
-          setSidebarOrder(migrateSidebarOrder(settings.sidebarOrder) as ('keyAchievements' | 'skills' | 'languages' | 'training')[])
-        }
-        if (settings.mainContentOrder !== undefined) setMainContentOrder(settings.mainContentOrder)
-        if (settings.fontFamily !== undefined) setFontFamily(settings.fontFamily)
-        if (settings.sidebarTopMargin !== undefined) setSidebarTopMargin(settings.sidebarTopMargin)
-        if (settings.mainContentTopMargin !== undefined) setMainContentTopMargin(settings.mainContentTopMargin)
-        if (settings.sidebarWidth !== undefined) setSidebarWidth(settings.sidebarWidth)
-        if (settings.hiddenSidebarSections !== undefined) setHiddenSidebarSections(settings.hiddenSidebarSections)
-        if (settings.hiddenMainSections !== undefined) setHiddenMainSections(settings.hiddenMainSections)
+        settings = parseLayoutModel(JSON.parse(savedSettings))
       } catch (error) {
         console.error('Failed to load slider settings:', error)
       }
+      if (settings.titleFontSize !== undefined) setTitleFontSize(settings.titleFontSize)
+      if (settings.titleGap !== undefined) setTitleGap(settings.titleGap)
+      if (settings.contactFontSize !== undefined) setContactFontSize(settings.contactFontSize)
+      if (settings.sectionTitleFontSize !== undefined) setSectionTitleFontSize(settings.sectionTitleFontSize)
+      if (settings.sectionDescFontSize !== undefined) setSectionDescFontSize(settings.sectionDescFontSize)
+      if (settings.sectionGap !== undefined) setSectionGap(settings.sectionGap)
+      if (settings.headerGap !== undefined) setHeaderGap(settings.headerGap)
+      if (settings.sidebarHue !== undefined) setSidebarHue(settings.sidebarHue)
+      if (settings.sidebarSaturation !== undefined) setSidebarSaturation(settings.sidebarSaturation)
+      if (settings.sidebarBrightness !== undefined) setSidebarBrightness(settings.sidebarBrightness)
+      if (settings.fontScale !== undefined) setFontScale(settings.fontScale)
+      if (settings.sidebarOrder !== undefined) setSidebarOrder([...settings.sidebarOrder])
+      if (settings.mainContentOrder !== undefined) setMainContentOrder([...settings.mainContentOrder])
+      if (settings.fontFamily !== undefined) setFontFamily(settings.fontFamily)
+      if (settings.sidebarTopMargin !== undefined) setSidebarTopMargin(settings.sidebarTopMargin)
+      if (settings.mainContentTopMargin !== undefined) setMainContentTopMargin(settings.mainContentTopMargin)
+      if (settings.sidebarWidth !== undefined) setSidebarWidth(settings.sidebarWidth)
+      if (settings.hiddenSidebarSections !== undefined) setHiddenSidebarSections([...settings.hiddenSidebarSections])
+      if (settings.hiddenMainSections !== undefined) setHiddenMainSections([...settings.hiddenMainSections])
     }
 
     try {
@@ -118,7 +134,8 @@ export function ResumePreviewWrapper({
   useEffect(() => {
     if (!isLoaded) return // Don't save until initial load is complete
 
-    const settings = {
+    const localStorageKey = `resume_slider_settings_${initialResume.id}`
+    localStorage.setItem(localStorageKey, serializeLayoutModel({
       titleFontSize,
       titleGap,
       contactFontSize,
@@ -130,17 +147,15 @@ export function ResumePreviewWrapper({
       sidebarSaturation,
       sidebarBrightness,
       fontScale,
-      sidebarOrder,
-      mainContentOrder,
       fontFamily,
       sidebarTopMargin,
       mainContentTopMargin,
       sidebarWidth,
+      sidebarOrder,
+      mainContentOrder,
       hiddenSidebarSections,
       hiddenMainSections,
-    }
-    const localStorageKey = `resume_slider_settings_${initialResume.id}`
-    localStorage.setItem(localStorageKey, JSON.stringify(settings))
+    }))
 
   }, [isLoaded, titleFontSize, titleGap, contactFontSize, sectionTitleFontSize, sectionDescFontSize, sectionGap, headerGap, sidebarHue, sidebarSaturation, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, hiddenSidebarSections, hiddenMainSections, initialResume.id])
 

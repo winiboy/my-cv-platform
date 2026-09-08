@@ -39,7 +39,7 @@ import {
   COLORS,
   type DocxGeneratorSettings,
 } from './docx-helpers'
-import { mapEditorOrderToModern } from '@/lib/layout-settings'
+import { DEFAULT_RESUME_LAYOUT, mapEditorOrderToModern } from '@/lib/layout-settings'
 
 // ============================================================
 // FONT SIZE CONSTANTS (matching modern-template.tsx)
@@ -328,7 +328,7 @@ export async function generateModernDocx(
   let sidebarColorHex: string
   let accentColorHex: string
 
-  const sidebarSaturation = settings.sidebarSaturation ?? 85
+  const sidebarSaturation = settings.sidebarSaturation ?? DEFAULT_RESUME_LAYOUT.sidebarSaturation
 
   if (hasCustomColors) {
     sidebarColorHex = hslToHex(sidebarHue, sidebarSaturation, sidebarBrightness)

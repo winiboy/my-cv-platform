@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { type Locale } from '@/lib/i18n'
+import { DEFAULT_RESUME_LAYOUT } from '@/lib/layout-settings'
 import { type DocxGeneratorSettings } from './docx-helpers'
 import { generateProfessionalDocx } from './docx-professional'
 import { generateModernDocx } from './docx-modern'
@@ -29,16 +30,19 @@ async function handleDocxGeneration(
   const { searchParams } = new URL(request.url)
   const locale = (searchParams.get('locale') || 'fr') as Locale
 
-  // Styling parameters (with defaults matching professional-template.tsx)
-  const fontFamily = searchParams.get('fontFamily') || 'Arial, Helvetica, sans-serif'
-  const fontScale = parseFloat(searchParams.get('fontScale') || '1')
+  // Styling parameters. Every fallback comes from DEFAULT_RESUME_LAYOUT, which
+  // is the same constant the editor and the preview initialise from — an export
+  // requested without a parameter therefore renders at the value the Preview
+  // would have shown.
+  const fontFamily = searchParams.get('fontFamily') || DEFAULT_RESUME_LAYOUT.fontFamily
+  const fontScale = parseFloat(searchParams.get('fontScale') || String(DEFAULT_RESUME_LAYOUT.fontScale))
   const sidebarHueRaw = searchParams.get('sidebarHue')
   const sidebarSaturationRaw = searchParams.get('sidebarSaturation')
   const sidebarBrightnessRaw = searchParams.get('sidebarBrightness')
-  const sidebarHue = parseInt(sidebarHueRaw || '240')
-  const sidebarSaturation = parseInt(sidebarSaturationRaw || '85')
-  const sidebarBrightness = parseInt(sidebarBrightnessRaw || '35')
-  const sidebarWidthPercent = parseFloat(searchParams.get('sidebarWidth') || '30')
+  const sidebarHue = parseInt(sidebarHueRaw || String(DEFAULT_RESUME_LAYOUT.sidebarHue))
+  const sidebarSaturation = parseInt(sidebarSaturationRaw || String(DEFAULT_RESUME_LAYOUT.sidebarSaturation))
+  const sidebarBrightness = parseInt(sidebarBrightnessRaw || String(DEFAULT_RESUME_LAYOUT.sidebarBrightness))
+  const sidebarWidthPercent = parseFloat(searchParams.get('sidebarWidth') || String(DEFAULT_RESUME_LAYOUT.sidebarWidth))
   const sidebarTopMarginRaw = searchParams.get('sidebarTopMargin')
   const mainContentTopMarginRaw = searchParams.get('mainContentTopMargin')
 
@@ -46,8 +50,8 @@ async function handleDocxGeneration(
   const hasCustomColors = sidebarHueRaw !== null || sidebarSaturationRaw !== null || sidebarBrightnessRaw !== null
 
   // Parse with defaults
-  const sidebarTopMargin = sidebarTopMarginRaw ? parseInt(sidebarTopMarginRaw) : 64
-  const mainContentTopMargin = mainContentTopMarginRaw ? parseInt(mainContentTopMarginRaw) : 24
+  const sidebarTopMargin = sidebarTopMarginRaw ? parseInt(sidebarTopMarginRaw) : DEFAULT_RESUME_LAYOUT.sidebarTopMargin
+  const mainContentTopMargin = mainContentTopMarginRaw ? parseInt(mainContentTopMarginRaw) : DEFAULT_RESUME_LAYOUT.mainContentTopMargin
 
   // Section ordering (JSON arrays)
   const sidebarOrderParam = searchParams.get('sidebarOrder')
@@ -57,16 +61,16 @@ async function handleDocxGeneration(
 
   const sidebarOrder: string[] = sidebarOrderParam
     ? JSON.parse(sidebarOrderParam)
-    : ['keyAchievements', 'skills', 'languages', 'training']
+    : [...DEFAULT_RESUME_LAYOUT.sidebarOrder]
   const mainContentOrder: string[] = mainContentOrderParam
     ? JSON.parse(mainContentOrderParam)
-    : ['summary', 'experience', 'education']
+    : [...DEFAULT_RESUME_LAYOUT.mainContentOrder]
   const hiddenSidebarSections: string[] = hiddenSidebarParam
     ? JSON.parse(hiddenSidebarParam)
-    : []
+    : [...DEFAULT_RESUME_LAYOUT.hiddenSidebarSections]
   const hiddenMainSections: string[] = hiddenMainParam
     ? JSON.parse(hiddenMainParam)
-    : []
+    : [...DEFAULT_RESUME_LAYOUT.hiddenMainSections]
 
   // Check authentication
   const {

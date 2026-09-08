@@ -13,9 +13,14 @@ import type {
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
 import { renderFormattedText } from '@/lib/format-text'
+import {
+  DEFAULT_RESUME_LAYOUT,
+  type EditorMainId,
+  type EditorSidebarId,
+} from '@/lib/layout-settings'
 
-type SidebarSectionId = 'keyAchievements' | 'skills' | 'languages' | 'training'
-type MainContentSectionId = 'summary' | 'experience' | 'education'
+type SidebarSectionId = EditorSidebarId
+type MainContentSectionId = EditorMainId
 
 interface ProfessionalTemplateProps {
   resume: Resume
@@ -24,16 +29,16 @@ interface ProfessionalTemplateProps {
   sidebarColor?: string
   fontScale?: number
   fontFamily?: string
-  sidebarOrder?: SidebarSectionId[]
-  mainContentOrder?: MainContentSectionId[]
+  sidebarOrder?: readonly SidebarSectionId[]
+  mainContentOrder?: readonly MainContentSectionId[]
   sidebarTopMargin?: number
   setSidebarTopMargin?: (margin: number) => void
   mainContentTopMargin?: number
   setMainContentTopMargin?: (margin: number) => void
   sidebarWidth?: number
   setSidebarWidth?: (width: number) => void
-  hiddenSidebarSections?: SidebarSectionId[]
-  hiddenMainSections?: MainContentSectionId[]
+  hiddenSidebarSections?: readonly SidebarSectionId[]
+  hiddenMainSections?: readonly MainContentSectionId[]
 }
 
 // Fixed font sizes based on professional CV standards
@@ -52,7 +57,12 @@ const CONTACT_FONT_SIZE = 10.5 // Contact information (×0.95)
 const TITLE_GAP = 8
 const SECTION_GAP = 12
 const HEADER_GAP = 12
-const SIDEBAR_COLOR = 'hsl(240, 85%, 35%)'
+/**
+ * Fallback sidebar colour, composed from the shared layout defaults rather
+ * than restated, so this template and the Preview cannot disagree about what
+ * "no colour chosen" means.
+ */
+const SIDEBAR_COLOR = `hsl(${DEFAULT_RESUME_LAYOUT.sidebarHue}, ${DEFAULT_RESUME_LAYOUT.sidebarSaturation}%, ${DEFAULT_RESUME_LAYOUT.sidebarBrightness}%)`
 
 // Line heights
 const BODY_LINE_HEIGHT = 1.35
@@ -83,18 +93,18 @@ export function ProfessionalTemplate({
   locale,
   dict,
   sidebarColor: sidebarColorProp,
-  fontScale = 1,
-  fontFamily = "Arial, Helvetica, sans-serif",
-  sidebarOrder = ['keyAchievements', 'skills', 'languages', 'training'],
-  mainContentOrder = ['summary', 'experience', 'education'],
-  sidebarTopMargin = 64,
+  fontScale = DEFAULT_RESUME_LAYOUT.fontScale,
+  fontFamily = DEFAULT_RESUME_LAYOUT.fontFamily,
+  sidebarOrder = DEFAULT_RESUME_LAYOUT.sidebarOrder,
+  mainContentOrder = DEFAULT_RESUME_LAYOUT.mainContentOrder,
+  sidebarTopMargin = DEFAULT_RESUME_LAYOUT.sidebarTopMargin,
   setSidebarTopMargin,
-  mainContentTopMargin = 24,
+  mainContentTopMargin = DEFAULT_RESUME_LAYOUT.mainContentTopMargin,
   setMainContentTopMargin,
-  sidebarWidth = 30,
+  sidebarWidth = DEFAULT_RESUME_LAYOUT.sidebarWidth,
   setSidebarWidth,
-  hiddenSidebarSections = [],
-  hiddenMainSections = [],
+  hiddenSidebarSections = DEFAULT_RESUME_LAYOUT.hiddenSidebarSections,
+  hiddenMainSections = DEFAULT_RESUME_LAYOUT.hiddenMainSections,
 }: ProfessionalTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
