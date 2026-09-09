@@ -11,7 +11,7 @@ import {
   type EditorMainId,
   type EditorSidebarId,
 } from '@/lib/layout-settings'
-import { usePersistedLayout } from '@/lib/hooks/use-persisted-layout'
+import { adoptCachedLayout, usePersistedLayout } from '@/lib/hooks/use-persisted-layout'
 import { ResumePreview } from './resume-preview'
 
 interface ResumePreviewWrapperProps {
@@ -89,6 +89,14 @@ export function ResumePreviewWrapper({
     }
 
     const layout = resolveResumeLayout(initialResume, cached)
+
+    // Move anything this browser holds that the account has never had onto the
+    // account, once. Called here rather than from a hook of its own so it sees
+    // the same two stores and the same cache string the line above resolved
+    // from — and sees the cache before the effect below starts overwriting it
+    // with the resolved model.
+    adoptCachedLayout(initialResume.id, initialResume, cached)
+
     setTitleFontSize(layout.titleFontSize)
     setTitleGap(layout.titleGap)
     setContactFontSize(layout.contactFontSize)

@@ -87,15 +87,28 @@ async function titleFontSizePx(page: Page): Promise<number> {
  * is to observe what the ACCOUNT holds, independently of whether any browser
  * can see it.
  */
-async function persistedTitleFontSize(resumeId: string): Promise<number | null> {
+async function persistedLayout(resumeId: string): Promise<Record<string, unknown> | null> {
   const { data, error } = await admin()
     .from('resumes')
     .select('layout_settings')
     .eq('id', resumeId)
     .single()
   if (error) throw new Error(`Could not read persisted layout settings: ${error.message}`)
-  const settings = data?.layout_settings as { titleFontSize?: unknown } | null
+  return (data?.layout_settings as Record<string, unknown> | null) ?? null
+}
+
+async function persistedTitleFontSize(resumeId: string): Promise<number | null> {
+  const settings = await persistedLayout(resumeId)
   return typeof settings?.titleFontSize === 'number' ? settings.titleFontSize : null
+}
+
+/** Write the column as the account, past the browser. */
+async function seedPersistedLayout(resumeId: string, value: unknown): Promise<void> {
+  const { error } = await admin()
+    .from('resumes')
+    .update({ layout_settings: value })
+    .eq('id', resumeId)
+  if (error) throw new Error(`Could not seed persisted layout settings: ${error.message}`)
 }
 
 /**
@@ -126,11 +139,20 @@ async function seedLayoutCache(
   resumeId: string,
   titleFontSize: number,
 ): Promise<void> {
+  await seedLayoutCacheValue(context, resumeId, { titleFontSize })
+}
+
+/** The same, for a blob carrying more than one property. */
+async function seedLayoutCacheValue(
+  context: BrowserContext,
+  resumeId: string,
+  value: Record<string, unknown>,
+): Promise<void> {
   await context.addInitScript(
-    ([key, size]) => {
-      window.localStorage.setItem(key as string, JSON.stringify({ titleFontSize: size }))
+    ([key, blob]) => {
+      window.localStorage.setItem(key as string, blob as string)
     },
-    [layoutCacheKey(resumeId), titleFontSize] as const,
+    [layoutCacheKey(resumeId), JSON.stringify(value)] as const,
   )
 }
 
@@ -331,4 +353,246 @@ test('a malformed persisted value renders defaults instead of failing', async ({
   await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
   await expect(page.getByTestId('resume-document')).toBeVisible()
   expect(await titleFontSizePx(page)).toBe(TITLE_SIZE_DEFAULT)
+})
+
+/**
+ * US-004 — existing local customization survives the move.
+ *
+ * WHY THESE ASSERT THE COLUMN AND NOT THE SCREEN
+ *
+ * Everything below would pass on the screen alone without any migration at all:
+ * the browser that holds the local settings renders them either way, because
+ * `resolveResumeLayout` adopts a cached value for a property the account does
+ * not hold. What is under test is whether that value REACHED the account, so
+ * the assertions are on `resumes.layout_settings` read through a service-role
+ * client. A value that only ever stayed in localStorage cannot pass one.
+ *
+ * WHY ALL FOUR STATES ARE HERE AND NOT ONLY THE MIGRATING ONE
+ *
+ * Adoption writes on load, which makes the cases where it must NOT write as
+ * load-bearing as the case where it must. Three of the four are absences: no
+ * write for a resume with nothing local, no write when the account already
+ * holds the property, and no defaults invented for the properties nobody set.
+ * An absence needs a settle window to be evidence, hence the wait below.
+ *
+ * The fifth case is the one the whole per-property design exists for: a row
+ * migration 007 BACKFILLED, whose column is non-null but carries only the four
+ * properties the legacy blob could hold. Answering "has this resume got
+ * persisted settings?" per resume would adopt nothing there and lose the other
+ * fifteen. That test fails if anyone reaches for the simpler rule.
+ */
+
+/** What the account claims to hold, as a sorted key list. */
+async function persistedKeys(resumeId: string): Promise<string[] | null> {
+  const settings = await persistedLayout(resumeId)
+  return settings === null ? null : Object.keys(settings).sort()
+}
+
+/**
+ * Long enough for a write issued on mount to have landed.
+ *
+ * Adoption is issued synchronously from the load effect with no debounce, so by
+ * the time the document has rendered the request is already out; this window is
+ * for the round trip to the local stack, not for a timer in the application.
+ * A fixed wait is the honest tool for asserting that something did NOT happen —
+ * polling can only ever confirm that it has not happened YET.
+ */
+const ADOPTION_SETTLE_MS = 3_000
+
+/** The four properties migration 007's backfill can carry, and no others. */
+const BACKFILLED_LAYOUT = {
+  sidebarOrder: ['training', 'skills', 'languages', 'keyAchievements'],
+  mainContentOrder: ['experience', 'summary', 'education'],
+  hiddenSidebarSections: [] as string[],
+  hiddenMainSections: ['education'],
+}
+
+test('a resume with neither local nor persisted settings gains none', async ({
+  page,
+  authedUser,
+}) => {
+  const resume = await seedFixtureResume(authedUser.id, 'classic')
+
+  await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
+  await expect(page.getByTestId('resume-document')).toBeVisible()
+  expect(await titleFontSizePx(page)).toBe(TITLE_SIZE_DEFAULT)
+
+  await page.waitForTimeout(ADOPTION_SETTLE_MS)
+
+  // Still NULL. Merely looking at a resume must not make it claim nineteen
+  // deliberate values it never had — that would pin it against every future
+  // change to the documented defaults.
+  expect(await persistedLayout(resume.id)).toBeNull()
+})
+
+test('a resume with only persisted settings is not overwritten by defaults', async ({
+  page,
+  authedUser,
+}) => {
+  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  await seedPersistedLayout(resume.id, { titleFontSize: 30 })
+
+  await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
+  await expect(page.getByTestId('resume-document')).toBeVisible()
+  expect(await titleFontSizePx(page)).toBe(30)
+
+  await page.waitForTimeout(ADOPTION_SETTLE_MS)
+
+  expect(await persistedLayout(resume.id)).toEqual({ titleFontSize: 30 })
+})
+
+test('a resume with only local settings adopts them into the account', async ({
+  page,
+  authedUser,
+}) => {
+  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  expect(await persistedLayout(resume.id)).toBeNull()
+
+  // This browser holds a real customization the account has never heard of —
+  // the state every existing user is in the moment persistence ships.
+  await seedLayoutCache(page.context(), resume.id, TITLE_SIZE_CHOSEN)
+
+  await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
+  await expect(page.getByTestId('resume-document')).toBeVisible()
+  expect(await titleFontSizePx(page)).toBe(TITLE_SIZE_CHOSEN)
+
+  // THE MIGRATION. Merely loading the resume moved it onto the account.
+  await expect
+    .poll(() => persistedTitleFontSize(resume.id), { timeout: 15_000 })
+    .toBe(TITLE_SIZE_CHOSEN)
+
+  // And it moved ONLY that. The other eighteen properties are still nobody's
+  // choice, so they stay absent rather than being written as though they were.
+  expect(await persistedKeys(resume.id)).toEqual(['titleFontSize'])
+})
+
+test('the editor adopts local settings too, not only the preview', async ({
+  page,
+  authedUser,
+}) => {
+  /**
+   * The second call site.
+   *
+   * Every other test here loads `/preview`, so without this one the editor's
+   * adoption is covered only through the shared planner's unit tests — and the
+   * editor is the surface that differs, because it resolves its stores from the
+   * server prop while holding a separate `resume` state a draft blob can
+   * replace. A user who customized their resume and never opens the preview
+   * must be migrated just the same.
+   */
+  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  expect(await persistedLayout(resume.id)).toBeNull()
+
+  await seedLayoutCache(page.context(), resume.id, TITLE_SIZE_CHOSEN)
+
+  await page.goto(`/en/dashboard/resumes/${resume.id}/edit`)
+  // The editor renders the same live document, so the browser's value being on
+  // screen here means the same thing it means on the preview.
+  await expect(page.getByTestId('resume-document')).toBeVisible()
+  await expect.poll(() => titleFontSizePx(page)).toBe(TITLE_SIZE_CHOSEN)
+
+  await expect
+    .poll(() => persistedTitleFontSize(resume.id), { timeout: 15_000 })
+    .toBe(TITLE_SIZE_CHOSEN)
+  expect(await persistedKeys(resume.id)).toEqual(['titleFontSize'])
+})
+
+test('a local value does not displace one the account already holds', async ({
+  page,
+  authedUser,
+}) => {
+  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  await seedPersistedLayout(resume.id, { titleFontSize: 30 })
+
+  // The conflict is genuine: two stores, the same property, different values.
+  await seedLayoutCache(page.context(), resume.id, TITLE_SIZE_CHOSEN)
+
+  await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
+  await expect(page.getByTestId('resume-document')).toBeVisible()
+
+  // The account wins on screen...
+  await expect.poll(() => titleFontSizePx(page)).toBe(30)
+
+  await page.waitForTimeout(ADOPTION_SETTLE_MS)
+
+  // ...and in the store. The local 42 is not promoted over it, and nothing
+  // else is written either.
+  expect(await persistedLayout(resume.id)).toEqual({ titleFontSize: 30 })
+})
+
+test('a backfilled resume adopts the properties the backfill could not carry', async ({
+  page,
+  authedUser,
+}) => {
+  /**
+   * The case the per-property grain exists for.
+   *
+   * The column is NON-NULL, so "does this resume have persisted settings?"
+   * answers yes — and answering it per resume would adopt nothing, leaving the
+   * user's typography to resolve from defaults on their next device. Per
+   * property, the four backfilled values win and the fifteen absent ones take
+   * the browser's.
+   */
+  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  await seedPersistedLayout(resume.id, BACKFILLED_LAYOUT)
+
+  await seedLayoutCacheValue(page.context(), resume.id, {
+    titleFontSize: TITLE_SIZE_CHOSEN,
+    fontScale: 1.2,
+    // The account holds this one. It must lose, exactly as in the test above.
+    sidebarOrder: ['skills', 'languages', 'training', 'keyAchievements'],
+  })
+
+  await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
+  await expect(page.getByTestId('resume-document')).toBeVisible()
+  expect(await titleFontSizePx(page)).toBe(TITLE_SIZE_CHOSEN)
+
+  await expect
+    .poll(() => persistedTitleFontSize(resume.id), { timeout: 15_000 })
+    .toBe(TITLE_SIZE_CHOSEN)
+
+  // The backfilled four survive untouched, the two the browser really chose
+  // are adopted, and nothing else is invented.
+  expect(await persistedLayout(resume.id)).toEqual({
+    ...BACKFILLED_LAYOUT,
+    titleFontSize: TITLE_SIZE_CHOSEN,
+    fontScale: 1.2,
+  })
+})
+
+test('the migration runs once and cannot re-promote a stale cache', async ({
+  page,
+  authedUser,
+}) => {
+  /**
+   * IDEMPOTENCE, stated as the failure it prevents.
+   *
+   * A second run is not merely wasteful. After the first load both surfaces
+   * re-cache the RESOLVED model, so this browser's blob now carries all
+   * nineteen properties — and if that counted as nineteen local values to
+   * adopt, a change made on another device afterwards would be overwritten by
+   * this browser's stale copy on its next load. So the account is changed
+   * between the two loads, and the second load must leave it alone.
+   */
+  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  await seedLayoutCache(page.context(), resume.id, TITLE_SIZE_CHOSEN)
+
+  await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
+  await expect(page.getByTestId('resume-document')).toBeVisible()
+  await expect
+    .poll(() => persistedTitleFontSize(resume.id), { timeout: 15_000 })
+    .toBe(TITLE_SIZE_CHOSEN)
+
+  // Somebody else's device changes the same property.
+  await seedPersistedLayout(resume.id, { titleFontSize: 30 })
+
+  // The same browser loads again, its cache now holding the full resolved
+  // model from the first load — including titleFontSize 42.
+  await page.reload()
+  await expect(page.getByTestId('resume-document')).toBeVisible()
+  await expect.poll(() => titleFontSizePx(page)).toBe(30)
+
+  await page.waitForTimeout(ADOPTION_SETTLE_MS)
+
+  expect(await persistedLayout(resume.id)).toEqual({ titleFontSize: 30 })
 })

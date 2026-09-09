@@ -32,7 +32,7 @@ import {
   type EditorMainId,
   type EditorSidebarId,
 } from '@/lib/layout-settings'
-import { usePersistedLayout } from '@/lib/hooks/use-persisted-layout'
+import { adoptCachedLayout, usePersistedLayout } from '@/lib/hooks/use-persisted-layout'
 import { ContactSection } from './resume-sections/contact-section'
 import { SummarySection } from './resume-sections/summary-section'
 import { ExperienceSection } from './resume-sections/experience-section'
@@ -894,15 +894,27 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     // does not layer the two itself and must not start to: the preview resolves
     // the same resume through the same function, and a second copy of that rule
     // here is what would let the two surfaces disagree.
+    // `initialResume.id` rather than `resume.id`: every store handed to the
+    // resolver and to adoption below must describe the same row, and `resume`
+    // is state that a `resume_draft_${id}` blob replaces earlier in this very
+    // effect.
     let cachedLayout: string | null = null
     try {
-      cachedLayout = localStorage.getItem(`resume_slider_settings_${resume.id}`)
+      cachedLayout = localStorage.getItem(`resume_slider_settings_${initialResume.id}`)
     } catch (error) {
       // A browser that refuses localStorage still gets the account's settings.
       console.error('Failed to read cached layout settings:', error)
     }
 
     const layout = resolveResumeLayout(initialResume, cachedLayout)
+
+    // Move anything this browser holds that the account has never had onto the
+    // account, once. Called here rather than from a hook of its own so it sees
+    // the same two stores and the same cache string the line above resolved
+    // from — and sees the cache before the effect below starts overwriting it
+    // with the resolved model.
+    adoptCachedLayout(initialResume.id, initialResume, cachedLayout)
+
     setTitleFontSize(layout.titleFontSize)
     setTitleGap(layout.titleGap)
     setContactFontSize(layout.contactFontSize)
