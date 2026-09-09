@@ -572,3 +572,230 @@ Commit:
 - Commit message: ralph: US-003 layout settings persist to the account
 
 FINAL: PASS
+
+## US-004: Existing local customization survives the move
+Status: PASS
+Priority: 4
+Branch: ralph/milestone-c-part-1-layout-state
+Baseline HEAD: 967eeca
+
+Scope:
+- Scope check: PASS
+- Modified: e2e/layout-persistence.spec.ts,
+    src/components/dashboard/resume-editor.tsx,
+    src/components/dashboard/resume-preview-wrapper.tsx,
+    src/lib/hooks/use-persisted-layout.ts
+- New: src/lib/layout-adoption.ts, src/lib/layout-adoption.test.ts
+- No migration needed - 007 already added the column, and adoption writes a
+  partial object the CHECK accepts and readers already handle.
+- No visual baseline moved. No --update-snapshots.
+
+Checks:
+- pnpm typecheck: PASS - 0 errors
+- pnpm lint: PASS - 304 problems, under the 311 baseline. Reviewer confirmed
+  the only hit in a touched file is byte-identical at HEAD, and that no
+  .skip/.only/.todo/@ts-expect-error exists in any of the six files.
+- pnpm test: PASS - 227 passed, 6 files, 0 skipped. Re-run independently by
+  both the orchestrator and the reviewer.
+- pnpm test:integration: PASS - 27 passed
+- pnpm test:e2e: PASS - 35 passed (28 + 7 new)
+- pnpm test:visual: PASS - 10 passed against UNCHANGED baselines. Re-run
+  independently by the orchestrator.
+- pnpm build:verify: PASS - exit 0
+
+Specialized validation:
+- Database: NOT_APPLICABLE - no migration; 007 supplies the column
+- Security: PASS - reviewer confirmed adoption cannot fire for a resume the
+  user does not own and cannot write a row it did not read. All four page
+  loaders use select('*') with .eq('user_id', user.id), so initialResume is
+  always the caller's own row and layout_settings is always present (never
+  undefined, so never a spurious empty accountKeys). The write is gated by
+  "Users can update own resumes" with USING/WITH CHECK (auth.uid() = user_id)
+  from migration 006. Payload bounded by resumes_layout_settings_check; every
+  reader re-validates through parseStoredLayout.
+- Export: PASS - the DOCX route reads only query params and
+  DEFAULT_RESUME_LAYOUT, never layout_settings or custom_sections, and imports
+  nothing this story changed. Real artifacts generated through the
+  authenticated route in a throwaway spec: 200, correct OOXML MIME, valid
+  PK/word/document.xml package, and a different parameter set produced a
+  different document - so FR-8's parameters still reach the generator.
+- Browser: PASS - the E2E matrix is the central evidence for AC-6
+- Visual: PASS - 10/10 unchanged
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no UI change; rendering proven unchanged
+- code-reviewer: PASS (second INDEPENDENT pass). See the process note below.
+
+PROCESS NOTE
+The implementer ran a code-reviewer pass on its own work and reported PASS.
+That is self-orchestrated review and does not satisfy the independent gate
+CLAUDE.md 6 requires, so the orchestrator ran code-reviewer separately. The
+independent pass returned FAIL with five required changes, including a
+Critical the self-run pass had not surfaced. Recorded because it is direct
+evidence for why the independence requirement exists.
+
+Acceptance criteria:
+- AC-01 (local values read and written to the store): PASS, with one
+  deliberate deviation recorded below as R-1.
+- AC-02 (runs once per resume, idempotent): PASS - and idempotency is
+  STRUCTURAL, not flag-based. There is no marker, no flag, nothing that could
+  be missing on another device. Mutation-verified by the reviewer: disabling
+  the default-skip fails 6 of the unit cases, four of them
+  "plans nothing on the next load".
+- AC-03 (a resume with no local settings is unaffected): PASS -
+  planLayoutAdoption returns null before any write when nothing is adoptable.
+  E2E asserts the column is still null / unchanged after a 3s settle.
+- AC-04 (both stores -> persisted wins, tested): PASS - accountKeys is
+  presence-only; values come off resolveResumeLayout. Unit and E2E.
+- AC-05 (local only -> adopts local): PASS - unit and E2E, on both surfaces.
+- AC-06 (test seeds localStorage, loads, asserts the persisted result): PASS -
+  E2E seeds via context.addInitScript and asserts resumes.layout_settings
+  through a service-role client, so a value that reached only localStorage
+  cannot pass.
+
+THE PER-PROPERTY GRAIN, AND WHY IT DECIDED THIS STORY
+AC-4 and AC-5 read as a clean binary - "has persisted settings" or not - but
+after 007's backfill that binary does not exist. The backfill copies
+custom_sections->'layoutSettings' verbatim, and the legacy type contract
+declares exactly four keys, so a backfilled row is NON-NULL with at most 4 of
+19. Applied per RESUME, "persisted settings exist" would resolve the other
+fifteen from defaults and destroy a real customization - precisely the loss
+this story exists to prevent. Per property, the four persisted keys win and the
+fifteen absent ones adopt the local values. Per-property is the only reading
+under which AC-4 and AC-5 are consistent, and it is the grain
+resolveResumeLayout already uses.
+
+FOUR-STATE MATRIX PLUS BACKFILLED (all E2E, column asserted via service role)
+  no local / no persisted   column stays NULL
+  persisted only            column stays exactly {titleFontSize: 30}
+  local only                column becomes exactly {titleFontSize: 42} - key
+                            set asserted, so no defaults promoted
+  both                      column stays {titleFontSize: 30}; screen shows 30
+  backfilled                4 legacy keys survive verbatim, titleFontSize and
+                            fontScale adopted, nothing invented
+  idempotence               after adoption, another device sets 30; reload with
+                            the now-19-key stale cache leaves the column at 30
+  editor surface            /edit adopts identically
+
+MUTATION EVIDENCE
+- Per-resume adoption (`if (resume.layout_settings != null) return null`):
+  5 unit failures and the backfilled E2E failed at the column poll. Reverted.
+- Default-skip disabled: 6 unit failures including all four "plans nothing on
+  the next load", which is direct confirmation that without the skip the
+  IMMEDIATELY NEXT load writes. Reverted, verified byte-identical.
+
+R-1 THE DELIBERATE DEVIATION FROM AC-1 READ LITERALLY
+A local value EQUAL to the documented default is not written. Skipping is what
+makes idempotency structural: because both surfaces re-cache the full resolved
+19-key model after every load, a planner adopting "every local key the column
+lacks" would find fifteen fresh keys next load and write again, pinning the row
+with fifteen values nobody chose.
+
+THE FALSE INVARIANT THE INDEPENDENT REVIEW CAUGHT
+The module originally claimed omission was "lossless in every case, because an
+absent key resolves to the same default it would have been written with". That
+is false, and the reviewer demonstrated it against the real module:
+  - Device A cache holds fontScale at the default - the user had set 1.3 and
+    DELIBERATELY RESET it. Device B cache still holds the stale 1.3.
+  - A loads first: the patch is {titleFontSize: 42} only. A's deliberate reset
+    is never recorded.
+  - B loads: the account still has no fontScale, so B's stale 1.3 is adopted as
+    though nobody had superseded it.
+  - A's next load renders 1.3. It rendered the default a moment earlier.
+The window is UNBOUNDED IN TIME - the key stays absent indefinitely, so an
+abandoned browser can win months later. This sits inside the milestone's named
+highest risk.
+Writing the defaults does NOT cleanly fix it: it moves the winner from
+"non-default value" to "first loader", and neither cache carries recency. So
+the skip is kept and the trade is documented rather than asserted away. The
+sequence is now pinned by a characterization test named for the defect, whose
+docstring forecloses the wrong resolution - deleting the skip "would trade a
+documented exposure for an undocumented one". A future change that adds recency
+will break that test, and a reader will correctly conclude it has been
+obsoleted rather than violated.
+
+KNOWN LIMITS AND DEFERRED ITEMS
+
+M-1 Adoption issues at mount; the persister's earliest write is >=500ms later.
+  Two independent requests have no wire ordering guarantee, so a single edit
+  made inside that first window WITH NO FURTHER EDIT AFTER IT could be
+  overwritten. Documented at the hook.
+
+M-2 Cross-device clobber window, one page-load wide. Inherent to US-003's
+  writer; adoption is one more writer inside it.
+
+M-3 A write matching zero rows resolves without error - no .select() - so a
+  denied adoption reports nothing and simply retries next load. Ownership is
+  still enforced by RLS. Recorded as accepted; the docblock should say denial
+  is silent and retried rather than claim a stronger contract.
+
+M-4 The stale-browser exposure above. Third residual risk, recorded at the
+  hook beside the other two and distinguished from them: unlike them it has no
+  time bound and no failure to report.
+
+M-5 Whole-column replace drops unknown keys. The patch replaces layout_settings
+  entirely, so any key outside the nineteen is deleted. Nothing else writes the
+  column today.
+
+M-6 resume-editor.tsx is half-matched on the resume id: the cache READ at :903
+  now uses initialResume.id (this story), while the cache WRITE at :1040, the
+  usePersistedLayout call at :1051 and the mount effect's [resume.id] dependency
+  at :977 still use resume.id. The reviewer WITHDREW its original "one-token
+  fix" finding after checking: changing :1040 alone would make the cache key and
+  the row it caches disagree - a NEW incoherence rather than an existing one
+  removed. All four sites must be unified together or none. Deferred to its own
+  story. On every reachable path the two ids are identical (resume is
+  initialised as useState(initialResume), and the draft writer cannot produce a
+  foreign id), so divergence needs hand-edited localStorage, and on that path
+  the pre-change code was equally broken. The more consequential half is
+  pre-existing: usePersistedLayout sends an account write to a row id sourced
+  from localStorage. RLS confines it to the user's own resumes.
+
+M-7 Unrelated, pre-existing, filed separately: src/app/api/health/ai/
+  route.test.ts:110 asserts the response body does not contain
+  String(API_KEY.length) = "30", while every response embeds a checkedAt
+  timestamp. Roughly 5.2% of instants collide - about one CI run in twenty -
+  and any run on the 30TH OF A MONTH contains "-30T" and fails 100% of the
+  time, all day. Verify is a required check, so this is a hard monthly outage.
+  From PR #37, latent since 2026-09-06. Reproduced deterministically by pinning
+  the clock.
+
+M-8 playwright.config.ts sets retries: 0 while E2E is a required check, and two
+  unrelated flakes were seen across six full runs - a page.fill('#email')
+  timeout in the shared loginAs fixture, and a cold-start timeout. A flaky
+  loginAs will fail a required check at random. Out of scope; should not stay
+  unowned.
+
+Review history:
+- code-reviewer (run by the implementer on its own work): PASS. Does not
+  satisfy the independence requirement; see the process note.
+- code-reviewer pass 1 (independent): FAIL. Critical: the module's central
+  safety invariant was false, inside the story whose named risk is silent data
+  loss. Plus overstated unit evidence - 10 of 34 cases asserted nothing,
+  because two parameterized cases began `if (patch === null) return`.
+- Fixes: the claim corrected and the exposure recorded as a third residual
+  risk; a characterization test added for the two-browser sequence; the
+  "adopts itself forever" comment corrected in BOTH the module and the test
+  file's header, the second copy found unprompted; the scenario block split
+  into WRITING and SILENT so a no-op cannot be reported as a passing assertion,
+  with a helper that THROWS if a writing scenario stops writing; the editor's
+  cache read moved to initialResume.id.
+- Unit count went 34 cases / 24 asserting -> 25 cases / all 25 asserting.
+  pnpm test 236 -> 227. Arithmetic verified by the reviewer, not accepted.
+- code-reviewer pass 2 (independent): PASS. No Critical, no Major. One
+  cosmetic Minor (a comment line at 93 columns). The reviewer WITHDREW its own
+  earlier Minor 1 after checking it properly - see M-6.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-004 existing local customization survives the move
+
+FINAL: PASS
+
+===============================================================================
+MILESTONE C PART 1 COMPLETE - all four stories PASS.
+Part 2 (tasks/prds/milestone-c-part-2-exports-and-parity.md) is DRAFT and
+unapproved. It cannot start until Part 1 is merged and deployed.
+DEPLOY ORDERING: migrations 006 AND 007 must land on the hosted database BEFORE
+this code. main already carries code that requires 007.
+===============================================================================
