@@ -1,14 +1,20 @@
 /**
  * The one layout model for a resume, plus the helpers that read and write it.
  *
- * Two storage formats meet here:
+ * Three storage formats meet here:
  *
- * 1. `custom_sections` JSONB, when section order/visibility is persisted:
+ * 1. `resumes.layout_settings` JSONB — the account's copy and the only place
+ *    layout state is written from now on. Carries the whole model.
+ *
+ * 2. `custom_sections` JSONB, the layout model's previous home, which held four
+ *    of its nineteen properties:
  *      { items: CustomSection[], layoutSettings: ResumeLayoutSettings }
  *    Legacy rows hold a plain `CustomSection[]` with no layout settings.
+ *    Still READ, so rows written before 007 keep working; no longer written.
  *
- * 2. The `resume_slider_settings_${id}` localStorage blob written by the
- *    editor and the preview wrapper, which carries the full model.
+ * 3. The `resume_slider_settings_${id}` localStorage blob written by the
+ *    editor and the preview wrapper, which carries the full model. A cache,
+ *    not an authority — see `resolveResumeLayout`.
  */
 
 import type { ResumeLayoutSettings } from '@/types/database'
@@ -321,6 +327,14 @@ export function parseLayoutModel(input: unknown): Partial<ResumeLayoutModel> {
   // A stored sidebar order goes through the same migration the editor and the
   // preview have always applied, so an order saved before 'languages' existed
   // still resolves to a complete, de-duplicated list.
+  //
+  // Note the asymmetry with `mainContentOrder` below: an EMPTY sidebar order is
+  // rebuilt into the full default list and therefore counts as a value the
+  // store carried, while an empty main order is discarded and falls through to
+  // whatever a lower-priority store says. That is `migrateSidebarOrder`'s
+  // documented behaviour — an unusable order must not render an empty sidebar —
+  // and neither shape is reachable from any writer, which is why it is recorded
+  // here rather than changed.
   if (Array.isArray(raw.sidebarOrder)) {
     result.sidebarOrder = migrateSidebarOrder(
       raw.sidebarOrder.filter((entry): entry is string => typeof entry === 'string'),
@@ -361,14 +375,192 @@ export function resolveLayoutModel(input: unknown): ResumeLayoutModel {
 }
 
 /**
- * Serializes a layout model for storage.
+ * Largest stored layout blob this application will read.
  *
- * Writes exactly the model's own properties in a fixed key order, so two
- * equal models always produce the same string and an unrelated key that crept
- * into the stored blob is not carried forward.
+ * `parseLayoutModel` already makes an enormous blob harmless to RENDERING —
+ * it keeps at most the nineteen known keys and bounds every one of them — so
+ * this bound is not what protects a style attribute. It protects the work
+ * done before that point: parsing megabytes of attacker-chosen JSON out of
+ * localStorage on every mount, and walking it key by key.
+ *
+ * The server-side twin of this bound is `resumes_layout_settings_check` in
+ * migration 007, which is what actually stops an oversized value from being
+ * STORED — the column is written straight from the browser under the table's
+ * UPDATE policy, and a policy decides whose row may be written, not what may
+ * be put in it. This constant is the same number expressed on the read side,
+ * so a value that somehow predates or bypasses the constraint still degrades
+ * to defaults rather than reaching a reader.
+ *
+ * Compared against string length, while the constraint counts UTF-8 bytes. A
+ * string's length in UTF-16 code units is never greater than its length in
+ * UTF-8 bytes, so anything the database accepted passes here too: the two
+ * bounds cannot disagree in the direction that would reject a legitimate
+ * value. 4096 against a worst case of 977 bytes — nineteen properties with
+ * every list full, the longest accepted font stack, and every number as wide
+ * as a double can print inside its accepted range. The model the CONTROLS can
+ * actually produce is 752 bytes. Both are asserted in `layout-settings.test.ts`
+ * so this bound cannot be narrowed past a legitimate value without failing.
  */
-export function serializeLayoutModel(model: ResumeLayoutModel): string {
-  const ordered: ResumeLayoutModel = {
+export const MAX_LAYOUT_BLOB_LENGTH = 4096
+
+/**
+ * Reads one blob out of a store — the database column, the legacy
+ * `custom_sections` value, or the localStorage string — into the partial model
+ * it can be trusted to carry.
+ *
+ * This is the boundary where untrusted stored state enters the application.
+ * Accepts either JSON text or an already-parsed value, because the two stores
+ * hand back different things: `localStorage.getItem` returns a string,
+ * supabase-js returns JSONB already parsed.
+ *
+ * Total, like `parseLayoutModel`: oversized, unparseable, wrongly-shaped and
+ * individually invalid input all produce omissions rather than a throw. There
+ * is no input for which a resume fails to render.
+ */
+export function parseStoredLayout(input: unknown): Partial<ResumeLayoutModel> {
+  if (input === null || input === undefined) return {}
+
+  if (typeof input === 'string') {
+    if (input.length > MAX_LAYOUT_BLOB_LENGTH) return {}
+    try {
+      return parseLayoutModel(JSON.parse(input) as unknown)
+    } catch {
+      // A blob that is not JSON at all carries nothing, which is exactly what
+      // an empty partial says. Nothing downstream needs to distinguish it from
+      // an absent blob.
+      return {}
+    }
+  }
+
+  if (typeof input !== 'object' || Array.isArray(input)) return {}
+
+  let serialized: string
+  try {
+    serialized = JSON.stringify(input)
+  } catch {
+    return {}
+  }
+  if (serialized.length > MAX_LAYOUT_BLOB_LENGTH) return {}
+
+  return parseLayoutModel(input)
+}
+
+/** The two persisted layout stores, as they arrive on a resume row. */
+export interface PersistedLayoutSource {
+  /** `resumes.layout_settings` — the current home. NULL until first written. */
+  layout_settings: unknown
+  /** `resumes.custom_sections` — the previous home, still read. */
+  custom_sections: unknown
+}
+
+/**
+ * THE PRECEDENCE RULE. The one place it is decided, and the one place to read
+ * or change it.
+ *
+ * Every surface that renders a resume resolves its layout here: the account's
+ * persisted settings and the browser's cached ones go in, one complete model
+ * comes out. No caller layers these sources itself, because a caller that did
+ * would be a second copy of this rule that could disagree with it.
+ *
+ * THE RULE
+ *
+ *   For each property: the account's persisted value wins if the account has
+ *   one. Otherwise the browser's cached value is adopted. Otherwise the
+ *   documented default.
+ *
+ * WHY PER PROPERTY AND NOT PER RESUME
+ *
+ * "Persisted wins" without qualification would be wrong at exactly one moment
+ * — the first load after this ships — and wrong in the direction that destroys
+ * data. A resume that persisted only its section order (all four properties
+ * the old `custom_sections` blob could hold) would then have its fifteen
+ * typography, colour and spacing properties resolved from server-side defaults,
+ * silently discarding a customization the user had really made and could see
+ * on screen a moment earlier.
+ *
+ * Per property, the four persisted ones win and the fifteen absent ones leave
+ * the browser's values in place, to be adopted and written back by US-004.
+ *
+ * This is a finer statement of the same rule, not a different one, and the
+ * distinction disappears once persistence is live: the writer always stores
+ * the complete model, so a blob written by this application carries all
+ * nineteen keys and beats the cache outright. The two only differ across the
+ * migration boundary, which is precisely the case the qualification exists for.
+ *
+ * The legacy `custom_sections` blob sits between the cache and the column for
+ * the same reason: it is the account speaking, so it outranks the browser, but
+ * it is the account's OLD words, so the column outranks it. During the
+ * transition a row may have been backfilled into the column, still carry the
+ * legacy blob, or both; under a per-property merge all three cases resolve to
+ * the same answer and none of them can lose a value.
+ *
+ * THE COST OF RANKING THE LEGACY BLOB ABOVE THE CACHE, STATED PLAINLY.
+ *
+ * Only the editor ever wrote that blob, and only while the resume's template
+ * was `modern`; localStorage was written by both surfaces for every template.
+ * So a resume that was once Modern and whose sections were reordered later
+ * under another template has a legacy blob OLDER than its cache, and this
+ * ordering shows the older one — the section order the ACCOUNT holds, not the
+ * one this browser holds.
+ *
+ * That is the behaviour US-003 asks for rather than a defect: the account is
+ * the cross-device truth, and "the account wins even where this browser
+ * disagrees" is the whole point of inverting the previous rule. It is NOT the
+ * failure the qualification above guards, which is specifically about EMPTY
+ * defaults beating a real customization — here the winning value is a real one
+ * the user chose, on a device the account remembers.
+ *
+ * It is written down because it is the one case where a user sees a visible
+ * change with no action of their own, and because reversing it later means
+ * reversing these two lines and nothing else.
+ *
+ * @param resume  The row's two persisted stores.
+ * @param cached  The `resume_slider_settings_${id}` localStorage string, or
+ *                null when the browser has none.
+ */
+export function resolveResumeLayout(
+  resume: PersistedLayoutSource,
+  cached: string | null,
+): ResumeLayoutModel {
+  return {
+    ...DEFAULT_RESUME_LAYOUT,
+    ...parseStoredLayout(cached),
+    ...parseStoredLayout(extractLayoutSettings(resume.custom_sections)),
+    ...parseStoredLayout(resume.layout_settings),
+  }
+}
+
+/**
+ * The layout model as it goes INTO a store: the same nineteen properties with
+ * the model's `readonly` array modifiers dropped.
+ *
+ * `readonly` on the model exists to stop a consumer mutating the frozen shared
+ * default. A value on its way to a JSONB column is a fresh object nobody else
+ * holds, and `Json` — the generated database type — describes mutable arrays,
+ * so a readonly one does not satisfy it. Widening here rather than casting at
+ * the call site keeps the guarantee where it matters and drops it only where
+ * it is provably irrelevant.
+ */
+export type StoredLayoutModel = {
+  -readonly [K in keyof ResumeLayoutModel]: ResumeLayoutModel[K] extends readonly (infer E)[]
+    ? E[]
+    : ResumeLayoutModel[K]
+}
+
+/**
+ * A layout model as plain JSON data, ready to be written to a store.
+ *
+ * Exactly the model's own properties in a fixed key order, so two equal models
+ * always produce the same value and an unrelated key that crept into a stored
+ * blob is not carried forward. The arrays are copied, so the returned value
+ * shares no structure with the caller's model — or with the frozen default.
+ *
+ * This is what goes into `resumes.layout_settings`, whose CHECK constraint
+ * requires a JSON object; `serializeLayoutModel` is the same value as text,
+ * which is what localStorage takes.
+ */
+export function toStoredLayout(model: ResumeLayoutModel): StoredLayoutModel {
+  return {
     titleFontSize: model.titleFontSize,
     titleGap: model.titleGap,
     contactFontSize: model.contactFontSize,
@@ -389,7 +581,13 @@ export function serializeLayoutModel(model: ResumeLayoutModel): string {
     hiddenSidebarSections: [...model.hiddenSidebarSections],
     hiddenMainSections: [...model.hiddenMainSections],
   }
-  return JSON.stringify(ordered)
+}
+
+/**
+ * Serializes a layout model for a string-valued store (localStorage).
+ */
+export function serializeLayoutModel(model: ResumeLayoutModel): string {
+  return JSON.stringify(toStoredLayout(model))
 }
 
 // ---------- Section order migration ----------
@@ -476,6 +674,13 @@ function isWrappedFormat(value: unknown): value is CustomSectionsWithLayout {
  *
  * Returns the ResumeLayoutSettings if the value uses the wrapped format,
  * or null if the value is a legacy array, null, or otherwise missing settings.
+ *
+ * READ ONLY. Nothing writes this shape any more — migration 007 gave layout
+ * state its own column and `resolveResumeLayout` reads this only so that rows
+ * written before 007 keep the section order their owner chose. The three
+ * shapes a row can be in (null, a bare `CustomSection[]`, or the wrapped
+ * object) are all handled: the first two carry no layout settings and return
+ * null, which resolves to whatever the newer stores say.
  */
 export function extractLayoutSettings(
   customSections: unknown
@@ -484,40 +689,6 @@ export function extractLayoutSettings(
     return null
   }
   return customSections.layoutSettings
-}
-
-/**
- * Embeds layout settings into the custom_sections value, producing
- * the wrapped format { items: [...], layoutSettings: {...} }.
- *
- * Handles three input shapes:
- * 1. null/undefined  -> { items: [], layoutSettings }
- * 2. Array (legacy)  -> { items: <array>, layoutSettings }
- * 3. Object (already wrapped) -> { ...existing, layoutSettings }
- */
-export function embedLayoutSettings(
-  customSections: unknown,
-  settings: ResumeLayoutSettings
-): CustomSectionsWithLayout {
-  // Case 1: null or undefined
-  if (customSections === null || customSections === undefined) {
-    return { items: [], layoutSettings: settings }
-  }
-
-  // Case 2: Legacy array format
-  if (Array.isArray(customSections)) {
-    return { items: customSections, layoutSettings: settings }
-  }
-
-  // Case 3: Already an object (possibly wrapped)
-  if (typeof customSections === 'object') {
-    const existing = customSections as Record<string, unknown>
-    const items = Array.isArray(existing.items) ? existing.items : []
-    return { items, layoutSettings: settings }
-  }
-
-  // Fallback for unexpected types — treat as empty
-  return { items: [], layoutSettings: settings }
 }
 
 // ---------- Editor → Modern template section-ID mapping ----------
