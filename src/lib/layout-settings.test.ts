@@ -2,14 +2,17 @@ import { describe, expect, it } from 'vitest'
 import type { ResumeLayoutSettings } from '@/types/database'
 import {
   DEFAULT_RESUME_LAYOUT,
-  embedLayoutSettings,
   extractLayoutSettings,
   LAYOUT_CONTROL_RANGES,
   mapEditorOrderToModern,
+  MAX_LAYOUT_BLOB_LENGTH,
   migrateSidebarOrder,
   parseLayoutModel,
+  parseStoredLayout,
   resolveLayoutModel,
+  resolveResumeLayout,
   serializeLayoutModel,
+  toStoredLayout,
   type EditorMainId,
   type ResumeLayoutModel,
 } from './layout-settings'
@@ -163,55 +166,282 @@ describe('extractLayoutSettings', () => {
   })
 })
 
-describe('embedLayoutSettings', () => {
-  it('wraps null and undefined as an empty item list', () => {
-    expect(embedLayoutSettings(null, SETTINGS)).toEqual({ items: [], layoutSettings: SETTINGS })
-    expect(embedLayoutSettings(undefined, SETTINGS)).toEqual({ items: [], layoutSettings: SETTINGS })
+describe('parseStoredLayout', () => {
+  it('reads a blob given as JSON text, which is what localStorage returns', () => {
+    expect(parseStoredLayout(JSON.stringify({ fontScale: 1.2 }))).toEqual({ fontScale: 1.2 })
   })
 
-  it('preserves legacy array contents as items', () => {
-    const legacy = [{ title: 'Volunteering' }, { title: 'Awards' }]
-    expect(embedLayoutSettings(legacy, SETTINGS)).toEqual({
-      items: legacy,
-      layoutSettings: SETTINGS,
+  it('reads a blob given already parsed, which is what a JSONB column returns', () => {
+    expect(parseStoredLayout({ fontScale: 1.2 })).toEqual({ fontScale: 1.2 })
+  })
+
+  it('carries nothing for an absent blob', () => {
+    expect(parseStoredLayout(null)).toEqual({})
+    expect(parseStoredLayout(undefined)).toEqual({})
+  })
+
+  it('carries nothing for text that is not JSON, instead of throwing', () => {
+    expect(parseStoredLayout('{ not json')).toEqual({})
+    expect(parseStoredLayout('')).toEqual({})
+  })
+
+  it('carries nothing for a value that is not an object', () => {
+    expect(parseStoredLayout(42)).toEqual({})
+    expect(parseStoredLayout(['skills'])).toEqual({})
+    expect(parseStoredLayout('"a bare JSON string"')).toEqual({})
+  })
+
+  it('rejects an oversized blob whole, in either representation', () => {
+    // Valid in every respect except size. The point is that a blob nobody
+    // should be storing carries nothing at all, rather than being walked.
+    const oversized = { fontScale: 1.2, filler: 'x'.repeat(MAX_LAYOUT_BLOB_LENGTH) }
+    expect(parseStoredLayout(oversized)).toEqual({})
+    expect(parseStoredLayout(JSON.stringify(oversized))).toEqual({})
+  })
+
+  /**
+   * What the bound has to admit, measured rather than asserted in prose.
+   *
+   * `MAX_LAYOUT_BLOB_LENGTH` and its server-side twin in migration 007 both
+   * claim a worst case of about 1 KB. Nothing tested that claim, so the
+   * constant could have been narrowed to a few hundred and the suite would
+   * still have passed — while rejecting a legitimate maximal model on the next
+   * page load, which resets the user's resume.
+   *
+   * Byte length, not string length, because `resumes_layout_settings_check`
+   * counts UTF-8 bytes and the two bounds must not disagree in the direction
+   * that rejects a value the database accepted.
+   */
+  const LONGEST_FONT_STACK = `'${'F'.repeat(198)}'`
+
+  it('admits the largest model the layout controls can produce', () => {
+    // Every list full and the longest font stack the validation accepts.
+    // Measured at 752 bytes against a bound of 4096.
+    const worstCase = serializeLayoutModel({
+      ...DEFAULT_RESUME_LAYOUT,
+      fontFamily: LONGEST_FONT_STACK,
+      hiddenSidebarSections: [...DEFAULT_RESUME_LAYOUT.sidebarOrder],
+      hiddenMainSections: [...DEFAULT_RESUME_LAYOUT.mainContentOrder],
     })
+    expect(LONGEST_FONT_STACK).toHaveLength(200)
+    expect(Buffer.byteLength(worstCase, 'utf8')).toBeLessThan(MAX_LAYOUT_BLOB_LENGTH)
+    // Admitted, not merely small: the bound must let it back out again.
+    expect(parseStoredLayout(worstCase).fontFamily).toBe(LONGEST_FONT_STACK)
   })
 
-  it('preserves items when re-wrapping an already-wrapped value', () => {
-    const existing = { items: [{ title: 'Awards' }], layoutSettings: SETTINGS }
-    const next: ResumeLayoutSettings = { ...SETTINGS, sidebarOrder: ['training'] }
-    expect(embedLayoutSettings(existing, next)).toEqual({
-      items: [{ title: 'Awards' }],
-      layoutSettings: next,
+  it('admits the largest model the reader will accept at all', () => {
+    // The controls emit short numbers, but `parseLayoutModel` accepts any
+    // finite value in range, and a double can print eighteen characters. This
+    // is the real ceiling on a blob this application can be handed and still
+    // read back in full. Measured at 977 bytes against a bound of 4096.
+    const LONG_DOUBLE = 1.2999999999999998
+    expect(JSON.stringify(LONG_DOUBLE)).toHaveLength(18)
+
+    // Driven from the control table, which is a Record over every numeric
+    // property, so a property added to the model later cannot escape this.
+    const numericKeys = Object.keys(LAYOUT_CONTROL_RANGES) as (keyof typeof LAYOUT_CONTROL_RANGES)[]
+    for (const key of numericKeys) {
+      // In range for every numeric property, so none of them is quietly
+      // dropped and shortened by this construction.
+      expect(
+        parseLayoutModel({ [key]: LONG_DOUBLE }),
+        `${key} must accept ${LONG_DOUBLE}`,
+      ).toEqual({ [key]: LONG_DOUBLE })
+    }
+    const widestNumbers = Object.fromEntries(
+      numericKeys.map((key) => [key, LONG_DOUBLE]),
+    ) as Pick<ResumeLayoutModel, (typeof numericKeys)[number]>
+
+    const serialized = serializeLayoutModel({
+      ...DEFAULT_RESUME_LAYOUT,
+      ...widestNumbers,
+      fontFamily: LONGEST_FONT_STACK,
+      hiddenSidebarSections: [...DEFAULT_RESUME_LAYOUT.sidebarOrder],
+      hiddenMainSections: [...DEFAULT_RESUME_LAYOUT.mainContentOrder],
     })
+    expect(Buffer.byteLength(serialized, 'utf8')).toBeLessThan(MAX_LAYOUT_BLOB_LENGTH)
+    expect(parseStoredLayout(serialized).titleFontSize).toBe(LONG_DOUBLE)
   })
 
-  it('replaces rather than merges the previous settings', () => {
-    const existing = { items: [], layoutSettings: SETTINGS }
-    const sparse: ResumeLayoutSettings = { sidebarOrder: ['skills'] }
-    const result = embedLayoutSettings(existing, sparse)
-    expect(result.layoutSettings).toEqual(sparse)
-    expect(result.layoutSettings.hiddenSidebarSections).toBeUndefined()
+  it('accepts a blob of exactly the maximum length and rejects one character more', () => {
+    // The boundary itself, in both representations. `filler` is not a model
+    // property, so it is dropped on the way through — what is asserted is that
+    // the SIZE decision falls on the right side of the limit.
+    const envelope = JSON.stringify({ fontScale: 1.2, filler: '' }).length
+    const sized = (length: number) => ({
+      fontScale: 1.2,
+      filler: 'x'.repeat(length - envelope),
+    })
+
+    const atLimit = JSON.stringify(sized(MAX_LAYOUT_BLOB_LENGTH))
+    expect(atLimit).toHaveLength(MAX_LAYOUT_BLOB_LENGTH)
+    expect(parseStoredLayout(atLimit)).toEqual({ fontScale: 1.2 })
+    expect(parseStoredLayout(sized(MAX_LAYOUT_BLOB_LENGTH))).toEqual({ fontScale: 1.2 })
+
+    const overLimit = JSON.stringify(sized(MAX_LAYOUT_BLOB_LENGTH + 1))
+    expect(overLimit).toHaveLength(MAX_LAYOUT_BLOB_LENGTH + 1)
+    expect(parseStoredLayout(overLimit)).toEqual({})
+    expect(parseStoredLayout(sized(MAX_LAYOUT_BLOB_LENGTH + 1))).toEqual({})
   })
 
-  it('does not mutate the value it was given', () => {
-    const existing = { items: [{ title: 'Awards' }], layoutSettings: SETTINGS }
-    const snapshot = JSON.parse(JSON.stringify(existing))
-    embedLayoutSettings(existing, { sidebarOrder: ['training'] })
-    expect(existing).toEqual(snapshot)
+  it('leaves a complete serialized model intact, well under the bound', () => {
+    const serialized = serializeLayoutModel(DEFAULT_RESUME_LAYOUT)
+    expect(serialized.length).toBeLessThan(MAX_LAYOUT_BLOB_LENGTH)
+    expect(parseStoredLayout(serialized)).toEqual({ ...DEFAULT_RESUME_LAYOUT })
   })
 })
 
-describe('embed/extract round trip', () => {
-  it('returns the original settings for every supported input shape', () => {
-    for (const input of [null, undefined, [], [{ title: 'Awards' }], { items: [] }]) {
-      expect(extractLayoutSettings(embedLayoutSettings(input, SETTINGS))).toEqual(SETTINGS)
+describe('resolveResumeLayout', () => {
+  const NO_PERSISTED = { layout_settings: null, custom_sections: [] }
+
+  it('falls back to the documented defaults when no store carries anything', () => {
+    expect(resolveResumeLayout(NO_PERSISTED, null)).toEqual({ ...DEFAULT_RESUME_LAYOUT })
+  })
+
+  it('adopts the cached value for a property the account has never persisted', () => {
+    const resolved = resolveResumeLayout(NO_PERSISTED, JSON.stringify({ fontScale: 1.25 }))
+    expect(resolved.fontScale).toBe(1.25)
+  })
+
+  it('lets the account win over the cache for a property both carry', () => {
+    const resolved = resolveResumeLayout(
+      { layout_settings: { fontScale: 0.8 }, custom_sections: [] },
+      JSON.stringify({ fontScale: 1.25 }),
+    )
+    expect(resolved.fontScale).toBe(0.8)
+  })
+
+  /**
+   * The qualification, and the reason precedence is decided per property.
+   *
+   * A row backfilled by migration 007 has the four properties the old
+   * `custom_sections` blob could hold and none of the other fifteen. An
+   * unqualified "persisted wins" would resolve those fifteen from defaults and
+   * silently discard a customization the user had really made.
+   */
+  it('does not let a partially-persisted account overwrite the cache with defaults', () => {
+    const resolved = resolveResumeLayout(
+      { layout_settings: { sidebarOrder: ['training', 'skills'] }, custom_sections: [] },
+      JSON.stringify({ fontScale: 1.25, sidebarHue: 12, sidebarOrder: ['skills'] }),
+    )
+    // Persisted, so the account wins.
+    expect(resolved.sidebarOrder).toEqual(['training', 'skills', 'languages', 'keyAchievements'])
+    // Not persisted, so the local customization survives rather than resetting.
+    expect(resolved.fontScale).toBe(1.25)
+    expect(resolved.sidebarHue).toBe(12)
+    // Carried by neither store.
+    expect(resolved.fontFamily).toBe(DEFAULT_RESUME_LAYOUT.fontFamily)
+  })
+
+  it('reads the legacy custom_sections blob for a row written before 007', () => {
+    const resolved = resolveResumeLayout(
+      { layout_settings: null, custom_sections: { items: [], layoutSettings: SETTINGS } },
+      null,
+    )
+    expect(resolved.hiddenSidebarSections).toEqual(['training'])
+    expect(resolved.mainContentOrder).toEqual(['summary', 'experience'])
+  })
+
+  /**
+   * The legacy blob speaks for the account and the cache speaks for this
+   * browser, so the account wins — even though only the editor, and only under
+   * the Modern template, ever wrote the legacy blob, which means it can be the
+   * older of the two. That is the inversion US-003 asks for, not the failure
+   * the previous test guards: the value that wins here is a real choice the
+   * user made, not an empty default.
+   */
+  it('lets the legacy blob outrank the cache, because both speak for the account', () => {
+    const resolved = resolveResumeLayout(
+      {
+        layout_settings: null,
+        custom_sections: { items: [], layoutSettings: { hiddenMainSections: ['education'] } },
+      },
+      JSON.stringify({ hiddenMainSections: [] }),
+    )
+    expect(resolved.hiddenMainSections).toEqual(['education'])
+  })
+
+  it('lets the new column outrank the legacy blob for the same property', () => {
+    const resolved = resolveResumeLayout(
+      {
+        layout_settings: { hiddenMainSections: ['summary'] },
+        custom_sections: { items: [], layoutSettings: { hiddenMainSections: ['education'] } },
+      },
+      null,
+    )
+    expect(resolved.hiddenMainSections).toEqual(['summary'])
+  })
+
+  it('handles every legacy custom_sections shape without failing', () => {
+    for (const customSections of [null, [], [{ title: 'Awards' }], { items: [] }]) {
+      expect(resolveResumeLayout({ layout_settings: null, custom_sections: customSections }, null))
+        .toEqual({ ...DEFAULT_RESUME_LAYOUT })
     }
   })
 
-  it('survives a JSON serialization cycle, as the JSONB column requires', () => {
-    const stored = JSON.parse(JSON.stringify(embedLayoutSettings([{ title: 'Awards' }], SETTINGS)))
-    expect(extractLayoutSettings(stored)).toEqual(SETTINGS)
+  it('degrades a malformed or oversized persisted value to defaults', () => {
+    const oversized = { fontScale: 1.2, filler: 'x'.repeat(MAX_LAYOUT_BLOB_LENGTH) }
+    for (const persisted of ['not an object', 42, ['skills'], oversized]) {
+      const resolved = resolveResumeLayout(
+        { layout_settings: persisted, custom_sections: [] },
+        null,
+      )
+      expect(resolved).toEqual({ ...DEFAULT_RESUME_LAYOUT })
+    }
+  })
+
+  it('keeps an unusable persisted property from beating a usable cached one', () => {
+    // A single bad value must not take the whole blob down with it, nor win.
+    const resolved = resolveResumeLayout(
+      { layout_settings: { fontScale: Number.NaN, sidebarHue: 999 }, custom_sections: [] },
+      JSON.stringify({ fontScale: 1.25, sidebarHue: 12 }),
+    )
+    expect(resolved.fontScale).toBe(1.25)
+    expect(resolved.sidebarHue).toBe(12)
+  })
+
+  it('returns a fresh model rather than the frozen default object', () => {
+    // The arrays inside may still be the shared frozen ones — they are declared
+    // `readonly` for exactly that reason, and every caller copies them — but
+    // the model itself must be the caller's own, or writing one property would
+    // change the default for every later reader.
+    const resolved = resolveResumeLayout(NO_PERSISTED, null)
+    expect(resolved).not.toBe(DEFAULT_RESUME_LAYOUT)
+    expect(Object.isFrozen(resolved)).toBe(false)
+  })
+})
+
+describe('toStoredLayout', () => {
+  it('writes every model property in a fixed key order', () => {
+    const a = toStoredLayout({ ...DEFAULT_RESUME_LAYOUT })
+    const b = toStoredLayout({ ...DEFAULT_RESUME_LAYOUT })
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b))
+    expect(Object.keys(a).sort()).toEqual(Object.keys(DEFAULT_RESUME_LAYOUT).sort())
+  })
+
+  it('copies the arrays rather than sharing the frozen defaults', () => {
+    const stored = toStoredLayout({ ...DEFAULT_RESUME_LAYOUT })
+    expect(stored.sidebarOrder).not.toBe(DEFAULT_RESUME_LAYOUT.sidebarOrder)
+    expect(stored.sidebarOrder).toEqual([...DEFAULT_RESUME_LAYOUT.sidebarOrder])
+  })
+
+  it('round-trips through JSON, as the JSONB column requires', () => {
+    const stored = toStoredLayout({ ...DEFAULT_RESUME_LAYOUT, fontScale: 1.15 })
+    const readBack = parseStoredLayout(JSON.parse(JSON.stringify(stored)) as unknown)
+    expect(readBack).toEqual({ ...DEFAULT_RESUME_LAYOUT, fontScale: 1.15 })
+  })
+
+  it('stays well inside the bound the database enforces', () => {
+    // The worst case a control can produce: every list full and the longest
+    // accepted font stack. If this ever approaches the limit, the constraint in
+    // migration 007 has to move before a user hits it.
+    const worstCase = toStoredLayout({
+      ...DEFAULT_RESUME_LAYOUT,
+      fontFamily: `'${'F'.repeat(190)}'`,
+      hiddenSidebarSections: [...DEFAULT_RESUME_LAYOUT.sidebarOrder],
+      hiddenMainSections: [...DEFAULT_RESUME_LAYOUT.mainContentOrder],
+    })
+    expect(JSON.stringify(worstCase).length).toBeLessThan(MAX_LAYOUT_BLOB_LENGTH / 2)
   })
 })
 

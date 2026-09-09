@@ -326,3 +326,249 @@ Commit:
 - Commit message: ralph: US-002 one typed layout model with one set of defaults
 
 FINAL: PASS
+
+## US-003: Layout settings persist to the account, not the browser
+Status: PASS
+Priority: 3
+Branch: ralph/milestone-c-part-1-layout-state
+Baseline HEAD: 6d3781c
+
+Scope:
+- Scope check: PASS
+- Modified: src/lib/layout-settings.ts, src/lib/layout-settings.test.ts,
+    src/components/dashboard/resume-preview-wrapper.tsx, resume-editor.tsx,
+    resume-card.tsx, src/test/integration/supabase.ts,
+    src/types/database.ts, src/types/supabase.ts
+- New: supabase/migrations/007_resume_layout_settings.sql,
+    supabase/tests/007-backfill.sql, src/lib/layout-persistence.ts,
+    src/lib/layout-persistence.test.ts, src/lib/hooks/use-persisted-layout.ts,
+    src/lib/layout-settings.integration.test.ts, e2e/layout-persistence.spec.ts
+- No visual baseline moved (git status -- e2e/visual/ clean). No
+  --update-snapshots. DOCX query-param path untouched (Part 1 FR-8).
+
+Checks:
+- pnpm typecheck: PASS - 0 errors
+- pnpm lint: PASS - 304 problems (234 errors, 70 warnings), below the 311
+  baseline; no finding in any file added or touched
+- pnpm test: PASS - 202 passed
+- pnpm test:integration: PASS - 27 passed (14 + 13 new). Re-run independently
+  by the orchestrator.
+- pnpm test:e2e: PASS - 28 passed (22 + 6 new)
+- pnpm test:visual: PASS - 10 passed against UNCHANGED baselines. Re-run
+  independently by the orchestrator.
+- pnpm build:verify: PASS - exit 0
+
+Specialized validation:
+- Database: PASS - migration 007 applied to a clean local database, all seven
+  migrations, exit 0. supabase/tests/007-backfill.sql seeds rows, includes the
+  real migration, asserts, and rolls back: four arms covering backfill of the
+  wrapped shape, non-interference with null/array/settings-less/already-written
+  rows, idempotency on re-apply, and abort on an oversized legacy blob.
+- Security: PASS - see the separate security-review verdict below.
+- Export: PASS - a temporary spec (since deleted) drove the real preview page
+  and fetched the DOCX route for all five templates: 200,
+  wordprocessingml content-type, PK zip magic, 9.2-10.1 KB.
+- Browser: PASS - covered by the E2E suite; cross-session behaviour is the
+  central evidence for AC-2.
+- Visual: PASS - 10/10 unchanged; the binding evidence that rendering did not
+  change.
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no UI change; rendering proven unchanged
+- code-reviewer: PASS (second pass). First pass returned PASS with three
+  required changes; see review history.
+
+SECURITY-REVIEW (run separately, per the PRD's requirement for this story)
+result: PASS. 0 critical, 0 high, 0 medium, 1 low, 1 info.
+- Cross-user access controlled: RLS is row-level, so the four existing policies
+  on public.resumes govern the new column. That premise was confirmed rather
+  than assumed - table-wide GRANT means anon/authenticated privileges extend to
+  columns added later, verified by an information_schema.column_privileges
+  query. OWNER_B denied read-by-id, unfiltered list, write and NULL-clear, each
+  settled by a service-role read-back (necessary: a forbidden UPDATE matches
+  zero rows rather than erroring). Two positive controls prove the policies are
+  not simply denying everyone.
+- Oversized/malformed bounded at the database, not only the client: CHECK
+  enforces object type and <= 4096 bytes.
+- SEC-001 INFO: fontFamily uses a character denylist (rejects C0 controls, DEL,
+  and < > { } ; \ / @) where the UI offers only 14 known stacks. An allowlist
+  would be strictly stronger. Recorded as hardening, not a vulnerability.
+- SEC-002 LOW, PRE_EXISTING_ADJACENT: download-docx/route.ts JSON.parses four
+  user-supplied query params BEFORE the auth check, so an unauthenticated
+  caller can trigger a 500. Already in US-002's register; Part 2 work.
+- No secrets, credentials or resume content in any evidence. The write-failure
+  path logs the resume id and the error object only, never the payload.
+
+Acceptance criteria:
+- AC-01 (full model persists via migration): PASS - migration 007 adds
+  layout_settings jsonb. toStoredLayout writes all 19 keys in fixed order, so
+  the application cannot write a partial blob.
+- AC-02 (cross-session, E2E saves in one context and reads in another): PASS -
+  e2e/layout-persistence.spec.ts. Two real BrowserContexts; the column asserted
+  directly through a service-role client, so a value that reached only
+  localStorage fails; the second context deliberately seeded with a CONFLICTING
+  cache so the two stores genuinely disagree and only "persisted wins" resolves
+  correctly. Cannot pass on a shared cache.
+- AC-03 (localStorage is a cache; persisted wins; stated in one place): PASS -
+  resolveResumeLayout is the only layering site. Neither surface merges stores
+  any more; both previously had their own copy of the merge, which is what let
+  them drift.
+- AC-04 (qualified: persisted wins WHERE persisted settings exist): PASS, and
+  implemented mechanically rather than documented. Precedence is PER PROPERTY:
+  parseLayoutModel returns a partial, so a property the account never persisted
+  is absent from its spread and the browser's value survives. Reviewer's
+  finding, which is worth recording: applied per RESUME, AC-4's first sentence
+  contradicts its second - a row backfilled by 007 has 4 of 19 properties, so
+  "persisted settings exist" would resolve the other 15 from defaults and
+  delete a real customization. Per-property is the only reading under which
+  AC-4 is self-consistent. Once persistence is live the writer always stores
+  all 19, so the two readings coincide except across the migration boundary,
+  which is the case the qualification exists for.
+- AC-05 (RLS covers the widened payload): PASS - see security-review above.
+- AC-06 (malformed or oversized degrade to defaults): PASS, with a nuance
+  recorded below.
+- AC-07 (test:visual unchanged): PASS - 10 passed, baselines untouched.
+
+MUTATION EVIDENCE
+- Precedence inverted so the cache wins: 3 unit tests failed and the
+  cross-session E2E failed with Expected 42, Received 18 - the stale cache
+  value - while the two tests that should stay green did. Reverted.
+- flush() reverted to the pre-fix cancel semantics: 5 failed, 8 passed. The
+  three that should still pass did.
+- MAX_LAYOUT_BLOB_LENGTH narrowed to 500: 3 failed, including a pre-existing
+  bound test the first review had overlooked.
+- extractLayoutSettings deleted from resolveResumeLayout: exactly the legacy
+  wrapped-shape E2E failed; the other five in that spec stayed green.
+
+THE REGRESSION THIS STORY INTRODUCED AND FIXED
+- An edit made within the 500ms debounce window was dropped SILENTLY. The
+  persist effect's cleanup did clearTimeout, so the write was never ATTEMPTED
+  and neither error path ran. Because the account now holds a full 19-key model
+  that outranks the cache, the user would have watched their most recent change
+  revert with no diagnostic anywhere. Before this story that edit lived in
+  localStorage and survived, so it was a regression - and the PRD's accepted
+  cost covers a FAILED persist, not an UNATTEMPTED one.
+- Found by code-reviewer pass 1, not by the implementation or by any suite.
+- Fix: the debounce state machine moved to src/lib/layout-persistence.ts. The
+  persist effect no longer has a cleanup at all - superseding a pending write
+  is submit's job - and a second effect flushes on unmount, pagehide and
+  visibilitychange. flush() is idempotent.
+- sendBeacon was rejected with a verified reason: POST only, no custom headers,
+  so it can carry neither the Authorization bearer nor the apikey PostgREST
+  requires. A keepalive fetch via a second Supabase client was also ruled out -
+  createBrowserClient returns a browser-wide singleton, so a second caller's
+  options are ignored or applied globally. Both claims verified against
+  node_modules by the implementer and re-verified by the reviewer.
+- A case neither the brief nor the review anticipated: a naive flush
+  resurrects undone edits. Drag to B, drag back to A inside the window,
+  navigate - a replayed B would write a value the user had cancelled. submit
+  clears pending before it decides, so that case writes nothing. Tested.
+
+KNOWN LIMITS AND DEFERRED ITEMS
+
+L-1 The hook's lifecycle wiring is verified by inspection only. The persister's
+  rules are unit-tested (13 tests); that flush() is ever CALLED is not. There is
+  no unit test and no E2E for unmount, pagehide or visibilitychange, because
+  vitest runs environment:'node' and neither jsdom nor @testing-library/react is
+  installed - adding either is a dependency decision for the owner under
+  CLAUDE.md 14 and .claude/rules/frontend.md. Playwright cannot close the gap
+  deterministically either: an E2E would have to guarantee navigation within
+  500ms of the last input, and a test that races the debounce passes whether or
+  not flush exists - the exact defect this fix was about. Recorded as an
+  unavailable-infrastructure limitation per .claude/rules/testing.md, not
+  waved through.
+
+L-2 AC-06 wording versus per-property degradation. A whole blob that is
+  malformed degrades to defaults, as the criterion says. An INDIVIDUALLY invalid
+  persisted property degrades to the CACHE, not the default, when a cache
+  exists. That is correct under per-property layering and it is tested, but it
+  is not what AC-6's literal text says. Recorded so a later reader does not
+  "fix" the test to match the wording.
+
+L-3 The editor mixes two identifiers for one resume: it resolves layout from
+  initialResume while persisting to and caching under resume.id, and resume is
+  state replaced from an unvalidated JSON.parse of resume_draft_*. DEFERRED to
+  its own story, with the reviewer's addition recorded: US-003 converts a
+  read-side inconsistency into a DURABLE CROSS-RESUME WRITE - the old resume's
+  account layout, merged with the new id's cache, written into the new
+  resume's row. Reachability is low (it needs a hand-edited or corrupted draft
+  whose .id differs), RLS confines it to the user's own rows, and the real
+  defect is upstream: JSON.parse(draft) is trusted as a Resume with no shape
+  check. The narrow correct fix is to reject a draft whose id does not match
+  before adopting it - draft handling, not layout persistence.
+
+L-4 A write that matches zero rows reports success. .update(...).eq('id', ...)
+  without .select() returns 204 with error null when RLS denies or the id does
+  not exist, so neither failure path runs. Not a security hole - RLS holds and
+  nothing is written - but the hook's docblock claims a stronger contract than
+  the code delivers, and this is the failure mode L-3 would produce. Recorded
+  as accepted rather than fixed; closing it costs a small response body per
+  write.
+
+L-5 Ordering between overlapping writes is not sequenced. flush creates a new
+  way to have two writes in flight milliseconds apart, and PostgREST gives no
+  ordering guarantee, so the row can settle on the older value. Strictly better
+  than the guaranteed loss it replaces, and consistent with the PRD's
+  no-retry/no-queue cost, but a distinct characteristic from the failure case.
+
+L-6 The migration's ~1 KB prose comment was left alone. The reason first given
+  was wrong: .claude/rules/database.md forbids rewriting APPLIED migration
+  history, and 007 is untracked - part of this same changeset, never committed,
+  so the prohibition does not reach it. The correct reason is that the prose is
+  accurate (measured 752 and 977 bytes against the 4096 cap) and comment churn
+  is out of scope under CLAUDE.md 9. Recorded because a wrong justification
+  would establish a false precedent that the file is untouchable.
+
+L-7 Deploy ordering. The code hard-depends on the column: resume-card.tsx names
+  layout_settings in the duplicate INSERT and use-persisted-layout.ts in the
+  UPDATE. If the build ships ahead of migration 007, "Duplicate" fails outright
+  and every layout persist errors - while the legacy writer that used to cover
+  Modern section order is gone. Migration must land before code. Note that 006
+  is also still undeployed; 007 does not depend on it (it touches only
+  public.resumes from 001 and references no object 006 adds or alters).
+
+L-8 The DOCX route still cannot see layout_settings and reads only the
+  localStorage cache, so on a device that has never opened the editor for a
+  resume, DOCX exports at defaults while the account holds real settings. Not a
+  regression - both download buttons live on preview pages, where the wrapper
+  refreshes the cache from the resolved model on mount - and FR-8 explicitly
+  protects the query params. Part 2 work, recorded per .claude/rules/exports.md
+  rather than left implied.
+
+L-9 The legacy custom_sections blob outranks the localStorage cache. Only the
+  editor ever wrote it, and only while the template was modern, whereas
+  localStorage was written by both surfaces for every template - so a resume
+  once Modern and reordered later under Professional resolves to the older
+  order. Reviewed and kept: migration 007 copies that same blob into
+  layout_settings, which unambiguously outranks the cache, so ranking the
+  legacy blob below the cache would make a backfilled row and a not-yet-
+  backfilled row holding identical data resolve differently. The cost comes
+  from the backfill, not from the ordering.
+
+An incidental test-infrastructure fix: adding a third integration file made
+three vitest workers create users in the same millisecond, and each worker's
+seq counter starts at zero, so they generated identical emails. Reproduced
+directly - two concurrent createUser calls on one email both pass GoTrue's
+pre-check and the loser fails with "Database error creating new user".
+src/test/integration/supabase.ts now carries a per-process id.
+
+Review history:
+- code-reviewer pass 1: PASS with three required changes. Major: an edit within
+  the debounce window was dropped silently on unmount - a new data-loss path,
+  and the one the reviewer said would flip the verdict to FAIL if the PRD's
+  accepted cost were read as covering only network failures. Major: the
+  size-limit test asserted 17 <= 4096 and was vacuous. Minor: an E2E legacy-
+  shape test that passed with the entire legacy read path removed.
+- All three fixed with failing-first evidence. The reviewer's stated fix for
+  the E2E was not implementable as written - resume-preview.tsx does not pass
+  hiddenMainSections to ClassicTemplate, and classic renders education
+  unconditionally - so the wrapped shape moved to professional instead.
+- code-reviewer pass 2: PASS. No Critical, no Major. Three Minor items, all
+  record-keeping only and all recorded above as L-1, L-3 and L-6; the reviewer
+  stated explicitly that no production code change was required for them.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 layout settings persist to the account
+
+FINAL: PASS

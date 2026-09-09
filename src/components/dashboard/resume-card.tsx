@@ -145,6 +145,11 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
       certifications: resume.certifications,
       projects: resume.projects,
       custom_sections: resume.custom_sections,
+      // Copied for the same reason every other column here is: before migration
+      // 007 the layout travelled inside custom_sections and a duplicate kept it.
+      // Omitting the new column would have made "Duplicate" quietly reset the
+      // copy's typography, colour and section order.
+      layout_settings: resume.layout_settings,
       is_default: false,
       is_public: false,
     })

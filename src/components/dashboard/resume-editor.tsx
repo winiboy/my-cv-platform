@@ -26,16 +26,13 @@ import type { Locale } from '@/lib/i18n'
 import type { Resume, ResumeSkillCategory } from '@/types/database'
 import {
   DEFAULT_RESUME_LAYOUT,
-  embedLayoutSettings,
-  extractLayoutSettings,
   mapEditorOrderToModern,
-  migrateSidebarOrder,
-  parseLayoutModel,
-  resolveLayoutModel,
+  resolveResumeLayout,
   serializeLayoutModel,
   type EditorMainId,
   type EditorSidebarId,
 } from '@/lib/layout-settings'
+import { usePersistedLayout } from '@/lib/hooks/use-persisted-layout'
 import { ContactSection } from './resume-sections/contact-section'
 import { SummarySection } from './resume-sections/summary-section'
 import { ExperienceSection } from './resume-sections/experience-section'
@@ -217,9 +214,6 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const isRestoringFromStorage = useRef(true)
   const [photoBgMode, setPhotoBgMode] = useState<'sidebar-color' | 'content-color'>('sidebar-color')
   const [hasForegroundBlob, setHasForegroundBlob] = useState(false)
-  const layoutSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Prevents the Supabase persist effect from firing on mount when restoring settings
-  const isInitialLayoutLoadRef = useRef(true)
 
   // Compute sidebarColor from hue, saturation, and brightness
   const sidebarColor = `hsl(${sidebarHue}, ${sidebarSaturation}%, ${sidebarBrightness}%)`
@@ -455,14 +449,12 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
         languages: resume.languages,
         certifications: resume.certifications,
         projects: resume.projects,
-        custom_sections: resume.template === 'modern'
-          ? embedLayoutSettings(resume.custom_sections, {
-              sidebarOrder,
-              mainContentOrder,
-              hiddenSidebarSections,
-              hiddenMainSections,
-            })
-          : resume.custom_sections,
+        // Layout state is no longer folded in here. It has its own column and
+        // its own writer (`usePersistedLayout`); Save carries the user's
+        // authored content only. The value round-trips whatever shape the row
+        // already had, so a row still holding the legacy
+        // `{ items, layoutSettings }` wrapper keeps it and stays readable.
+        custom_sections: resume.custom_sections,
       }
 
       const result = await (supabase.from('resumes') as any).update(updates).eq('id', resume.id)
@@ -894,58 +886,42 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       }
     }
 
-    // Load layout settings from Supabase data (persisted in custom_sections JSONB).
-    // This provides cross-device persistence. localStorage settings below may override.
-    const supabaseLayout = extractLayoutSettings(initialResume.custom_sections)
-    if (supabaseLayout) {
-      if (supabaseLayout.sidebarOrder) {
-        setSidebarOrder(migrateSidebarOrder(supabaseLayout.sidebarOrder) as SidebarSectionId[])
-      }
-      if (supabaseLayout.mainContentOrder) {
-        setMainContentOrder(supabaseLayout.mainContentOrder as MainContentSectionId[])
-      }
-      if (supabaseLayout.hiddenSidebarSections) {
-        setHiddenSidebarSections(supabaseLayout.hiddenSidebarSections as SidebarSectionId[])
-      }
-      if (supabaseLayout.hiddenMainSections) {
-        setHiddenMainSections(supabaseLayout.hiddenMainSections as MainContentSectionId[])
-      }
+    // Load the layout model.
+    //
+    // The account's persisted settings and the browser's cached ones are both
+    // handed to `resolveResumeLayout`, which owns the precedence between them —
+    // per property, the account wins where the account has a value. The editor
+    // does not layer the two itself and must not start to: the preview resolves
+    // the same resume through the same function, and a second copy of that rule
+    // here is what would let the two surfaces disagree.
+    let cachedLayout: string | null = null
+    try {
+      cachedLayout = localStorage.getItem(`resume_slider_settings_${resume.id}`)
+    } catch (error) {
+      // A browser that refuses localStorage still gets the account's settings.
+      console.error('Failed to read cached layout settings:', error)
     }
 
-    // Load design settings for live preview (localStorage may override Supabase layout).
-    // parseLayoutModel returns only the keys this blob actually carries, so a
-    // blob that never mentioned section order leaves the account's order alone.
-    // It is total: a malformed blob yields no keys instead of throwing, and an
-    // individually unusable value falls back to its default rather than
-    // reaching a style attribute.
-    const savedSettings = localStorage.getItem(`resume_slider_settings_${resume.id}`)
-    if (savedSettings) {
-      let settings: ReturnType<typeof parseLayoutModel> = {}
-      try {
-        settings = parseLayoutModel(JSON.parse(savedSettings))
-      } catch (error) {
-        console.error('Failed to load design settings:', error)
-      }
-      if (settings.titleFontSize !== undefined) setTitleFontSize(settings.titleFontSize)
-      if (settings.titleGap !== undefined) setTitleGap(settings.titleGap)
-      if (settings.contactFontSize !== undefined) setContactFontSize(settings.contactFontSize)
-      if (settings.sectionTitleFontSize !== undefined) setSectionTitleFontSize(settings.sectionTitleFontSize)
-      if (settings.sectionDescFontSize !== undefined) setSectionDescFontSize(settings.sectionDescFontSize)
-      if (settings.sectionGap !== undefined) setSectionGap(settings.sectionGap)
-      if (settings.headerGap !== undefined) setHeaderGap(settings.headerGap)
-      if (settings.sidebarHue !== undefined) setSidebarHue(settings.sidebarHue)
-      if (settings.sidebarSaturation !== undefined) setSidebarSaturation(settings.sidebarSaturation)
-      if (settings.sidebarBrightness !== undefined) setSidebarBrightness(settings.sidebarBrightness)
-      if (settings.fontScale !== undefined) setFontScale(settings.fontScale)
-      if (settings.sidebarOrder !== undefined) setSidebarOrder([...settings.sidebarOrder])
-      if (settings.mainContentOrder !== undefined) setMainContentOrder([...settings.mainContentOrder])
-      if (settings.fontFamily !== undefined) setFontFamily(settings.fontFamily)
-      if (settings.sidebarTopMargin !== undefined) setSidebarTopMargin(settings.sidebarTopMargin)
-      if (settings.mainContentTopMargin !== undefined) setMainContentTopMargin(settings.mainContentTopMargin)
-      if (settings.sidebarWidth !== undefined) setSidebarWidth(settings.sidebarWidth)
-      if (settings.hiddenSidebarSections !== undefined) setHiddenSidebarSections([...settings.hiddenSidebarSections])
-      if (settings.hiddenMainSections !== undefined) setHiddenMainSections([...settings.hiddenMainSections])
-    }
+    const layout = resolveResumeLayout(initialResume, cachedLayout)
+    setTitleFontSize(layout.titleFontSize)
+    setTitleGap(layout.titleGap)
+    setContactFontSize(layout.contactFontSize)
+    setSectionTitleFontSize(layout.sectionTitleFontSize)
+    setSectionDescFontSize(layout.sectionDescFontSize)
+    setSectionGap(layout.sectionGap)
+    setHeaderGap(layout.headerGap)
+    setSidebarHue(layout.sidebarHue)
+    setSidebarSaturation(layout.sidebarSaturation)
+    setSidebarBrightness(layout.sidebarBrightness)
+    setFontScale(layout.fontScale)
+    setFontFamily(layout.fontFamily)
+    setSidebarTopMargin(layout.sidebarTopMargin)
+    setMainContentTopMargin(layout.mainContentTopMargin)
+    setSidebarWidth(layout.sidebarWidth)
+    setSidebarOrder([...layout.sidebarOrder])
+    setMainContentOrder([...layout.mainContentOrder])
+    setHiddenSidebarSections([...layout.hiddenSidebarSections])
+    setHiddenMainSections([...layout.hiddenMainSections])
 
     try {
       const savedPhoto = localStorage.getItem(`resume_photo_${resume.id}`)
@@ -1004,106 +980,63 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     }
   }, [hasUnsavedChanges, lastSaved, resume.id])
 
-  // Save slider settings (sidebarHue, sidebarBrightness, fontScale) to localStorage whenever they change
+  /**
+   * The current layout model, assembled once from the nineteen pieces of state
+   * that hold it, so that the two things which consume a whole model — the
+   * localStorage cache and the account write — cannot be handed different ones.
+   */
+  const layoutModel = useMemo(
+    () => ({
+      titleFontSize,
+      titleGap,
+      contactFontSize,
+      sectionTitleFontSize,
+      sectionDescFontSize,
+      sectionGap,
+      headerGap,
+      sidebarHue,
+      sidebarSaturation,
+      sidebarBrightness,
+      fontScale,
+      fontFamily,
+      sidebarTopMargin,
+      mainContentTopMargin,
+      sidebarWidth,
+      sidebarOrder,
+      mainContentOrder,
+      hiddenSidebarSections,
+      hiddenMainSections,
+    }),
+    [titleFontSize, titleGap, contactFontSize, sectionTitleFontSize, sectionDescFontSize, sectionGap, headerGap, sidebarHue, sidebarSaturation, sidebarBrightness, fontScale, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections],
+  )
+
+  // Cache the model in localStorage for a fast first paint on the next visit.
+  // A cache, not a store: `resolveResumeLayout` lets the account override it.
+  //
+  // This write now names all nineteen properties. It previously named twelve
+  // and re-seeded the other seven — the typography sizes and gaps — from the
+  // stored blob, because nothing persisted them and writing state back would
+  // have started to. That reasoning ends here: the account write below carries
+  // the whole model, so a typography edit is kept either way, and re-seeding
+  // seven of them from a stale cache would only make the cache disagree with
+  // the store it is a cache of.
   useEffect(() => {
     if (!isSliderSettingsLoaded) return // Don't save until initial load is complete
 
-    // Serialization lives in layout-settings, not here. This write names 12 of
-    // the model's 19 properties, but the editor is not ignorant of the other
-    // seven: it declares the typography sizes and gaps as state above, loads
-    // them on mount, and forwards the four font sizes to Classic, Minimal and
-    // Creative, where each renders as a slider the user can drag. Modern is
-    // handed all four and attaches no control to any of them: two only style
-    // text, and `sectionTitleFontSize` and `contactFontSize` are never read.
-    // What this effect has never done is depend on them — the dependency list
-    // below omits all seven — so a typography change is not persisted, and the
-    // next save triggered by anything else writes the stored value back over
-    // it. That is pre-existing behaviour, not something introduced here.
-    // Seeding the seven from the stored blob preserves it exactly; seeding
-    // them from state would start persisting typography edits, which is a
-    // behaviour change and out of scope for this story.
-    //
-    // Resolving rather than merging the raw blob is the point of the change:
-    // the previous merge carried unknown keys forward and, worse, wrote back
-    // values that this component's own loader had just rejected, so a corrupt
-    // `titleFontSize` survived every save even though nothing ever rendered
-    // it. Anything unusable now falls back to its default here exactly as it
-    // already did on load, which is what makes the two agree.
-    const storageKey = `resume_slider_settings_${resume.id}`
-    let stored: unknown = null
     try {
-      const savedSettings = localStorage.getItem(storageKey)
-      if (savedSettings) stored = JSON.parse(savedSettings)
+      localStorage.setItem(
+        `resume_slider_settings_${resume.id}`,
+        serializeLayoutModel(layoutModel),
+      )
     } catch (error) {
-      console.error('Failed to parse slider settings:', error)
+      // A full or disabled localStorage costs a fast first paint, nothing more:
+      // the account write below is what actually keeps these settings.
+      console.error('Failed to cache layout settings:', error)
     }
+  }, [isSliderSettingsLoaded, layoutModel, resume.id])
 
-    localStorage.setItem(
-      storageKey,
-      serializeLayoutModel({
-        ...resolveLayoutModel(stored),
-        sidebarHue,
-        sidebarSaturation,
-        sidebarBrightness,
-        fontScale,
-        sidebarOrder,
-        mainContentOrder,
-        fontFamily,
-        sidebarTopMargin,
-        mainContentTopMargin,
-        sidebarWidth,
-        hiddenSidebarSections,
-        hiddenMainSections,
-      }),
-    )
-  }, [isSliderSettingsLoaded, sidebarHue, sidebarSaturation, sidebarBrightness, fontScale, sidebarOrder, mainContentOrder, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, hiddenSidebarSections, hiddenMainSections, resume.id])
-
-  // Persist layout settings (section order + hidden sections) to Supabase with debounce.
-  // This ensures cross-device persistence without flooding the database on rapid drag operations.
-  // Only fires for the Modern template, and skips the first mount-triggered execution.
-  useEffect(() => {
-    if (!isSliderSettingsLoaded) return
-
-    // Only Modern template uses layout settings in custom_sections
-    if (resumeRef.current.template !== 'modern') return
-
-    // Skip the first execution triggered by restoring settings on mount
-    if (isInitialLayoutLoadRef.current) {
-      isInitialLayoutLoadRef.current = false
-      return
-    }
-
-    if (layoutSaveTimerRef.current) {
-      clearTimeout(layoutSaveTimerRef.current)
-    }
-
-    layoutSaveTimerRef.current = setTimeout(() => {
-      const supabase = createClient()
-      const currentResume = resumeRef.current
-      const newCustomSections = embedLayoutSettings(currentResume.custom_sections, {
-        sidebarOrder,
-        mainContentOrder,
-        hiddenSidebarSections,
-        hiddenMainSections,
-      });
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = (supabase.from('resumes') as any)
-        .update({ custom_sections: newCustomSections })
-        .eq('id', currentResume.id)
-      result.then(({ error }: { error: unknown }) => {
-        if (error) {
-          console.error('Failed to persist layout settings to Supabase:', error)
-        }
-      })
-    }, 500)
-
-    return () => {
-      if (layoutSaveTimerRef.current) {
-        clearTimeout(layoutSaveTimerRef.current)
-      }
-    }
-  }, [isSliderSettingsLoaded, sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections])
+  // Persist the model to the account. The one writer lives in the hook.
+  usePersistedLayout(resume.id, layoutModel, isSliderSettingsLoaded)
 
   // Warn user before leaving with unsaved changes
   useEffect(() => {

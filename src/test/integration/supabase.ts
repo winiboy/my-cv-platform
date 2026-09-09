@@ -10,6 +10,7 @@
  * useless against any hosted project.
  */
 
+import { randomUUID } from 'node:crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/supabase'
 import {
@@ -47,6 +48,21 @@ export interface TestUser {
 let seq = 0
 
 /**
+ * Unique to this worker process.
+ *
+ * `Date.now()` and a module-level counter are unique WITHIN a process and were
+ * not enough across processes: vitest gives each test file its own worker, each
+ * with its own counter starting at zero, and files that start in the same
+ * millisecond produced the same address. Two concurrent creations of one email
+ * both pass GoTrue's uniqueness pre-check and the loser fails its insert with
+ * "Database error creating new user" — measured against the local stack, not
+ * inferred. It surfaced when a third integration file was added and appeared
+ * roughly one run in three, which is exactly the kind of intermittent failure
+ * a suite must not have.
+ */
+const PROCESS_ID = randomUUID().slice(0, 8)
+
+/**
  * Create a confirmed user and return a client authenticated as them.
  *
  * Emails are unique per call so tests never collide, and the caller owns
@@ -54,7 +70,7 @@ let seq = 0
  */
 export async function createTestUser(): Promise<TestUser> {
   const admin = adminClient()
-  const email = `it-${Date.now()}-${seq++}@example.test`
+  const email = `it-${Date.now()}-${PROCESS_ID}-${seq++}@example.test`
   const password = 'integration-test-password'
 
   const { data, error } = await admin.auth.admin.createUser({

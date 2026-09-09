@@ -95,6 +95,7 @@ export type Database = {
           certifications: Json
           projects: Json
           custom_sections: Json
+          layout_settings: Json | null
           is_default: boolean
           is_public: boolean
           public_slug: string | null
@@ -116,6 +117,7 @@ export type Database = {
           certifications?: Json
           projects?: Json
           custom_sections?: Json
+          layout_settings?: Json | null
           is_default?: boolean
           is_public?: boolean
           public_slug?: string | null
@@ -137,6 +139,7 @@ export type Database = {
           certifications?: Json
           projects?: Json
           custom_sections?: Json
+          layout_settings?: Json | null
           is_default?: boolean
           is_public?: boolean
           public_slug?: string | null

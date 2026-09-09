@@ -120,8 +120,13 @@ export interface CustomSection {
 }
 
 /**
- * Layout settings persisted to Supabase inside the custom_sections JSONB column.
- * Controls section ordering and visibility for the Modern template sidebar and main content.
+ * LEGACY. The four layout properties that were persisted inside the
+ * custom_sections JSONB column before migration 007 gave layout state its own
+ * `resumes.layout_settings` column.
+ *
+ * Read-only now: `extractLayoutSettings` still reads this shape so rows written
+ * before 007 keep the section order their owner chose, and nothing writes it.
+ * The full layout contract is `ResumeLayoutModel` in `@/lib/layout-settings`.
  */
 export interface ResumeLayoutSettings {
   sidebarOrder?: string[]
