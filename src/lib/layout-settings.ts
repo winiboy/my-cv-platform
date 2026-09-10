@@ -705,7 +705,12 @@ const SHARED_SIDEBAR_IDS: ReadonlySet<string> = new Set(['skills', 'languages', 
 /** IDs valid in Modern main content. */
 const VALID_MODERN_MAIN_IDS: ReadonlySet<string> = new Set(['summary', 'experience'])
 
-interface ModernMappedOrder {
+/**
+ * Exported so the one layout-state owner can name what it returns. The arrays
+ * are mutable because they are freshly built below and handed straight to
+ * `modern-template.tsx`, whose props are declared mutable.
+ */
+export interface ModernMappedOrder {
   modernSidebarOrder: ModernSidebarId[]
   modernMainOrder: ModernMainId[]
   hiddenModernSidebar: ModernSidebarId[]
@@ -728,10 +733,10 @@ interface ModernMappedOrder {
  *   hidden in the Modern sidebar.
  */
 export function mapEditorOrderToModern(
-  editorSidebarOrder: EditorSidebarId[],
-  editorMainOrder: EditorMainId[],
-  hiddenSidebar: EditorSidebarId[],
-  hiddenMain: EditorMainId[],
+  editorSidebarOrder: readonly EditorSidebarId[],
+  editorMainOrder: readonly EditorMainId[],
+  hiddenSidebar: readonly EditorSidebarId[],
+  hiddenMain: readonly EditorMainId[],
 ): ModernMappedOrder {
   // --- Sidebar order ---
   // 'contact' is always first, 'education' always second,
@@ -750,7 +755,7 @@ export function mapEditorOrderToModern(
   const hiddenSidebarSet = new Set<string>(hiddenSidebar)
   const hiddenModernSidebar: ModernSidebarId[] = []
   // If 'education' is hidden in editor main, hide it in Modern sidebar too
-  if ((hiddenMain as string[]).includes('education')) {
+  if ((hiddenMain as readonly string[]).includes('education')) {
     hiddenModernSidebar.push('education')
   }
   for (const id of sharedInOrder) {

@@ -24,6 +24,11 @@ const eslintConfig = defineConfig([
     // Same again for the visual suite's build output: its first run took lint
     // from 311 problems to 32,980. Every new NEXT_DIST_DIR needs a line here.
     ".next-visual/**",
+    // And once more, for an ad-hoc build a validation run started: 17,954
+    // problems. Four occurrences of the same trap now. If you are adding a
+    // NEXT_DIST_DIR, this list and .gitignore both need a line, or the next
+    // person to run `pnpm lint` will think they broke something.
+    ".next-uiexp/**",
     "test-results/**",
     "playwright-report/**",
   ]),
