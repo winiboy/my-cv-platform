@@ -13,8 +13,14 @@ Ralph contract. The mapping to the original eight-story draft is:
 |---|---|
 | US-001 | US-005 — exports read the persisted model |
 | US-002 | US-006 — Editor and Preview share one state owner |
-| US-003 | US-007 — DOCX stops reimplementing template layout |
-| US-004 | US-008 — parity across the three surfaces |
+| US-003 to US-007 | US-007 — DOCX stops reimplementing template layout, now split one story per template |
+| US-008 | US-008 — parity across the three surfaces |
+
+The DOCX work was one story until 2026-09-10. It required "each template
+converted in its own commit", which contradicts CLAUDE.md §7 and §16 — one
+user story is exactly one commit — so it could not be executed as written.
+Splitting it per template preserves the attributability that criterion existed
+for, without breaking the one-story-one-commit rule.
 
 ## Objective
 
@@ -83,7 +89,7 @@ does not change how PDF is produced.
   copy; locale continues to reach templates and generators as it does today.
 - **Resume model / templates:** Affected — the generators consume shared layout
   rather than their own constants. React template rendering must not change.
-- **Exports:** Affected — this is the subject of US-001 and US-003.
+- **Exports:** Affected — this is the subject of US-001 and US-003 to US-007.
 - **Database / persistence:** Not affected — Part 1 owns the schema change.
   This part only reads what Part 1 persists.
 - **Security / authorization:** Affected — US-001 removes a client-supplied
@@ -134,31 +140,151 @@ and the preview cannot disagree about it.
       unchanged, evidenced by browser interaction rather than by inspection.
 - [ ] `pnpm test:visual` passes unchanged — screen and print.
 
-### US-003: DOCX stops reimplementing template layout
+### US-003 to US-007: DOCX stops reimplementing template layout
+
+These five stories are one piece of work, split one story per template.
+
+The split is not stylistic. An earlier draft made this a single story whose
+acceptance criteria required "each template converted in its own commit" —
+which contradicted CLAUDE.md §7 and §16, where one user story is exactly one
+commit, and `run-ralph-story` creates exactly one and stops. The story was
+unexecutable as written. Splitting preserves what that criterion was *for*:
+a regression stays attributable to one template's conversion rather than to a
+five-template change.
+
+**Order is deliberate.** `professional` first: it is the template whose layout
+state Part 1 touched most, so the shared model is best understood there.
+`creative` last: it is the largest at 1,141 lines and the only template where
+`print:hidden` coverage actually reaches the rendered document, so a mistake
+there is both likelier and more visible.
+
+Each of the five carries the same acceptance criteria, scoped to its own
+template and its own generator file.
+
+| Story | Template | Generator |
+|---|---|---|
+| US-003 | professional | `docx-professional.ts` |
+| US-004 | modern | `docx-modern.ts` |
+| US-005 | classic | `docx-classic.ts` |
+| US-006 | minimal | `docx-minimal.ts` |
+| US-007 | creative | `docx-creative.ts` |
+
+### US-003: The professional DOCX derives its layout from the shared model
 
 **Description:**
-As a developer, I want the DOCX generators to consume a shared description of
-each template's layout, so that a template change does not require a parallel
-edit in a second implementation.
+As a developer, I want `docx-professional.ts` to consume the shared layout
+description, so that a change to the professional template does not require a
+parallel edit in a second implementation.
 
 **Acceptance Criteria:**
 
-- [ ] Section order, visibility and typography scaling derive from the shared
-      model rather than from per-generator logic.
-- [ ] Duplicated layout constants are removed from the generators in favour of
-      the shared defaults established in Part 1.
-- [ ] **Each template is converted in its own commit**, with export evidence per
-      template, so that a defect is attributable to one conversion rather than
-      to a five-template change.
+- [ ] Section order, visibility and typography scaling for **professional**
+      derive from the shared model rather than from per-generator logic.
+- [ ] Duplicated layout constants are removed from `docx-professional.ts` in
+      favour of the shared defaults established in Part 1.
 - [ ] Format-specific rendering remains permitted; semantic content, section
       order, visibility, typography intent and colour are preserved to the
       degree DOCX supports them, per `.claude/rules/exports.md`.
-- [ ] Every converted template's DOCX is validated as a generated artifact.
+- [ ] The professional DOCX is validated as a generated artifact and its
+      content, never an HTTP 200.
 - [ ] A fidelity limitation discovered during conversion is recorded as an
       explicit finding, never accepted silently as a PASS.
-- [ ] Converting one template does not alter another template's output.
+- [ ] **The other four templates' DOCX output is unchanged**, evidenced rather
+      than assumed.
 
-### US-004: Parity across the three surfaces is demonstrated
+### US-004: The modern DOCX derives its layout from the shared model
+
+**Description:**
+As a developer, I want `docx-modern.ts` to consume the shared layout
+description, so that a change to the modern template does not require a
+parallel edit in a second implementation.
+
+**Acceptance Criteria:**
+
+- [ ] Section order, visibility and typography scaling for **modern** derive
+      from the shared model rather than from per-generator logic.
+- [ ] Duplicated layout constants are removed from `docx-modern.ts` in favour
+      of the shared defaults established in Part 1.
+- [ ] Format-specific rendering remains permitted; semantic content, section
+      order, visibility, typography intent and colour are preserved to the
+      degree DOCX supports them, per `.claude/rules/exports.md`.
+- [ ] The modern DOCX is validated as a generated artifact and its content,
+      never an HTTP 200.
+- [ ] A fidelity limitation discovered during conversion is recorded as an
+      explicit finding, never accepted silently as a PASS.
+- [ ] **The other four templates' DOCX output is unchanged**, evidenced rather
+      than assumed.
+
+### US-005: The classic DOCX derives its layout from the shared model
+
+**Description:**
+As a developer, I want `docx-classic.ts` to consume the shared layout
+description, so that a change to the classic template does not require a
+parallel edit in a second implementation.
+
+**Acceptance Criteria:**
+
+- [ ] Section order, visibility and typography scaling for **classic** derive
+      from the shared model rather than from per-generator logic.
+- [ ] Duplicated layout constants are removed from `docx-classic.ts` in favour
+      of the shared defaults established in Part 1.
+- [ ] Format-specific rendering remains permitted; semantic content, section
+      order, visibility, typography intent and colour are preserved to the
+      degree DOCX supports them, per `.claude/rules/exports.md`.
+- [ ] The classic DOCX is validated as a generated artifact and its content,
+      never an HTTP 200.
+- [ ] A fidelity limitation discovered during conversion is recorded as an
+      explicit finding, never accepted silently as a PASS.
+- [ ] **The other four templates' DOCX output is unchanged**, evidenced rather
+      than assumed.
+
+### US-006: The minimal DOCX derives its layout from the shared model
+
+**Description:**
+As a developer, I want `docx-minimal.ts` to consume the shared layout
+description, so that a change to the minimal template does not require a
+parallel edit in a second implementation.
+
+**Acceptance Criteria:**
+
+- [ ] Section order, visibility and typography scaling for **minimal** derive
+      from the shared model rather than from per-generator logic.
+- [ ] Duplicated layout constants are removed from `docx-minimal.ts` in favour
+      of the shared defaults established in Part 1.
+- [ ] Format-specific rendering remains permitted; semantic content, section
+      order, visibility, typography intent and colour are preserved to the
+      degree DOCX supports them, per `.claude/rules/exports.md`.
+- [ ] The minimal DOCX is validated as a generated artifact and its content,
+      never an HTTP 200.
+- [ ] A fidelity limitation discovered during conversion is recorded as an
+      explicit finding, never accepted silently as a PASS.
+- [ ] **The other four templates' DOCX output is unchanged**, evidenced rather
+      than assumed.
+
+### US-007: The creative DOCX derives its layout from the shared model
+
+**Description:**
+As a developer, I want `docx-creative.ts` to consume the shared layout
+description, so that a change to the creative template does not require a
+parallel edit in a second implementation.
+
+**Acceptance Criteria:**
+
+- [ ] Section order, visibility and typography scaling for **creative** derive
+      from the shared model rather than from per-generator logic.
+- [ ] Duplicated layout constants are removed from `docx-creative.ts` in favour
+      of the shared defaults established in Part 1.
+- [ ] Format-specific rendering remains permitted; semantic content, section
+      order, visibility, typography intent and colour are preserved to the
+      degree DOCX supports them, per `.claude/rules/exports.md`.
+- [ ] The creative DOCX is validated as a generated artifact and its content,
+      never an HTTP 200.
+- [ ] A fidelity limitation discovered during conversion is recorded as an
+      explicit finding, never accepted silently as a PASS.
+- [ ] **The other four templates' DOCX output is unchanged**, evidenced rather
+      than assumed.
+
+### US-008: Parity across the three surfaces is demonstrated
 
 **Description:**
 As a maintainer, I want one fixture proven to render consistently to Preview,
@@ -218,8 +344,8 @@ PDF and DOCX, so that "unified" is evidenced rather than asserted.
 - Baseline changes require an explicit approval decision per
   `docs/engineering/visual-regression.md`. A baseline updated to make a run
   green without an understood cause is a FAIL.
-- `export-validation` for US-001, US-003 and US-004: a generated DOCX inspected
-  for content and fidelity, never an HTTP 200.
+- `export-validation` for US-001, US-003 to US-007, and US-008: a generated
+  DOCX inspected for content and fidelity, never an HTTP 200.
 - `security-review` for US-001: removal of the query-parameter input surface,
   and the bounds on the remaining photo input.
 - `ui-expert` for US-002 with rendered evidence per its contract.
@@ -237,24 +363,29 @@ PDF and DOCX, so that "unified" is evidenced rather than asserted.
   Preview parity.
 - A template's output changes as a side effect of converting another template.
 - A fidelity limitation is accepted as a PASS rather than recorded as a finding.
-- All five DOCX templates are converted in a single commit, making a defect
-  unattributable.
+- More than one DOCX template is converted in a single story or commit, making
+  a defect unattributable. The five stories exist for this; collapsing them
+  defeats the split.
 
 ## BLOCKER Conditions
 
 - Part 1 is not complete, or the persisted layout model is not yet
   authoritative.
-- Export artifact validation cannot be performed, leaving US-001 and US-003
-  unevidenced.
+- Export artifact validation cannot be performed, leaving US-001 and the DOCX
+  stories unevidenced.
 - A template's layout proves not expressible through the shared model without
   changing its rendered output — that is a design question for a revised PRD,
   not something to resolve by widening a tolerance.
 
 ## Risks
 
-- **US-003 is the largest piece of work in the milestone.** ~6,500 lines across
-  five generators. The per-template commit requirement exists because a
-  five-template change with one regression would be very hard to attribute.
+- **The DOCX conversion is the largest piece of work in the milestone.** ~6,500
+  lines across five generators, now US-003 to US-007 at roughly 1,000–1,600
+  lines each. One story per template exists so that a regression is
+  attributable to one conversion; the risk it does not remove is that five
+  sequential stories touching one shared model can each pass while the model
+  drifts underneath them. US-008's parity check is the backstop for that, which
+  is why it runs last rather than first.
 - **DOCX cannot express everything CSS can.** Some fidelity gaps are inherent
   rather than defects. The risk is that an inherent gap gets recorded as
   "matches" to keep a story green; the FAIL condition above exists for that.
