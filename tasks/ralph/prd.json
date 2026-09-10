@@ -57,7 +57,7 @@
         "Out of scope: Rewriting the DOCX generators wholesale. The goal is removing duplicated layout decisions, not a new document engine."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

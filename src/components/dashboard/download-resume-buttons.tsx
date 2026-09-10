@@ -15,58 +15,40 @@ interface DownloadResumeButtonsProps {
   pdfLabel: string
   wordLabel: string
   dict?: DownloadResumeButtonsDict
-  template?: string
 }
 
-export function DownloadResumeButtons({ pdfLabel, wordLabel, dict, template }: DownloadResumeButtonsProps) {
+export function DownloadResumeButtons({ pdfLabel, wordLabel, dict }: DownloadResumeButtonsProps) {
   const params = useParams()
   const resumeId = params?.id as string
   const locale = params?.locale as string
 
   const handleWordDownload = async () => {
     try {
-      // Read styling settings from localStorage (same key used by resume-editor and resume-preview-wrapper)
-      const localStorageKey = `resume_slider_settings_${resumeId}`
-      const savedSettings = localStorage.getItem(localStorageKey)
+      /**
+       * The request describes WHICH resume and in WHAT language, and nothing
+       * else.
+       *
+       * This used to assemble fourteen query parameters out of localStorage —
+       * typography, colour, spacing, section order, section visibility and the
+       * template — so that the server could render what this browser believed
+       * the layout to be. The server now reads all of that from the resume
+       * record, which is what makes an export from a second device match the
+       * first. Re-adding any of them would put a second, browser-local
+       * authority back in front of the account's.
+       *
+       * `locale` stays because it is not layout: it is the localized route the
+       * user is on, and a resume has no locale of its own.
+       */
+      const requestUrl = `/api/resumes/${resumeId}/download-docx?locale=${encodeURIComponent(locale || 'fr')}`
 
-      // Build query params
-      const queryParams = new URLSearchParams()
-      queryParams.set('locale', locale || 'fr')
-      if (template) queryParams.set('template', template)
-
-      if (savedSettings) {
-        try {
-          const settings = JSON.parse(savedSettings)
-
-          // Typography settings
-          if (settings.fontFamily) queryParams.set('fontFamily', settings.fontFamily)
-          if (settings.fontScale !== undefined) queryParams.set('fontScale', String(settings.fontScale))
-
-          // Color settings (pass hue, saturation, and brightness separately for HSL conversion)
-          if (settings.sidebarHue !== undefined) queryParams.set('sidebarHue', String(settings.sidebarHue))
-          if (settings.sidebarSaturation !== undefined) queryParams.set('sidebarSaturation', String(settings.sidebarSaturation))
-          if (settings.sidebarBrightness !== undefined) queryParams.set('sidebarBrightness', String(settings.sidebarBrightness))
-
-          // Layout settings
-          if (settings.sidebarWidth !== undefined) queryParams.set('sidebarWidth', String(settings.sidebarWidth))
-          if (settings.sidebarTopMargin !== undefined) queryParams.set('sidebarTopMargin', String(settings.sidebarTopMargin))
-          if (settings.mainContentTopMargin !== undefined) queryParams.set('mainContentTopMargin', String(settings.mainContentTopMargin))
-
-          // Section ordering (as JSON)
-          if (settings.sidebarOrder) queryParams.set('sidebarOrder', JSON.stringify(settings.sidebarOrder))
-          if (settings.mainContentOrder) queryParams.set('mainContentOrder', JSON.stringify(settings.mainContentOrder))
-
-          // Hidden sections (as JSON)
-          if (settings.hiddenSidebarSections) queryParams.set('hiddenSidebarSections', JSON.stringify(settings.hiddenSidebarSections))
-          if (settings.hiddenMainSections) queryParams.set('hiddenMainSections', JSON.stringify(settings.hiddenMainSections))
-        } catch (e) {
-          console.error('Failed to parse saved settings:', e)
-        }
-      }
-
-      const requestUrl = `/api/resumes/${resumeId}/download-docx?${queryParams.toString()}`
-
-      // Read photo data from localStorage for embedding in DOCX
+      /**
+       * The photo is the one exception, and it is not layout state either.
+       *
+       * It is never stored on the account — by the decision of 2026-09-07 it
+       * stays in this browser's localStorage — so the request body is the only
+       * way it can reach the document. The route bounds its size and type
+       * before it reaches generation.
+       */
       let photoBase64: string | undefined
       try {
         const savedPhoto = localStorage.getItem(`resume_photo_${resumeId}`)

@@ -1,0 +1,217 @@
+# Ralph progress — Milestone C Part 2, Exports and Parity
+# Contract: tasks/ralph/prd.json
+# PRD: tasks/prds/milestone-c-part-2-exports-and-parity.md
+#
+# Part 1 is archived at tasks/ralph/archive/2026-09-10-milestone-c-part-1/.
+# Its dependency is satisfied: migrations 005-007 reached production on
+# 2026-09-10, so resumes.layout_settings exists on the database this part
+# reads from.
+
+## US-001: Exports read the persisted model
+Status: PASS
+Priority: 1
+Branch: ralph/milestone-c-part-2-exports
+Baseline HEAD: cb768c5
+
+Scope:
+- Scope check: PASS
+- Modified: src/app/api/resumes/[id]/download-docx/route.ts,
+    src/components/dashboard/download-button.tsx,
+    src/components/dashboard/download-resume-buttons.tsx,
+    src/components/dashboard/resume-preview-page-client.tsx,
+    src/app/[locale]/(dashboard)/resumes/[id]/preview/page.tsx
+- New: e2e/docx-export-layout.spec.ts (7 tests)
+- The five DOCX generators are UNTOUCHED, verified by git status. Their layout
+  logic is US-003 to US-007, one story per template.
+- No visual baseline moved. No --update-snapshots.
+
+Checks:
+- pnpm typecheck: PASS - 0 errors (re-run by the reviewer)
+- pnpm lint: PASS - 304 problems, under the 311 baseline
+- pnpm test: PASS - 227 passed
+- pnpm test:integration: PASS - 27 passed
+- pnpm test:e2e: PASS - 42 passed (35 + 7 new)
+- pnpm test:visual: PASS - 10 passed against UNCHANGED baselines. Re-run
+  independently by the orchestrator.
+- pnpm build:verify: PASS - exit 0. Also exercised by the E2E webServer, which
+  runs `pnpm build && pnpm start`.
+
+Specialized validation:
+- Export: PASS - every test unzips word/document.xml and asserts its content.
+  No test accepts an HTTP 200 as evidence.
+- Security: PASS - see the separate verdict below.
+- Browser: PASS - the E2E matrix is the evidence for AC-3 and AC-4.
+- Visual: PASS - 10/10 unchanged.
+- Database: NOT_APPLICABLE - no schema change.
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no UI change; rendering proven unchanged
+- code-reviewer: PASS (second pass). First pass returned FAIL; see history.
+
+SECURITY-REVIEW (required by the PRD for this story)
+result: PASS. 0 critical, 0 high, 0 medium, 0 low, 1 info.
+- A PRE-AUTH DENIAL OF SERVICE IS CLOSED. Four JSON.parse calls on
+  user-supplied query parameters ran BEFORE the auth check; an unauthenticated
+  caller could send ?sidebarOrder=%7Bnot-json and get a 500.
+  supabase.auth.getUser() is now the first thing the handler does. Proven, not
+  argued: the same request returns 500 on the reverted code and 401 on this
+  one, pinned by an E2E test. This was carried as SEC-002 LOW
+  PRE_EXISTING_ADJACENT in US-003's review (Part 1) and is now resolved.
+- AN UNBOUNDED DECODE IS CLOSED. boundedPhoto checks typeof value !== 'string'
+  FIRST, so a non-string from arbitrary JSON returns undefined rather than
+  reaching .length; then bounds length; then validates the data-URL prefix and
+  payload characters. Previously a 9 MB base64 string decoded to ~6.75 MB and
+  was EMBEDDED into the generated document as word/media/...png. The parameter
+  is typed `unknown`, which is the correct signal: validated, not trusted.
+  Failure degrades to a photo-less document rather than an error, so the bound
+  cannot turn a working export into a failure.
+- Layout now comes from the caller's own RLS-gated row rather than from the
+  client. Thirteen parameters through which a caller could assert layout state
+  are gone, `template` among them - that one could have selected a template the
+  resume is not.
+- SEC-001 INFO: MAX_PHOTO_BASE64_LENGTH is 8 MB against a legitimate maximum of
+  ~2.8 MB (the app's 2 MB binary picker limit inflated 4/3). Roughly 3x
+  headroom. Defensible as "can never cost a user their photo"; a tighter limit
+  would reduce worst-case decode work. Hardening, not a vulnerability.
+
+CORRECTION TO THE ORCHESTRATOR'S OWN SECURITY CLAIM
+The first draft of that verdict said the pre-auth JSON.parse surface was
+"closed". The reviewer was right that it is NARROWED, not closed: POST still
+awaits request.json() before handleDocxGeneration is entered, App Router
+imposes no default body cap, and the 9 MB case shows a large body is accepted.
+That is unchanged from before this story and out of its scope, but the claim
+was wider than the change. The route comment now scopes it accurately and
+records the residual as debt for its own story.
+
+Acceptance criteria:
+- AC-01 (route derives layout from the record): PASS -
+  resolveResumeLayout(resume, null) at route.ts:164. select('*') supplies both
+  layout_settings and custom_sections. Reuses the one precedence rule rather
+  than copying it; server-side there is no cache, so the second argument is
+  null and precedence collapses to defaults -> legacy -> column.
+- AC-02 (the layout query parameters and their client assembly removed): PASS,
+  with one deviation recorded below as D-1. 12 layout parameters plus
+  `template` removed from both call sites; the now-dead `template` prop dropped
+  from both parent pages.
+- AC-03 (DOCX reflects settings saved on another device, end to end): PASS -
+  the spec seeds layout_settings via a service-role client and fetches the
+  document from a context that has never opened the resume. Both asserted
+  properties differ from DEFAULT_RESUME_LAYOUT, so defaults fail it.
+- AC-04 (validated as generated artifact and its content): PASS - every test
+  unzips word/document.xml. After the first review this now includes the
+  colour this story changed; see the review history.
+- AC-05 (photo stays in localStorage, travels in the body, documented): PASS -
+  route.ts:19-46 plus matching comments at both call sites.
+- AC-06 (exception scoped to the photo alone): PASS - DocxGeneratorSettings is
+  built in exactly one place and photoBase64 is the only body-sourced field.
+- AC-07 (photo bounded as untrusted input): PASS - see the security verdict.
+
+D-1 THE AC SAYS 14 PARAMETERS; 13 WERE REMOVED
+`locale` was kept. It is not layout state: `resumes` has no locale column, it
+only feeds toLocaleDateString, and dropping it would pin every export to French
+and break the regression constraint "locale routing and translated template
+labels are unchanged". FR-2 forbids URL parameters carrying canonical LAYOUT
+state, which does not reach it.
+The reviewer verified the count independently - `grep -c "queryParams.set"` on
+HEAD returns 14, comprising `locale`, `template` and 12 layout properties - and
+found the decision PRE-RATIFIED by the canonical module: layout-settings.ts
+lines 48-51, written during Part 1, already records that locale and template
+are deliberately excluded from ResumeLayoutModel because both are canonical
+elsewhere and neither is layout state.
+So the AC's "14 layout query parameters" carries a miscount made when the PRD
+was written, not a shortfall in the work. All 12 layout parameters are gone,
+and `template` with them.
+
+D-2 hasCustomColors: A DELIBERATE BEHAVIOUR CHANGE ON A DEGRADED PATH
+That flag meant "the browser sent colour parameters", and docx-modern.ts reads
+it as "the user chose these colours", falling back in the else branch to a flat
+#333333 sidebar AND a flat #D4A843 accent - two colours, not one.
+Presence-based resolution from layout_settings was rejected as WRONG: the
+persister takes the first model as a baseline without writing it, and adoption
+skips default-valued keys, so a never-layout-edited resume carries no colour
+keys and every such modern resume would have flipped from HSL blue to grey.
+It is now a documented constant `true`, because that is what it already was on
+every reachable path. The Word button exists only on the two preview pages,
+both mount resume-preview-wrapper.tsx, and that wrapper caches the complete
+19-key resolved model before a click is possible. The reviewer verified each
+link rather than accepting it, including that modern-template.tsx:190-191
+always renders hsl(...) and derives its accent from the same string - so
+neither #333333 nor #D4A843 is a colour the on-screen document can show, and
+the old else branch was itself a Preview divergence under
+.claude/rules/exports.md.
+THE RESIDUAL, DISCLOSED NOT HIDDEN: when localStorage is unavailable, modern
+DOCX previously came out grey with a gold accent while the screen showed HSL;
+now it matches the screen. A degraded-path change TOWARD the fidelity contract.
+Recorded as a finding for the modern story (US-004) to retire the dead branch,
+not claimed as zero-change.
+
+MUTATION EVIDENCE
+- All five files reverted to HEAD, new spec run: 4 failed, 3 passed. The four
+  failed for the right reasons - w:ascii="Arial" instead of Georgia with EPFL
+  still present; the URL carrying 13 extra parameters; 500 instead of 401 for
+  an unauthenticated request with malformed JSON; and a 6.75 MB blob embedded
+  into word/media from a 9 MB base64 string. The 3 that passed are the positive
+  photo control and two cases the generator already rejected - the honest
+  result, since the new bound adds the size check, not those.
+- hasCustomColors reverted to false and rebuilt: the colour test failed first
+  on Expected substring w:fill="0D0DA5", and the received document contained
+  ['333333', 'D4A843'] with neither resolved colour present. All four
+  assertions would have fired.
+
+Review history:
+- code-reviewer pass 1: FAIL. Critical: hasCustomColors: true is the one output
+  this story deliberately changed, and it was the one output no test read. Four
+  modern DOCXs were already generated and unzipped in the spec; none asserted
+  the shading. The justification was a reachability ARGUMENT - correct, but
+  CLAUDE.md 15 requires PASS to be evidence-based rather than
+  confidence-based. Major: the disclosed residual named one colour where the
+  branch changes two.
+- Fix: four assertions now read the sidebar and accent hex out of
+  word/document.xml, verified failing-first against hasCustomColors: false. The
+  residual disclosure names both colours and cites the derivation for each.
+- code-reviewer pass 2: PASS. No Critical, no Major. The reviewer recomputed
+  both hexes independently rather than accepting them, confirmed D4A843 is safe
+  asserted bare (it is strictly stronger than a w:fill= prefix, catching the
+  w:color sites too), and confirmed the w:fill= prefix on the 333333 negative
+  IS load-bearing because docx-helpers.ts:111 defines BODY_TEXT: '333333'.
+
+KNOWN LIMITS AND DEFERRED ITEMS
+
+M-1 The colour assertions live inside `if (photoCase.embedded)` in a
+  data-driven photo test. Load-bearing colour evidence hanging off an unrelated
+  case's boolean: if a future story reworks PHOTO_CASES and no case carries
+  embedded: true, the four assertions stop running and the suite stays green.
+  The coupling is commented so a reader retiring the branch will find it, but
+  it should be lifted into its own test when US-004 touches this file.
+
+M-2 The four expected hexes are literals, not imports, because hslToHex,
+  deriveAccentColorHex and both default constants are module-private to
+  docx-modern.ts and exporting them would mean touching a file owned by
+  US-003 to US-007. The reviewer judged this the right call for a second
+  reason: a shared import would make the presence assertions tautological -
+  hslToHex compared against hslToHex - whereas a literal catches a broken
+  conversion. The cost is real: a legitimate change to colour derivation in the
+  modern story turns this test red under a photo-test name.
+
+M-3 The POST body is still parsed before authentication. request.json() runs
+  before handleDocxGeneration is entered, App Router imposes no default body
+  cap, and a 9 MB body is accepted. Pre-existing, unchanged by this story, and
+  out of its scope - but it means the pre-auth parse surface is narrowed rather
+  than eliminated. Needs its own story.
+
+M-4 Two residuals on the adoption path, neither in this story's scope:
+  adoption is fire-and-forget, so a click inside its round trip exports
+  pre-adoption state; and if the adoption write fails, the export falls back to
+  the account while the screen shows the browser's values - previously the
+  query parameters would have matched the screen.
+
+M-5 The failing-first evidence for the four colour assertions lives in the
+  review record rather than in the spec header, which documents failing-first
+  for the font and section assertions only. One sentence there would keep the
+  file self-describing.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 exports read the persisted model
+
+FINAL: PASS
