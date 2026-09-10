@@ -37,7 +37,8 @@
     "**/*.mts",
     ".next-e2e/types/**/*.ts",
     ".next-verify/types/**/*.ts",
-    ".next-visual/types/**/*.ts"
+    ".next-visual/types/**/*.ts",
+    ".next-uiexp/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

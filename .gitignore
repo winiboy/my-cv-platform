@@ -67,3 +67,6 @@ playwright-report/
 # The baselines under e2e/visual/__screenshots__ are deliberately NOT ignored:
 # they are the approved reference and must be reviewable in a diff.
 .next-visual/
+
+# Ad-hoc build output from validation runs that need their own dist dir.
+.next-uiexp/

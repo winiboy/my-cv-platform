@@ -215,3 +215,201 @@ Commit:
 - Commit message: ralph: US-001 exports read the persisted model
 
 FINAL: PASS
+
+## US-002: Editor and Preview share one state owner
+Status: PASS
+Priority: 2
+Branch: ralph/milestone-c-part-2-exports
+Baseline HEAD: 107f605
+
+Scope:
+- Scope check: PASS
+- Modified: src/components/dashboard/resume-editor.tsx,
+    src/components/dashboard/resume-preview-wrapper.tsx,
+    src/lib/layout-settings.ts, eslint.config.mjs, .gitignore, tsconfig.json
+- New: src/lib/resume-layout-store.ts, src/lib/resume-layout-store.test.ts,
+    src/lib/hooks/use-resume-layout.ts, src/lib/resume-layout-ownership.test.ts,
+    e2e/layout-state-owner.spec.ts
+- The five DOCX generators are UNTOUCHED. No visual baseline moved.
+- eslint.config.mjs, .gitignore and tsconfig.json are validation-tooling
+  fallout, not story scope - see T-1.
+
+Checks:
+- pnpm typecheck: PASS - 0 errors (re-run by the reviewer)
+- pnpm lint: PASS - 306 problems, under the 311 baseline. Up 2 from 304; see
+  L-1, which is a change in what the linter can SEE, not new code.
+- pnpm test: PASS - 293 passed (227 + 66 new), re-run by the reviewer
+- pnpm test:integration: PASS - 27 passed, re-run by the reviewer
+- pnpm test:e2e: PASS - 47 passed (42 + 5 new)
+- pnpm test:visual: PASS - 10 passed against UNCHANGED baselines. Re-run
+  independently by the orchestrator.
+- pnpm build:verify: PASS - exit 0
+
+Specialized validation:
+- Browser: PASS - five E2E tests drive real contexts and assert through a
+  service-role client
+- Visual: PASS - 10/10 unchanged
+- Export / Database / Security: NOT_APPLICABLE - no export path, no schema, no
+  trust boundary changed
+
+Agents:
+- ui-expert: PASS (6/7 conditions; condition 4 NOT_EVALUATED - see U-1)
+- code-reviewer: PASS, conditional on the tooling cleanup in T-1, which is done
+
+THE DESIGN
+A shared hook over a pure rules module, the same split Part 1 used for
+layout-persistence.ts. src/lib/resume-layout-store.ts holds the decisions with
+no React; use-resume-layout.ts holds one useState<ResumeLayoutModel> plus the
+lifecycle glue. Both surfaces unpack it into locals with the names their render
+bodies already used, so NO template, control or prop signature changed.
+Not a context: the two surfaces are separate routes and never co-exist in one
+tree, so a provider spans nothing. They need one definition, not one instance.
+Not nineteen useStates: everything downstream already wanted the whole model,
+and both files previously reassembled it with a nineteen-entry useMemo
+dependency list - a standing invitation to omit a property.
+Storage is passed as a THUNK, because window.localStorage can throw on property
+access and both surfaces already had that access inside their try.
+
+MY BRIEF WAS WRONG AND THE IMPLEMENTER OVERRODE IT, CORRECTLY
+I instructed it to preserve Part 1's finding D-9 - "the editor never persists
+typography; its save effect omits those seven keys". D-9 is STALE at 107f605:
+Part 1's US-003 superseded it, and the editor already persisted all nineteen.
+It did not argue from reading. It stashed its changes and ran the new spec
+against unmodified HEAD, where the assertion on
+resumes.layout_settings.titleFontSize - made through a service-role client
+after moving the classic title slider - PASSED. Had it obeyed me it would have
+REMOVED working persistence.
+The reviewer confirmed independently at 107f605: toStoredLayout emits all
+nineteen keys explicitly, and use-persisted-layout.ts and layout-persistence.ts
+are untouched by this story. The persisted key set is identical before and
+after.
+Recorded because the register itself was the source of the error: a finding
+that was true when written and false when used. Findings carry a timestamp for
+a reason, and this one was consumed without checking whether a later story had
+retired it.
+
+M-6 RESOLVED, AND THE BASELINE WAS WORSE THAN "INCONSISTENT"
+A single owner takes one resumeId, so the editor's four-site split could not
+survive. All four are now initialResume.id. Part 1's reviewer set the rule "all
+four together or none"; a single owner makes "none" impossible, so the
+orchestrator approved all four.
+The reviewer went further: at 107f605 the layout READ and adopt used
+initialResume.id while the cache write and account write used resume.id - a
+latent read/write split, not a neutral convention. Unifying removes it.
+Behaviour-neutral on every reachable path: there are exactly two setResume call
+sites, updateResume spreads prevResume and applies content fields only, and
+draft recovery parses a blob the same editor wrote for the same row. Divergence
+needs hand-edited localStorage, and on that path the baseline was strictly
+worse.
+
+EVIDENCE
+- AC-3: the E2E asserts the COMPUTED font-size of the rendered h1 moving 24 to
+  40 during interaction - not the slider agreeing with itself.
+- AC-1: edit in /edit, read back in a SECOND browser context with its own
+  storage and session that has never seen the resume. A same-browser check
+  would pass on a shared cache; this cannot.
+- AC-4: five E2E tests pass IDENTICALLY on the pre-change code and on the
+  refactor. That is the "unchanged" evidence, not an inspection. Each pins a
+  service-role DB read that a passing UI cannot fake.
+- Structural: resume-layout-ownership.test.ts reads both component sources and
+  asserts neither declares a useState pair for any of the nineteen keys - keys
+  read from DEFAULT_RESUME_LAYOUT at runtime, so a twentieth is covered
+  automatically. Mutation-verified: adding a useState pair to the wrapper turns
+  it red.
+- ui-expert measured rather than eyeballed: classic heading 210px to 360px with
+  every rule below it moving down; two preview captures cross-checking 16.0 vs
+  26.8 px-per-character against the expected 24/40 ratio; the focus ring
+  retained on the fontScale pill after the value changed - the exact regression
+  a hook refactor invites; slider handles at identical y before and after save.
+
+WHAT THE REVIEWS CORRECTED IN THE ORCHESTRATOR'S OWN BRIEFS
+1. The stale D-9 instruction above.
+2. I claimed pnpm test:visual could settle whether the preview's unsaved banner
+   is print-excluded. It cannot: the banner is a SIBLING of
+   [data-testid=resume-document], and seedFixtureResume never writes a draft
+   key, so the banner is absent from the DOM in all ten runs. ui-expert
+   substituted artifact-level evidence - the region is byte-identical to
+   origin/main and this branch's build emits
+   @media print{.print\:hidden{display:none}} - and was explicit that this
+   establishes NON-REGRESSION, not a photograph. Closing it properly needs a
+   draft seeded, emulateMedia({media:'print'}), and toBeHidden().
+
+KNOWN LIMITS AND DEFERRED ITEMS
+
+L-1 Lint is 306, up 2 from 304. Both new problems are
+  react-hooks/set-state-in-effect in resume-preview-wrapper.tsx, on the
+  PRE-EXISTING draft-recovery setResume and photo setPhotoUrl. New reports, not
+  new code: the rule is React-Compiler-backed and bails out of components it
+  cannot compile; the old nineteen-useState wrapper bailed, the simplified one
+  compiles, so the rule now sees code that was always there. The reviewer
+  corroborated empirically - the still-complex editor reports ZERO despite
+  containing the same patterns. Fixing either would change draft recovery or
+  the photo load, which AC-4 forbids, so they are reported rather than
+  suppressed. Three problems the change genuinely introduced in the editor were
+  removed.
+
+T-1 The ui-expert validation run created .next-uiexp/, a new NEXT_DIST_DIR that
+  was in neither eslint's globalIgnores nor .gitignore. Bare pnpm lint reported
+  17,954 problems because it was linting compiled bundles, and Next.js
+  auto-wrote tsconfig.json to add .next-uiexp/types. This is the FOURTH
+  occurrence of a trap eslint.config.mjs already documents three times
+  (.next-e2e took lint to 46,067; .next-visual to 32,980). Fixed here rather
+  than left, because a mandatory baseline check that does not reproduce is
+  worse than a slightly wider diff. tsconfig.json's include line is KEPT,
+  deliberately: .next-e2e, .next-verify and .next-visual all have committed
+  include lines, so excluding only this one would be the inconsistency. CI
+  impact was always zero - .next-uiexp/ does not exist there.
+
+U-1 ui-expert condition 4 (tablet and mobile breakpoints) is NOT_EVALUATED.
+  Every capture is 1600px wide and it declined to infer, correctly. Residual
+  risk is near zero - the diff changes no className and no element, so no
+  breakpoint token moved - but "near zero by inspection" is not a captured
+  375px viewport. If this story is later held to a 7/7 UI gate, that capture is
+  outstanding.
+
+U-2 PRE-EXISTING, NOT ATTRIBUTABLE. The editor's "Unsaved changes" text is
+  text-amber-600, rgb(225,113,0) on white = 3.20:1, below the 4.5:1 AA floor
+  for 12px text (resume-editor.tsx:1021-1023). ui-expert measured it by
+  decoding pixels and explicitly refused to attribute it to this story.
+  text-amber-700 (#B45309, 4.66:1) clears AA and is the token the preview
+  banner already uses for its secondary line - which is why the banner passes
+  and the editor does not. Keep the dot at amber-600; a 6px non-text indicator
+  is exempt. Needs its own ticket.
+
+U-3 The editor's header is one line when nothing has been edited, so the first
+  keystroke pushes the page down ~6px. Pre-existing; TealHQ reserves that row.
+
+T-2 Three minor test-design notes from the reviewer, none blocking: a
+  precondition assertion at layout-state-owner.spec.ts:140 that cannot
+  meaningfully fail (the real claim is the poll at :146); the ownership regex
+  requires the second binding to begin with "set", so a differently-named
+  setter would evade it - a tripwire, not a proof; and
+  expect(LAYOUT_KEYS).toHaveLength(19) will read as a spurious failure to
+  whoever legitimately adds a twentieth property.
+
+T-3 The two render switches were deliberately NOT unified - the editor renders
+  the five templates directly, the wrapper renders ResumePreview which has an
+  equivalent switch. Both reviewers agreed leaving them is correct and in
+  scope discipline. The story reduces divergence vectors from two (state AND
+  render) to one: with a shared owner, a future disagreement can only be a
+  visibly missing prop, not silent state drift. Unifying them would change what
+  Modern receives and belongs in its own story.
+
+Review history:
+- ui-expert: PASS, 6/7 conditions. Corrected the orchestrator's premise about
+  test:visual and the print banner. Reported one pre-existing accessibility
+  defect and refused to attribute it.
+- code-reviewer: PASS, conditional on T-1. Verified D-9's staleness
+  independently at 107f605, corroborated the lint explanation empirically, and
+  confirmed the readonly widening of mapEditorOrderToModern is pure. It also
+  checked a hazard neither brief raised: the old code copied the frozen default
+  arrays with a spread precisely because they are Object.freeze'd, and the hook
+  now seeds state from them directly - safe, because the model's array
+  properties are declared readonly and both drag handlers copy before splice.
+- T-1 fixed by the orchestrator; bare pnpm lint now reproduces 306.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 editor and preview share one state owner
+
+FINAL: PASS

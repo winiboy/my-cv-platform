@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   User,
@@ -24,15 +24,8 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n'
 import type { Resume, ResumeSkillCategory } from '@/types/database'
-import {
-  DEFAULT_RESUME_LAYOUT,
-  mapEditorOrderToModern,
-  resolveResumeLayout,
-  serializeLayoutModel,
-  type EditorMainId,
-  type EditorSidebarId,
-} from '@/lib/layout-settings'
-import { adoptCachedLayout, usePersistedLayout } from '@/lib/hooks/use-persisted-layout'
+import type { EditorMainId, EditorSidebarId } from '@/lib/layout-settings'
+import { useResumeLayout } from '@/lib/hooks/use-resume-layout'
 import { ContactSection } from './resume-sections/contact-section'
 import { SummarySection } from './resume-sections/summary-section'
 import { ExperienceSection } from './resume-sections/experience-section'
@@ -108,11 +101,6 @@ const SECTIONS = [
   { id: 'editMainContent' as const, label: 'Edit Main Content', icon: LayoutList },
 ]
 
-// Section IDs for ordering. Aliased to the shared editor vocabulary so this
-// file cannot drift from the one layout model.
-type SidebarSectionId = EditorSidebarId
-type MainContentSectionId = EditorMainId
-
 const SECTION_MAPPING: Record<string, SectionId> = {
   contact: 'contact',
   summary: 'summary',
@@ -177,32 +165,72 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const [adaptationJobTitle, setAdaptationJobTitle] = useState('')
   const [adaptationCompany, setAdaptationCompany] = useState('')
 
-  // Design settings for live preview (loaded from localStorage). Every initial
-  // value comes from DEFAULT_RESUME_LAYOUT so the editor, the preview and the
-  // DOCX route cannot drift apart; the arrays are copied because the shared
-  // default is frozen.
-  const [titleFontSize, setTitleFontSize] = useState(DEFAULT_RESUME_LAYOUT.titleFontSize)
-  const [titleGap, setTitleGap] = useState(DEFAULT_RESUME_LAYOUT.titleGap)
-  const [contactFontSize, setContactFontSize] = useState(DEFAULT_RESUME_LAYOUT.contactFontSize)
-  const [sectionTitleFontSize, setSectionTitleFontSize] = useState(DEFAULT_RESUME_LAYOUT.sectionTitleFontSize)
-  const [sectionDescFontSize, setSectionDescFontSize] = useState(DEFAULT_RESUME_LAYOUT.sectionDescFontSize)
-  const [sectionGap, setSectionGap] = useState(DEFAULT_RESUME_LAYOUT.sectionGap)
-  const [headerGap, setHeaderGap] = useState(DEFAULT_RESUME_LAYOUT.headerGap)
-  const [sidebarHue, setSidebarHue] = useState(DEFAULT_RESUME_LAYOUT.sidebarHue)
-  const [sidebarSaturation, setSidebarSaturation] = useState(DEFAULT_RESUME_LAYOUT.sidebarSaturation)
-  const [sidebarBrightness, setSidebarBrightness] = useState(DEFAULT_RESUME_LAYOUT.sidebarBrightness)
-  const [fontScale, setFontScale] = useState(DEFAULT_RESUME_LAYOUT.fontScale)
-  const [sidebarOrder, setSidebarOrder] = useState<SidebarSectionId[]>([...DEFAULT_RESUME_LAYOUT.sidebarOrder])
-  const [mainContentOrder, setMainContentOrder] = useState<MainContentSectionId[]>([...DEFAULT_RESUME_LAYOUT.mainContentOrder])
-  const [fontFamily, setFontFamily] = useState<string>(DEFAULT_RESUME_LAYOUT.fontFamily) // Arial — FONTS[4]
-  const [sidebarTopMargin, setSidebarTopMargin] = useState(DEFAULT_RESUME_LAYOUT.sidebarTopMargin)
-  const [mainContentTopMargin, setMainContentTopMargin] = useState(DEFAULT_RESUME_LAYOUT.mainContentTopMargin)
-  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_RESUME_LAYOUT.sidebarWidth)
-  const [isSliderSettingsLoaded, setIsSliderSettingsLoaded] = useState(false)
-  const [draggedSection, setDraggedSection] = useState<SidebarSectionId | null>(null)
-  const [draggedMainSection, setDraggedMainSection] = useState<MainContentSectionId | null>(null)
-  const [hiddenSidebarSections, setHiddenSidebarSections] = useState<SidebarSectionId[]>([...DEFAULT_RESUME_LAYOUT.hiddenSidebarSections])
-  const [hiddenMainSections, setHiddenMainSections] = useState<MainContentSectionId[]>([...DEFAULT_RESUME_LAYOUT.hiddenMainSections])
+  /**
+   * Layout state for the Live Preview.
+   *
+   * NOT declared here. `useResumeLayout` owns it, loads it from the two
+   * persisted stores and the browser cache, caches it and persists it — and
+   * `resume-preview-wrapper.tsx` calls the same hook, so the editor and the
+   * preview cannot hold different answers. Re-introducing a `useState` for any
+   * of these nineteen properties would recreate the second authoritative copy
+   * US-002 removed.
+   *
+   * The values and setters are unpacked into locals of the names the render
+   * below already used, so the templates and their controls are reached exactly
+   * as before. `titleGap`, `sectionGap` and `headerGap` are not unpacked
+   * because the editor never rendered them; they are still part of the model
+   * the hook holds, caches and persists.
+   *
+   * `initialResume` rather than the `resume` state: every store handed to the
+   * loader must describe the row the server sent, and `resume` is state that a
+   * `resume_draft_${id}` blob replaces on mount.
+   */
+  const {
+    layout,
+    setters: layoutSetters,
+    sidebarColor,
+    modern,
+  } = useResumeLayout(initialResume.id, initialResume)
+  const {
+    titleFontSize,
+    contactFontSize,
+    sectionTitleFontSize,
+    sectionDescFontSize,
+    sidebarHue,
+    sidebarSaturation,
+    sidebarBrightness,
+    fontScale,
+    fontFamily,
+    sidebarTopMargin,
+    mainContentTopMargin,
+    sidebarWidth,
+    sidebarOrder,
+    mainContentOrder,
+    hiddenSidebarSections,
+    hiddenMainSections,
+  } = layout
+  const {
+    setTitleFontSize,
+    setContactFontSize,
+    setSectionTitleFontSize,
+    setSectionDescFontSize,
+    setSidebarHue,
+    setSidebarSaturation,
+    setSidebarBrightness,
+    setFontScale,
+    setFontFamily,
+    setSidebarTopMargin,
+    setMainContentTopMargin,
+    setSidebarWidth,
+    setSidebarOrder,
+    setMainContentOrder,
+    setHiddenSidebarSections,
+    setHiddenMainSections,
+  } = layoutSetters
+  const { modernSidebarOrder, modernMainOrder, hiddenModernSidebar, hiddenModernMain } = modern
+
+  const [draggedSection, setDraggedSection] = useState<EditorSidebarId | null>(null)
+  const [draggedMainSection, setDraggedMainSection] = useState<EditorMainId | null>(null)
   const [isEyeDropperSupported, setIsEyeDropperSupported] = useState(false)
   const [photoUrl, setPhotoUrl] = useState<string>('')
   const [isRemovingBackground, setIsRemovingBackground] = useState(false)
@@ -214,15 +242,6 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const isRestoringFromStorage = useRef(true)
   const [photoBgMode, setPhotoBgMode] = useState<'sidebar-color' | 'content-color'>('sidebar-color')
   const [hasForegroundBlob, setHasForegroundBlob] = useState(false)
-
-  // Compute sidebarColor from hue, saturation, and brightness
-  const sidebarColor = `hsl(${sidebarHue}, ${sidebarSaturation}%, ${sidebarBrightness}%)`
-
-  // Map editor section IDs to Modern template section IDs for live preview
-  const { modernSidebarOrder, modernMainOrder, hiddenModernSidebar, hiddenModernMain } = useMemo(
-    () => mapEditorOrderToModern(sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections),
-    [sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections],
-  )
 
   // Keep resumeRef in sync with resume state
   useEffect(() => {
@@ -301,7 +320,11 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
         console.error('EyeDropper error:', error)
       }
     }
-  }, [hexToHsl])
+    // The three setters come from the one layout owner rather than from
+    // useState, so eslint can no longer prove they are stable and asks for
+    // them. They ARE stable — `useResumeLayout` builds the setter object once
+    // — so naming them costs nothing and keeps this callback's identity fixed.
+  }, [hexToHsl, setSidebarHue, setSidebarSaturation, setSidebarBrightness])
 
   const handlePhotoChange = useCallback((dataUrl: string) => {
     setPhotoUrl(dataUrl)
@@ -450,8 +473,10 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
         certifications: resume.certifications,
         projects: resume.projects,
         // Layout state is no longer folded in here. It has its own column and
-        // its own writer (`usePersistedLayout`); Save carries the user's
-        // authored content only. The value round-trips whatever shape the row
+        // its own writer, reached through the layout owner this component
+        // calls; Save carries the user's authored content only, which is why
+        // it is unaffected by where that state now lives. The value
+        // round-trips whatever shape the row
         // already had, so a row still holding the legacy
         // `{ items, layoutSettings }` wrapper keeps it and stays readable.
         custom_sections: resume.custom_sections,
@@ -886,54 +911,11 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       }
     }
 
-    // Load the layout model.
-    //
-    // The account's persisted settings and the browser's cached ones are both
-    // handed to `resolveResumeLayout`, which owns the precedence between them —
-    // per property, the account wins where the account has a value. The editor
-    // does not layer the two itself and must not start to: the preview resolves
-    // the same resume through the same function, and a second copy of that rule
-    // here is what would let the two surfaces disagree.
-    // `initialResume.id` rather than `resume.id`: every store handed to the
-    // resolver and to adoption below must describe the same row, and `resume`
-    // is state that a `resume_draft_${id}` blob replaces earlier in this very
-    // effect.
-    let cachedLayout: string | null = null
-    try {
-      cachedLayout = localStorage.getItem(`resume_slider_settings_${initialResume.id}`)
-    } catch (error) {
-      // A browser that refuses localStorage still gets the account's settings.
-      console.error('Failed to read cached layout settings:', error)
-    }
-
-    const layout = resolveResumeLayout(initialResume, cachedLayout)
-
-    // Move anything this browser holds that the account has never had onto the
-    // account, once. Called here rather than from a hook of its own so it sees
-    // the same two stores and the same cache string the line above resolved
-    // from — and sees the cache before the effect below starts overwriting it
-    // with the resolved model.
-    adoptCachedLayout(initialResume.id, initialResume, cachedLayout)
-
-    setTitleFontSize(layout.titleFontSize)
-    setTitleGap(layout.titleGap)
-    setContactFontSize(layout.contactFontSize)
-    setSectionTitleFontSize(layout.sectionTitleFontSize)
-    setSectionDescFontSize(layout.sectionDescFontSize)
-    setSectionGap(layout.sectionGap)
-    setHeaderGap(layout.headerGap)
-    setSidebarHue(layout.sidebarHue)
-    setSidebarSaturation(layout.sidebarSaturation)
-    setSidebarBrightness(layout.sidebarBrightness)
-    setFontScale(layout.fontScale)
-    setFontFamily(layout.fontFamily)
-    setSidebarTopMargin(layout.sidebarTopMargin)
-    setMainContentTopMargin(layout.mainContentTopMargin)
-    setSidebarWidth(layout.sidebarWidth)
-    setSidebarOrder([...layout.sidebarOrder])
-    setMainContentOrder([...layout.mainContentOrder])
-    setHiddenSidebarSections([...layout.hiddenSidebarSections])
-    setHiddenMainSections([...layout.hiddenMainSections])
+    // The layout model is NOT loaded here. `useResumeLayout` above reads the
+    // two persisted stores and the browser cache, resolves them and runs the
+    // one-time adoption, in its own mount effect keyed on the same resume.
+    // What remains below is the state this surface owns alone: the draft, the
+    // modified-section markers and the photo.
 
     try {
       const savedPhoto = localStorage.getItem(`resume_photo_${resume.id}`)
@@ -962,19 +944,23 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       }
     } catch {}
 
-    setIsSliderSettingsLoaded(true)
-
     // Clear the mount guard after React has flushed all state updates from this
-    // effect and their dependent useEffects have already executed (and been skipped
-    // by the isRestoringFromStorage guard). Using requestAnimationFrame ensures the
-    // guard persists through the entire mount cycle before allowing user-initiated
-    // changes to trigger ensureForegroundBlob.
+    // mount — this effect's own, and the layout model that `useResumeLayout`
+    // loads in the effect immediately before it — and their dependent useEffects
+    // have already executed (and been skipped by the isRestoringFromStorage
+    // guard). Using requestAnimationFrame ensures the guard persists through the
+    // entire mount cycle before allowing user-initiated changes to trigger
+    // ensureForegroundBlob.
+    //
+    // The layout load moving into the hook does not move this boundary: hook
+    // effects run in call order within the same commit, `useResumeLayout` is
+    // called at the top of this component, so its setState is already queued
+    // when the frame below is requested — exactly as it was when the two loads
+    // shared one effect.
     requestAnimationFrame(() => {
       isRestoringFromStorage.current = false
     })
-    // initialResume.custom_sections is read for Supabase layout settings but intentionally
-    // excluded: this is a mount-only effect keyed on resume.id, not on prop changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Mount-only, keyed on the resume rather than on prop changes.
   }, [resume.id])
 
   // Persist photoBgMode preference to localStorage
@@ -992,63 +978,11 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     }
   }, [hasUnsavedChanges, lastSaved, resume.id])
 
-  /**
-   * The current layout model, assembled once from the nineteen pieces of state
-   * that hold it, so that the two things which consume a whole model — the
-   * localStorage cache and the account write — cannot be handed different ones.
-   */
-  const layoutModel = useMemo(
-    () => ({
-      titleFontSize,
-      titleGap,
-      contactFontSize,
-      sectionTitleFontSize,
-      sectionDescFontSize,
-      sectionGap,
-      headerGap,
-      sidebarHue,
-      sidebarSaturation,
-      sidebarBrightness,
-      fontScale,
-      fontFamily,
-      sidebarTopMargin,
-      mainContentTopMargin,
-      sidebarWidth,
-      sidebarOrder,
-      mainContentOrder,
-      hiddenSidebarSections,
-      hiddenMainSections,
-    }),
-    [titleFontSize, titleGap, contactFontSize, sectionTitleFontSize, sectionDescFontSize, sectionGap, headerGap, sidebarHue, sidebarSaturation, sidebarBrightness, fontScale, fontFamily, sidebarTopMargin, mainContentTopMargin, sidebarWidth, sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections],
-  )
-
-  // Cache the model in localStorage for a fast first paint on the next visit.
-  // A cache, not a store: `resolveResumeLayout` lets the account override it.
-  //
-  // This write now names all nineteen properties. It previously named twelve
-  // and re-seeded the other seven — the typography sizes and gaps — from the
-  // stored blob, because nothing persisted them and writing state back would
-  // have started to. That reasoning ends here: the account write below carries
-  // the whole model, so a typography edit is kept either way, and re-seeding
-  // seven of them from a stale cache would only make the cache disagree with
-  // the store it is a cache of.
-  useEffect(() => {
-    if (!isSliderSettingsLoaded) return // Don't save until initial load is complete
-
-    try {
-      localStorage.setItem(
-        `resume_slider_settings_${resume.id}`,
-        serializeLayoutModel(layoutModel),
-      )
-    } catch (error) {
-      // A full or disabled localStorage costs a fast first paint, nothing more:
-      // the account write below is what actually keeps these settings.
-      console.error('Failed to cache layout settings:', error)
-    }
-  }, [isSliderSettingsLoaded, layoutModel, resume.id])
-
-  // Persist the model to the account. The one writer lives in the hook.
-  usePersistedLayout(resume.id, layoutModel, isSliderSettingsLoaded)
+  // The layout model is not assembled here, cached here or persisted here.
+  // `useResumeLayout` holds it as one object and owns all three — see the hook
+  // call at the top of this component. It carries all nineteen properties,
+  // including the seven typography sizes and gaps, exactly as this file did
+  // before the state moved.
 
   // Warn user before leaving with unsaved changes
   useEffect(() => {
@@ -1273,7 +1207,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                   </div>
                   <div className="space-y-2">
                     {sidebarOrder.map((sectionId, index) => {
-                      const sectionLabels: Record<SidebarSectionId, string> = {
+                      const sectionLabels: Record<EditorSidebarId, string> = {
                         keyAchievements: dict.resumes?.template?.keyAchievements || 'Réalisations Clés',
                         skills: dict.resumes?.template?.skills || 'Compétences',
                         languages: dict.resumes?.template?.languages || 'Langues',
@@ -1343,7 +1277,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                   </div>
                   <div className="space-y-2">
                     {mainContentOrder.map((sectionId, index) => {
-                      const sectionLabels: Record<MainContentSectionId, string> = {
+                      const sectionLabels: Record<EditorMainId, string> = {
                         summary: dict.resumes?.template?.summary || 'Résumé',
                         experience: dict.resumes?.template?.experience || 'Expérience',
                         education: dict.resumes?.template?.education || 'Formation',
