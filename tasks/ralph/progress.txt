@@ -413,3 +413,203 @@ Commit:
 - Commit message: ralph: US-002 editor and preview share one state owner
 
 FINAL: PASS
+
+## US-003: The professional DOCX derives its layout from the shared model
+Status: PASS
+Priority: 3
+Branch: ralph/milestone-c-part-2-exports
+Baseline HEAD: 6f5dd02
+
+Scope:
+- Scope check: PASS
+- Modified: src/app/api/resumes/[id]/download-docx/docx-professional.ts (only)
+- New: e2e/docx-professional-layout.spec.ts (2 tests)
+- docx-modern/classic/minimal/creative.ts and docx-helpers.ts are BYTE-IDENTICAL,
+  verified by git status. No visual baseline moved.
+
+Checks:
+- pnpm typecheck: PASS - 0 errors (re-run by the reviewer)
+- pnpm lint: PASS - 306 problems, unchanged, under the 311 baseline
+- pnpm test: PASS - 293 passed
+- pnpm test:integration: NOT RUN - deliberately. A generator-internal change
+  that is provably output-identical touches no API or database boundary, and no
+  file that suite exercises was modified. The reviewer agreed and noted the
+  AC-6 harness at 10/10 byte-identical is a strictly stronger signal here.
+- pnpm test:e2e: PASS - 49 passed (47 + 2 new)
+- pnpm test:visual: PASS - 10 passed against UNCHANGED baselines. Re-run
+  independently by the orchestrator.
+- pnpm build:verify: PASS - exit 0
+
+Specialized validation:
+- Export: PASS - every assertion unzips and reads word/document.xml. No test
+  accepts an HTTP 200 as evidence.
+- Visual: PASS - 10/10 unchanged
+- Browser / Database / Security: NOT_APPLICABLE
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no UI change
+- code-reviewer: PASS (second pass). First returned FAIL; see history.
+
+THE HONEST SIZE OF THIS STORY
+Five substantive lines. AC-1 was already largely satisfied by US-001: the route
+derives order, visibility and fontScale from resolveResumeLayout and passes
+them through DocxGeneratorSettings, and the generator consumes them with no
+per-generator fallback. Two things were genuinely duplicated - locally
+redeclared section-id unions, and a dead `?? DEFAULT_RESUME_LAYOUT
+.sidebarSaturation` unreachable because the field is a required number.
+Recorded plainly because manufacturing changes to make a story feel
+substantial is worse than a small diff, and the reviewer confirmed it would
+have rejected manufactured bulk.
+
+Acceptance criteria:
+- AC-01 (order, visibility, typography scaling from the shared model): PASS -
+  already satisfied by US-001; the new E2E asserts all three on the unzipped
+  artifact rather than assuming it.
+- AC-02 (duplicated layout constants removed): PASS - the two genuine
+  duplications above. The gap constants were deliberately NOT removed; see T-1.
+- AC-03 (semantics, order, visibility, colour preserved): PASS - the only
+  runtime-observable change is the removed `??`, proven unreachable.
+- AC-04 (validated as generated artifact and its content): PASS.
+- AC-05 (fidelity limitations recorded): PASS - F-1 to F-5 below.
+- AC-06 (the other four templates unchanged, evidenced): PASS - see E-1.
+
+T-1 THE GAP CONSTANTS WERE LEFT ALONE, DELIBERATELY
+docx-professional.ts SPACING.TITLE_GAP: 8 / SECTION_GAP: 12 and
+professional-template.tsx:57-58 TITLE_GAP = 8 / SECTION_GAP = 12 hold the same
+values, and the React template takes no gap prop - it consumes the constants
+directly in inline styles (Part 1's D-6). Pointing only the DOCX at
+DEFAULT_RESUME_LAYOUT.titleGap would mean the day anyone retunes that default,
+the DOCX moves and the Preview does not - manufacturing the exact class of
+divergence Part 2 exists to eliminate, and a FAIL condition. With no gap keys
+on DocxGeneratorSettings the reference could only ever resolve to the default
+anyway, stating a dependency that does not exist. The reasoning is written into
+the file so US-004 to US-007 do not "fix" it in passing. The reviewer called
+this the best judgment call in the story.
+
+THE FALSE INVARIANT THE FIRST REVIEW CAUGHT
+The comment justifying the type aliasing claimed that adding an id to
+VALID_SIDEBAR_IDS would become a compile error. It would not. The reviewer did
+not argue - it replicated the pattern with 'awards' added, ran the repo's own
+tsc --strict, and got EXIT 0. The new id flowed through the unchecked
+`as SidebarSectionId[]` cast, fell through every `if (sectionId === ...)`, and
+rendered nothing: precisely the silent-drop bug the comment claimed was
+prevented. Aliasing catches removal/rename; it does not catch addition, because
+DocxGeneratorSettings.sidebarOrder is string[] and the dispatch was a
+non-exhaustive if-chain.
+Critical rather than cosmetic for two reasons: it was the entire argued
+justification for AC-2's type change, and F-5 establishes docx-modern.ts
+carries the identical pattern - so a false invariant was about to be copied
+into a second generator.
+Fixed by making the claim TRUE rather than by softening it: both section
+dispatches are now exhaustive switches closing on
+`default: assertExhaustiveSection(sectionId: never)`, declared locally so
+docx-helpers.ts stays untouched. Proven by mutation, not asserted:
+  'awards' added to VALID_SIDEBAR_IDS ->
+    docx-professional.ts(630,33): error TS2345: Argument of type '"awards"'
+    is not assignable to parameter of type 'never'.
+The guard deliberately does NOT throw. sidebarOrder is string[] so a stray id
+is representable at runtime, and parseIdList already filters the lists in
+route.ts before any generator sees them. Throwing would turn stray stored
+layout state into a failed download - a behaviour change outside this story -
+and the non-throwing default preserves exact parity with the old if-chain,
+which is why the harness shows 10/10 identical.
+
+AND THE SAME DEFECT CLASS, A SECOND TIME
+The second review found the comment still cited TS2367 - the diagnostic the OLD
+if-chain emitted. After the conversion there are no `===` comparisons left. The
+real diagnostic was verified by three separate mutations:
+  rename training in VALID_SIDEBAR_IDS -> TS2678 AND TS2345
+  delete training                       -> TS2678 only
+  rename education in VALID_MAIN_IDS    -> TS2678 AND TS2345
+Zero occurrences of TS2367 in any run. Corrected. Worth carrying into US-004: a
+RENAME trips both guarantees at once, because a rename is a removal plus an
+addition; a pure removal trips only TS2678.
+This comment has now been wrong twice - first about the mechanism, then about
+the diagnostic - and it is the template US-004 will copy. That is the argument
+for verifying a claimed compile-time fact by running the compiler.
+
+E-1 THE AC-6 EVIDENCE, AND A SELF-CAUGHT NEAR-MISS
+The first comparison was nearly vacuous: the baseline was captured while the
+edit was already on disk, which would have made "IDENTICAL" prove nothing. The
+implementer caught it itself and rebuilt: installed the pristine `git show
+HEAD:` version, captured true-baseline; restored its own version, sha256-
+verified; captured true-after. Ten documents (5 templates x 2 settings
+profiles), hashing every .xml/.rels part: all ten identical.
+Only docProps/core.xml is excluded, because Packer.toBuffer() stamps wall-clock
+timestamps - established empirically from two runs at the same HEAD, with
+word/document.xml structurally protected against exclusion.
+The reviewer noted AC-6 is in fact provable by CONSTRUCTION and does not need
+the harness: the other four generators are byte-identical AND none of them
+imports docx-professional.ts - only route.ts does. The harness is corroboration
+on top of a proof.
+Failing-first: section orders hardcoded in the generator -> the four others
+stayed identical while professional's word/document.xml diffed, the sidebar
+collapsing from the seeded order back to default; and the new E2E went red at
+`expect(training).toBeLessThan(languages)` with Expected: < 169, Received: 240.
+
+FINDINGS (AC-5)
+
+F-1 professional's titleGap/sectionGap only COINCIDE with the shared defaults.
+  A resume storing a non-default titleGap gets it honoured by neither Preview
+  nor DOCX. Persistence of Part 1's D-4 and D-6.
+
+F-2 Of the model's typography properties, only fontScale reaches DOCX at all.
+  titleFontSize, contactFontSize, sectionTitleFontSize and sectionDescFontSize
+  have no transport; FONT_SIZES are per-template identity stand-ins,
+  deliberately untouched per Part 1's US-002 decision and
+  .claude/rules/resumes.md.
+
+F-3 FIXED, and its original rationale withdrawn. docx-professional.ts carried
+  `console.log('[DOCX Sidebar Debug] ...')` on EVERY export - the only
+  console.log in any of the five generators, an outlier rather than house
+  style. It was first deferred as "left rather than widening the diff"; the
+  reviewer correctly pointed out that a console.log cannot alter a byte of
+  word/document.xml, so that cost did not exist. Deleted. The recorded line
+  number was also stale (174 -> 220), corrected.
+
+F-4 FOR US-007, AND IT RE-SCOPES THAT STORY. docx-creative.ts references NONE
+  of sidebarOrder, mainContentOrder, hiddenSidebarSections or
+  hiddenMainSections. Confirmed two ways: grep returns zero, and hashing the
+  two settings profiles against each other shows professional, modern, classic
+  and minimal all DIFFER while creative is IDENTICAL across full/hidden.
+  Creative is the only template whose output is completely insensitive to
+  section visibility. This is a live Preview<->DOCX divergence shipping today,
+  not a refactor task. US-007 is not "derive creative's layout from the shared
+  model" - it is "implement section order and visibility in creative for the
+  first time". THE PRD SHOULD BE RE-SCOPED BEFORE US-007 IS REACHED.
+
+F-5 FOR US-004. docx-modern.ts carries the identical dead `??` fallback, and
+  also still carries the ORIGINAL stale TS2367 wording in its own comment.
+  US-004 now has a correct template to copy instead.
+
+RESIDUALS RECORDED, NOT FIXED
+R-1 DocxGeneratorSettings types the four section arrays as string[]
+  (docx-helpers.ts:26-29). That is the real weak link the aliasing was reaching
+  for: typing them readonly EditorSidebarId[] / EditorMainId[] would delete the
+  four casts outright. It touches all five generators, so it belongs to a
+  cross-template story, not a per-template one. The rewritten comment names it
+  at the site that suffers from it.
+R-2 diff-capture.mjs compares parts and documentText but not allEntries, so an
+  added or removed binary part - word/media/*, an embedded font - would go
+  unreported. Closed by hand for this run; should be built in before the
+  harness is reused for US-004 to US-007.
+
+Review history:
+- code-reviewer pass 1: FAIL. Critical: the aliasing comment asserted a
+  compile-time guarantee that tsc --strict disproved at exit 0. Major: F-3's
+  deferral rationale did not hold, and its line number was stale.
+- Fixed by making the guarantee real (exhaustive switches + a local never
+  guard), proven by mutation; console.log deleted; F-3 re-recorded.
+- code-reviewer pass 2: PASS. It reproduced the mutation standalone rather than
+  trusting the report, and confirmed the contrast - the same addition against
+  an equivalent if-chain produces NO error, so the switch is the entire
+  mechanism. It also verified the one way a mechanical if->case conversion
+  silently changes behaviour: zero pre-existing break/continue/return inside
+  the seven converted bodies, so nothing was rebound to the new switch.
+  One Minor: the stale TS2367 citation, fixed above.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 the professional DOCX derives its layout from the shared model
+
+FINAL: PASS
