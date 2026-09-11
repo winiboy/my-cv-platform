@@ -32,7 +32,7 @@ import {
   COLORS,
   type DocxGeneratorSettings,
 } from './docx-helpers'
-import { DEFAULT_RESUME_LAYOUT } from '@/lib/layout-settings'
+import type { EditorMainId, EditorSidebarId } from '@/lib/layout-settings'
 
 // ============================================================
 // FONT SIZE CONSTANTS (matching professional-template.tsx)
@@ -55,8 +55,36 @@ const LINE_HEIGHTS = {
   HEADING: 1.2,
 }
 
-// Spacing constants (in px, will be converted to twips)
-// These MUST match the Preview exactly
+/**
+ * Spacing in px, converted to twips at use. These MUST match the Preview.
+ *
+ * TITLE_GAP AND SECTION_GAP ARE DELIBERATELY NOT READ FROM THE SHARED MODEL.
+ *
+ * `DEFAULT_RESUME_LAYOUT` carries `titleGap: 8` and `sectionGap: 12`, the same
+ * two numbers, which makes them look like duplicated defaults waiting to be
+ * replaced by a reference. They are not, for two independent reasons, and
+ * substituting the reference would be a regression in both:
+ *
+ *  1. `professional-template.tsx:57-58` hardcodes the identical pair and takes
+ *     no `titleGap`/`sectionGap` prop at all — Part 1's finding D-6. Pointing
+ *     this file at the model while the Preview stays fixed means the day
+ *     anyone retunes the shared default, the DOCX moves and the Preview does
+ *     not. That is a NEW Preview/DOCX divergence, which this part's FAIL
+ *     conditions forbid and `.claude/rules/exports.md` makes the contract.
+ *
+ *  2. There is no transport for a user's own value even if both surfaces did
+ *     honour it: `DocxGeneratorSettings` declares no gap keys — Part 1's D-4 —
+ *     so the reference could only ever resolve to the default, never to what
+ *     the resume actually stores. It would state a dependency that does not
+ *     exist.
+ *
+ * Moving these two is a paired change to this file AND the React template, and
+ * belongs to whatever story decides the gap controls should work. It is not a
+ * cleanup to be done in passing here.
+ *
+ * The remaining three mirror Tailwind classes in the Preview, not model
+ * properties; the model has no key for any of them.
+ */
 const SPACING = {
   TITLE_GAP: 8,
   SECTION_GAP: 12,              // marginBottom on section titles
@@ -65,9 +93,56 @@ const SPACING = {
   EXPERIENCE_ITEM_SPACING: 24,  // space-y-6 between experience items
 }
 
-// Section type definitions
-type SidebarSectionId = 'keyAchievements' | 'skills' | 'languages' | 'training'
-type MainContentSectionId = 'summary' | 'experience' | 'education'
+/**
+ * The section vocabulary, taken from the shared layout model rather than
+ * restated here.
+ *
+ * These were two independent unions naming the ids the model already defines.
+ * A local copy compiles happily while the model moves underneath it, so the
+ * generator could render a section list that no longer matches the Preview's.
+ * Aliasing gives two guarantees, and they are not symmetric:
+ *
+ *  - REMOVING or RENAMING an id in the model breaks this file on its own: the
+ *    case clauses below stop naming members of the union, and each one fails
+ *    with TS2678 — `Type '"training"' is not comparable to type
+ *    '"keyAchievements" | "skills" | "languages"'`. (Verified by deleting
+ *    `training` from `VALID_SIDEBAR_IDS` and running `pnpm typecheck`.)
+ *
+ *  - ADDING an id is caught only because the dispatches below are `switch`
+ *    statements ending in `assertExhaustiveSection`. The alias alone would not
+ *    catch it: `DocxGeneratorSettings` types the order arrays as `string[]`
+ *    (`docx-helpers.ts:26-29`), so the casts at the top of the generator are
+ *    unchecked in both directions, and an `if`-chain has no notion of being
+ *    complete. A new id would have flowed through the cast, matched no branch,
+ *    and vanished from the export while the Preview showed it.
+ *
+ * `professional-template.tsx` aliases the same two types for the same reason,
+ * so the Preview and the DOCX now take their section names from one place.
+ */
+type SidebarSectionId = EditorSidebarId
+type MainContentSectionId = EditorMainId
+
+/**
+ * Compile-time exhaustiveness guard for the two section dispatches.
+ *
+ * `switch` narrows its subject to `never` in `default` only while every member
+ * of the union has a case, so adding an id to `EditorSidebarId` or
+ * `EditorMainId` without adding a rendering branch here stops compiling. That
+ * — not the type aliases by themselves — is what makes a silently dropped
+ * section impossible.
+ *
+ * It deliberately does NOT throw. The parameter type makes the call
+ * unreachable for a well-typed caller, and the route already filters the id
+ * lists through the shared model (`resolveResumeLayout`) before they reach any
+ * generator, so nothing valid can land here. Throwing would only convert a
+ * stray id in stored layout state into a failed download — a behavioural
+ * change that belongs to whatever story decides how exports should react to
+ * unparseable layout state, not to a type-safety fix.
+ */
+function assertExhaustiveSection(sectionId: never): void {
+  // Referenced so the parameter is not reported unused; intentionally inert.
+  return sectionId
+}
 
 // ============================================================
 // PROFESSIONAL TEMPLATE DOCX GENERATOR
@@ -122,12 +197,17 @@ export async function generateProfessionalDocx(
     description: project.description || ''
   }))
 
-  // Calculate sidebar color from hue, saturation, and brightness
-  const sidebarColorHex = hslToHex(
-    sidebarHue,
-    settings.sidebarSaturation ?? DEFAULT_RESUME_LAYOUT.sidebarSaturation,
-    sidebarBrightness,
-  )
+  // Calculate sidebar color from hue, saturation, and brightness.
+  //
+  // All three components come from the model. A `?? DEFAULT_RESUME_LAYOUT
+  // .sidebarSaturation` stood on the middle one and could never fire —
+  // `DocxGeneratorSettings.sidebarSaturation` is a required number, so the
+  // route always supplies it — which made it a generator-side default for a
+  // value the model already carries, the thing FR-4 forbids. Removing it also
+  // makes the type system the guard: were the field ever made optional, this
+  // line would fail to compile rather than quietly resolve to a colour the
+  // Preview is not showing.
+  const sidebarColorHex = hslToHex(sidebarHue, settings.sidebarSaturation, sidebarBrightness)
 
   // Calculate scaled font sizes
   const scaledFontSizes = {
@@ -169,9 +249,7 @@ export async function generateProfessionalDocx(
   // ============================================================
   const sidebarParagraphs: Paragraph[] = []
 
-  // DEBUG: Log the actual spacing value being applied
   const sidebarSpacingTwips = pxToTwips(sidebarTopMargin)
-  console.log('[DOCX Sidebar Debug] sidebarTopMargin px:', sidebarTopMargin, '-> twips:', sidebarSpacingTwips)
 
   // Contact Name with sidebarTopMargin gap after
   sidebarParagraphs.push(
@@ -202,340 +280,356 @@ export async function generateProfessionalDocx(
     const isLastSection = index === visibleSidebarSections.length - 1
     const sectionSpacingAfter = isLastSection ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM)
 
-    if (sectionId === 'keyAchievements' && keyAchievements.length > 0) {
-      // Section title with underline
-      sidebarParagraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: (dict as any).resumes?.template?.keyAchievements || 'Key Achievements',
-              bold: true,
-              size: scaledFontSizes.sectionTitle,
-              color: COLORS.WHITE,
-              font: primaryFont,
-            }),
-          ],
-          spacing: { after: pxToTwips(16) }, // mb-4 in Preview
-          border: {
-            bottom: {
-              color: COLORS.WHITE,
-              space: 1,
-              style: BorderStyle.SINGLE,
-              size: 6,
-            },
-          },
-        })
-      )
-
-      // Achievement items - space-y-4 (16px) in Preview
-      keyAchievements.forEach((achievement: any, i: number) => {
-        const isLastItem = i === keyAchievements.length - 1
-        // Last item of section gets section margin (32px), others get item spacing (16px)
-        const itemEndSpacing = isLastItem
-          ? (isLastSection ? 0 : sectionSpacingAfter)
-          : pxToTwips(16)
-
-        sidebarParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: achievement.title,
-                bold: true,
-                size: scaledFontSizes.jobTitle,
-                color: COLORS.WHITE,
-                font: primaryFont,
-              }),
-            ],
-            spacing: { after: achievement.description ? pxToTwips(4) : itemEndSpacing },
-          })
-        )
-        if (achievement.description) {
-          // Extract alignment from HTML if present
-          const descriptionAlignment = extractAlignment(achievement.description) || AlignmentType.JUSTIFIED
-
-          // Check if description contains a list structure
-          if (isHtmlList(achievement.description)) {
-            // Parse list into separate paragraphs for proper DOCX rendering
-            const listParagraphs = parseHtmlListToParagraphs(
-              achievement.description,
-              {
-                size: scaledFontSizes.body,
-                color: COLORS.WHITE,
-                font: primaryFont,
-              },
-              pxToTwips(4), // spacing between list items
-              itemEndSpacing, // spacing after last item
-              undefined, // no indent for sidebar
-              descriptionAlignment
-            )
-            sidebarParagraphs.push(...listParagraphs)
-          } else {
-            // Parse HTML to DOCX TextRuns with formatting preserved
-            const descriptionRuns = parseHtmlToDocxRuns(achievement.description, {
-              size: scaledFontSizes.body,
-              color: COLORS.WHITE,
-              font: primaryFont,
-            })
-
-            sidebarParagraphs.push(
-              new Paragraph({
-                children: descriptionRuns,
-                spacing: { after: itemEndSpacing },
-                alignment: descriptionAlignment,
-              })
-            )
-          }
-        }
-      })
-    }
-
-    if (sectionId === 'skills' && skills.filter((s: any) => s.category && (s.skillsHtml || s.items?.length > 0)).length > 0) {
-      // Section title
-      sidebarParagraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: (dict as any).resumes?.template?.skills || 'Skills',
-              bold: true,
-              size: scaledFontSizes.sectionTitle,
-              color: COLORS.WHITE,
-              font: primaryFont,
-            }),
-          ],
-          spacing: { after: pxToTwips(16) }, // mb-4 in Preview
-          border: {
-            bottom: {
-              color: COLORS.WHITE,
-              space: 1,
-              style: BorderStyle.SINGLE,
-              size: 6,
-            },
-          },
-        })
-      )
-
-      // Skill categories - mb-3 (12px) in Preview
-      const validSkills = skills.filter((s: any) => s.category && (s.skillsHtml || s.items?.length > 0))
-      validSkills.forEach((skillCat: any, i: number) => {
-        const isLastItem = i === validSkills.length - 1
-        // Last item of section gets section margin (32px), others get item spacing (12px)
-        const itemEndSpacing = isLastItem
-          ? (isLastSection ? 0 : sectionSpacingAfter)
-          : pxToTwips(12)
-
-        sidebarParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `${skillCat.category}:`,
-                bold: true,
-                size: scaledFontSizes.skillCategory,
-                color: COLORS.WHITE,
-                font: primaryFont,
-              }),
-            ],
-            spacing: { after: pxToTwips(4) }, // mb-1 in Preview
-          })
-        )
-
-        // Use skillsHtml if available, otherwise fall back to items array
-        if (skillCat.skillsHtml) {
-          // Extract alignment from HTML if present
-          const skillsAlignment = extractAlignment(skillCat.skillsHtml) || AlignmentType.LEFT
-
-          // Check if skillsHtml contains a list structure
-          if (isHtmlList(skillCat.skillsHtml)) {
-            // Parse list into separate paragraphs for proper DOCX rendering
-            const listParagraphs = parseHtmlListToParagraphs(
-              skillCat.skillsHtml,
-              {
-                size: scaledFontSizes.body,
-                color: COLORS.WHITE,
-                font: primaryFont,
-              },
-              pxToTwips(4), // spacing between list items
-              itemEndSpacing, // spacing after last item
-              undefined, // no indent for sidebar
-              skillsAlignment
-            )
-            sidebarParagraphs.push(...listParagraphs)
-          } else {
-            // Non-list content: use inline rendering
-            const skillsRuns = parseHtmlToDocxRuns(skillCat.skillsHtml, {
-              size: scaledFontSizes.body,
-              color: COLORS.WHITE,
-              font: primaryFont,
-            })
-
-            sidebarParagraphs.push(
-              new Paragraph({
-                children: skillsRuns,
-                spacing: { after: itemEndSpacing },
-                alignment: skillsAlignment,
-              })
-            )
-          }
-        } else {
+    switch (sectionId) {
+      case 'keyAchievements': {
+        if (keyAchievements.length > 0) {
+          // Section title with underline
           sidebarParagraphs.push(
             new Paragraph({
               children: [
                 new TextRun({
-                  text: skillCat.items.join(' • '),
+                  text: (dict as any).resumes?.template?.keyAchievements || 'Key Achievements',
+                  bold: true,
+                  size: scaledFontSizes.sectionTitle,
+                  color: COLORS.WHITE,
+                  font: primaryFont,
+                }),
+              ],
+              spacing: { after: pxToTwips(16) }, // mb-4 in Preview
+              border: {
+                bottom: {
+                  color: COLORS.WHITE,
+                  space: 1,
+                  style: BorderStyle.SINGLE,
+                  size: 6,
+                },
+              },
+            })
+          )
+
+          // Achievement items - space-y-4 (16px) in Preview
+          keyAchievements.forEach((achievement: any, i: number) => {
+            const isLastItem = i === keyAchievements.length - 1
+            // Last item of section gets section margin (32px), others get item spacing (16px)
+            const itemEndSpacing = isLastItem
+              ? (isLastSection ? 0 : sectionSpacingAfter)
+              : pxToTwips(16)
+
+            sidebarParagraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: achievement.title,
+                    bold: true,
+                    size: scaledFontSizes.jobTitle,
+                    color: COLORS.WHITE,
+                    font: primaryFont,
+                  }),
+                ],
+                spacing: { after: achievement.description ? pxToTwips(4) : itemEndSpacing },
+              })
+            )
+            if (achievement.description) {
+              // Extract alignment from HTML if present
+              const descriptionAlignment = extractAlignment(achievement.description) || AlignmentType.JUSTIFIED
+
+              // Check if description contains a list structure
+              if (isHtmlList(achievement.description)) {
+                // Parse list into separate paragraphs for proper DOCX rendering
+                const listParagraphs = parseHtmlListToParagraphs(
+                  achievement.description,
+                  {
+                    size: scaledFontSizes.body,
+                    color: COLORS.WHITE,
+                    font: primaryFont,
+                  },
+                  pxToTwips(4), // spacing between list items
+                  itemEndSpacing, // spacing after last item
+                  undefined, // no indent for sidebar
+                  descriptionAlignment
+                )
+                sidebarParagraphs.push(...listParagraphs)
+              } else {
+                // Parse HTML to DOCX TextRuns with formatting preserved
+                const descriptionRuns = parseHtmlToDocxRuns(achievement.description, {
                   size: scaledFontSizes.body,
                   color: COLORS.WHITE,
                   font: primaryFont,
-                }),
-              ],
-              spacing: { after: itemEndSpacing },
-              alignment: AlignmentType.JUSTIFIED,
-            })
-          )
+                })
+
+                sidebarParagraphs.push(
+                  new Paragraph({
+                    children: descriptionRuns,
+                    spacing: { after: itemEndSpacing },
+                    alignment: descriptionAlignment,
+                  })
+                )
+              }
+            }
+          })
         }
-      })
-    }
+        break
+      }
 
-    if (sectionId === 'languages' && languages.length > 0) {
-      // Section title
-      sidebarParagraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: (dict as any).resumes?.template?.languages || 'Languages',
-              bold: true,
-              size: scaledFontSizes.sectionTitle,
-              color: COLORS.WHITE,
-              font: primaryFont,
-            }),
-          ],
-          spacing: { after: pxToTwips(16) }, // mb-4 in Preview
-          border: {
-            bottom: {
-              color: COLORS.WHITE,
-              space: 1,
-              style: BorderStyle.SINGLE,
-              size: 6,
-            },
-          },
-        })
-      )
-
-      // Language items - space-y-2 (8px) in Preview
-      languages.forEach((lang: any, i: number) => {
-        const isLastItem = i === languages.length - 1
-        // Last item of section gets section margin (32px), others get item spacing (8px)
-        const itemEndSpacing = isLastItem
-          ? (isLastSection ? 0 : sectionSpacingAfter)
-          : pxToTwips(8)
-
-        const levelText = (dict as any).resumes?.levels?.[lang.level] || lang.level
-        sidebarParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: lang.language,
-                size: scaledFontSizes.body,
-                color: COLORS.WHITE,
-                font: primaryFont,
-              }),
-              new TextRun({
-                text: '\t' + levelText,
-                size: scaledFontSizes.body,
-                color: COLORS.WHITE,
-                font: primaryFont,
-              }),
-            ],
-            spacing: { after: itemEndSpacing },
-            tabStops: [
-              {
-                type: TabStopType.RIGHT,
-                position: TabStopPosition.MAX,
-              },
-            ],
-          })
-        )
-      })
-    }
-
-    if (sectionId === 'training' && certifications.length > 0) {
-      // Section title
-      sidebarParagraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: (dict as any).resumes?.template?.training || 'Training',
-              bold: true,
-              size: scaledFontSizes.sectionTitle,
-              color: COLORS.WHITE,
-              font: primaryFont,
-            }),
-          ],
-          spacing: { after: pxToTwips(16) }, // mb-4 in Preview
-          border: {
-            bottom: {
-              color: COLORS.WHITE,
-              space: 1,
-              style: BorderStyle.SINGLE,
-              size: 6,
-            },
-          },
-        })
-      )
-
-      // Certification items - space-y-4 (16px) in Preview
-      const visibleCerts = certifications.slice(0, 3)
-      visibleCerts.forEach((cert: any, i: number) => {
-        const isLastItem = i === visibleCerts.length - 1
-        // Last item of section gets section margin (32px), others get item spacing (16px)
-        const itemEndSpacing = isLastItem
-          ? (isLastSection ? 0 : sectionSpacingAfter)
-          : pxToTwips(16)
-
-        sidebarParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: cert.name,
-                bold: true,
-                size: scaledFontSizes.jobTitle,
-                color: COLORS.WHITE,
-                font: primaryFont,
-              }),
-            ],
-            spacing: { after: pxToTwips(4) }, // mb-1 in Preview
-          })
-        )
-        sidebarParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: cert.issuer,
-                size: scaledFontSizes.meta,
-                color: COLORS.WHITE,
-                font: primaryFont,
-              }),
-            ],
-            spacing: { after: cert.date ? pxToTwips(2) : itemEndSpacing },
-          })
-        )
-        if (cert.date) {
+      case 'skills': {
+        if (skills.filter((s: any) => s.category && (s.skillsHtml || s.items?.length > 0)).length > 0) {
+          // Section title
           sidebarParagraphs.push(
             new Paragraph({
               children: [
                 new TextRun({
-                  text: new Date(cert.date + '-01').toLocaleDateString(locale as Locale, {
-                    month: 'long',
-                    year: 'numeric',
-                  }),
-                  size: scaledFontSizes.meta,
+                  text: (dict as any).resumes?.template?.skills || 'Skills',
+                  bold: true,
+                  size: scaledFontSizes.sectionTitle,
                   color: COLORS.WHITE,
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: itemEndSpacing },
+              spacing: { after: pxToTwips(16) }, // mb-4 in Preview
+              border: {
+                bottom: {
+                  color: COLORS.WHITE,
+                  space: 1,
+                  style: BorderStyle.SINGLE,
+                  size: 6,
+                },
+              },
             })
           )
+
+          // Skill categories - mb-3 (12px) in Preview
+          const validSkills = skills.filter((s: any) => s.category && (s.skillsHtml || s.items?.length > 0))
+          validSkills.forEach((skillCat: any, i: number) => {
+            const isLastItem = i === validSkills.length - 1
+            // Last item of section gets section margin (32px), others get item spacing (12px)
+            const itemEndSpacing = isLastItem
+              ? (isLastSection ? 0 : sectionSpacingAfter)
+              : pxToTwips(12)
+
+            sidebarParagraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: `${skillCat.category}:`,
+                    bold: true,
+                    size: scaledFontSizes.skillCategory,
+                    color: COLORS.WHITE,
+                    font: primaryFont,
+                  }),
+                ],
+                spacing: { after: pxToTwips(4) }, // mb-1 in Preview
+              })
+            )
+
+            // Use skillsHtml if available, otherwise fall back to items array
+            if (skillCat.skillsHtml) {
+              // Extract alignment from HTML if present
+              const skillsAlignment = extractAlignment(skillCat.skillsHtml) || AlignmentType.LEFT
+
+              // Check if skillsHtml contains a list structure
+              if (isHtmlList(skillCat.skillsHtml)) {
+                // Parse list into separate paragraphs for proper DOCX rendering
+                const listParagraphs = parseHtmlListToParagraphs(
+                  skillCat.skillsHtml,
+                  {
+                    size: scaledFontSizes.body,
+                    color: COLORS.WHITE,
+                    font: primaryFont,
+                  },
+                  pxToTwips(4), // spacing between list items
+                  itemEndSpacing, // spacing after last item
+                  undefined, // no indent for sidebar
+                  skillsAlignment
+                )
+                sidebarParagraphs.push(...listParagraphs)
+              } else {
+                // Non-list content: use inline rendering
+                const skillsRuns = parseHtmlToDocxRuns(skillCat.skillsHtml, {
+                  size: scaledFontSizes.body,
+                  color: COLORS.WHITE,
+                  font: primaryFont,
+                })
+
+                sidebarParagraphs.push(
+                  new Paragraph({
+                    children: skillsRuns,
+                    spacing: { after: itemEndSpacing },
+                    alignment: skillsAlignment,
+                  })
+                )
+              }
+            } else {
+              sidebarParagraphs.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: skillCat.items.join(' • '),
+                      size: scaledFontSizes.body,
+                      color: COLORS.WHITE,
+                      font: primaryFont,
+                    }),
+                  ],
+                  spacing: { after: itemEndSpacing },
+                  alignment: AlignmentType.JUSTIFIED,
+                })
+              )
+            }
+          })
         }
-      })
+        break
+      }
+
+      case 'languages': {
+        if (languages.length > 0) {
+          // Section title
+          sidebarParagraphs.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: (dict as any).resumes?.template?.languages || 'Languages',
+                  bold: true,
+                  size: scaledFontSizes.sectionTitle,
+                  color: COLORS.WHITE,
+                  font: primaryFont,
+                }),
+              ],
+              spacing: { after: pxToTwips(16) }, // mb-4 in Preview
+              border: {
+                bottom: {
+                  color: COLORS.WHITE,
+                  space: 1,
+                  style: BorderStyle.SINGLE,
+                  size: 6,
+                },
+              },
+            })
+          )
+
+          // Language items - space-y-2 (8px) in Preview
+          languages.forEach((lang: any, i: number) => {
+            const isLastItem = i === languages.length - 1
+            // Last item of section gets section margin (32px), others get item spacing (8px)
+            const itemEndSpacing = isLastItem
+              ? (isLastSection ? 0 : sectionSpacingAfter)
+              : pxToTwips(8)
+
+            const levelText = (dict as any).resumes?.levels?.[lang.level] || lang.level
+            sidebarParagraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: lang.language,
+                    size: scaledFontSizes.body,
+                    color: COLORS.WHITE,
+                    font: primaryFont,
+                  }),
+                  new TextRun({
+                    text: '\t' + levelText,
+                    size: scaledFontSizes.body,
+                    color: COLORS.WHITE,
+                    font: primaryFont,
+                  }),
+                ],
+                spacing: { after: itemEndSpacing },
+                tabStops: [
+                  {
+                    type: TabStopType.RIGHT,
+                    position: TabStopPosition.MAX,
+                  },
+                ],
+              })
+            )
+          })
+        }
+        break
+      }
+
+      case 'training': {
+        if (certifications.length > 0) {
+          // Section title
+          sidebarParagraphs.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: (dict as any).resumes?.template?.training || 'Training',
+                  bold: true,
+                  size: scaledFontSizes.sectionTitle,
+                  color: COLORS.WHITE,
+                  font: primaryFont,
+                }),
+              ],
+              spacing: { after: pxToTwips(16) }, // mb-4 in Preview
+              border: {
+                bottom: {
+                  color: COLORS.WHITE,
+                  space: 1,
+                  style: BorderStyle.SINGLE,
+                  size: 6,
+                },
+              },
+            })
+          )
+
+          // Certification items - space-y-4 (16px) in Preview
+          const visibleCerts = certifications.slice(0, 3)
+          visibleCerts.forEach((cert: any, i: number) => {
+            const isLastItem = i === visibleCerts.length - 1
+            // Last item of section gets section margin (32px), others get item spacing (16px)
+            const itemEndSpacing = isLastItem
+              ? (isLastSection ? 0 : sectionSpacingAfter)
+              : pxToTwips(16)
+
+            sidebarParagraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: cert.name,
+                    bold: true,
+                    size: scaledFontSizes.jobTitle,
+                    color: COLORS.WHITE,
+                    font: primaryFont,
+                  }),
+                ],
+                spacing: { after: pxToTwips(4) }, // mb-1 in Preview
+              })
+            )
+            sidebarParagraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: cert.issuer,
+                    size: scaledFontSizes.meta,
+                    color: COLORS.WHITE,
+                    font: primaryFont,
+                  }),
+                ],
+                spacing: { after: cert.date ? pxToTwips(2) : itemEndSpacing },
+              })
+            )
+            if (cert.date) {
+              sidebarParagraphs.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: new Date(cert.date + '-01').toLocaleDateString(locale as Locale, {
+                        month: 'long',
+                        year: 'numeric',
+                      }),
+                      size: scaledFontSizes.meta,
+                      color: COLORS.WHITE,
+                      font: primaryFont,
+                    }),
+                  ],
+                  spacing: { after: itemEndSpacing },
+                })
+              )
+            }
+          })
+        }
+        break
+      }
+      default:
+        assertExhaustiveSection(sectionId)
     }
   })
 
@@ -609,232 +703,55 @@ export async function generateProfessionalDocx(
     const isLastSection = index === visibleMainSections.length - 1
     const sectionSpacingAfter = isLastSection ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM)
 
-    if (sectionId === 'summary' && resume.summary) {
-      // Section title with underline
-      mainContentParagraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: (dict as any).resumes?.template?.summary || 'Summary',
-              bold: true,
-              size: scaledFontSizes.resumeSectionTitle,
-              color: COLORS.DARK_HEADING,
-              font: primaryFont,
-            }),
-          ],
-          spacing: { after: pxToTwips(SPACING.SECTION_GAP) },
-          border: {
-            bottom: {
-              color: COLORS.DARK_HEADING,
-              space: 1,
-              style: BorderStyle.SINGLE,
-              size: 6,
-            },
-          },
-        })
-      )
-
-      // Extract alignment from HTML if present
-      const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.JUSTIFIED
-
-      // Summary text - check if it contains a list structure
-      if (isHtmlList(resume.summary)) {
-        // Parse list into separate paragraphs for proper DOCX rendering
-        const listParagraphs = parseHtmlListToParagraphs(
-          resume.summary,
-          {
-            size: scaledFontSizes.body,
-            color: COLORS.BODY_TEXT,
-            font: primaryFont,
-          },
-          pxToTwips(4), // spacing between list items
-          sectionSpacingAfter, // spacing after last item
-          { right: mainContentRightIndent }, // indent
-          summaryAlignment
-        )
-        mainContentParagraphs.push(...listParagraphs)
-      } else {
-        // Non-list content: use inline rendering
-        const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
-          size: scaledFontSizes.body,
-          color: COLORS.BODY_TEXT,
-          font: primaryFont,
-        })
-
-        mainContentParagraphs.push(
-          new Paragraph({
-            children: summaryRuns,
-            alignment: summaryAlignment,
-            indent: { right: mainContentRightIndent },
-            spacing: {
-              after: sectionSpacingAfter,
-              line: Math.round(240 * LINE_HEIGHTS.BODY),
-              lineRule: LineRuleType.AUTO,
-            },
-          })
-        )
-      }
-    }
-
-    if (sectionId === 'experience' && experiences.length > 0) {
-      // Section title
-      mainContentParagraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: (dict as any).resumes?.template?.experience || 'Experience',
-              bold: true,
-              size: scaledFontSizes.sectionTitle,
-              color: COLORS.DARK_HEADING,
-              font: primaryFont,
-            }),
-          ],
-          spacing: { after: pxToTwips(SPACING.SECTION_GAP) },
-          border: {
-            bottom: {
-              color: COLORS.DARK_HEADING,
-              space: 1,
-              style: BorderStyle.SINGLE,
-              size: 6,
-            },
-          },
-        })
-      )
-
-      // Experience items
-      experiences.forEach((exp: any, i: number) => {
-        const isLast = i === experiences.length - 1
-
-        // Position + Date
-        mainContentParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: exp.position || '',
-                bold: true,
-                size: scaledFontSizes.jobTitle,
-                color: COLORS.DARK_HEADING,
-                font: primaryFont,
-              }),
-              new TextRun({
-                text: '\t' + formatDateRange(exp.startDate, exp.endDate, exp.current, locale as Locale, dict),
-                size: scaledFontSizes.meta,
-                color: COLORS.DATE_TEXT,
-                font: primaryFont,
-              }),
-            ],
-            spacing: { after: pxToTwips(4) },
-            indent: { right: mainContentRightIndent },
-            tabStops: [
-              {
-                type: TabStopType.RIGHT,
-                position: rightTabPosition,
-              },
-            ],
-          })
-        )
-
-        // Company + Location
-        mainContentParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: exp.company || '',
-                size: scaledFontSizes.meta,
-                color: COLORS.META_TEXT,
-                font: primaryFont,
-              }),
-              ...(exp.location ? [
+    switch (sectionId) {
+      case 'summary': {
+        if (resume.summary) {
+          // Section title with underline
+          mainContentParagraphs.push(
+            new Paragraph({
+              children: [
                 new TextRun({
-                  text: ` • ${exp.location}`,
-                  size: scaledFontSizes.meta,
-                  color: COLORS.META_TEXT,
+                  text: (dict as any).resumes?.template?.summary || 'Summary',
+                  bold: true,
+                  size: scaledFontSizes.resumeSectionTitle,
+                  color: COLORS.DARK_HEADING,
                   font: primaryFont,
                 }),
-              ] : []),
-            ],
-            spacing: { after: pxToTwips(8) },
-            indent: { right: mainContentRightIndent },
-          })
-        )
-
-        // Achievements or Description
-        if (exp.achievements && exp.achievements.length > 0) {
-          exp.achievements.forEach((achievement: string, j: number) => {
-            const isLastAchievement = j === exp.achievements.length - 1
-            // Parse achievement HTML to preserve formatting
-            const achievementRuns = parseHtmlToDocxRuns(achievement, {
-              size: scaledFontSizes.body,
-              color: COLORS.BODY_TEXT,
-              font: primaryFont,
-            })
-
-            // Calculate spacing after this achievement:
-            // - Not last achievement: 4px (space-y-1)
-            // - Last achievement, not last experience: 24px (space-y-6 between experiences)
-            // - Last achievement, last experience, not last section: 32px (mb-8 between sections)
-            // - Last achievement, last experience, last section: 0
-            const achievementSpacingAfter = !isLastAchievement
-              ? pxToTwips(4)
-              : !isLast
-                ? pxToTwips(SPACING.EXPERIENCE_ITEM_SPACING)
-                : isLastSection
-                  ? 0
-                  : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM)
-
-            mainContentParagraphs.push(
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: '• ',
-                    size: scaledFontSizes.body,
-                    color: COLORS.DARK_HEADING,
-                    font: primaryFont,
-                  }),
-                  ...achievementRuns,
-                ],
-                spacing: {
-                  after: achievementSpacingAfter,
-                  line: Math.round(240 * LINE_HEIGHTS.BODY),
-                  lineRule: LineRuleType.AUTO,
+              ],
+              spacing: { after: pxToTwips(SPACING.SECTION_GAP) },
+              border: {
+                bottom: {
+                  color: COLORS.DARK_HEADING,
+                  space: 1,
+                  style: BorderStyle.SINGLE,
+                  size: 6,
                 },
-                indent: { right: mainContentRightIndent },
-              })
-            )
-          })
-        } else if (exp.description) {
-          // Calculate spacing after description:
-          // - Not last experience: 24px (space-y-6 between experiences)
-          // - Last experience, not last section: 32px (mb-8 between sections)
-          // - Last experience, last section: 0
-          const descSpacingAfter = !isLast
-            ? pxToTwips(SPACING.EXPERIENCE_ITEM_SPACING)
-            : isLastSection
-              ? 0
-              : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM)
+              },
+            })
+          )
 
           // Extract alignment from HTML if present
-          const descAlignment = extractAlignment(exp.description) || AlignmentType.JUSTIFIED
+          const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.JUSTIFIED
 
-          // Check if description contains a list structure
-          if (isHtmlList(exp.description)) {
+          // Summary text - check if it contains a list structure
+          if (isHtmlList(resume.summary)) {
             // Parse list into separate paragraphs for proper DOCX rendering
             const listParagraphs = parseHtmlListToParagraphs(
-              exp.description,
+              resume.summary,
               {
                 size: scaledFontSizes.body,
                 color: COLORS.BODY_TEXT,
                 font: primaryFont,
               },
               pxToTwips(4), // spacing between list items
-              descSpacingAfter, // spacing after last item
+              sectionSpacingAfter, // spacing after last item
               { right: mainContentRightIndent }, // indent
-              descAlignment
+              summaryAlignment
             )
             mainContentParagraphs.push(...listParagraphs)
           } else {
-            // Parse description HTML to preserve formatting
-            const descRuns = parseHtmlToDocxRuns(exp.description, {
+            // Non-list content: use inline rendering
+            const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
               size: scaledFontSizes.body,
               color: COLORS.BODY_TEXT,
               font: primaryFont,
@@ -842,140 +759,330 @@ export async function generateProfessionalDocx(
 
             mainContentParagraphs.push(
               new Paragraph({
-                children: descRuns,
+                children: summaryRuns,
+                alignment: summaryAlignment,
+                indent: { right: mainContentRightIndent },
                 spacing: {
-                  after: descSpacingAfter,
+                  after: sectionSpacingAfter,
                   line: Math.round(240 * LINE_HEIGHTS.BODY),
                   lineRule: LineRuleType.AUTO,
                 },
-                alignment: descAlignment,
-                indent: { right: mainContentRightIndent },
               })
             )
           }
         }
-      })
+        break
+      }
 
-      // Note: Section spacing is handled by the last item's spacing.after
-      // Do NOT add an empty paragraph here - it causes double spacing
-    }
-
-    if (sectionId === 'education' && education.length > 0) {
-      // Section title
-      mainContentParagraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: (dict as any).resumes?.template?.education || 'Education',
-              bold: true,
-              size: scaledFontSizes.sectionTitle,
-              color: COLORS.DARK_HEADING,
-              font: primaryFont,
-            }),
-          ],
-          spacing: { after: pxToTwips(SPACING.SECTION_GAP) },
-          border: {
-            bottom: {
-              color: COLORS.DARK_HEADING,
-              space: 1,
-              style: BorderStyle.SINGLE,
-              size: 6,
-            },
-          },
-        })
-      )
-
-      // Education items
-      education.forEach((edu: any, i: number) => {
-        const isLast = i === education.length - 1
-        const inText = (dict as any).resumes?.template?.in || 'in'
-
-        // Degree + Field + Date
-        mainContentParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: edu.degree || '',
-                bold: true,
-                size: scaledFontSizes.jobTitle,
-                color: COLORS.DARK_HEADING,
-                font: primaryFont,
-              }),
-              ...(edu.field ? [
-                new TextRun({
-                  text: ` ${inText} ${edu.field}`,
-                  size: scaledFontSizes.jobTitle,
-                  color: COLORS.DARK_HEADING,
-                  font: primaryFont,
-                }),
-              ] : []),
-              new TextRun({
-                text: '\t' + formatDateRange(edu.startDate, edu.endDate, false, locale as Locale, dict),
-                size: scaledFontSizes.meta,
-                color: COLORS.DATE_TEXT,
-                font: primaryFont,
-              }),
-            ],
-            spacing: { after: pxToTwips(4) },
-            indent: { right: mainContentRightIndent },
-            tabStops: [
-              {
-                type: TabStopType.RIGHT,
-                position: rightTabPosition,
-              },
-            ],
-          })
-        )
-
-        // School + Location
-        mainContentParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: edu.school || '',
-                size: scaledFontSizes.meta,
-                color: COLORS.META_TEXT,
-                font: primaryFont,
-              }),
-              ...((edu as any).location ? [
-                new TextRun({
-                  text: `\t${(edu as any).location}`,
-                  size: scaledFontSizes.meta,
-                  color: COLORS.DATE_TEXT,
-                  font: primaryFont,
-                }),
-              ] : []),
-            ],
-            spacing: { after: edu.gpa ? pxToTwips(4) : (isLast && isLastSection ? 0 : pxToTwips(16)) },
-            indent: { right: mainContentRightIndent },
-            tabStops: [
-              {
-                type: TabStopType.RIGHT,
-                position: rightTabPosition,
-              },
-            ],
-          })
-        )
-
-        // GPA if available
-        if (edu.gpa) {
-          const gpaText = (dict as any).resumes?.template?.gpa || 'GPA'
+      case 'experience': {
+        if (experiences.length > 0) {
+          // Section title
           mainContentParagraphs.push(
             new Paragraph({
               children: [
                 new TextRun({
-                  text: `${gpaText}: ${edu.gpa}`,
-                  size: scaledFontSizes.meta,
-                  color: COLORS.META_TEXT,
+                  text: (dict as any).resumes?.template?.experience || 'Experience',
+                  bold: true,
+                  size: scaledFontSizes.sectionTitle,
+                  color: COLORS.DARK_HEADING,
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: isLast && isLastSection ? 0 : pxToTwips(16) },
-              indent: { right: mainContentRightIndent },
+              spacing: { after: pxToTwips(SPACING.SECTION_GAP) },
+              border: {
+                bottom: {
+                  color: COLORS.DARK_HEADING,
+                  space: 1,
+                  style: BorderStyle.SINGLE,
+                  size: 6,
+                },
+              },
             })
           )
+
+          // Experience items
+          experiences.forEach((exp: any, i: number) => {
+            const isLast = i === experiences.length - 1
+
+            // Position + Date
+            mainContentParagraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: exp.position || '',
+                    bold: true,
+                    size: scaledFontSizes.jobTitle,
+                    color: COLORS.DARK_HEADING,
+                    font: primaryFont,
+                  }),
+                  new TextRun({
+                    text: '\t' + formatDateRange(exp.startDate, exp.endDate, exp.current, locale as Locale, dict),
+                    size: scaledFontSizes.meta,
+                    color: COLORS.DATE_TEXT,
+                    font: primaryFont,
+                  }),
+                ],
+                spacing: { after: pxToTwips(4) },
+                indent: { right: mainContentRightIndent },
+                tabStops: [
+                  {
+                    type: TabStopType.RIGHT,
+                    position: rightTabPosition,
+                  },
+                ],
+              })
+            )
+
+            // Company + Location
+            mainContentParagraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: exp.company || '',
+                    size: scaledFontSizes.meta,
+                    color: COLORS.META_TEXT,
+                    font: primaryFont,
+                  }),
+                  ...(exp.location ? [
+                    new TextRun({
+                      text: ` • ${exp.location}`,
+                      size: scaledFontSizes.meta,
+                      color: COLORS.META_TEXT,
+                      font: primaryFont,
+                    }),
+                  ] : []),
+                ],
+                spacing: { after: pxToTwips(8) },
+                indent: { right: mainContentRightIndent },
+              })
+            )
+
+            // Achievements or Description
+            if (exp.achievements && exp.achievements.length > 0) {
+              exp.achievements.forEach((achievement: string, j: number) => {
+                const isLastAchievement = j === exp.achievements.length - 1
+                // Parse achievement HTML to preserve formatting
+                const achievementRuns = parseHtmlToDocxRuns(achievement, {
+                  size: scaledFontSizes.body,
+                  color: COLORS.BODY_TEXT,
+                  font: primaryFont,
+                })
+
+                // Calculate spacing after this achievement:
+                // - Not last achievement: 4px (space-y-1)
+                // - Last achievement, not last experience: 24px (space-y-6 between experiences)
+                // - Last achievement, last experience, not last section: 32px (mb-8 between sections)
+                // - Last achievement, last experience, last section: 0
+                const achievementSpacingAfter = !isLastAchievement
+                  ? pxToTwips(4)
+                  : !isLast
+                    ? pxToTwips(SPACING.EXPERIENCE_ITEM_SPACING)
+                    : isLastSection
+                      ? 0
+                      : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM)
+
+                mainContentParagraphs.push(
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: '• ',
+                        size: scaledFontSizes.body,
+                        color: COLORS.DARK_HEADING,
+                        font: primaryFont,
+                      }),
+                      ...achievementRuns,
+                    ],
+                    spacing: {
+                      after: achievementSpacingAfter,
+                      line: Math.round(240 * LINE_HEIGHTS.BODY),
+                      lineRule: LineRuleType.AUTO,
+                    },
+                    indent: { right: mainContentRightIndent },
+                  })
+                )
+              })
+            } else if (exp.description) {
+              // Calculate spacing after description:
+              // - Not last experience: 24px (space-y-6 between experiences)
+              // - Last experience, not last section: 32px (mb-8 between sections)
+              // - Last experience, last section: 0
+              const descSpacingAfter = !isLast
+                ? pxToTwips(SPACING.EXPERIENCE_ITEM_SPACING)
+                : isLastSection
+                  ? 0
+                  : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM)
+
+              // Extract alignment from HTML if present
+              const descAlignment = extractAlignment(exp.description) || AlignmentType.JUSTIFIED
+
+              // Check if description contains a list structure
+              if (isHtmlList(exp.description)) {
+                // Parse list into separate paragraphs for proper DOCX rendering
+                const listParagraphs = parseHtmlListToParagraphs(
+                  exp.description,
+                  {
+                    size: scaledFontSizes.body,
+                    color: COLORS.BODY_TEXT,
+                    font: primaryFont,
+                  },
+                  pxToTwips(4), // spacing between list items
+                  descSpacingAfter, // spacing after last item
+                  { right: mainContentRightIndent }, // indent
+                  descAlignment
+                )
+                mainContentParagraphs.push(...listParagraphs)
+              } else {
+                // Parse description HTML to preserve formatting
+                const descRuns = parseHtmlToDocxRuns(exp.description, {
+                  size: scaledFontSizes.body,
+                  color: COLORS.BODY_TEXT,
+                  font: primaryFont,
+                })
+
+                mainContentParagraphs.push(
+                  new Paragraph({
+                    children: descRuns,
+                    spacing: {
+                      after: descSpacingAfter,
+                      line: Math.round(240 * LINE_HEIGHTS.BODY),
+                      lineRule: LineRuleType.AUTO,
+                    },
+                    alignment: descAlignment,
+                    indent: { right: mainContentRightIndent },
+                  })
+                )
+              }
+            }
+          })
+
+          // Note: Section spacing is handled by the last item's spacing.after
+          // Do NOT add an empty paragraph here - it causes double spacing
         }
-      })
+        break
+      }
+
+      case 'education': {
+        if (education.length > 0) {
+          // Section title
+          mainContentParagraphs.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: (dict as any).resumes?.template?.education || 'Education',
+                  bold: true,
+                  size: scaledFontSizes.sectionTitle,
+                  color: COLORS.DARK_HEADING,
+                  font: primaryFont,
+                }),
+              ],
+              spacing: { after: pxToTwips(SPACING.SECTION_GAP) },
+              border: {
+                bottom: {
+                  color: COLORS.DARK_HEADING,
+                  space: 1,
+                  style: BorderStyle.SINGLE,
+                  size: 6,
+                },
+              },
+            })
+          )
+
+          // Education items
+          education.forEach((edu: any, i: number) => {
+            const isLast = i === education.length - 1
+            const inText = (dict as any).resumes?.template?.in || 'in'
+
+            // Degree + Field + Date
+            mainContentParagraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: edu.degree || '',
+                    bold: true,
+                    size: scaledFontSizes.jobTitle,
+                    color: COLORS.DARK_HEADING,
+                    font: primaryFont,
+                  }),
+                  ...(edu.field ? [
+                    new TextRun({
+                      text: ` ${inText} ${edu.field}`,
+                      size: scaledFontSizes.jobTitle,
+                      color: COLORS.DARK_HEADING,
+                      font: primaryFont,
+                    }),
+                  ] : []),
+                  new TextRun({
+                    text: '\t' + formatDateRange(edu.startDate, edu.endDate, false, locale as Locale, dict),
+                    size: scaledFontSizes.meta,
+                    color: COLORS.DATE_TEXT,
+                    font: primaryFont,
+                  }),
+                ],
+                spacing: { after: pxToTwips(4) },
+                indent: { right: mainContentRightIndent },
+                tabStops: [
+                  {
+                    type: TabStopType.RIGHT,
+                    position: rightTabPosition,
+                  },
+                ],
+              })
+            )
+
+            // School + Location
+            mainContentParagraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: edu.school || '',
+                    size: scaledFontSizes.meta,
+                    color: COLORS.META_TEXT,
+                    font: primaryFont,
+                  }),
+                  ...((edu as any).location ? [
+                    new TextRun({
+                      text: `\t${(edu as any).location}`,
+                      size: scaledFontSizes.meta,
+                      color: COLORS.DATE_TEXT,
+                      font: primaryFont,
+                    }),
+                  ] : []),
+                ],
+                spacing: { after: edu.gpa ? pxToTwips(4) : (isLast && isLastSection ? 0 : pxToTwips(16)) },
+                indent: { right: mainContentRightIndent },
+                tabStops: [
+                  {
+                    type: TabStopType.RIGHT,
+                    position: rightTabPosition,
+                  },
+                ],
+              })
+            )
+
+            // GPA if available
+            if (edu.gpa) {
+              const gpaText = (dict as any).resumes?.template?.gpa || 'GPA'
+              mainContentParagraphs.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `${gpaText}: ${edu.gpa}`,
+                      size: scaledFontSizes.meta,
+                      color: COLORS.META_TEXT,
+                      font: primaryFont,
+                    }),
+                  ],
+                  spacing: { after: isLast && isLastSection ? 0 : pxToTwips(16) },
+                  indent: { right: mainContentRightIndent },
+                })
+              )
+            }
+          })
+        }
+        break
+      }
+      default:
+        assertExhaustiveSection(sectionId)
     }
   })
 
