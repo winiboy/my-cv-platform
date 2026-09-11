@@ -613,3 +613,261 @@ Commit:
 - Commit message: ralph: US-003 the professional DOCX derives its layout from the shared model
 
 FINAL: PASS
+
+## US-004: The modern DOCX derives its layout from the shared model
+Status: PASS
+Priority: 4
+Branch: ralph/milestone-c-part-2-exports
+Baseline HEAD: b6b84c3
+
+Scope:
+- Scope check: PASS
+- Modified: src/app/api/resumes/[id]/download-docx/docx-modern.ts
+- Modified: src/lib/layout-settings.ts (two `type` -> `export type` keywords plus
+  comments; no runtime statement changed)
+- New: e2e/docx-modern-layout.spec.ts (2 tests)
+- docx-professional/classic/minimal/creative.ts, docx-helpers.ts and route.ts are
+  BYTE-IDENTICAL. No visual baseline moved. AC-37 respected: one template.
+- Read the generator diff with `git diff -w`. Raw stat says 1212 lines; the
+  if-chain -> switch conversion re-indents ~1000 of them. Not a line-ending
+  artifact - `--ignore-cr-at-eol` leaves it at 1212 while
+  `--ignore-space-change` collapses it to 165/31. Same cost docx-professional.ts
+  paid in US-003.
+
+Checks (all re-run by the orchestrator at final state, after both fix passes):
+- pnpm typecheck: PASS - exit 0
+- pnpm lint: PASS - 306 problems, exactly the branch-point count, under the 311
+  baseline
+- pnpm test: PASS - 293 passed
+- pnpm test:integration: PASS - 27 passed
+- pnpm test:e2e: PASS - 51 passed (49 + 2 new)
+- pnpm test:visual: PASS - 10 passed, baselines UNCHANGED
+  (`git status --porcelain -- e2e/visual` empty)
+- pnpm build:verify: PASS - exit 0
+
+Specialized validation:
+- Export: PASS - both new tests unzip the .docx with JSZip and assert on
+  word/document.xml: positional ordering, a hidden-section absence, and a
+  <w:sz> element. No assertion is satisfiable by an HTTP 200.
+- Visual: PASS - 10/10 unchanged
+- Browser / Database / Security: NOT_APPLICABLE
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no UI change
+- code-reviewer: PASS (second pass). First returned FAIL; see history.
+
+THE HONEST SIZE OF THIS STORY
+AC-1 was already satisfied before the story began, and this was proven rather
+than assumed: the implementer reverted both source files to HEAD, kept the new
+spec, and ran it - 2 passed. mapEditorOrderToModern already lived in
+src/lib/layout-settings.ts and was already consumed by BOTH
+use-resume-layout.ts:219 (the single layout-state owner from US-002) and
+docx-modern.ts, so order and visibility already routed through one shared
+mapping; fontScale already multiplied all 22 FONT_SIZES entries plus the two
+projects literals. The delta of this story is AC-2 plus type-safety hardening,
+and the new spec is regression coverage rather than proof of a change.
+
+Acceptance criteria:
+- AC-01 (order, visibility, typography from the shared model): PASS - largely
+  pre-existing as above; what the diff adds is that the VOCABULARY now derives
+  from the model too, not just the order.
+- AC-02 (duplicated layout constants removed): PASS - see D-1 to D-4.
+- AC-03 (semantics, order, visibility, colour preserved): PASS - `git diff -w`
+  proves body equivalence, and the reviewer confirmed no multi-line string
+  literal exists inside either dispatch for `-w` to hide behind, so that proof
+  is complete rather than partial.
+- AC-04 (validated as generated artifact and its content): PASS.
+- AC-05 (fidelity limitations recorded): PASS - F-1 to F-4 below.
+- AC-06 (the other four templates unchanged, evidenced): PASS - see E-1.
+
+D-1 The locally redeclared unions are gone. ModernSidebarSectionId and
+  ModernMainContentSectionId at :103-104 duplicated ModernSidebarId /
+  ModernMainId, which already existed privately in layout-settings.ts. Those two
+  aliases are now exported and the generator names them.
+
+D-2 Four inline literal-union casts became EditorSidebarId[] / EditorMainId[],
+  and four now-redundant `as Modern*SectionId[]` casts were deleted outright -
+  ModernMappedOrder already supplies those types.
+
+D-3 The dead `?? DEFAULT_RESUME_LAYOUT.sidebarSaturation` was removed, identical
+  to US-003's. The reviewer traced why it can never fire: parseLayoutModel only
+  ever assigns a finite in-range number, resolveResumeLayout spreads the frozen
+  default first, and route.ts passes layout.sidebarSaturation. Runtime no-op.
+
+D-4 DEFAULT_SIDEBAR_ORDER deleted; DEFAULT_MAIN_ORDER replaced by
+  DEFAULT_MODERN_MAIN_ORDER, DERIVED by running mapEditorOrderToModern over
+  DEFAULT_RESUME_LAYOUT rather than restated as a literal. The reviewer
+  confirmed it evaluates to the same ['summary','experience'], and that no
+  import cycle is possible: layout-settings.ts has exactly one import, a
+  type-only one, so it has no runtime module edges at all.
+
+R-1 REACHABILITY, PROVEN BOTH WAYS RATHER THAN ASSUMED
+  The two `.length > 0` fallbacks were not treated alike, because they are not
+  alike.
+  - Sidebar: PROVABLY DEAD, removed. mapEditorOrderToModern builds
+    `['contact', 'education', ...sharedInOrder]` unconditionally, so length is
+    always >= 2. Pinned by an existing test, layout-settings.test.ts:542
+    ('handles fully empty input without producing a broken sidebar'), which
+    asserts ['contact','education'] for the emptiest input the function admits.
+  - Main: REACHABLE, kept. A stored mainContentOrder of ['education'] survives
+    parseIdList (education is in VALID_MAIN_IDS) and survives parseLayoutModel's
+    length guard, then loses its only member to VALID_MODERN_MAIN_IDS. The
+    branch is taken. Deleting it would have been a behaviour change and a FAIL.
+
+THE EXHAUSTIVENESS GUARANTEE, AND WHAT IT IS NOT
+Both dispatches are now exhaustive switches closing on a locally declared,
+deliberately non-throwing assertExhaustiveSection(sectionId: never) - the same
+shape as docx-professional.ts:142, and non-throwing for the same reason: the
+order arrays are string[], so a stray id is representable at runtime, and the
+route already filters through resolveResumeLayout before any generator sees
+them. Throwing would turn stray stored layout state into a failed download.
+
+The comment's claims were verified by mutation by the implementer AND
+independently reproduced by the reviewer:
+  delete 'training' from ModernSidebarId -> TS2678 at docx-modern.ts(960,12)
+  add 'awards' to ModernSidebarId        -> TS2345 at docx-modern.ts(1033,33)
+  rename ModernMainId's 'summary'        -> TS2678 AND TS2345
+TS2367 appears ZERO times in any run. This matters because the equivalent
+comment in docx-professional.ts was wrong twice during US-003 - first about the
+mechanism, then about the diagnostic code.
+
+The reviewer also established what the annotation does NOT buy, by stripping
+`readonly ModernSidebarId[]` and its import specifier while leaving the ADD
+mutation in place: the error set came back byte-identical. The annotation is a
+naming device that gives the exported union a real consumer; the guarantees come
+from the structural path and from the dispatches being switch statements. That
+is now stated in the comment so the next reader does not treat it as
+load-bearing.
+
+Conversion safety: exactly ONE control-flow statement existed in either dispatch
+- `if (!hasContactData) return` in the contact case - and it was carried over
+verbatim with a break added, not "tidied" into a break. Zero break/continue
+elsewhere. The reviewer counted independently and confirmed 5 breaks in the
+sidebar switch, 2 in the main switch, no fall-through.
+
+E-1 THE AC-6 EVIDENCE
+Proven by CONSTRUCTION, then corroborated by harness.
+  By construction: only two source files changed; only route.ts:7 imports
+  docx-modern.ts; docx-helpers.ts and route.ts are untouched; and the
+  layout-settings.ts diff is two `export` keywords on TYPE ALIASES plus
+  comments, which TypeScript erases - so classic, minimal, creative and
+  professional execute byte-identical code.
+  By harness: baseline captured from the clean tree at HEAD BEFORE any edit
+  (the US-003 near-miss was capturing it after editing). Ten documents, five
+  templates x two settings profiles, all 16 zip entries each: IDENTICAL.
+  Modern's own output is unchanged too, which is FR-5 evidence on top of AC-6.
+  US-003's residual R-2 was closed: diff-capture.mjs now compares allEntries
+  first, so an added or removed binary part is reported. docProps/core.xml
+  remains the only exclusion (Packer.toBuffer stamps wall-clock timestamps) and
+  word/document.xml remains structurally unexcludable.
+
+  RECORDED PLAINLY FOR US-005: there is no artifact-level DOCX spec for classic,
+  minimal or creative - e2e/ has them for professional and modern only. AC-6
+  rests on provenance here, which is sound for THIS story but is unavailable to
+  US-005 to US-007, since each will modify the generator it needs to prove
+  unchanged.
+
+AC-4 SENSITIVITY, SINCE THE SPEC CANNOT GO RED AGAINST UNMODIFIED CODE
+AC-1 was already met, so a failing-first run was impossible without weakening
+the spec. Each assertion group was instead proven sensitive by mutating the HEAD
+generator one property at a time:
+  A  orders pinned to generator defaults -> Expected: < 362, Received: 461
+  A2 only mainContentOrder pinned        -> experience/summary ordering failed
+  B  hiddenSidebarSections ignored       -> not.toContain("French") failed
+  C  name size ignores fontScale         -> /<w:sz w:val="68"/ failed
+Every mutation reverted with `git checkout --` and the final capture re-run.
+The second test guards the seed against drifting toward the defaults, including
+`expect(seeded.modernMainOrder.length).toBeGreaterThan(0)`, so the generator's
+own fallback cannot be what makes the ordering assertion pass.
+
+FINDINGS (AC-5)
+
+F-1 FOR US-008, AND NOW A DEMONSTRATED HOLE RATHER THAN A THEORETICAL ONE.
+  modern-template.tsx:17-18 re-declares the section-id unions and :23-24
+  re-declares the default orders - a third copy. The reviewer ran the mutation
+  in the OTHER direction, adding 'awards' to modern-template.tsx's
+  ModernSidebarSectionId ONLY and leaving ModernSidebarId alone:
+  ZERO typecheck errors. So the guarantees run one way only:
+    widen the MODEL    -> 6x TS2322 at the template props. Caught.
+    widen the TEMPLATE -> nothing. A section added to the Preview's vocabulary
+                          renders in the Preview, is invisible to the DOCX, and
+                          the build stays green.
+  That is the silent divergence this PRD exists to remove. Collapsing
+  modern-template.tsx's unions onto ModernSidebarId / ModernMainId is the fix.
+
+F-2 FOR US-008. PREVIEW AND DOCX DISAGREE ON THE EMPTY-MAIN FALLBACK, AND THE
+  PREVIEW IS ARGUABLY THE WRONG ONE. modern-template.tsx:198 falls back with
+  `mainContentOrder || DEFAULT_MAIN_ORDER`; an empty array is truthy so it does
+  NOT trigger, while docx-modern.ts uses `.length > 0`, which does. For a stored
+  mainContentOrder of ['education'] the Preview renders an EMPTY MAIN COLUMN
+  while the DOCX renders summary and experience. Reachable through persisted
+  layout_settings. NOT created by this story - the reviewer confirmed the
+  generator's pre-diff literal and its post-diff derived value are the same two
+  elements in the same order, so the divergence is byte-for-byte what it was at
+  HEAD. Reconciling changes rendered output, which FR-5/AC-29 forbid here.
+  Documented in place at the fallback.
+
+F-3 FOR US-008. The Modern default colours are duplicated:
+  docx-modern.ts:105-106 (DEFAULT_SIDEBAR_COLOR_HEX '333333',
+  DEFAULT_ACCENT_COLOR_HEX 'D4A843') against modern-template.tsx:23-24
+  (DEFAULT_SIDEBAR_COLOR '#333333', DEFAULT_ACCENT_COLOR '#D4A843') - the same
+  values differing only in the '#'. AC-2 is still met as written, because Part 1
+  established no shared home for template colours, so relocating them is US-008
+  scope. Currently duplication without a live consumer: route.ts:240 sets
+  hasCustomColors: true unconditionally, so the else branch reading both
+  constants (docx-modern.ts:430-431) is dead. Retiring that branch would delete
+  both constants and the duplication with them.
+
+F-4 FOR US-008. assertExhaustiveSection is now verbatim in docx-modern.ts:169
+  and docx-professional.ts:142, heading for five copies after US-007.
+  docx-helpers.ts is the obvious home - it already exports the 16 shared symbols
+  these generators draw on. Deferring is correct for THIS story: moving it would
+  touch docx-professional.ts and weaken AC-6's byte-identical evidence for a
+  file this story must not change.
+
+F-5 PRE-EXISTING DOCX FIDELITY GAPS, recorded rather than passed over. The
+  Modern sidebar's rgba(255,255,255,0.6/0.7/0.8) text is flattened to opaque
+  FFFFFF (docx-modern.ts:720, 801, 938, 995, 1016) and main body #374151 is
+  approximated (:1145), because DOCX cannot express alpha in run colour. Skill
+  proficiency bars are dropped - items render as plain text (:847) with no DOCX
+  equivalent for the Preview's progress bars. Neither is introduced here; output
+  is byte-identical.
+
+F-6 PRE-EXISTING, OUT OF SCOPE. docx-modern.ts:1450 (18 * fontScale) and :1503
+  (12 * fontScale) are the only sizes in the file not drawn from FONT_SIZES.
+  Outside both converted dispatches; noted so a future reader does not mistake
+  them for something this story left behind.
+
+Review history:
+- code-reviewer pass 1: FAIL. Major: layout-settings.ts:696-704 justified a new
+  `export` on ModernSidebarId by saying the Modern DOCX generator would name
+  that vocabulary - but nothing imported it, so the export had no consumer and
+  the comment contradicted docx-modern.ts:133-135 in the same diff. This is the
+  THIRD consecutive story in this PRD to ship a comment asserting something
+  unverified, though a weaker instance: a motivation rather than a safety
+  guarantee, and the guarantee comment in this diff was mutated and holds.
+  Minor: an e2e comment claimed "Verified red by mutation" while pointing at a
+  note that records arithmetic, not a mutation run.
+- Fixed by making the claim true rather than rewording it - the generator now
+  imports ModernSidebarId and annotates visibleSidebarSections - and by dropping
+  the unsubstantiated phrase rather than writing down an unrun mutation, which
+  would have been the same defect under correction.
+- code-reviewer pass 2: PASS. It reproduced all three mutations independently,
+  and empirically disproved the one claim offered as reasoning by stripping the
+  annotation and re-running (see above). One Minor: the fix pass had widened a
+  sentence to plural and left 'buys' without a subject - in the very comment the
+  fix existed to make precise. Corrected; the block now also states what the
+  annotation does not buy.
+- An environmental blocker cost one round trip and is worth recording:
+  .claude/hooks/pre-tool-guard.ps1:549 resolves the Ralph contract as
+  `Join-Path $Cwd 'tasks/ralph/prd.json'` with no repo-root resolution, so any
+  agent whose cwd is a subdirectory is told the contract is missing and has
+  every mutation denied. Triggered here by an orchestrator `cd` into the
+  generator directory that persisted into the agent. Worth fixing in the hook,
+  with its tests, as its own change.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-004 the modern DOCX derives its layout from the shared model
+
+FINAL: PASS

@@ -693,11 +693,18 @@ export function extractLayoutSettings(
 
 // ---------- Editor → Modern template section-ID mapping ----------
 
-/** Modern template sidebar section IDs. */
-type ModernSidebarId = 'contact' | 'education' | 'skills' | 'languages' | 'training'
+/**
+ * Modern template sidebar section IDs.
+ *
+ * Exported so the Modern DOCX generator can name the same vocabulary this
+ * module already produces, instead of restating the union a third time. A
+ * private copy in a generator compiles happily while this one moves, which is
+ * exactly how an export comes to render a section list the Preview does not.
+ */
+export type ModernSidebarId = 'contact' | 'education' | 'skills' | 'languages' | 'training'
 
-/** Modern template main-content section IDs. */
-type ModernMainId = 'summary' | 'experience'
+/** Modern template main-content section IDs. Exported for the same reason. */
+export type ModernMainId = 'summary' | 'experience'
 
 /** IDs shared between editor sidebar and Modern sidebar. */
 const SHARED_SIDEBAR_IDS: ReadonlySet<string> = new Set(['skills', 'languages', 'training'])
