@@ -400,6 +400,40 @@ rather than asserted.
       out of the per-template stories because moving it there would have touched
       a second generator and weakened that story's byte-identical evidence.
       *(US-004 F-4.)*
+- [ ] **The classic DOCX stops dropping the skills and projects sections.**
+      *(Added 2026-09-12, from US-005 F-1.)* It renders neither, while the
+      Preview renders both. `mapEditorOrderToClassic` emits only ids present in
+      its input; that input is `mainContentOrder`, typed `readonly
+      EditorMainId[]` and filtered by `parseLayoutModel` against
+      `VALID_MAIN_IDS = ['summary','experience','education']`, so
+      `case 'skills'` and `case 'projects'` are unreachable **by construction**.
+      Confirmed on the artifact: a fixture with two skill categories and one
+      project produced headings `SUMMARY | EXPERIENCE | EDUCATION | LANGUAGES |
+      CERTIFICATIONS`, with those items' text absent from `word/document.xml`.
+      This is **silent content loss shipping today**, not a parity nicety, and
+      it gets a named criterion rather than being absorbed into the generic
+      "section order and visibility match" line above.
+- [ ] **Classic's order and visibility divergence is resolved in whichever
+      direction is chosen deliberately.** *(Added 2026-09-12, from US-005 F-2
+      and F-3.)* `classic-template.tsx` contains zero occurrences of
+      `mainContentOrder`, `hiddenMainSections`, `sidebarOrder` or
+      `hiddenSidebarSections` and renders in hardcoded JSX order — so classic is
+      the **mirror image of creative**: here the DOCX honours order and
+      visibility and the Preview does not. Separately, the classic generator
+      never reads `hiddenSidebarSections`, so **languages and certifications
+      cannot be hidden** — confirmed on the artifact, where a profile hiding
+      `languages` still produced `LANGUAGES`, `French`, `English`, `German`.
+- [ ] **The font-scale divergence is recorded or closed for the three templates
+      that have it.** *(Added 2026-09-12, from US-005 F-4 as widened in
+      review.)* `resume-preview.tsx` passes `fontScale` to `ModernTemplate` and
+      `ProfessionalTemplate` only; **classic, minimal and creative receive
+      none**, while their generators multiply every base size by it. Moving the
+      font-scale slider on one of those templates changes the downloaded DOCX
+      and does not change the Preview — a divergence that widens with a control
+      the user actively operates. Note that repointing the DOCX constants at
+      `DEFAULT_RESUME_LAYOUT` is **not** the fix, per US-003's T-1:
+      `DocxGeneratorSettings` carries no font-size keys, so the reference would
+      resolve to the default while the Preview kept using the user's value.
 - [ ] Every fix above is evidenced against the **generated artifact** and
       against unchanged visual baselines. Closing a divergence must not become
       the story that changes rendered output by accident.
@@ -566,6 +600,33 @@ rather than asserted.
   resume unaided.
 
 ## Amendment History
+
+### 2026-09-12 — after US-005
+
+One change: **US-008 gained three acceptance criteria**, from findings US-005
+produced and its review widened. Approved by the owner in the instruction that
+ran the story. No other story is touched; US-005 itself is already committed and
+this amendment does not revisit it.
+
+The first is the reason for the amendment. US-005's F-1 is **confirmed silent
+content loss** — the classic DOCX renders neither the skills nor the projects
+section while the Preview renders both, and the reviewer established the ids are
+unreachable *by construction* rather than merely filtered at runtime, then
+reproduced it on a generated artifact. US-008's existing criteria would have
+covered it only under the generic "section order and visibility match across all
+three surfaces" line. A confirmed content-loss defect should not depend on
+someone noticing it inside a general parity sweep, so it now has a named
+criterion, exactly as US-004's F-1 to F-4 did.
+
+The second carries US-005's F-2 and F-3: classic is the mirror image of
+creative, with the DOCX honouring order and visibility and the Preview ignoring
+them, plus languages and certifications being unhideable because the generator
+never reads `hiddenSidebarSections`.
+
+The third records a divergence found during review that reaches past classic:
+`fontScale` is passed to modern and professional only, so on classic, minimal
+and creative the font-scale slider changes the DOCX and not the Preview. It is
+listed now rather than after US-006 and US-007 rediscover it separately.
 
 ### 2026-09-11 — after US-004, four stories in
 
