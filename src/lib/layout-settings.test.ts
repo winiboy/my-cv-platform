@@ -4,6 +4,7 @@ import {
   DEFAULT_RESUME_LAYOUT,
   extractLayoutSettings,
   LAYOUT_CONTROL_RANGES,
+  mapEditorOrderToClassic,
   mapEditorOrderToModern,
   MAX_LAYOUT_BLOB_LENGTH,
   migrateSidebarOrder,
@@ -545,6 +546,73 @@ describe('mapEditorOrderToModern', () => {
     expect(result.modernMainOrder).toEqual([])
     expect(result.hiddenModernSidebar).toEqual([])
     expect(result.hiddenModernMain).toEqual([])
+  })
+})
+
+/**
+ * The Classic mapping, relocated here from `docx-classic.ts` by US-005.
+ *
+ * It had no coverage at all while it lived in the generator — nothing imported
+ * it, and the only way to exercise it was to generate a whole document. These
+ * cases pin the behaviour that was relocated, so a later edit to the rule fails
+ * here rather than silently in an export nobody diffs.
+ */
+describe('mapEditorOrderToClassic', () => {
+  it('keeps the editor order of the sections Classic renders', () => {
+    expect(mapEditorOrderToClassic(['experience', 'education', 'summary'])).toEqual([
+      'experience',
+      'education',
+      'summary',
+      'languagesAndCerts',
+    ])
+  })
+
+  it('collapses languages and certifications into one combined section', () => {
+    expect(mapEditorOrderToClassic(['languages', 'summary', 'certifications'])).toEqual([
+      'languagesAndCerts',
+      'summary',
+    ])
+  })
+
+  it('appends the combined section when the input never produced it', () => {
+    expect(mapEditorOrderToClassic(['summary'])).toEqual(['summary', 'languagesAndCerts'])
+  })
+
+  it('never returns an empty order, which the generator relies on', () => {
+    expect(mapEditorOrderToClassic([])).toEqual(['languagesAndCerts'])
+  })
+
+  it('ignores ids Classic has no section for', () => {
+    expect(mapEditorOrderToClassic(['keyAchievements', 'summary'])).toEqual([
+      'summary',
+      'languagesAndCerts',
+    ])
+  })
+
+  it('de-duplicates a repeated id', () => {
+    expect(mapEditorOrderToClassic(['summary', 'summary', 'experience'])).toEqual([
+      'summary',
+      'experience',
+      'languagesAndCerts',
+    ])
+  })
+
+  /**
+   * The Classic default order, stated as what the shared default maps to.
+   *
+   * `docx-classic.ts` used to carry its own six-member `DEFAULT_MAIN_ORDER`
+   * literal claiming Classic shows `skills` and `projects` by default. The real
+   * default produces neither, because neither is an editor main-content id.
+   * That disagreement is the reason the literal was removed, and this case is
+   * what stops an equivalent one being reintroduced.
+   */
+  it('produces neither skills nor projects from the shared default order', () => {
+    expect(mapEditorOrderToClassic(DEFAULT_RESUME_LAYOUT.mainContentOrder)).toEqual([
+      'summary',
+      'experience',
+      'education',
+      'languagesAndCerts',
+    ])
   })
 })
 
