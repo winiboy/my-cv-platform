@@ -39,7 +39,14 @@ import {
   COLORS,
   type DocxGeneratorSettings,
 } from './docx-helpers'
-import { DEFAULT_RESUME_LAYOUT, mapEditorOrderToModern } from '@/lib/layout-settings'
+import {
+  DEFAULT_RESUME_LAYOUT,
+  mapEditorOrderToModern,
+  type EditorMainId,
+  type EditorSidebarId,
+  type ModernMainId,
+  type ModernSidebarId,
+} from '@/lib/layout-settings'
 
 // ============================================================
 // FONT SIZE CONSTANTS (matching modern-template.tsx)
@@ -99,13 +106,76 @@ const SPACING = {
 const DEFAULT_SIDEBAR_COLOR_HEX = '333333'
 const DEFAULT_ACCENT_COLOR_HEX = 'D4A843'
 
-// Modern template section types
-type ModernSidebarSectionId = 'contact' | 'education' | 'skills' | 'languages' | 'training'
-type ModernMainContentSectionId = 'summary' | 'experience'
+/**
+ * The Modern default main-content order, DERIVED from the shared model rather
+ * than restated as a literal.
+ *
+ * `mapEditorOrderToModern` is the one rule that turns an editor order into a
+ * Modern one, so feeding it the shared default order produces the Modern
+ * default by construction: the editor default is
+ * `['summary', 'experience', 'education']`, and the mapping drops `education`
+ * because Modern renders it in the sidebar. The previous literal restated the
+ * result, so a change to `DEFAULT_RESUME_LAYOUT.mainContentOrder` would have
+ * moved the Preview and left this line behind.
+ *
+ * There is no sidebar counterpart because the sidebar never needs one — see
+ * the fallback note in `generateModernDocx`.
+ */
+const DEFAULT_MODERN_MAIN_ORDER: readonly ModernMainId[] = mapEditorOrderToModern(
+  DEFAULT_RESUME_LAYOUT.sidebarOrder,
+  DEFAULT_RESUME_LAYOUT.mainContentOrder,
+  DEFAULT_RESUME_LAYOUT.hiddenSidebarSections,
+  DEFAULT_RESUME_LAYOUT.hiddenMainSections,
+).modernMainOrder
 
-// Default section orders (matching modern-template.tsx)
-const DEFAULT_SIDEBAR_ORDER: ModernSidebarSectionId[] = ['contact', 'education', 'skills', 'languages', 'training']
-const DEFAULT_MAIN_ORDER: ModernMainContentSectionId[] = ['summary', 'experience']
+/**
+ * Compile-time exhaustiveness guard for the two section dispatches below.
+ *
+ * `ModernSidebarId` and `ModernMainId` reach this file from the shared model —
+ * imported by name, and structurally as `ModernMappedOrder`, the return type of
+ * `mapEditorOrderToModern` — rather than being re-declared here, which they
+ * were until US-004. The two guarantees that sharing buys are not symmetric,
+ * and each was verified by mutating `layout-settings.ts` and running
+ * `pnpm typecheck`:
+ *
+ *  - REMOVING an id breaks this file because the union is the model's: a case
+ *    clause stops naming a member. Deleting `'training'` from
+ *    `ModernSidebarId` gives
+ *    `TS2678: Type '"training"' is not comparable to type 'ModernSidebarId'`.
+ *
+ *  - ADDING an id is caught only by these dispatches being `switch`
+ *    statements that end in `assertExhaustiveSection`, which narrows its
+ *    subject to `never` in `default` only while every member has a case.
+ *    Adding `'awards'` gives
+ *    `TS2345: Argument of type '"awards"' is not assignable to parameter of
+ *    type 'never'`. Sharing the union alone would not catch it: the order
+ *    arrays arrive as `string[]`, so the casts above are unchecked in that
+ *    direction, and an `if`-chain has no notion of being complete — a new id
+ *    would have matched no branch and vanished from the export while the
+ *    Preview showed it.
+ *
+ * A RENAME trips both, being a removal plus an addition: renaming
+ * `ModernMainId`'s `'summary'` to `'profile'` reports TS2678 and TS2345
+ * together.
+ *
+ * It deliberately does NOT throw, for the same reason as its twin in
+ * `docx-professional.ts`: `DocxGeneratorSettings` types the order arrays as
+ * `string[]`, so a stray id is representable at runtime, and the route already
+ * filters the lists through the shared model (`resolveResumeLayout`) before
+ * any generator sees them. Throwing would turn stray stored layout state into
+ * a failed download — a behavioural change belonging to whatever story decides
+ * how exports should react to unparseable layout state, not to a type fix.
+ *
+ * The naming is not itself a check: the `readonly ModernSidebarId[]` annotation
+ * on `visibleSidebarSections` was stripped along with its import specifier, the
+ * ADD mutation left in place, and the error set came back byte-identical. That
+ * annotation gives the shared union a named consumer; the guarantees above come
+ * from the structural path and from the dispatches being `switch` statements.
+ */
+function assertExhaustiveSection(sectionId: never): void {
+  // Referenced so the parameter is not reported unused; intentionally inert.
+  return sectionId
+}
 
 /**
  * Derive accent color hex from sidebar HSL values.
@@ -285,26 +355,49 @@ export async function generateModernDocx(
   // The editor uses generic IDs (e.g. 'keyAchievements', 'education' in main)
   // while Modern has 'contact' and 'education' in the sidebar.
   // mapEditorOrderToModern handles this translation, matching Live Preview behavior.
+  //
+  // The casts name the shared editor vocabulary instead of re-listing its
+  // members: `DocxGeneratorSettings` declares these four as `string[]`, so a
+  // cast is unavoidable here, but a cast to `EditorSidebarId[]` follows the
+  // model when an id is added or renamed, where the hand-copied literal unions
+  // that stood here did not.
   const {
-    modernSidebarOrder,
+    modernSidebarOrder: sidebarOrder,
     modernMainOrder,
-    hiddenModernSidebar,
-    hiddenModernMain,
+    hiddenModernSidebar: hiddenSidebarSections,
+    hiddenModernMain: hiddenMainSections,
   } = mapEditorOrderToModern(
-    sidebarOrderRaw as ('keyAchievements' | 'skills' | 'languages' | 'training')[],
-    mainContentOrderRaw as ('summary' | 'experience' | 'education')[],
-    hiddenSidebarRaw as ('keyAchievements' | 'skills' | 'languages' | 'training')[],
-    hiddenMainRaw as ('summary' | 'experience' | 'education')[],
+    sidebarOrderRaw as EditorSidebarId[],
+    mainContentOrderRaw as EditorMainId[],
+    hiddenSidebarRaw as EditorSidebarId[],
+    hiddenMainRaw as EditorMainId[],
   )
 
-  const sidebarOrder = (modernSidebarOrder.length > 0
-    ? modernSidebarOrder
-    : DEFAULT_SIDEBAR_ORDER) as ModernSidebarSectionId[]
-  const mainContentOrder = (modernMainOrder.length > 0
-    ? modernMainOrder
-    : DEFAULT_MAIN_ORDER) as ModernMainContentSectionId[]
-  const hiddenSidebarSections = hiddenModernSidebar as ModernSidebarSectionId[]
-  const hiddenMainSections = hiddenModernMain as ModernMainContentSectionId[]
+  /**
+   * The main column's fallback is kept; the sidebar's was removed as dead.
+   *
+   * `mapEditorOrderToModern` builds its sidebar result as
+   * `['contact', 'education', ...sharedInOrder]`, so it always has at least
+   * two members and `modernSidebarOrder.length > 0` could never be false.
+   * (`layout-settings.test.ts`, 'handles fully empty input without producing a
+   * broken sidebar', pins that for the emptiest possible input.)
+   *
+   * The main result is a plain filter and CAN come back empty — a stored
+   * `mainContentOrder` of `['education']` parses as valid, then loses its only
+   * member to the mapping because Modern renders education in the sidebar. The
+   * branch is reachable, so it stays, and the value it falls back to is now
+   * derived from the shared default rather than restated.
+   *
+   * It is NOT reconciled with the Preview here, and that is a known
+   * divergence rather than an oversight. `modern-template.tsx:198` falls back
+   * with `mainContentOrder || DEFAULT_MAIN_ORDER`, which an empty array does
+   * not trigger — so for that same stored value the Preview renders an empty
+   * main column while this generator renders summary and experience. Making
+   * them agree changes rendered output, which this story forbids; it is
+   * recorded as a finding for the parity story.
+   */
+  const mainContentOrder: readonly ModernMainId[] =
+    modernMainOrder.length > 0 ? modernMainOrder : DEFAULT_MODERN_MAIN_ORDER
 
   // Load translations
   const dict = getTranslations(locale as Locale, 'common')
@@ -328,7 +421,13 @@ export async function generateModernDocx(
   let sidebarColorHex: string
   let accentColorHex: string
 
-  const sidebarSaturation = settings.sidebarSaturation ?? DEFAULT_RESUME_LAYOUT.sidebarSaturation
+  // All three colour components come from the model. A `?? DEFAULT_RESUME_LAYOUT
+  // .sidebarSaturation` stood on this one and could never fire —
+  // `DocxGeneratorSettings.sidebarSaturation` is a required number, so the
+  // route always supplies it — which made it a generator-side default for a
+  // value the model already carries, the thing FR-4 forbids. The same dead
+  // fallback was removed from `docx-professional.ts` in US-003.
+  const sidebarSaturation = settings.sidebarSaturation
 
   if (hasCustomColors) {
     sidebarColorHex = hslToHex(sidebarHue, sidebarSaturation, sidebarBrightness)
@@ -580,7 +679,7 @@ export async function generateModernDocx(
   }
 
   // Render sidebar sections in order, respecting visibility
-  const visibleSidebarSections = sidebarOrder.filter(
+  const visibleSidebarSections: readonly ModernSidebarId[] = sidebarOrder.filter(
     sectionId => !hiddenSidebarSections.includes(sectionId)
   )
 
@@ -588,323 +687,69 @@ export async function generateModernDocx(
     const isLastSection = index === visibleSidebarSections.length - 1
     const sectionSpacingAfter = isLastSection ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_SIDEBAR)
 
-    // --- CONTACT ---
-    if (sectionId === 'contact') {
-      const hasContactData = contact.phone || contact.email || contact.website || contact.linkedin || contact.github || contact.location
-      if (!hasContactData) return
-
-      sidebarParagraphs.push(
-        createSidebarSectionHeader(
-          (dict as any).resumes?.editor?.sections?.contact || 'Contact'
-        )
-      )
-
-      // Contact items: emoji icon + label (uppercase, dimmed) + value (white) per line
-      const contactEntries: { label: string; value: string; icon: string }[] = []
-      if (contact.phone) contactEntries.push({ label: 'Phone', value: contact.phone, icon: '\u{1F4DE}' })
-      if (contact.email) contactEntries.push({ label: 'Email', value: contact.email, icon: '\u{2709}\uFE0F' })
-      if (contact.website) contactEntries.push({ label: 'Website', value: contact.website, icon: '\u{1F310}' })
-      if (contact.linkedin) contactEntries.push({ label: 'LinkedIn', value: contact.linkedin, icon: '\u{1F517}' })
-      if (contact.github) contactEntries.push({ label: 'GitHub', value: contact.github, icon: '\u{1F4BB}' })
-      if (contact.location) contactEntries.push({ label: 'Location', value: contact.location, icon: '\u{1F4CD}' })
-
-      contactEntries.forEach((entry, i) => {
-        const isLast = i === contactEntries.length - 1
-
-        // Label line (uppercase, dimmed white)
-        sidebarParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: entry.label.toUpperCase(),
-                bold: true,
-                size: scaledFontSizes.contactLabel,
-                color: 'FFFFFF', // rgba(255,255,255,0.6) approximated as white in DOCX
-                font: primaryFont,
-                characterSpacing: 5, // letterSpacing 0.05em
-              }),
-            ],
-            indent: sidebarTextIndent,
-            spacing: { after: 0 },
-          })
-        )
-
-        // Value line (with emoji icon prefix)
-        const itemEndSpacing = isLast ? sectionSpacingAfter : pxToTwips(SPACING.CONTACT_ITEM_GAP)
-        sidebarParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `${entry.icon} `,
-                size: scaledFontSizes.contactValue,
-                color: COLORS.WHITE,
-                font: primaryFont,
-              }),
-              new TextRun({
-                text: entry.value,
-                size: scaledFontSizes.contactValue,
-                color: COLORS.WHITE,
-                font: primaryFont,
-              }),
-            ],
-            indent: sidebarTextIndent,
-            spacing: { after: itemEndSpacing },
-          })
-        )
-      })
-    }
-
-    // --- EDUCATION (sidebar) ---
-    if (sectionId === 'education' && education.length > 0) {
-      sidebarParagraphs.push(
-        createSidebarSectionHeader(
-          (dict as any).resumes?.editor?.sections?.education || 'Education'
-        )
-      )
-
-      education.forEach((edu: any, i: number) => {
-        const isLast = i === education.length - 1
-        const itemEndSpacing = isLast ? sectionSpacingAfter : pxToTwips(SPACING.EDUCATION_ITEM_GAP)
-
-        // Degree + Field (bold uppercase white)
-        const degreeText = edu.field ? `${edu.degree} - ${edu.field}` : edu.degree || ''
-        sidebarParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: degreeText.toUpperCase(),
-                bold: true,
-                size: scaledFontSizes.educationDegree,
-                color: COLORS.WHITE,
-                font: primaryFont,
-              }),
-            ],
-            indent: sidebarTextIndent,
-            spacing: { after: 0 },
-          })
-        )
-
-        // School + Year
-        let schoolLine = edu.school || ''
-        if (edu.endDate) {
-          schoolLine += ` | ${new Date(edu.endDate + '-01').toLocaleDateString(locale as Locale, { year: 'numeric' })}`
-        } else if (edu.startDate) {
-          schoolLine += ` | ${new Date(edu.startDate + '-01').toLocaleDateString(locale as Locale, { year: 'numeric' })}`
-        }
+    switch (sectionId) {
+      // --- CONTACT ---
+      case 'contact': {
+        const hasContactData = contact.phone || contact.email || contact.website || contact.linkedin || contact.github || contact.location
+        // `return`, not `break`, carried over verbatim from the if-chain this
+        // switch replaced. It is the only control-flow statement in either
+        // dispatch, and nothing follows the switch inside this callback, so the
+        // two are equivalent here — left alone rather than "tidied" into a
+        // `break`, because rewriting a jump is how a mechanical conversion
+        // changes behaviour.
+        if (!hasContactData) return
 
         sidebarParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: schoolLine,
-                size: scaledFontSizes.educationSchool,
-                color: COLORS.WHITE, // rgba(255,255,255,0.8) approximated
-                font: primaryFont,
-              }),
-            ],
-            indent: sidebarTextIndent,
-            spacing: { after: itemEndSpacing },
-          })
+          createSidebarSectionHeader(
+            (dict as any).resumes?.editor?.sections?.contact || 'Contact'
+          )
         )
-      })
-    }
 
-    // --- SKILLS (sidebar) ---
-    if (sectionId === 'skills' && skills.length > 0) {
-      sidebarParagraphs.push(
-        createSidebarSectionHeader(
-          (dict as any).resumes?.editor?.sections?.skills || 'Technical Skills'
-        )
-      )
+        // Contact items: emoji icon + label (uppercase, dimmed) + value (white) per line
+        const contactEntries: { label: string; value: string; icon: string }[] = []
+        if (contact.phone) contactEntries.push({ label: 'Phone', value: contact.phone, icon: '\u{1F4DE}' })
+        if (contact.email) contactEntries.push({ label: 'Email', value: contact.email, icon: '\u{2709}\uFE0F' })
+        if (contact.website) contactEntries.push({ label: 'Website', value: contact.website, icon: '\u{1F310}' })
+        if (contact.linkedin) contactEntries.push({ label: 'LinkedIn', value: contact.linkedin, icon: '\u{1F517}' })
+        if (contact.github) contactEntries.push({ label: 'GitHub', value: contact.github, icon: '\u{1F4BB}' })
+        if (contact.location) contactEntries.push({ label: 'Location', value: contact.location, icon: '\u{1F4CD}' })
 
-      skills.forEach((skillCategory: any, i: number) => {
-        const isLast = i === skills.length - 1
-        const categoryEndSpacing = isLast ? sectionSpacingAfter : pxToTwips(SPACING.SKILL_CATEGORY_GAP)
+        contactEntries.forEach((entry, i) => {
+          const isLast = i === contactEntries.length - 1
 
-        // Category name (bold uppercase white)
-        if (skillCategory.category) {
+          // Label line (uppercase, dimmed white)
           sidebarParagraphs.push(
             new Paragraph({
               children: [
                 new TextRun({
-                  text: skillCategory.category.toUpperCase(),
+                  text: entry.label.toUpperCase(),
                   bold: true,
-                  size: scaledFontSizes.skillCategory,
+                  size: scaledFontSizes.contactLabel,
+                  color: 'FFFFFF', // rgba(255,255,255,0.6) approximated as white in DOCX
+                  font: primaryFont,
+                  characterSpacing: 5, // letterSpacing 0.05em
+                }),
+              ],
+              indent: sidebarTextIndent,
+              spacing: { after: 0 },
+            })
+          )
+
+          // Value line (with emoji icon prefix)
+          const itemEndSpacing = isLast ? sectionSpacingAfter : pxToTwips(SPACING.CONTACT_ITEM_GAP)
+          sidebarParagraphs.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `${entry.icon} `,
+                  size: scaledFontSizes.contactValue,
                   color: COLORS.WHITE,
                   font: primaryFont,
-                  characterSpacing: 3, // letterSpacing 0.03em
                 }),
-              ],
-              indent: sidebarTextIndent,
-              spacing: { after: pxToTwips(8) }, // margin 0 0 8px 0
-            })
-          )
-        }
-
-        // Skill items as text list (progress bars cannot render in DOCX)
-        // Use skillsHtml if available, otherwise fall back to items array
-        if (skillCategory.skillsHtml) {
-          const skillsAlignment = extractAlignment(skillCategory.skillsHtml) || AlignmentType.LEFT
-
-          if (isHtmlList(skillCategory.skillsHtml)) {
-            const listParagraphs = parseHtmlListToParagraphs(
-              skillCategory.skillsHtml,
-              {
-                size: scaledFontSizes.skillItem,
-                color: COLORS.WHITE,
-                font: primaryFont,
-              },
-              pxToTwips(4),
-              categoryEndSpacing,
-              sidebarTextIndent,
-              skillsAlignment
-            )
-            sidebarParagraphs.push(...listParagraphs)
-          } else {
-            const skillsRuns = parseHtmlToDocxRuns(skillCategory.skillsHtml, {
-              size: scaledFontSizes.skillItem,
-              color: COLORS.WHITE,
-              font: primaryFont,
-            })
-
-            sidebarParagraphs.push(
-              new Paragraph({
-                children: skillsRuns,
-                indent: sidebarTextIndent,
-                spacing: { after: categoryEndSpacing },
-                alignment: skillsAlignment,
-              })
-            )
-          }
-        } else if (skillCategory.items && skillCategory.items.length > 0) {
-          // Render each skill item as a separate line (matching Preview layout)
-          skillCategory.items.forEach((skill: any, j: number) => {
-            const skillName = typeof skill === 'string' ? skill : String(skill)
-            const isLastSkill = j === skillCategory.items.length - 1
-            const itemSpacing = isLastSkill ? categoryEndSpacing : pxToTwips(SPACING.SKILL_ITEM_GAP)
-
-            sidebarParagraphs.push(
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: skillName,
-                    size: scaledFontSizes.skillItem,
-                    color: COLORS.WHITE,
-                    font: primaryFont,
-                  }),
-                ],
-                indent: sidebarTextIndent,
-                spacing: { after: itemSpacing },
-              })
-            )
-          })
-        }
-      })
-    }
-
-    // --- LANGUAGES (sidebar) ---
-    if (sectionId === 'languages' && languages.length > 0) {
-      sidebarParagraphs.push(
-        createSidebarSectionHeader(
-          (dict as any).resumes?.editor?.sections?.languages || 'Languages'
-        )
-      )
-
-      languages.forEach((lang: any, i: number) => {
-        const isLast = i === languages.length - 1
-        const itemEndSpacing = isLast ? sectionSpacingAfter : pxToTwips(SPACING.LANGUAGE_ITEM_GAP)
-
-        // Language name (left) + level (right-aligned via tab)
-        const levelText = (dict as any).resumes?.editor?.levels?.[lang.level?.toLowerCase()] || lang.level
-        sidebarParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: lang.language,
-                bold: true,
-                size: scaledFontSizes.languageName,
-                color: COLORS.WHITE,
-                font: primaryFont,
-              }),
-              new TextRun({
-                text: '\t' + levelText,
-                size: scaledFontSizes.languageLevel,
-                color: COLORS.WHITE, // rgba(255,255,255,0.7) approximated
-                font: primaryFont,
-              }),
-            ],
-            indent: sidebarTextIndent,
-            spacing: { after: itemEndSpacing },
-            tabStops: [
-              {
-                type: TabStopType.RIGHT,
-                position: TabStopPosition.MAX,
-              },
-            ],
-          })
-        )
-      })
-    }
-
-    // --- TRAINING / CERTIFICATIONS (sidebar) ---
-    if (sectionId === 'training' && certifications.length > 0) {
-      sidebarParagraphs.push(
-        createSidebarSectionHeader(
-          (dict as any).resumes?.editor?.sections?.certifications || 'Training'
-        )
-      )
-
-      certifications.forEach((cert: any, i: number) => {
-        const isLast = i === certifications.length - 1
-        const itemEndSpacing = isLast ? sectionSpacingAfter : pxToTwips(SPACING.CERT_ITEM_GAP)
-
-        // Cert name (bold white)
-        sidebarParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: cert.name,
-                bold: true,
-                size: scaledFontSizes.certName,
-                color: COLORS.WHITE,
-                font: primaryFont,
-              }),
-            ],
-            indent: sidebarTextIndent,
-            spacing: { after: cert.issuer || cert.date ? 0 : itemEndSpacing },
-          })
-        )
-
-        // Issuer
-        if (cert.issuer) {
-          sidebarParagraphs.push(
-            new Paragraph({
-              children: [
                 new TextRun({
-                  text: cert.issuer,
-                  size: scaledFontSizes.certIssuer,
-                  color: COLORS.WHITE, // rgba(255,255,255,0.7) approximated
-                  font: primaryFont,
-                }),
-              ],
-              indent: sidebarTextIndent,
-              spacing: { after: cert.date ? 0 : itemEndSpacing },
-            })
-          )
-        }
-
-        // Date
-        if (cert.date) {
-          sidebarParagraphs.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: new Date(cert.date + '-01').toLocaleDateString(locale as Locale, {
-                    month: 'short',
-                    year: 'numeric',
-                  }),
-                  size: scaledFontSizes.certDate,
-                  color: COLORS.WHITE, // rgba(255,255,255,0.6) approximated
+                  text: entry.value,
+                  size: scaledFontSizes.contactValue,
+                  color: COLORS.WHITE,
                   font: primaryFont,
                 }),
               ],
@@ -912,8 +757,286 @@ export async function generateModernDocx(
               spacing: { after: itemEndSpacing },
             })
           )
+        })
+        break
+      }
+
+      // --- EDUCATION (sidebar) ---
+      case 'education': {
+        if (education.length > 0) {
+          sidebarParagraphs.push(
+            createSidebarSectionHeader(
+              (dict as any).resumes?.editor?.sections?.education || 'Education'
+            )
+          )
+
+          education.forEach((edu: any, i: number) => {
+            const isLast = i === education.length - 1
+            const itemEndSpacing = isLast ? sectionSpacingAfter : pxToTwips(SPACING.EDUCATION_ITEM_GAP)
+
+            // Degree + Field (bold uppercase white)
+            const degreeText = edu.field ? `${edu.degree} - ${edu.field}` : edu.degree || ''
+            sidebarParagraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: degreeText.toUpperCase(),
+                    bold: true,
+                    size: scaledFontSizes.educationDegree,
+                    color: COLORS.WHITE,
+                    font: primaryFont,
+                  }),
+                ],
+                indent: sidebarTextIndent,
+                spacing: { after: 0 },
+              })
+            )
+
+            // School + Year
+            let schoolLine = edu.school || ''
+            if (edu.endDate) {
+              schoolLine += ` | ${new Date(edu.endDate + '-01').toLocaleDateString(locale as Locale, { year: 'numeric' })}`
+            } else if (edu.startDate) {
+              schoolLine += ` | ${new Date(edu.startDate + '-01').toLocaleDateString(locale as Locale, { year: 'numeric' })}`
+            }
+
+            sidebarParagraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: schoolLine,
+                    size: scaledFontSizes.educationSchool,
+                    color: COLORS.WHITE, // rgba(255,255,255,0.8) approximated
+                    font: primaryFont,
+                  }),
+                ],
+                indent: sidebarTextIndent,
+                spacing: { after: itemEndSpacing },
+              })
+            )
+          })
         }
-      })
+        break
+      }
+
+      // --- SKILLS (sidebar) ---
+      case 'skills': {
+        if (skills.length > 0) {
+          sidebarParagraphs.push(
+            createSidebarSectionHeader(
+              (dict as any).resumes?.editor?.sections?.skills || 'Technical Skills'
+            )
+          )
+
+          skills.forEach((skillCategory: any, i: number) => {
+            const isLast = i === skills.length - 1
+            const categoryEndSpacing = isLast ? sectionSpacingAfter : pxToTwips(SPACING.SKILL_CATEGORY_GAP)
+
+            // Category name (bold uppercase white)
+            if (skillCategory.category) {
+              sidebarParagraphs.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: skillCategory.category.toUpperCase(),
+                      bold: true,
+                      size: scaledFontSizes.skillCategory,
+                      color: COLORS.WHITE,
+                      font: primaryFont,
+                      characterSpacing: 3, // letterSpacing 0.03em
+                    }),
+                  ],
+                  indent: sidebarTextIndent,
+                  spacing: { after: pxToTwips(8) }, // margin 0 0 8px 0
+                })
+              )
+            }
+
+            // Skill items as text list (progress bars cannot render in DOCX)
+            // Use skillsHtml if available, otherwise fall back to items array
+            if (skillCategory.skillsHtml) {
+              const skillsAlignment = extractAlignment(skillCategory.skillsHtml) || AlignmentType.LEFT
+
+              if (isHtmlList(skillCategory.skillsHtml)) {
+                const listParagraphs = parseHtmlListToParagraphs(
+                  skillCategory.skillsHtml,
+                  {
+                    size: scaledFontSizes.skillItem,
+                    color: COLORS.WHITE,
+                    font: primaryFont,
+                  },
+                  pxToTwips(4),
+                  categoryEndSpacing,
+                  sidebarTextIndent,
+                  skillsAlignment
+                )
+                sidebarParagraphs.push(...listParagraphs)
+              } else {
+                const skillsRuns = parseHtmlToDocxRuns(skillCategory.skillsHtml, {
+                  size: scaledFontSizes.skillItem,
+                  color: COLORS.WHITE,
+                  font: primaryFont,
+                })
+
+                sidebarParagraphs.push(
+                  new Paragraph({
+                    children: skillsRuns,
+                    indent: sidebarTextIndent,
+                    spacing: { after: categoryEndSpacing },
+                    alignment: skillsAlignment,
+                  })
+                )
+              }
+            } else if (skillCategory.items && skillCategory.items.length > 0) {
+              // Render each skill item as a separate line (matching Preview layout)
+              skillCategory.items.forEach((skill: any, j: number) => {
+                const skillName = typeof skill === 'string' ? skill : String(skill)
+                const isLastSkill = j === skillCategory.items.length - 1
+                const itemSpacing = isLastSkill ? categoryEndSpacing : pxToTwips(SPACING.SKILL_ITEM_GAP)
+
+                sidebarParagraphs.push(
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: skillName,
+                        size: scaledFontSizes.skillItem,
+                        color: COLORS.WHITE,
+                        font: primaryFont,
+                      }),
+                    ],
+                    indent: sidebarTextIndent,
+                    spacing: { after: itemSpacing },
+                  })
+                )
+              })
+            }
+          })
+        }
+        break
+      }
+
+      // --- LANGUAGES (sidebar) ---
+      case 'languages': {
+        if (languages.length > 0) {
+          sidebarParagraphs.push(
+            createSidebarSectionHeader(
+              (dict as any).resumes?.editor?.sections?.languages || 'Languages'
+            )
+          )
+
+          languages.forEach((lang: any, i: number) => {
+            const isLast = i === languages.length - 1
+            const itemEndSpacing = isLast ? sectionSpacingAfter : pxToTwips(SPACING.LANGUAGE_ITEM_GAP)
+
+            // Language name (left) + level (right-aligned via tab)
+            const levelText = (dict as any).resumes?.editor?.levels?.[lang.level?.toLowerCase()] || lang.level
+            sidebarParagraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: lang.language,
+                    bold: true,
+                    size: scaledFontSizes.languageName,
+                    color: COLORS.WHITE,
+                    font: primaryFont,
+                  }),
+                  new TextRun({
+                    text: '\t' + levelText,
+                    size: scaledFontSizes.languageLevel,
+                    color: COLORS.WHITE, // rgba(255,255,255,0.7) approximated
+                    font: primaryFont,
+                  }),
+                ],
+                indent: sidebarTextIndent,
+                spacing: { after: itemEndSpacing },
+                tabStops: [
+                  {
+                    type: TabStopType.RIGHT,
+                    position: TabStopPosition.MAX,
+                  },
+                ],
+              })
+            )
+          })
+        }
+        break
+      }
+
+      // --- TRAINING / CERTIFICATIONS (sidebar) ---
+      case 'training': {
+        if (certifications.length > 0) {
+          sidebarParagraphs.push(
+            createSidebarSectionHeader(
+              (dict as any).resumes?.editor?.sections?.certifications || 'Training'
+            )
+          )
+
+          certifications.forEach((cert: any, i: number) => {
+            const isLast = i === certifications.length - 1
+            const itemEndSpacing = isLast ? sectionSpacingAfter : pxToTwips(SPACING.CERT_ITEM_GAP)
+
+            // Cert name (bold white)
+            sidebarParagraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: cert.name,
+                    bold: true,
+                    size: scaledFontSizes.certName,
+                    color: COLORS.WHITE,
+                    font: primaryFont,
+                  }),
+                ],
+                indent: sidebarTextIndent,
+                spacing: { after: cert.issuer || cert.date ? 0 : itemEndSpacing },
+              })
+            )
+
+            // Issuer
+            if (cert.issuer) {
+              sidebarParagraphs.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: cert.issuer,
+                      size: scaledFontSizes.certIssuer,
+                      color: COLORS.WHITE, // rgba(255,255,255,0.7) approximated
+                      font: primaryFont,
+                    }),
+                  ],
+                  indent: sidebarTextIndent,
+                  spacing: { after: cert.date ? 0 : itemEndSpacing },
+                })
+              )
+            }
+
+            // Date
+            if (cert.date) {
+              sidebarParagraphs.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: new Date(cert.date + '-01').toLocaleDateString(locale as Locale, {
+                        month: 'short',
+                        year: 'numeric',
+                      }),
+                      size: scaledFontSizes.certDate,
+                      color: COLORS.WHITE, // rgba(255,255,255,0.6) approximated
+                      font: primaryFont,
+                    }),
+                  ],
+                  indent: sidebarTextIndent,
+                  spacing: { after: itemEndSpacing },
+                })
+              )
+            }
+          })
+        }
+        break
+      }
+
+      default:
+        assertExhaustiveSection(sectionId)
     }
   })
 
@@ -1008,291 +1131,302 @@ export async function generateModernDocx(
   visibleMainSections.forEach((sectionId, index) => {
     const isLastSection = index === visibleMainSections.length - 1 && projects.length === 0
 
-    // --- SUMMARY ---
-    if (sectionId === 'summary' && resume.summary) {
-      mainContentParagraphs.push(
-        createMainSectionHeader(
-          (dict as any).resumes?.editor?.sections?.summary || 'Professional Profile'
-        )
-      )
-
-      const sectionEndSpacing = isLastSection ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN)
-
-      const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.LEFT
-
-      if (isHtmlList(resume.summary)) {
-        const listParagraphs = parseHtmlListToParagraphs(
-          resume.summary,
-          {
-            size: scaledFontSizes.summary,
-            color: COLORS.BODY_TEXT, // #374151 approximated
-            font: primaryFont,
-          },
-          pxToTwips(4),
-          sectionEndSpacing,
-          { right: mainContentRightIndent },
-          summaryAlignment
-        )
-        mainContentParagraphs.push(...listParagraphs)
-      } else {
-        const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
-          size: scaledFontSizes.summary,
-          color: COLORS.BODY_TEXT,
-          font: primaryFont,
-        })
-
-        mainContentParagraphs.push(
-          new Paragraph({
-            children: summaryRuns,
-            alignment: summaryAlignment,
-            indent: { right: mainContentRightIndent },
-            spacing: {
-              after: sectionEndSpacing,
-              line: Math.round(240 * LINE_HEIGHTS.BODY),
-              lineRule: LineRuleType.AUTO,
-            },
-          })
-        )
-      }
-    }
-
-    // --- EXPERIENCE (Defect 3: 2-column inner layout) ---
-    if (sectionId === 'experience' && experiences.length > 0) {
-      mainContentParagraphs.push(
-        createMainSectionHeader(
-          (dict as any).resumes?.editor?.sections?.experience || 'Professional Experience'
-        )
-      )
-
-      // Modern template experience layout:
-      // Left 40%: position, dates, company, location
-      // Right 60%: description + achievements
-      // Rendered as nested tables within the main content area
-      experiences.forEach((exp: any, i: number) => {
-        const isLastExp = i === experiences.length - 1
-        const hasProjectsAfter = projects.length > 0
-
-        // --- Build LEFT column paragraphs (40%) ---
-        const leftParagraphs: Paragraph[] = []
-
-        // Position (bold uppercase)
-        leftParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: (exp.position || '').toUpperCase(),
-                bold: true,
-                size: scaledFontSizes.experiencePosition,
-                color: COLORS.DARK_HEADING,
-                font: primaryFont,
-              }),
-            ],
-            spacing: { after: pxToTwips(2) },
-          })
-        )
-
-        // Date range
-        const dateText = formatDateRange(exp.startDate, exp.endDate, exp.current, locale as Locale, dict)
-        if (dateText) {
-          leftParagraphs.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: dateText,
-                  size: scaledFontSizes.experienceDate,
-                  color: COLORS.META_TEXT, // #6b7280
-                  font: primaryFont,
-                }),
-              ],
-              spacing: { after: pxToTwips(8) },
-            })
+    switch (sectionId) {
+      // --- SUMMARY ---
+      case 'summary': {
+        if (resume.summary) {
+          mainContentParagraphs.push(
+            createMainSectionHeader(
+              (dict as any).resumes?.editor?.sections?.summary || 'Professional Profile'
+            )
           )
-        }
 
-        // Company (bold)
-        if (exp.company) {
-          leftParagraphs.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: exp.company,
-                  bold: true,
-                  size: scaledFontSizes.experienceCompany,
-                  color: COLORS.DARK_HEADING,
-                  font: primaryFont,
-                }),
-              ],
-              spacing: { after: exp.location ? pxToTwips(2) : 0 },
-            })
-          )
-        }
+          const sectionEndSpacing = isLastSection ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN)
 
-        // Location
-        if (exp.location) {
-          leftParagraphs.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: exp.location,
-                  size: scaledFontSizes.experienceLocation,
-                  color: COLORS.META_TEXT, // #6b7280
-                  font: primaryFont,
-                }),
-              ],
-              spacing: { after: 0 },
-            })
-          )
-        }
+          const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.LEFT
 
-        // Ensure at least one paragraph in left column
-        if (leftParagraphs.length === 0) {
-          leftParagraphs.push(new Paragraph({ children: [] }))
-        }
-
-        // --- Build RIGHT column paragraphs (60%) ---
-        const rightParagraphs: Paragraph[] = []
-
-        // Description
-        if (exp.description) {
-          const descAlignment = extractAlignment(exp.description) || AlignmentType.LEFT
-
-          if (isHtmlList(exp.description)) {
+          if (isHtmlList(resume.summary)) {
             const listParagraphs = parseHtmlListToParagraphs(
-              exp.description,
+              resume.summary,
               {
-                size: scaledFontSizes.body,
-                color: COLORS.BODY_TEXT,
+                size: scaledFontSizes.summary,
+                color: COLORS.BODY_TEXT, // #374151 approximated
                 font: primaryFont,
               },
               pxToTwips(4),
-              exp.achievements && exp.achievements.length > 0 ? pxToTwips(6) : 0,
-              undefined,
-              descAlignment
+              sectionEndSpacing,
+              { right: mainContentRightIndent },
+              summaryAlignment
             )
-            rightParagraphs.push(...listParagraphs)
+            mainContentParagraphs.push(...listParagraphs)
           } else {
-            const descRuns = parseHtmlToDocxRuns(exp.description, {
-              size: scaledFontSizes.body,
+            const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
+              size: scaledFontSizes.summary,
               color: COLORS.BODY_TEXT,
               font: primaryFont,
             })
 
-            rightParagraphs.push(
+            mainContentParagraphs.push(
               new Paragraph({
-                children: descRuns,
+                children: summaryRuns,
+                alignment: summaryAlignment,
+                indent: { right: mainContentRightIndent },
                 spacing: {
-                  after: exp.achievements && exp.achievements.length > 0 ? pxToTwips(6) : 0,
+                  after: sectionEndSpacing,
                   line: Math.round(240 * LINE_HEIGHTS.BODY),
                   lineRule: LineRuleType.AUTO,
                 },
-                alignment: descAlignment,
               })
             )
           }
         }
+        break
+      }
 
-        // Achievements (italic with accent-colored bullets)
-        if (exp.achievements && exp.achievements.length > 0) {
-          exp.achievements.forEach((achievement: string, j: number) => {
-            const isLastAchievement = j === exp.achievements.length - 1
+      // --- EXPERIENCE (Defect 3: 2-column inner layout) ---
+      case 'experience': {
+        if (experiences.length > 0) {
+          mainContentParagraphs.push(
+            createMainSectionHeader(
+              (dict as any).resumes?.editor?.sections?.experience || 'Professional Experience'
+            )
+          )
 
-            // Strip any existing <em>/<i> tags to prevent nested italic toggling,
-            // then wrap in <em> to match preview italic baseline
-            const cleanAchievement = achievement.replace(/<\/?(?:em|i)>/gi, '')
-            const achievementRuns = parseHtmlToDocxRuns(`<em>${cleanAchievement}</em>`, {
-              size: scaledFontSizes.body,
-              color: COLORS.BODY_TEXT,
-              font: primaryFont,
-            })
+          // Modern template experience layout:
+          // Left 40%: position, dates, company, location
+          // Right 60%: description + achievements
+          // Rendered as nested tables within the main content area
+          experiences.forEach((exp: any, i: number) => {
+            const isLastExp = i === experiences.length - 1
+            const hasProjectsAfter = projects.length > 0
 
-            rightParagraphs.push(
+            // --- Build LEFT column paragraphs (40%) ---
+            const leftParagraphs: Paragraph[] = []
+
+            // Position (bold uppercase)
+            leftParagraphs.push(
               new Paragraph({
                 children: [
                   new TextRun({
-                    text: '\u2022 ',
-                    size: scaledFontSizes.body,
-                    color: accentColorHex,
+                    text: (exp.position || '').toUpperCase(),
+                    bold: true,
+                    size: scaledFontSizes.experiencePosition,
+                    color: COLORS.DARK_HEADING,
                     font: primaryFont,
-                    italics: true,
                   }),
-                  ...achievementRuns,
                 ],
-                spacing: {
-                  after: isLastAchievement ? 0 : pxToTwips(SPACING.ACHIEVEMENT_GAP),
-                  line: Math.round(240 * LINE_HEIGHTS.BODY),
-                  lineRule: LineRuleType.AUTO,
-                },
+                spacing: { after: pxToTwips(2) },
               })
             )
-          })
-        }
 
-        // Ensure at least one paragraph in right column
-        if (rightParagraphs.length === 0) {
-          rightParagraphs.push(new Paragraph({ children: [] }))
-        }
+            // Date range
+            const dateText = formatDateRange(exp.startDate, exp.endDate, exp.current, locale as Locale, dict)
+            if (dateText) {
+              leftParagraphs.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: dateText,
+                      size: scaledFontSizes.experienceDate,
+                      color: COLORS.META_TEXT, // #6b7280
+                      font: primaryFont,
+                    }),
+                  ],
+                  spacing: { after: pxToTwips(8) },
+                })
+              )
+            }
 
-        // --- Create 2-column nested table for this experience entry ---
-        // Calculate column widths: 40% left, 60% right of available main content width
-        // Subtract cell margins from available width for inner table
-        const innerTableWidth = mainContentWidthTwips - convertInchesToTwip(0.66)
-        const leftColumnWidth = Math.round(innerTableWidth * 0.4)
-        const rightColumnWidth = innerTableWidth - leftColumnWidth
+            // Company (bold)
+            if (exp.company) {
+              leftParagraphs.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: exp.company,
+                      bold: true,
+                      size: scaledFontSizes.experienceCompany,
+                      color: COLORS.DARK_HEADING,
+                      font: primaryFont,
+                    }),
+                  ],
+                  spacing: { after: exp.location ? pxToTwips(2) : 0 },
+                })
+              )
+            }
 
-        const experienceTable = new Table({
-          rows: [
-            new TableRow({
-              children: [
-                new TableCell({
-                  children: leftParagraphs,
-                  width: { size: leftColumnWidth, type: WidthType.DXA },
-                  verticalAlign: VerticalAlign.TOP,
-                  margins: {
-                    top: 0,
-                    bottom: 0,
-                    left: 0,
-                    right: pxToTwips(16), // gap: 16px between columns
+            // Location
+            if (exp.location) {
+              leftParagraphs.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: exp.location,
+                      size: scaledFontSizes.experienceLocation,
+                      color: COLORS.META_TEXT, // #6b7280
+                      font: primaryFont,
+                    }),
+                  ],
+                  spacing: { after: 0 },
+                })
+              )
+            }
+
+            // Ensure at least one paragraph in left column
+            if (leftParagraphs.length === 0) {
+              leftParagraphs.push(new Paragraph({ children: [] }))
+            }
+
+            // --- Build RIGHT column paragraphs (60%) ---
+            const rightParagraphs: Paragraph[] = []
+
+            // Description
+            if (exp.description) {
+              const descAlignment = extractAlignment(exp.description) || AlignmentType.LEFT
+
+              if (isHtmlList(exp.description)) {
+                const listParagraphs = parseHtmlListToParagraphs(
+                  exp.description,
+                  {
+                    size: scaledFontSizes.body,
+                    color: COLORS.BODY_TEXT,
+                    font: primaryFont,
                   },
-                  borders: noBorders,
-                }),
-                new TableCell({
-                  children: rightParagraphs,
-                  width: { size: rightColumnWidth, type: WidthType.DXA },
-                  verticalAlign: VerticalAlign.TOP,
-                  margins: {
-                    top: 0,
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                  },
-                  borders: noBorders,
+                  pxToTwips(4),
+                  exp.achievements && exp.achievements.length > 0 ? pxToTwips(6) : 0,
+                  undefined,
+                  descAlignment
+                )
+                rightParagraphs.push(...listParagraphs)
+              } else {
+                const descRuns = parseHtmlToDocxRuns(exp.description, {
+                  size: scaledFontSizes.body,
+                  color: COLORS.BODY_TEXT,
+                  font: primaryFont,
+                })
+
+                rightParagraphs.push(
+                  new Paragraph({
+                    children: descRuns,
+                    spacing: {
+                      after: exp.achievements && exp.achievements.length > 0 ? pxToTwips(6) : 0,
+                      line: Math.round(240 * LINE_HEIGHTS.BODY),
+                      lineRule: LineRuleType.AUTO,
+                    },
+                    alignment: descAlignment,
+                  })
+                )
+              }
+            }
+
+            // Achievements (italic with accent-colored bullets)
+            if (exp.achievements && exp.achievements.length > 0) {
+              exp.achievements.forEach((achievement: string, j: number) => {
+                const isLastAchievement = j === exp.achievements.length - 1
+
+                // Strip any existing <em>/<i> tags to prevent nested italic toggling,
+                // then wrap in <em> to match preview italic baseline
+                const cleanAchievement = achievement.replace(/<\/?(?:em|i)>/gi, '')
+                const achievementRuns = parseHtmlToDocxRuns(`<em>${cleanAchievement}</em>`, {
+                  size: scaledFontSizes.body,
+                  color: COLORS.BODY_TEXT,
+                  font: primaryFont,
+                })
+
+                rightParagraphs.push(
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: '\u2022 ',
+                        size: scaledFontSizes.body,
+                        color: accentColorHex,
+                        font: primaryFont,
+                        italics: true,
+                      }),
+                      ...achievementRuns,
+                    ],
+                    spacing: {
+                      after: isLastAchievement ? 0 : pxToTwips(SPACING.ACHIEVEMENT_GAP),
+                      line: Math.round(240 * LINE_HEIGHTS.BODY),
+                      lineRule: LineRuleType.AUTO,
+                    },
+                  })
+                )
+              })
+            }
+
+            // Ensure at least one paragraph in right column
+            if (rightParagraphs.length === 0) {
+              rightParagraphs.push(new Paragraph({ children: [] }))
+            }
+
+            // --- Create 2-column nested table for this experience entry ---
+            // Calculate column widths: 40% left, 60% right of available main content width
+            // Subtract cell margins from available width for inner table
+            const innerTableWidth = mainContentWidthTwips - convertInchesToTwip(0.66)
+            const leftColumnWidth = Math.round(innerTableWidth * 0.4)
+            const rightColumnWidth = innerTableWidth - leftColumnWidth
+
+            const experienceTable = new Table({
+              rows: [
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      children: leftParagraphs,
+                      width: { size: leftColumnWidth, type: WidthType.DXA },
+                      verticalAlign: VerticalAlign.TOP,
+                      margins: {
+                        top: 0,
+                        bottom: 0,
+                        left: 0,
+                        right: pxToTwips(16), // gap: 16px between columns
+                      },
+                      borders: noBorders,
+                    }),
+                    new TableCell({
+                      children: rightParagraphs,
+                      width: { size: rightColumnWidth, type: WidthType.DXA },
+                      verticalAlign: VerticalAlign.TOP,
+                      margins: {
+                        top: 0,
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                      },
+                      borders: noBorders,
+                    }),
+                  ],
                 }),
               ],
-            }),
-          ],
-          width: { size: innerTableWidth, type: WidthType.DXA },
-          columnWidths: [leftColumnWidth, rightColumnWidth],
-          layout: TableLayoutType.FIXED,
-          borders: noBorders,
-        })
-
-        // Cast Table to Paragraph[] type; resolved at assembly via mainContentChildren union cast
-        mainContentParagraphs.push(experienceTable as unknown as Paragraph)
-
-        // Add spacing after this experience entry
-        const expEndSpacing = isLastExp
-          ? (isLastSection && !hasProjectsAfter ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN))
-          : pxToTwips(SPACING.EXPERIENCE_ITEM_GAP)
-
-        if (expEndSpacing > 0) {
-          mainContentParagraphs.push(
-            new Paragraph({
-              spacing: { after: expEndSpacing },
-              children: [],
+              width: { size: innerTableWidth, type: WidthType.DXA },
+              columnWidths: [leftColumnWidth, rightColumnWidth],
+              layout: TableLayoutType.FIXED,
+              borders: noBorders,
             })
-          )
+
+            // Cast Table to Paragraph[] type; resolved at assembly via mainContentChildren union cast
+            mainContentParagraphs.push(experienceTable as unknown as Paragraph)
+
+            // Add spacing after this experience entry
+            const expEndSpacing = isLastExp
+              ? (isLastSection && !hasProjectsAfter ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN))
+              : pxToTwips(SPACING.EXPERIENCE_ITEM_GAP)
+
+            if (expEndSpacing > 0) {
+              mainContentParagraphs.push(
+                new Paragraph({
+                  spacing: { after: expEndSpacing },
+                  children: [],
+                })
+              )
+            }
+          })
         }
-      })
+        break
+      }
+
+      default:
+        assertExhaustiveSection(sectionId)
     }
   })
 
