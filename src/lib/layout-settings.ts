@@ -778,3 +778,93 @@ export function mapEditorOrderToModern(
 
   return { modernSidebarOrder, modernMainOrder, hiddenModernSidebar, hiddenModernMain }
 }
+
+// ---------- Editor → Classic template section-ID mapping ----------
+
+/**
+ * Classic template section IDs.
+ *
+ * Classic is single-column, so unlike Modern it has no sidebar vocabulary at
+ * all: languages and certifications share one `languagesAndCerts` section
+ * rendered as a two-column grid at the foot of the document.
+ *
+ * Exported for the same reason as `ModernSidebarId`. A private copy inside a
+ * generator compiles happily while this one moves, which is exactly how an
+ * export comes to render a section list the Preview does not.
+ */
+export type ClassicMainId =
+  | 'summary'
+  | 'experience'
+  | 'education'
+  | 'skills'
+  | 'projects'
+  | 'languagesAndCerts'
+
+/**
+ * Maps an editor main-content order to the Classic template's section IDs.
+ *
+ * Relocated from `docx-classic.ts`, where it was `mapToClassicOrder`. The rule
+ * is unchanged; what changed is who owns it. Living in the generator made the
+ * Classic vocabulary and the editor→Classic translation per-generator logic
+ * that no other surface could see, reuse, or be checked against — the
+ * competing-state shape this milestone exists to remove, and the same one
+ * `mapEditorOrderToModern` was moved here to fix.
+ *
+ * WHY THE PARAMETER IS `readonly string[]`, WHERE THE MODERN TWIN TAKES UNIONS
+ *
+ * `mapEditorOrderToModern` takes `EditorSidebarId` / `EditorMainId` because
+ * every id it can receive is one. This function cannot be typed that way: it
+ * also accepts `'skills'`, `'projects'`, `'languages'`, `'certifications'` and
+ * `'languagesAndCerts'`, none of which is an `EditorMainId`. Narrowing the
+ * parameter would force those five cases to be deleted, and deleting a branch
+ * is a behaviour change rather than a relocation.
+ *
+ * Those five ids are in fact unreachable from the application today — the sole
+ * caller is the DOCX route, which resolves its lists through
+ * `resolveResumeLayout`, and `parseLayoutModel` filters `mainContentOrder`
+ * against `VALID_MAIN_IDS`. That is recorded as a finding against the Classic
+ * export rather than acted on here: what the export should do with an id the
+ * editor cannot currently produce is a decision, not a refactor.
+ *
+ * `languagesAndCerts` is appended whenever the input did not already produce
+ * it, so the result is never empty — a property `generateClassicDocx` relies
+ * on, and one the empty-input case below pins.
+ */
+export function mapEditorOrderToClassic(rawOrder: readonly string[]): ClassicMainId[] {
+  const mapped: ClassicMainId[] = []
+  const seen = new Set<string>()
+
+  for (const id of rawOrder) {
+    if (seen.has(id)) continue
+
+    switch (id) {
+      case 'summary':
+      case 'experience':
+      case 'education':
+      case 'skills':
+      case 'projects':
+        mapped.push(id as ClassicMainId)
+        seen.add(id)
+        break
+      // Languages and certifications are treated as a combined section
+      case 'languages':
+      case 'certifications':
+      case 'languagesAndCerts':
+        if (!seen.has('languagesAndCerts')) {
+          mapped.push('languagesAndCerts')
+          seen.add('languagesAndCerts')
+        }
+        break
+      default:
+        // Ignore unknown section IDs
+        break
+    }
+  }
+
+  // Ensure languagesAndCerts is included if not already mapped
+  if (!seen.has('languagesAndCerts')) {
+    mapped.push('languagesAndCerts')
+  }
+
+  return mapped
+}

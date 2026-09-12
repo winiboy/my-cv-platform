@@ -871,3 +871,250 @@ Commit:
 - Commit message: ralph: US-004 the modern DOCX derives its layout from the shared model
 
 FINAL: PASS
+
+## US-005: The classic DOCX derives its layout from the shared model
+Status: PASS
+Priority: 5
+Branch: ralph/milestone-c-part-2-exports
+Baseline HEAD: 12e8f15 (= origin/main 6de755c + the contract amendment)
+
+Scope:
+- Scope check: PASS
+- Modified: src/app/api/resumes/[id]/download-docx/docx-classic.ts
+- Modified: src/lib/layout-settings.ts (+90 insertions, 0 deletions - PURELY
+  ADDITIVE, no existing line touched, which is itself part of the AC-6 proof)
+- Modified: src/lib/layout-settings.test.ts (+68, 7 cases)
+- New: e2e/docx-classic-layout.spec.ts (2 tests)
+- docx-professional/modern/minimal/creative.ts, docx-helpers.ts and route.ts
+  BYTE-IDENTICAL. src/components/ untouched. No visual baseline moved.
+- Read the generator diff with `git diff -w`: the if-chain -> switch conversion
+  re-indents heavily; substantive change is 110/64, and most of that is comment.
+
+Checks (all re-run by the orchestrator at final state):
+- pnpm typecheck: PASS - exit 0
+- pnpm lint: PASS - 306 problems, equal to HEAD, under the 311 baseline
+- pnpm test: PASS - 300 passed (+7)
+- pnpm test:integration: PASS - 27 passed
+- pnpm test:e2e: PASS - 53 passed (51 + 2 new)
+- pnpm test:visual: PASS - 10 passed, baselines UNCHANGED
+- pnpm build:verify: PASS - exit 0
+
+Specialized validation:
+- Export: PASS - both new tests unzip the artifact and read word/document.xml.
+  `expect(response.ok())` appears only as a precondition, never as evidence.
+- Visual: PASS - 10/10 unchanged
+- Browser / Database / Security: NOT_APPLICABLE
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no UI change
+- code-reviewer: PASS, conditional on two recording changes, both discharged in
+  this record and in the contract amendment that follows the story commit.
+
+WHAT THIS STORY ACTUALLY DID
+Classic is single-column: it destructures only mainContentOrder and
+hiddenMainSections, never sidebarOrder or hiddenSidebarSections. Unlike modern,
+whose mapEditorOrderToModern already lived in the shared module, classic's
+mapping was GENERATOR-LOCAL - mapToClassicOrder at docx-classic.ts:1005, which
+is exactly the "per-generator logic" AC-1 names. The story relocated it verbatim
+into src/lib/layout-settings.ts as mapEditorOrderToClassic, with ClassicMainId
+and the default order, mirroring the modern mapping's shape; converted the
+six-branch if-chain to an exhaustive switch; dropped a no-op `as string[]`; and
+added 7 unit cases the mapping never had while it lived in a generator.
+
+Small, and honestly so. The value is mostly in what the verification FOUND -
+F-1 in particular, which no previous story's evidence could have surfaced,
+because seeing it requires generating the artifact and reading its headings.
+
+TWO NEW VERIFICATION RULES, FIRST STORY UNDER THEM
+The PRD amendment (12e8f15) added both, and both were satisfied:
+- AC-6 by artifact comparison rather than provenance. US-003 and US-004 could
+  argue "nothing imports the generator I changed"; from this story on that is
+  not available, because US-006 and US-007 each modify a generator the NEXT
+  story must prove unchanged.
+- An artifact-level DOCX spec for the converted template. e2e/ had professional
+  and modern only; classic now has one.
+
+Acceptance criteria:
+- AC-01: PASS - order via mapEditorOrderToClassic, visibility via
+  hiddenMainSections from resolveResumeLayout, fontScale from the model. Proven
+  at the artifact by three generator mutations that each turn the new spec red
+  (see E-2), and at the source by reversing input inside the SHARED mapping,
+  which changes classic's output and only classic's. Per-property font sizes do
+  NOT derive from the model - recorded as F-4, and not fixable here.
+- AC-02: PASS, narrowly, and the reviewer's distinction is worth keeping:
+  DEFAULT_MAIN_ORDER was a genuine competing default and is gone; ClassicMainId
+  was RELOCATED, not de-duplicated, because it existed nowhere else. The
+  remaining FONT_SIZES/SPACING duplicates are deliberately left - see F-4.
+- AC-03: PASS - output byte-identical, so nothing was newly omitted or
+  reordered. The pre-existing omissions are F-1 and F-3.
+- AC-04: PASS.
+- AC-05: PASS - six findings, F-1 to F-6 below. None accepted silently.
+- AC-06: PASS - see E-1.
+
+E-1 THE AC-6 EVIDENCE, INDEPENDENTLY REPRODUCED
+Implementer: baseline captured BEFORE any edit, with every input file's blob
+hash verified equal to `git rev-parse HEAD:<path>` for all five generators plus
+docx-helpers.ts and layout-settings.ts. Ten documents (5 templates x
+full/hidden), all 16 zip entries each, docProps/core.xml the only exclusion: all
+IDENTICAL. Non-vacuity shown by a SECTION_GAP 20->21 mutation, which reports
+exactly classic__full and classic__hidden changed and the other eight `=`.
+The code-reviewer did not take that on trust. It materialised
+`git show HEAD:docx-classic.ts` alongside the working copy, ran both generators
+in-process over THREE settings profiles - defaults; hiddenMainSections
+['education'] plus hiddenSidebarSections ['languages']; reversed order at
+fontScale 1.25 - and compared every zip entry base64-for-base64. All three
+identical, word/document.xml included.
+A second structural argument the reviewer added: the layout-settings.ts diff is
+90 insertions and ZERO deletions. Purely additive means no existing line that
+any other generator reads was touched.
+
+E-2 THE NEW SPEC DISCRIMINATES, PROVEN BY MUTATION
+Classic's output must not change, so the spec cannot go red against unmodified
+code. Each assertion group was instead shown sensitive by mutating one property:
+  order      hardcode the list -> Expected: < 324, Received: 488
+  visibility hiddenMainSections = [] -> not.toContain("EPFL") failed
+  scaling    drop `* fontScale` -> /<w:sz w:val="68"/ failed, document had 54
+The reviewer checked the negative assertion is not vacuous: at fontScale 1.25
+the emitted size set is {68, 30, 26, 23}, so 54 can only arise from an unscaled
+title. It also confirmed fontSizePattern correctly scopes to the w:sz ELEMENT -
+classic emits w:sz="8" border attributes, so a looser pattern really would have
+matched the wrong thing.
+
+THE COMPILE-TIME CLAIM, AND WHERE IT STOPS
+Both dispatches use an exhaustive switch closing on a local, deliberately
+non-throwing assertExhaustiveSection(sectionId: never). Mutations of
+layout-settings.ts, reproduced verbatim by the reviewer:
+  delete 'projects' from ClassicMainId -> TS2678 at docx-classic.ts(783,12)
+  add 'awards'                         -> TS2345 at docx-classic.ts(1037,33)
+  rename 'summary' -> 'profile'        -> TS2678 (374,12) AND TS2345 (1037,33)
+TS2367: zero occurrences in all three runs.
+The nuance matters and the comment states it correctly: the REMOVE guarantee
+holds in docx-classic.ts but NOT inside the relocated mapping, whose own switch
+is over `string`, so its `case 'projects':` survives the deletion. The comment
+says "breaks this file" and names the file for each diagnostic. The reviewer
+checked specifically for overclaiming - that comment has been wrong twice in
+this PRD - and found none.
+
+Conversion safety: ZERO break, ZERO continue, ZERO return across the entire
+converted forEach body. The reviewer proved it from HEAD alone rather than
+trusting the count: the only jumps in the whole file are `return new Paragraph`
+inside createSectionHeader, declared before the loop, and `return buffer` after
+it. No `var`, no in-body function declarations, so no hoisting or scope change.
+The old `if`s were independent rather than chained, over a value that can match
+at most one, so the switch is exactly equivalent.
+
+FINDINGS (AC-5)
+
+F-1 THE MOST SERIOUS FINDING IN PART 2 SO FAR, AND IT IS SILENT CONTENT LOSS.
+  The classic DOCX renders NO skills section and NO projects section, while the
+  Preview renders both. mapEditorOrderToClassic emits only ids present in its
+  input; the input is layout.mainContentOrder, which parseLayoutModel filters
+  against VALID_MAIN_IDS = ['summary','experience','education']. So
+  `case 'skills'` (docx-classic.ts:719) and `case 'projects'` (:783) are
+  unreachable, while classic-template.tsx:337 and :356 render both.
+  The reviewer strengthened the argument from runtime filtering to CONSTRUCTION:
+  ResumeLayoutModel.mainContentOrder is typed readonly EditorMainId[] where
+  EditorMainId is 'summary'|'experience'|'education', route.ts:201 passes
+  [...layout.mainContentOrder], and all three precedence sources go through
+  parseLayoutModel. 'skills' and 'projects' are not representable.
+  Confirmed twice on a real artifact. A fixture with two skill categories and
+  one project produced headings SUMMARY | EXPERIENCE | EDUCATION | LANGUAGES |
+  CERTIFICATIONS, and the strings TypeScript and "Orbital Mapper" are absent
+  from word/document.xml.
+  Deferred correctly: fixing it changes output, which FR-5 forbids in this
+  story. It is being promoted into US-008's acceptance criteria by contract
+  amendment rather than left under a generic parity line - a confirmed
+  content-loss defect needs a named criterion, the way US-004's F-1 to F-4 got
+  one.
+
+F-2 FOR US-008. THE MIRROR IMAGE OF CREATIVE'S F-4. classic-template.tsx
+  contains zero occurrences of mainContentOrder, hiddenMainSections,
+  sidebarOrder, hiddenSidebarSections or any section-id type, and its props
+  interface (:14-27) declares none of them. It renders in hardcoded JSX order
+  and filters only per-item `visible` flags. So for classic the DOCX honours
+  order and visibility and the PREVIEW does not - the exact inverse of creative,
+  where the Preview honours them and the DOCX ignores them.
+
+F-3 FOR US-008. hiddenSidebarSections is never read by the classic generator,
+  so languages and certifications cannot be hidden. The hidden capture profile
+  sets hiddenSidebarSections: ['languages'] and the classic document still
+  contains LANGUAGES, French, English, German - confirmed on the artifact by
+  both the implementer and the reviewer. The combined id cannot arrive through
+  the main list either: parseIdList filters hiddenMainSections against
+  VALID_MAIN_IDS, so 'languagesAndCerts' is not representable there.
+F-3b And no, a classic user cannot hide skills - twice over. 'skills' is a
+  sidebar id, and classic never reads hiddenSidebarSections; and per F-1 the
+  section is never rendered at all.
+
+F-4 WIDENED AFTER REVIEW, AND IT REACHES FURTHER THAN CLASSIC.
+  Originally recorded as a base-size gap: docx-classic.ts:59-65 hardcodes
+  FONT_SIZES.TITLE = 36 while DEFAULT_RESUME_LAYOUT.titleFontSize is 24, and
+  resume-preview.tsx:72 passes the model's 24 - so a default-layout resume shows
+  its title at 24px in the Preview and 36px x scale in the DOCX.
+  The reviewer found a second, separate gap the original wording did not state:
+  ClassicTemplate receives NO fontScale prop at all (resume-preview.tsx:112) and
+  contains zero references to it, while docx-classic.ts:208-213 multiplies all
+  five bases by it. So MOVING THE FONT-SCALE SLIDER ON A CLASSIC RESUME CHANGES
+  THE DOWNLOADED DOCX AND DOES NOT CHANGE THE PREVIEW - a divergence that widens
+  with a control the user actively operates, not a fixed offset.
+  Checking the call sites directly extends it beyond classic: fontScale is
+  passed only to ModernTemplate (:110, :120) and ProfessionalTemplate (:118).
+  CLASSIC, MINIMAL AND CREATIVE all receive none. US-006 and US-007 should
+  expect to find the same thing rather than rediscover it.
+  Per US-003's T-1 this is NOT fixable by pointing the constant at the model:
+  DocxGeneratorSettings carries no font-size keys, so the reference would
+  resolve to the default while the Preview kept using the user's value - which
+  would look like reading the model while still ignoring the user. The reviewer
+  independently reached the same conclusion about FONT_SIZES.CONTACT,
+  SECTION_TITLE and SECTION_DESC, which are exact duplicates of shared defaults
+  and could be repointed with zero output change: doing so would be actively
+  worse for that reason.
+
+F-5 Five dead branches kept in the relocated mapping: case 'skills',
+  'projects', 'languages', 'certifications', 'languagesAndCerts' at
+  layout-settings.ts:838-856 cannot be reached from the application. Kept
+  deliberately - deleting them is a decision about out-of-vocabulary stored
+  state, not a relocation. Documented in place above the function.
+
+F-6 FROM THE REVIEW. The relocated mapping gets none of the union guarantee the
+  relocation is sold on. layout-settings.ts:846 is
+  `mapped.push(id as ClassicMainId)`, and the reviewer proved the consequence by
+  mutation: with 'summary' renamed out of ClassicMainId, mapEditorOrderToClassic
+  still compiles and would return 'summary' at runtime while declaring
+  ClassicMainId[]. The function's own contract becomes a lie and only the
+  CONSUMER catches it. The cast defeats the guarantee at its source; the
+  generator's exhaustive switch is what saves it. Recorded beside F-5 so the
+  next reader of the mutation table knows where the guarantee stops.
+
+NOTED, NOT FINDINGS
+- assertExhaustiveSection is now duplicated a third time, byte-identical to
+  docx-professional.ts:142 and docx-modern.ts:175. Not sloppiness: US-008
+  already carries an explicit acceptance criterion to consolidate it into
+  docx-helpers.ts, and doing it now would touch a second generator and weaken
+  this story's byte-identical evidence.
+- layout-settings.ts is the right home by precedent - mapEditorOrderToModern,
+  ModernSidebarId and ModernMainId already live there - but the file gains a
+  per-template mapping section per story. The reviewer suggests US-008 consider
+  a layout-mappings.ts extraction once all five have landed. Not now.
+- The second test in e2e/docx-classic-layout.spec.ts is pure logic with no
+  `page` fixture. Defensible as a guard co-located with what it protects, but it
+  would run in 4ms in layout-settings.test.ts instead of inside a browser
+  session.
+
+Review history:
+- code-reviewer: PASS, conditional on two recording changes, no code changes.
+  (1) Widen F-4 to state the fontScale gap, naming resume-preview.tsx - done
+  above, and extended beyond classic after checking the call sites directly.
+  (2) Land the findings in the repository and promote F-1 into US-008's
+  acceptance criteria by amendment rather than leaving it under the generic
+  parity line - discharged by this record and by the contract amendment
+  committed immediately after this story.
+  It found no Critical issue and confirmed nothing in the diff changes
+  behaviour, having reproduced byte-identity, the mutation table, the jump
+  count, F-1's reachability chain and F-1's artifact evidence independently.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-005 the classic DOCX derives its layout from the shared model
+
+FINAL: PASS
