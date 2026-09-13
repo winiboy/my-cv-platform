@@ -868,3 +868,131 @@ export function mapEditorOrderToClassic(rawOrder: readonly string[]): ClassicMai
 
   return mapped
 }
+
+// ---------- Editor → Minimal template section-ID mapping ----------
+
+/**
+ * Minimal template section IDs.
+ *
+ * Declared in the order `minimal-template.tsx` renders its sections, which is
+ * NOT the order `ClassicMainId` is declared in: Minimal puts `projects`
+ * between `experience` and `education`, Classic puts it after `skills`. The
+ * declaration order of a union is cosmetic to the compiler, so this is
+ * documentation rather than behaviour — but it is the one place the two
+ * templates' section vocabularies visibly differ, and it is why they are
+ * described separately below.
+ *
+ * Exported for the same reason as `ClassicMainId` and `ModernSidebarId`: a
+ * private copy inside a generator compiles happily while this one moves, which
+ * is exactly how an export comes to render a section list the Preview does not.
+ */
+export type MinimalMainId =
+  | 'summary'
+  | 'experience'
+  | 'projects'
+  | 'education'
+  | 'skills'
+  | 'languagesAndCerts'
+
+/**
+ * Maps an editor main-content order to the Minimal template's section IDs.
+ *
+ * Relocated from `docx-minimal.ts`, where it was `mapToMinimalOrder`. The rule
+ * is unchanged; what changed is who owns it — the same move, for the same
+ * reason, as `mapEditorOrderToClassic` and `mapEditorOrderToModern`.
+ *
+ * WHY THIS IS NOT `mapEditorOrderToClassic` UNDER A SECOND NAME
+ *
+ * The two bodies are, today, character-for-character the same rule. Merging
+ * them was considered and rejected, and the reason is FR-6 rather than taste:
+ * a single function serving both templates means a future adjustment made for
+ * Minimal silently moves Classic's sections too, which is precisely the
+ * cross-template coupling this milestone exists to remove — and it would make
+ * a resulting defect unattributable between two templates.
+ *
+ * The identity is also narrower than it looks. It holds because both templates
+ * happen to be single-column and both happen to collapse languages and
+ * certifications into one tail section. Nothing in the product guarantees that
+ * pairing: the two templates already disagree about where `projects` sits, and
+ * their DOCX generators already disagree about spacing, colour and type scale.
+ *
+ * The duplication is real debt and is recorded as such (US-006 finding F-3) for
+ * US-008, which already owns the analogous `assertExhaustiveSection`
+ * consolidation and can re-prove both templates' output in one place. It is not
+ * consolidated here because doing so would edit `docx-classic.ts` inside a
+ * story whose byte-identical evidence is supposed to isolate `docx-minimal.ts`.
+ *
+ * A LIMIT ON WHAT SEPARATE TYPES BUY. `MinimalMainId` and `ClassicMainId` are
+ * structurally identical, and TypeScript's type system is structural, so the
+ * compiler will not object if one is passed where the other is expected. The
+ * separation buys independent EVOLUTION — either union can gain or lose a
+ * member without dragging the other — not mutual exclusion.
+ *
+ * WHY THE PARAMETER IS `readonly string[]`
+ *
+ * The same reason as the Classic twin: this also accepts `'skills'`,
+ * `'projects'`, `'languages'` and `'certifications'`, none of which is an
+ * `EditorMainId`, so narrowing the parameter would force those branches to be
+ * deleted — a behaviour change rather than a relocation.
+ *
+ * Four of those ids are in fact unreachable from the application today. The
+ * sole caller is the DOCX route, which resolves its lists through
+ * `resolveResumeLayout`, and `parseLayoutModel` filters `mainContentOrder`
+ * against `VALID_MAIN_IDS` (`summary`, `experience`, `education`). The Minimal
+ * DOCX therefore never renders a skills or projects section, while
+ * `minimal-template.tsx` renders both. That is recorded as a finding against
+ * the Minimal export (US-006 F-1), not resolved here.
+ *
+ * NO CAST ON THE PUSH, DELIBERATELY. `mapEditorOrderToClassic` writes
+ * `mapped.push(id as ClassicMainId)`, which defeats the union guarantee at its
+ * source: rename or remove a member and the mapping still compiles while its
+ * declared return type becomes a lie, leaving the consumer's exhaustive switch
+ * as the only thing that notices. A `switch` over a `string` narrows the
+ * subject to the case literals, so no cast is needed here, and removing or
+ * renaming a member of `MinimalMainId` fails on the `push` below with
+ * `TS2345: Argument of type '"skills" | "summary" | "experience" | "education"
+ * | "projects"' is not assignable to parameter of type 'MinimalMainId'` —
+ * verified by mutation, alongside the guard in `docx-minimal.ts`.
+ *
+ * `languagesAndCerts` is appended whenever the input did not already produce
+ * it, so the result is never empty — a property `generateMinimalDocx` relies
+ * on, now that its own empty-input fallback is gone.
+ */
+export function mapEditorOrderToMinimal(rawOrder: readonly string[]): MinimalMainId[] {
+  const mapped: MinimalMainId[] = []
+  const seen = new Set<string>()
+
+  for (const id of rawOrder) {
+    if (seen.has(id)) continue
+
+    switch (id) {
+      case 'summary':
+      case 'experience':
+      case 'education':
+      case 'skills':
+      case 'projects':
+        mapped.push(id)
+        seen.add(id)
+        break
+      // Languages and certifications are treated as a combined section
+      case 'languages':
+      case 'certifications':
+      case 'languagesAndCerts':
+        if (!seen.has('languagesAndCerts')) {
+          mapped.push('languagesAndCerts')
+          seen.add('languagesAndCerts')
+        }
+        break
+      default:
+        // Ignore unknown section IDs
+        break
+    }
+  }
+
+  // Ensure languagesAndCerts is included if not already mapped
+  if (!seen.has('languagesAndCerts')) {
+    mapped.push('languagesAndCerts')
+  }
+
+  return mapped
+}

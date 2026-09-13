@@ -1118,3 +1118,283 @@ Commit:
 - Commit message: ralph: US-005 the classic DOCX derives its layout from the shared model
 
 FINAL: PASS
+
+## US-006: The minimal DOCX derives its layout from the shared model
+Status: PASS
+Priority: 6
+Branch: ralph/milestone-c-part-2-exports
+Baseline HEAD: 8d740da (= origin/main)
+
+Scope:
+- Scope check: PASS
+- Modified: src/app/api/resumes/[id]/download-docx/docx-minimal.ts
+- Modified: src/lib/layout-settings.ts (+128, 0 deletions - see E-1, the
+  append-only property is load-bearing evidence, not a coincidence)
+- New: e2e/docx-minimal-layout.spec.ts (2 tests)
+- docx-professional/modern/classic/creative.ts, docx-helpers.ts and route.ts
+  BYTE-IDENTICAL. src/components/ untouched. No visual baseline moved.
+- Read the generator diff with `git diff -w`: the if-chain -> switch conversion
+  re-indents ~1200 lines; semantic change is 117/57.
+
+Checks (all re-run by the orchestrator at final state):
+- pnpm typecheck: PASS - exit 0
+- pnpm lint: PASS - 306 problems, equal to HEAD, under the 311 baseline
+- pnpm test: PASS - 300 passed
+- pnpm test:integration: PASS - 27 passed
+- pnpm test:e2e: PASS - 55 passed (53 + 2 new)
+- pnpm test:visual: PASS - 10 passed, TWICE consecutively, baselines UNCHANGED
+  (a second run was added deliberately because of F-6)
+- pnpm build:verify: PASS - exit 0
+
+Specialized validation:
+- Export: PASS - the spec unzips the route's response and asserts on
+  word/document.xml. Re-run independently by the reviewer: 2 passed.
+- Visual: PASS - 10/10 unchanged, twice
+- Browser / Database / Security: NOT_APPLICABLE
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no UI change
+- code-reviewer: PASS, conditional on four items - three records (discharged by
+  this entry and by the contract amendment that follows the story commit) and
+  one comment correction (applied before the commit).
+
+WHAT THIS STORY DID
+Minimal mirrors classic structurally: single-column, destructuring only
+mainContentOrder and hiddenMainSections. Like classic and unlike modern, its
+mapping was GENERATOR-LOCAL - mapToMinimalOrder at docx-minimal.ts:992 - which
+is exactly the "per-generator logic" AC-1 names. Relocated into
+src/lib/layout-settings.ts as mapEditorOrderToMinimal with MinimalMainId,
+following the mapEditorOrderToClassic precedent US-005 set. The six-branch
+if-chain became an exhaustive switch, and the `hiddenMainRaw as string[]` no-op
+cast went (DocxGeneratorSettings.hiddenMainSections is already string[]).
+
+Small story. The value is again in what verification surfaced - F-1, a SECOND
+template silently dropping two sections.
+
+Acceptance criteria:
+- AC-01: PASS - order from mapEditorOrderToMinimal, visibility from the uncast
+  hiddenMainSections, fontScale already from resolveResumeLayout. Proven by
+  three mutation groups that each turn the new spec red, and independently by
+  the reviewer a different way - see E-2.
+- AC-02: PASS - local union, DEFAULT_MAIN_ORDER, the generator-local mapping and
+  the no-op cast all removed. DEFAULT_MAIN_ORDER was DEAD, not merely replaced:
+  resolveResumeLayout spreads three ids from DEFAULT_RESUME_LAYOUT and
+  parseLayoutModel only overwrites when non-empty, so the false branch was
+  unreachable. The reviewer confirmed it and measured what the dead branch was
+  hiding: on that unreachable empty input HEAD produces 15,607 characters and
+  the new code 7,011 - a real behaviour difference, correctly confined to an
+  input the application cannot construct.
+  The remaining FONT_SIZES/SPACING constants are NOT in AC-2's scope: Part 1's
+  US-002 kept them as per-template identity stand-ins, recorded as US-003's F-2
+  and again as US-005's F-4.
+- AC-03: PASS - byte-identical on every reachable input.
+- AC-04: PASS - every claim rests on unzipped word/document.xml.
+- AC-05: PASS - F-1 to F-6 below.
+- AC-06: PASS - see E-1, on a stronger argument than the one first offered.
+
+E-1 AC-6 EVIDENCE, AND AN HONEST CORRECTION ABOUT ITS PROVENANCE
+The 2026-09-11 amendment requires the baseline be captured from `git show HEAD:`
+rather than from a working tree already carrying the edit - a rule written after
+US-003 nearly shipped a vacuous comparison. THAT RULE WAS PARAPHRASED, NOT
+FOLLOWED. The implementer argued instead from `git diff HEAD --stat -- src/ e2e/`
+being empty, and the reviewer was right to reject the substitution: git diff
+--stat is blind to UNTRACKED files, so an untracked module under src/ shadowing
+an import would not have appeared - and this branch does carry an untracked file
+under e2e/. Recorded plainly rather than smoothed over, because the rule exists
+precisely to stop a comparison that looks conclusive and is not.
+
+The conclusion nevertheless holds, on two arguments stronger than the one given:
+- For the other four templates: `git diff -U0 -- src/lib/layout-settings.ts` is
+  a SINGLE hunk, @@ -870,0 +871,128 @@, with ZERO deleted lines - purely
+  appended to an 870-line file. No existing symbol changed, and no other
+  generator file is modified. The four provably execute identical code. This is
+  the structural argument the amendment says was available to US-003 and US-004
+  and unavailable afterwards; it is available again here only because the
+  shared-file edit happens to be append-only, and it will not be available to
+  US-007.
+- For minimal itself: the reviewer imported HEAD:docx-minimal.ts alongside the
+  working-tree version in ONE process and compared all 15 zip entries
+  (docProps/core.xml excluded) across SEVEN settings profiles - default,
+  reversed order, hidden education, scale 1.25, all-hidden, fr locale, custom
+  font. Identical in every entry, every profile. That needs no baseline artifact
+  at all. A sentinel with a different fontScale confirms the comparison
+  discriminates.
+The implementer's own harness agrees: 5 templates x 2 profiles, 16 zip entries
+each, four comparisons - baseline vs baseline-repeat at the same HEAD (to show
+IDENTICAL is meaningful), baseline vs final, after vs a SECTION_GAP 40->41
+sentinel (exactly minimal__full and minimal__hidden differ, other four clean),
+and baseline vs restored. All as expected.
+
+E-2 THE SPEC DISCRIMINATES, PROVEN TWO INDEPENDENT WAYS
+Implementer, by mutating one generator property at a time:
+  order      mapping replaced by the template literal -> Expected < 323,
+             Received 487
+  visibility filter predicate neutralised to () => true -> not.toContain("EPFL")
+             failed
+  typography `* fontScale` dropped -> /<w:sz w:val="90"/ failed, document had 72
+Reviewer, without mutating anything: it generated the default document and the
+account document and evaluated all four assertions against both. All four flip -
+experience-before-summary false/true, EPFL present/absent, sz 90 absent/present,
+sz 72 present/absent. It also confirmed the negative assertion is not vacuous:
+the w:sz element set is {26,30,38,90} at scale 1.25 and {21,24,30,72} at scale
+1, so 72 cannot arise at 1.25; and border w:sz appears only as an ATTRIBUTE with
+value 4, which the element-scoped regex correctly excludes.
+
+CONVERSION SAFETY
+Zero break, zero continue, zero return in the pre-conversion dispatch body, at
+any nesting depth including inside nested forEach callbacks. The reviewer
+checked the grep was not silently broken by confirming the same regex finds all
+nine jumps elsewhere in the file. It also checked the risk `git diff -w` hides -
+multi-line template literals, where re-indentation would change a string: the
+three template literals in the dispatch body are all single-line. The
+re-indentation is semantically inert.
+The conversion was performed by a script tagging each emitted line COPIED (with
+its source index) or INSERTED, asserting the copied lines are exactly the source
+body minus six if-openers and six closers: copiedBodyLines=547 mismatches=0. The
+reviewer re-derived the same closed list independently and found zero body lines
+changed, every case breaking, nothing falling through.
+
+THE CAST WAS DROPPED, AND THAT IS A REAL STRENGTHENING
+US-005's F-6 recorded that `mapped.push(id as ClassicMainId)` defeats the union
+guarantee at its source. This story acted on it: mapEditorOrderToMinimal omits
+the cast, because a switch over a string already narrows the subject to the case
+literals. The consequence is visible in the mutation table - removing an id now
+errors inside layout-settings.ts ITSELF, which classic does not get. The
+reviewer ran the control to be sure: removing 'projects' from ClassicMainId
+produces ONE error, in docx-classic.ts only. The cast really does swallow the
+second diagnostic.
+
+Mutations of MinimalMainId, reproduced by the reviewer including the union
+ordering inside the TS2345 message:
+  remove 'projects' -> docx-minimal.ts(620,12) TS2678
+                    AND layout-settings.ts(973,21) TS2345
+  add 'awards'      -> docx-minimal.ts(1037,33) TS2345 ... type 'never'
+  rename 'projects' -> all three at once
+TS2367: zero occurrences in every run. The implementer corrected its own first
+draft of this comment after seeing the output - it had claimed removal broke
+only the generator.
+
+THE SHARED-VS-SEPARATE MAPPING DECISION
+mapEditorOrderToMinimal and mapEditorOrderToClassic are character-for-character
+the same rule. They were deliberately kept separate. The reasoning was
+challenged in review and the CONCLUSION survived while the argument was
+reordered - worth recording, because the first-stated reason was the weakest:
+- The decisive reason is that merging was NOT AVAILABLE to this story. It would
+  edit docx-classic.ts's import, and the PRD's FAIL condition is explicit that
+  more than one DOCX template per story or commit makes a defect unattributable.
+  Combined with the per-story byte-identical evidence rule, the decision was
+  forced rather than chosen.
+- The FR-6 "isolation" argument is the weaker half and should not be leaned on:
+  isolation-by-duplication is not this project's policy - docx-helpers.ts exports
+  16 shared symbols precisely so the generators DO share.
+- The "already fraying" argument survived verification and is substantive, though
+  not for the reason a skim suggests. The union declaration order is cosmetic,
+  but it mirrors something real: classic-template.tsx renders summary,
+  experience, education, skills, projects, ... while minimal-template.tsx
+  renders summary, experience, PROJECTS, education, skills, ... The two
+  templates genuinely place projects differently, so once US-008 makes the
+  templates honour order, a shared mapping would have to pick one placement.
+  That is a concrete future divergence, not a hypothetical.
+Merging remains the right end state - as one mapping plus per-template
+configuration, decided in US-008 where both templates' output can be re-proved
+together. Recorded as F-3.
+
+FINDINGS (AC-5)
+
+F-1 SECOND CONFIRMED CONTENT LOSS, AND THE SECOND TEMPLATE. The minimal DOCX
+  renders no skills section and no projects section, while
+  minimal-template.tsx:270 renders projects and :337 renders skills. Same
+  mechanism as US-005's F-1: route.ts supplies mainContentOrder filtered by
+  parseLayoutModel against VALID_MAIN_IDS = ['summary','experience','education'],
+  so `case 'skills'` and `case 'projects'` are unreachable by construction.
+  Confirmed on a generated artifact by both agents independently. The reviewer's
+  run, on a resume carrying skills [{category:'Engineering', items:['TypeScript']}]
+  and projects [{name:'Openscribe'}]: Engineering 0, TypeScript 0, Openscribe 0,
+  while EPFL 1, Northwind Systems 1, French 1.
+  THIS IS NOT A DUPLICATE OF US-005's F-1. It is a second template with the same
+  defect, which makes it a materially different claim: TWO OF FIVE TEMPLATES
+  silently drop supported content while claiming Preview parity - the exact
+  prohibition in .claude/rules/exports.md. Promoted into US-008 by contract
+  amendment immediately after this story's commit, mirroring how classic's was.
+
+F-2 minimal-template.tsx ignores section order and visibility entirely - grep
+  for mainContentOrder, hiddenMainSections, sidebarOrder, hiddenSidebarSections
+  returns zero, and its sections render in hardcoded JSX order. Same shape as
+  classic's F-2. It DOES consume titleFontSize, contactFontSize,
+  sectionTitleFontSize and sectionDescFontSize, none of which the DOCX can see -
+  already covered by US-008's font-scale criterion, correctly not re-reported.
+
+F-3 mapEditorOrderToMinimal and mapEditorOrderToClassic are the same rule,
+  deliberately duplicated per the decision above. For US-008, which already owns
+  the analogous assertExhaustiveSection and Modern-vocabulary consolidations and
+  can re-prove both templates in one place.
+
+F-4 ALREADY RECORDED, confirmed in passing rather than re-reported as new:
+  minimal receives neither fontScale nor fontFamily in resume-preview.tsx while
+  its generator scales every size by fontScale. Already a US-008 criterion from
+  US-005's F-4.
+
+F-5 SEPARATE UNIONS BUY LESS THAN THEY APPEAR TO. MinimalMainId and
+  ClassicMainId are structurally identical and TypeScript is structural, so the
+  compiler will not object if one is passed where the other is expected. The
+  separation buys independent EVOLUTION, not mutual exclusion. Documented at the
+  declaration rather than left to be inferred, since the point of separating
+  them is a guarantee they only partly give.
+
+F-6 OPEN, UNEXPLAINED VISUAL FLAKE - recorded as still open, not resolved. One
+  failure of "the minimal template prints as approved" in six runs, which then
+  passed 5 consecutive re-runs, 4/4 at HEAD with the change reverted, and 2/2 in
+  the orchestrator's own final runs. The re-run counts are corroboration, not
+  the argument - failing to reproduce a 1-in-6 flake in four runs proves little.
+  The argument that works is static: layout-settings.ts is APPEND-ONLY, so no
+  symbol the Preview reads changed, and docx-minimal.ts is reachable only
+  through the download route, which the visual suite never touches
+  (`grep -rl "docx" e2e/visual/` returns nothing). Nothing in the visual path
+  can reach the changed code. No threshold was widened and no baseline moved, so
+  no FAIL condition is tripped - but the nondeterminism itself remains
+  unexplained and should not be absorbed silently.
+
+NOTED, NOT FINDINGS
+- assertExhaustiveSection is now a FOURTH byte-identical copy (professional:142,
+  modern:175, classic:130, minimal:147). Correct under scope discipline -
+  US-008 already owns the consolidation - but worth stating that it was copied
+  unchanged one story after being flagged.
+- e2e/docx-minimal-layout.spec.ts is a ~230-line near-duplicate of
+  docx-classic-layout.spec.ts, differing in prose and four constants. Larger
+  than the duplication F-3 records. Mandated by the artifact-spec verification
+  rule and superseded by US-008's parity check, so defensible - but the
+  asymmetry is stated rather than left for the next reader to notice.
+- The second spec test is again pure logic sitting in the browser tier, costing
+  a Playwright session for what layout-settings.test.ts would run in
+  milliseconds. Flagged in US-005, copied unchanged.
+- US-005's F-6 remains open: mapEditorOrderToClassic:846 still carries its cast.
+  Removing it would touch no generator and change no output, so it is a
+  zero-risk fix - but out of this story's scope. The asymmetry inside one file,
+  twin functions with one cast and one not, is a deliberate record rather than a
+  puzzle; the new doc comment explains it.
+- For US-008: layout-settings.ts has now grown a per-template mapping section
+  for three stories running. Both US-005's and US-006's reviewers suggest a
+  src/lib/layout-mappings.ts extraction once all five have landed.
+
+Review history:
+- code-reviewer: PASS conditional on four items, no production logic change.
+  Two Critical, both process rather than code: minimal's F-1 had no US-008
+  criterion while classic's identical finding got a named one by amendment one
+  story earlier - which would have dropped it into exactly the generic line
+  US-005's review refused; and progress.txt was unmodified, so the findings,
+  gates and mutation table existed nowhere in the repository. One Major: the
+  AC-26 baseline-provenance rule was paraphrased rather than followed, with a
+  substitute weaker than it looked. One Minor: a comment premise that did not
+  support its true conclusion.
+- All four discharged: the comment corrected in place; this record written; the
+  provenance stated honestly in E-1 above; and US-008 amended immediately after
+  the story commit.
+- The reviewer re-proved the byte-identity, jump count, mutation table, spec
+  discrimination and F-1 artifact evidence by methods different from the
+  implementer's rather than repeating them.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-006 the minimal DOCX derives its layout from the shared model
+
+FINAL: PASS
