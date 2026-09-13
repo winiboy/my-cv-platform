@@ -423,6 +423,42 @@ rather than asserted.
       never reads `hiddenSidebarSections`, so **languages and certifications
       cannot be hidden** — confirmed on the artifact, where a profile hiding
       `languages` still produced `LANGUAGES`, `French`, `English`, `German`.
+- [ ] **The minimal DOCX stops dropping the skills and projects sections.**
+      *(Added 2026-09-13, from US-006 F-1.)* The same defect as the classic
+      criterion above, in a **second** template, by the same mechanism —
+      `mainContentOrder` is filtered against
+      `VALID_MAIN_IDS = ['summary','experience','education']`, so
+      `case 'skills'` and `case 'projects'` in `docx-minimal.ts` are unreachable
+      by construction, while `minimal-template.tsx:270` and `:337` render both.
+      Confirmed on a generated artifact by two agents independently: a resume
+      carrying a skills category and a project produced a document containing
+      `Engineering` 0, `TypeScript` 0, `Openscribe` 0. **Two of five templates
+      silently drop supported content while claiming Preview parity** — the
+      exact prohibition in `.claude/rules/exports.md`. Whatever fixes the
+      classic case should be checked to fix this one, but it gets its own
+      criterion because it is a second confirmed instance, not a restatement.
+- [ ] **Minimal's order and visibility divergence is resolved.** *(Added
+      2026-09-13, from US-006 F-2.)* `minimal-template.tsx` contains zero
+      occurrences of `mainContentOrder`, `hiddenMainSections`, `sidebarOrder` or
+      `hiddenSidebarSections` and renders in hardcoded JSX order — the same
+      shape as classic. Note the two templates place `projects` differently in
+      that hardcoded order (classic: summary, experience, education, skills,
+      projects; minimal: summary, experience, **projects**, education, skills),
+      so making both honour the model requires deciding which placement the
+      shared vocabulary produces. That decision also settles whether the two
+      mappings can merge — see the duplication criterion below.
+- [ ] **The duplicated per-template order mappings are resolved.** *(Added
+      2026-09-13, from US-006 F-3.)* `mapEditorOrderToClassic` and
+      `mapEditorOrderToMinimal` in `src/lib/layout-settings.ts` are
+      character-for-character the same rule. They were kept separate in US-006
+      because merging would have edited a second generator's import inside a
+      per-template story, which the one-template-per-commit FAIL condition
+      forbids — a constraint that does not apply here. Merging is the intended
+      end state, as one mapping plus per-template configuration, decided where
+      both templates' output can be re-proved together. Note also US-005's F-6,
+      still open: `mapEditorOrderToClassic` retains a `mapped.push(id as
+      ClassicMainId)` cast that `mapEditorOrderToMinimal` proved unnecessary,
+      and which swallows a diagnostic the uncast version emits.
 - [ ] **The font-scale divergence is recorded or closed for the three templates
       that have it.** *(Added 2026-09-12, from US-005 F-4 as widened in
       review.)* `resume-preview.tsx` passes `fontScale` to `ModernTemplate` and
@@ -600,6 +636,33 @@ rather than asserted.
   resume unaided.
 
 ## Amendment History
+
+### 2026-09-13 — after US-006
+
+**US-008 gained three acceptance criteria.** No other story is touched; US-006
+is already committed and this does not revisit it. Required by its code review,
+which passed the story conditional on the promotion — on the precedent set one
+story earlier, that a confirmed content-loss defect gets a named criterion
+rather than being absorbed into the generic parity line.
+
+The first matters most: US-006's F-1 is the **same defect as US-005's F-1, in a
+second template**. Minimal's DOCX also drops the skills and projects sections
+that its Preview renders, by the same unreachable-`case` mechanism, confirmed on
+a generated artifact by two agents independently. One template dropping content
+is a defect; **two of five doing it** is a pattern, and the criterion says so.
+
+The second carries F-2, minimal's Preview ignoring order and visibility — and
+records a detail that will force a decision: classic and minimal place
+`projects` **differently** in their hardcoded render order, so making both
+honour the shared model requires choosing which placement the shared vocabulary
+produces.
+
+The third carries F-3, the two character-identical order mappings. US-006 kept
+them separate because merging would have edited a second generator inside a
+per-template story, which the one-template-per-commit FAIL condition forbids —
+a constraint that does not apply to US-008. It also folds in US-005's F-6, still
+open: classic's mapping retains a cast that minimal's proved unnecessary and
+that swallows a diagnostic.
 
 ### 2026-09-12 — after US-005
 
