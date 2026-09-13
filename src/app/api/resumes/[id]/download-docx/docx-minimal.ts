@@ -28,6 +28,7 @@ import {
   stripHtml,
   type DocxGeneratorSettings,
 } from './docx-helpers'
+import { mapEditorOrderToMinimal, type MinimalMainId } from '@/lib/layout-settings'
 
 // ============================================================
 // TRANSLATION DICTIONARY (matching minimal-template.tsx section labels)
@@ -99,12 +100,54 @@ const SPACING = {
 // Minimal template uses sans-serif, not serif
 const DEFAULT_SANS_FONT = 'Arial'
 
-// Section types for ordering
-type MinimalMainSectionId = 'summary' | 'experience' | 'projects' | 'education' | 'skills' | 'languagesAndCerts'
-
-const DEFAULT_MAIN_ORDER: MinimalMainSectionId[] = [
-  'summary', 'experience', 'projects', 'education', 'skills', 'languagesAndCerts',
-]
+/**
+ * Compile-time exhaustiveness guard for the section dispatch below.
+ *
+ * `MinimalMainId` reaches this file from the shared model — imported by name,
+ * and structurally as the return type of `mapEditorOrderToMinimal` — rather
+ * than being re-declared here, which it was until US-006. The two guarantees
+ * that sharing buys are not symmetric, and each was verified by mutating
+ * `layout-settings.ts` and running `pnpm typecheck`:
+ *
+ *  - REMOVING an id breaks this file because the union is the model's: a case
+ *    clause stops naming a member. Deleting `'projects'` from `MinimalMainId`
+ *    gives, in this file,
+ *    `TS2678: Type '"projects"' is not comparable to type 'MinimalMainId'`.
+ *    It also breaks `mapEditorOrderToMinimal`, whose uncast `mapped.push(id)`
+ *    reports `TS2345: Argument of type '"skills" | "summary" | "experience" |
+ *    "education" | "projects"' is not assignable to parameter of type
+ *    'MinimalMainId'`. The Classic twin's `push(id as ClassicMainId)` suppresses
+ *    that second error, which is why the cast was not carried over.
+ *
+ *  - ADDING an id is caught ONLY by the dispatch being a `switch` statement
+ *    that ends in `assertExhaustiveSection`, which narrows its subject to
+ *    `never` in `default` only while every member has a case. Adding
+ *    `'awards'` gives
+ *    `TS2345: Argument of type '"awards"' is not assignable to parameter of
+ *    type 'never'`, and nothing else in the repository reports anything.
+ *    Sharing the union alone would not catch it: the order array arrives as
+ *    `string[]`, and the `if`-chain this replaced had no notion of being
+ *    complete — a new id would have matched no branch and vanished from the
+ *    export while the Preview showed it.
+ *
+ * A RENAME trips both, being a removal plus an addition: `'projects'` renamed
+ * to `'portfolio'` reports all three errors above at once. `TS2367` — the
+ * "comparison appears unintentional" diagnostic — appears zero times in every
+ * one of the three mutations; it is not what guards this dispatch.
+ *
+ * It deliberately does NOT throw, for the same reason as its twins in
+ * `docx-professional.ts`, `docx-modern.ts` and `docx-classic.ts`:
+ * `DocxGeneratorSettings` types the order arrays as `string[]`, so a stray id
+ * is representable at runtime, and the route already filters the lists through
+ * the shared model (`resolveResumeLayout`) before any generator sees them.
+ * Throwing would turn stray stored layout state into a failed download — a
+ * behavioural change belonging to whatever story decides how exports should
+ * react to unparseable layout state, not to a type fix.
+ */
+function assertExhaustiveSection(sectionId: never): void {
+  // Referenced so the parameter is not reported unused; intentionally inert.
+  return sectionId
+}
 
 // ============================================================
 // MINIMAL TEMPLATE DOCX GENERATOR
@@ -147,11 +190,48 @@ export async function generateMinimalDocx(
   const projects = (resume.projects || []).filter((project: any) => project.visible !== false)
   const languages = (resume.languages || []).filter((lang: any) => lang.visible !== false)
 
-  // Determine section ordering
-  const mainContentOrder = mainContentOrderRaw.length > 0
-    ? mapToMinimalOrder(mainContentOrderRaw)
-    : DEFAULT_MAIN_ORDER
-  const hiddenMainSections = hiddenMainRaw as string[]
+  /**
+   * Section ordering, from the shared model's editor→Minimal rule.
+   *
+   * The rule itself used to live at the foot of this file. It is the same rule
+   * and the same result; it is now stated once, next to the layout model whose
+   * vocabulary it translates, instead of privately here.
+   *
+   * THE EMPTY-INPUT FALLBACK WAS REMOVED AS DEAD, NOT AS TIDYING.
+   *
+   * This read `mainContentOrderRaw.length > 0 ? map(...) : DEFAULT_MAIN_ORDER`,
+   * where `DEFAULT_MAIN_ORDER` was a six-member literal declared in this file.
+   * Two things were wrong with it and one thing made it safe to drop:
+   *
+   *  - Unreachable. The only caller is `route.ts`, which passes
+   *    `[...layout.mainContentOrder]` from `resolveResumeLayout`. That spreads
+   *    `DEFAULT_RESUME_LAYOUT` (three ids) and then partials from
+   *    `parseLayoutModel`, which sets `mainContentOrder` only when the parsed
+   *    list is non-empty. The array therefore always has at least one member,
+   *    and the `false` branch could never be taken.
+   *
+   *  - It was a competing default. It claimed Minimal shows `skills` and
+   *    `projects` by default, while the mapping applied to the real default
+   *    order produces neither — precisely the divergence between an export's
+   *    private defaults and the shared model that this milestone removes. That
+   *    the literal happened to match `minimal-template.tsx`'s hard-coded source
+   *    order made it more misleading, not less: the Preview's order is not
+   *    driven by this list, or by any list.
+   *
+   *  - The unreachable input still yields a non-empty document — but from the
+   *    header, not the mapping. `mapEditorOrderToMinimal` never returns an
+   *    empty list, yet on empty input it returns only `languagesAndCerts`,
+   *    whose branch is guarded on languages or certifications being present
+   *    and so emits nothing. The title paragraph is what always emits, with a
+   *    'CV TITLE' fallback; on that input it is the whole of the body text.
+   *
+   * `hiddenMainRaw` no longer carries an `as string[]` cast: it is already
+   * declared `string[]` by `DocxGeneratorSettings`, and the cast asserted
+   * nothing.
+   */
+  const mainContentOrder: readonly MinimalMainId[] =
+    mapEditorOrderToMinimal(mainContentOrderRaw)
+  const hiddenMainSections = hiddenMainRaw
 
   // Calculate scaled font sizes (half-points for docx)
   const scaledFontSizes = {
@@ -330,611 +410,634 @@ export async function generateMinimalDocx(
     const isLastSection = index === visibleMainSections.length - 1
     const sectionEndSpacing = isLastSection ? 0 : pxToTwips(SPACING.SECTION_GAP)
 
-    // --- SUMMARY ---
-    if (sectionId === 'summary' && resume.summary) {
-      children.push(
-        createSectionHeader(
-          (dict as any).resumes?.editor?.sections?.summary || minimalDict.summary,
-          pxToTwips(SPACING.SUMMARY_SECTION_TITLE_MB) // mb-4, not mb-6
-        )
-      )
-
-      const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.JUSTIFIED
-
-      if (isHtmlList(resume.summary)) {
-        const listParagraphs = parseHtmlListToParagraphs(
-          resume.summary,
-          {
-            size: scaledFontSizes.body,
-            color: SLATE[600], // slate-600 for summary text
-            font,
-          },
-          pxToTwips(4),
-          sectionEndSpacing,
-          undefined,
-          summaryAlignment
-        )
-        children.push(...listParagraphs)
-      } else {
-        const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
-          size: scaledFontSizes.body,
-          color: SLATE[600],
-          font,
-        })
-
-        children.push(
-          new Paragraph({
-            children: summaryRuns,
-            alignment: summaryAlignment,
-            spacing: {
-              after: sectionEndSpacing,
-              line: Math.round(240 * LINE_HEIGHTS.BODY),
-              lineRule: LineRuleType.AUTO,
-            },
-          })
-        )
-      }
-    }
-
-    // --- EXPERIENCE ---
-    if (sectionId === 'experience' && experiences.length > 0) {
-      children.push(
-        createSectionHeader(
-          (dict as any).resumes?.editor?.sections?.experience || minimalDict.experience
-        )
-      )
-
-      experiences.forEach((exp: any, i: number) => {
-        const isLastExp = i === experiences.length - 1
-
-        // Line 1: Position (left, font-medium=bold) + Date range (right, em-dash)
-        const dateText = formatMinimalDateRange(
-          exp.startDate,
-          exp.endDate,
-          exp.current
-        )
-
-        children.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: exp.position || '',
-                bold: true, // font-medium approximated as bold
-                size: scaledFontSizes.position, // text-xl = 20px
-                color: SLATE[900],
-                font,
-              }),
-              ...(dateText ? [
-                new TextRun({
-                  text: '\t' + dateText,
-                  size: scaledFontSizes.date, // text-sm = 14px
-                  color: SLATE[500],
-                  font,
-                }),
-              ] : []),
-            ],
-            spacing: { after: pxToTwips(SPACING.EXP_LINE1_MB) },
-            tabStops: [
-              {
-                type: TabStopType.RIGHT,
-                position: rightTabPosition,
-              },
-            ],
-          })
-        )
-
-        // Line 2: Company \u00B7 Location (font-light=non-bold, slate-600, middle dot)
-        const companyText = exp.location
-          ? `${exp.company || ''} \u00B7 ${exp.location}`
-          : (exp.company || '')
-
-        if (companyText) {
+    switch (sectionId) {
+      // --- SUMMARY ---
+      case 'summary': {
+        if (resume.summary) {
           children.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: companyText,
-                  size: scaledFontSizes.company, // text-base = 16px
-                  color: SLATE[600],
-                  font,
-                  // font-light = non-bold (default)
-                }),
-              ],
-              spacing: { after: pxToTwips(SPACING.EXP_LINE2_MB) },
-            })
-          )
-        }
-
-        // Achievements (small circle bullet) or Description (paragraph)
-        if (exp.achievements && exp.achievements.length > 0) {
-          exp.achievements.forEach((achievement: string, j: number) => {
-            const isLastAchievement = j === exp.achievements.length - 1
-
-            const achievementRuns = parseHtmlToDocxRuns(achievement, {
-              size: scaledFontSizes.body,
-              color: SLATE[700], // slate-700 for achievement text
-              font,
-            })
-
-            // Spacing: between achievements = 8px, between experiences = 32px
-            const achievementSpacingAfter = !isLastAchievement
-              ? pxToTwips(SPACING.ACHIEVEMENT_GAP)
-              : isLastExp
-                ? sectionEndSpacing
-                : pxToTwips(SPACING.EXPERIENCE_ITEM_GAP)
-
-            // Use small bullet (middle dot) to approximate the 4px circle bullets
-            children.push(
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: '\u2022 ', // Small bullet character
-                    size: scaledFontSizes.body,
-                    color: SLATE[400], // Bullet color matches slate-400
-                    font,
-                  }),
-                  ...achievementRuns,
-                ],
-                spacing: {
-                  after: achievementSpacingAfter,
-                  line: Math.round(240 * LINE_HEIGHTS.BODY),
-                  lineRule: LineRuleType.AUTO,
-                },
-              })
+            createSectionHeader(
+              (dict as any).resumes?.editor?.sections?.summary || minimalDict.summary,
+              pxToTwips(SPACING.SUMMARY_SECTION_TITLE_MB) // mb-4, not mb-6
             )
-          })
-        } else if (exp.description) {
-          const descAlignment = extractAlignment(exp.description) || AlignmentType.JUSTIFIED
-          const descSpacingAfter = isLastExp ? sectionEndSpacing : pxToTwips(SPACING.EXPERIENCE_ITEM_GAP)
+          )
 
-          if (isHtmlList(exp.description)) {
+          const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.JUSTIFIED
+
+          if (isHtmlList(resume.summary)) {
             const listParagraphs = parseHtmlListToParagraphs(
-              exp.description,
+              resume.summary,
               {
                 size: scaledFontSizes.body,
-                color: SLATE[700],
+                color: SLATE[600], // slate-600 for summary text
                 font,
               },
-              pxToTwips(SPACING.ACHIEVEMENT_GAP),
-              descSpacingAfter,
+              pxToTwips(4),
+              sectionEndSpacing,
               undefined,
-              descAlignment
+              summaryAlignment
             )
             children.push(...listParagraphs)
           } else {
-            const descRuns = parseHtmlToDocxRuns(exp.description, {
+            const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
               size: scaledFontSizes.body,
-              color: SLATE[700],
+              color: SLATE[600],
               font,
             })
 
             children.push(
               new Paragraph({
-                children: descRuns,
+                children: summaryRuns,
+                alignment: summaryAlignment,
                 spacing: {
-                  after: descSpacingAfter,
+                  after: sectionEndSpacing,
                   line: Math.round(240 * LINE_HEIGHTS.BODY),
                   lineRule: LineRuleType.AUTO,
                 },
-                alignment: descAlignment,
               })
             )
           }
-        } else {
-          // No description or achievements
-          children.push(
-            new Paragraph({
-              children: [],
-              spacing: { after: isLastExp ? sectionEndSpacing : pxToTwips(SPACING.EXPERIENCE_ITEM_GAP) },
-            })
-          )
         }
-      })
-    }
+        break
+      }
 
-    // --- PROJECTS ---
-    if (sectionId === 'projects' && projects.length > 0) {
-      children.push(
-        createSectionHeader(
-          (dict as any).resumes?.editor?.sections?.projects || minimalDict.projects
-        )
-      )
-
-      projects.forEach((project: any, i: number) => {
-        const isLastProject = i === projects.length - 1
-        const hasDescription = !!project.description
-        const hasTechnologies = project.technologies && project.technologies.length > 0
-
-        // Project name (text-xl font-medium = bold, slate-900)
-        children.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: project.name || '',
-                bold: true,
-                size: scaledFontSizes.position, // text-xl = 20px
-                color: SLATE[900],
-                font,
-              }),
-            ],
-            spacing: {
-              after: hasDescription || hasTechnologies
-                ? pxToTwips(SPACING.PROJECT_NAME_MB)
-                : (isLastProject ? sectionEndSpacing : pxToTwips(SPACING.PROJECT_ITEM_GAP)),
-            },
-          })
-        )
-
-        // Description (optional, slate-700, leading-relaxed)
-        if (hasDescription) {
-          const projectDescRuns = parseHtmlToDocxRuns(project.description, {
-            size: scaledFontSizes.body,
-            color: SLATE[700],
-            font,
-          })
-
+      // --- EXPERIENCE ---
+      case 'experience': {
+        if (experiences.length > 0) {
           children.push(
-            new Paragraph({
-              children: projectDescRuns,
-              spacing: {
-                after: hasTechnologies
-                  ? pxToTwips(SPACING.PROJECT_DESC_MB)
-                  : (isLastProject ? sectionEndSpacing : pxToTwips(SPACING.PROJECT_ITEM_GAP)),
-                line: Math.round(240 * LINE_HEIGHTS.BODY),
-                lineRule: LineRuleType.AUTO,
-              },
-            })
+            createSectionHeader(
+              (dict as any).resumes?.editor?.sections?.experience || minimalDict.experience
+            )
           )
-        }
 
-        // Technologies (text-xs font-light text-slate-500, displayed as tags with gap-3)
-        // In DOCX, render as comma-separated since flex-wrap doesn't translate
-        if (hasTechnologies) {
-          children.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: project.technologies.join('    '), // Wide spacing to simulate gap-3 flex
-                  size: scaledFontSizes.tech, // text-xs = 12px
-                  color: SLATE[500],
-                  font,
-                  // font-light = non-bold (default)
-                }),
-              ],
-              spacing: {
-                after: isLastProject ? sectionEndSpacing : pxToTwips(SPACING.PROJECT_ITEM_GAP),
-              },
-            })
-          )
-        }
-      })
-    }
+          experiences.forEach((exp: any, i: number) => {
+            const isLastExp = i === experiences.length - 1
 
-    // --- EDUCATION ---
-    if (sectionId === 'education' && education.length > 0) {
-      children.push(
-        createSectionHeader(
-          (dict as any).resumes?.editor?.sections?.education || minimalDict.education
-        )
-      )
+            // Line 1: Position (left, font-medium=bold) + Date range (right, em-dash)
+            const dateText = formatMinimalDateRange(
+              exp.startDate,
+              exp.endDate,
+              exp.current
+            )
 
-      education.forEach((edu: any, i: number) => {
-        const isLastEdu = i === education.length - 1
+            children.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: exp.position || '',
+                    bold: true, // font-medium approximated as bold
+                    size: scaledFontSizes.position, // text-xl = 20px
+                    color: SLATE[900],
+                    font,
+                  }),
+                  ...(dateText ? [
+                    new TextRun({
+                      text: '\t' + dateText,
+                      size: scaledFontSizes.date, // text-sm = 14px
+                      color: SLATE[500],
+                      font,
+                    }),
+                  ] : []),
+                ],
+                spacing: { after: pxToTwips(SPACING.EXP_LINE1_MB) },
+                tabStops: [
+                  {
+                    type: TabStopType.RIGHT,
+                    position: rightTabPosition,
+                  },
+                ],
+              })
+            )
 
-        // Line 1: Degree (left, font-medium=bold, text-xl) + Date (right, em-dash)
-        const eduDateText = formatMinimalDateRange(
-          edu.startDate,
-          edu.endDate,
-          false // education has no "current" flag in the template
-        )
+            // Line 2: Company \u00B7 Location (font-light=non-bold, slate-600, middle dot)
+            const companyText = exp.location
+              ? `${exp.company || ''} \u00B7 ${exp.location}`
+              : (exp.company || '')
 
-        children.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: edu.degree || '',
-                bold: true,
-                size: scaledFontSizes.position, // text-xl = 20px
-                color: SLATE[900],
-                font,
-              }),
-              ...(eduDateText ? [
-                new TextRun({
-                  text: '\t' + eduDateText,
-                  size: scaledFontSizes.date,
-                  color: SLATE[500],
-                  font,
-                }),
-              ] : []),
-            ],
-            spacing: { after: pxToTwips(SPACING.EDU_LINE1_MB) },
-            tabStops: [
-              {
-                type: TabStopType.RIGHT,
-                position: rightTabPosition,
-              },
-            ],
-          })
-        )
+            if (companyText) {
+              children.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: companyText,
+                      size: scaledFontSizes.company, // text-base = 16px
+                      color: SLATE[600],
+                      font,
+                      // font-light = non-bold (default)
+                    }),
+                  ],
+                  spacing: { after: pxToTwips(SPACING.EXP_LINE2_MB) },
+                })
+              )
+            }
 
-        // Line 2: School \u00B7 Field (font-light, slate-600, middle dot)
-        const schoolText = edu.field
-          ? `${edu.school || ''} \u00B7 ${edu.field}`
-          : (edu.school || '')
+            // Achievements (small circle bullet) or Description (paragraph)
+            if (exp.achievements && exp.achievements.length > 0) {
+              exp.achievements.forEach((achievement: string, j: number) => {
+                const isLastAchievement = j === exp.achievements.length - 1
 
-        const hasGpa = !!edu.gpa
-
-        children.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: schoolText,
-                size: scaledFontSizes.body,
-                color: SLATE[600],
-                font,
-                // font-light = non-bold
-              }),
-            ],
-            spacing: {
-              after: hasGpa
-                ? pxToTwips(4) // mt-1 before GPA
-                : (isLastEdu ? sectionEndSpacing : pxToTwips(SPACING.EDUCATION_ITEM_GAP)),
-            },
-          })
-        )
-
-        // Line 3: GPA (optional, slate-500)
-        if (hasGpa) {
-          children.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: `GPA: ${edu.gpa}`,
+                const achievementRuns = parseHtmlToDocxRuns(achievement, {
                   size: scaledFontSizes.body,
-                  color: SLATE[500],
+                  color: SLATE[700], // slate-700 for achievement text
                   font,
-                }),
-              ],
-              spacing: {
-                after: isLastEdu ? sectionEndSpacing : pxToTwips(SPACING.EDUCATION_ITEM_GAP),
-              },
-            })
-          )
+                })
+
+                // Spacing: between achievements = 8px, between experiences = 32px
+                const achievementSpacingAfter = !isLastAchievement
+                  ? pxToTwips(SPACING.ACHIEVEMENT_GAP)
+                  : isLastExp
+                    ? sectionEndSpacing
+                    : pxToTwips(SPACING.EXPERIENCE_ITEM_GAP)
+
+                // Use small bullet (middle dot) to approximate the 4px circle bullets
+                children.push(
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: '\u2022 ', // Small bullet character
+                        size: scaledFontSizes.body,
+                        color: SLATE[400], // Bullet color matches slate-400
+                        font,
+                      }),
+                      ...achievementRuns,
+                    ],
+                    spacing: {
+                      after: achievementSpacingAfter,
+                      line: Math.round(240 * LINE_HEIGHTS.BODY),
+                      lineRule: LineRuleType.AUTO,
+                    },
+                  })
+                )
+              })
+            } else if (exp.description) {
+              const descAlignment = extractAlignment(exp.description) || AlignmentType.JUSTIFIED
+              const descSpacingAfter = isLastExp ? sectionEndSpacing : pxToTwips(SPACING.EXPERIENCE_ITEM_GAP)
+
+              if (isHtmlList(exp.description)) {
+                const listParagraphs = parseHtmlListToParagraphs(
+                  exp.description,
+                  {
+                    size: scaledFontSizes.body,
+                    color: SLATE[700],
+                    font,
+                  },
+                  pxToTwips(SPACING.ACHIEVEMENT_GAP),
+                  descSpacingAfter,
+                  undefined,
+                  descAlignment
+                )
+                children.push(...listParagraphs)
+              } else {
+                const descRuns = parseHtmlToDocxRuns(exp.description, {
+                  size: scaledFontSizes.body,
+                  color: SLATE[700],
+                  font,
+                })
+
+                children.push(
+                  new Paragraph({
+                    children: descRuns,
+                    spacing: {
+                      after: descSpacingAfter,
+                      line: Math.round(240 * LINE_HEIGHTS.BODY),
+                      lineRule: LineRuleType.AUTO,
+                    },
+                    alignment: descAlignment,
+                  })
+                )
+              }
+            } else {
+              // No description or achievements
+              children.push(
+                new Paragraph({
+                  children: [],
+                  spacing: { after: isLastExp ? sectionEndSpacing : pxToTwips(SPACING.EXPERIENCE_ITEM_GAP) },
+                })
+              )
+            }
+          })
         }
-      })
-    }
+        break
+      }
 
-    // --- SKILLS ---
-    // Minimal template: category name on one line, items flex-wrapped below
-    // NOT "Category: item1, item2" format like Classic
-    if (sectionId === 'skills' && skills.length > 0) {
-      children.push(
-        createSectionHeader(
-          (dict as any).resumes?.editor?.sections?.skills || minimalDict.skills
-        )
-      )
+      // --- PROJECTS ---
+      case 'projects': {
+        if (projects.length > 0) {
+          children.push(
+            createSectionHeader(
+              (dict as any).resumes?.editor?.sections?.projects || minimalDict.projects
+            )
+          )
 
-      skills.forEach((skillCat: any, i: number) => {
-        const isLastSkill = i === skills.length - 1
-        const itemEndSpacing = isLastSkill ? sectionEndSpacing : pxToTwips(SPACING.SKILLS_CAT_GAP)
+          projects.forEach((project: any, i: number) => {
+            const isLastProject = i === projects.length - 1
+            const hasDescription = !!project.description
+            const hasTechnologies = project.technologies && project.technologies.length > 0
 
-        // Category name (font-medium = bold, slate-700)
-        children.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: skillCat.category || '',
-                bold: true,
+            // Project name (text-xl font-medium = bold, slate-900)
+            children.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: project.name || '',
+                    bold: true,
+                    size: scaledFontSizes.position, // text-xl = 20px
+                    color: SLATE[900],
+                    font,
+                  }),
+                ],
+                spacing: {
+                  after: hasDescription || hasTechnologies
+                    ? pxToTwips(SPACING.PROJECT_NAME_MB)
+                    : (isLastProject ? sectionEndSpacing : pxToTwips(SPACING.PROJECT_ITEM_GAP)),
+                },
+              })
+            )
+
+            // Description (optional, slate-700, leading-relaxed)
+            if (hasDescription) {
+              const projectDescRuns = parseHtmlToDocxRuns(project.description, {
                 size: scaledFontSizes.body,
                 color: SLATE[700],
                 font,
-              }),
-            ],
-            spacing: { after: pxToTwips(SPACING.SKILLS_ITEM_MB) },
-          })
-        )
-
-        // Skill items (slate-600, flex-wrapped with gap-x-4)
-        // Use skillsHtml if available, otherwise items array
-        let skillText = ''
-        if (skillCat.skillsHtml) {
-          skillText = stripHtml(skillCat.skillsHtml)
-        } else if (skillCat.items && skillCat.items.length > 0) {
-          // Render with wide spacing to simulate gap-x-4 flex wrapping
-          skillText = skillCat.items.join('    ')
-        }
-
-        if (skillText) {
-          children.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: skillText,
-                  size: scaledFontSizes.body,
-                  color: SLATE[600],
-                  font,
-                }),
-              ],
-              spacing: { after: itemEndSpacing },
-            })
-          )
-        }
-      })
-    }
-
-    // --- LANGUAGES + CERTIFICATIONS (2-column grid, gap-12) ---
-    if (sectionId === 'languagesAndCerts' && (languages.length > 0 || certifications.length > 0)) {
-      // Build languages column paragraphs
-      const langParagraphs: Paragraph[] = []
-
-      if (languages.length > 0) {
-        langParagraphs.push(
-          createSectionHeader(
-            (dict as any).resumes?.editor?.sections?.languages || minimalDict.languages
-          )
-        )
-
-        // Half column width for the tab stop within the language cell
-        const halfColumnWidth = Math.round((contentWidthTwips - pxToTwips(SPACING.GRID_GAP)) / 2)
-
-        languages.forEach((lang: any, i: number) => {
-          const isLast = i === languages.length - 1
-          const levelText = (dict as any).resumes?.editor?.levels?.[lang.level?.toLowerCase()] || lang.level || ''
-
-          langParagraphs.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: lang.language || '',
-                  size: scaledFontSizes.body,
-                  color: SLATE[700],
-                  font,
-                  // Not bold — Minimal template uses non-bold for language names
-                }),
-                new TextRun({
-                  text: '\t' + levelText,
-                  size: scaledFontSizes.body,
-                  color: SLATE[500],
-                  font,
-                  // font-light = non-bold
-                }),
-              ],
-              spacing: { after: isLast ? 0 : pxToTwips(SPACING.LANGUAGE_ITEM_GAP) },
-              tabStops: [
-                {
-                  type: TabStopType.RIGHT,
-                  position: halfColumnWidth,
-                },
-              ],
-            })
-          )
-        })
-      }
-
-      // Build certifications column paragraphs
-      const certParagraphs: Paragraph[] = []
-
-      if (certifications.length > 0) {
-        certParagraphs.push(
-          createSectionHeader(
-            (dict as any).resumes?.editor?.sections?.certifications || minimalDict.certifications
-          )
-        )
-
-        certifications.forEach((cert: any, i: number) => {
-          const isLast = i === certifications.length - 1
-
-          // Cert name (font-medium = bold, slate-700)
-          certParagraphs.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: cert.name || '',
-                  bold: true,
-                  size: scaledFontSizes.body,
-                  color: SLATE[700],
-                  font,
-                }),
-              ],
-              spacing: { after: cert.issuer || cert.date ? 0 : (isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP)) },
-            })
-          )
-
-          // Issuer (slate-500, not bold)
-          if (cert.issuer) {
-            certParagraphs.push(
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: cert.issuer,
-                    size: scaledFontSizes.body,
-                    color: SLATE[500],
-                    font,
-                  }),
-                ],
-                spacing: { after: cert.date ? 0 : (isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP)) },
               })
-            )
-          }
 
-          // Date (slate-400, not bold)
-          if (cert.date) {
-            certParagraphs.push(
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: new Date(cert.date + '-01').toLocaleDateString(locale as Locale, {
-                      month: 'short',
-                      year: 'numeric',
+              children.push(
+                new Paragraph({
+                  children: projectDescRuns,
+                  spacing: {
+                    after: hasTechnologies
+                      ? pxToTwips(SPACING.PROJECT_DESC_MB)
+                      : (isLastProject ? sectionEndSpacing : pxToTwips(SPACING.PROJECT_ITEM_GAP)),
+                    line: Math.round(240 * LINE_HEIGHTS.BODY),
+                    lineRule: LineRuleType.AUTO,
+                  },
+                })
+              )
+            }
+
+            // Technologies (text-xs font-light text-slate-500, displayed as tags with gap-3)
+            // In DOCX, render as comma-separated since flex-wrap doesn't translate
+            if (hasTechnologies) {
+              children.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: project.technologies.join('    '), // Wide spacing to simulate gap-3 flex
+                      size: scaledFontSizes.tech, // text-xs = 12px
+                      color: SLATE[500],
+                      font,
+                      // font-light = non-bold (default)
                     }),
+                  ],
+                  spacing: {
+                    after: isLastProject ? sectionEndSpacing : pxToTwips(SPACING.PROJECT_ITEM_GAP),
+                  },
+                })
+              )
+            }
+          })
+        }
+        break
+      }
+
+      // --- EDUCATION ---
+      case 'education': {
+        if (education.length > 0) {
+          children.push(
+            createSectionHeader(
+              (dict as any).resumes?.editor?.sections?.education || minimalDict.education
+            )
+          )
+
+          education.forEach((edu: any, i: number) => {
+            const isLastEdu = i === education.length - 1
+
+            // Line 1: Degree (left, font-medium=bold, text-xl) + Date (right, em-dash)
+            const eduDateText = formatMinimalDateRange(
+              edu.startDate,
+              edu.endDate,
+              false // education has no "current" flag in the template
+            )
+
+            children.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: edu.degree || '',
+                    bold: true,
+                    size: scaledFontSizes.position, // text-xl = 20px
+                    color: SLATE[900],
+                    font,
+                  }),
+                  ...(eduDateText ? [
+                    new TextRun({
+                      text: '\t' + eduDateText,
+                      size: scaledFontSizes.date,
+                      color: SLATE[500],
+                      font,
+                    }),
+                  ] : []),
+                ],
+                spacing: { after: pxToTwips(SPACING.EDU_LINE1_MB) },
+                tabStops: [
+                  {
+                    type: TabStopType.RIGHT,
+                    position: rightTabPosition,
+                  },
+                ],
+              })
+            )
+
+            // Line 2: School \u00B7 Field (font-light, slate-600, middle dot)
+            const schoolText = edu.field
+              ? `${edu.school || ''} \u00B7 ${edu.field}`
+              : (edu.school || '')
+
+            const hasGpa = !!edu.gpa
+
+            children.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: schoolText,
                     size: scaledFontSizes.body,
-                    color: SLATE[400],
+                    color: SLATE[600],
+                    font,
+                    // font-light = non-bold
+                  }),
+                ],
+                spacing: {
+                  after: hasGpa
+                    ? pxToTwips(4) // mt-1 before GPA
+                    : (isLastEdu ? sectionEndSpacing : pxToTwips(SPACING.EDUCATION_ITEM_GAP)),
+                },
+              })
+            )
+
+            // Line 3: GPA (optional, slate-500)
+            if (hasGpa) {
+              children.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `GPA: ${edu.gpa}`,
+                      size: scaledFontSizes.body,
+                      color: SLATE[500],
+                      font,
+                    }),
+                  ],
+                  spacing: {
+                    after: isLastEdu ? sectionEndSpacing : pxToTwips(SPACING.EDUCATION_ITEM_GAP),
+                  },
+                })
+              )
+            }
+          })
+        }
+        break
+      }
+
+      // --- SKILLS ---
+      // Minimal template: category name on one line, items flex-wrapped below
+      // NOT "Category: item1, item2" format like Classic
+      case 'skills': {
+        if (skills.length > 0) {
+          children.push(
+            createSectionHeader(
+              (dict as any).resumes?.editor?.sections?.skills || minimalDict.skills
+            )
+          )
+
+          skills.forEach((skillCat: any, i: number) => {
+            const isLastSkill = i === skills.length - 1
+            const itemEndSpacing = isLastSkill ? sectionEndSpacing : pxToTwips(SPACING.SKILLS_CAT_GAP)
+
+            // Category name (font-medium = bold, slate-700)
+            children.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: skillCat.category || '',
+                    bold: true,
+                    size: scaledFontSizes.body,
+                    color: SLATE[700],
                     font,
                   }),
                 ],
-                spacing: { after: isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP) },
+                spacing: { after: pxToTwips(SPACING.SKILLS_ITEM_MB) },
               })
             )
+
+            // Skill items (slate-600, flex-wrapped with gap-x-4)
+            // Use skillsHtml if available, otherwise items array
+            let skillText = ''
+            if (skillCat.skillsHtml) {
+              skillText = stripHtml(skillCat.skillsHtml)
+            } else if (skillCat.items && skillCat.items.length > 0) {
+              // Render with wide spacing to simulate gap-x-4 flex wrapping
+              skillText = skillCat.items.join('    ')
+            }
+
+            if (skillText) {
+              children.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: skillText,
+                      size: scaledFontSizes.body,
+                      color: SLATE[600],
+                      font,
+                    }),
+                  ],
+                  spacing: { after: itemEndSpacing },
+                })
+              )
+            }
+          })
+        }
+        break
+      }
+
+      // --- LANGUAGES + CERTIFICATIONS (2-column grid, gap-12) ---
+      case 'languagesAndCerts': {
+        if (languages.length > 0 || certifications.length > 0) {
+          // Build languages column paragraphs
+          const langParagraphs: Paragraph[] = []
+
+          if (languages.length > 0) {
+            langParagraphs.push(
+              createSectionHeader(
+                (dict as any).resumes?.editor?.sections?.languages || minimalDict.languages
+              )
+            )
+
+            // Half column width for the tab stop within the language cell
+            const halfColumnWidth = Math.round((contentWidthTwips - pxToTwips(SPACING.GRID_GAP)) / 2)
+
+            languages.forEach((lang: any, i: number) => {
+              const isLast = i === languages.length - 1
+              const levelText = (dict as any).resumes?.editor?.levels?.[lang.level?.toLowerCase()] || lang.level || ''
+
+              langParagraphs.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: lang.language || '',
+                      size: scaledFontSizes.body,
+                      color: SLATE[700],
+                      font,
+                      // Not bold — Minimal template uses non-bold for language names
+                    }),
+                    new TextRun({
+                      text: '\t' + levelText,
+                      size: scaledFontSizes.body,
+                      color: SLATE[500],
+                      font,
+                      // font-light = non-bold
+                    }),
+                  ],
+                  spacing: { after: isLast ? 0 : pxToTwips(SPACING.LANGUAGE_ITEM_GAP) },
+                  tabStops: [
+                    {
+                      type: TabStopType.RIGHT,
+                      position: halfColumnWidth,
+                    },
+                  ],
+                })
+              )
+            })
           }
-        })
+
+          // Build certifications column paragraphs
+          const certParagraphs: Paragraph[] = []
+
+          if (certifications.length > 0) {
+            certParagraphs.push(
+              createSectionHeader(
+                (dict as any).resumes?.editor?.sections?.certifications || minimalDict.certifications
+              )
+            )
+
+            certifications.forEach((cert: any, i: number) => {
+              const isLast = i === certifications.length - 1
+
+              // Cert name (font-medium = bold, slate-700)
+              certParagraphs.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: cert.name || '',
+                      bold: true,
+                      size: scaledFontSizes.body,
+                      color: SLATE[700],
+                      font,
+                    }),
+                  ],
+                  spacing: { after: cert.issuer || cert.date ? 0 : (isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP)) },
+                })
+              )
+
+              // Issuer (slate-500, not bold)
+              if (cert.issuer) {
+                certParagraphs.push(
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: cert.issuer,
+                        size: scaledFontSizes.body,
+                        color: SLATE[500],
+                        font,
+                      }),
+                    ],
+                    spacing: { after: cert.date ? 0 : (isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP)) },
+                  })
+                )
+              }
+
+              // Date (slate-400, not bold)
+              if (cert.date) {
+                certParagraphs.push(
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: new Date(cert.date + '-01').toLocaleDateString(locale as Locale, {
+                          month: 'short',
+                          year: 'numeric',
+                        }),
+                        size: scaledFontSizes.body,
+                        color: SLATE[400],
+                        font,
+                      }),
+                    ],
+                    spacing: { after: isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP) },
+                  })
+                )
+              }
+            })
+          }
+
+          // Create 2-column table for languages + certifications
+          const halfColumnWidth = Math.round((contentWidthTwips - pxToTwips(SPACING.GRID_GAP)) / 2)
+          const gapWidth = pxToTwips(SPACING.GRID_GAP)
+
+          if (languages.length > 0 && certifications.length > 0) {
+            // Both columns: 3-column table (lang | gap | certs)
+            const langCell = new TableCell({
+              children: langParagraphs.length > 0 ? langParagraphs : [new Paragraph({ children: [] })],
+              verticalAlign: VerticalAlign.TOP,
+              width: { size: halfColumnWidth, type: WidthType.DXA },
+              margins: { top: 0, bottom: 0, left: 0, right: 0 },
+            })
+
+            const gapCell = new TableCell({
+              children: [new Paragraph({ children: [] })],
+              verticalAlign: VerticalAlign.TOP,
+              width: { size: gapWidth, type: WidthType.DXA },
+              margins: { top: 0, bottom: 0, left: 0, right: 0 },
+            })
+
+            const certCell = new TableCell({
+              children: certParagraphs.length > 0 ? certParagraphs : [new Paragraph({ children: [] })],
+              verticalAlign: VerticalAlign.TOP,
+              width: { size: halfColumnWidth, type: WidthType.DXA },
+              margins: { top: 0, bottom: 0, left: 0, right: 0 },
+            })
+
+            const gridTable = new Table({
+              rows: [
+                new TableRow({
+                  children: [langCell, gapCell, certCell],
+                }),
+              ],
+              width: { size: contentWidthTwips, type: WidthType.DXA },
+              columnWidths: [halfColumnWidth, gapWidth, halfColumnWidth],
+              layout: TableLayoutType.FIXED,
+              borders: {
+                top: { style: BorderStyle.NONE },
+                bottom: { style: BorderStyle.NONE },
+                left: { style: BorderStyle.NONE },
+                right: { style: BorderStyle.NONE },
+                insideHorizontal: { style: BorderStyle.NONE },
+                insideVertical: { style: BorderStyle.NONE },
+              },
+            })
+
+            children.push(gridTable)
+          } else {
+            // Only one column — render inline as regular paragraphs
+            if (languages.length > 0) {
+              children.push(...langParagraphs)
+            }
+            if (certifications.length > 0) {
+              children.push(...certParagraphs)
+            }
+          }
+        }
+        break
       }
 
-      // Create 2-column table for languages + certifications
-      const halfColumnWidth = Math.round((contentWidthTwips - pxToTwips(SPACING.GRID_GAP)) / 2)
-      const gapWidth = pxToTwips(SPACING.GRID_GAP)
-
-      if (languages.length > 0 && certifications.length > 0) {
-        // Both columns: 3-column table (lang | gap | certs)
-        const langCell = new TableCell({
-          children: langParagraphs.length > 0 ? langParagraphs : [new Paragraph({ children: [] })],
-          verticalAlign: VerticalAlign.TOP,
-          width: { size: halfColumnWidth, type: WidthType.DXA },
-          margins: { top: 0, bottom: 0, left: 0, right: 0 },
-        })
-
-        const gapCell = new TableCell({
-          children: [new Paragraph({ children: [] })],
-          verticalAlign: VerticalAlign.TOP,
-          width: { size: gapWidth, type: WidthType.DXA },
-          margins: { top: 0, bottom: 0, left: 0, right: 0 },
-        })
-
-        const certCell = new TableCell({
-          children: certParagraphs.length > 0 ? certParagraphs : [new Paragraph({ children: [] })],
-          verticalAlign: VerticalAlign.TOP,
-          width: { size: halfColumnWidth, type: WidthType.DXA },
-          margins: { top: 0, bottom: 0, left: 0, right: 0 },
-        })
-
-        const gridTable = new Table({
-          rows: [
-            new TableRow({
-              children: [langCell, gapCell, certCell],
-            }),
-          ],
-          width: { size: contentWidthTwips, type: WidthType.DXA },
-          columnWidths: [halfColumnWidth, gapWidth, halfColumnWidth],
-          layout: TableLayoutType.FIXED,
-          borders: {
-            top: { style: BorderStyle.NONE },
-            bottom: { style: BorderStyle.NONE },
-            left: { style: BorderStyle.NONE },
-            right: { style: BorderStyle.NONE },
-            insideHorizontal: { style: BorderStyle.NONE },
-            insideVertical: { style: BorderStyle.NONE },
-          },
-        })
-
-        children.push(gridTable)
-      } else {
-        // Only one column — render inline as regular paragraphs
-        if (languages.length > 0) {
-          children.push(...langParagraphs)
-        }
-        if (certifications.length > 0) {
-          children.push(...certParagraphs)
-        }
-      }
+      default:
+        assertExhaustiveSection(sectionId)
     }
   })
 
@@ -984,44 +1087,4 @@ export async function generateMinimalDocx(
 
   const buffer = await Packer.toBuffer(doc)
   return buffer as Buffer
-}
-
-// ============================================================
-// HELPER: Map generic section IDs to minimal-specific order
-// ============================================================
-function mapToMinimalOrder(rawOrder: string[]): MinimalMainSectionId[] {
-  const mapped: MinimalMainSectionId[] = []
-  const seen = new Set<string>()
-
-  for (const id of rawOrder) {
-    if (seen.has(id)) continue
-
-    switch (id) {
-      case 'summary':
-      case 'experience':
-      case 'education':
-      case 'skills':
-      case 'projects':
-        mapped.push(id as MinimalMainSectionId)
-        seen.add(id)
-        break
-      case 'languages':
-      case 'certifications':
-      case 'languagesAndCerts':
-        if (!seen.has('languagesAndCerts')) {
-          mapped.push('languagesAndCerts')
-          seen.add('languagesAndCerts')
-        }
-        break
-      default:
-        break
-    }
-  }
-
-  // Ensure languagesAndCerts is included if not already mapped
-  if (!seen.has('languagesAndCerts')) {
-    mapped.push('languagesAndCerts')
-  }
-
-  return mapped
 }
