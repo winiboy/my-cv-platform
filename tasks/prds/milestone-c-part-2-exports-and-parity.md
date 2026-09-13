@@ -1,7 +1,7 @@
 # PRD: Resume Rendering Unification — Part 2, Exports and Parity (Milestone C)
 
-**Status:** APPROVED — owner, 2026-09-10. Amended and re-approved 2026-09-11;
-see Amendment History.
+**Status:** APPROVED — owner, 2026-09-10. Amended and re-approved 2026-09-11,
+2026-09-12 and twice on 2026-09-13; see Amendment History.
 
 **Depends on:** `tasks/prds/milestone-c-part-1-layout-state.md`. Every story
 here assumes a persisted, typed layout model exists and is authoritative. None
@@ -15,13 +15,21 @@ Ralph contract. The mapping to the original eight-story draft is:
 | US-001 | US-005 — exports read the persisted model |
 | US-002 | US-006 — Editor and Preview share one state owner |
 | US-003 to US-007 | US-007 — DOCX stops reimplementing template layout, now split one story per template |
-| US-008 | US-008 — parity across the three surfaces |
+| US-008, US-009 | US-008 — parity across the three surfaces, later split into consolidation and demonstration |
 
 The DOCX work was one story until 2026-09-10. It required "each template
 converted in its own commit", which contradicts CLAUDE.md §7 and §16 — one
 user story is exactly one commit — so it could not be executed as written.
 Splitting it per template preserves the attributability that criterion existed
 for, without breaking the one-story-one-commit rule.
+
+The parity story was split on 2026-09-13 for a related reason. It had
+accumulated seventeen acceptance criteria as US-003 to US-006 deferred findings
+into it, mixing consolidation that changes no rendered output with defect fixes
+that must change it. Running both as one story would have produced a single
+commit containing every fix. The consolidation stayed as US-008, the
+demonstration became US-009, and six defects moved to
+`tasks/prds/milestone-c-part-3-parity-defects.md`.
 
 ## Objective
 
@@ -332,23 +340,81 @@ without changing a byte of output; this one exists because output is wrong.
 - [ ] The creative Preview's rendered output is unchanged — this story changes
       the export, not the template. Evidenced by unchanged visual baselines.
 
-### US-008: Parity across the three surfaces is demonstrated
+### US-008: Shared vocabulary, helpers and mappings are consolidated
 
-> **Amended 2026-09-11.** This was a demonstration story: build the check, run
-> it, prove unification. US-003 and US-004 found four concrete divergences that
-> a demonstration would merely *report*, and each was deliberately deferred here
-> because fixing it inside a per-template story would have changed rendered
-> output or touched a second generator — both FAIL conditions there. They are
-> now acceptance criteria, so this story closes them rather than documenting
-> them a second time. The deferrals are recorded in `tasks/ralph/progress.txt`
-> under US-003 and US-004.
+> **Split out of the original US-008 on 2026-09-13.** That story had grown from
+> five criteria to seventeen as US-003 to US-006 deferred findings into it, and
+> those findings were of two incompatible kinds: consolidation that changes no
+> rendered output, and defect fixes that must change it. This story is the
+> first kind. The second moved to Part 3 — see the note after US-009.
+
+**Description:**
+As a developer, I want the vocabulary, exhaustiveness helper and order mappings
+to exist once rather than once per template, so that a change to the shared
+layout model cannot leave one surface behind while the build stays green.
+
+**Every criterion here is provable by byte-identical output.** That is the point
+of separating them: this story can be verified by a hash, and the stories that
+change rendered output cannot.
+
+**Acceptance Criteria:**
+
+- [ ] **The Modern section vocabulary has one definition, not three.**
+      *(US-004 F-1.)* `modern-template.tsx:17-18` re-declares the section-id
+      unions and `:23-24` the default orders, duplicating `ModernSidebarId` /
+      `ModernMainId` in `src/lib/layout-settings.ts`. The template consumes the
+      shared unions after this story.
+- [ ] **The one-way type hole is closed, and the closure is proven by
+      mutation.** *(US-004 F-1.)* US-004 established the asymmetry by running
+      the mutation in both directions: widening the shared union fires six
+      `TS2322` at the template props, while widening the template's own copy
+      fires **nothing** — a section added to the Preview's vocabulary renders in
+      the Preview, is invisible to the DOCX, and the build stays green. After
+      this story, widening either definition must be a compile error,
+      demonstrated the same way rather than argued.
+- [ ] **The duplicated Modern default colours are resolved.** *(US-004 F-3.)*
+      `docx-modern.ts:105-106` and `modern-template.tsx:23-24` hold the same two
+      values differing only by the `#`. `route.ts:240` sets
+      `hasCustomColors: true` unconditionally, so the generator branch consuming
+      them is dead; retiring that branch deletes both constants and the
+      duplication with them. Establish whether the flag should remain a constant
+      before deleting anything behind it.
+- [ ] **`assertExhaustiveSection` has one definition.** *(US-004 F-4.)* It is
+      currently verbatim in four generators — `docx-professional.ts:142`,
+      `docx-modern.ts:175`, `docx-classic.ts:130`, `docx-minimal.ts:147` — and
+      will be in five once US-007 lands. `docx-helpers.ts` is the home; it
+      already exports the shared symbols these generators draw on.
+- [ ] **The duplicated per-template order mappings are resolved.**
+      *(US-006 F-3.)* `mapEditorOrderToClassic` and `mapEditorOrderToMinimal` in
+      `src/lib/layout-settings.ts` are character-for-character the same rule.
+      They were kept separate in US-006 only because merging would have edited a
+      second generator's import inside a per-template story, which the
+      one-template-per-commit FAIL condition forbids — a constraint that does
+      not apply here. Also close US-005's F-6, still open:
+      `mapEditorOrderToClassic` retains a `mapped.push(id as ClassicMainId)`
+      cast that `mapEditorOrderToMinimal` proved unnecessary and that swallows a
+      diagnostic the uncast version emits.
+- [ ] **All five templates' DOCX output is byte-identical, evidenced.** This
+      story touches every generator, so the per-story provenance argument used
+      by US-003 and US-004, and the append-only argument that happened to rescue
+      US-006, are both unavailable. Artifact comparison across five templates
+      and two settings profiles, every zip entry, is the only acceptable
+      evidence.
+- [ ] **Visual baselines are unchanged.** The Modern template's props change
+      type but not value; if a baseline moves, something in this story changed
+      rendering and that is a FAIL, not a baseline to update.
+
+### US-009: Parity across the three surfaces is demonstrated
+
+> **Renumbered from US-008 on 2026-09-13**, keeping the original story's intent.
+> Its acceptance criteria are unchanged apart from the last one, which now says
+> what the check does with a divergence it finds: report it, not fix it.
 
 **Description:**
 As a maintainer, I want one fixture proven to render consistently to Preview,
-PDF and DOCX, and the known divergences closed, so that "unified" is evidenced
-rather than asserted.
+PDF and DOCX, so that "unified" is evidenced rather than asserted.
 
-**Acceptance Criteria — the parity demonstration:**
+**Acceptance Criteria:**
 
 - [ ] One fixture resume, carrying **non-default** layout settings, renders to
       all three surfaces under test. Default settings would not prove the
@@ -360,119 +426,39 @@ rather than asserted.
 - [ ] The comparison runs as a repeatable command and its output is legible
       enough to identify which surface diverged.
 - [ ] The check covers all five templates.
+- [ ] **A divergence the check finds is reported, not fixed.** Six are already
+      known and belong to Part 3 (below); the check is expected to fail against
+      them, and that expected failure is recorded rather than suppressed. If the
+      check finds a **seventh**, it is a new finding and Part 3's scope is
+      incomplete — say so rather than quietly widening a tolerance. This story
+      changes no rendered output.
 
-**Acceptance Criteria — the divergences carried here:**
+### The six divergences that moved to Part 3
 
-- [ ] **The Modern section vocabulary has one definition, not three.**
-      `modern-template.tsx:17-18` re-declares the section-id unions and
-      `:23-24` the default orders, duplicating `ModernSidebarId` /
-      `ModernMainId` in `src/lib/layout-settings.ts`. The template consumes the
-      shared unions after this story. *(US-004 F-1.)*
-- [ ] **The one-way type hole is closed, and the closure is proven by
-      mutation.** US-004 established the asymmetry by running the mutation in
-      both directions: widening the shared union fires six `TS2322` at the
-      template props, while widening the template's own copy fires **nothing** —
-      a section added to the Preview's vocabulary renders in the Preview, is
-      invisible to the DOCX, and the build stays green. After this story,
-      widening either definition must be a compile error, demonstrated the same
-      way rather than argued.
-- [ ] **Preview and DOCX agree on the empty-main fallback.**
-      `modern-template.tsx:198` falls back with
-      `mainContentOrder || DEFAULT_MAIN_ORDER`; an empty array is truthy so it
-      does not trigger, while `docx-modern.ts` uses `.length > 0`, which does.
-      For a stored `mainContentOrder: ['education']` — reachable through
-      persisted `layout_settings`, since `education` passes `parseIdList` and
-      then loses its only member to the Modern main id set — the Preview renders
-      an **empty main column** while the DOCX renders summary and experience.
-      One of the two behaviours is chosen deliberately and both surfaces adopt
-      it. *(US-004 F-2.)*
-- [ ] **The duplicated Modern default colours are resolved.**
-      `docx-modern.ts:105-106` and `modern-template.tsx:23-24` hold the same two
-      values differing only by the `#`. `route.ts:240` sets
-      `hasCustomColors: true` unconditionally, so the generator branch consuming
-      them is dead; retiring that branch deletes both constants and the
-      duplication with them. Establish whether the flag should remain a constant
-      before deleting anything behind it. *(US-004 F-3.)*
-- [ ] **`assertExhaustiveSection` has one definition.** It is currently verbatim
-      in `docx-professional.ts:142` and `docx-modern.ts:169`, and will be in
-      five generators once US-005 to US-007 land. `docx-helpers.ts` is the home;
-      it already exports the shared symbols these generators draw on. Deferred
-      out of the per-template stories because moving it there would have touched
-      a second generator and weakened that story's byte-identical evidence.
-      *(US-004 F-4.)*
-- [ ] **The classic DOCX stops dropping the skills and projects sections.**
-      *(Added 2026-09-12, from US-005 F-1.)* It renders neither, while the
-      Preview renders both. `mapEditorOrderToClassic` emits only ids present in
-      its input; that input is `mainContentOrder`, typed `readonly
-      EditorMainId[]` and filtered by `parseLayoutModel` against
-      `VALID_MAIN_IDS = ['summary','experience','education']`, so
-      `case 'skills'` and `case 'projects'` are unreachable **by construction**.
-      Confirmed on the artifact: a fixture with two skill categories and one
-      project produced headings `SUMMARY | EXPERIENCE | EDUCATION | LANGUAGES |
-      CERTIFICATIONS`, with those items' text absent from `word/document.xml`.
-      This is **silent content loss shipping today**, not a parity nicety, and
-      it gets a named criterion rather than being absorbed into the generic
-      "section order and visibility match" line above.
-- [ ] **Classic's order and visibility divergence is resolved in whichever
-      direction is chosen deliberately.** *(Added 2026-09-12, from US-005 F-2
-      and F-3.)* `classic-template.tsx` contains zero occurrences of
-      `mainContentOrder`, `hiddenMainSections`, `sidebarOrder` or
-      `hiddenSidebarSections` and renders in hardcoded JSX order — so classic is
-      the **mirror image of creative**: here the DOCX honours order and
-      visibility and the Preview does not. Separately, the classic generator
-      never reads `hiddenSidebarSections`, so **languages and certifications
-      cannot be hidden** — confirmed on the artifact, where a profile hiding
-      `languages` still produced `LANGUAGES`, `French`, `English`, `German`.
-- [ ] **The minimal DOCX stops dropping the skills and projects sections.**
-      *(Added 2026-09-13, from US-006 F-1.)* The same defect as the classic
-      criterion above, in a **second** template, by the same mechanism —
-      `mainContentOrder` is filtered against
-      `VALID_MAIN_IDS = ['summary','experience','education']`, so
-      `case 'skills'` and `case 'projects'` in `docx-minimal.ts` are unreachable
-      by construction, while `minimal-template.tsx:270` and `:337` render both.
-      Confirmed on a generated artifact by two agents independently: a resume
-      carrying a skills category and a project produced a document containing
-      `Engineering` 0, `TypeScript` 0, `Openscribe` 0. **Two of five templates
-      silently drop supported content while claiming Preview parity** — the
-      exact prohibition in `.claude/rules/exports.md`. Whatever fixes the
-      classic case should be checked to fix this one, but it gets its own
-      criterion because it is a second confirmed instance, not a restatement.
-- [ ] **Minimal's order and visibility divergence is resolved.** *(Added
-      2026-09-13, from US-006 F-2.)* `minimal-template.tsx` contains zero
-      occurrences of `mainContentOrder`, `hiddenMainSections`, `sidebarOrder` or
-      `hiddenSidebarSections` and renders in hardcoded JSX order — the same
-      shape as classic. Note the two templates place `projects` differently in
-      that hardcoded order (classic: summary, experience, education, skills,
-      projects; minimal: summary, experience, **projects**, education, skills),
-      so making both honour the model requires deciding which placement the
-      shared vocabulary produces. That decision also settles whether the two
-      mappings can merge — see the duplication criterion below.
-- [ ] **The duplicated per-template order mappings are resolved.** *(Added
-      2026-09-13, from US-006 F-3.)* `mapEditorOrderToClassic` and
-      `mapEditorOrderToMinimal` in `src/lib/layout-settings.ts` are
-      character-for-character the same rule. They were kept separate in US-006
-      because merging would have edited a second generator's import inside a
-      per-template story, which the one-template-per-commit FAIL condition
-      forbids — a constraint that does not apply here. Merging is the intended
-      end state, as one mapping plus per-template configuration, decided where
-      both templates' output can be re-proved together. Note also US-005's F-6,
-      still open: `mapEditorOrderToClassic` retains a `mapped.push(id as
-      ClassicMainId)` cast that `mapEditorOrderToMinimal` proved unnecessary,
-      and which swallows a diagnostic the uncast version emits.
-- [ ] **The font-scale divergence is recorded or closed for the three templates
-      that have it.** *(Added 2026-09-12, from US-005 F-4 as widened in
-      review.)* `resume-preview.tsx` passes `fontScale` to `ModernTemplate` and
-      `ProfessionalTemplate` only; **classic, minimal and creative receive
-      none**, while their generators multiply every base size by it. Moving the
-      font-scale slider on one of those templates changes the downloaded DOCX
-      and does not change the Preview — a divergence that widens with a control
-      the user actively operates. Note that repointing the DOCX constants at
-      `DEFAULT_RESUME_LAYOUT` is **not** the fix, per US-003's T-1:
-      `DocxGeneratorSettings` carries no font-size keys, so the reference would
-      resolve to the default while the Preview kept using the user's value.
-- [ ] Every fix above is evidenced against the **generated artifact** and
-      against unchanged visual baselines. Closing a divergence must not become
-      the story that changes rendered output by accident.
+Recorded here so this PRD stays a complete account of what US-001 to US-009
+found, and so nothing is lost between documents. They are specified in
+`tasks/prds/milestone-c-part-3-parity-defects.md`.
+
+| # | Divergence | Found by |
+|---|---|---|
+| 1 | The classic DOCX drops the skills and projects sections its Preview renders | US-005 F-1 |
+| 2 | The minimal DOCX drops the same two sections | US-006 F-1 |
+| 3 | `classic-template.tsx` honours neither section order nor visibility | US-005 F-2 |
+| 4 | `minimal-template.tsx` honours neither, and places `projects` differently from classic | US-006 F-2 |
+| 5 | Preview and DOCX disagree on the empty-main fallback (`\|\|` vs `.length > 0`) | US-004 F-2 |
+| 6 | `fontScale` reaches only modern and professional; classic, minimal and creative receive none | US-005 F-4 |
+
+**Why they moved.** Every one requires changing rendered output, and this PRD's
+Out of Scope makes rendered output the invariant with a single named exception
+for US-007. Absorbing six more exceptions would have left the rule meaning
+nothing, and would have put two confirmed content-loss defects and three
+Preview-rendering changes into one commit — precisely the unattributability the
+one-template-per-story split exists to prevent.
+
+Nothing about the deferral downgrades them. **Two of the five templates are
+silently dropping supported content today**, which `.claude/rules/exports.md`
+prohibits outright, and that is stated at the top of the Part 3 PRD rather than
+buried in its story list.
 
 ## Functional Requirements
 
@@ -636,6 +622,51 @@ rather than asserted.
   resume unaided.
 
 ## Amendment History
+
+### 2026-09-13 (second) — US-008 split, and six defects moved to Part 3
+
+Approved by the owner, who chose this shape over two alternatives after being
+shown the trade-off.
+
+**The problem.** US-008 had grown from five acceptance criteria to seventeen as
+US-003 to US-006 each deferred findings into it. Those findings were of two
+incompatible kinds. Consolidation — one vocabulary, one exhaustiveness helper,
+one order mapping — changes no rendered output and is provable by a hash. Defect
+fixes — two templates dropping content, two Previews ignoring order and
+visibility, a font-scale gap on three templates, an empty-main fallback
+disagreement — must change rendered output to be fixed at all.
+
+Running them as one story would have produced a single commit containing every
+fix, which is exactly the unattributability the one-template-per-story split
+exists to prevent. It would also have required widening this PRD's Out of Scope
+six more times, after it had already been carved out once for US-007, until
+"rendered output is the invariant" meant nothing.
+
+**The split.** US-008 becomes two stories, neither of which changes rendered
+output:
+
+- **US-008** — the consolidation, verifiable by byte-identical output across all
+  five templates.
+- **US-009** — the parity demonstration, unchanged in intent, with one criterion
+  added: a divergence the check finds is **reported, not fixed**. The six known
+  ones are expected failures, recorded rather than suppressed; a seventh would
+  mean Part 3's scope is incomplete.
+
+The six defects move to `tasks/prds/milestone-c-part-3-parity-defects.md`,
+drafted alongside this amendment and awaiting approval. They are also tabulated
+above, after US-009, so this PRD remains a complete account of what its own
+stories found.
+
+**What this does not mean.** The deferral is about where the work is specified,
+not how urgent it is. Two of five templates silently drop supported content
+today, which `.claude/rules/exports.md` prohibits outright. That is stated at
+the top of the Part 3 PRD rather than buried in a story list.
+
+**What it buys.** Part 2 becomes finishable in three stories — US-007, US-008,
+US-009 — and finishes with its invariant intact rather than eroded. And US-009's
+parity check becomes the thing that **proves Part 3's list is complete** instead
+of asserting it: if the check finds only the six known divergences, the Part 3
+scope is evidenced rather than guessed.
 
 ### 2026-09-13 — after US-006
 
