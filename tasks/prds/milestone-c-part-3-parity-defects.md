@@ -13,17 +13,20 @@ Preview parity.*
 **Depends on:** `tasks/prds/milestone-c-part-2-exports-and-parity.md`. Every
 defect here was found *by* Part 2's stories and deferred *out of* them, because
 each requires changing rendered output and Part 2's Out of Scope makes rendered
-output the invariant. Part 2's US-009 parity check should run before this PRD
-starts: if it finds only these six divergences, this scope is evidenced rather
-than guessed, and if it finds a seventh, this PRD is incomplete.
+output the invariant — an invariant that is now unqualified, since dropping
+Part 2's creative story removed its only exception. Part 2's US-008 parity check
+should run before this PRD starts: if it finds only the defects listed here, this
+scope is evidenced rather than guessed, and if it finds another, this PRD is
+incomplete.
 
 **Story numbering:** restarted at `US-001` so this document is a self-contained
 Ralph contract, matching the convention Part 1 and Part 2 use.
 
 ## Objective
 
-Make the Preview and the DOCX export agree, by closing the six divergences Part
-2 found and could not fix without violating its own invariant.
+Make the Preview and the DOCX export agree, and make the editor's section
+controls actually do something, by closing the seven defects Part 2 found and
+could not fix without violating its own invariant.
 
 ## Context / Current Behavior
 
@@ -32,7 +35,7 @@ changing a byte of output — deliberately, so that a regression would be
 attributable. Doing that required generating and unzipping real documents for
 each template, and that evidence surfaced defects that reading the code had not.
 
-They fall into three groups.
+They fall into four groups.
 
 **Content is missing.** `docx-classic.ts` and `docx-minimal.ts` both carry
 `case 'skills'` and `case 'projects'` branches that cannot execute. The section
@@ -48,7 +51,7 @@ independent agents in each case.
 `hiddenMainSections`, `sidebarOrder` or `hiddenSidebarSections`. They render
 sections in hardcoded JSX order and filter only per-item `visible` flags. So for
 these two templates the **DOCX honours order and visibility and the Preview does
-not** — the mirror image of creative, where Part 2's US-007 found the opposite.
+not**.
 
 **Typography does not reach three templates.** `resume-preview.tsx` passes
 `fontScale` to `ModernTemplate` and `ProfessionalTemplate` only. Classic,
@@ -57,10 +60,23 @@ size by it. Moving the font-scale slider on those templates changes the
 downloaded document and leaves the Preview where it was — a divergence that
 widens with a control the user actively operates, rather than a fixed offset.
 
+**Creative ignores the controls on both surfaces.** Neither
+`creative-template.tsx` nor `docx-creative.ts` reads section order or
+visibility, and the two hardcoded sequences are identical — so unlike classic
+and minimal this is not a disagreement between surfaces. The editor still offers
+the controls, still persists the change, and nothing renders differently
+anywhere. Part 2 originally carried a story to fix the export half, on the
+belief that the Preview honoured them; verification before implementation found
+it did not, and the story was dropped rather than implemented into a new
+divergence. Three of creative's seven sections have no editor id at all, so this
+one needs a vocabulary defined before anything can be fixed.
+
 ## Scope
 
-- Closing the six divergences listed under Functional Requirements, each with
+- Closing the seven defects covered by the user stories below, each with
   artifact-level and rendered evidence.
+- Defining a creative section vocabulary, because one does not exist and US-005
+  cannot be satisfied without it.
 - Deliberate, approved visual-baseline movement where a fix changes Preview
   rendering.
 - A decision, recorded, wherever Preview and DOCX disagree and neither is
@@ -76,18 +92,21 @@ widens with a control the user actively operates, rather than a fixed offset.
 - Cover letter rendering and its separate template and export path.
 - Rewriting the DOCX generators wholesale.
 - Consolidating shared vocabulary, helpers or mappings — that is Part 2's
-  US-008, and this PRD assumes it has landed.
+  US-007, and this PRD assumes it has landed. US-005 below *adds* a creative
+  vocabulary, which is new definition rather than consolidation of an existing
+  one.
 
 ## Impact Assessment
 
-- **Frontend / UI:** Affected — three templates begin honouring section order,
-  visibility and font scale.
+- **Frontend / UI:** Affected — classic, minimal and creative begin honouring
+  section order and visibility, and the same three begin honouring font scale.
 - **Internationalization:** Not affected — no user-facing string changes and no
   locale-specific behaviour.
-- **Resume model / templates:** Affected — classic and minimal templates change
-  how they render; no template identifier changes.
+- **Resume model / templates:** Affected — classic, minimal and creative change
+  how they render, and the shared section vocabulary gains creative ids. No
+  template identifier changes.
 - **Exports:** Affected — classic and minimal DOCX begin emitting sections they
-  currently drop.
+  currently drop, and creative's DOCX begins honouring order and visibility.
 - **Database / persistence:** Not affected — no schema, policy or stored-shape
   change; the model these fixes read was persisted by Part 1.
 - **Security / authorization:** Not affected — no trust boundary moves.
@@ -190,6 +209,79 @@ control to change what I see, because it already changes what I download.
 - [ ] Visual baselines move for the affected templates, each approved with its
       cause understood.
 
+### US-005: The creative section controls stop being a silent no-op
+
+> **Added 2026-09-13**, when Part 2's US-007 was dropped. That story assumed the
+> creative Preview honoured section order and visibility while its export did
+> not. Verification before implementation found **neither does**, and that the
+> two hardcoded sequences are identical — so there was no divergence to close,
+> and implementing the export side alone would have created one.
+
+**Description:**
+As a user of the creative template, I want reordering or hiding a section to do
+something, because the editor lets me do it and then nothing happens.
+
+**Context — this is not a divergence, it is a dead control.**
+The editor's reorder and hide UI is **not template-gated**: it renders whatever
+template is selected (`resume-editor.tsx:1198`, `:1268`), the setters come from
+the template-agnostic `useResumeLayout`, and the change persists through
+`toStoredLayout` into `layout_settings`. Neither `creative-template.tsx` nor
+`docx-creative.ts` reads any of it. `CreativeTemplateProps` accepts eleven props
+— `resume`, `locale`, `dict` and four font-size pairs — and
+`generateCreativeDocx` destructures only `fontFamily`, `fontScale` and `locale`,
+discarding the rest of a settings object the route populates correctly.
+
+So the user acts, the state is stored, and **nothing renders differently
+anywhere**. Both surfaces agree; they agree on ignoring the user.
+
+**The vocabulary does not exist yet, and that is the substance of this story.**
+`VALID_SIDEBAR_IDS` is `['keyAchievements','skills','languages','training']` and
+`VALID_MAIN_IDS` is `['summary','experience','education']`. Against creative's
+seven sections:
+
+| Creative section | Editor id |
+|---|---|
+| summary (renders inside the gradient header, not a column) | `summary`, but not column-positioned |
+| skills, languages | `skills`, `languages` |
+| certifications, projects | **none — unaddressable** |
+| experience, education | `experience`, `education` |
+| — | `keyAchievements`, `training` exist and mean nothing here |
+
+`parseIdList` filters strictly to those sets, so unknown ids cannot be smuggled
+in. "Creative honours `mainContentOrder`" is therefore not unimplemented but
+**undefined**. Modern already sets the precedent for a per-template vocabulary
+(`ModernSidebarId` / `ModernMainId` plus `mapEditorOrderToModern`).
+
+**Acceptance Criteria:**
+
+- [ ] A creative section vocabulary exists, covering all seven of creative's
+      sections including `certifications` and `projects`, and it lives in the
+      shared model beside the modern and classic/minimal mappings rather than
+      inside a template or a generator.
+- [ ] The two-column structure is respected: whatever the vocabulary allows must
+      be expressible in creative's actual layout, and `summary`'s position in the
+      header is either made orderable or explicitly declared fixed, with the
+      choice recorded.
+- [ ] Reordering a creative section in the editor changes the Preview, evidenced
+      by rendered browser output.
+- [ ] The same reordering changes the DOCX, evidenced on the unzipped
+      `word/document.xml`.
+- [ ] Preview and DOCX produce the **same order** for the same resume, compared
+      directly rather than inspected separately. Fixing one surface without the
+      other is the failure mode this story exists to avoid, and it is what the
+      dropped Part 2 story would have caused.
+- [ ] Hiding a creative section removes it from both surfaces.
+- [ ] Ids that mean nothing in creative — `keyAchievements`, `training` — either
+      stop being offered while creative is selected, or are documented as inert
+      with a reason. A control that persists a setting nothing reads is the
+      defect this story is closing; it must not survive in a smaller form.
+- [ ] A creative resume whose layout settings are at their defaults renders and
+      exports **unchanged** — the same guard the other stories use to confine the
+      blast radius to resumes the user actually customised.
+- [ ] The other four templates are unchanged in Preview and in export, evidenced
+      by artifact comparison and visual baselines.
+- [ ] Any visual baseline that moves is approved with its cause understood.
+
 ## Functional Requirements
 
 - **FR-1:** Preview and DOCX must render the same sections, in the same order,
@@ -255,9 +347,9 @@ control to change what I see, because it already changes what I download.
 
 ## BLOCKER Conditions
 
-- Part 2 is not complete, or its US-008 consolidation has not landed — these
+- Part 2 is not complete, or its US-007 consolidation has not landed — these
   stories assume one shared vocabulary and one order mapping.
-- Part 2's US-009 parity check finds a divergence not listed here, meaning this
+- Part 2's US-008 parity check finds a divergence not listed here, meaning this
   PRD's scope is incomplete and needs revising before implementation.
 - A divergence proves unresolvable without a product decision about which
   behaviour is correct, and that decision has not been made.
@@ -278,13 +370,24 @@ control to change what I see, because it already changes what I download.
 - **The per-property font sizes reach the Preview and not the DOCX**, the mirror
   of US-004's own defect. US-004 may uncover that the honest fix is a transport
   change on `DocxGeneratorSettings`, which is larger than this PRD assumes.
+- **US-005 is the only story here that must define something new** rather than
+  fix something wrong, and it is the one most likely to grow. Creative has two
+  sections with no id at all and a summary that lives outside both columns, so
+  the vocabulary is a design decision before it is an implementation. If it
+  proves larger than one story, splitting it is better than letting it absorb
+  the others.
+- **Part 2's creative story was re-scoped once on an unverified finding and then
+  dropped when the finding was checked.** The lesson is recorded here because
+  this PRD inherits the same evidence: verify the Preview side and the export
+  side separately before writing a story that assumes they disagree.
 
 ## Evidence / References
 
 - `tasks/ralph/progress.txt`, the US-003 to US-006 sections — where each
   divergence was recorded, with the artifact evidence for it.
-- `tasks/prds/milestone-c-part-2-exports-and-parity.md` — the table after US-009
-  listing all six and why they moved.
+- `tasks/prds/milestone-c-part-2-exports-and-parity.md` — the table after US-008
+  listing all seven and why they moved, and the Amendment History entry for
+  2026-09-13 (third) recording why the creative story was dropped.
 - `src/app/api/resumes/[id]/download-docx/docx-classic.ts`,
   `docx-minimal.ts` — the unreachable `case 'skills'` and `case 'projects'`.
 - `src/lib/layout-settings.ts` — `VALID_MAIN_IDS`, `parseLayoutModel`,

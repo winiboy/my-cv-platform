@@ -1,7 +1,10 @@
 # PRD: Resume Rendering Unification — Part 2, Exports and Parity (Milestone C)
 
 **Status:** APPROVED — owner, 2026-09-10. Amended and re-approved 2026-09-11,
-2026-09-12 and twice on 2026-09-13; see Amendment History.
+2026-09-12, and three times on 2026-09-13; see Amendment History.
+
+**Eight stories, six complete.** US-007 (consolidation) and US-008 (parity
+demonstration) remain, and neither changes rendered output.
 
 **Depends on:** `tasks/prds/milestone-c-part-1-layout-state.md`. Every story
 here assumes a persisted, typed layout model exists and is authoritative. None
@@ -14,8 +17,8 @@ Ralph contract. The mapping to the original eight-story draft is:
 |---|---|
 | US-001 | US-005 — exports read the persisted model |
 | US-002 | US-006 — Editor and Preview share one state owner |
-| US-003 to US-007 | US-007 — DOCX stops reimplementing template layout, now split one story per template |
-| US-008, US-009 | US-008 — parity across the three surfaces, later split into consolidation and demonstration |
+| US-003 to US-006 | US-007 — DOCX stops reimplementing template layout, split one story per template; creative later dropped |
+| US-007, US-008 | US-008 — parity across the three surfaces, later split into consolidation and demonstration |
 
 The DOCX work was one story until 2026-09-10. It required "each template
 converted in its own commit", which contradicts CLAUDE.md §7 and §16 — one
@@ -27,8 +30,8 @@ The parity story was split on 2026-09-13 for a related reason. It had
 accumulated seventeen acceptance criteria as US-003 to US-006 deferred findings
 into it, mixing consolidation that changes no rendered output with defect fixes
 that must change it. Running both as one story would have produced a single
-commit containing every fix. The consolidation stayed as US-008, the
-demonstration became US-009, and six defects moved to
+commit containing every fix. The consolidation became US-007, the
+demonstration US-008, and the defects moved to
 `tasks/prds/milestone-c-part-3-parity-defects.md`.
 
 ## Objective
@@ -80,15 +83,11 @@ does not change how PDF is produced.
 
 ## Out of Scope
 
-- Any change to how a resume *looks*, with **one bounded exception**. This part
-  changes where surfaces read layout from, not what they render, and rendered
-  output is the invariant everywhere except US-007 *(exception added
-  2026-09-11)*. There, the creative DOCX must begin honouring section order and
-  visibility, which it ignores today — so its output changes for a resume whose
-  layout the user has customised, and stays byte-identical for one whose layout
-  is at defaults. The creative **Preview** is unchanged even there; the
-  exception covers the export only, and no visual baseline moves anywhere in
-  this PRD.
+- Any change to how a resume *looks*. This part changes where surfaces read
+  layout from, not what they render. **Rendered output is the invariant, without
+  exception** *(restored 2026-09-13, when US-007 was dropped — see Amendment
+  History; the exception added on 2026-09-11 existed only for that story)*. No
+  visual baseline moves anywhere in this PRD, and no export byte changes.
 - Migrating PDF off `window.print()`.
 - Moving the photo out of localStorage — decided against; see Resolved
   Decisions.
@@ -105,7 +104,7 @@ does not change how PDF is produced.
   copy; locale continues to reach templates and generators as it does today.
 - **Resume model / templates:** Affected — the generators consume shared layout
   rather than their own constants. React template rendering must not change.
-- **Exports:** Affected — this is the subject of US-001 and US-003 to US-007.
+- **Exports:** Affected — this is the subject of US-001 and US-003 to US-006.
 - **Database / persistence:** Not affected — Part 1 owns the schema change.
   This part only reads what Part 1 persists.
 - **Security / authorization:** Affected — US-001 removes a client-supplied
@@ -156,9 +155,9 @@ and the preview cannot disagree about it.
       unchanged, evidenced by browser interaction rather than by inspection.
 - [ ] `pnpm test:visual` passes unchanged — screen and print.
 
-### US-003 to US-007: DOCX stops reimplementing template layout
+### US-003 to US-006: DOCX stops reimplementing template layout
 
-These five stories are one piece of work, split one story per template.
+These four stories are one piece of work, split one story per template.
 
 The split is not stylistic. An earlier draft made this a single story whose
 acceptance criteria required "each template converted in its own commit" —
@@ -166,17 +165,13 @@ which contradicted CLAUDE.md §7 and §16, where one user story is exactly one
 commit, and `run-ralph-story` creates exactly one and stops. The story was
 unexecutable as written. Splitting preserves what that criterion was *for*:
 a regression stays attributable to one template's conversion rather than to a
-five-template change.
+four-template change.
 
 **Order is deliberate.** `professional` first: it is the template whose layout
 state Part 1 touched most, so the shared model is best understood there.
-`creative` last: it is the largest at 1,141 lines and the only template where
-`print:hidden` coverage actually reaches the rendered document, so a mistake
-there is both likelier and more visible.
 
-Four of the five carry the same acceptance criteria, scoped to their own
-template and generator file. **US-007 does not** — see the note below the
-table.
+All four carry the same acceptance criteria, scoped to their own template and
+generator file, and all four must leave output byte-identical.
 
 | Story | Template | Generator | Output must |
 |---|---|---|---|
@@ -184,15 +179,15 @@ table.
 | US-004 | modern | `docx-modern.ts` | stay byte-identical |
 | US-005 | classic | `docx-classic.ts` | stay byte-identical |
 | US-006 | minimal | `docx-minimal.ts` | stay byte-identical |
-| US-007 | creative | `docx-creative.ts` | **change** |
 
-**US-007 is not a refactor** *(re-scoped 2026-09-11, on evidence from US-003)*.
-`docx-creative.ts` references none of the four order and visibility keys, so
-there is no existing implementation to redirect at the shared model — the story
-implements order and visibility in creative for the first time, and its output
-is required to change. Keeping it last remains right for a second reason now:
-it is the one conversion that cannot lean on byte-identical output as its
-safety net.
+**Creative was a fifth story and is not one any more** *(dropped 2026-09-13; see
+Amendment History)*. It was re-scoped on 2026-09-11 into "the creative DOCX
+implements section order and visibility", on the belief that its Preview
+honoured them and its export did not. Verification before implementation found
+the Preview does not honour them either — `CreativeTemplateProps` accepts no
+order or visibility props at all — and that the two hardcoded sequences are
+identical. There was no divergence to close, and implementing the export side
+alone would have created one. The real defect it uncovered moved to Part 3.
 
 ### US-003: The professional DOCX derives its layout from the shared model
 
@@ -286,61 +281,7 @@ parallel edit in a second implementation.
 - [ ] **The other four templates' DOCX output is unchanged**, evidenced rather
       than assumed.
 
-### US-007: The creative DOCX implements section order and visibility
-
-> **Re-scoped 2026-09-11**, on evidence from US-003. This story was
-> *"the creative DOCX derives its layout from the shared model"*, worded like
-> its four siblings — a refactor redirecting an existing implementation at the
-> shared model. There is no existing implementation to redirect. It is the only
-> story in this PRD whose output is *required* to change.
-
-**Description:**
-As a user, I want the creative DOCX to honour the section order and visibility
-I chose, so that the document I download matches the resume I see.
-
-**Context — the divergence this story closes:**
-`docx-creative.ts` references **none** of `sidebarOrder`, `mainContentOrder`,
-`hiddenSidebarSections` or `hiddenMainSections`. Established two ways during
-US-003: grep returns zero matches, and hashing a full settings profile against
-a hidden-sections profile shows professional, modern, classic and minimal all
-differ while **creative is byte-identical across the two**. It is the only
-template whose export is completely insensitive to section visibility. A
-creative user who hides a section still gets it in the .docx today.
-
-This is a live Preview↔DOCX divergence shipping in production, not a
-maintainability problem. The four sibling stories remove duplicated decisions
-without changing a byte of output; this one exists because output is wrong.
-
-**Acceptance Criteria:**
-
-- [ ] The creative DOCX honours `sidebarOrder`, `mainContentOrder`,
-      `hiddenSidebarSections` and `hiddenMainSections`, read from the shared
-      model — not from per-generator logic and not from a new default set.
-- [ ] A section hidden in the editor is **absent** from the creative .docx, and
-      section order in the .docx matches the order in the Preview for the same
-      resume. Both asserted on the unzipped artifact.
-- [ ] Typography scaling for **creative** derives from the shared model.
-- [ ] Duplicated layout constants are removed from `docx-creative.ts` in favour
-      of the shared defaults established in Part 1.
-- [ ] Format-specific rendering remains permitted; semantic content, section
-      order, visibility, typography intent and colour are preserved to the
-      degree DOCX supports them, per `.claude/rules/exports.md`.
-- [ ] A fidelity limitation discovered during implementation is recorded as an
-      explicit finding, never accepted silently as a PASS.
-- [ ] **Creative's DOCX output changes, and that change is characterised rather
-      than merely observed.** A before/after comparison of the generated
-      artifact identifies which parts moved and confirms each movement is
-      explained by the newly honoured order or visibility. An unexplained diff
-      is a FAIL exactly as it is elsewhere in this PRD.
-- [ ] A resume whose creative layout settings are all at their defaults exports
-      **byte-identically** to before, `docProps/core.xml` excepted. The change
-      must be visible only where the user actually customised something.
-- [ ] **The other four templates' DOCX output is unchanged**, evidenced rather
-      than assumed.
-- [ ] The creative Preview's rendered output is unchanged — this story changes
-      the export, not the template. Evidenced by unchanged visual baselines.
-
-### US-008: Shared vocabulary, helpers and mappings are consolidated
+### US-007: Shared vocabulary, helpers and mappings are consolidated
 
 > **Split out of the original US-008 on 2026-09-13.** That story had grown from
 > five criteria to seventeen as US-003 to US-006 deferred findings into it, and
@@ -382,7 +323,7 @@ change rendered output cannot.
 - [ ] **`assertExhaustiveSection` has one definition.** *(US-004 F-4.)* It is
       currently verbatim in four generators — `docx-professional.ts:142`,
       `docx-modern.ts:175`, `docx-classic.ts:130`, `docx-minimal.ts:147` — and
-      will be in five once US-007 lands. `docx-helpers.ts` is the home; it
+      will be a fifth if creative is ever converted. `docx-helpers.ts` is the home; it
       already exports the shared symbols these generators draw on.
 - [ ] **The duplicated per-template order mappings are resolved.**
       *(US-006 F-3.)* `mapEditorOrderToClassic` and `mapEditorOrderToMinimal` in
@@ -404,7 +345,7 @@ change rendered output cannot.
       type but not value; if a baseline moves, something in this story changed
       rendering and that is a FAIL, not a baseline to update.
 
-### US-009: Parity across the three surfaces is demonstrated
+### US-008: Parity across the three surfaces is demonstrated
 
 > **Renumbered from US-008 on 2026-09-13**, keeping the original story's intent.
 > Its acceptance criteria are unchanged apart from the last one, which now says
@@ -433,13 +374,13 @@ PDF and DOCX, so that "unified" is evidenced rather than asserted.
       incomplete — say so rather than quietly widening a tolerance. This story
       changes no rendered output.
 
-### The six divergences that moved to Part 3
+### The seven defects that moved to Part 3
 
-Recorded here so this PRD stays a complete account of what US-001 to US-009
-found, and so nothing is lost between documents. They are specified in
+Recorded here so this PRD stays a complete account of what its own stories
+found, and so nothing is lost between documents. All are specified in
 `tasks/prds/milestone-c-part-3-parity-defects.md`.
 
-| # | Divergence | Found by |
+| # | Defect | Found by |
 |---|---|---|
 | 1 | The classic DOCX drops the skills and projects sections its Preview renders | US-005 F-1 |
 | 2 | The minimal DOCX drops the same two sections | US-006 F-1 |
@@ -447,13 +388,19 @@ found, and so nothing is lost between documents. They are specified in
 | 4 | `minimal-template.tsx` honours neither, and places `projects` differently from classic | US-006 F-2 |
 | 5 | Preview and DOCX disagree on the empty-main fallback (`\|\|` vs `.length > 0`) | US-004 F-2 |
 | 6 | `fontScale` reaches only modern and professional; classic, minimal and creative receive none | US-005 F-4 |
+| 7 | Creative's section controls are a silent no-op — the editor persists the change, neither surface renders it, and three of creative's sections have no id | US-007 preflight |
 
-**Why they moved.** Every one requires changing rendered output, and this PRD's
-Out of Scope makes rendered output the invariant with a single named exception
-for US-007. Absorbing six more exceptions would have left the rule meaning
-nothing, and would have put two confirmed content-loss defects and three
-Preview-rendering changes into one commit — precisely the unattributability the
-one-template-per-story split exists to prevent.
+**Why they moved.** Every one requires changing rendered output, and this PRD
+makes rendered output the invariant. Absorbing them would have left that rule
+meaning nothing, and would have put two confirmed content-loss defects and
+several Preview-rendering changes into single commits — precisely the
+unattributability the one-template-per-story split exists to prevent.
+
+The seventh is different in kind from the other six and is the reason US-007 was
+dropped rather than re-scoped a second time. It is not a disagreement between
+two surfaces: both agree, and both ignore the user. Fixing it needs a creative
+section vocabulary that does not exist yet, which is a design task rather than a
+conversion.
 
 Nothing about the deferral downgrades them. **Two of the five templates are
 silently dropping supported content today**, which `.claude/rules/exports.md`
@@ -501,15 +448,16 @@ buried in its story list.
 - Baseline changes require an explicit approval decision per
   `docs/engineering/visual-regression.md`. A baseline updated to make a run
   green without an understood cause is a FAIL.
-- `export-validation` for US-001, US-003 to US-007, and US-008: a generated
+- `export-validation` for US-001, US-003 to US-006, and US-007: a generated
   DOCX inspected for content and fidelity, never an HTTP 200.
 - **"The other four templates are unchanged" must be evidenced by artifact
   comparison from US-005 onward, not by provenance.** *(Added 2026-09-11.)*
   US-003 and US-004 could argue that criterion structurally: nothing imports the
   generator each of them modified, so the other four provably execute identical
-  code. That argument is unavailable to US-005, US-006 and US-007, because each
-  of those modifies a generator whose output the *next* story must then prove
-  unchanged. Each of the three must capture a before/after hash of all five
+  code. That argument is unavailable to US-005 and US-006, because each of them
+  modifies a generator whose output the *next* story must then prove unchanged,
+  and it is unavailable to US-007, which touches every generator at once. Each
+  of the three must capture a before/after hash of all five
   templates' generated documents across a full and a hidden-sections settings
   profile, comparing every zip entry, with `docProps/core.xml` the only
   permitted exclusion — `Packer.toBuffer()` stamps wall-clock timestamps — and
@@ -519,11 +467,10 @@ buried in its story list.
 - **An artifact-level DOCX spec must exist for the template a story converts.**
   *(Added 2026-09-11.)* `e2e/` currently has `docx-professional-layout.spec.ts`
   and `docx-modern-layout.spec.ts`; classic, minimal and creative have none, so
-  each of US-005 to US-007 adds one for its own template as part of the story.
+  each of US-005 and US-006 adds one for its own template as part of the story.
   For US-005 and US-006, whose output must not change, the spec cannot go red
   against unmodified code — its assertions must instead be shown to discriminate
-  by mutating the generator one property at a time, as US-004 did. For US-007,
-  whose output must change, the spec is expected to go red first.
+  by mutating the generator one property at a time, as US-004 did.
 - `security-review` for US-001: removal of the query-parameter input surface,
   and the bounds on the remaining photo input.
 - `ui-expert` for US-002 with rendered evidence per its contract.
@@ -531,13 +478,10 @@ buried in its story list.
 
 ## FAIL Conditions
 
-- Rendered or exported output changes without a story requiring it. **US-007 is
-  the single story that requires it** *(clarified 2026-09-11)*: the creative
-  DOCX must change, because it currently ignores section order and visibility
-  outright. That exemption is narrow and does not soften the condition — an
-  unexplained diff in US-007 is still a FAIL, a diff in any of the other four
-  templates is still a FAIL, and a creative resume at default layout settings
-  must still export byte-identically.
+- Rendered or exported output changes at all. **No story in this PRD is exempt**
+  *(the US-007 exemption was removed on 2026-09-13 when that story was dropped)*.
+  Every remaining story is verifiable by byte-identical export and unchanged
+  visual baselines, which is the strongest form this condition can take.
 - A visual baseline is updated to absorb an unexplained diff.
 - A visual threshold is widened rather than the nondeterminism being found.
 - Layout state is read from URL parameters after US-001.
@@ -564,7 +508,7 @@ buried in its story list.
 ## Risks
 
 - **The DOCX conversion is the largest piece of work in the milestone.** ~6,500
-  lines across five generators, now US-003 to US-007 at roughly 1,000–1,600
+  lines across five generators, now US-003 to US-006 at roughly 1,000–1,600
   lines each. One story per template exists so that a regression is
   attributable to one conversion; the risk it does not remove is that five
   sequential stories touching one shared model can each pass while the model
@@ -573,15 +517,6 @@ buried in its story list.
 - **DOCX cannot express everything CSS can.** Some fidelity gaps are inherent
   rather than defects. The risk is that an inherent gap gets recorded as
   "matches" to keep a story green; the FAIL condition above exists for that.
-- **US-007 is the one story without byte-identical output as a safety net**
-  *(added 2026-09-11)*. Every other DOCX story can be checked by a hash: if
-  anything moved, something is wrong. US-007 must change creative's output, so
-  "did it change?" stops being the question and "did exactly the right things
-  change?" replaces it — a weaker check requiring judgement. Two criteria exist
-  to narrow it: each moved part must be explained by the newly honoured order or
-  visibility, and a resume at default layout settings must still export
-  byte-identically, so the blast radius is confined to resumes the user actually
-  customised.
 - **The photo stays browser-local by decision**, so it does not follow the user
   to another device and is destroyed by clearing browser data. Accepted and
   documented, but it should be surfaced to users somewhere — this PRD does not
@@ -607,11 +542,12 @@ buried in its story list.
   baselines guarding this work.
 - `docs/engineering/visual-regression.md` — baseline approval rules.
 - `.claude/rules/exports.md`, `.claude/rules/resumes.md`, `CLAUDE.md` §10.
-- `e2e/docx-professional-layout.spec.ts` (US-003), `e2e/docx-modern-layout.spec.ts`
-  (US-004) — the two artifact-level DOCX specs that exist; the shape US-005 to
-  US-007 follow for their own templates.
-- `tasks/ralph/progress.txt`, US-003 and US-004 sections — where the deferred
-  findings now carried by US-008 were recorded, with the evidence for each.
+- `e2e/docx-professional-layout.spec.ts`, `docx-modern-layout.spec.ts`,
+  `docx-classic-layout.spec.ts`, `docx-minimal-layout.spec.ts` — one
+  artifact-level DOCX spec per converted template, added by US-003 to US-006.
+  Creative has none, because its story was dropped.
+- `tasks/ralph/progress.txt`, the US-003 to US-006 sections — where the deferred
+  findings were recorded, with the evidence for each.
 
 ## Resolved Decisions
 
@@ -622,6 +558,57 @@ buried in its story list.
   resume unaided.
 
 ## Amendment History
+
+### 2026-09-13 (third) — US-007 dropped; the invariant restored
+
+Approved by the owner after verification, before any code was written.
+
+**The story's premise was false, and this document is where it became false.**
+US-003's finding F-4 established that `docx-creative.ts` reads none of the four
+order and visibility keys — true, and independently reconfirmed. F-4 then called
+that *"a live Preview↔DOCX divergence"*, and the 2026-09-11 amendment carried
+that phrase into US-007's re-scope **without the Preview half ever being
+checked**.
+
+It does not hold. `CreativeTemplateProps` accepts eleven props — `resume`,
+`locale`, `dict`, and four font-size pairs — with no order or visibility among
+them, no spread and no context read, and both call sites pass only those. The
+Preview and the DOCX render the *same hardcoded sequence*: summary in the
+header, then skills, languages, certifications on the left, then experience,
+projects, education on the right. Creative is internally consistent. **There was
+no divergence to close, and implementing the export side alone would have
+created one** — which `.claude/rules/exports.md` forbids, since the rendered
+Preview is the fidelity contract for exports.
+
+Verification also found the story was not implementable as specified even in
+principle. The editor's id vocabulary is
+`['keyAchievements','skills','languages','training']` and
+`['summary','experience','education']`. Creative's `certifications` and
+`projects` have **no id at all**; `keyAchievements` and `training` mean nothing
+in creative; and `summary` renders inside the gradient header rather than in
+either column. "Creative honours `mainContentOrder`" is not unimplemented — it
+is undefined, and defining it means a creative-specific vocabulary of the kind
+modern has.
+
+**What changed here.** US-007 is removed. The consolidation story becomes
+US-007 and the parity demonstration US-008, so Part 2 is eight stories with two
+remaining. Because creative was the only story that changed rendered output, its
+removal lets two things be restored rather than merely narrowed: **Out of Scope
+returns to an unqualified invariant**, and the first FAIL condition drops its
+exemption. Every remaining story is verifiable by byte-identical export and
+unchanged baselines, which is the strongest form that condition can take.
+
+Earlier Amendment History entries name stories by the numbers they had when
+written — the split entry below refers to US-008 and US-009, now US-007 and
+US-008. They are left as written rather than retrofitted.
+
+**What was real, and where it went.** A creative user *can* reorder and hide
+sections: the editor's controls are not template-gated, and the change persists
+to `layout_settings` through `toStoredLayout`. Nothing then renders differently
+on either surface. That is a silent no-op affecting a control the user
+deliberately operates — a genuine defect, just not the one US-007 described. It
+became Part 3's US-005, where Preview changes and baseline movement are in
+scope.
 
 ### 2026-09-13 (second) — US-008 split, and six defects moved to Part 3
 
