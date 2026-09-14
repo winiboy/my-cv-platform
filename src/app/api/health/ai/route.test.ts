@@ -75,6 +75,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllEnvs()
   vi.restoreAllMocks()
   vi.resetModules()
@@ -102,6 +103,14 @@ describe('unauthenticated configuration check', () => {
   })
 
   it('never discloses the key value or its length', async () => {
+    // The body carries a wall-clock `checkedAt`. Left real, a timestamp such as
+    // `13:03:22.030Z` contains the key length and fails the check below at
+    // random. Freeze only `Date`, at an instant that cannot collide, so the
+    // whole body — timestamp included — stays under the assertion.
+    const frozenAt = new Date('2026-01-01T12:00:00.000Z')
+    expect(frozenAt.toISOString()).not.toContain(String(API_KEY.length))
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(frozenAt)
     const { GET } = await loadRoute()
 
     const serialised = JSON.stringify(await (await GET(healthRequest())).json())
