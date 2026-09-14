@@ -316,20 +316,22 @@ const ONE_PIXEL_PNG =
  * by +20 (capped at 100) and lightness by +25 (capped at 65) before the same
  * conversion. Hence 240/85/35 and 240/100/60.
  *
- * Written as literals rather than imported: both helpers and both template
- * constants are module-private to `docx-modern.ts`, which this story must not
- * touch — and a literal cannot agree with a broken conversion the way a shared
- * import would.
+ * Written as literals rather than imported: `deriveAccentColorHex` is
+ * module-private to `docx-modern.ts`, and although `hslToHex` is exported from
+ * `docx-helpers.ts`, a literal cannot agree with a broken conversion the way a
+ * shared import would.
  */
 const MODERN_SIDEBAR_FILL = '0D0DA5'
 const MODERN_ACCENT_FILL = '3333FF'
 
 /**
- * What the generator emits instead when told the colours are not the user's.
+ * The flat sidebar and gold accent the Modern DOCX used to emit when a request
+ * carried no colour parameters.
  *
- * `hasCustomColors` is the switch, and these two are its other side — the flat
- * sidebar and the gold accent of the untouched template. Their ABSENCE is the
- * assertion that fails if presence-based colour resolution is ever restored.
+ * US-001 made colour always come from the resolved model, and US-007 deleted
+ * the generator branch and the `hasCustomColors` flag that could still select
+ * this pair. Their ABSENCE is the assertion that fails if a colour-less path
+ * is ever reintroduced.
  */
 const MODERN_UNCUSTOMIZED_SIDEBAR_FILL = '333333'
 const MODERN_UNCUSTOMIZED_ACCENT = 'D4A843'
@@ -380,15 +382,15 @@ for (const photoCase of PHOTO_CASES) {
       /**
        * The one OUTPUT this story changed, read off the artifact.
        *
-       * `hasCustomColors` is now a constant `true` in the route, which decides
-       * which of two colour pairs `docx-modern.ts` writes into `w:shd`. That
-       * is a claim about the document, so it is asserted on the document —
-       * once, here, rather than repeated in all four photo cases, because
-       * colour resolution has nothing to do with the photo.
+       * `docx-modern.ts` writes the colour pair derived from the resolved
+       * model into `w:shd`. That is a claim about the document, so it is
+       * asserted on the document — once, here, rather than repeated in all
+       * four photo cases, because colour resolution has nothing to do with the
+       * photo.
        *
        * Both directions are needed. The presence assertions say the derived
        * pair was used; the absence assertions say the template's flat pair was
-       * not, and those are what turn red the moment anything makes the flag
+       * not, and those are what turn red the moment anything makes colour
        * conditional on the request again.
        */
       expect(xml).toContain(`w:fill="${MODERN_SIDEBAR_FILL}"`)

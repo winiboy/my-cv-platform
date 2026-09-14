@@ -28,6 +28,7 @@ import {
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import {
+  assertExhaustiveSection,
   mapEditorOrderToClassic,
   type ClassicMainId,
 } from '@/lib/layout-settings'
@@ -90,47 +91,6 @@ const SPACING = {
 
 // Serif font used by the Classic template
 const SERIF_FONT = 'Times New Roman'
-
-/**
- * Compile-time exhaustiveness guard for the section dispatch below.
- *
- * `ClassicMainId` reaches this file from the shared model — imported by name,
- * and structurally as the return type of `mapEditorOrderToClassic` — rather
- * than being re-declared here, which it was until US-005. The two guarantees
- * that sharing buys are not symmetric, and each was verified by mutating
- * `layout-settings.ts` and running `pnpm typecheck`:
- *
- *  - REMOVING an id breaks this file because the union is the model's: a case
- *    clause stops naming a member. Deleting `'projects'` from `ClassicMainId`
- *    gives, in this file,
- *    `TS2678: Type '"projects"' is not comparable to type 'ClassicMainId'`.
- *
- *  - ADDING an id is caught only by the dispatch being a `switch` statement
- *    that ends in `assertExhaustiveSection`, which narrows its subject to
- *    `never` in `default` only while every member has a case. Adding
- *    `'awards'` gives
- *    `TS2345: Argument of type '"awards"' is not assignable to parameter of
- *    type 'never'`. Sharing the union alone would not catch it: the order
- *    array arrives as `string[]` and is mapped through a cast, so that
- *    direction is unchecked, and the `if`-chain this replaced had no notion of
- *    being complete — a new id would have matched no branch and vanished from
- *    the export while the Preview showed it.
- *
- * A RENAME trips both, being a removal plus an addition.
- *
- * It deliberately does NOT throw, for the same reason as its twins in
- * `docx-professional.ts` and `docx-modern.ts`: `DocxGeneratorSettings` types
- * the order arrays as `string[]`, so a stray id is representable at runtime,
- * and the route already filters the lists through the shared model
- * (`resolveResumeLayout`) before any generator sees them. Throwing would turn
- * stray stored layout state into a failed download — a behavioural change
- * belonging to whatever story decides how exports should react to unparseable
- * layout state, not to a type fix.
- */
-function assertExhaustiveSection(sectionId: never): void {
-  // Referenced so the parameter is not reported unused; intentionally inert.
-  return sectionId
-}
 
 // ============================================================
 // CLASSIC TEMPLATE DOCX GENERATOR

@@ -25,14 +25,14 @@ import {
  * WHY THIS FILE EXISTS ALONGSIDE THE CLASSIC SPEC IT MOST RESEMBLES
  *
  * Minimal and Classic are both single-column, and their editor→template
- * mappings are, today, the same rule. What differs is everything downstream of
- * the mapping: a different type scale (Minimal's CV title is 48px against
+ * mappings are one rule (`mapEditorOrderToSingleColumn`, which each names
+ * through its own alias). What differs is everything downstream of the
+ * mapping: a different type scale (Minimal's CV title is 48px against
  * Classic's 36px), different spacing, different colours, and a different
  * rendering order in `minimal-template.tsx`. A spec written against Classic
  * pins none of that, and Classic's spec would keep passing if
- * `generateMinimalDocx` stopped reading the model entirely. The two mappings
- * are also deliberately separate functions (see `mapEditorOrderToMinimal`), so
- * each needs its own artifact-level proof that the generator consumes it.
+ * `generateMinimalDocx` stopped reading the model entirely, so each generator
+ * needs its own artifact-level proof that it consumes the mapping.
  *
  * WHY THE ASSERTIONS ARE ON THE ARTIFACT
  *

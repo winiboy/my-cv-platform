@@ -40,7 +40,8 @@ import {
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import {
-  DEFAULT_RESUME_LAYOUT,
+  assertExhaustiveSection,
+  DEFAULT_MODERN_MAIN_ORDER,
   mapEditorOrderToModern,
   type EditorMainId,
   type EditorSidebarId,
@@ -100,81 +101,6 @@ const SPACING = {
   NAME_MB: 8,                        // marginBottom on name
   TITLE_BAR_MB: 8,                   // marginBottom on title bar
   ACHIEVEMENT_GAP: 2,                // gap between achievement items
-}
-
-// Modern template default colors (matching modern-template.tsx constants)
-const DEFAULT_SIDEBAR_COLOR_HEX = '333333'
-const DEFAULT_ACCENT_COLOR_HEX = 'D4A843'
-
-/**
- * The Modern default main-content order, DERIVED from the shared model rather
- * than restated as a literal.
- *
- * `mapEditorOrderToModern` is the one rule that turns an editor order into a
- * Modern one, so feeding it the shared default order produces the Modern
- * default by construction: the editor default is
- * `['summary', 'experience', 'education']`, and the mapping drops `education`
- * because Modern renders it in the sidebar. The previous literal restated the
- * result, so a change to `DEFAULT_RESUME_LAYOUT.mainContentOrder` would have
- * moved the Preview and left this line behind.
- *
- * There is no sidebar counterpart because the sidebar never needs one — see
- * the fallback note in `generateModernDocx`.
- */
-const DEFAULT_MODERN_MAIN_ORDER: readonly ModernMainId[] = mapEditorOrderToModern(
-  DEFAULT_RESUME_LAYOUT.sidebarOrder,
-  DEFAULT_RESUME_LAYOUT.mainContentOrder,
-  DEFAULT_RESUME_LAYOUT.hiddenSidebarSections,
-  DEFAULT_RESUME_LAYOUT.hiddenMainSections,
-).modernMainOrder
-
-/**
- * Compile-time exhaustiveness guard for the two section dispatches below.
- *
- * `ModernSidebarId` and `ModernMainId` reach this file from the shared model —
- * imported by name, and structurally as `ModernMappedOrder`, the return type of
- * `mapEditorOrderToModern` — rather than being re-declared here, which they
- * were until US-004. The two guarantees that sharing buys are not symmetric,
- * and each was verified by mutating `layout-settings.ts` and running
- * `pnpm typecheck`:
- *
- *  - REMOVING an id breaks this file because the union is the model's: a case
- *    clause stops naming a member. Deleting `'training'` from
- *    `ModernSidebarId` gives
- *    `TS2678: Type '"training"' is not comparable to type 'ModernSidebarId'`.
- *
- *  - ADDING an id is caught only by these dispatches being `switch`
- *    statements that end in `assertExhaustiveSection`, which narrows its
- *    subject to `never` in `default` only while every member has a case.
- *    Adding `'awards'` gives
- *    `TS2345: Argument of type '"awards"' is not assignable to parameter of
- *    type 'never'`. Sharing the union alone would not catch it: the order
- *    arrays arrive as `string[]`, so the casts above are unchecked in that
- *    direction, and an `if`-chain has no notion of being complete — a new id
- *    would have matched no branch and vanished from the export while the
- *    Preview showed it.
- *
- * A RENAME trips both, being a removal plus an addition: renaming
- * `ModernMainId`'s `'summary'` to `'profile'` reports TS2678 and TS2345
- * together.
- *
- * It deliberately does NOT throw, for the same reason as its twin in
- * `docx-professional.ts`: `DocxGeneratorSettings` types the order arrays as
- * `string[]`, so a stray id is representable at runtime, and the route already
- * filters the lists through the shared model (`resolveResumeLayout`) before
- * any generator sees them. Throwing would turn stray stored layout state into
- * a failed download — a behavioural change belonging to whatever story decides
- * how exports should react to unparseable layout state, not to a type fix.
- *
- * The naming is not itself a check: the `readonly ModernSidebarId[]` annotation
- * on `visibleSidebarSections` was stripped along with its import specifier, the
- * ADD mutation left in place, and the error set came back byte-identical. That
- * annotation gives the shared union a named consumer; the guarantees above come
- * from the structural path and from the dispatches being `switch` statements.
- */
-function assertExhaustiveSection(sectionId: never): void {
-  // Referenced so the parameter is not reported unused; intentionally inert.
-  return sectionId
 }
 
 /**
@@ -347,7 +273,6 @@ export async function generateModernDocx(
     mainContentOrder: mainContentOrderRaw,
     hiddenSidebarSections: hiddenSidebarRaw,
     hiddenMainSections: hiddenMainRaw,
-    hasCustomColors,
     photoBase64,
   } = settings
 
@@ -385,16 +310,16 @@ export async function generateModernDocx(
    * The main result is a plain filter and CAN come back empty — a stored
    * `mainContentOrder` of `['education']` parses as valid, then loses its only
    * member to the mapping because Modern renders education in the sidebar. The
-   * branch is reachable, so it stays, and the value it falls back to is now
-   * derived from the shared default rather than restated.
+   * branch is reachable, so it stays, and the value it falls back to is
+   * `DEFAULT_MODERN_MAIN_ORDER` — the same shared default the Preview uses.
    *
-   * It is NOT reconciled with the Preview here, and that is a known
-   * divergence rather than an oversight. `modern-template.tsx:198` falls back
-   * with `mainContentOrder || DEFAULT_MAIN_ORDER`, which an empty array does
+   * The CONDITION is NOT reconciled with the Preview, and that is a known
+   * divergence rather than an oversight. `modern-template.tsx` falls back with
+   * `mainContentOrder || DEFAULT_MODERN_MAIN_ORDER`, which an empty array does
    * not trigger — so for that same stored value the Preview renders an empty
    * main column while this generator renders summary and experience. Making
-   * them agree changes rendered output, which this story forbids; it is
-   * recorded as a finding for the parity story.
+   * them agree changes rendered output, which Part 2 forbids; it is recorded as
+   * a finding for the parity work.
    */
   const mainContentOrder: readonly ModernMainId[] =
     modernMainOrder.length > 0 ? modernMainOrder : DEFAULT_MODERN_MAIN_ORDER
@@ -414,12 +339,14 @@ export async function generateModernDocx(
 
   // ============================================================
   // COLOR LOGIC (matching modern-template.tsx exactly)
-  // When the user hasn't customized colors, use the template defaults:
-  //   sidebar = #333333, accent = #D4A843
-  // When the user has customized, compute from HSL values.
+  // Both colours derive from the resolved model's HSL, as the Preview's do.
+  //
+  // There is no template-default branch. The route always supplies the model's
+  // colour, and the Preview is always handed `hsl(...)` built from it, so the
+  // flat #333333 / #D4A843 pair `modern-template.tsx` keeps as a fallback is
+  // not a colour either surface shows for a real resume. The `hasCustomColors`
+  // flag that once selected it here was a constant `true` with one reader.
   // ============================================================
-  let sidebarColorHex: string
-  let accentColorHex: string
 
   // All three colour components come from the model. A `?? DEFAULT_RESUME_LAYOUT
   // .sidebarSaturation` stood on this one and could never fire —
@@ -429,13 +356,8 @@ export async function generateModernDocx(
   // fallback was removed from `docx-professional.ts` in US-003.
   const sidebarSaturation = settings.sidebarSaturation
 
-  if (hasCustomColors) {
-    sidebarColorHex = hslToHex(sidebarHue, sidebarSaturation, sidebarBrightness)
-    accentColorHex = deriveAccentColorHex(sidebarHue, sidebarSaturation, sidebarBrightness)
-  } else {
-    sidebarColorHex = DEFAULT_SIDEBAR_COLOR_HEX
-    accentColorHex = DEFAULT_ACCENT_COLOR_HEX
-  }
+  const sidebarColorHex = hslToHex(sidebarHue, sidebarSaturation, sidebarBrightness)
+  const accentColorHex = deriveAccentColorHex(sidebarHue, sidebarSaturation, sidebarBrightness)
 
   // Calculate scaled font sizes
   const scaledFontSizes = {

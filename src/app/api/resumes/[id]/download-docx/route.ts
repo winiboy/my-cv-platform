@@ -201,43 +201,6 @@ async function handleDocxGeneration(
     mainContentOrder: [...layout.mainContentOrder],
     hiddenSidebarSections: [...layout.hiddenSidebarSections],
     hiddenMainSections: [...layout.hiddenMainSections],
-    /**
-     * Always true, and that is what it already was for every real export.
-     *
-     * This flag used to mean "the browser sent colour parameters", which
-     * `docx-modern.ts` reads as "the user chose these colours". It was never a
-     * record of a user's choice, only of whether the request happened to
-     * mention colour.
-     *
-     * TWO colours move with it, not one. The same `else` branch
-     * (`docx-modern.ts:336-338`) pins the sidebar to a flat #333333 AND the
-     * accent to #D4A843; the `if` derives both from the resolved HSL, the
-     * sidebar through `hslToHex` and the accent through
-     * `deriveAccentColorHex`. Anyone auditing the residual, or retiring the
-     * branch in the modern story, is looking at a pair.
-     *
-     * It was true in every reachable flow. The Word button exists on the two
-     * preview pages and nowhere else, both mount `resume-preview-wrapper.tsx`,
-     * and that wrapper caches the COMPLETE resolved model — all three colour
-     * properties included — before any click is possible. The parameters were
-     * therefore always present, and the false branch was reached only when
-     * localStorage was unavailable.
-     *
-     * The Preview agrees with true and not with false, for both. The wrapper
-     * always passes `hsl(...)` built from the resolved values, and
-     * `modern-template.tsx:191` derives its accent from that very string via
-     * `deriveAccentColor` — so neither #333333 nor #D4A843 is a colour the
-     * on-screen document can show, and both moves are toward Preview parity
-     * rather than away from it. Per `.claude/rules/exports.md` the Preview is
-     * the fidelity contract, which makes the false branch a mismatch rather
-     * than a feature.
-     *
-     * Left as a constant here rather than removed: the flag lives in
-     * `DocxGeneratorSettings` and is read inside `docx-modern.ts`, and the
-     * generators belong to US-003 to US-007. Retiring the dead branch is
-     * recorded for the modern story.
-     */
-    hasCustomColors: true,
     photoBase64: boundedPhoto(body?.photoBase64),
   }
 
