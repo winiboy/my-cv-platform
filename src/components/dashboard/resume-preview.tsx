@@ -3,7 +3,6 @@
 import type { Resume } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
 import { ModernTemplate } from './resume-templates/modern-template'
-import type { ModernSidebarSectionId, ModernMainContentSectionId } from './resume-templates/modern-template'
 import { ClassicTemplate } from './resume-templates/classic-template'
 import { MinimalTemplate } from './resume-templates/minimal-template'
 import { CreativeTemplate } from './resume-templates/creative-template'
@@ -12,6 +11,8 @@ import {
   DEFAULT_RESUME_LAYOUT,
   type EditorMainId,
   type EditorSidebarId,
+  type ModernMainId,
+  type ModernSidebarId,
 } from '@/lib/layout-settings'
 
 type SidebarSectionId = EditorSidebarId
@@ -57,10 +58,10 @@ interface ResumePreviewProps {
   setSidebarWidth?: (width: number) => void
   hiddenSidebarSections?: readonly SidebarSectionId[]
   hiddenMainSections?: readonly MainContentSectionId[]
-  modernSidebarOrder?: ModernSidebarSectionId[]
-  modernMainContentOrder?: ModernMainContentSectionId[]
-  hiddenModernSidebarSections?: ModernSidebarSectionId[]
-  hiddenModernMainSections?: ModernMainContentSectionId[]
+  modernSidebarOrder?: ModernSidebarId[]
+  modernMainContentOrder?: ModernMainId[]
+  hiddenModernSidebarSections?: ModernSidebarId[]
+  hiddenModernMainSections?: ModernMainId[]
   photoUrl?: string
   onPhotoChange?: (dataUrl: string) => void
 }

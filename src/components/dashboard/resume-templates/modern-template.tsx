@@ -13,13 +13,19 @@ import type {
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
 import { renderFormattedText } from '@/lib/format-text'
+import {
+  assertExhaustiveSection,
+  DEFAULT_MODERN_MAIN_ORDER,
+  DEFAULT_MODERN_SIDEBAR_ORDER,
+  type ModernMainId,
+  type ModernSidebarId,
+} from '@/lib/layout-settings'
 
-export type ModernSidebarSectionId = 'contact' | 'education' | 'skills' | 'languages' | 'training'
-export type ModernMainContentSectionId = 'summary' | 'experience'
-
-const DEFAULT_SIDEBAR_ORDER: ModernSidebarSectionId[] = ['contact', 'education', 'skills', 'languages', 'training']
-const DEFAULT_MAIN_ORDER: ModernMainContentSectionId[] = ['summary', 'experience']
-
+/**
+ * Fallbacks for a caller that passes no colour, or one `deriveAccentColor`
+ * cannot parse. The DOCX generator has no counterpart: the export route always
+ * supplies the resolved model's colour, so it never needs one.
+ */
 const DEFAULT_SIDEBAR_COLOR = '#333333'
 const DEFAULT_ACCENT_COLOR = '#D4A843'
 
@@ -156,10 +162,10 @@ interface ModernTemplateProps {
   setSectionTitleFontSize?: (size: number) => void
   sectionDescFontSize?: number
   setSectionDescFontSize?: (size: number) => void
-  sidebarOrder?: ModernSidebarSectionId[]
-  mainContentOrder?: ModernMainContentSectionId[]
-  hiddenSidebarSections?: ModernSidebarSectionId[]
-  hiddenMainSections?: ModernMainContentSectionId[]
+  sidebarOrder?: ModernSidebarId[]
+  mainContentOrder?: ModernMainId[]
+  hiddenSidebarSections?: ModernSidebarId[]
+  hiddenMainSections?: ModernMainId[]
   sidebarWidth?: number
   setSidebarWidth?: (width: number) => void
   sidebarTopMargin?: number
@@ -194,8 +200,8 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
   const activeMainContentTopMargin = mainContentTopMargin ?? 0
   const activeScale = fontScale ?? 1
 
-  const activeSidebarOrder = sidebarOrder || DEFAULT_SIDEBAR_ORDER
-  const activeMainOrder = mainContentOrder || DEFAULT_MAIN_ORDER
+  const activeSidebarOrder: readonly ModernSidebarId[] = sidebarOrder || DEFAULT_MODERN_SIDEBAR_ORDER
+  const activeMainOrder: readonly ModernMainId[] = mainContentOrder || DEFAULT_MODERN_MAIN_ORDER
   const hiddenSidebar = new Set(hiddenSidebarSections || [])
   const hiddenMain = new Set(hiddenMainSections || [])
 
@@ -223,7 +229,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
   }, [onPhotoChange])
 
   /** Render a single sidebar section by its identifier; returns null if section has no data */
-  const renderSidebarSection = (id: ModernSidebarSectionId): React.ReactNode => {
+  const renderSidebarSection = (id: ModernSidebarId): React.ReactNode => {
     switch (id) {
       case 'contact': {
         const hasContactData = contact.phone || contact.email || contact.website || contact.linkedin || contact.github || contact.location
@@ -514,12 +520,13 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         )
       }
       default:
+        assertExhaustiveSection(id)
         return null
     }
   }
 
   /** Render a single main content section by its identifier; returns null if section has no data */
-  const renderMainSection = (id: ModernMainContentSectionId): React.ReactNode => {
+  const renderMainSection = (id: ModernMainId): React.ReactNode => {
     switch (id) {
       case 'summary': {
         if (!resume.summary) return null
@@ -657,6 +664,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         )
       }
       default:
+        assertExhaustiveSection(id)
         return null
     }
   }

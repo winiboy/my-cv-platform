@@ -32,7 +32,11 @@ import {
   COLORS,
   type DocxGeneratorSettings,
 } from './docx-helpers'
-import type { EditorMainId, EditorSidebarId } from '@/lib/layout-settings'
+import {
+  assertExhaustiveSection,
+  type EditorMainId,
+  type EditorSidebarId,
+} from '@/lib/layout-settings'
 
 // ============================================================
 // FONT SIZE CONSTANTS (matching professional-template.tsx)
@@ -121,28 +125,6 @@ const SPACING = {
  */
 type SidebarSectionId = EditorSidebarId
 type MainContentSectionId = EditorMainId
-
-/**
- * Compile-time exhaustiveness guard for the two section dispatches.
- *
- * `switch` narrows its subject to `never` in `default` only while every member
- * of the union has a case, so adding an id to `EditorSidebarId` or
- * `EditorMainId` without adding a rendering branch here stops compiling. That
- * — not the type aliases by themselves — is what makes a silently dropped
- * section impossible.
- *
- * It deliberately does NOT throw. The parameter type makes the call
- * unreachable for a well-typed caller, and the route already filters the id
- * lists through the shared model (`resolveResumeLayout`) before they reach any
- * generator, so nothing valid can land here. Throwing would only convert a
- * stray id in stored layout state into a failed download — a behavioural
- * change that belongs to whatever story decides how exports should react to
- * unparseable layout state, not to a type-safety fix.
- */
-function assertExhaustiveSection(sectionId: never): void {
-  // Referenced so the parameter is not reported unused; intentionally inert.
-  return sectionId
-}
 
 // ============================================================
 // PROFESSIONAL TEMPLATE DOCX GENERATOR

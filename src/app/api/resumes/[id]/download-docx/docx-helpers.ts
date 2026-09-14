@@ -27,8 +27,6 @@ export interface DocxGeneratorSettings {
   mainContentOrder: string[]
   hiddenSidebarSections: string[]
   hiddenMainSections: string[]
-  /** Whether the user explicitly set sidebar color (hue/brightness) via the UI */
-  hasCustomColors: boolean
   /** Base64-encoded photo data (data URL or raw base64) for embedding in sidebar */
   photoBase64?: string
 }

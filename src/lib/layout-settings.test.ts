@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { ResumeLayoutSettings } from '@/types/database'
 import {
+  DEFAULT_MODERN_MAIN_ORDER,
+  DEFAULT_MODERN_SIDEBAR_ORDER,
   DEFAULT_RESUME_LAYOUT,
   extractLayoutSettings,
   LAYOUT_CONTROL_RANGES,
@@ -546,6 +548,33 @@ describe('mapEditorOrderToModern', () => {
     expect(result.modernMainOrder).toEqual([])
     expect(result.hiddenModernSidebar).toEqual([])
     expect(result.hiddenModernMain).toEqual([])
+  })
+})
+
+/**
+ * The Modern default orders, written out literally rather than derived.
+ *
+ * `modern-template.tsx` held exactly these two literals as its own defaults
+ * until US-007 replaced them with the shared derivation. This case is the proof
+ * that the derivation reproduces them, so the Preview's fallback did not move;
+ * a later change to `DEFAULT_RESUME_LAYOUT` or to `mapEditorOrderToModern` that
+ * shifts either default fails here rather than silently on both Modern surfaces.
+ */
+describe('Modern default section orders', () => {
+  it('derive to the literals the template previously declared', () => {
+    expect(DEFAULT_MODERN_SIDEBAR_ORDER).toEqual([
+      'contact',
+      'education',
+      'skills',
+      'languages',
+      'training',
+    ])
+    expect(DEFAULT_MODERN_MAIN_ORDER).toEqual(['summary', 'experience'])
+  })
+
+  it('are frozen, since both Modern surfaces share them by reference', () => {
+    expect(Object.isFrozen(DEFAULT_MODERN_SIDEBAR_ORDER)).toBe(true)
+    expect(Object.isFrozen(DEFAULT_MODERN_MAIN_ORDER)).toBe(true)
   })
 })
 
