@@ -1398,3 +1398,127 @@ Commit:
 - Commit message: ralph: US-006 the minimal DOCX derives its layout from the shared model
 
 FINAL: PASS
+
+## US-007 (creative): BLOCKED, then dropped from Part 2
+Status: BLOCKED -> story removed by contract amendment
+Priority: 7 (at the time)
+Branch: ralph/milestone-c-part-2-exports
+Baseline HEAD: 13aeda3
+
+Recorded because a story that never ran still produced the most consequential
+finding of Part 2's second half, and because the reason it could not run was an
+error in this project's own documentation rather than in the code.
+
+NO CODE WAS WRITTEN. No implementation agent was dispatched. The story was
+blocked at the read-only exploration step, before delegation.
+
+Checks: NOT_RUN - nothing was changed, so there was nothing to check.
+Specialized validation: NOT_RUN.
+Agents: senior-coder NOT_DISPATCHED; ui-expert NOT_APPLICABLE;
+code-reviewer NOT_DISPATCHED. One read-only Explore agent was dispatched to
+verify the blocker independently, because the same claim had already been
+believed once without being checked.
+
+WHAT THE STORY SAID, AND WHY IT COULD NOT BE DONE
+US-007 read: "the creative DOCX honours sidebarOrder, mainContentOrder,
+hiddenSidebarSections and hiddenMainSections ... so that the document I download
+matches the resume I see."
+
+It was re-scoped into that form on 2026-09-11, on US-003's finding F-4. F-4
+established that docx-creative.ts reads none of the four keys - true, and
+reconfirmed here. F-4 then called that "a live Preview<->DOCX divergence
+shipping today", and THE PREVIEW HALF OF THAT CLAIM WAS NEVER CHECKED. It was
+carried into the PRD amendment by the orchestrator on the strength of the
+generator-side evidence alone.
+
+It is false. CreativeTemplateProps (creative-template.tsx:14-26) accepts exactly
+eleven props: resume, locale, dict, and four font-size pairs. No order, no
+visibility, no spread, no ...rest, no context read - the destructure at :28-40 is
+exhaustive. Both call sites pass only those: resume-preview.tsx:116 and
+resume-editor.tsx:1615. For contrast resume-preview.tsx:118 DOES pass all four
+keys to ProfessionalTemplate, and :110 passes the modern variants - creative
+gets neither set, and the drop happens inside the switch at the creative case
+specifically, not upstream.
+
+And the two hardcoded sequences are IDENTICAL:
+  Preview  creative-template.tsx : summary :87 | left skills :160, languages
+           :242, certifications :275 | right experience :304, projects :364,
+           education :402
+  DOCX     docx-creative.ts      : summary :274 | left skills :398, languages
+           :502, certifications :554 | right experience :627, projects :804,
+           education :882
+The generator even documents the arrangement at :126-132. generateCreativeDocx
+destructures only fontFamily, fontScale and locale (:138-142), and grep for
+`settings.` over the whole file returns zero further hits - the route resolves
+the order and visibility keys correctly (route.ts:200-203) and passes the same
+settings object every template gets (route.ts:278-279); creative simply discards
+them.
+
+So creative is INTERNALLY CONSISTENT. There was no divergence to close, and
+implementing the export side alone would have CREATED one - making the download
+stop matching the Preview, which is the opposite of the story's stated purpose
+and is forbidden by .claude/rules/exports.md, where the rendered Preview is the
+fidelity contract for exports.
+
+THE STORY WAS ALSO NOT IMPLEMENTABLE AS SPECIFIED
+Independent verification turned up a second, separate obstacle. The editor's id
+vocabulary is
+  VALID_SIDEBAR_IDS = ['keyAchievements','skills','languages','training']
+  VALID_MAIN_IDS    = ['summary','experience','education']
+Against creative's seven sections: certifications and projects have NO ID AT
+ALL, so they are unaddressable; keyAchievements and training are settable and
+mean nothing in creative; and summary renders inside the gradient header rather
+than in either column. parseIdList filters strictly to those sets, so unknown
+ids cannot be introduced through stored state.
+
+"Creative honours mainContentOrder" is therefore not unimplemented but
+UNDEFINED. Satisfying it requires defining a creative section vocabulary, the
+way modern has ModernSidebarId / ModernMainId and mapEditorOrderToModern. That
+is a design task, and substantially more than the conversion the story
+described.
+
+WHAT IS ACTUALLY WRONG, AND WHERE IT WENT
+The editor's reorder and hide UI is NOT template-gated. SECTIONS is a
+module-level constant (resume-editor.tsx:89-102) rendered unconditionally at
+:1120 with no template check; the panels are gated only on activeSection
+(:1198, :1268); the setters come from the template-agnostic useResumeLayout; and
+use-persisted-layout.ts:56 writes layout_settings through toStoredLayout, which
+serialises all four keys unconditionally.
+
+So a creative user can reorder and hide sections, the change persists to the
+database, and NOTHING RENDERS DIFFERENTLY ON EITHER SURFACE. A silent no-op on a
+control the user deliberately operates. That is a real defect - it is simply not
+the defect US-007 described, and it cannot be fixed inside a milestone whose
+invariant is that rendered output does not change.
+
+It became Part 3's US-005, where Preview changes and baseline movement are in
+scope.
+
+THE DECISION
+Presented to the owner with three options - drop it to Part 3, re-scope it in
+place and widen Part 2's invariant again, or close it as not-applicable and
+record the no-op without owning it. The owner chose to drop it.
+
+Consequences carried through in the same amendment:
+- US-007 removed; consolidation renumbered US-008 -> US-007 and the parity
+  demonstration US-009 -> US-008. Part 2 is eight stories, six complete.
+- Because creative was the ONLY story that changed rendered output, its removal
+  let two things be RESTORED rather than narrowed: Out of Scope returns to an
+  unqualified invariant, and the first FAIL condition drops its exemption. Every
+  remaining story is now verifiable by byte-identical export and unchanged
+  baselines, which is the strongest form that condition can take.
+- Part 2's deferred-defect table grew from six to seven.
+
+THE LESSON, RECORDED BECAUSE IT WILL RECUR
+A finding that names two surfaces must be verified on both. F-4 was rigorous
+about the generator - grep plus a settings-profile hash comparison - and silent
+about the template, and the gap was invisible because the generator half was so
+well evidenced. It then survived a PRD amendment, a re-scope, a prd-to-json
+conversion and four merged PRs before anyone looked at the other half.
+
+What caught it was ordinary preflight: reading the consumer before writing the
+producer. What confirmed it was dispatching a read-only agent whose brief said
+explicitly to check the belief rather than confirm it, and to report anything
+that would make it wrong.
+
+FINAL: BLOCKED - resolved by removing the story
