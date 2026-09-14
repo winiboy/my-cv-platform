@@ -45,7 +45,10 @@ export default defineConfig({
   // `e2e/visual` is excluded rather than merged in: it has its own config with
   // screenshot-specific settings that would be wrong here, and running it on
   // this config would compare against no baseline at all and silently pass.
-  testIgnore: ['**/node_modules/**', '**/.claude/**', '**/.next/**', '**/visual/**'],
+  // `e2e/parity` is excluded for a different reason: it reports the divergences
+  // Part 3 has not yet fixed, so it is red by design, and collecting it here
+  // would turn this required gate red with it. It runs as `pnpm test:parity`.
+  testIgnore: ['**/node_modules/**', '**/.claude/**', '**/.next/**', '**/visual/**', '**/parity/**'],
 
   timeout: 90_000,
   expect: { timeout: 15_000 },
