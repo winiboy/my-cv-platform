@@ -1,10 +1,13 @@
 # PRD: Resume Rendering Unification — Part 2, Exports and Parity (Milestone C)
 
 **Status:** APPROVED — owner, 2026-09-10. Amended and re-approved 2026-09-11,
-2026-09-12, and three times on 2026-09-13; see Amendment History.
+2026-09-12, and three times on 2026-09-13. Amended again on 2026-09-14, which
+awaits the owner's review in the pull request carrying US-007. See Amendment
+History.
 
-**Eight stories, six complete.** US-007 (consolidation) and US-008 (parity
-demonstration) remain, and neither changes rendered output.
+**Eight stories.** US-007 (consolidation) and US-008 (parity demonstration) are
+the last two, and neither changes rendered output. `prd.json` records which
+stories are complete.
 
 **Depends on:** `tasks/prds/milestone-c-part-1-layout-state.md`. Every story
 here assumes a persisted, typed layout model exists and is authoritative. None
@@ -323,8 +326,12 @@ change rendered output cannot.
 - [ ] **`assertExhaustiveSection` has one definition.** *(US-004 F-4.)* It is
       currently verbatim in four generators — `docx-professional.ts:142`,
       `docx-modern.ts:175`, `docx-classic.ts:130`, `docx-minimal.ts:147` — and
-      will be a fifth if creative is ever converted. `docx-helpers.ts` is the home; it
-      already exports the shared symbols these generators draw on.
+      will be a fifth if creative is ever converted. `src/lib/layout-settings.ts` is the
+      home. *(Location amended 2026-09-14, on evidence from US-007's review.)*
+      This criterion originally named `docx-helpers.ts`, but AC-2 requires the
+      Modern template to call the guard too, the template is a `'use client'`
+      component, and `docx-helpers.ts` imports `docx` — so a guard there could
+      not be shared with the one surface AC-2 needs it on.
 - [ ] **The duplicated per-template order mappings are resolved.**
       *(US-006 F-3.)* `mapEditorOrderToClassic` and `mapEditorOrderToMinimal` in
       `src/lib/layout-settings.ts` are character-for-character the same rule.
@@ -558,6 +565,41 @@ buried in its story list.
   resume unaided.
 
 ## Amendment History
+
+### 2026-09-14 — during US-007: AC-4's location, and prd.json parity
+
+Awaiting the owner's review in the pull request that carries US-007. Unlike the
+entries below, this one was found during a story rather than proposed ahead of
+it, so it is recorded before approval rather than after.
+
+**AC-4 named a home the story could not use.** It said `docx-helpers.ts`.
+AC-2 requires the Modern template to call the exhaustiveness guard too, the
+template is a `'use client'` component, and `docx-helpers.ts` imports
+`docx` — so a guard placed there would either pull the document library into
+the browser bundle or stay unshared with the one surface AC-2 needs it on. The
+implementation put it in `src/lib/layout-settings.ts`, which client components
+already import and which defines every union the guard checks. The independent
+reviewer judged that location correct and required the contradiction be
+recorded rather than left implicit. The criterion now names
+`layout-settings.ts` and says why.
+
+**`prd.json` had drifted from this document in two places.** The third
+2026-09-13 amendment updated this file but not the execution contract. AC-28 in
+all eight stories still read *"each of US-005 to US-007 adds one"* and *"For
+US-007, whose output must change, the spec is expected to go red first"*, and
+US-007's AC-4 still read *"will be in five once US-007 lands"*. The dated FAIL
+condition and Out of Scope superseded both, so the contract remained
+interpretable — but it was not aligned, which CLAUDE.md §8 requires. Both were
+repaired by deriving the JSON text from this document by script, after checking
+that the derivation reproduces a criterion already known to be in parity,
+rather than by retyping it. A structural diff against the previous contract
+confirms exactly nine criteria changed and nothing else.
+
+The hand-written story count in this document's header was removed rather than
+updated: a tally of completed stories is stale the moment the next one lands,
+and `prd.json` already records it.
+
+Nothing about scope, the invariant, or any other criterion changed.
 
 ### 2026-09-13 (third) — US-007 dropped; the invariant restored
 
