@@ -10,8 +10,11 @@
 export function sanitizeHtml(html: string): string {
   if (!html) return ''
 
-  // Create a temporary div to parse HTML
-  const temp = document.createElement('div')
+  // Parse in an inert document: a div owned by the live document fetches and
+  // runs handlers such as <img onerror> during parsing, before the allowlist
+  // below has had a chance to remove them
+  const inertDoc = document.implementation.createHTMLDocument('')
+  const temp = inertDoc.createElement('div')
   temp.innerHTML = html
 
   // Allowed tags (DIV needed for text alignment)
@@ -29,7 +32,7 @@ export function sanitizeHtml(html: string): string {
       // Check if tag is allowed
       if (!allowedTags.includes(element.tagName)) {
         // If not allowed, return its text content
-        return document.createTextNode(element.textContent || '')
+        return inertDoc.createTextNode(element.textContent || '')
       }
 
       // Normalize tags: <b> -> <strong>, <i> -> <em>, <font> -> <span>
@@ -39,7 +42,7 @@ export function sanitizeHtml(html: string): string {
       if (tagName === 'FONT') tagName = 'SPAN'
 
       // Create clean element
-      const cleanElement = document.createElement(tagName)
+      const cleanElement = inertDoc.createElement(tagName)
 
       // Handle style attributes
       if (element.hasAttribute('style') || element.hasAttribute('face')) {
@@ -76,7 +79,7 @@ export function sanitizeHtml(html: string): string {
   }
 
   // Clean all nodes
-  const cleanDiv = document.createElement('div')
+  const cleanDiv = inertDoc.createElement('div')
   Array.from(temp.childNodes).forEach(child => {
     const cleanChild = cleanNode(child)
     if (cleanChild) cleanDiv.appendChild(cleanChild)
@@ -95,32 +98,33 @@ export function htmlToPlainText(html: string): string {
   // Check if it's already plain text (no HTML tags)
   if (!/<[^>]+>/.test(html)) return html
 
-  // Create temporary div to parse HTML
-  const temp = document.createElement('div')
+  // Parse in an inert document for the same reason as sanitizeHtml
+  const inertDoc = document.implementation.createHTMLDocument('')
+  const temp = inertDoc.createElement('div')
   temp.innerHTML = html
 
   // Convert specific elements to text equivalents
   // Convert <br> to \n
   temp.querySelectorAll('br').forEach(br => {
-    br.replaceWith(document.createTextNode('\n'))
+    br.replaceWith(inertDoc.createTextNode('\n'))
   })
 
   // Convert </p> to \n\n
   temp.querySelectorAll('p').forEach(p => {
-    const textNode = document.createTextNode(p.textContent + '\n\n')
+    const textNode = inertDoc.createTextNode(p.textContent + '\n\n')
     p.replaceWith(textNode)
   })
 
   // Convert <li> to bullet points or numbers
   temp.querySelectorAll('ul > li').forEach(li => {
-    const textNode = document.createTextNode('• ' + li.textContent + '\n')
+    const textNode = inertDoc.createTextNode('• ' + li.textContent + '\n')
     li.replaceWith(textNode)
   })
 
   temp.querySelectorAll('ol').forEach(ol => {
     Array.from(ol.children).forEach((li, index) => {
       if (li.tagName === 'LI') {
-        const textNode = document.createTextNode(`${index + 1}. ${li.textContent}\n`)
+        const textNode = inertDoc.createTextNode(`${index + 1}. ${li.textContent}\n`)
         li.replaceWith(textNode)
       }
     })
