@@ -1,0 +1,72 @@
+# Ralph progress — Milestone C Part 3: parity defects
+# Contract: tasks/ralph/prd.json (branch ralph/milestone-c-part-3-parity-defects)
+# PRD: tasks/prds/milestone-c-part-3-parity-defects.md (APPROVED 2026-09-15)
+
+## US-001: The parity check names every Part 3 defect
+Status: PASS
+Priority: 1
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: 64829aebbef2ef14f88737524ed761be820299e0
+Worktree: E:/website/cv-website/my-cv-platform-part3 (the main checkout was in use by another session)
+
+Scope:
+- Scope check: PASS
+- Changed paths: e2e/parity/verdicts.ts, e2e/parity/profiles.ts, e2e/parity/surfaces.ts,
+  e2e/parity/colour.ts, e2e/parity/parity.spec.ts, e2e/parity/sidebar-column.spec.ts (new),
+  e2e/fixtures/resume.ts (additive optional overrides; existing callers byte-neutral),
+  tasks/ralph/prd.json (US-001 passes), tasks/ralph/progress.txt (this file)
+- src/ untouched; e2e/visual untouched; no version change; no push or merge
+
+Checks (run in the worktree on the final diff):
+- pnpm typecheck: PASS — exit 0
+- pnpm lint: PASS — 306 problems (236 errors, 70 warnings), equal to the origin/main baseline; none in e2e/parity or e2e/fixtures
+- pnpm test (unit): PASS — 302/302
+- pnpm test:integration: PASS — 27/27
+- pnpm test:e2e: PASS — 55 passed; --list 55, no parity spec collected
+- pnpm test:visual: PASS — 10 passed; --list 10; e2e/visual status empty
+- pnpm build:verify: PASS — exit 0
+- pnpm test:parity: PASS — two consecutive runs, 236 passed, exit 0 each; reports byte-identical,
+  sha256 6df8b2f9197ec3634893126f1a16e53588bebac6e4336a9537448b998bad5caa
+
+Specialized validation:
+- Browser: NOT_APPLICABLE — no UI change
+- Visual: PASS — baselines unchanged, visual suite green
+- Export: NOT_APPLICABLE — no export code change; exported bytes measured by the parity check are unchanged
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE — test harness only, no trust boundary touched
+
+Agents:
+- senior-coder: implementation, then one scoped fix round after review FAIL
+- ui-expert: NOT_APPLICABLE — no rendered UI change
+- code-reviewer: round 1 FAIL (signatures accepted unregistered divergences: US-011 DOCX size unpinned,
+  US-012 declared-not-drawn face, not-chosen rows without reference, US-003/US-013 Preview side unpinned,
+  US-013 print-band FINDING incomplete); round 2 PASS — reviewer's own offline harness applied 17
+  perturbations (11 new shapes) to the round-2 observations, every one NEW
+
+Acceptance criteria:
+- AC-01: PASS — KnownId union in e2e/parity/verdicts.ts uses Part 3 story ids (US-002-sections-classic ... US-015-creative-sections); P3-US00N ids gone
+- AC-02: PASS — independent recount: all 105 non-MATCH rows of report 10fe632c map to the Divergence Inventory story; all 82 MATCH rows unchanged; F-A row is KNOWN US-013-accent-hue
+- AC-03: PASS — multi-page profile prints >= 2 pages (asserted in parity.spec.ts); colour:print-sidebar-column is measured (NOT EXERCISED 0)
+- AC-04: PASS — font-not-chosen profile (stored default) and chosen-font rows both measured; minimal/creative not-chosen rows referenced to Inter
+- AC-05: PASS — report: MATCH 89, KNOWN 114, NEW 0, unreconciled 0; all 16 known ids CONFIRMED; 25 perturbation cases turn NEW (perturb-check log)
+- AC-06: PASS — git diff -- src empty; e2e/visual unchanged
+- PRD-wide items (FR, regression, verification, FAIL, BLOCKER, out of scope): PASS — no product behaviour changed, required checks above green, no FAIL/BLOCKER condition met
+
+Open owner decisions recorded by this story (not blocking US-001):
+- Before US-012: which family classic body text uses when no font was chosen. Classic draws Inter
+  today, so "classic stays serif" and "no unchosen font changes" cannot both hold. Also confirm that
+  professional/modern not-chosen rows keep the stored default (Arial), as the parity reference now assumes.
+- Before US-013: acceptance criterion 2 (multi-page print shows a visible band) cannot be exercised as
+  written — under print html/body are white !important and the band gradient ends where body ends, so
+  colour:print-sidebar-column matches whether or not the band follows the model. Revise the criterion.
+
+Environment notes:
+- Round 1 saw three ~15 s DOCX stalls, all on the first DOCX request after server start
+  (collect · primary · professional); re-run, not absorbed. Round 2 had no stall.
+- The parity report is deterministic per machine (font-face resolution depends on installed fonts).
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 the parity check names every Part 3 defect
+
+FINAL: PASS
