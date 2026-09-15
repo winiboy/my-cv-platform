@@ -1,13 +1,12 @@
 # PRD: Resume Rendering Unification — Part 2, Exports and Parity (Milestone C)
 
-**Status:** APPROVED — owner, 2026-09-10. Amended and re-approved 2026-09-11,
-2026-09-12, three times on 2026-09-13, and on 2026-09-14 (approved by merging
-US-007). Amended again on 2026-09-14, which awaits the owner's review in the
-pull request carrying US-008. See Amendment History.
+**Status:** COMPLETE — closed by the owner on 2026-09-15. Approved 2026-09-10;
+amended and re-approved 2026-09-11, 2026-09-12, three times on 2026-09-13, and
+twice on 2026-09-14, the last two approved by merging US-007 and US-008. See
+Closure and Amendment History.
 
-**Eight stories.** US-007 (consolidation) and US-008 (parity demonstration) are
-the last two, and neither changes rendered output. `prd.json` records which
-stories are complete.
+**Eight stories, all complete and merged.** The execution contract and its
+evidence are archived under `tasks/ralph/archive/2026-09-15-milestone-c-part-2/`.
 
 **Depends on:** `tasks/prds/milestone-c-part-1-layout-state.md`. Every story
 here assumes a persisted, typed layout model exists and is authoritative. None
@@ -564,6 +563,47 @@ buried in its story list.
   discovered: the DOCX route continues to receive it as base64 in the request
   body, and that is the one respect in which the server still cannot render a
   resume unaided.
+
+## Closure
+
+**Closed by the owner on 2026-09-15.** All eight stories passed and are merged
+to `main`, the last as `beeeec6` (#54).
+
+Release validation ran after the final merge rather than before it, so its
+formal verdict was BLOCKED: the skill validates a candidate that is not yet
+`main`, and this one already was. On substance every gate passed on the exact
+merged commit:
+
+- **Contract:** all 49 story-local criteria in parity between this document
+  and `prd.json`; `progress.txt` consistent with it for every story.
+- **Scope:** 43 changed paths, every one attributable to the ten Part 2
+  commits; no migrations, CI or governance files touched; version unchanged at
+  0.54.3.
+- **Checks on the candidate:** typecheck, lint (306, under the 311 baseline),
+  302 unit, 27 integration, 55 E2E, 10 visual with no baseline moved,
+  `build:verify`, and CI on the candidate commit.
+- **Parity:** `pnpm test:parity` reproduced US-008's report byte for byte.
+- **Reviews:** code review passed for every story, security review for US-001,
+  UI review for US-002, export validation for every DOCX story.
+
+The owner accepted that retrospective validation as closing Part 2. Future
+milestones should run release validation before their final merge.
+
+Carried out of Part 2, none blocking:
+
+- **Part 3 must be revised before approval.** US-008's parity check found 58
+  divergences `tasks/prds/milestone-c-part-3-parity-defects.md` does not name,
+  which triggers its own BLOCKER condition.
+- US-002's UI review left tablet and mobile breakpoints unevaluated.
+- US-001's security review recorded one informational note: the photo bound is
+  8 MB against a legitimate maximum of about 2.8 MB.
+- Four contract amendments were squash-merged inside the US-005 to US-008
+  story commits rather than landing as separate commits on `main`.
+- An intermittent DOCX export stall on the development machine, most likely
+  AVG Antivirus HTTP inspection, is unconfirmed. It is recorded in
+  `playwright.parity.config.ts` and must not be absorbed with timeouts or
+  retries.
+- `pnpm test:parity` is not in CI.
 
 ## Amendment History
 
