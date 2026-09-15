@@ -70,3 +70,7 @@ playwright-report/
 
 # Ad-hoc build output from validation runs that need their own dist dir.
 .next-uiexp/
+
+# Parity check build output, observations and report (see playwright.parity.config.ts).
+.next-parity/
+test-results-parity/

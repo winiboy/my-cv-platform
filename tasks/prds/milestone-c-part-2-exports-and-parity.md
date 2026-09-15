@@ -1,9 +1,9 @@
 # PRD: Resume Rendering Unification — Part 2, Exports and Parity (Milestone C)
 
 **Status:** APPROVED — owner, 2026-09-10. Amended and re-approved 2026-09-11,
-2026-09-12, and three times on 2026-09-13. Amended again on 2026-09-14, which
-awaits the owner's review in the pull request carrying US-007. See Amendment
-History.
+2026-09-12, three times on 2026-09-13, and on 2026-09-14 (approved by merging
+US-007). Amended again on 2026-09-14, which awaits the owner's review in the
+pull request carrying US-008. See Amendment History.
 
 **Eight stories.** US-007 (consolidation) and US-008 (parity demonstration) are
 the last two, and neither changes rendered output. `prd.json` records which
@@ -374,12 +374,13 @@ PDF and DOCX, so that "unified" is evidenced rather than asserted.
 - [ ] The comparison runs as a repeatable command and its output is legible
       enough to identify which surface diverged.
 - [ ] The check covers all five templates.
-- [ ] **A divergence the check finds is reported, not fixed.** Six are already
-      known and belong to Part 3 (below); the check is expected to fail against
-      them, and that expected failure is recorded rather than suppressed. If the
-      check finds a **seventh**, it is a new finding and Part 3's scope is
-      incomplete — say so rather than quietly widening a tolerance. This story
-      changes no rendered output.
+- [ ] **A divergence the check finds is reported, not fixed.** The known
+      divergences are the defects Part 3
+      (`tasks/prds/milestone-c-part-3-parity-defects.md`) enumerates; the check is
+      expected to fail against them, and that expected failure is recorded rather
+      than suppressed. A divergence Part 3 does not name is a **new** finding and
+      means Part 3's scope is incomplete — say so rather than quietly widening a
+      tolerance. This story changes no rendered output.
 
 ### The seven defects that moved to Part 3
 
@@ -565,6 +566,31 @@ buried in its story list.
   resume unaided.
 
 ## Amendment History
+
+### 2026-09-14 (second) — during US-008: AC-6's stale count
+
+Awaiting the owner's review in the pull request that carries US-008. The
+previous entry's amendment was approved when the US-007 pull request merged.
+
+**AC-6 counted the known divergences, and the count was wrong.** It said six
+were known and that a seventh would mean Part 3's scope was incomplete. Part 3
+enumerates seven: the six the split moved there on 2026-09-13, plus the
+creative silent no-op added later that day when the creative story was
+dropped. Read literally, a check that correctly reported every known defect
+would have declared the creative one new and Part 3 incomplete — the opposite
+of the criterion's purpose.
+
+The criterion now refers to Part 3's list rather than counting it, so it cannot
+go stale again as Part 3 changes. Its intent is unchanged: a divergence Part 3
+already names is expected; one it does not name is a new finding.
+
+**The markdown and `prd.json` had also drifted on the same criterion.** This
+document said "Part 3 (below)", which pointed at nothing in Part 2, while
+`prd.json` carried the path. Both now carry the path, and the JSON text was
+derived from this document by script. A structural diff against the previous
+contract confirms exactly one criterion changed.
+
+Nothing about scope, the invariant, or any other criterion changed.
 
 ### 2026-09-14 — during US-007: AC-4's location, and prd.json parity
 

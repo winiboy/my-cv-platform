@@ -1765,3 +1765,224 @@ Commit:
 - Commit message: ralph: US-007 shared vocabulary, helpers and mappings are consolidated
 
 FINAL: PASS
+
+## US-008: Parity across the three surfaces is demonstrated
+Status: PASS
+Priority: 8
+Branch: ralph/milestone-c-part-2-exports
+Baseline HEAD: 6e4f0ff (= origin/main)
+
+Scope:
+- Scope check: PASS
+- New: e2e/parity/parity.spec.ts, e2e/parity/profiles.ts, e2e/parity/surfaces.ts,
+  e2e/parity/verdicts.ts, e2e/parity/colour.ts, playwright.parity.config.ts
+- Modified: playwright.config.ts (`**/parity/**` added to testIgnore),
+  package.json (`test:parity`), eslint.config.mjs and .gitignore
+  (.next-parity, test-results-parity), tsconfig.json (one .next-parity/types
+  include, matching its sibling dist dirs)
+- src/ untouched: `git diff -- src` empty at every round. No rendered or
+  exported output changed and no visual baseline moved, per Part 2's
+  unqualified invariant.
+- .claude/settings.local.json was auto-polluted with junk Bash allow-entries
+  during test runs, repeatedly. Stripped back to HEAD each time; never staged.
+
+WHAT THE CHECK IS
+`pnpm test:parity` seeds a fixture resume with non-default layout settings,
+plus control and probe profiles, renders it through Preview, PDF and DOCX for
+all five templates, and compares every measured property two ways: each
+surface against the requested layout model, and the surfaces against each
+other. Output is a legible table and a JSON report. Verdicts are MATCH,
+KNOWN: <Part 3 id> or NEW, with annotations for LIMITATION, FINDING, DECISION
+and NOT EXERCISED.
+
+The model is the reference, not only surface against surface. Creative's
+Preview and DOCX ignore section order and visibility identically, so a
+surface-only comparison would have reported creative as a match while Part 3's
+US-005 names it defective.
+
+Exit semantics: a NEW row fails the run; a known divergence that stops
+diverging also fails loudly ("Expected to fail, but passed"), so a Part 3 fix
+cannot go unnoticed. The check has its own config, port, build dir and
+outputDir, so the required gates are unaffected - `test:e2e` still collects 55
+and `test:visual` 10. It is not in CI; adding it is a follow-up.
+
+RESULT - PART 3'S SCOPE IS INCOMPLETE, AS AC-6 REQUIRES SAYING
+Final report sha256 10fe632c..., byte-identical across two runs. 187 rows:
+82 MATCH, 47 KNOWN, 58 NEW. Annotations: 10 LIMITATION, 4 FINDING,
+2 DECISION, 1 NOT EXERCISED.
+
+All seven Part 3 defects CONFIRMED on generated artifacts - P3-US001 classic
+and minimal, P3-US002 classic and minimal, P3-US003, P3-US004, P3-US005 - and
+US-007's F-A.
+
+58 divergences Part 3 does not name:
+- Text colour, all five templates (13). src/app/globals.css `@theme inline`
+  redefines slate-400/700/800/900 as neutral oklch greys and purple-600, and has
+  since v0.1.0 (8895a31). The generators hardcode stock Tailwind v3 hex, so the
+  Preview draws neutral greys where the DOCX draws blue-tinted slate. Verified
+  against an independent OKLab conversion, not only the canvas.
+- Line height (15). The generators write CSS ratios as Word lineRule="auto"
+  multiples. A Word auto multiple scales the font's single-line height; a CSS
+  ratio scales the font size. Encoded values can match while drawn leading
+  differs, so no line-height row may pass on encoding alone.
+- Font family (9). resume-preview.tsx passes fontFamily only to modern and
+  professional; minimal and creative Previews render Inter where their DOCX uses
+  the model's font, and classic ignores the model on every surface. Whether
+  classic's serif is deliberate template identity is a product question.
+- Letter spacing (8). Generator characterSpacing values differ from CSS em x px
+  (for example Modern title 81 twips drawn against 15 written).
+- Inert per-property sizes (4). Modern sectionTitleFontSize and professional
+  title, section title and body size are stored but applied on no surface. No
+  control is offered on those templates - the value carries over after switching
+  from classic, minimal or creative - so this is a product question, not a dead
+  control.
+- Page width (3). classic, minimal and creative DOCX are A4 (8.27in); Preview
+  and PDF are Letter (8.50in). Professional and modern DOCX already set Letter.
+- Sidebar colour (3). Offered and persisted for every template, rendered on no
+  surface for classic, minimal and creative.
+- Modern translucent sidebar text (2). rgba white over the sidebar composites to
+  a tint in the Preview; the DOCX writes opaque white.
+- F-A accent (1). A stored non-integer hue paints the Preview accent with the
+  template's gold fallback while the DOCX derives it from the real value.
+
+Findings, not measured rows: Word auto line spacing; Modern skill bars; creative
+language bars; creative technology pills. Not exercised: the professional print
+sidebar band, a fixed oklch colour under print that ignores the user's colour,
+which this one-page fixture hides - a Part 3 candidate.
+
+Part 3 (tasks/prds/milestone-c-part-3-parity-defects.md) triggers its own
+BLOCKER condition on these results. It must be revised to cover them before it
+is approved.
+
+E-1 THE INTERMITTENT EXPORT STALL - AN ENVIRONMENT CAUSE, NOT A PRODUCT DEFECT
+Symptom: a DOCX export request occasionally fails - a 15 s client timeout, or
+the server closing the socket at about 10 s - and 2 of 6 full parity runs across
+the reviews hit it. A stalled run fails loudly as a collect failure and never
+produces a false verdict.
+
+Cause: under the parity flow's concurrent HTTP load, Windows holds a Node
+process's socket write or close for about 10 s, freezing that process's event
+loop. The deciding control is a standalone probe with no project code, writing
+97 bytes every 250 ms over a kept-alive loopback socket, run as HTTP and as raw
+bytes in separate processes over the same window: HTTP blocked 14 of 770 writes
+(worst 9,957 ms); raw blocked 0 of 1,293 (worst 2 ms). Each component alone was
+clean - 400 sequential exports (p99 103 ms), 2,198 Chromium iterations, 947
+Supabase samples. During freezes CPU sat at 2 % with 40 GB free and no paging,
+and typeperf never paused. The CPU profile places the holds in undici's
+header write and socket close.
+
+Refuted with evidence: undici's 10 s connect timeout (connects took 0-1 ms),
+localhost resolving to ::1 (every URL is 127.0.0.1), Docker/Kong (GoTrue
+answered what arrived in 25-40 ms, and a loopback server with no Docker froze at
+the same instants), Sentry egress (egress blocked, still froze), port exhaustion
+(under 100 sockets in TIME_WAIT).
+
+Most likely source: AVG Antivirus HTTP inspection. Windows Security Center
+lists AVG active as antivirus and as the registered firewall, the Winsock
+catalogue holds only Microsoft providers, and HTTP is held while raw bytes are
+not. UNCONFIRMED: confirming it means an AVG exclusion for node.exe, or turning
+off its HTTP scanning, then five parity runs expecting zero stalls - a
+security-software change only the owner can make. Plausibly the same cause as
+the open e2e/auth.spec.ts:27 intermittent recorded under US-007 (a 30 s wait is
+three 10 s holds).
+
+The rule, recorded in playwright.parity.config.ts as well: this must NOT be
+absorbed with timeouts, retries or reduced load. Round 3 added a 60 s
+per-request timeout on a cold-start diagnosis that the reviewer's run
+contradicted; it was removed. Re-run a stalled run instead.
+
+Orchestrator correction: mid-investigation I told the owner the evidence pointed
+to Kong in Docker on WSL2 with DNS retries. The Docker-free loopback control
+refutes that; I read a symptom as the cause.
+
+US-007 O-1 RESOLVED - THE UNIDENTIFIED UNIT FLAKE
+The 1-in-36 unit failure recorded under US-007 is
+src/app/api/health/ai/route.test.ts:110, which asserts the serialised response
+does not contain String(API_KEY.length) - "30" - while every response carries an
+ISO `checkedAt` timestamp that can contain "30" (observed: ...22.030Z).
+Introduced in e43bce8 (#37). It is in src/, so it is not fixed here; it is filed
+as a separate task.
+
+REVIEW HISTORY - FOUR ROUNDS
+- Round 1 FAIL. Several LIMITATIONs claimed DOCX could not express things it
+  can (letter-spacing, line-height, translucency, bars, the photo); a blanket
+  rule passed any translucent colour; "PDF" typography was read from print-DOM
+  styles; typography had no model reference, so surfaces agreeing while ignoring
+  the model read MATCH.
+- Round 2 FAIL. Line-height rows matched on encoding while Word draws different
+  leading; font faces depend on the machine and were not recorded.
+- Round 3 FAIL. The intermittent export stall was absorbed by a 60 s timeout on
+  an unproven cold-start diagnosis.
+- Round 4 PASS. All six acceptance criteria met, no required changes. The one
+  should-fix - record the stall where a maintainer will look - is applied in
+  playwright.parity.config.ts and above.
+
+PROCESS INCIDENTS, RECORDED BECAUSE EACH LOOKED FINE UNTIL CHECKED
+- The first implementer turn ended with a deliberate perturbation still applied
+  to e2e/parity/ - its monitor died with the turn. The orchestrator found it by
+  hash, restored both files byte-exactly from the implementer's own backups and
+  verified against its recorded hashes. Every later perturbation used a
+  trap-restore with a sha256 check.
+- One implementer turn was killed by an agent-service connection error while its
+  soak processes kept running. Tree and processes were verified before resuming.
+- Orchestrator verification scripts written inline failed on shell quoting three
+  times and were moved to script files; two early independent comparisons were
+  vacuous and were caught only by printing their counts.
+- An implementer summary counted tests (137 existing / 70 added) where rows were
+  meant; re-counted by row id as 125 compared, 0 changed, 62 added.
+
+CONTRACT
+AC-6 said six known divergences; Part 3 enumerates seven, the creative no-op
+having been added after "six" was written. The reading applied - "known" means
+what Part 3 enumerates - was judged sound by the reviewer in every round. The
+text was repaired in the contract commit immediately preceding this one, which
+awaits the owner's review.
+
+Checks:
+- pnpm typecheck: PASS - 0 TS errors, re-run after the final comment change
+- pnpm lint: PASS - 306 problems (236 errors, 70 warnings), equal to HEAD and under the 311
+  baseline; none in parity files. Re-run after the final comment change.
+- pnpm test: PASS - 302/302. One earlier run failed on the route.test.ts
+  timestamp flake above, unrelated to this story.
+- pnpm test:integration: PASS - 27/27
+- pnpm test:e2e: PASS - 55 passed; `--list` 55 tests, 0 from parity
+- pnpm test:visual: PASS - 10 passed; `git status --porcelain -- e2e/visual`
+  empty
+- pnpm build:verify: PASS - exit 0
+- pnpm test:parity: exits 1 by design (58 NEW). Two runs byte-identical,
+  sha256 10fe632c...; each 58 failed / 149 passed with no collect failure.
+- Non-vacuity: trap-restored perturbations were flagged, including the R3 PDF
+  size reading, the R4 fontScale ratio and the L1 line-height guard; restored
+  byte-exactly with sha256 verified.
+
+Specialized validation:
+- Export: PASS - every DOCX observation reads the unzipped word/document.xml
+- Visual: PASS - 10/10, baselines unchanged
+- Browser: PASS - Preview and print are measured from rendered pages
+- Database / Security: NOT_APPLICABLE
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no UI changed
+- code-reviewer: PASS (round 4, after three FAIL rounds)
+
+Acceptance criteria (story-local):
+- AC-01: PASS - the primary profile differs from DEFAULT_RESUME_LAYOUT on every
+  required property, asserted in code; control profiles differ from primary
+- AC-02: PASS - order and visibility compared against the model and across
+  surfaces; divergences reported by name
+- AC-03: PASS - typography and colour measured on all three surfaces; each
+  remaining annotation is a genuine format or reader limit, a finding or a
+  decision
+- AC-04: PASS - `pnpm test:parity`, byte-identical across runs; each row names
+  which surfaces agree and which diverge. The environment stall is recorded
+  (E-1), fails loudly, and is not absorbed.
+- AC-05: PASS - all five templates
+- AC-06: PASS - divergences reported, not fixed; seven known confirmed, 58 new
+  reported as new; Part 3 declared incomplete
+PRD-wide: PASS - no rendered or exported output changed; src/ untouched.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-008 parity across the three surfaces is demonstrated
+
+FINAL: PASS

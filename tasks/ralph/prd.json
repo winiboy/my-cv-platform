@@ -420,7 +420,7 @@
         "Typography intent and colour match to the degree each format supports, with any format limitation recorded as an explicit finding rather than accepted silently.",
         "The comparison runs as a repeatable command and its output is legible enough to identify which surface diverged.",
         "The check covers all five templates.",
-        "A divergence the check finds is reported, not fixed. Six are already known and belong to Part 3 (`tasks/prds/milestone-c-part-3-parity-defects.md`); the check is expected to fail against them, and that expected failure is recorded rather than suppressed. If the check finds a seventh, it is a new finding and Part 3's scope is incomplete — say so rather than quietly widening a tolerance. This story changes no rendered output.",
+        "A divergence the check finds is reported, not fixed. The known divergences are the defects Part 3 (`tasks/prds/milestone-c-part-3-parity-defects.md`) enumerates; the check is expected to fail against them, and that expected failure is recorded rather than suppressed. A divergence Part 3 does not name is a new finding and means Part 3's scope is incomplete — say so rather than quietly widening a tolerance. This story changes no rendered output.",
         "FR-1: No surface may hold an independent authoritative copy of resume layout state; all read the model Part 1 persists.",
         "FR-2: URL parameters must not carry canonical layout state.",
         "FR-3: The photo is the single named exception to FR-1 and FR-2, travelling in the DOCX request body because it remains browser-local by decision.",
@@ -465,7 +465,7 @@
         "Out of scope: Rewriting the DOCX generators wholesale. The goal is removing duplicated layout decisions, not a new document engine."
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]
