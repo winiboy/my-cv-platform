@@ -1,6 +1,7 @@
 # PRD: Resume Rendering Unification — Part 3, Parity Defects (Milestone C)
 
-**Status:** DRAFT — revised 2026-09-15.
+**Status:** APPROVED — owner, 2026-09-15, on the revision of the same date
+(`279f8bf`, merged in #56).
 
 **Two of the five resume templates silently drop supported content from their
 DOCX export today.** A classic or minimal user with a skills or projects section

@@ -35,6 +35,12 @@ vi.mock('groq-sdk', () => {
 })
 
 const API_KEY = 'gsk-test-key-not-a-real-secret'
+/**
+ * A second key, differing from `API_KEY` in length as well as in value. The
+ * disclosure check below renders the endpoint under both: a body that encodes
+ * anything about the key differs between the two renders.
+ */
+const OTHER_API_KEY = 'gsk-a-substantially-longer-test-key-that-is-also-not-a-real-secret'
 const TOKEN = 'health-token-not-a-real-secret'
 
 const OK_COMPLETION = { choices: [{ message: { content: 'ok' } }], usage: { total_tokens: 3 } }
@@ -63,6 +69,62 @@ function healthRequest(authorization?: string): NextRequest {
   })
 }
 
+/**
+ * Renders the unauthenticated config body under one API key.
+ *
+ * Freezes only `Date`, so every render carries the same `checkedAt` and two
+ * renders are comparable byte for byte. Timers and microtasks stay real; the
+ * `afterEach` below restores `Date`.
+ */
+async function configBodyFor(apiKey: string): Promise<string> {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-01-01T12:00:00.000Z'))
+  vi.stubEnv('GROQ_API_KEY', apiKey)
+  const { GET } = await loadRoute()
+  return JSON.stringify(await (await GET(healthRequest())).json())
+}
+
+/** The ways this endpoint could disclose something about the configured key. */
+const DISCLOSURE = {
+  value: 'echoes the key value',
+  derivedField: 'carries an apiKey-derived field',
+  fingerprint: 'varies with the key, so the key can be fingerprinted from it',
+} as const
+
+/**
+ * Names every disclosure found across renders of the endpoint under different
+ * API keys. Empty means the body reveals nothing about the key.
+ *
+ * The length half of this used to be `not.toContain(String(key.length))` over
+ * the whole serialised body. Freezing `Date` stopped `checkedAt` supplying the
+ * digits, but the check stayed coupled to the rest of the body - `gpt-oss-20b`
+ * would make a 20-character fixture key fail outright - and it was incomplete:
+ * a length leaks without those digits ever appearing, as a masked or hashed
+ * form of the key.
+ *
+ * Comparing renders under keys of differing length tests the actual property
+ * instead. Anything derived from the key - the value, its length, a preview, a
+ * digest - differs between the renders; a body that derives nothing from it is
+ * byte-identical, because `configBodyFor` freezes the clock. No digits, no
+ * allowlist of fields to keep up to date, and a field added later is covered
+ * without being enumerated.
+ */
+function keyDisclosures(renders: readonly { key: string; body: string }[]): string[] {
+  const found: string[] = []
+
+  for (const { key, body } of renders) {
+    if (body.includes(key)) found.push(DISCLOSURE.value)
+    if (/apiKey(?!Present)/.test(body)) found.push(DISCLOSURE.derivedField)
+  }
+
+  const [first, ...others] = renders
+  if (others.some(({ body }) => body !== first.body)) {
+    found.push(DISCLOSURE.fingerprint)
+  }
+
+  return [...new Set(found)]
+}
+
 beforeEach(() => {
   createCompletion.mockReset()
   vi.stubEnv('GROQ_API_KEY', API_KEY)
@@ -75,6 +137,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllEnvs()
   vi.restoreAllMocks()
   vi.resetModules()
@@ -101,14 +164,22 @@ describe('unauthenticated configuration check', () => {
     expect(createCompletion).not.toHaveBeenCalled()
   })
 
-  it('never discloses the key value or its length', async () => {
-    const { GET } = await loadRoute()
+  it('never discloses the key value, its length, or anything else derived from it', async () => {
+    // Length is a fingerprint, so presence is the only fact this endpoint may
+    // report about the key.
+    expect(OTHER_API_KEY.length).not.toBe(API_KEY.length)
 
-    const serialised = JSON.stringify(await (await GET(healthRequest())).json())
+    const renders = [
+      { key: API_KEY, body: await configBodyFor(API_KEY) },
+      { key: OTHER_API_KEY, body: await configBodyFor(OTHER_API_KEY) },
+    ]
 
-    expect(serialised).not.toContain(API_KEY)
-    expect(serialised).not.toContain(String(API_KEY.length))
-    expect(serialised).not.toMatch(/apiKey(?!Present)/)
+    expect(keyDisclosures(renders)).toEqual([])
+    // Two identical *failure* bodies would satisfy the comparison above while
+    // proving nothing, so confirm both renders are the healthy config report.
+    for (const { body } of renders) {
+      expect(JSON.parse(body)).toMatchObject({ status: 'ok', config: { apiKeyPresent: true } })
+    }
   })
 
   it('reports env provenance when a model id is pinned', async () => {
@@ -142,6 +213,63 @@ describe('unauthenticated configuration check', () => {
     const { GET } = await loadRoute()
 
     expect((await GET(healthRequest())).headers.get('cache-control')).toBe('no-store')
+  })
+})
+
+describe('the key-disclosure check itself', () => {
+  /**
+   * A guard that cannot fail is not a guard, and the one it replaces could
+   * pass for the wrong reason. Each case below takes the real rendered bodies
+   * and injects one deliberate leak, so these assert against the endpoint's
+   * actual output shape rather than a hand-written imitation of it.
+   */
+  async function rendersLeaking(leak: (key: string) => string) {
+    const renders = []
+    for (const key of [API_KEY, OTHER_API_KEY]) {
+      const body = await configBodyFor(key)
+      renders.push({
+        key,
+        body: body.replace('"apiKeyPresent":true', `"apiKeyPresent":true,${leak(key)}`),
+      })
+    }
+    return renders
+  }
+
+  it('reports nothing for an injection that derives nothing from the key', async () => {
+    // The control. Without it, the fingerprint cases below could pass because
+    // the renders differ for some other reason, not because of the leak.
+    const renders = await rendersLeaking(() => `"inert":true`)
+
+    expect(keyDisclosures(renders)).toEqual([])
+  })
+
+  it('catches a body that echoes the key', async () => {
+    const renders = await rendersLeaking((key) => `"probe":"${key}"`)
+
+    expect(keyDisclosures(renders)).toContain(DISCLOSURE.value)
+  })
+
+  it('catches a body that reports the key length as a number', async () => {
+    // The failing assertion this replaces caught this leak only when the
+    // digits happened not to collide with the rest of the body.
+    const renders = await rendersLeaking((key) => `"keyLength":${key.length}`)
+
+    expect(keyDisclosures(renders)).toContain(DISCLOSURE.fingerprint)
+  })
+
+  it('catches a masked key, whose length leaks without any digits at all', async () => {
+    // The whole-body digit scan could never have caught this one.
+    const renders = await rendersLeaking(
+      (key) => `"keyPreview":"${key.slice(0, 4)}${'*'.repeat(key.length - 4)}"`
+    )
+
+    expect(keyDisclosures(renders)).toContain(DISCLOSURE.fingerprint)
+  })
+
+  it('catches an apiKey-derived field', async () => {
+    const renders = await rendersLeaking((key) => `"apiKeyDigest":"${key.length.toString(16)}"`)
+
+    expect(keyDisclosures(renders)).toContain(DISCLOSURE.derivedField)
   })
 })
 

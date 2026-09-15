@@ -40,8 +40,11 @@ import type { ResumeTemplate } from '../../src/types/database'
  * a combined test would hide the print result whenever screen failed - and it
  * is exactly the asymmetry between the two that carries the information
  * ("layout moved everywhere" vs "only the print stylesheet moved"). The extra
- * cost is one navigation per template, not one build: the production build
- * that dominates this suite's runtime happens once per run.
+ * cost is a whole extra fixture per template: another created user, another
+ * real form login (`fixtures/auth.ts` signs in through the page rather than
+ * injecting a cookie) and another seeded resume, so a full run does ten of each
+ * rather than five. What it is not is an extra build, and the production build
+ * is what dominates this suite's runtime.
  *
  * DETERMINISM
  *
@@ -86,9 +89,12 @@ import type { ResumeTemplate } from '../../src/types/database'
  *
  *   - 12 (classic 5, minimal 5, creative 2) are
  *     `position: absolute; left: 100%; margin-left: 48px` off a full-width
- *     ancestor, which puts them past the document's 816px box; an element
- *     screenshot clips there. The two observed `creative` sliders use the same
- *     rule off a half-width column, which is why they land inside it.
+ *     ancestor, which lands them on or past the document's 816px edge
+ *     (`minimal`'s overlap it by 3px and are excluded by the strict containment
+ *     described on `countObservableControls`); an element screenshot clips
+ *     there. The two observed `creative` sliders use the same rule off the
+ *     one-third-width left column of a `grid-cols-3` body, which is why they
+ *     land inside it.
  *   - 8 in `professional` are gated on `setSidebarWidth` /
  *     `setSidebarTopMargin` / `setMainContentTopMargin`, which the preview
  *     wrapper never passes at any value of `showControls`, so they never
@@ -96,8 +102,18 @@ import type { ResumeTemplate } from '../../src/types/database'
  *   - 4 in `modern`: three are `opacity-0` until hover, one renders only
  *     during background removal.
  *
- * The remaining 7 of the 33 in `src` are page chrome outside
- * `[data-testid=resume-document]` and no element screenshot can see them.
+ * The remaining 7 of the 33 - everything left once the 26 template sites are
+ * accounted for - are page chrome outside `[data-testid=resume-document]`, and
+ * no element screenshot of the document can see them.
+ *
+ * Two is asserted rather than hoped for. Both observed sliders carry
+ * `print:hidden`, so neither appears in `creative-print.png` - which means
+ * removing them, relocating them outside the 816px box, or ceasing to pass
+ * their setter props would leave that baseline byte-identical, every test
+ * green, and the reach of `print:hidden` silently at 0 of 26.
+ * `expectPrintHiddenStaysObserved` counts them under screen media before the
+ * print capture and requires exactly two - not at least two, because a number
+ * that drifts upward unnoticed makes the accounting above wrong just as surely.
  *
  * That is a real limit, written down rather than rounded up.
  * See `docs/engineering/visual-regression.md`.
@@ -120,6 +136,42 @@ const TEMPLATES: ResumeTemplate[] = [
   'minimal',
   'creative',
 ]
+
+/**
+ * How many in-template editing controls are drawn inside each template's
+ * document under SCREEN media - which is to say how many `print:hidden` still
+ * has to hide from the print capture. The measured reach, per the header.
+ *
+ * WHAT THE COUNT REACHES, EXACTLY. `countObservableControls` selects
+ * `input[type="range"]`, and those exist in three templates only: classic 5,
+ * minimal 5, creative 4 - one per `print:hidden` site in each, 14 of the 26.
+ * `professional` contains no `<input>` at all (its 8 sites are drag-arrow
+ * `<span>`s) and `modern`'s 4 are three `<div>`s and a `<button>`. So:
+ *
+ *   - `classic: 0` and `minimal: 0` are MEASURED. Their sliders render - fewer
+ *     than five each, since the description slider sits in both mutually
+ *     exclusive branches of an `achievements?.length ? ... : description ? ...`
+ *     ternary and this fixture takes the first - and every one that renders is
+ *     excluded on geometry alone. If one ever relocated inside the box the
+ *     count would move and this file would go red, which is the drift worth
+ *     catching: it would make the "2 of 26" wrong.
+ *   - `professional: 0` and `modern: 0` are STRUCTURAL. The selector matches
+ *     nothing in either template, so these cannot move whatever their twelve
+ *     sites (professional 8, modern 4) do. They are here so the `Record` stays
+ *     exhaustive, not as coverage. Making `professional`'s setters render
+ *     would put its resize handles inside the document and this count would
+ *     still read zero.
+ *
+ * A full `Record` rather than a `Partial`: a sixth template then has to be given
+ * a value here, instead of silently getting no assertion at all.
+ */
+const OBSERVABLE_CONTROLS: Record<ResumeTemplate, number> = {
+  professional: 0,
+  modern: 0,
+  classic: 0,
+  minimal: 0,
+  creative: 2,
+}
 
 /**
  * What to do with the in-template editing controls before capturing.
@@ -220,6 +272,133 @@ async function expectFitsWithoutStitching(
   ).toBeLessThanOrEqual(viewport.width)
 }
 
+/**
+ * Count the in-template editing controls an element screenshot of the document
+ * can actually see.
+ *
+ * "Can see" is mostly a geometric question, not a DOM one. Each of the fourteen
+ * range inputs in scope - twelve of which actually render, per the note on
+ * OBSERVABLE_CONTROLS - sits in a wrapper that is `position: absolute;
+ * left: 100%; margin-left: 48px` off some ancestor, and whether that lands
+ * inside or outside the document's 816px box depends entirely on how wide that
+ * ancestor is. An element screenshot clips to
+ * the element's own box, so a control outside it is not in the image no matter
+ * how present it is in the DOM - which is precisely why twelve of the 26 sites
+ * (classic 5, minimal 5, creative 2) are unreachable on geometry alone.
+ *
+ * Geometry alone would be a false floor, though. `getBoundingClientRect` still
+ * reports a full-size box for something `visibility: hidden` or `opacity: 0`;
+ * only `display: none` collapses it. Either state is one in which deleting
+ * `print:hidden` produces no pixel diff at all, while a geometry-only count
+ * still reports two - coverage claimed and not held. Hence `checkVisibility`.
+ *
+ * That shape is not invented: `modern` renders `print:hidden opacity-0
+ * group-hover:opacity-100` at three of its four sites. Those particular sites
+ * are outside this selector (they are not range inputs), so they were never at
+ * risk of being miscounted - but they are the in-house pattern that Milestone C
+ * Part 2 could plausibly unify `creative`'s sliders onto, which is the case
+ * that would matter. Mutation 3 in the doc demonstrates it on `creative`.
+ *
+ * Two things are NOT covered, and both have live instances rather than being
+ * hypotheticals held at arm's length.
+ *
+ * Clipping by an intermediate `overflow: hidden` ancestor is invisible here - a
+ * hit-test would not catch it either, since the clipped control's centre still
+ * lands on the document's own painted area. `creative`'s header
+ * (`creative-template.tsx:53`) is `overflow-hidden` and clips the two header
+ * sliders whose containing blocks sit inside it; they escape being miscounted
+ * only because they also land 21px outside the box and are rejected on geometry
+ * first.
+ *
+ * A control straddling the document's edge counts as zero rather than as a
+ * half, because the containment below is strict. `minimal` straddles: its
+ * `p-16` puts each rendered slider's input 3px INSIDE the document's right edge
+ * under screen media (measured - input left 1173 against a right edge of 1176),
+ * so all four are partly drawn and all four count as nothing. `classic`'s `p-12`
+ * lands its wrappers exactly flush and its inputs 13px clear, so it does not.
+ *
+ * Both are benign today, because those sliders are `print:hidden` and the screen
+ * capture runs with the controls off. But 3px is a coincidence, not a design.
+ * Move either case inward and this count starts reporting a control that is
+ * never painted, or discarding one that is.
+ *
+ * `input[type="range"]` identifies the controls rather than the `print:hidden`
+ * class deliberately. Selecting on the class would make deleting `print:hidden`
+ * fail HERE, before `toHaveScreenshot` ever runs, and the pixel diff is the far
+ * better failure for that case: it shows the chrome baked into the document.
+ * This assertion answers the other question - is there still anything for
+ * `print:hidden` to hide where the capture can see it.
+ */
+async function countObservableControls(document: Locator): Promise<number> {
+  return document.evaluate((root) => {
+    const box = root.getBoundingClientRect()
+    return Array.from(root.querySelectorAll('input[type="range"]')).filter((control) => {
+      const rect = control.getBoundingClientRect()
+      const insideTheCapture =
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.left >= box.left &&
+        rect.right <= box.right &&
+        rect.top >= box.top &&
+        rect.bottom <= box.bottom
+      if (!insideTheCapture) return false
+
+      return control.checkVisibility({
+        opacityProperty: true,
+        visibilityProperty: true,
+        contentVisibilityAuto: true,
+      })
+    }).length
+  })
+}
+
+/**
+ * Fail if the print baseline has stopped observing `print:hidden`.
+ *
+ * This is the one decay mode the baseline itself cannot report. The observed
+ * controls carry `print:hidden`, so they are absent from `{template}-print.png`
+ * by construction; if they stop rendering, move out of the box, or lose the
+ * setter props that gate them, the committed PNG stays byte-identical and the
+ * suite stays green while covering nothing. Milestone C Part 2 changes layout
+ * state ownership across exactly these components, so this is not hypothetical.
+ *
+ * Called under SCREEN media, before `emulateMedia`. Under print the controls
+ * are `display: none` and have no box at all - that is the utility working, and
+ * asserting on it there would measure zero every time.
+ *
+ * Exact equality rather than a floor, because the number is a documented figure
+ * and both directions of drift matter. Fewer means the baseline has stopped
+ * guarding the utility; more means `docs/engineering/visual-regression.md`'s
+ * account of what is and is not reachable has gone stale. The geometry is
+ * deterministic, so equality is not brittle here.
+ *
+ * `expect.poll` rather than a bare assertion because the preview wrapper applies
+ * saved layout settings after mount, which moves type sizes and therefore the
+ * geometry this depends on; the same reason `toHaveScreenshot` re-captures. Note
+ * what that does and does not buy: polling stops at the first matching sample,
+ * so it waits only for a count to REACH its expected value. The zeros match on
+ * that first sample and get no settle guarantee from it.
+ */
+async function expectPrintHiddenStaysObserved(
+  document: Locator,
+  template: ResumeTemplate,
+  expected: number
+): Promise<void> {
+  await expect
+    .poll(() => countObservableControls(document), {
+      message:
+        `The ${template} print baseline observes \`print:hidden\` only through ` +
+        `controls that are actually drawn INSIDE the document's 816px box, and ` +
+        `${expected} were measured there. That count has changed. Fewer means ` +
+        `this baseline has stopped guarding the utility while staying ` +
+        `byte-identical and green; more means the "2 of 26" accounting in ` +
+        `docs/engineering/visual-regression.md is now wrong. Either way: ` +
+        `re-measure, then update OBSERVABLE_CONTROLS and that document together. ` +
+        `Do not delete this assertion to get a green run.`,
+    })
+    .toBe(expected)
+}
+
 for (const template of TEMPLATES) {
   test(`the ${template} template renders as approved`, async ({ page, authedUser }) => {
     const document = await openPreviewDocument(page, authedUser, template, 'off')
@@ -234,6 +413,8 @@ for (const template of TEMPLATES) {
     // puts `print:hidden` under observation - see the header for exactly how
     // much of it this reaches.
     const document = await openPreviewDocument(page, authedUser, template, 'as-shipped')
+
+    await expectPrintHiddenStaysObserved(document, template, OBSERVABLE_CONTROLS[template])
 
     await page.emulateMedia({ media: 'print' })
 

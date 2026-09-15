@@ -54,8 +54,10 @@ export default defineConfig({
       // If this ever needs raising, the correct response is to find what
       // became nondeterministic, not to widen the tolerance.
       maxDiffPixels: 120,
-      // Per-pixel channel tolerance. 0.2 ignores near-identical greys from
-      // subpixel rendering while still catching a colour change.
+      // pixelmatch's matching threshold: a normalised YIQ colour distance
+      // between the two pixels, not a per-channel allowance. 0.2 ignores
+      // near-identical greys from subpixel rendering while still catching a
+      // colour change.
       threshold: 0.2,
       animations: 'disabled',
       caret: 'hide',
