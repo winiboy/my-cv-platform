@@ -24,6 +24,8 @@ import {
   extractPrimaryFont,
   isHtmlList,
   parseHtmlListToParagraphs,
+  isPlainTextList,
+  parsePlainTextListToParagraphs,
   parseHtmlToDocxRuns,
   stripHtml,
   type DocxGeneratorSettings,
@@ -392,6 +394,22 @@ export async function generateMinimalDocx(
               summaryAlignment
             )
             children.push(...listParagraphs)
+          } else if (isPlainTextList(resume.summary)) {
+            children.push(
+              ...parsePlainTextListToParagraphs(
+                resume.summary,
+                {
+                  size: scaledFontSizes.body,
+                  color: SLATE[600],
+                  font,
+                },
+                {
+                  spacingAfterItem: pxToTwips(4),
+                  spacingAfterLast: sectionEndSpacing,
+                  alignment: summaryAlignment,
+                }
+              )
+            )
           } else {
             const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
               size: scaledFontSizes.body,
@@ -541,6 +559,22 @@ export async function generateMinimalDocx(
                   descAlignment
                 )
                 children.push(...listParagraphs)
+              } else if (isPlainTextList(exp.description)) {
+                children.push(
+                  ...parsePlainTextListToParagraphs(
+                    exp.description,
+                    {
+                      size: scaledFontSizes.body,
+                      color: SLATE[700],
+                      font,
+                    },
+                    {
+                      spacingAfterItem: pxToTwips(SPACING.ACHIEVEMENT_GAP),
+                      spacingAfterLast: descSpacingAfter,
+                      alignment: descAlignment,
+                    }
+                  )
+                )
               } else {
                 const descRuns = parseHtmlToDocxRuns(exp.description, {
                   size: scaledFontSizes.body,
