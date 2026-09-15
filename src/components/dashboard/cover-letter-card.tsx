@@ -7,6 +7,7 @@ import type { CoverLetter } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { sanitizeHtml } from '@/lib/html-utils'
+import { buildCoverLetterPdfHtml } from '@/lib/cover-letter-pdf-html'
 import { JobLinkBadge } from '@/components/dashboard/entity-link-badge'
 
 const HOVER_DISMISS_DELAY_MS = 200
@@ -182,52 +183,10 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
         year: 'numeric',
       })
 
-      // Get body paragraphs safely
-      const bodyParagraphs = Array.isArray(coverLetter.body_paragraphs)
-        ? (coverLetter.body_paragraphs as string[])
-        : []
-
-      // Build HTML content for the cover letter
-      const htmlContent = `
-        <div style="width: 816px; min-height: 1056px; background: white; padding: 64px; font-family: Georgia, serif; font-size: 14px; line-height: 1.625; color: #1f2937;">
-          <!-- Sender name -->
-          ${coverLetter.sender_name ? `<div style="font-size: 20px; font-weight: 600; color: #111827; margin-bottom: 4px;">${coverLetter.sender_name}</div>` : ''}
-
-          <!-- Date -->
-          <div style="margin-bottom: 24px; color: #4b5563;">${currentDate}</div>
-
-          <!-- Recipient info -->
-          ${coverLetter.recipient_name || coverLetter.company_name ? `
-            <div style="margin-bottom: 24px;">
-              ${coverLetter.recipient_name ? `<div>${coverLetter.recipient_name}</div>` : ''}
-              ${coverLetter.recipient_title ? `<div>${coverLetter.recipient_title}</div>` : ''}
-              ${coverLetter.company_name ? `<div>${coverLetter.company_name}</div>` : ''}
-              ${coverLetter.company_address ? `<div style="white-space: pre-line;">${coverLetter.company_address}</div>` : ''}
-            </div>
-          ` : ''}
-
-          <!-- Job reference -->
-          ${coverLetter.job_title ? `<div style="margin-bottom: 24px;"><strong>Re: Application for ${coverLetter.job_title}</strong></div>` : ''}
-
-          <!-- Greeting -->
-          <div style="margin-bottom: 16px;">${coverLetter.greeting || 'Dear Hiring Manager,'}</div>
-
-          <!-- Opening paragraph -->
-          ${coverLetter.opening_paragraph ? `<div style="margin-bottom: 16px; text-align: justify;">${sanitizeHtml(coverLetter.opening_paragraph)}</div>` : ''}
-
-          <!-- Body paragraphs -->
-          ${bodyParagraphs.map(p => `<div style="margin-bottom: 16px; text-align: justify;">${sanitizeHtml(p)}</div>`).join('')}
-
-          <!-- Closing paragraph -->
-          ${coverLetter.closing_paragraph ? `<div style="margin-bottom: 24px; text-align: justify;">${sanitizeHtml(coverLetter.closing_paragraph)}</div>` : ''}
-
-          <!-- Sign-off -->
-          <div style="margin-top: 32px;">
-            <div style="margin-bottom: 32px;">${coverLetter.sign_off || 'Sincerely,'}</div>
-            ${coverLetter.sender_name ? `<div style="font-weight: 600;">${coverLetter.sender_name}</div>` : ''}
-          </div>
-        </div>
-      `
+      const htmlContent = buildCoverLetterPdfHtml(coverLetter, {
+        currentDate,
+        sanitizeRichText: sanitizeHtml,
+      })
 
       // Create a temporary container
       const container = document.createElement('div')
