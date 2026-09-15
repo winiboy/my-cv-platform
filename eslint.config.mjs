@@ -29,7 +29,11 @@ const eslintConfig = defineConfig([
     // NEXT_DIST_DIR, this list and .gitignore both need a line, or the next
     // person to run `pnpm lint` will think they broke something.
     ".next-uiexp/**",
+    // The parity check's build output (see playwright.parity.config.ts), added
+    // with the config rather than after the first run proved it was missing.
+    ".next-parity/**",
     "test-results/**",
+    "test-results-parity/**",
     "playwright-report/**",
   ]),
   {

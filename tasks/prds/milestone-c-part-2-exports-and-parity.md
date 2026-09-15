@@ -1,13 +1,12 @@
 # PRD: Resume Rendering Unification — Part 2, Exports and Parity (Milestone C)
 
-**Status:** APPROVED — owner, 2026-09-10. Amended and re-approved 2026-09-11,
-2026-09-12, and three times on 2026-09-13. Amended again on 2026-09-14, which
-awaits the owner's review in the pull request carrying US-007. See Amendment
-History.
+**Status:** COMPLETE — closed by the owner on 2026-09-15. Approved 2026-09-10;
+amended and re-approved 2026-09-11, 2026-09-12, three times on 2026-09-13, and
+twice on 2026-09-14, the last two approved by merging US-007 and US-008. See
+Closure and Amendment History.
 
-**Eight stories.** US-007 (consolidation) and US-008 (parity demonstration) are
-the last two, and neither changes rendered output. `prd.json` records which
-stories are complete.
+**Eight stories, all complete and merged.** The execution contract and its
+evidence are archived under `tasks/ralph/archive/2026-09-15-milestone-c-part-2/`.
 
 **Depends on:** `tasks/prds/milestone-c-part-1-layout-state.md`. Every story
 here assumes a persisted, typed layout model exists and is authoritative. None
@@ -374,12 +373,13 @@ PDF and DOCX, so that "unified" is evidenced rather than asserted.
 - [ ] The comparison runs as a repeatable command and its output is legible
       enough to identify which surface diverged.
 - [ ] The check covers all five templates.
-- [ ] **A divergence the check finds is reported, not fixed.** Six are already
-      known and belong to Part 3 (below); the check is expected to fail against
-      them, and that expected failure is recorded rather than suppressed. If the
-      check finds a **seventh**, it is a new finding and Part 3's scope is
-      incomplete — say so rather than quietly widening a tolerance. This story
-      changes no rendered output.
+- [ ] **A divergence the check finds is reported, not fixed.** The known
+      divergences are the defects Part 3
+      (`tasks/prds/milestone-c-part-3-parity-defects.md`) enumerates; the check is
+      expected to fail against them, and that expected failure is recorded rather
+      than suppressed. A divergence Part 3 does not name is a **new** finding and
+      means Part 3's scope is incomplete — say so rather than quietly widening a
+      tolerance. This story changes no rendered output.
 
 ### The seven defects that moved to Part 3
 
@@ -564,7 +564,73 @@ buried in its story list.
   body, and that is the one respect in which the server still cannot render a
   resume unaided.
 
+## Closure
+
+**Closed by the owner on 2026-09-15.** All eight stories passed and are merged
+to `main`, the last as `beeeec6` (#54).
+
+Release validation ran after the final merge rather than before it, so its
+formal verdict was BLOCKED: the skill validates a candidate that is not yet
+`main`, and this one already was. On substance every gate passed on the exact
+merged commit:
+
+- **Contract:** all 49 story-local criteria in parity between this document
+  and `prd.json`; `progress.txt` consistent with it for every story.
+- **Scope:** 43 changed paths, every one attributable to the ten Part 2
+  commits; no migrations, CI or governance files touched; version unchanged at
+  0.54.3.
+- **Checks on the candidate:** typecheck, lint (306, under the 311 baseline),
+  302 unit, 27 integration, 55 E2E, 10 visual with no baseline moved,
+  `build:verify`, and CI on the candidate commit.
+- **Parity:** `pnpm test:parity` reproduced US-008's report byte for byte.
+- **Reviews:** code review passed for every story, security review for US-001,
+  UI review for US-002, export validation for every DOCX story.
+
+The owner accepted that retrospective validation as closing Part 2. Future
+milestones should run release validation before their final merge.
+
+Carried out of Part 2, none blocking:
+
+- **Part 3 must be revised before approval.** US-008's parity check found 58
+  divergences `tasks/prds/milestone-c-part-3-parity-defects.md` does not name,
+  which triggers its own BLOCKER condition.
+- US-002's UI review left tablet and mobile breakpoints unevaluated.
+- US-001's security review recorded one informational note: the photo bound is
+  8 MB against a legitimate maximum of about 2.8 MB.
+- Four contract amendments were squash-merged inside the US-005 to US-008
+  story commits rather than landing as separate commits on `main`.
+- An intermittent DOCX export stall on the development machine, most likely
+  AVG Antivirus HTTP inspection, is unconfirmed. It is recorded in
+  `playwright.parity.config.ts` and must not be absorbed with timeouts or
+  retries.
+- `pnpm test:parity` is not in CI.
+
 ## Amendment History
+
+### 2026-09-14 (second) — during US-008: AC-6's stale count
+
+Awaiting the owner's review in the pull request that carries US-008. The
+previous entry's amendment was approved when the US-007 pull request merged.
+
+**AC-6 counted the known divergences, and the count was wrong.** It said six
+were known and that a seventh would mean Part 3's scope was incomplete. Part 3
+enumerates seven: the six the split moved there on 2026-09-13, plus the
+creative silent no-op added later that day when the creative story was
+dropped. Read literally, a check that correctly reported every known defect
+would have declared the creative one new and Part 3 incomplete — the opposite
+of the criterion's purpose.
+
+The criterion now refers to Part 3's list rather than counting it, so it cannot
+go stale again as Part 3 changes. Its intent is unchanged: a divergence Part 3
+already names is expected; one it does not name is a new finding.
+
+**The markdown and `prd.json` had also drifted on the same criterion.** This
+document said "Part 3 (below)", which pointed at nothing in Part 2, while
+`prd.json` carried the path. Both now carry the path, and the JSON text was
+derived from this document by script. A structural diff against the previous
+contract confirms exactly one criterion changed.
+
+Nothing about scope, the invariant, or any other criterion changed.
 
 ### 2026-09-14 — during US-007: AC-4's location, and prd.json parity
 
