@@ -1,17 +1,20 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { expect, type Page } from '@playwright/test'
 import JSZip from 'jszip'
 import pdfParse from 'pdf-parse'
 import type { ResumeLayoutModel } from '../../src/lib/layout-settings'
 import type { ResumeTemplate } from '../../src/types/database'
+import { coloursAgree, isBlendOf } from './colour'
 import { BODY_MARKER, type ProfileId, type SectionSpec, type TemplateSpec } from './profiles'
 
 /**
- * US-008: how each surface is measured.
+ * Part 2 US-008: how each surface is measured.
  *
  * Every function here returns what it FOUND and throws when it cannot tell
  * what it is looking at — an ambiguous locator, a missing element, a document
  * that never settles. A measurement that quietly returns nothing is how three
- * checks in US-007 printed confident verdicts over empty input.
+ * checks in Part 2 US-007 printed confident verdicts over empty input.
  */
 
 export type SurfaceId = 'preview' | 'pdf' | 'docx'
@@ -107,6 +110,8 @@ export interface Observation {
   surfaces: Record<SurfaceId, SurfaceMeasurement>
   /** Each CSS colour's canvas conversion beside its independent conversion (`colour.ts`). */
   colourChecks: string[]
+  /** The sidebar column of every printed page, read from the PDF's pixels; `null` unless the profile reads the print. */
+  printSidebarColumn: SidebarColumnReading | null
   /** Method notes per surface: counts and sources, printed and kept for audit. */
   evidence: Record<SurfaceId, string[]>
   /** What the observation depends on besides the code: the browser that rendered it. */
@@ -470,6 +475,11 @@ export interface PdfMeasurement {
   pages: number
   characters: number
   pageWidthInches: number
+  /**
+   * Per page, the distance in points from the page's top edge down to its
+   * lowest text baseline; `null` for a page with no text.
+   */
+  lowestTextPt: (number | null)[]
   /** `null` when the probe samples no typography. */
   samples: Record<TypographyElement, PdfTextSample> | null
 }
@@ -553,6 +563,8 @@ export function pdfFamily(postScriptName: string): string {
 export async function measurePdf(buffer: Buffer, probe: SurfaceProbe): Promise<PdfMeasurement> {
   const items: PdfTextItem[] = []
   const pageWidths: number[] = []
+  /** Each page box's top edge, in the user space text positions are given in. */
+  const pageTops: number[] = []
   const fontNames = new Map<string, string>()
   let pagesRendered = 0
   const parsed = await pdfParse(buffer, {
@@ -563,6 +575,7 @@ export async function measurePdf(buffer: Buffer, probe: SurfaceProbe): Promise<P
       pagesRendered += 1
       const page = pageProxy.pageNumber ?? pagesRendered
       pageWidths.push((pageProxy.view[2] - pageProxy.view[0]) / 72)
+      pageTops.push(pageProxy.view[3])
       const content = await pageProxy.getTextContent()
       if (probe.sampleTypography) {
         await pageProxy.getOperatorList()
@@ -640,11 +653,16 @@ export async function measurePdf(buffer: Buffer, probe: SurfaceProbe): Promise<P
   if (pageWidths.some((width) => Math.abs(width - pageWidths[0]) > 0.005)) {
     throw new Error(`The PDF pages differ in width: ${pageWidths.join(', ')} in`)
   }
+  const lowestTextPt = pageTops.map((top, index) => {
+    const baselines = items.filter((item) => item.page === index + 1 && item.text.trim() !== '').map((item) => item.y)
+    return baselines.length > 0 ? top - Math.min(...baselines) : null
+  })
   return {
     sequence: found.map((f) => f.key),
     pages: parsed.numpages,
     characters: text.length,
     pageWidthInches: pageWidths[0],
+    lowestTextPt,
     samples: probe.sampleTypography
       ? {
           documentTitle: sampleText(probe.titleText, 'document title'),
@@ -688,16 +706,168 @@ export function pdfTypography(
 export async function capturePrint(
   page: Page,
   probe: SurfaceProbe,
-): Promise<{ print: DomMeasurement; pdf: PdfMeasurement }> {
+): Promise<{ print: DomMeasurement; pdf: PdfMeasurement; pdfBuffer: Buffer }> {
   const toggle = page.getByTestId('controls-toggle')
   await toggle.check({ force: true })
   await expect(toggle).toBeChecked()
   await page.emulateMedia({ media: 'print' })
   const print = await measureSettled(page, probe)
-  const buffer = await page.pdf({ preferCSSPageSize: true })
+  const pdfBuffer = await page.pdf({ preferCSSPageSize: true })
   await page.emulateMedia({ media: 'screen' })
-  const pdf = await measurePdf(buffer, probe)
-  return { print, pdf }
+  const pdf = await measurePdf(pdfBuffer, probe)
+  return { print, pdf, pdfBuffer }
+}
+
+/** The sidebar column as the printed pages show it. */
+export interface SidebarColumnReading {
+  /** Distinct colours down the column, merged within the colour tolerance, in order of first appearance. */
+  colours: ColourSample[]
+  /** Evidence: each run of one colour, `page 2 y0-640 #1E7A4C`. */
+  runs: string[]
+  /** Pixel rows read across all pages. */
+  rowsRead: number
+}
+
+/** The strip read, in PDF points from the page's left edge: inside the sidebar's padding, where no text is drawn. */
+const SIDEBAR_STRIP_X_PT = 2
+
+/**
+ * What the PDF paints down the sidebar column of every page, read from its pixels.
+ *
+ * `globals.css` paints a band behind the professional document under print,
+ * and a band can only be seen where the document does not cover the page — so
+ * no computed style can say whether it shows. The PDF is rasterised by the
+ * same pdf.js build `measurePdf` reads it with, inside Chromium, at 72 dpi so
+ * one pixel row is one point.
+ *
+ * Every row of every page is read; `summariseSidebarColumn` says which rows are
+ * colours. A last page with no text cannot be bounded, and throws.
+ */
+export async function readPrintSidebarColumn(
+  page: Page,
+  pdfBuffer: Buffer,
+  pdf: PdfMeasurement,
+): Promise<SidebarColumnReading> {
+  const lastTextPt = pdf.lowestTextPt[pdf.pages - 1]
+  if (lastTextPt === null || lastTextPt === undefined) {
+    throw new Error(`The last PDF page (${pdf.pages}) carries no text, so where the document ends on it cannot be told`)
+  }
+  const build = path.join(path.dirname(require.resolve('pdf-parse/package.json')), 'lib', 'pdf.js', `v${PDFJS_VERSION}`, 'build')
+
+  const raster = await page.context().newPage()
+  try {
+    await raster.setContent('<!doctype html><html><body></body></html>')
+    // The worker code is loaded into the page first, so pdf.js finds it in place
+    // rather than fetching a worker script a blank page has no URL to serve from.
+    await raster.addScriptTag({ content: readFileSync(path.join(build, 'pdf.worker.js'), 'utf-8') })
+    await raster.addScriptTag({ content: readFileSync(path.join(build, 'pdf.js'), 'utf-8') })
+
+    const rendered = await raster.evaluate(
+      async ({ base64, stripX }) => {
+        interface PdfJsPage {
+          getViewport(scale: number): { width: number; height: number }
+          render(parameters: { canvasContext: CanvasRenderingContext2D; viewport: unknown }): { promise: Promise<void> }
+        }
+        interface PdfJs {
+          version: string
+          getDocument(source: { data: Uint8Array }): {
+            promise: Promise<{ numPages: number; getPage(pageNumber: number): Promise<PdfJsPage> }>
+          }
+        }
+        const lib = (window as unknown as Record<string, PdfJs | undefined>)['pdfjs-dist/build/pdf']
+        if (!lib) throw new Error('pdf.js did not load into the raster page')
+        const document_ = await lib.getDocument({ data: Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)) }).promise
+        const pages: { height: number; runs: { hex: string; from: number; to: number }[] }[] = []
+        for (let pageNumber = 1; pageNumber <= document_.numPages; pageNumber++) {
+          const pdfPage = await document_.getPage(pageNumber)
+          const viewport = pdfPage.getViewport(1)
+          const canvas = document.createElement('canvas')
+          canvas.width = Math.round(viewport.width)
+          canvas.height = Math.round(viewport.height)
+          const context = canvas.getContext('2d', { willReadFrequently: true })
+          if (!context) throw new Error('No 2D canvas context to rasterise the PDF with')
+          await pdfPage.render({ canvasContext: context, viewport }).promise
+          const column = context.getImageData(stripX, 0, 1, canvas.height).data
+          const runs: { hex: string; from: number; to: number }[] = []
+          for (let y = 0; y < canvas.height; y++) {
+            const hex = `#${[column[y * 4], column[y * 4 + 1], column[y * 4 + 2]]
+              .map((v) => v.toString(16).padStart(2, '0'))
+              .join('')
+              .toUpperCase()}`
+            const last = runs[runs.length - 1]
+            if (last && last.hex === hex) last.to = y
+            else runs.push({ hex, from: y, to: y })
+          }
+          pages.push({ height: canvas.height, runs })
+        }
+        return { version: lib.version, pages }
+      },
+      { base64: pdfBuffer.toString('base64'), stripX: SIDEBAR_STRIP_X_PT },
+    )
+
+    if (rendered.version !== PDFJS_VERSION) {
+      throw new Error(`The raster page loaded pdf.js ${rendered.version}, not ${PDFJS_VERSION}`)
+    }
+    if (rendered.pages.length !== pdf.pages) {
+      throw new Error(`The raster has ${rendered.pages.length} pages but the PDF has ${pdf.pages}`)
+    }
+
+    return summariseSidebarColumn(rendered.pages, lastTextPt)
+  } finally {
+    await raster.close()
+  }
+}
+
+/** One page of the column: runs of identical pixel rows, top to bottom, covering the page. */
+export interface ColumnPage {
+  height: number
+  runs: readonly { hex: string; from: number; to: number }[]
+}
+
+const PAPER: ColourSample = { hex: '#FFFFFF', alpha: 255 }
+
+/**
+ * The colours a column shows, from its pixel runs. Pure, so its two rules can
+ * be demonstrated on synthetic columns:
+ *
+ * - An EDGE is not a colour: a single pixel row between two different runs,
+ *   whose colour is those two mixed at one coverage (`isBlendOf`), is the
+ *   anti-aliased boundary a rasteriser draws where one fill ends and the next
+ *   begins. A fill two rows tall or more is never an edge, so no band can pass
+ *   as one.
+ * - Below the last page's lowest text baseline the page may be paper the
+ *   document never reached, so blank PAPER there is not a colour anything
+ *   drew; any other colour there was painted, and counts.
+ */
+export function summariseSidebarColumn(pages: readonly ColumnPage[], lastTextPt: number): SidebarColumnReading {
+  const colours: ColourSample[] = []
+  const runs: string[] = []
+  let rowsRead = 0
+  pages.forEach((page, index) => {
+    const lastRow = index === pages.length - 1 ? Math.floor(lastTextPt) : page.height - 1
+    page.runs.forEach((run, position) => {
+      const sample: ColourSample = { hex: run.hex, alpha: 255 }
+      const before = page.runs[position - 1]
+      const after = page.runs[position + 1]
+      const edge =
+        run.from === run.to &&
+        before !== undefined &&
+        after !== undefined &&
+        isBlendOf(sample, { hex: before.hex, alpha: 255 }, { hex: after.hex, alpha: 255 })
+      const paper = run.from > lastRow && coloursAgree(sample, PAPER)
+      const qualifier = edge
+        ? ` edge between ${before.hex} and ${after.hex}`
+        : paper
+          ? ' paper below the last text'
+          : run.from > lastRow
+            ? ' painted below the last text'
+            : ''
+      runs.push(`page ${index + 1} y${run.from}-${run.to} ${run.hex}${qualifier}`)
+      rowsRead += run.to - run.from + 1
+      if (!edge && !paper && !colours.some((colour) => coloursAgree(colour, sample))) colours.push(sample)
+    })
+  })
+  return { colours, runs, rowsRead }
 }
 
 // ---------------------------------------------------------------------------

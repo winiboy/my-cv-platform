@@ -1,9 +1,17 @@
 import type { ResumeTemplate } from '../../src/types/database'
-import { COLOUR_CHANNEL_TOLERANCE, compositeOver, coloursAgree, type ConvertedColour } from './colour'
+import {
+  COLOUR_CHANNEL_TOLERANCE,
+  compositeOver,
+  coloursAgree,
+  convertCssColour,
+  type ConvertedColour,
+} from './colour'
 import {
   PROFILES,
+  TEMPLATES,
   TEMPLATE_SPECS,
   describeNonDefault,
+  fontChosen,
   primaryFamily,
   referenceFor,
   type Column,
@@ -23,7 +31,7 @@ import {
 } from './surfaces'
 
 /**
- * US-008: rows, verdicts, and the report.
+ * Part 2 US-008: rows, verdicts, and the report.
  *
  * Everything in this file is a pure function of the observations. Run it twice
  * over the same observations and it produces the same report, byte for byte.
@@ -37,37 +45,79 @@ import {
 // Known divergences
 // ---------------------------------------------------------------------------
 
-/** The defects `tasks/prds/milestone-c-part-3-parity-defects.md` enumerates. */
+/**
+ * The defects `tasks/prds/milestone-c-part-3-parity-defects.md` enumerates, each
+ * named `US-NNN-<defect>` after the story that closes it. A story that closes
+ * defects of different shapes, or one defect per template, has an id and a
+ * signature for each.
+ *
+ * The first draft of that document numbered its stories differently. Its ids
+ * map, by its Story Map, as: P3-US001-<template> to US-002-sections-<template>,
+ * P3-US002-<template> to US-009-order-<template>, P3-US003 to
+ * US-010-empty-main, P3-US004 to US-011-font-size, P3-US005 to
+ * US-015-creative-sections. The `US-` form cannot be mistaken for the old one.
+ */
 export type KnownId =
-  | 'P3-US001-classic'
-  | 'P3-US001-minimal'
-  | 'P3-US002-classic'
-  | 'P3-US002-minimal'
-  | 'P3-US003'
-  | 'P3-US004'
-  | 'P3-US005'
+  | 'US-002-sections-classic'
+  | 'US-002-sections-minimal'
+  | 'US-003-palette'
+  | 'US-004-line-spacing'
+  | 'US-005-letter-spacing'
+  | 'US-006-translucent-text'
+  | 'US-008-page-width'
+  | 'US-009-order-classic'
+  | 'US-009-order-minimal'
+  | 'US-010-empty-main'
+  | 'US-011-font-size'
+  | 'US-012-font-family'
+  | 'US-013-accent-hue'
+  | 'US-014-sidebar-colour'
+  | 'US-014-per-property'
+  | 'US-015-creative-sections'
 
 export const KNOWN_IDS: readonly KnownId[] = [
-  'P3-US001-classic',
-  'P3-US001-minimal',
-  'P3-US002-classic',
-  'P3-US002-minimal',
-  'P3-US003',
-  'P3-US004',
-  'P3-US005',
+  'US-002-sections-classic',
+  'US-002-sections-minimal',
+  'US-003-palette',
+  'US-004-line-spacing',
+  'US-005-letter-spacing',
+  'US-006-translucent-text',
+  'US-008-page-width',
+  'US-009-order-classic',
+  'US-009-order-minimal',
+  'US-010-empty-main',
+  'US-011-font-size',
+  'US-012-font-family',
+  'US-013-accent-hue',
+  'US-014-sidebar-colour',
+  'US-014-per-property',
+  'US-015-creative-sections',
 ]
 
 export type Verdict = 'MATCH' | `KNOWN: ${KnownId}` | 'NEW'
 
-const perTemplate = (templates: readonly ResumeTemplate[], properties: readonly string[], id: KnownId) =>
-  Object.fromEntries(
-    templates.flatMap((template) => properties.map((property) => [`primary · ${template} · ${property}`, id])),
-  )
+const rowIds = (profile: ProfileId, templates: readonly ResumeTemplate[], properties: readonly string[]) =>
+  templates.flatMap((template) => properties.map((property) => `${profile} · ${template} · ${property}`))
 
 const elementProperties = (family: string) => TYPOGRAPHY_ELEMENTS.map((element) => `${family}:${element}`)
 
+/** The templates that receive neither fontScale nor fontFamily and draw no sidebar colour. */
+const CLASSIC_MINIMAL_CREATIVE: readonly ResumeTemplate[] = ['classic', 'minimal', 'creative']
+
+/** A row listed under two ids is a mistake in this file, not a verdict, so it throws. */
+function expectations(groups: readonly (readonly [KnownId, readonly string[]])[]): Readonly<Record<string, KnownId>> {
+  const byRow: Record<string, KnownId> = {}
+  for (const [id, rows] of groups) {
+    for (const row of rows) {
+      if (byRow[row]) throw new Error(`${row} is listed as both ${byRow[row]} and ${id}`)
+      byRow[row] = id
+    }
+  }
+  return byRow
+}
+
 /**
- * The rows expected to diverge, by name and Part 3 id.
+ * The rows expected to diverge, by name and story.
  *
  * Each becomes a `test.fail()` in the spec. The entry passes only while the
  * named defect reproduces with its own signature (see `SIGNATURES`); if the
@@ -78,38 +128,67 @@ const elementProperties = (family: string) => TYPOGRAPHY_ELEMENTS.map((element) 
  * Nothing that is NEW may be listed here. A NEW divergence is not an expected
  * failure; it is a hole in Part 3's scope.
  */
-export const KNOWN_EXPECTATIONS: Readonly<Record<string, KnownId>> = {
-  'primary · classic · visibility:skills': 'P3-US001-classic',
-  'primary · classic · visibility:projects': 'P3-US001-classic',
-  'primary · minimal · visibility:skills': 'P3-US001-minimal',
-  'primary · minimal · visibility:projects': 'P3-US001-minimal',
-
-  'primary · classic · visibility:education': 'P3-US002-classic',
-  'primary · classic · order:main': 'P3-US002-classic',
-  'primary · classic · order:document': 'P3-US002-classic',
-  'primary · minimal · visibility:education': 'P3-US002-minimal',
-  'primary · minimal · order:main': 'P3-US002-minimal',
-  'primary · minimal · order:document': 'P3-US002-minimal',
-
-  'modern-empty-main · modern · visibility:summary': 'P3-US003',
-  'modern-empty-main · modern · visibility:experience': 'P3-US003',
-
-  // US-004, surface against surface: a per-property size reached the Preview, not the DOCX.
-  ...perTemplate(['classic', 'minimal', 'creative'], elementProperties('font-size'), 'P3-US004'),
-  'primary · modern · font-size:documentTitle': 'P3-US004',
-  'primary · modern · font-size:bodyText': 'P3-US004',
-  // US-004, against the model: fontScale is not passed to these three Previews.
-  ...perTemplate(['classic', 'minimal', 'creative'], elementProperties('font-scale'), 'P3-US004'),
-  // US-004, against the model: the per-property sizes respond in the Preview and not in the DOCX.
-  ...perTemplate(['classic', 'minimal', 'creative'], elementProperties('per-property'), 'P3-US004'),
-  'primary · modern · per-property:documentTitle': 'P3-US004',
-  'primary · modern · per-property:bodyText': 'P3-US004',
-
-  'primary · creative · visibility:education': 'P3-US005',
-  'primary · creative · visibility:languages': 'P3-US005',
-  'creative-order · creative · order:main': 'P3-US005',
-  'creative-order · creative · order:sidebar': 'P3-US005',
-}
+export const KNOWN_EXPECTATIONS: Readonly<Record<string, KnownId>> = expectations([
+  ['US-002-sections-classic', rowIds('primary', ['classic'], ['visibility:skills', 'visibility:projects'])],
+  ['US-002-sections-minimal', rowIds('primary', ['minimal'], ['visibility:skills', 'visibility:projects'])],
+  [
+    'US-003-palette',
+    [
+      ...rowIds('primary', ['professional', 'modern', 'classic', 'minimal'], ['colour:documentTitle']),
+      ...rowIds('primary', ['professional', 'classic', 'minimal', 'creative'], ['colour:sectionHeading']),
+      ...rowIds('primary', TEMPLATES, ['colour:bodyText']),
+    ],
+  ],
+  ['US-004-line-spacing', rowIds('primary', TEMPLATES, elementProperties('line-height'))],
+  [
+    'US-005-letter-spacing',
+    [
+      ...rowIds('primary', TEMPLATES, ['letter-spacing:documentTitle']),
+      ...rowIds('primary', ['professional', 'modern', 'minimal'], ['letter-spacing:sectionHeading']),
+    ],
+  ],
+  ['US-006-translucent-text', rowIds('primary', ['modern'], ['colour:sidebarLabel', 'colour:sidebarSecondary'])],
+  ['US-008-page-width', rowIds('primary', CLASSIC_MINIMAL_CREATIVE, ['page-width'])],
+  ['US-009-order-classic', rowIds('primary', ['classic'], ['visibility:education', 'order:main', 'order:document'])],
+  ['US-009-order-minimal', rowIds('primary', ['minimal'], ['visibility:education', 'order:main', 'order:document'])],
+  ['US-010-empty-main', rowIds('modern-empty-main', ['modern'], ['visibility:summary', 'visibility:experience'])],
+  [
+    'US-011-font-size',
+    [
+      // Surface against surface: a per-property size reached the Preview, not the DOCX.
+      ...rowIds('primary', CLASSIC_MINIMAL_CREATIVE, elementProperties('font-size')),
+      ...rowIds('primary', ['modern'], ['font-size:documentTitle', 'font-size:bodyText']),
+      // Against the model: fontScale is not passed to these three Previews.
+      ...rowIds('primary', CLASSIC_MINIMAL_CREATIVE, elementProperties('font-scale')),
+      // Against the model: the per-property sizes respond in the Preview and not in the DOCX.
+      ...rowIds('primary', CLASSIC_MINIMAL_CREATIVE, elementProperties('per-property')),
+      ...rowIds('primary', ['modern'], ['per-property:documentTitle', 'per-property:bodyText']),
+    ],
+  ],
+  [
+    'US-012-font-family',
+    [
+      ...rowIds('primary', CLASSIC_MINIMAL_CREATIVE, elementProperties('font-family')),
+      ...rowIds('font-not-chosen', CLASSIC_MINIMAL_CREATIVE, elementProperties('font-family')),
+    ],
+  ],
+  ['US-013-accent-hue', rowIds('modern-non-integer-hue', ['modern'], ['colour:accent'])],
+  ['US-014-sidebar-colour', rowIds('primary', CLASSIC_MINIMAL_CREATIVE, ['colour:sidebar-background'])],
+  [
+    'US-014-per-property',
+    [
+      ...rowIds('primary', ['professional'], elementProperties('per-property')),
+      ...rowIds('primary', ['modern'], ['per-property:sectionHeading']),
+    ],
+  ],
+  [
+    'US-015-creative-sections',
+    [
+      ...rowIds('primary', ['creative'], ['visibility:education', 'visibility:languages']),
+      ...rowIds('creative-order', ['creative'], ['order:main', 'order:sidebar']),
+    ],
+  ],
+])
 
 // ---------------------------------------------------------------------------
 // Rows
@@ -154,6 +233,9 @@ export function rowDefinitions(): RowDefinition[] {
   const rows: RowDefinition[] = []
   for (const profile of PROFILES) {
     if (profile.control) continue
+    if (profile.rowGroups.includes('font') && profile.rowGroups.includes('typography')) {
+      throw new Error(`${profile.id}: the font row group repeats rows the typography group already reports`)
+    }
     for (const template of profile.templates) {
       const spec = TEMPLATE_SPECS[template]
       const reference = referenceFor(profile, template)
@@ -188,6 +270,9 @@ export function rowDefinitions(): RowDefinition[] {
         }
         for (const extra of spec.extraColourSamples) add('colour', `colour:${extra.key}`, extra.key)
       }
+      if (profile.rowGroups.includes('font')) {
+        for (const element of TYPOGRAPHY_ELEMENTS) add('font-family', `font-family:${element}`, element)
+      }
       if (profile.rowGroups.includes('colour')) {
         // Every template, including those that draw no sidebar: the editor offers
         // and stores the colour for all of them, so a template that renders it
@@ -197,6 +282,12 @@ export function rowDefinitions(): RowDefinition[] {
       }
       if (profile.rowGroups.includes('page')) {
         add('page-width', 'page-width', 'document')
+      }
+      if (profile.rowGroups.includes('print')) {
+        if (spec.sidebarBackgroundDepth === null) {
+          throw new Error(`${profile.id}: ${template} draws no sidebar column for the print to be read against`)
+        }
+        add('colour', 'colour:print-sidebar-column', 'printSidebarColumn')
       }
     }
   }
@@ -215,6 +306,8 @@ type Value =
   | { kind: 'ratio'; ratio: number; slack: number }
   | { kind: 'responds'; responds: boolean }
   | { kind: 'colour'; hex: string; css?: string; over?: string }
+  /** More than one colour where one is drawn, in order of first appearance. Never equal to a single colour. */
+  | { kind: 'colours'; hexes: readonly string[] }
   | { kind: 'not-rendered' }
   | { kind: 'family'; name: string }
   | { kind: 'twips'; twips: number }
@@ -226,6 +319,8 @@ const TWIPS_TOLERANCE = 1
 
 /** Line-height ratios are declared to three decimals at most (1.625, 1.5, 1.2). */
 const LINE_HEIGHT_TOLERANCE = 0.01
+
+const opaque = (hex: string): ConvertedColour => ({ hex, alpha: 255 })
 
 function equal(a: Value, b: Value): boolean {
   switch (a.kind) {
@@ -242,7 +337,13 @@ function equal(a: Value, b: Value): boolean {
     case 'family':
       return b.kind === 'family' && normaliseFamily(a.name) === normaliseFamily(b.name)
     case 'colour':
-      return b.kind === 'colour' && coloursAgree({ hex: a.hex, alpha: 255 }, { hex: b.hex, alpha: 255 })
+      return b.kind === 'colour' && coloursAgree(opaque(a.hex), opaque(b.hex))
+    case 'colours':
+      return (
+        b.kind === 'colours' &&
+        a.hexes.length === b.hexes.length &&
+        a.hexes.every((hex, i) => coloursAgree(opaque(hex), opaque(b.hexes[i])))
+      )
     case 'not-rendered':
       return b.kind === 'not-rendered'
     case 'twips':
@@ -293,6 +394,8 @@ function display(value: Value | null): string {
       const source = value.css ? ` (${value.css}${value.over ? ` over ${value.over}` : ''})` : ''
       return `${value.hex}${source}`
     }
+    case 'colours':
+      return value.hexes.join(' then ')
     case 'not-rendered':
       return 'not rendered'
     case 'twips':
@@ -340,10 +443,19 @@ interface SignatureContext {
   values: Record<SurfaceId, Value>
 }
 
+interface Signature {
+  id: KnownId
+  /** The defect, as its story names it. Printed as the note of every row it claims. */
+  defect: string
+  matches: (context: SignatureContext) => boolean
+}
+
 const shown = (value: Value) => value.kind === 'visibility' && value.shown
 const responds = (value: Value) => value.kind === 'responds' && value.responds
 const isSequence = (value: Value | null, keys: readonly string[]) =>
   value !== null && value.kind === 'sequence' && value.keys.join('>') === keys.join('>')
+const isTypographyElement = (subject: string): subject is TypographyElement =>
+  (TYPOGRAPHY_ELEMENTS as readonly string[]).includes(subject)
 
 /** Per-property size each sampled element may take from the model. */
 const PER_PROPERTY: Readonly<Record<TypographyElement, 'titleFontSize' | 'sectionTitleFontSize' | 'sectionDescFontSize'>> = {
@@ -353,50 +465,289 @@ const PER_PROPERTY: Readonly<Record<TypographyElement, 'titleFontSize' | 'sectio
 }
 
 /**
- * What each known defect looks like on a row. A divergence is attributed to a
- * Part 3 id only when it has that defect's shape; a divergence with any other
- * shape is NEW, even on a template the defect concerns.
+ * US-003: the text colour each DOCX generator hardcodes, for the elements where
+ * it differs from the Preview. Stock Tailwind v3 and neutral hex:
+ * `docx-helpers.ts` COLORS (DARK_HEADING, BODY_TEXT) for professional and
+ * modern; the slate tables of `docx-classic.ts` and `docx-minimal.ts`;
+ * `docx-creative.ts` PURPLE_600 and SLATE_700.
  */
-const SIGNATURES: readonly { id: KnownId; matches: (context: SignatureContext) => boolean }[] = [
-  ...(['classic', 'minimal'] as const).map((template) => ({
-    id: `P3-US001-${template}` as KnownId,
-    // The DOCX omits skills or projects; the Preview and its print show them; nothing hides them.
-    matches: ({ row, reference, values }: SignatureContext) =>
-      row.template === template &&
-      row.family === 'visibility' &&
-      ['skills', 'projects'].includes(row.subject) &&
-      reference !== null &&
-      shown(reference) &&
-      shown(values.preview) &&
-      shown(values.pdf) &&
-      !shown(values.docx),
-  })),
-  ...(['classic', 'minimal'] as const).map((template) => ({
-    id: `P3-US002-${template}` as KnownId,
-    // The Preview (and so the PDF) ignores order and visibility; the DOCX honours both.
-    matches: ({ row, observation, profile, reference, values }: SignatureContext) => {
-      if (row.template !== template || !equal(values.pdf, values.preview)) return false
-      if (row.family === 'visibility') {
-        return reference !== null && !shown(reference) && shown(values.preview) && !shown(values.docx)
-      }
-      if (row.family === 'order' && row.subject === 'main') {
-        return reference !== null && !equal(values.preview, reference) && equal(values.docx, reference)
-      }
-      if (row.family === 'order' && row.subject === 'document') {
-        const modelOrder = referenceFor(profile, template).order.main ?? []
-        const docx = values.docx.kind === 'sequence' ? values.docx.keys : []
-        return (
-          !equal(values.docx, values.preview) &&
-          isSequence(values.docx, modelOrder.filter((key) => docx.includes(key))) &&
-          observation.surfaces.docx.sequence.length > 0
-        )
-      }
-      return false
-    },
-  })),
+const STOCK_TEXT_COLOUR: Readonly<Record<ResumeTemplate, Partial<Record<TypographyElement, string>>>> = {
+  professional: { documentTitle: '#1A1A1A', sectionHeading: '#1A1A1A', bodyText: '#333333' },
+  modern: { documentTitle: '#1A1A1A', bodyText: '#333333' },
+  classic: { documentTitle: '#0F172A', sectionHeading: '#0F172A', bodyText: '#1E293B' },
+  minimal: { documentTitle: '#0F172A', sectionHeading: '#94A3B8', bodyText: '#334155' },
+  creative: { sectionHeading: '#9333EA', bodyText: '#334155' },
+}
+
+/**
+ * US-003: the colour the Preview renders for the same elements, as the CSS its
+ * source gives. Tailwind utilities resolve through the tokens `globals.css`
+ * redefines in `@theme inline`: slate-900 oklch(0.08 0 0), slate-800
+ * oklch(0.15 0 0), slate-700 oklch(0.25 0 0), slate-400 oklch(0.65 0 0),
+ * purple-600 oklch(0.5 0.22 290). Inline styles: professional-template.tsx
+ * title and main headings oklch(0.2 0 0), achievements oklch(0.3 0 0);
+ * modern-template.tsx experience text '#374151', written here as the same
+ * colour in rgb() because that is a form colour.ts converts. Converted without
+ * the browser, so a Preview that renders any other colour is a different
+ * divergence.
+ */
+const PREVIEW_TEXT_COLOUR_CSS: Readonly<Record<ResumeTemplate, Partial<Record<TypographyElement, string>>>> = {
+  professional: { documentTitle: 'oklch(0.2 0 0)', sectionHeading: 'oklch(0.2 0 0)', bodyText: 'oklch(0.3 0 0)' },
+  modern: { documentTitle: 'oklch(0.08 0 0)', bodyText: 'rgb(55, 65, 81)' },
+  classic: { documentTitle: 'oklch(0.08 0 0)', sectionHeading: 'oklch(0.08 0 0)', bodyText: 'oklch(0.15 0 0)' },
+  minimal: { documentTitle: 'oklch(0.08 0 0)', sectionHeading: 'oklch(0.65 0 0)', bodyText: 'oklch(0.25 0 0)' },
+  creative: { sectionHeading: 'oklch(0.5 0.22 290)', bodyText: 'oklch(0.25 0 0)' },
+}
+
+/** The same table converted once, at load: an entry colour.ts cannot convert fails on import, not on a row. */
+const PREVIEW_TEXT_COLOUR: Readonly<Record<ResumeTemplate, Partial<Record<TypographyElement, ConvertedColour>>>> =
+  Object.fromEntries(
+    Object.entries(PREVIEW_TEXT_COLOUR_CSS).map(([template, elements]) => [
+      template,
+      Object.fromEntries(Object.entries(elements).map(([element, css]) => [element, convertCssColour(css)])),
+    ]),
+  ) as Record<ResumeTemplate, Partial<Record<TypographyElement, ConvertedColour>>>
+
+/** US-013: `DEFAULT_ACCENT_COLOR` in modern-template.tsx, the gold the accent falls back to. */
+const MODERN_ACCENT_FALLBACK = '#D4A843'
+
+/**
+ * US-011: the size, in CSS px before fontScale, each generator writes for the
+ * elements where the DOCX disagrees with the Preview. It then applies
+ * `pxToHalfPoints(base * fontScale)`, whatever per-property size the model
+ * carries. `docx-classic.ts` FONT_SIZES TITLE, SECTION_TITLE, SECTION_DESC;
+ * `docx-minimal.ts` TITLE, SECTION_TITLE, BODY; `docx-creative.ts` NAME,
+ * SECTION_TITLE, BODY; `docx-modern.ts` NAME and BODY.
+ */
+const STOCK_BASE_SIZE_PX: Readonly<Record<ResumeTemplate, Partial<Record<TypographyElement, number>>>> = {
+  professional: {},
+  modern: { documentTitle: 36, bodyText: 14 },
+  classic: { documentTitle: 36, sectionHeading: 16, bodyText: 14 },
+  minimal: { documentTitle: 48, sectionHeading: 16, bodyText: 14 },
+  creative: { documentTitle: 48, sectionHeading: 16, bodyText: 14 },
+}
+
+/** `pxToHalfPoints` in docx-helpers.ts. */
+const toHalfPoints = (px: number) => Math.round(px * 1.5)
+
+/**
+ * US-004: the Word auto spacing each generator writes for the sampled elements.
+ * A number is `w:lineRule="auto"` at that multiple; `normal` is auto single
+ * line, written or left to the default.
+ */
+const STOCK_AUTO_SPACING: Readonly<Record<ResumeTemplate, Readonly<Record<TypographyElement, number | 'normal'>>>> = {
+  professional: { documentTitle: 1.2, sectionHeading: 'normal', bodyText: 1.35 },
+  modern: { documentTitle: 1.2, sectionHeading: 1.2, bodyText: 1.5 },
+  classic: { documentTitle: 1.2, sectionHeading: 'normal', bodyText: 1.625 },
+  minimal: { documentTitle: 1.2, sectionHeading: 'normal', bodyText: 1.625 },
+  creative: { documentTitle: 1.2, sectionHeading: 'normal', bodyText: 1.625 },
+}
+
+/**
+ * US-005: the characterSpacing, in twips, each generator writes for the elements
+ * where it differs from the Preview; 0 where it writes none. `docx-modern.ts`
+ * 15 (title) and 8 (headings), `docx-classic.ts` 8, `docx-minimal.ts`
+ * pxToTwips(1.6) on its headings.
+ */
+const STOCK_TRACKING_TWIPS: Readonly<Record<ResumeTemplate, Partial<Record<TypographyElement, number>>>> = {
+  professional: { documentTitle: 0, sectionHeading: 0 },
+  modern: { documentTitle: 15, sectionHeading: 8 },
+  classic: { documentTitle: 8 },
+  minimal: { documentTitle: 0, sectionHeading: 24 },
+  creative: { documentTitle: 0 },
+}
+
+/**
+ * US-012: the family each template declares for a sampled element in place of
+ * the model's font. `classic-template.tsx` sets font-serif (ui-serif) on its
+ * title and headings and leaves its body to the app's Inter (next/font in the
+ * root layout); minimal and creative declare no family at all.
+ */
+const TEMPLATE_DECLARED_FAMILY: Readonly<Partial<Record<ResumeTemplate, Readonly<Record<TypographyElement, string>>>>> = {
+  classic: { documentTitle: 'ui-serif', sectionHeading: 'ui-serif', bodyText: 'Inter' },
+  minimal: { documentTitle: 'Inter', sectionHeading: 'Inter', bodyText: 'Inter' },
+  creative: { documentTitle: 'Inter', sectionHeading: 'Inter', bodyText: 'Inter' },
+}
+
+/** `docx-classic.ts` writes this family whatever the model says. */
+const CLASSIC_DOCX_FAMILY = 'Times New Roman'
+
+/**
+ * CSS generic family keywords. A generic is resolved by the platform to some
+ * installed face (ui-serif to Georgia here), so the face drawn cannot be held
+ * to its name; a named family can, and a different face means it did not load.
+ */
+const GENERIC_FAMILIES: ReadonlySet<string> = new Set([
+  'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'math', 'emoji', 'fangsong',
+  'system-ui', 'ui-serif', 'ui-sans-serif', 'ui-monospace', 'ui-rounded',
+])
+
+/**
+ * The family a font-family row compares against. A chosen font is the reference
+ * on every template. For a font never chosen, the owner's decision of 2026-09-15
+ * says a template keeps its own designed font: minimal and creative stay Inter.
+ * Professional and modern are not named; they draw the stored default today,
+ * and no unchosen font may change, so the stored font stays their reference.
+ * Classic is open (see the DECISION), so its unchosen rows have none.
+ */
+function fontFamilyReference(template: ResumeTemplate, model: Observation['model']): string | null {
+  if (fontChosen(model)) return primaryFamily(model.fontFamily)
+  if (template === 'minimal' || template === 'creative') return 'Inter'
+  if (template === 'classic') return null
+  return primaryFamily(model.fontFamily)
+}
+
+/** The Preview's page, and the DOCX page of classic, minimal and creative. */
+const LETTER_INCHES = '8.50'
+const A4_INCHES = '8.27'
+
+/** Translucent white, as modern-template.tsx writes its sidebar label and secondary text. */
+const TRANSLUCENT_WHITE = /^rgba\(255, 255, 255, 0?\.\d+\)$/
+
+/**
+ * What each known defect looks like on a row. A divergence is attributed to a
+ * story only when it has that defect's shape — the surfaces that are wrong,
+ * wrong in the way the story describes, and the others right. A divergence
+ * with any other shape is NEW, even on a template the defect concerns. No row
+ * may have two shapes: `evaluateRow` throws if signatures overlap.
+ */
+const SIGNATURES: readonly Signature[] = [
+  ...(['classic', 'minimal'] as const).map(
+    (template): Signature => ({
+      id: `US-002-sections-${template}`,
+      defect:
+        `The ${template} DOCX omits skills and projects, which its Preview and print show and nothing hides: ` +
+        `docx-${template}.ts dispatches over mainContentOrder, which parseLayoutModel filters to summary, ` +
+        'experience and education, so its skills and projects branches cannot run.',
+      matches: ({ row, reference, values }) =>
+        row.template === template &&
+        row.family === 'visibility' &&
+        ['skills', 'projects'].includes(row.subject) &&
+        reference !== null &&
+        shown(reference) &&
+        shown(values.preview) &&
+        shown(values.pdf) &&
+        !shown(values.docx),
+    }),
+  ),
   {
-    id: 'P3-US003',
-    // Modern, an order that maps to nothing: the Preview's main column is empty, the DOCX falls back.
+    id: 'US-003-palette',
+    defect:
+      'The DOCX writes the stock hex its generator hardcodes, where the Preview and print render the colour ' +
+      "globals.css's redefined tokens or the template's inline style give: a different sRGB colour.",
+    matches: ({ row, values }) => {
+      if (row.family !== 'colour' || !isTypographyElement(row.subject)) return false
+      const stock = STOCK_TEXT_COLOUR[row.template][row.subject]
+      const palette = PREVIEW_TEXT_COLOUR[row.template][row.subject]
+      return (
+        stock !== undefined &&
+        palette !== undefined &&
+        values.docx.kind === 'colour' &&
+        values.docx.hex === stock &&
+        values.preview.kind === 'colour' &&
+        values.preview.over === undefined &&
+        coloursAgree(opaque(values.preview.hex), palette) &&
+        equal(values.pdf, values.preview) &&
+        !equal(values.docx, values.preview)
+      )
+    },
+  },
+  {
+    id: 'US-004-line-spacing',
+    defect:
+      'The Preview and print give leading as a multiple of the font size; the DOCX writes Word auto spacing, ' +
+      "which multiplies the font's single-line height instead, so the drawn leading differs whatever the " +
+      'encoded numbers. See the FINDING.',
+    matches: ({ row, values }) => {
+      if (row.family !== 'line-height' || !isTypographyElement(row.subject)) return false
+      const stock = STOCK_AUTO_SPACING[row.template][row.subject]
+      if (values.preview.kind !== 'line-height' || values.docx.kind !== 'line-height') return false
+      const docx = values.docx.lineHeight
+      const docxIsStock =
+        stock === 'normal'
+          ? docx.kind === 'normal'
+          : docx.kind === 'auto-multiple' && Math.abs(docx.ratio - stock) <= LINE_HEIGHT_TOLERANCE
+      return values.preview.lineHeight.kind === 'ratio' && equal(values.pdf, values.preview) && docxIsStock
+    },
+  },
+  {
+    id: 'US-005-letter-spacing',
+    defect:
+      'The DOCX writes the fixed characterSpacing its generator hardcodes, or none, where the Preview and ' +
+      'print draw the CSS letter-spacing: em times the font size, in twips.',
+    matches: ({ row, values }) => {
+      if (row.family !== 'letter-spacing' || !isTypographyElement(row.subject)) return false
+      const stock = STOCK_TRACKING_TWIPS[row.template][row.subject]
+      return (
+        stock !== undefined &&
+        values.docx.kind === 'twips' &&
+        values.docx.twips === stock &&
+        equal(values.pdf, values.preview) &&
+        !equal(values.docx, values.preview)
+      )
+    },
+  },
+  {
+    id: 'US-006-translucent-text',
+    defect:
+      "Modern's Preview and print draw this sidebar text in translucent white, seen as a tint of the sidebar " +
+      'colour; the DOCX writes it opaque white.',
+    matches: ({ row, values }) =>
+      row.template === 'modern' &&
+      ['sidebarLabel', 'sidebarSecondary'].includes(row.subject) &&
+      values.preview.kind === 'colour' &&
+      values.preview.over !== undefined &&
+      TRANSLUCENT_WHITE.test(values.preview.css ?? '') &&
+      equal(values.pdf, values.preview) &&
+      values.docx.kind === 'colour' &&
+      values.docx.hex === '#FFFFFF',
+  },
+  {
+    id: 'US-008-page-width',
+    defect:
+      'The DOCX page is A4 (8.27in) while the Preview document and the print (@page size: letter) are US ' +
+      'Letter (8.50in). The owner decided every resume is A4.',
+    matches: ({ row, values }) =>
+      CLASSIC_MINIMAL_CREATIVE.includes(row.template) &&
+      row.family === 'page-width' &&
+      values.preview.kind === 'length' &&
+      values.preview.inches.toFixed(2) === LETTER_INCHES &&
+      equal(values.pdf, values.preview) &&
+      values.docx.kind === 'length' &&
+      values.docx.inches.toFixed(2) === A4_INCHES,
+  },
+  ...(['classic', 'minimal'] as const).map(
+    (template): Signature => ({
+      id: `US-009-order-${template}`,
+      defect:
+        `${template}-template.tsx renders its sections in a fixed order and ignores mainContentOrder and ` +
+        'hiddenMainSections, and its print follows it; the DOCX honours both.',
+      matches: ({ row, observation, profile, reference, values }) => {
+        if (row.template !== template || !equal(values.pdf, values.preview)) return false
+        if (row.family === 'visibility') {
+          return reference !== null && !shown(reference) && shown(values.preview) && !shown(values.docx)
+        }
+        if (row.family === 'order' && row.subject === 'main') {
+          return reference !== null && !equal(values.preview, reference) && equal(values.docx, reference)
+        }
+        if (row.family === 'order' && row.subject === 'document') {
+          const modelOrder = referenceFor(profile, template).order.main ?? []
+          const docx = values.docx.kind === 'sequence' ? values.docx.keys : []
+          return (
+            !equal(values.docx, values.preview) &&
+            isSequence(values.docx, modelOrder.filter((key) => docx.includes(key))) &&
+            observation.surfaces.docx.sequence.length > 0
+          )
+        }
+        return false
+      },
+    }),
+  ),
+  {
+    id: 'US-010-empty-main',
+    defect:
+      "Modern, with a stored main order that maps to nothing: the Preview's main column is empty, because " +
+      'modern-template.tsx falls back only on a missing order, while docx-modern.ts falls back on an empty one.',
     matches: ({ row, values }) =>
       row.profile === 'modern-empty-main' &&
       row.template === 'modern' &&
@@ -407,19 +758,28 @@ const SIGNATURES: readonly { id: KnownId; matches: (context: SignatureContext) =
       shown(values.docx),
   },
   {
-    id: 'P3-US004',
+    id: 'US-011-font-size',
+    defect:
+      'Font scale and per-property sizes do not reach every surface alike: resume-preview.tsx passes no ' +
+      'fontScale to classic, minimal and creative, whose generators apply it, and the per-property sizes ' +
+      'reach the Preview but not the DOCX.',
     matches: ({ row, observation, reference, values }) => {
       if (!['classic', 'minimal', 'creative', 'modern'].includes(row.template)) return false
       if (!equal(values.pdf, values.preview) || equal(values.docx, values.preview)) return false
 
       // Surface against surface: a per-property size reached the Preview —
-      // unscaled on classic, minimal and creative, scaled on modern — and the
-      // DOCX does not agree with it.
-      if (row.family === 'font-size' && values.preview.kind === 'size') {
+      // unscaled on classic, minimal and creative, scaled on modern — while the
+      // DOCX writes its generator's stock size scaled by fontScale.
+      if (row.family === 'font-size' && values.preview.kind === 'size' && isTypographyElement(row.subject)) {
         const { model } = observation
-        const perProperty = model[PER_PROPERTY[row.subject as TypographyElement]]
+        const base = STOCK_BASE_SIZE_PX[row.template][row.subject]
+        if (base === undefined || values.docx.kind !== 'size') return false
+        const perProperty = model[PER_PROPERTY[row.subject]]
         const expectedPreviewPx = row.template === 'modern' ? perProperty * model.fontScale : perProperty
-        return Math.abs(values.preview.px - expectedPreviewPx) < 0.01
+        return (
+          Math.abs(values.preview.px - expectedPreviewPx) < 0.01 &&
+          values.docx.halfPoints === toHalfPoints(base * model.fontScale)
+        )
       }
 
       // Against the model: fontScale is not passed to the classic, minimal and
@@ -440,8 +800,100 @@ const SIGNATURES: readonly { id: KnownId; matches: (context: SignatureContext) =
     },
   },
   {
-    id: 'P3-US005',
-    // Creative: the three surfaces agree with one another and all disagree with the model.
+    id: 'US-012-font-family',
+    defect:
+      "The Preview and print draw the template's own font whatever the model's — classic's font-serif title " +
+      "and headings over the app's Inter body, minimal's and creative's Inter — while the DOCX applies the " +
+      "model's font, or Times New Roman on classic.",
+    matches: ({ row, observation, reference, values }) => {
+      if (row.family !== 'font-family' || !isTypographyElement(row.subject)) return false
+      const element = row.subject
+      const declared = TEMPLATE_DECLARED_FAMILY[row.template]?.[element]
+      if (!declared) return false
+      // The template's family is asked for AND drawn: a named family drawn as another
+      // face is a font that failed to load, which is a different defect.
+      const drawsDeclared = (surface: 'preview' | 'pdf') => {
+        const sample = observation.surfaces[surface].typography?.[element]
+        return (
+          sample !== undefined &&
+          sample.declaredFamily === declared &&
+          (GENERIC_FAMILIES.has(declared) || normaliseFamily(sample.fontFamily) === normaliseFamily(declared))
+        )
+      }
+      const docxFamily = row.template === 'classic' ? CLASSIC_DOCX_FAMILY : primaryFamily(observation.model.fontFamily)
+      return (
+        drawsDeclared('preview') &&
+        drawsDeclared('pdf') &&
+        equal(values.pdf, values.preview) &&
+        // A chosen font is the reference and the Preview ignores it. For an unchosen
+        // font the template's own font is the reference (none yet on classic), and
+        // the Preview draws it.
+        (fontChosen(observation.model)
+          ? reference !== null && !equal(values.preview, reference)
+          : reference === null || equal(values.preview, reference)) &&
+        values.docx.kind === 'family' &&
+        normaliseFamily(values.docx.name) === normaliseFamily(docxFamily) &&
+        !equal(values.docx, values.preview)
+      )
+    },
+  },
+  {
+    id: 'US-013-accent-hue',
+    defect:
+      'Part 2 finding F-A: the sidebar colour reached the Preview, but modern-template.tsx deriveAccentColor ' +
+      'matches integer HSL only and falls back to gold, while docx-modern.ts derives the accent from the ' +
+      'stored colour.',
+    // By structure, not by a colour literal: the model's sidebar colour reached
+    // the Preview intact, yet the accent derived from it disagrees with the
+    // model's derivation, while the DOCX accent agrees. The colour arrived; the
+    // derivation failed.
+    matches: ({ row, observation, reference, values }) => {
+      if (row.template !== 'modern' || row.subject !== 'accent' || reference === null) return false
+      const sidebar = observation.surfaces.preview.sidebarBackground
+      const sidebarReachedPreview =
+        sidebar !== null &&
+        equal(seenColour(sidebar, null, 'accent sidebar'), seenColour(observation.modelColours.sidebar, null, 'accent model'))
+      return (
+        sidebarReachedPreview &&
+        values.preview.kind === 'colour' &&
+        coloursAgree(opaque(values.preview.hex), opaque(MODERN_ACCENT_FALLBACK)) &&
+        !equal(values.preview, reference) &&
+        equal(values.pdf, values.preview) &&
+        equal(values.docx, reference)
+      )
+    },
+  },
+  {
+    id: 'US-014-sidebar-colour',
+    defect:
+      'Dead control: the editor offers and persists the sidebar colour for every template, and no surface of ' +
+      'this template renders it.',
+    matches: ({ row, reference, values }) =>
+      CLASSIC_MINIMAL_CREATIVE.includes(row.template) &&
+      row.family === 'colour' &&
+      row.subject === 'sidebarBackground' &&
+      reference !== null &&
+      reference.kind === 'colour' &&
+      SURFACES.every((surface) => values[surface].kind === 'not-rendered'),
+  },
+  {
+    id: 'US-014-per-property',
+    defect:
+      'Inert stored size: the model carries it, no surface of this template applies it, and the editor ' +
+      'offers no control for it here (professional receives no size props; modern accepts the setter but ' +
+      'renders no slider for this element).',
+    matches: ({ row, reference, values }) =>
+      (row.template === 'professional' || row.template === 'modern') &&
+      row.family === 'per-property' &&
+      reference !== null &&
+      responds(reference) &&
+      SURFACES.every((surface) => values[surface].kind === 'responds' && !responds(values[surface])),
+  },
+  {
+    id: 'US-015-creative-sections',
+    defect:
+      'Creative ignores section order and visibility on every surface: the Preview, print and DOCX agree ' +
+      'with each other and all disagree with the model.',
     matches: ({ row, reference, values }) =>
       row.template === 'creative' &&
       (row.family === 'visibility' || (row.family === 'order' && row.subject !== 'document')) &&
@@ -456,9 +908,6 @@ const SIGNATURES: readonly { id: KnownId; matches: (context: SignatureContext) =
 // Evaluation
 // ---------------------------------------------------------------------------
 
-/** Findings not enumerated by Part 3 that a NEW row is recognised as, by structure. */
-export type RelatedFinding = 'F-A'
-
 export interface EvaluatedRow extends Omit<RowDefinition, 'inputs'> {
   model: string
   preview: string
@@ -468,7 +917,6 @@ export interface EvaluatedRow extends Omit<RowDefinition, 'inputs'> {
   agree: string[]
   diverge: string[]
   verdict: Verdict
-  relatedFinding: RelatedFinding | null
   note: string | null
 }
 
@@ -557,7 +1005,8 @@ export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): E
       break
     }
     case 'font-family': {
-      reference = { kind: 'family', name: primaryFamily(model.fontFamily) }
+      const family = fontFamilyReference(row.template, model)
+      reference = family === null ? null : { kind: 'family', name: family }
       for (const s of SURFACES) values[s] = { kind: 'family', name: typographyOf(observation, s, row).fontFamily }
       break
     }
@@ -570,7 +1019,7 @@ export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): E
       break
     }
     case 'colour': {
-      if ((TYPOGRAPHY_ELEMENTS as readonly string[]).includes(row.subject)) {
+      if (isTypographyElement(row.subject)) {
         for (const s of SURFACES) {
           const sample = typographyOf(observation, s, row)
           values[s] = seenColour(sample.colour, sample.backdrop, `${row.id} ${s}`)
@@ -583,6 +1032,24 @@ export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): E
           if (!sample) throw new Error(`${row.id}: ${s} has no ${row.subject} measurement`)
           values[s] = seenColour(sample.colour, sample.backdrop, `${row.id} ${s}`)
         }
+        break
+      }
+      if (row.subject === 'printSidebarColumn') {
+        // The sidebar colour as each surface draws it down the column: the
+        // Preview's and the DOCX's sidebar background, and what the printed
+        // pages actually show there, band included.
+        const column = observation.printSidebarColumn
+        if (!column) throw new Error(`${row.id}: the print sidebar column was not read`)
+        reference = seenColour(observation.modelColours.sidebar, null, `${row.id} model`)
+        for (const s of ['preview', 'docx'] as const) {
+          const sample = surfaces[s].sidebarBackground
+          if (!sample) throw new Error(`${row.id}: ${s} has no sidebarBackground measurement`)
+          values[s] = seenColour(sample, null, `${row.id} ${s}`)
+        }
+        values.pdf =
+          column.colours.length === 1
+            ? { kind: 'colour', hex: column.colours[0].hex }
+            : { kind: 'colours', hexes: column.colours.map((colour) => colour.hex) }
         break
       }
       const target = row.subject === 'accent' ? 'accent' : 'sidebarBackground'
@@ -633,20 +1100,19 @@ export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): E
 
   let verdict: Verdict
   let note: string | null = null
-  let relatedFinding: RelatedFinding | null = null
   if (allMatch) {
     verdict = 'MATCH'
   } else {
-    const known = SIGNATURES.find((signature) => signature.matches(context))
-    if (known) {
-      verdict = `KNOWN: ${known.id}`
-      if (reference !== null && surfacesAgree) {
-        note = 'The surfaces agree with each other; all three disagree with the model.'
-      }
+    const known = SIGNATURES.filter((signature) => signature.matches(context))
+    if (known.length > 1) {
+      throw new Error(`${row.id} has the shape of ${known.map((k) => k.id).join(' and ')}; signatures must not overlap`)
+    }
+    if (known.length === 1) {
+      verdict = `KNOWN: ${known[0].id}`
+      note = known[0].defect
     } else {
       verdict = 'NEW'
-      relatedFinding = isFindingFA(context) ? 'F-A' : null
-      note = newDivergenceNote(context, relatedFinding)
+      note = newDivergenceNote(context)
     }
   }
 
@@ -660,79 +1126,25 @@ export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): E
     agree,
     diverge,
     verdict,
-    relatedFinding,
     note,
   }
 }
 
 /**
- * US-007 finding F-A, recognised by structure rather than by a colour literal:
- * the model's sidebar colour reached the Preview intact, yet the Preview accent
- * derived from that same colour disagrees with the model's derivation, while the
- * DOCX accent agrees with it. The colour arrived; the derivation failed.
+ * Says what a NEW divergence is, from evidence in the row alone, without
+ * attributing it to a story and without deciding which surface is right. A NEW
+ * row has, by definition, no story's shape.
  */
-function isFindingFA({ row, observation, reference, values }: SignatureContext): boolean {
-  if (row.template !== 'modern' || row.subject !== 'accent' || reference === null) return false
-  const sidebar = observation.surfaces.preview.sidebarBackground
-  const sidebarReachedPreview =
-    sidebar !== null && equal(seenColour(sidebar, null, 'F-A sidebar'), seenColour(observation.modelColours.sidebar, null, 'F-A model'))
-  return (
-    sidebarReachedPreview &&
-    !equal(values.preview, reference) &&
-    equal(values.pdf, values.preview) &&
-    equal(values.docx, reference)
-  )
-}
-
-/**
- * Says what a NEW divergence is, from evidence in the code and the row, without
- * attributing it to Part 3 and without deciding which surface is right.
- */
-function newDivergenceNote({ row, values, reference }: SignatureContext, finding: RelatedFinding | null): string | null {
+function newDivergenceNote({ row, values, reference }: SignatureContext): string | null {
   const surfacesAgree = SURFACES.every((s) => equal(values[s], values.preview))
-
-  if (finding === 'F-A') {
-    return (
-      'US-007 finding F-A: the sidebar colour reached the Preview but its accent is not derived from it ' +
-      '(modern-template.tsx deriveAccentColor matches integer HSL only and falls back), while the DOCX ' +
-      'derives the accent from the stored colour. Not enumerated by Part 3.'
-    )
-  }
 
   if (!equal(values.pdf, values.preview)) {
     return 'The PDF differs from the Preview it is printed from.'
   }
 
   switch (row.family) {
-    case 'font-family':
-      if (row.template === 'classic') {
-        return (
-          'Classic ignores the model font on every surface: the Preview draws its title and headings with ' +
-          'font-serif and its body with the app font; the DOCX uses Times New Roman throughout. Not enumerated ' +
-          'by Part 3. Whether the serif is template identity is a product question.'
-        )
-      }
-      if (row.template === 'minimal' || row.template === 'creative') {
-        return (
-          'resume-preview.tsx passes fontFamily only to the modern and professional templates, so the Preview ' +
-          'renders the app font while the DOCX applies the model font. Not enumerated by Part 3, whose US-004 ' +
-          'covers fontScale only.'
-        )
-      }
-      break
-    case 'per-property':
-      if (reference !== null && surfacesAgree) {
-        return (
-          `Inert per-property size: the model carries ${PER_PROPERTY[row.subject as TypographyElement]} and ` +
-          'no surface of this template applies it. No control for it is offered on this template either ' +
-          '(professional receives no size props; modern accepts the setter but renders no slider), so the ' +
-          'value arrives only when set on classic, minimal or creative and the template is switched. Not a dead ' +
-          'control: whether such a value should carry over is a product question. Not enumerated by Part 3.'
-        )
-      }
-      break
     case 'font-scale':
-      return 'A surface does not scale this element by the model fontScale in the way Part 3 US-004 describes.'
+      return 'A surface does not scale this element by the model fontScale in the way US-011 describes.'
     case 'letter-spacing':
       return 'Letter spacing differs; DOCX can express it (w:spacing w:val) and the generators set it for some runs.'
     case 'line-height': {
@@ -758,28 +1170,14 @@ function newDivergenceNote({ row, values, reference }: SignatureContext, finding
       return 'Line height differs.'
     }
     case 'colour':
-      if (row.subject === 'sidebarBackground' && values.preview.kind === 'not-rendered') {
-        return (
-          'Dead control: the editor offers and persists the sidebar colour for every template, and no surface ' +
-          'of this template renders it — the class of defect Part 3 US-005 names for creative order and ' +
-          'visibility only. Whether this template should use the colour or stop offering it is a product decision.'
-        )
-      }
       if (values.preview.kind === 'colour' && values.docx.kind === 'colour') {
         const seen = values.preview.over ? `, composited over ${values.preview.over} to ${values.preview.hex}` : ''
         return (
-          `The Preview renders ${values.preview.css ?? values.preview.hex}${seen}; the DOCX hardcodes ` +
-          `${values.docx.hex}, a different sRGB colour. Verified independently of the canvas (see colourChecks). ` +
-          'Not enumerated by Part 3.'
+          `The Preview renders ${values.preview.css ?? values.preview.hex}${seen}; the DOCX writes ` +
+          `${values.docx.hex}, a different sRGB colour.`
         )
       }
       break
-    case 'page-width':
-      return (
-        'The DOCX page is A4 (8.27in wide) while the Preview document and the print stylesheet ' +
-        '(@page size: letter) are US Letter (8.5in). DOCX can express Letter, as the professional and modern ' +
-        'generators do. Not enumerated by Part 3.'
-      )
     default:
       break
   }
@@ -839,6 +1237,15 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
       'the positions pdf.js reports for the text item holding each title (whitespace removed, case folded, ' +
       'each title required to occur at most once). Columns are assigned from the section catalogue, not ' +
       'measured from x.'),
+  annotation('LIMITATION', 'professional', 'PDF sidebar column colour', ['pdf'],
+    'Read from pixels, because a band painted behind the document shows only where the document does not ' +
+      'cover the page, which no computed style says. The PDF is rasterised by the same pdf.js build inside ' +
+      'Chromium at 72 dpi, and a strip 2pt from the left edge is read down the whole of every page; below the ' +
+      "last page's lowest text baseline, blank paper is not counted but any painted colour is, and a single " +
+      'row blending the two fills either side of it is an anti-aliased edge, not a colour. That reader ' +
+      'does not apply ICC colour spaces (see PDF text colour), ' +
+      'so the colours read are its own conversion; they are compared at the declared tolerance and nothing ' +
+      'they read is excused.'),
   annotation('LIMITATION', 'all', 'font family', ['preview', 'pdf', 'docx'],
     'A DOCX run names one font and carries no fallback stack, so what Word renders depends on the fonts ' +
       'installed where it is opened; which face Word would use is not observable. The Preview column is the ' +
@@ -854,9 +1261,9 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
     'The generators write CSS line-height ratios as w:lineRule="auto" multiples (for example 1.5 as line=360). ' +
       "A Word auto multiple scales the font's single-line height (ascent + descent + line gap, about 1.215 em " +
       'for Verdana), where the CSS ratio scales the font size, so Word draws visibly more leading than the ' +
-      'Preview. DOCX can express the CSS intent exactly (w:lineRule="exact" in twips). For Part 3. The ' +
-      'line-height rows report every auto multiple as NEW: this check reads no font metrics, so it does not ' +
-      'compute drawn leading, and it never lets a matching encoding stand as a MATCH.'),
+      'Preview. DOCX can express the CSS intent exactly (w:lineRule="exact" in twips). Owned by US-004, whose ' +
+      'line-height rows are expected failures under US-004-line-spacing. This check reads no font metrics, so ' +
+      'it does not compute drawn leading, and it never lets a matching encoding stand as a MATCH.'),
   annotation('LIMITATION', 'all', 'colour conversion', ['preview', 'pdf', 'docx'],
     `Compared as 8-bit sRGB with a tolerance of ${COLOUR_CHANNEL_TOLERANCE} level per channel. CSS colours are ` +
       'converted by the browser canvas and, independently, by the OKLab matrices in e2e/parity/colour.ts; a ' +
@@ -870,32 +1277,47 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
       'modern-template.tsx and docx-modern.ts (saturation +20 capped at 100, lightness +25 capped at 65); ' +
       'the reference applies that rule to the model colour.'),
   annotation('LIMITATION', 'creative', 'section reference', ['preview', 'pdf', 'docx'],
-    'Creative has no section vocabulary (Part 3 US-005). Its reference reads the editor ids creative renders: ' +
+    'Creative has no section vocabulary (Part 3 US-015). Its reference reads the editor ids creative renders: ' +
       'summary in the header, shown or hidden but not positioned; skills and languages in the left column; ' +
       'experience and education in the right. certifications and projects have no id and are expected shown; ' +
       'training and keyAchievements are inert.'),
   annotation('DECISION', 'modern', 'modern-empty-main: summary and experience against the model', ['preview', 'pdf', 'docx'],
-    "What Modern's main column should show when the stored order maps to nothing is Part 3 US-003's " +
+    "What Modern's main column should show when the stored order maps to nothing is Part 3 US-010's " +
       'decision, not yet made. Until it is, the surfaces are compared with each other.'),
   annotation('DECISION', 'modern', 'photo', ['docx'],
     'The photo is browser-local by the owner\'s decision of 2026-09-07 and reaches the DOCX only in a POST ' +
       'body; this check requests the DOCX by GET and does not compare the photo.'),
+  annotation('DECISION', 'all', 'font-not-chosen: font family reference', ['preview', 'pdf', 'docx'],
+    "The owner decided on 2026-09-15 that a stored font equal to today's default was never chosen, and that " +
+      'a template keeps its own designed font until one is: classic stays serif, minimal and creative stay ' +
+      'Inter. So these rows reference Inter on minimal and creative, and the stored font on professional and ' +
+      'modern, which the decision does not name and which draw it today. Classic has NO reference and is ' +
+      'compared surface against surface, because the decision is open there: classic draws its title and ' +
+      'headings in serif but its body text in Inter, so "classic stays serif" and "no unchosen font changes" ' +
+      'cannot both hold for classic body text. OPEN QUESTION for the owner, before Part 3 US-012: which ' +
+      'family classic body text uses when no font was chosen.'),
+  annotation('FINDING', 'professional', 'print page band colour', ['pdf'],
+    'src/app/globals.css paints body:has(.professional-template) under print with a fixed ' +
+      'oklch(0.25 0.05 240) band at 30% of 816px, independent of the model colour and width. Measured on a ' +
+      'print past one page by the multi-page profile (colour:print-sidebar-column): the sidebar element ' +
+      'covers the column on every page down to the end of the document, and the page below it is paper, so ' +
+      'the band is not seen and the row matches. It matches WHETHER OR NOT the band follows the model: the ' +
+      'body gradient ends where body ends, and html is white !important below it, so this row can never show ' +
+      "a US-013 band fix. Part 3 US-013's acceptance criterion 2, which expects a multi-page print capture to " +
+      'show the band following the sidebar colour, cannot be exercised as written; the owner must revise it ' +
+      'before US-013 starts, or that story meets the PRD BLOCKER "cannot exercise the divergence a story ' +
+      'closes". Owned by US-013.'),
   annotation('FINDING', 'modern', 'skill level bars', ['docx'],
     'The Preview draws a level bar under every skill; the DOCX lists the skills as text. DOCX can approximate ' +
-      'a bar with a shaded cell or run; omitting it is a generator choice. For Part 3. Not measured by this check.'),
+      'a bar with a shaded cell or run; omitting it is a generator choice. Owned by US-007. Not measured by ' +
+      'this check.'),
   annotation('FINDING', 'creative', 'language level bars', ['docx'],
     'The Preview draws five-segment level bars; the DOCX writes "Fluent (4/5)" text. DOCX can approximate the ' +
-      'bars with shaded cells or runs; omitting them is a generator choice. For Part 3. Not measured by this check.'),
+      'bars with shaded cells or runs; omitting them is a generator choice. Owned by US-007. Not measured by ' +
+      'this check.'),
   annotation('FINDING', 'creative', 'technology pills', ['docx'],
     'The Preview draws each technology as a filled pill; the DOCX writes bold purple text. DOCX can shade a ' +
-      'run; omitting it is a generator choice. For Part 3. Not measured by this check.'),
-  annotation('NOT EXERCISED', 'professional', 'print page band colour', ['pdf'],
-    'src/app/globals.css paints body:has(.professional-template) under print with a fixed ' +
-      'oklch(0.25 0.05 240) band at 30% of 816px, independent of the model colour and width. That ignores the ' +
-      'model and is a Part 3 candidate, but it is only visible where the sidebar element does not cover the ' +
-      'page. The professional document is at least one full Letter page and its sidebar spans the whole ' +
-      'document, so on this fixture the band is fully covered and cannot be observed. Exercising it needs ' +
-      'content longer than one page or a raster comparison of the PDF.'),
+      'run; omitting it is a generator choice. Owned by US-007. Not measured by this check.'),
 ]
 
 // ---------------------------------------------------------------------------
@@ -903,8 +1325,8 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
 // ---------------------------------------------------------------------------
 
 export interface KnownStatus {
-  id: KnownId | RelatedFinding
-  inPart3: boolean
+  id: KnownId
+  defect: string
   status: 'CONFIRMED' | 'REFUTED' | 'NOT EXERCISED'
   rows: string[]
 }
@@ -971,6 +1393,28 @@ function reportEnvironment(observations: readonly Observation[], host: HostEnvir
   }
 }
 
+/**
+ * The known-divergence list must be internally consistent before any verdict
+ * is trusted: every id has exactly one signature and at least one expected row,
+ * and every expected row is a row the check reports. A mistyped row id would
+ * otherwise expect nothing and fail nothing, and an id with no rows would sit
+ * unexercised.
+ */
+function assertKnownListConsistent(rows: readonly EvaluatedRow[]): void {
+  const expectedIds = new Set(Object.values(KNOWN_EXPECTATIONS))
+  for (const id of KNOWN_IDS) {
+    const signatures = SIGNATURES.filter((signature) => signature.id === id).length
+    if (signatures !== 1) throw new Error(`${id} has ${signatures} signatures; it needs exactly one`)
+    if (!expectedIds.has(id)) throw new Error(`${id} has no expected row in KNOWN_EXPECTATIONS`)
+  }
+  for (const signature of SIGNATURES) {
+    if (!KNOWN_IDS.includes(signature.id)) throw new Error(`Signature ${signature.id} is not in KNOWN_IDS`)
+  }
+  const reported = new Set(rows.map((row) => row.id))
+  const missing = Object.keys(KNOWN_EXPECTATIONS).filter((id) => !reported.has(id))
+  if (missing.length > 0) throw new Error(`KNOWN_EXPECTATIONS lists rows the check does not report: ${missing.join('; ')}`)
+}
+
 export function buildReport(observations: readonly Observation[], host: HostEnvironment): ParityReport {
   const resolve: ObservationResolver = ({ profile, template }) => {
     const observation = observations.find((o) => o.profile === profile && o.template === template)
@@ -978,23 +1422,19 @@ export function buildReport(observations: readonly Observation[], host: HostEnvi
     return observation
   }
   const rows = rowDefinitions().map((row) => evaluateRow(row, resolve))
+  assertKnownListConsistent(rows)
 
   const known: KnownStatus[] = KNOWN_IDS.map((id) => {
     const catalogued = Object.entries(KNOWN_EXPECTATIONS).filter(([, expected]) => expected === id)
     const confirmed = rows.filter((row) => row.verdict === `KNOWN: ${id}`)
+    const signature = SIGNATURES.find((s) => s.id === id)
+    if (!signature) throw new Error(`${id} has no signature`)
     return {
       id,
-      inPart3: true,
+      defect: signature.defect,
       status: confirmed.length > 0 ? 'CONFIRMED' : catalogued.length > 0 ? 'REFUTED' : 'NOT EXERCISED',
       rows: confirmed.length > 0 ? confirmed.map((row) => row.id) : catalogued.map(([rowId]) => rowId),
     }
-  })
-  const faRows = rows.filter((row) => row.profile === 'modern-non-integer-hue' && row.subject === 'accent')
-  known.push({
-    id: 'F-A',
-    inPart3: false,
-    status: faRows.length === 0 ? 'NOT EXERCISED' : faRows.some((row) => row.relatedFinding === 'F-A') ? 'CONFIRMED' : 'REFUTED',
-    rows: faRows.map((row) => row.id),
   })
 
   const unreconciled = rows
@@ -1099,8 +1539,8 @@ export function formatReport(report: ParityReport): string {
   out.push('KNOWN DIVERGENCES')
   out.push(
     table(
-      ['id', 'in Part 3', 'status', 'rows'],
-      report.known.map((k) => [k.id, k.inPart3 ? 'yes' : 'NO', k.status, k.rows.join('; ')]),
+      ['id', 'status', 'rows', 'defect'],
+      report.known.map((k) => [k.id, k.status, k.rows.join('; '), k.defect]),
     ),
   )
   out.push('')

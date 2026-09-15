@@ -463,9 +463,9 @@ export function ProfessionalTemplate({
                         <h3 className="mb-1 font-bold" style={{ fontSize: `${scaledJobTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>
                           {cert.name}
                         </h3>
-                        <p style={{ fontSize: `${scaledMetaFontSize}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>{cert.issuer}</p>
+                        <p style={{ fontSize: `${scaledMetaFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}>{cert.issuer}</p>
                         {cert.date && (
-                          <p style={{ fontSize: `${scaledMetaFontSize}px`, lineHeight: BODY_LINE_HEIGHT, textAlign: 'justify' }}>
+                          <p style={{ fontSize: `${scaledMetaFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}>
                             {new Date(cert.date + '-01').toLocaleDateString(locale, {
                               month: 'long',
                               year: 'numeric',
