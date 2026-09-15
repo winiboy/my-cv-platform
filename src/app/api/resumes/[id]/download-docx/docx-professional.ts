@@ -312,8 +312,9 @@ export async function generateProfessionalDocx(
               })
             )
             if (achievement.description) {
-              // Extract alignment from HTML if present
-              const descriptionAlignment = extractAlignment(achievement.description) || AlignmentType.JUSTIFIED
+              // Extract alignment from HTML if present. The fallback is LEFT, not
+              // JUSTIFIED, to match the Preview's narrow sidebar column.
+              const descriptionAlignment = extractAlignment(achievement.description) || AlignmentType.LEFT
 
               // Check if description contains a list structure
               if (isHtmlList(achievement.description)) {
