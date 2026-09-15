@@ -37,6 +37,40 @@ function Set-PrdJson {
     Set-Content -LiteralPath (Join-Path $prd 'prd.json') -Value $Content -Encoding UTF8 -NoNewline
 }
 
+# A directory below a fixture repo's root. CreateDirectory rather than
+# New-Item, because New-Item -Path treats '[id]' as a wildcard on PS 5.1 and the
+# real failure happened under src/app/api/resumes/[id]/download-docx.
+function New-SubDir {
+    param([string]$RepoPath, [string]$Relative)
+    $path = Join-Path $RepoPath $Relative
+    [System.IO.Directory]::CreateDirectory($path) | Out-Null
+    return $path
+}
+
+# A bare clone: git reports a repository and a branch, but there is no work
+# tree, so no repository root exists to hold a checked-out contract.
+function New-BareRepo {
+    param([string]$Name, [string]$SourceRepo)
+    $path = Join-Path $root $Name
+    # Local 'Continue': under the suite's 'Stop', any git stderr line (a
+    # safe.directory warning, say) would abort the whole run on PS 5.1.
+    $ErrorActionPreference = 'Continue'
+    & git clone --bare --quiet $SourceRepo $path 2>$null
+    if ($LASTEXITCODE -ne 0) { throw "fixture: git clone --bare failed for $Name" }
+    return $path
+}
+
+# A linked worktree, where .git is a file rather than a directory - the layout
+# of .claude/worktrees/*, where the original failure happened.
+function New-Worktree {
+    param([string]$Name, [string]$SourceRepo, [string]$Branch)
+    $path = Join-Path $root $Name
+    $ErrorActionPreference = 'Continue'
+    & git -C $SourceRepo worktree add --quiet -b $Branch $path 2>$null
+    if ($LASTEXITCODE -ne 0) { throw "fixture: git worktree add failed for $Name" }
+    return $path
+}
+
 # Build the various Ralph test repos
 $repoMain          = New-Repo 'r-main' 'main'
 $repoChore         = New-Repo 'r-chore' 'chore/x'
@@ -56,20 +90,69 @@ Set-PrdJson $repoRalphNoBn     '{"project":"p"}'
 Set-PrdJson $repoRalphEmptyBn  '{"project":"p","branchName":""}'
 Set-PrdJson $repoChoreWithPrd  '{"project":"p","branchName":"ralph/foo"}'
 
+# Tool calls routinely arrive with a cwd below the repository root: a subagent
+# inherits the orchestrator's shell cwd, and an earlier `cd` persists. The
+# Ralph contract lives at the root, so every verdict must be the same from
+# here as from the root. (Milestone C Part 2 US-004, 2026-09-11: every write
+# from a subdirectory was denied as "prd.json is missing".)
+$subRalphMatch    = New-SubDir $repoRalphMatch    'src/app/api/resumes/[id]/download-docx'
+$subRalphShallow  = New-SubDir $repoRalphMatch    'src'
+$subRalphMismatch = New-SubDir $repoRalphMismatch 'src/deep'
+$subRalphNoPrd    = New-SubDir $repoRalphNoPrd    'src/deep'
+$subRalphBad      = New-SubDir $repoRalphBad      'src/deep'
+$subChore         = New-SubDir $repoChore         'src/deep'
+$subMain          = New-SubDir $repoMain          'src/deep'
+$repoRalphBare    = New-BareRepo 'r-ralph-bare' $repoRalphMatch
+
+# The root must be resolved without reading a path back out of git: PS 5.1
+# decodes git's UTF-8 output with the console code page, so a non-ASCII root
+# came back garbled and a valid contract read as missing. [char] rather than a
+# literal, because PS 5.1 reads this BOM-less file as ANSI.
+$repoRalphAccent  = New-Repo ('r-ralph-c' + [char]0x00E9 + 'dric') 'ralph/foo'
+Set-PrdJson $repoRalphAccent '{"project":"p","branchName":"ralph/foo"}'
+$subRalphAccent   = New-SubDir $repoRalphAccent 'src/deep'
+# The deny twin. A garbled cwd skips every branch check and yields no-decision,
+# so the allow cases above would still pass if the payload escaping broke. This
+# one can only pass if the non-ASCII path reached git intact.
+$repoRalphAccentNoPrd = New-Repo ('r-ralph-noprd-c' + [char]0x00E9 + 'dric') 'ralph/foo'
+
+$wtRalph          = New-Worktree 'r-ralph-wt' $repoRalphMatch 'ralph/wt'
+Set-PrdJson $wtRalph '{"project":"p","branchName":"ralph/wt"}'
+$subWtRalph       = New-SubDir $wtRalph 'src/lib'
+
+# A contract planted below the root is not the contract. The raw-cwd lookup
+# accepted it; the root lookup finds none and denies.
+$repoRalphDecoy   = New-Repo 'r-ralph-decoy' 'ralph/foo'
+$subRalphDecoy    = New-SubDir $repoRalphDecoy 'src/deep'
+Set-PrdJson $subRalphDecoy '{"project":"p","branchName":"ralph/foo"}'
+
 $results = New-Object System.Collections.Generic.List[object]
 
 function Invoke-Fixture {
-    param([string]$Name, [hashtable]$InputData, [string]$Expected)
+    param([string]$Name, [hashtable]$InputData, [string]$Expected, [string]$ReasonLike)
     $json = $InputData | ConvertTo-Json -Compress -Depth 6
+    # Escape non-ASCII as \uXXXX. PS 5.1 pipes to a native process in ASCII, so
+    # a raw non-ASCII cwd would arrive as '?' and never reach the code under test.
+    # This covers the root resolution only. The hook itself also decodes stdin
+    # with the console code page, so an unescaped non-ASCII cwd from a real
+    # caller is garbled before any branch check runs - a separate, open defect.
+    $json = [regex]::Replace($json, '[^\x00-\x7F]', { param($m) '\u{0:x4}' -f [int][char]$m.Value })
     $out = $json | & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $hook
     $decision = 'no-decision'
+    $reason = ''
     if ($out) {
         try {
             $parsed = $out | ConvertFrom-Json -ErrorAction Stop
             $decision = $parsed.hookSpecificOutput.permissionDecision
+            $reason = [string]$parsed.hookSpecificOutput.permissionDecisionReason
         } catch { $decision = 'parse-error' }
     }
     $status = if ($decision -eq $Expected) { 'PASS' } else { 'FAIL' }
+    # Where the same decision can come from more than one rule, pin which one.
+    if ($status -eq 'PASS' -and $ReasonLike -and -not $reason.Contains($ReasonLike)) {
+        $status = 'FAIL'
+        $decision = "$decision(reason)"
+    }
     $script:results.Add([pscustomobject]@{
         Name     = $Name
         Decision = $decision
@@ -91,6 +174,31 @@ $fixtures = @(
     @{ Name='RALPH: ralph mismatch, Read allowed';   Data=@{tool_name='Read';  tool_input=@{file_path='x'}; cwd=$repoRalphMismatch}  ; Exp='no-decision' },
     @{ Name='RALPH: ralph match, Bash git status';   Data=@{tool_name='Bash';  tool_input=@{command='git status'}; cwd=$repoRalphMatch}; Exp='no-decision' },
     @{ Name='RALPH: ralph mismatch, Bash git add';   Data=@{tool_name='Bash';  tool_input=@{command='git add src/x'}; cwd=$repoRalphMismatch}; Exp='deny' },
+
+    # --- Ralph contract resolves from the repository root, not the cwd ---
+    @{ Name='RALPH-CWD: match, [id] subdir, Write';   Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$subRalphMatch}      ; Exp='no-decision' },
+    @{ Name='RALPH-CWD: match, [id] subdir, Edit';    Data=@{tool_name='Edit';  tool_input=@{file_path='x'}; cwd=$subRalphMatch}      ; Exp='no-decision' },
+    @{ Name='RALPH-CWD: match, [id] subdir, git add'; Data=@{tool_name='Bash';  tool_input=@{command='git add -- src/x.ts'}; cwd=$subRalphMatch}; Exp='no-decision' },
+    @{ Name='RALPH-CWD: match, one level down, Write';Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$subRalphShallow}    ; Exp='no-decision' },
+    @{ Name='RALPH-CWD: mismatch, subdir, Write';     Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$subRalphMismatch}   ; Exp='deny' },
+    @{ Name='RALPH-CWD: no prd at root, subdir, Write';Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$subRalphNoPrd}     ; Exp='deny' },
+    @{ Name='RALPH-CWD: malformed prd, subdir, Write';Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$subRalphBad}        ; Exp='deny' },
+    @{ Name='RALPH-CWD: chore/x, subdir, Write';      Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$subChore}           ; Exp='no-decision' },
+    @{ Name='RALPH-CWD: main, subdir, Write';         Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$subMain}            ; Exp='deny' },
+    @{ Name='RALPH-CWD: match, subdir, git push';     Data=@{tool_name='Bash';  tool_input=@{command='git push'}; cwd=$subRalphMatch} ; Exp='ask' },
+    @{ Name='RALPH-CWD: match, subdir, push --force'; Data=@{tool_name='Bash';  tool_input=@{command='git push --force'}; cwd=$subRalphMatch}; Exp='deny' },
+    @{ Name='RALPH-CWD: match, subdir, cat .env';     Data=@{tool_name='Bash';  tool_input=@{command='cat .env'}; cwd=$subRalphMatch} ; Exp='deny' },
+    # No work tree: the root cannot be resolved, so the contract cannot be
+    # verified. That must deny, never fall through to allow.
+    # Why= pins the rule: the raw-cwd lookup also denied here, as "missing".
+    @{ Name='RALPH-CWD: bare repo, Write';            Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$repoRalphBare}      ; Exp='deny'; Why='no repository work tree' },
+    @{ Name='RALPH-CWD: bare repo, git add';          Data=@{tool_name='Bash';  tool_input=@{command='git add -- src/x.ts'}; cwd=$repoRalphBare}; Exp='deny'; Why='no repository work tree' },
+    @{ Name='RALPH-CWD: bare repo, Read allowed';     Data=@{tool_name='Read';  tool_input=@{file_path='x'}; cwd=$repoRalphBare}      ; Exp='no-decision' },
+    @{ Name='RALPH-CWD: non-ASCII root, Write';       Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$repoRalphAccent}    ; Exp='no-decision' },
+    @{ Name='RALPH-CWD: non-ASCII root, subdir, Write';Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$subRalphAccent}    ; Exp='no-decision' },
+    @{ Name='RALPH-CWD: non-ASCII root, no prd, Write';Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$repoRalphAccentNoPrd}; Exp='deny'; Why='prd.json is missing' },
+    @{ Name='RALPH-CWD: worktree, subdir, Write';     Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$subWtRalph}         ; Exp='no-decision' },
+    @{ Name='RALPH-CWD: decoy prd in subdir, Write';  Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$subRalphDecoy}      ; Exp='deny'; Why='prd.json is missing' },
 
     # --- Safe staging classifier ---
     @{ Name='STAGE: git add explicit file';          Data=@{tool_name='Bash'; tool_input=@{command='git add src/a.ts'};       cwd=$featCwd}; Exp='no-decision' },
@@ -302,7 +410,7 @@ $fixtures = @(
 )
 
 foreach ($f in $fixtures) {
-    Invoke-Fixture -Name $f.Name -InputData $f.Data -Expected $f.Exp
+    Invoke-Fixture -Name $f.Name -InputData $f.Data -Expected $f.Exp -ReasonLike $f.Why
 }
 
 # Print results
