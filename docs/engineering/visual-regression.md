@@ -29,6 +29,7 @@ cookies, none of which move when a column shifts by 40 pixels.
 | Section order, spacing, typography, colour as rendered | The editor surface |
 | The full document height, top to bottom, in each medium | Cover letter templates |
 | Layout settings resolved the way a real request resolves them | 24 of the 26 template `print:hidden` sites — see below |
+| 2 of the 26 template `print:hidden` sites, with an assertion that reports it if that number moves — on a local run, like everything else here | — |
 
 The DOCX export draws from a separate generator (`download-docx/`) and needs its
 own evidence. A green visual run says nothing about it.
@@ -100,18 +101,122 @@ at all, for structural reasons:
 
 | Sites | Why they cannot appear in the capture |
 |---|---|
-| 12 — classic ×5, minimal ×5, creative ×2 | `position: absolute; left: 100%; margin-left: 48px` off a **full-width** ancestor, which puts them past the document's 816px box. An element screenshot clips there. The two observed `creative` sliders use the identical rule off a **half-width** column, which is why they land inside |
+| 12 — classic ×5, minimal ×5, creative ×2 | `position: absolute; left: 100%; margin-left: 48px` off a **full-width** ancestor, which lands them on or past the document's 816px edge (`minimal`'s overlap it by 3px and are excluded by strict containment — see below). An element screenshot clips there. The two observed `creative` sliders use the identical rule off the **one-third-width** left column of a `grid-cols-3` body, which is why they land inside |
 | 8 — professional | Gated on `setSidebarWidth` / `setSidebarTopMargin` / `setMainContentTopMargin`, none of which `resume-preview-wrapper.tsx` passes at any value of `showControls`. They never render on this route |
 | 4 — modern | Three are `opacity-0` until hover; one renders only during background removal |
 
-The remaining 7 of the 33 in `src` are page chrome outside
-`[data-testid=resume-document]` — the dashboard layout, the preview page
-header, the unsaved-changes banner, the formatting ribbon, the achievements
-toolbar, the branch indicator. No element screenshot of the document can see
-them.
+The remaining 7 of the 33 — that is, everything left once the 26 template sites
+are accounted for — are page chrome outside `[data-testid=resume-document]`: the
+dashboard layout, the preview page header, the unsaved-changes banner, the
+formatting ribbon, the achievements toolbar, the branch indicator. No element
+screenshot of the document can see them.
 
 So the claim this suite supports is: *`print:hidden` is under observation where
 it is observable*, and the boundary is written down rather than rounded up.
+
+### The two observable sites are asserted, not assumed
+
+A coverage of 2 of 26 is only worth stating if it cannot quietly become 0 of 26,
+and on its own it can. Both observed sliders carry `print:hidden`, so by
+construction neither appears in `creative-print.png`. Remove them, stop passing
+`setSectionTitleFontSize` / `setSectionDescFontSize`, or relocate them off a
+wider ancestor so they fall outside the 816px box, and the committed PNG stays
+**byte-identical**, every test stays green, and the suite guards nothing on this
+front. Nothing in a golden-image comparison can report the disappearance of
+something it was never allowed to draw.
+
+Every print test therefore counts first:
+
+```ts
+const OBSERVABLE_CONTROLS: Record<ResumeTemplate, number> = {
+  professional: 0, modern: 0, classic: 0, minimal: 0, creative: 2,
+}
+```
+
+`expectPrintHiddenStaysObserved` runs under **screen** media, before
+`emulateMedia`, and asserts that exactly that many `input[type="range"]`
+controls are drawn inside the document's own box.
+
+**How far that selector reaches, since the zeros are not all alike.** Range
+inputs exist in three templates only — classic 5, minimal 5, creative 4, one per
+`print:hidden` site in each, so **14 of the 26 sites are inside the selector at
+all**. `professional` contains no `<input>` element (its 8 sites are drag-arrow
+`<span>`s) and `modern`'s 4 are three `<div>`s and a `<button>`. The zeros therefore
+mean two different things:
+
+- `classic: 0` and `minimal: 0` are **measured**. Their sliders render — fewer
+  than five each, because the description slider appears in both mutually
+  exclusive branches of an `achievements?.length ? … : description ? …` ternary
+  and this fixture takes the first — and every one that does render is excluded
+  by geometry alone. One relocating inside the box would redden the suite, which
+  is the drift worth catching: it would make the "2 of 26" above wrong.
+- `professional: 0` and `modern: 0` are **structural**. The selector matches
+  nothing in either template, so these two numbers cannot move whatever their
+  twelve sites (professional 8, modern 4) do — passing `professional`'s setters
+  would put its resize handles inside the document and this count would still
+  read zero. They keep
+  the `Record` exhaustive; they are not coverage.
+
+Three choices in the check are deliberate:
+
+- **Drawn, not merely present.** Whether a control reaches the image is decided
+  by whether it lands inside the element being screenshotted — which is why
+  twelve of the 26 (classic 5, minimal 5, creative 2) are unreachable on
+  geometry alone — so containment in the document's
+  rect is the first test. But `getBoundingClientRect` reports a full-size box
+  for something `visibility: hidden` or `opacity: 0`; only `display: none`
+  collapses it, and either state is one where deleting `print:hidden` produces
+  no pixel diff while a geometry-only count still says two. Hence
+  `checkVisibility`. `toBeAttached()` alone would pass for all of it. The shape
+  is not invented — `modern` uses `print:hidden opacity-0
+  group-hover:opacity-100` at three sites — though those particular sites are
+  outside this selector and were never at risk of being miscounted; they are the
+  in-house pattern `creative`'s sliders could plausibly be unified onto. What is
+  *not* covered is clipping by an intermediate `overflow: hidden` ancestor —
+  which a hit-test would not catch either, since the clipped control's centre
+  still lands on the document's own painted area — nor a control straddling the
+  document's edge, since containment is strict and a partly-drawn control counts
+  as zero rather than as a half. **Both limits have live instances**, which is
+  the honest version of this paragraph and the useful one:
+
+  | Limit | Instance today | Why it is harmless so far |
+  |---|---|---|
+  | `overflow: hidden` ancestor | `creative`'s header (`creative-template.tsx:53`) clips the two header sliders at `:62` and `:96` | They also land 21px outside the 816px box, so geometry rejects them first |
+  | Straddling the edge | `minimal`'s `p-16` puts each rendered slider's input **3px inside** the right edge under screen media (measured: input left 1173, edge 1176); all four are partly drawn and count as nothing. `classic`'s `p-12` lands its inputs 13px clear, so it does not straddle | Those sliders are `print:hidden`, and the screen capture runs with controls off |
+
+  Three pixels is a coincidence, not a design. Move either case inward and the
+  count starts reporting a control that is never painted, or discarding one that
+  is — which is the thing to check first if this number ever surprises you.
+- **Screen media, not print.** Under print these controls are `display: none`
+  and have no box. That is the utility working; measuring there would return
+  zero every run.
+- **`input[type="range"]`, not the `print:hidden` class.** Selecting on the
+  class would make *deleting* `print:hidden` fail at the assertion, before
+  `toHaveScreenshot` runs — and for that case the pixel diff is the better
+  failure, because it shows the chrome baked into the document. The assertion
+  answers the other question: is there still anything for `print:hidden` to hide
+  where the capture can see it. Mutation 3 below demonstrates both halves.
+
+And the count is asserted for exact equality rather than as a floor, because a
+number that drifts upward unnoticed makes this page wrong just as surely as one
+that drifts down: if `classic`'s or `minimal`'s sliders ever land inside the
+box, the "2 of 26" above is stale and the suite should say so. One caveat on
+that, stated because the spec states it too: `expect.poll` stops at the first
+matching sample, so it waits for `creative`'s count to *reach* two but satisfies
+the zeros immediately. Upward drift is caught if it is present at first paint,
+not if it only appears after the wrapper's post-mount settle. Neither template
+moves its sliders after first paint today, so nothing turns on it — but note
+that `minimal`'s are only 3px from being counted, so this is the pair to
+re-measure if layout work ever shifts them.
+
+This matters now rather than in the abstract: Milestone C Part 2
+(`tasks/prds/milestone-c-part-2-exports-and-parity.md`) changes layout state
+ownership across these components, including the setter props that gate both
+sliders.
+
+If a change legitimately alters the count, correct `OBSERVABLE_CONTROLS`, update
+this document, and re-run the mutations below. Deleting the assertion to obtain
+a green run has the same status as widening a threshold to obtain one.
 
 ### What else differentiates the two captures
 
@@ -128,8 +233,11 @@ clips to the element's own box and a `box-shadow` falls outside it.
 Playwright stops a test at its first failed assertion, so a combined test would
 hide the print result whenever screen failed — and the asymmetry between the two
 is the diagnostic: both red means layout moved, print-only red means the print
-stylesheet moved. The extra cost is one navigation per template, not one build;
-the production build that dominates this suite's runtime happens once per run.
+stylesheet moved. The extra cost is a whole extra fixture per template — another
+created user, another **real form login** (`e2e/fixtures/auth.ts` signs in
+through the page rather than injecting a cookie), another seeded resume, another
+navigation — so a full run does ten of each rather than five. What it is not is
+an extra build, and the production build is what dominates this suite's runtime.
 
 That asymmetry has been demonstrated, not assumed — see *Proving it can fail*
 below.
@@ -212,9 +320,10 @@ tolerance to make a run green converts the suite into decoration.
 ## Proving it can fail
 
 A golden image that never goes red is decoration too, so the print coverage was
-mutation-tested rather than assumed to work. Both mutations below were re-run
-against the current controls-on print baselines; the figures are from those
-runs, not from an earlier state of the suite.
+mutation-tested rather than assumed to work. Every figure below comes from a run
+against the committed controls-on print baselines, not from an earlier state of
+the suite: Mutations 1 and 2 were re-run when the print captures were added,
+Mutation 3 when the observability guard was.
 
 ### Mutation 1 — `print:p-8`, proving print media is in effect
 
@@ -264,6 +373,40 @@ If you make those 24 sites observable — by capturing the page rather than the
 element, or by driving the editor route where `professional`'s setters are
 passed — re-run this mutation and expect four more reds.
 
+### Mutation 3 — the observability guard itself
+
+Mutation 2 leaves a gap it cannot close on its own. It proves the print baseline
+reddens when `print:hidden` is deleted *while the two creative sliders are still
+being drawn*. It says nothing about the case where they stop being drawn — which
+is the one that leaves the PNG byte-identical and every test green. So the guard
+was mutation-tested too. Only the two `creative` tests were run each time.
+
+| Mutation | `renders as approved` (screen) | `prints as approved` |
+|---|---|---|
+| `resume-preview-wrapper.tsx` stops passing `setSectionTitleFontSize` and `setSectionDescFontSize` | **passed** | **failed at the assertion**: `Expected: 2 / Received: 0` |
+| `print:hidden` deleted from both observed `creative` sliders | **passed** | assertion **passed**, then **failed on pixels**: 1,112 different |
+| `opacity-0` added to both observed `creative` sliders, `print:hidden` left intact | **passed** | **failed at the assertion**: `Expected: 2 / Received: 0` |
+
+Row 2 is the point of the design. Deleting the utility is caught by the image,
+where the diff shows the chrome baked into the document; the assertion stays out
+of the way and answers only the question the image cannot — whether there is
+still anything there to hide. Its 1,112 pixels are the same figure Mutation 2
+produced, as expected: the same two sliders reaching the same print capture.
+
+Row 3 is why the count is not pure geometry. `opacity-0` leaves
+`getBoundingClientRect` reporting a full-size box inside the document, so a
+containment-only check counts two while nothing is drawn and deleting
+`print:hidden` would produce no diff at all — a green suite claiming coverage it
+does not have. It is not a hypothetical shape: `modern` already uses
+`print:hidden opacity-0 group-hover:opacity-100` at three of its four sites —
+outside this selector, so never miscounted, but it is the in-house pattern
+Milestone C Part 2 could plausibly unify `creative`'s sliders onto, and this row
+is what that would look like. The `checkVisibility` term exists for it; without
+that term the assertion reports two and stays green.
+
+All three mutations were reverted, `git diff -- src/` is empty, and the full
+suite returned to 10 green.
+
 ### Screen versus print, per template
 
 Each committed print baseline already differs from its screen counterpart by
@@ -271,7 +414,7 @@ tens of thousands of pixels. Measured with **exact RGBA equality** — any
 channel differing counts the pixel — over the **overlapping region only**, on
 the committed baselines:
 
-| Template | Screen | Print | Differing pixels (exact) | Rows touched | Same at `threshold: 0.2` |
+| Template | Screen | Print | Differing pixels (exact) | Rows touched | Differing pixels at `threshold: 0.2` |
 |---|---|---|---|---|---|
 | professional | 816×1056 | 816×1056 | 88,602 | 608 | 48,656 |
 | modern | 816×1056 | 816×1056 | 105,405 | 761 | 40,572 |
@@ -279,10 +422,18 @@ the committed baselines:
 | minimal | 816×1711 | 816×1663 | 136,210 (+39,168 outside the overlap) | 967 | 49,003 |
 | creative | 816×1154 | 816×1080 | 388,932 (+60,384 outside the overlap) | 1,044 | 92,697 |
 
-The threshold matters, so both columns are given: exact equality is the honest
-measure of "these are different images", while `threshold: 0.2` is the
-suite's own tolerance and is what a real comparison is judged against. Either
-way the smallest of these is 338× `maxDiffPixels: 120`.
+Both columns count *differing* pixels; they differ only in how strictly
+"differing" is defined. Exact equality is the honest measure of "these are two
+different images", while `threshold: 0.2` is the suite's own tolerance and is
+what a real comparison is judged against — which is why the second column is
+always the smaller of the two.
+
+`threshold` is pixelmatch's matching threshold, and pixelmatch measures the
+distance between two pixels in **YIQ** colour space, not per channel. `0.2` is
+therefore a single normalised perceptual distance below which a pixel counts as
+unchanged — not a ±20% allowance on R, G and B independently, and not a claim
+that the pixels are identical. Either way the smallest number in either column
+is 338× `maxDiffPixels: 120`.
 
 **`professional` and `modern` are 816×1056 in both media** because both pin
 `minHeight: '1056px'`; their print padding moves inside that fixed box.
