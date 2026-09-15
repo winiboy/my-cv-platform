@@ -1,5 +1,5 @@
 /**
- * US-008: colour conversion done without the browser, to check the browser.
+ * Part 2 US-008: colour conversion done without the browser, to check the browser.
  *
  * The Preview's colours are read with `getComputedStyle` and converted to
  * 8-bit sRGB by drawing them on a canvas. A canvas that silently failed to
@@ -29,6 +29,23 @@ export function coloursAgree(a: ConvertedColour, b: ConvertedColour): boolean {
   if (a.alpha !== b.alpha) return false
   const [x, y] = [channels(a.hex), channels(b.hex)]
   return x.every((channel, i) => Math.abs(channel - y[i]) <= COLOUR_CHANNEL_TOLERANCE)
+}
+
+/**
+ * Whether `colour` is `a` and `b` mixed at a single coverage strictly between
+ * them — the anti-aliased pixel a rasteriser draws where an edge between the
+ * two crosses it — with every channel within the tolerance, and distinct from
+ * both ends.
+ */
+export function isBlendOf(colour: ConvertedColour, a: ConvertedColour, b: ConvertedColour): boolean {
+  if (coloursAgree(colour, a) || coloursAgree(colour, b)) return false
+  const [c, x, y] = [channels(colour.hex), channels(a.hex), channels(b.hex)]
+  const span = x.map((value, i) => y[i] - value)
+  const length = span.reduce((sum, d) => sum + d * d, 0)
+  if (length === 0) return false
+  const coverage = c.reduce((sum, value, i) => sum + (value - x[i]) * span[i], 0) / length
+  if (coverage <= 0 || coverage >= 1) return false
+  return c.every((value, i) => Math.abs(value - (x[i] + coverage * span[i])) <= COLOUR_CHANNEL_TOLERANCE)
 }
 
 /**

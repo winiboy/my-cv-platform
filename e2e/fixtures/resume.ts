@@ -163,6 +163,17 @@ export const FIXTURE_PROJECTS = [
   },
 ]
 
+export type FixtureExperience = (typeof FIXTURE_EXPERIENCE)[number]
+
+/**
+ * Content that replaces the fixture's own. Anything not named keeps the fixture
+ * value, so a caller that passes nothing seeds exactly what every baseline was
+ * captured from.
+ */
+export interface FixtureContentOverrides {
+  experience?: readonly FixtureExperience[]
+}
+
 export interface SeededResume {
   id: string
   userId: string
@@ -178,7 +189,8 @@ export interface SeededResume {
  */
 export async function seedFixtureResume(
   userId: string,
-  template: ResumeTemplate
+  template: ResumeTemplate,
+  overrides: FixtureContentOverrides = {}
 ): Promise<SeededResume> {
   const { data, error } = await admin()
     .from('resumes')
@@ -188,7 +200,7 @@ export async function seedFixtureResume(
       template,
       contact: FIXTURE_CONTACT,
       summary: FIXTURE_SUMMARY,
-      experience: FIXTURE_EXPERIENCE,
+      experience: overrides.experience ?? FIXTURE_EXPERIENCE,
       education: FIXTURE_EDUCATION,
       skills: FIXTURE_SKILLS,
       languages: FIXTURE_LANGUAGES,
