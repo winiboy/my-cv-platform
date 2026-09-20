@@ -6,6 +6,8 @@
 /**
  * Sanitize HTML to prevent XSS attacks
  * Only allows safe formatting tags and inline styles
+ *
+ * Client-only: requires `document`.
  */
 export function sanitizeHtml(html: string): string {
   if (!html) return ''
@@ -138,6 +140,8 @@ export function htmlToPlainText(html: string): string {
 /**
  * Convert plain text to HTML
  * Detects line breaks, bullet points, and numbered lists
+ *
+ * Client-only: requires `document`.
  */
 export function migrateTextToHtml(text: string): string {
   if (!text) return ''
@@ -145,8 +149,42 @@ export function migrateTextToHtml(text: string): string {
   // If already HTML, return as is
   if (/<[^>]+>/.test(text)) return text
 
+  // Past this point the input has no complete tag, but that does not make it
+  // safe text: `<img src=x onerror=...//` has no closing `>` and would be
+  // completed by the `>` of the wrapping `</p>`. So every piece of text is
+  // escaped before it is wrapped.
+  //
+  // Tagless input can also be HTML the editor saved itself: a single typed
+  // line is stored as its serialized text node, e.g. `R&amp;D &lt; 5%`. It has
+  // always been rendered as HTML (showing `R&D < 5%`), so entities are decoded
+  // first; otherwise escaping would double-encode them on every save.
+  //
+  // Both helpers are defined inline because this function is injected via
+  // toString() in e2e tests, where module-level helpers do not exist.
+  const decodeEntities = (value: string): string => {
+    // Markup assigned to a textarea is parsed as RCDATA: entities are decoded
+    // but no elements are created, so nothing in the input can load or run.
+    // That parse also normalizes CRLF and lone CR to LF, so text stored with
+    // Windows line endings now splits into paragraphs where it previously
+    // carried a stray CR into the output; that difference is accepted.
+    const textarea = document.createElement('textarea')
+    textarea.innerHTML = value
+    return textarea.value
+  }
+  const escapeHtml = (value: string): string =>
+    value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+
+  // Decoded once up front so that bullet and number detection see the text
+  // as rendered (a stored `&bull; item` is a bullet).
+  const decoded = decodeEntities(text)
+
   // Split into paragraphs
-  const paragraphs = text.split(/\n\n+/)
+  const paragraphs = decoded.split(/\n\n+/)
 
   let html = ''
 
@@ -161,7 +199,7 @@ export function migrateTextToHtml(text: string): string {
       html += '<ul>'
       lines.forEach(line => {
         const content = line.replace(/^[•\-\*]\s+/, '').trim()
-        html += `<li>${content}</li>`
+        html += `<li>${escapeHtml(content)}</li>`
       })
       html += '</ul>'
       return
@@ -172,17 +210,17 @@ export function migrateTextToHtml(text: string): string {
       html += '<ol>'
       lines.forEach(line => {
         const content = line.replace(/^\d+[\.\)]\s+/, '').trim()
-        html += `<li>${content}</li>`
+        html += `<li>${escapeHtml(content)}</li>`
       })
       html += '</ol>'
       return
     }
 
     // Regular paragraph
-    html += `<p>${para.replace(/\n/g, '<br>')}</p>`
+    html += `<p>${escapeHtml(para).replace(/\n/g, '<br>')}</p>`
   })
 
-  return html || `<p>${text}</p>`
+  return html || `<p>${escapeHtml(decoded)}</p>`
 }
 
 /**
