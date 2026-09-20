@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 import { LOCAL_SUPABASE_URL, LOCAL_ANON_KEY, assertLocalSupabase } from './src/test/local-stack'
+import { nestedClaudeDirIgnore } from './src/test/nested-worktrees'
 
 /**
  * Parity check configuration (US-008).
@@ -56,7 +57,7 @@ const BASE_URL = `http://127.0.0.1:${PORT}`
 
 export default defineConfig({
   testDir: './e2e/parity',
-  testIgnore: ['**/node_modules/**', '**/.claude/**', '**/.next/**'],
+  testIgnore: ['**/node_modules/**', nestedClaudeDirIgnore(__dirname), '**/.next/**'],
   outputDir: './test-results-parity',
 
   // A collect test renders one template to three surfaces behind a login.
