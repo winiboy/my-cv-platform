@@ -4,12 +4,15 @@ import { defineConfig } from 'vitest/config'
 /**
  * Unit-test configuration.
  *
- * Scope is deliberately narrow: pure, deterministic functions only. Tests live
- * beside the module they cover as `<module>.test.ts`.
+ * Scope is pure, deterministic functions plus components rendered to a string
+ * with `react-dom/server`. Tests live beside the module they cover as
+ * `<module>.test.ts`.
  *
- * `environment: 'node'` is correct while this suite covers pure logic. Adding
- * React component tests later requires a DOM environment and a separate
- * project entry rather than changing this one globally.
+ * `environment: 'node'` is not a limitation here, it is the subject: the server
+ * render is precisely what has no DOM, and a jsdom environment would hide the
+ * failures these tests exist to catch. A component test that needs to mount,
+ * click or hydrate does need a DOM, and that belongs in a separate project
+ * entry rather than in a global change to this one.
  */
 export default defineConfig({
   test: {

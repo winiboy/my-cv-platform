@@ -172,6 +172,7 @@ export type FixtureExperience = (typeof FIXTURE_EXPERIENCE)[number]
  */
 export interface FixtureContentOverrides {
   experience?: readonly FixtureExperience[]
+  summary?: string
 }
 
 export interface SeededResume {
@@ -199,7 +200,7 @@ export async function seedFixtureResume(
       title: `Visual baseline - ${template}`,
       template,
       contact: FIXTURE_CONTACT,
-      summary: FIXTURE_SUMMARY,
+      summary: overrides.summary ?? FIXTURE_SUMMARY,
       experience: overrides.experience ?? FIXTURE_EXPERIENCE,
       education: FIXTURE_EDUCATION,
       skills: FIXTURE_SKILLS,

@@ -34,6 +34,21 @@ function renderInWrapper(node: ReactNode): string {
   return renderToString(createElement('section', null, node))
 }
 
+/**
+ * Assert that `html` holds exactly `count` `<div>`s carrying `className`, and
+ * that every one of them is empty.
+ *
+ * Both halves matter: the wrapper has to be emitted so the hydrated DOM keeps
+ * the structure the browser render will fill in, and it has to be empty
+ * because the server cannot sanitize. Matching the tag as a fixed string
+ * instead would break as soon as anyone adds an attribute to the wrapper -
+ * a change that says nothing about whether the payload leaked.
+ */
+function expectEmptyWrappers(html: string, className: string, count: number): void {
+  const wrappers = html.match(new RegExp(`<div\\b[^>]*class="${className}"[^>]*></div>`, 'g'))
+  expect(wrappers ?? []).toHaveLength(count)
+}
+
 const COVER_LETTER: CoverLetter = {
   id: '00000000-0000-4000-8000-000000000001',
   user_id: '00000000-0000-4000-8000-000000000002',
@@ -67,8 +82,7 @@ describe('server rendering of rich HTML', () => {
     }).not.toThrow()
 
     expectNoPayload(html)
-    // The wrapper is still emitted so the hydrated DOM keeps its structure.
-    expect(html).toContain('<div class="formatted-content"></div>')
+    expectEmptyWrappers(html, 'formatted-content', 1)
   })
 
   it('renderFormattedHtml renders HTML content without touching the DOM or leaking the payload', () => {
@@ -78,7 +92,7 @@ describe('server rendering of rich HTML', () => {
     }).not.toThrow()
 
     expectNoPayload(html)
-    expect(html).toContain('<div class="formatted-content"></div>')
+    expectEmptyWrappers(html, 'formatted-content', 1)
   })
 
   it('renderFormattedHtml renders legacy plain text without touching the DOM', () => {
@@ -87,7 +101,7 @@ describe('server rendering of rich HTML', () => {
       html = renderInWrapper(renderFormattedHtml('Plain line\n\n- one\n- two'))
     }).not.toThrow()
 
-    expect(html).toContain('<div class="formatted-content"></div>')
+    expectEmptyWrappers(html, 'formatted-content', 1)
   })
 
   it('renderFormattedText still renders plain text on the server', () => {
@@ -105,7 +119,7 @@ describe('server rendering of rich HTML', () => {
 
     expectNoPayload(html)
     // Opening + two body paragraphs share one class; the closing has its own.
-    expect(html.match(/<div class="mb-4 text-justify"><\/div>/g)).toHaveLength(3)
-    expect(html).toContain('<div class="mb-6 text-justify"></div>')
+    expectEmptyWrappers(html, 'mb-4 text-justify', 3)
+    expectEmptyWrappers(html, 'mb-6 text-justify', 1)
   })
 })

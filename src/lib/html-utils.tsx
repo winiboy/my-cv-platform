@@ -4,8 +4,11 @@
  */
 
 // This import is circular: sanitized-html imports sanitizeHtml from here. That
-// is safe because neither module reads the other's exports while it is being
-// evaluated - both are only referenced inside function bodies at render time.
+// is safe because both bindings are function DECLARATIONS, which ESM hoists and
+// initialises during module instantiation - so whichever of the two modules is
+// evaluated second already finds the other's binding defined rather than in the
+// temporal dead zone. Converting either to a `const` arrow function would break
+// that at import time, not at render time.
 import { SanitizedHtml } from '@/components/sanitized-html'
 
 /**

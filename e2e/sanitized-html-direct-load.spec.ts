@@ -26,8 +26,9 @@ import {
  *      the DOM, so the server renders an empty wrapper rather than the raw
  *      HTML; if it ever rendered the raw HTML instead, the `onerror` handler
  *      and the inline script would be live markup before hydration.
- *   3. After hydration the permitted formatting is present and the forbidden
- *      elements are not, and neither injected handler ever ran.
+ *   3. After hydration the page shows what only the browser can produce - the
+ *      sanitized formatting, or the character count derived from it - and,
+ *      where the rendered content is asserted, no injected handler ran.
  *
  * Seeded rows belong to `authedUser` and are removed with it: resumes and
  * cover letters both cascade from the user's profile.
@@ -54,6 +55,7 @@ function payload(boldText: string): string {
 }
 
 const RESUME_BOLD = 'Direct load bold'
+const SUMMARY_BOLD = 'Summary bold'
 const LETTER_OPENING_BOLD = 'Letter opening bold'
 const LETTER_BODY_BOLD = 'Letter body bold'
 const LETTER_CLOSING_BOLD = 'Letter closing bold'
@@ -94,7 +96,19 @@ async function seedHtmlCoverLetter(user: TestUser): Promise<string> {
 }
 
 /**
- * Load `path` directly and assert on the server's own response.
+ * What `htmlToPlainText` makes of `payload(SUMMARY_BOLD)`.
+ *
+ * Every tag is dropped and the text of the remaining nodes is concatenated.
+ * The `<img>` contributes nothing; the `<script>` contributes its source text,
+ * because to the DOM that is text content like any other. That quirk belongs to
+ * the counter and is not what this test is about - it is written out here so
+ * the expected length is a value a reader can check rather than a bare number.
+ */
+const SUMMARY_PLAIN_TEXT = `${SUMMARY_BOLD} textwindow.__xss=2`
+
+/**
+ * Load `path` directly and assert on the server's own response, returning the
+ * server HTML so a caller can make further assertions about it.
  *
  * The React Server Components payload is inlined into the page as script
  * strings, and it legitimately carries the stored content - JSON-encoded, with
@@ -102,7 +116,7 @@ async function seedHtmlCoverLetter(user: TestUser): Promise<string> {
  * before looking for the payload, and the whole document is separately checked
  * for the payload's markup in unescaped form.
  */
-async function loadDirectly(page: Page, path: string): Promise<void> {
+async function loadDirectly(page: Page, path: string): Promise<string> {
   const response: Response | null = await page.goto(path)
   expect(response, `no response for ${path}`).not.toBeNull()
   expect(response!.status()).toBe(200)
@@ -114,6 +128,8 @@ async function loadDirectly(page: Page, path: string): Promise<void> {
   const markup = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
   expect(markup).not.toContain('onerror')
   expect(markup).not.toContain('window.__xss')
+
+  return html
 }
 
 async function expectSanitized(container: Locator, boldText: string): Promise<void> {
@@ -173,4 +189,42 @@ test('a cover letter with HTML paragraphs loads directly and renders them saniti
     await expectSanitized(paragraph, boldText)
   }
   await expectNoInjectedCodeRan(page)
+})
+
+/**
+ * The editor counts the characters of the summary, and counting them means
+ * turning the stored HTML into plain text - which needs the DOM, exactly like
+ * sanitizing does. `?section=summary` is enough to make the server render that
+ * section, because the editor seeds its active section from the query string.
+ *
+ * `expectNoInjectedCodeRan` is deliberately not repeated here. Both the rich
+ * text editor and the character counter parse this summary in the live
+ * document once mounted, so the injected `<img>` is fetched and its `onerror`
+ * can fire on this page too - the same defect the tests above already assert
+ * against and which the inert-parse work owns. It fires only when the failed
+ * request lands before the assertion, so repeating the check here would add a
+ * third intermittent copy of one known failure rather than new coverage.
+ */
+test('a resume whose summary is HTML loads its editor directly and counts the characters', async ({
+  page,
+  authedUser,
+}) => {
+  const resume = await seedFixtureResume(authedUser.id, 'professional', {
+    summary: payload(SUMMARY_BOLD),
+  })
+
+  const serverHtml = await loadDirectly(
+    page,
+    `/en/dashboard/resumes/${resume.id}/edit?section=summary`
+  )
+
+  // A count the server cannot compute must not be guessed at either: no digit
+  // may sit in that element until the browser has produced a real one.
+  expect(serverHtml).toMatch(
+    /<span[^>]*data-testid="summary-character-count"[^>]*><\/span>/
+  )
+
+  await expect(page.getByTestId('summary-character-count')).toHaveText(
+    `${SUMMARY_PLAIN_TEXT.length} characters`
+  )
 })
