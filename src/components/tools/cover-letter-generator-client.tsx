@@ -3,6 +3,10 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { FileText, Sparkles, Mail, Loader2, ClipboardPaste, Briefcase, Settings, ListChecks, Bold, Italic, Underline, Wand2, Copy, Check, FileDown, AlertCircle, X, RefreshCw, Info, CheckCircle2, Upload, FolderOpen } from 'lucide-react'
 import type { Locale } from '@/lib/i18n'
+import {
+  editorHtmlToPlainText,
+  plainTextToEditorHtml,
+} from '@/lib/cover-letter-editor-html'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import {
@@ -82,6 +86,31 @@ function stripHtmlTags(html: string): string {
       .replace(/\s+/g, ' ')
       .trim()
   )
+}
+
+/**
+ * Resolves the caret position under a pointer coordinate.
+ *
+ * `caretRangeFromPoint` is the Blink/WebKit spelling, `caretPositionFromPoint`
+ * the standard one. Neither is guaranteed, so callers must tolerate `null` and
+ * fall back to the selection the document already holds.
+ */
+function resolveCaretRange(clientX: number, clientY: number): Range | null {
+  if (typeof document.caretRangeFromPoint === 'function') {
+    return document.caretRangeFromPoint(clientX, clientY)
+  }
+
+  if (typeof document.caretPositionFromPoint === 'function') {
+    const position = document.caretPositionFromPoint(clientX, clientY)
+    if (!position) return null
+
+    const range = document.createRange()
+    range.setStart(position.offsetNode, position.offset)
+    range.collapse(true)
+    return range
+  }
+
+  return null
 }
 
 /**
@@ -755,12 +784,7 @@ export function CoverLetterGeneratorClient({
 
     if (generatedCoverLetter) {
       // Convert plain text paragraphs to HTML paragraphs
-      const htmlContent = generatedCoverLetter
-        .split(/\n\n+/)
-        .filter((paragraph) => paragraph.trim().length > 0)
-        .map((paragraph) => `<p>${paragraph.trim()}</p>`)
-        .join('')
-      editorRef.current.innerHTML = htmlContent
+      editorRef.current.innerHTML = plainTextToEditorHtml(generatedCoverLetter)
     } else {
       editorRef.current.innerHTML = ''
     }
@@ -826,27 +850,8 @@ export function CoverLetterGeneratorClient({
 
     isUserEditingRef.current = true
 
-    // Extract plain text from the HTML content for state storage
-    const htmlContent = editorRef.current.innerHTML
-    // Convert HTML paragraphs back to double-newline separated text
-    const tempDiv = document.createElement('div')
-    tempDiv.innerHTML = htmlContent
-
-    // Convert paragraphs to text with double newlines
-    const paragraphs = tempDiv.querySelectorAll('p')
-    let plainText: string
-
-    if (paragraphs.length > 0) {
-      plainText = Array.from(paragraphs)
-        .map((p) => p.textContent || '')
-        .filter((text) => text.trim().length > 0)
-        .join('\n\n')
-    } else {
-      // Handle case where content is not in paragraphs (e.g., directly typed)
-      plainText = tempDiv.textContent || ''
-    }
-
-    setGeneratedCoverLetter(plainText)
+    // Convert the editor's HTML paragraphs back to double-newline separated text
+    setGeneratedCoverLetter(editorHtmlToPlainText(editorRef.current))
 
     // Reset the editing flag after a short delay to allow re-sync if needed
     setTimeout(() => {
@@ -890,6 +895,40 @@ export function CoverLetterGeneratorClient({
     (e: React.ClipboardEvent) => {
       e.preventDefault()
       const text = e.clipboardData.getData('text/plain')
+      document.execCommand('insertText', false, text)
+      handleEditorInput()
+    },
+    [handleEditorInput]
+  )
+
+  /**
+   * Handles drop events so dragged content lands as plain text.
+   * Without this the browser inserts the dragged markup live into the editor.
+   *
+   * A drag that starts inside the editor is copied rather than moved, because
+   * the default move behaviour is what has to be cancelled to strip the markup.
+   */
+  const handleEditorDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+
+      const editor = editorRef.current
+      if (!editor) return
+
+      const text = e.dataTransfer.getData('text/plain')
+      if (!text) return
+
+      editor.focus()
+
+      // execCommand inserts at the current selection, which is still wherever
+      // the caret sat before the drag, so aim it at the drop point first.
+      const dropRange = resolveCaretRange(e.clientX, e.clientY)
+      if (dropRange && editor.contains(dropRange.startContainer)) {
+        const selection = window.getSelection()
+        selection?.removeAllRanges()
+        selection?.addRange(dropRange)
+      }
+
       document.execCommand('insertText', false, text)
       handleEditorInput()
     },
@@ -2687,7 +2726,14 @@ export function CoverLetterGeneratorClient({
                 onInput={handleEditorInput}
                 onKeyDown={handleEditorKeyDown}
                 onPaste={handleEditorPaste}
+                onDrop={handleEditorDrop}
                 className={cn(
+                  // Paragraph spacing lives in globals.css under this class, not
+                  // in a Tailwind arbitrary variant: the unlayered global
+                  // `[contenteditable="true"] p { margin: 0 !important }` beats
+                  // any utility from `@layer utilities`, so `[&_p]:mb-4` here
+                  // would silently never apply.
+                  'cover-letter-editor',
                   'min-h-[250px] max-h-[calc(100vh-350px)] overflow-y-auto',
                   'rounded-lg border border-slate-200 bg-white p-4',
                   'dark:border-slate-600 dark:bg-slate-700/30',
@@ -2695,8 +2741,10 @@ export function CoverLetterGeneratorClient({
                   'dark:focus:border-teal-400 dark:focus:ring-teal-400/20',
                   // Typography styles matching the original display
                   'font-serif text-base leading-relaxed text-slate-800 dark:text-slate-200',
-                  // Paragraph styling within the editor
-                  '[&_p]:mb-4 [&_p]:last:mb-0'
+                  // A single newline is a line break within a paragraph; pre-line
+                  // renders it without turning it into a <br>, which would stop
+                  // textContent round-tripping the editor back to plain text.
+                  'whitespace-pre-line'
                 )}
                 suppressContentEditableWarning
                 role="textbox"
