@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 import { LOCAL_SUPABASE_URL, LOCAL_ANON_KEY, assertLocalSupabase } from './src/test/local-stack'
+import { nestedClaudeDirIgnore } from './src/test/nested-worktrees'
 
 /**
  * Visual regression configuration.
@@ -33,7 +34,7 @@ const BASE_URL = `http://127.0.0.1:${PORT}`
 
 export default defineConfig({
   testDir: './e2e/visual',
-  testIgnore: ['**/node_modules/**', '**/.claude/**', '**/.next/**'],
+  testIgnore: ['**/node_modules/**', nestedClaudeDirIgnore(__dirname), '**/.next/**'],
 
   // Baselines live beside the spec under a per-platform name. The platform
   // segment is not optional: Windows and Linux rasterise text differently, so
