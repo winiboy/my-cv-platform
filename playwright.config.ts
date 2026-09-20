@@ -4,6 +4,7 @@ import {
   LOCAL_ANON_KEY,
   assertLocalSupabase,
 } from './src/test/local-stack'
+import { nestedClaudeDirIgnore } from './src/test/nested-worktrees'
 
 /**
  * E2E configuration.
@@ -40,15 +41,23 @@ const BASE_URL = `http://127.0.0.1:${PORT}`
 export default defineConfig({
   testDir: './e2e',
   // Agent worktrees under .claude/ hold a full duplicate copy of the repo.
-  // Without this every spec would be collected twice, as happened to lint and
-  // to the unit suite before they were excluded.
+  // testDir does not reach them today; the ignore is there in case it ever
+  // widens to include .claude/. It is anchored to this config's directory
+  // because an unanchored '**/.claude/**' matched every spec when Playwright
+  // ran from inside a worktree, whose own path contains .claude/.
   // `e2e/visual` is excluded rather than merged in: it has its own config with
   // screenshot-specific settings that would be wrong here, and running it on
   // this config would compare against no baseline at all and silently pass.
   // `e2e/parity` is excluded for a different reason: it reports the divergences
   // Part 3 has not yet fixed, so it is red by design, and collecting it here
   // would turn this required gate red with it. It runs as `pnpm test:parity`.
-  testIgnore: ['**/node_modules/**', '**/.claude/**', '**/.next/**', '**/visual/**', '**/parity/**'],
+  testIgnore: [
+    '**/node_modules/**',
+    nestedClaudeDirIgnore(__dirname),
+    '**/.next/**',
+    '**/visual/**',
+    '**/parity/**',
+  ],
 
   timeout: 90_000,
   expect: { timeout: 15_000 },
