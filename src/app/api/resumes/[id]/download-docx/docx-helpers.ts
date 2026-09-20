@@ -2,6 +2,8 @@ import {
   Paragraph,
   TextRun,
   AlignmentType,
+  type IShadingAttributesProperties,
+  type ISpacingProperties,
 } from 'docx'
 import type { Locale } from '@/lib/i18n'
 
@@ -250,6 +252,138 @@ export function parseHtmlListToParagraphs(
   })
 
   return paragraphs
+}
+
+// ============================================================
+// PLAIN-TEXT LISTS
+// ============================================================
+
+// The Preview renders legacy plain text through formatText
+// (src/lib/format-text.tsx), which turns marker lines into real lists. These
+// rules must stay identical to it; docx-helpers.test.ts compares the two.
+const PLAIN_TEXT_PARAGRAPH_SEPARATOR = /\n\n+/
+const PLAIN_TEXT_BULLET_MARKER = /^[\s]*[•\-*]\s+/
+const PLAIN_TEXT_NUMBER_MARKER = /^[\s]*\d+\.\s+/
+
+export type PlainTextBlock =
+  | { type: 'bullet' | 'numbered'; items: string[] }
+  | { type: 'text'; lines: string[] }
+
+function extractPlainTextItems(lines: string[], marker: RegExp): string[] {
+  return lines
+    .filter(line => marker.test(line))
+    .map(line => line.replace(marker, '').trim())
+}
+
+/**
+ * Split plain text into the blocks formatText renders: one block per
+ * blank-line-separated paragraph. A paragraph with any bullet line is a bullet
+ * list, otherwise one with any numbered line is a numbered list, otherwise it
+ * is text. List blocks keep only their marker lines, as the Preview does.
+ */
+export function parsePlainTextBlocks(text: string | null | undefined): PlainTextBlock[] {
+  if (!text) return []
+
+  return text.split(PLAIN_TEXT_PARAGRAPH_SEPARATOR).map((paragraph): PlainTextBlock => {
+    const lines = paragraph.split('\n')
+
+    if (lines.some(line => PLAIN_TEXT_BULLET_MARKER.test(line))) {
+      return { type: 'bullet', items: extractPlainTextItems(lines, PLAIN_TEXT_BULLET_MARKER) }
+    }
+
+    if (lines.some(line => PLAIN_TEXT_NUMBER_MARKER.test(line))) {
+      return { type: 'numbered', items: extractPlainTextItems(lines, PLAIN_TEXT_NUMBER_MARKER) }
+    }
+
+    return { type: 'text', lines }
+  })
+}
+
+/**
+ * True when plain (non-HTML) text contains at least one list the Preview
+ * renders as <ul>/<ol>. HTML content is excluded with the same tag test
+ * renderFormattedText uses, so it keeps going through the HTML paths.
+ */
+export function isPlainTextList(text: string | null | undefined): boolean {
+  if (!text) return false
+  if (/<[^>]+>/.test(text)) return false
+  return parsePlainTextBlocks(text).some(block => block.type !== 'text')
+}
+
+/**
+ * Paragraph properties a call site applies to every paragraph produced from
+ * plain text, so each template can match the styling of its own list branch.
+ */
+export interface PlainTextParagraphLayout {
+  spacingAfterItem: number
+  spacingAfterLast: number
+  indent?: { right?: number; left?: number }
+  alignment?: typeof AlignmentType[keyof typeof AlignmentType]
+  lineSpacing?: Pick<ISpacingProperties, 'line' | 'lineRule'>
+  shading?: IShadingAttributesProperties
+}
+
+/**
+ * Convert plain text containing lists into DOCX paragraphs: one paragraph per
+ * list item (prefixed like parseHtmlListToParagraphs) and one per text block,
+ * with line breaks between its lines. Text is emitted literally because the
+ * Preview renders plain text literally (no entity decoding).
+ */
+export function parsePlainTextListToParagraphs(
+  text: string,
+  options: DocxTextRunOptions,
+  layout: PlainTextParagraphLayout
+): Paragraph[] {
+  const { size, color, font } = options
+  const paragraphChildren: TextRun[][] = []
+
+  for (const block of parsePlainTextBlocks(text)) {
+    if (block.type === 'text') {
+      // Mirror how the browser lays out the Preview's <div>line<br />line</div>:
+      // a div with only blank text has no height, and a trailing <br /> does not
+      // open a new line (a trailing break in Word would).
+      if (block.lines.length === 1 && block.lines[0].trim() === '') continue
+      const lines = block.lines[block.lines.length - 1].trim() === ''
+        ? block.lines.slice(0, -1)
+        : block.lines
+
+      const runs: TextRun[] = []
+      lines.forEach((line, index) => {
+        if (index > 0) {
+          runs.push(new TextRun({ break: 1, size, color, font }))
+        }
+        if (line) {
+          runs.push(new TextRun({ text: line, size, color, font }))
+        }
+      })
+      paragraphChildren.push(runs)
+      continue
+    }
+
+    block.items.forEach((item, index) => {
+      const prefix = block.type === 'numbered' ? `${index + 1}. ` : '• '
+      const runs = [new TextRun({ text: prefix, size, color, font })]
+      if (item) {
+        runs.push(new TextRun({ text: item, size, color, font }))
+      }
+      paragraphChildren.push(runs)
+    })
+  }
+
+  const lastIndex = paragraphChildren.length - 1
+
+  return paragraphChildren.map((children, index) =>
+    new Paragraph({
+      children,
+      spacing: {
+        after: index === lastIndex ? layout.spacingAfterLast : layout.spacingAfterItem,
+        ...layout.lineSpacing,
+      },
+      indent: layout.indent,
+      alignment: layout.alignment,
+      shading: layout.shading,
+    })
+  )
 }
 
 export function parseHtmlToDocxRuns(
