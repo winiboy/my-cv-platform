@@ -147,14 +147,16 @@ export async function generateClassicDocx(
    *    list is non-empty. The array therefore always has at least one member,
    *    and the `false` branch could never be taken.
    *
-   *  - It was a competing default. It claimed Classic shows `skills` and
-   *    `projects` by default, while the mapping applied to the real default
-   *    order produces neither — precisely the divergence between an export's
-   *    private defaults and the shared model that this milestone removes.
+   *  - It was a competing default: a private copy of Classic's sections beside
+   *    the shared mapping, which at the time produced neither `skills` nor
+   *    `projects` from the real default order. Part 3 US-002 closed that
+   *    omission in the shared mapping, not here, so this generator still states
+   *    no section list of its own.
    *
-   *  - `mapEditorOrderToClassic` cannot return an empty list: it appends
-   *    `languagesAndCerts` when nothing else produced it. So even the
-   *    unreachable input yields a renderable document rather than an empty one.
+   *  - `mapEditorOrderToClassic` cannot return an empty list: the sections the
+   *    editor cannot position — skills, projects, `languagesAndCerts` — always
+   *    keep their slots. So even the unreachable input yields a renderable
+   *    document rather than an empty one.
    *
    * `hiddenMainRaw` no longer carries an `as string[]` cast: it is already
    * declared `string[]` by `DocxGeneratorSettings`, and the cast asserted
@@ -727,6 +729,28 @@ export async function generateClassicDocx(
                       text: skillCat.items.join(', '),
                       size: scaledFontSizes.body,
                       color: SLATE[800],
+                      font: SERIF_FONT,
+                    }),
+                  ],
+                  spacing: { after: itemEndSpacing },
+                })
+              )
+            } else {
+              // A visible category with no items at all, which `addCategory` in
+              // `skills-section.tsx` creates and the editor saves as soon as the
+              // user names it. `classic-template.tsx:345` renders the label
+              // whatever the items are, and `docx-minimal.ts` pushes the
+              // category name unconditionally; without this branch the heading
+              // would be emitted (it is guarded on `skills.length`) above a
+              // category that draws nothing.
+              children.push(
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `${skillCat.category}: `,
+                      bold: true,
+                      size: scaledFontSizes.body,
+                      color: SLATE[900],
                       font: SERIF_FONT,
                     }),
                   ],
