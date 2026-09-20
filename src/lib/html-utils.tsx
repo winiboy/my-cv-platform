@@ -3,6 +3,11 @@
  * Handles HTML sanitization, conversion between HTML/plain text, and rendering
  */
 
+// This import is circular: sanitized-html imports sanitizeHtml from here. That
+// is safe because neither module reads the other's exports while it is being
+// evaluated - both are only referenced inside function bodies at render time.
+import { SanitizedHtml } from '@/components/sanitized-html'
+
 /**
  * Sanitize HTML to prevent XSS attacks
  * Only allows safe formatting tags and inline styles
@@ -198,19 +203,9 @@ export function renderFormattedHtml(html: string | null | undefined): React.Reac
   if (!isHtml) {
     // Legacy plain text - convert to HTML
     const converted = migrateTextToHtml(html)
-    return (
-      <div
-        className="formatted-content"
-        dangerouslySetInnerHTML={{ __html: sanitizeHtml(converted) }}
-      />
-    )
+    return <SanitizedHtml className="formatted-content" html={converted} />
   }
 
-  // HTML content - sanitize and render
-  return (
-    <div
-      className="formatted-content"
-      dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }}
-    />
-  )
+  // HTML content - sanitized in the browser, see SanitizedHtml
+  return <SanitizedHtml className="formatted-content" html={html} />
 }

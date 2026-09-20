@@ -30,6 +30,13 @@ export default defineConfig({
     ],
     clearMocks: true,
   },
+  // tsconfig.json sets `jsx: "preserve"` because Next.js compiles JSX itself.
+  // Vite would otherwise leave JSX untransformed and refuse to import any
+  // .tsx module, so tests that server-render a component get the same
+  // automatic runtime Next.js uses.
+  oxc: {
+    jsx: { runtime: 'automatic' },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

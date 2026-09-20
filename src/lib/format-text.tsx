@@ -5,7 +5,7 @@
  */
 
 import React from 'react'
-import { sanitizeHtml, migrateTextToHtml } from './html-utils'
+import { SanitizedHtml } from '@/components/sanitized-html'
 
 /**
  * Formats text content for CV display, preserving structure
@@ -104,11 +104,6 @@ export function renderFormattedText(text: string | null | undefined): React.Reac
     return formatText(text)
   }
 
-  // HTML content - sanitize and render
-  return (
-    <div
-      className="formatted-content"
-      dangerouslySetInnerHTML={{ __html: sanitizeHtml(text) }}
-    />
-  )
+  // HTML content - sanitized in the browser, see SanitizedHtml
+  return <SanitizedHtml className="formatted-content" html={text} />
 }
