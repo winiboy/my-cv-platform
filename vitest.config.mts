@@ -7,9 +7,10 @@ import { defineConfig } from 'vitest/config'
  * Scope is deliberately narrow: pure, deterministic functions only. Tests live
  * beside the module they cover as `<module>.test.ts`.
  *
- * `environment: 'node'` is correct while this suite covers pure logic. Adding
- * React component tests later requires a DOM environment and a separate
- * project entry rather than changing this one globally.
+ * `environment: 'node'` is correct while this suite covers pure logic and pure
+ * `.tsx` render helpers, which are rendered to static markup and need no DOM.
+ * Adding React component tests later requires a DOM environment and a
+ * separate project entry rather than changing this one globally.
  */
 export default defineConfig({
   // tsconfig.json sets `jsx: preserve` for Next.js, which leaves JSX untransformed
