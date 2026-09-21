@@ -7,6 +7,7 @@ import {
   extractLayoutSettings,
   LAYOUT_CONTROL_RANGES,
   mapEditorOrderToClassic,
+  mapEditorOrderToMinimal,
   mapEditorOrderToModern,
   MAX_LAYOUT_BLOB_LENGTH,
   migrateSidebarOrder,
@@ -583,37 +584,71 @@ describe('Modern default section orders', () => {
  *
  * It had no coverage at all while it lived in the generator — nothing imported
  * it, and the only way to exercise it was to generate a whole document. These
- * cases pin the behaviour that was relocated, so a later edit to the rule fails
- * here rather than silently in an export nobody diffs.
+ * cases pin the rule, so a later edit to it fails here rather than silently in
+ * an export nobody diffs.
  */
 describe('mapEditorOrderToClassic', () => {
-  it('keeps the editor order of the sections Classic renders', () => {
+  /**
+   * Part 3 US-002. Until then this case pinned the DEFECT: the default order
+   * mapped to summary, experience, education and the combined section, and no
+   * skills or projects — while `classic-template.tsx` renders both. The
+   * sequence below is the Preview's, section for section.
+   */
+  it("maps the shared default order to the Preview's own sequence, skills and projects included", () => {
+    expect(mapEditorOrderToClassic(DEFAULT_RESUME_LAYOUT.mainContentOrder)).toEqual([
+      'summary',
+      'experience',
+      'education',
+      'skills',
+      'projects',
+      'languagesAndCerts',
+    ])
+  })
+
+  it('permutes the editor sections among their own slots and leaves the others in theirs', () => {
     expect(mapEditorOrderToClassic(['experience', 'education', 'summary'])).toEqual([
       'experience',
       'education',
       'summary',
+      'skills',
+      'projects',
       'languagesAndCerts',
     ])
   })
 
-  it('collapses languages and certifications into one combined section', () => {
-    expect(mapEditorOrderToClassic(['languages', 'summary', 'certifications'])).toEqual([
-      'languagesAndCerts',
+  it('keeps skills and projects for any order the editor can produce', () => {
+    const editorIds: EditorMainId[] = ['summary', 'experience', 'education']
+    const permutations = editorIds.flatMap((a) =>
+      editorIds
+        .filter((b) => b !== a)
+        .map((b) => [a, b, editorIds.find((c) => c !== a && c !== b) as EditorMainId]),
+    )
+    expect(permutations).toHaveLength(6)
+    for (const order of permutations) {
+      const mapped = mapEditorOrderToClassic(order)
+      expect(mapped.slice(0, 3)).toEqual(order)
+      expect(mapped.slice(3)).toEqual(['skills', 'projects', 'languagesAndCerts'])
+    }
+  })
+
+  it('does not render an editor section the stored order leaves out', () => {
+    expect(mapEditorOrderToClassic(['summary'])).toEqual([
       'summary',
+      'skills',
+      'projects',
+      'languagesAndCerts',
     ])
-  })
-
-  it('appends the combined section when the input never produced it', () => {
-    expect(mapEditorOrderToClassic(['summary'])).toEqual(['summary', 'languagesAndCerts'])
   })
 
   it('never returns an empty order, which the generator relies on', () => {
-    expect(mapEditorOrderToClassic([])).toEqual(['languagesAndCerts'])
+    expect(mapEditorOrderToClassic([])).toEqual(['skills', 'projects', 'languagesAndCerts'])
   })
 
   it('ignores ids Classic has no section for', () => {
     expect(mapEditorOrderToClassic(['keyAchievements', 'summary'])).toEqual([
       'summary',
+      'skills',
+      'projects',
       'languagesAndCerts',
     ])
   })
@@ -622,26 +657,101 @@ describe('mapEditorOrderToClassic', () => {
     expect(mapEditorOrderToClassic(['summary', 'summary', 'experience'])).toEqual([
       'summary',
       'experience',
+      'skills',
+      'projects',
       'languagesAndCerts',
     ])
   })
 
   /**
-   * The Classic default order, stated as what the shared default maps to.
-   *
-   * `docx-classic.ts` used to carry its own six-member `DEFAULT_MAIN_ORDER`
-   * literal claiming Classic shows `skills` and `projects` by default. The real
-   * default produces neither, because neither is an editor main-content id.
-   * That disagreement is the reason the literal was removed, and this case is
-   * what stops an equivalent one being reintroduced.
+   * Out-of-vocabulary ids no writer produces, kept as Part 2 kept them. One the
+   * input names is positioned by the input like any other, rather than kept in
+   * its own slot; each still appears once.
    */
-  it('produces neither skills nor projects from the shared default order', () => {
-    expect(mapEditorOrderToClassic(DEFAULT_RESUME_LAYOUT.mainContentOrder)).toEqual([
+  it('collapses languages and certifications into one combined section the input positions', () => {
+    expect(mapEditorOrderToClassic(['languages', 'summary', 'certifications'])).toEqual([
+      'languagesAndCerts',
+      'skills',
+      'projects',
+      'summary',
+    ])
+  })
+})
+
+/**
+ * Minimal shares Classic's rule and vocabulary and differs only in its
+ * sequence: `minimal-template.tsx` draws projects between experience and
+ * education, where Classic draws it after skills.
+ */
+describe('mapEditorOrderToMinimal', () => {
+  /** Part 3 US-002: until then this mapped to no skills and no projects. */
+  it("maps the shared default order to the Preview's own sequence, skills and projects included", () => {
+    expect(mapEditorOrderToMinimal(DEFAULT_RESUME_LAYOUT.mainContentOrder)).toEqual([
       'summary',
       'experience',
+      'projects',
       'education',
+      'skills',
       'languagesAndCerts',
     ])
+  })
+
+  it('permutes the editor sections among their own slots and leaves the others in theirs', () => {
+    expect(mapEditorOrderToMinimal(['experience', 'summary', 'education'])).toEqual([
+      'experience',
+      'summary',
+      'projects',
+      'education',
+      'skills',
+      'languagesAndCerts',
+    ])
+  })
+
+  it('never returns an empty order', () => {
+    expect(mapEditorOrderToMinimal([])).toEqual(['projects', 'skills', 'languagesAndCerts'])
+  })
+
+  it('leaves Classic untouched: the two templates differ only where their Previews do', () => {
+    const order = DEFAULT_RESUME_LAYOUT.mainContentOrder
+    const classic = mapEditorOrderToClassic(order)
+    const minimal = mapEditorOrderToMinimal(order)
+    expect([...minimal].sort()).toEqual([...classic].sort())
+    expect(minimal).not.toEqual(classic)
+  })
+})
+
+/**
+ * Part 3 US-002, criterion 3: the stored layout is untouched by the fix.
+ *
+ * The omission was closed in the single-column mapping, not by widening
+ * `VALID_MAIN_IDS` or `parseLayoutModel`'s filter. Every stored value that
+ * parsed before still parses to the same thing, and nothing new is admitted —
+ * which is what keeps every saved resume loadable and every stored order intact.
+ */
+describe('stored main-content order after the single-column fix', () => {
+  it('round-trips a stored order and hidden list unchanged', () => {
+    const stored = {
+      ...toStoredLayout(DEFAULT_RESUME_LAYOUT),
+      mainContentOrder: ['experience', 'summary', 'education'],
+      hiddenMainSections: ['education'],
+    }
+    const parsed = parseStoredLayout(JSON.stringify(stored))
+    expect(parsed.mainContentOrder).toEqual(['experience', 'summary', 'education'])
+    expect(parsed.hiddenMainSections).toEqual(['education'])
+    expect(JSON.parse(serializeLayoutModel(resolveLayoutModel(stored)))).toEqual(stored)
+  })
+
+  it('still admits no single-column-only id into the stored main lists', () => {
+    const parsed = parseLayoutModel({
+      mainContentOrder: ['skills', 'summary', 'projects', 'languagesAndCerts'],
+      hiddenMainSections: ['skills', 'projects'],
+    })
+    expect(parsed.mainContentOrder).toEqual(['summary'])
+    expect(parsed.hiddenMainSections).toEqual([])
+  })
+
+  it('leaves the shared default order, which every template is handed, as it was', () => {
+    expect(DEFAULT_RESUME_LAYOUT.mainContentOrder).toEqual(['summary', 'experience', 'education'])
   })
 })
 

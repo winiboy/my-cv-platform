@@ -34,6 +34,8 @@ import {
   extractAlignment,
   isHtmlList,
   parseHtmlListToParagraphs,
+  isPlainTextList,
+  parsePlainTextListToParagraphs,
   parseHtmlToDocxRuns,
   formatDateRange,
   COLORS,
@@ -1081,6 +1083,23 @@ export async function generateModernDocx(
               summaryAlignment
             )
             mainContentParagraphs.push(...listParagraphs)
+          } else if (isPlainTextList(resume.summary)) {
+            mainContentParagraphs.push(
+              ...parsePlainTextListToParagraphs(
+                resume.summary,
+                {
+                  size: scaledFontSizes.summary,
+                  color: COLORS.BODY_TEXT,
+                  font: primaryFont,
+                },
+                {
+                  spacingAfterItem: pxToTwips(4),
+                  spacingAfterLast: sectionEndSpacing,
+                  indent: { right: mainContentRightIndent },
+                  alignment: summaryAlignment,
+                }
+              )
+            )
           } else {
             const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
               size: scaledFontSizes.summary,
@@ -1220,6 +1239,22 @@ export async function generateModernDocx(
                   descAlignment
                 )
                 rightParagraphs.push(...listParagraphs)
+              } else if (isPlainTextList(exp.description)) {
+                rightParagraphs.push(
+                  ...parsePlainTextListToParagraphs(
+                    exp.description,
+                    {
+                      size: scaledFontSizes.body,
+                      color: COLORS.BODY_TEXT,
+                      font: primaryFont,
+                    },
+                    {
+                      spacingAfterItem: pxToTwips(4),
+                      spacingAfterLast: exp.achievements && exp.achievements.length > 0 ? pxToTwips(6) : 0,
+                      alignment: descAlignment,
+                    }
+                  )
+                )
               } else {
                 const descRuns = parseHtmlToDocxRuns(exp.description, {
                   size: scaledFontSizes.body,
@@ -1402,6 +1437,22 @@ export async function generateModernDocx(
             { left: pxToTwips(16), right: mainContentRightIndent }
           )
           mainContentParagraphs.push(...listParagraphs)
+        } else if (isPlainTextList(project.description)) {
+          mainContentParagraphs.push(
+            ...parsePlainTextListToParagraphs(
+              project.description,
+              {
+                size: scaledFontSizes.body,
+                color: COLORS.BODY_TEXT,
+                font: primaryFont,
+              },
+              {
+                spacingAfterItem: pxToTwips(4),
+                spacingAfterLast: project.technologies && project.technologies.length > 0 ? pxToTwips(8) : itemEndSpacing,
+                indent: { left: pxToTwips(16), right: mainContentRightIndent },
+              }
+            )
+          )
         } else {
           const descRuns = parseHtmlToDocxRuns(project.description, {
             size: scaledFontSizes.body,
