@@ -20,6 +20,7 @@ import {
   PROFILES,
   TEMPLATE_SPECS,
   describeNonDefault,
+  samplesTypography,
   type ProfileId,
 } from './profiles'
 import { coloursAgree, convertCssColour } from './colour'
@@ -32,6 +33,7 @@ import {
   measureSettled,
   openPreview,
   pdfTypography,
+  readPrintSidebarColumn,
   type ColourSample,
   type DomMeasurement,
   type Observation,
@@ -50,7 +52,7 @@ import {
 import type { ResumeTemplate } from '../../src/types/database'
 
 /**
- * US-008: parity across Preview, PDF and DOCX, demonstrated.
+ * Part 2 US-008: parity across Preview, PDF and DOCX, demonstrated.
  *
  *   pnpm supabase start
  *   pnpm test:parity
@@ -220,13 +222,16 @@ for (const profile of PROFILES) {
       // would be measuring a layout other than the one it claims.
       expect(toStoredLayout(expectedModel)).toEqual(profile.layout)
 
-      const resume = await seedFixtureResume(authedUser.id, template)
+      const resume = await seedFixtureResume(
+        authedUser.id,
+        template,
+        profile.content ? { experience: profile.content.experience } : {},
+      )
       await storeLayout(resume.id, profile.layout)
       const stored = await readStoredRow(resume.id)
       expect(resolveResumeLayout(stored, null)).toEqual(expectedModel)
 
-      // Control profiles are sampled for typography too: primary rows read them.
-      const sampleTypography = profile.rowGroups.includes('typography') || profile.control === true
+      const sampleTypography = samplesTypography(profile)
       const probe = buildProbe(
         spec,
         spec.titleSource === 'contactName' ? CONTACT_NAME : stored.title,
@@ -242,7 +247,7 @@ for (const profile of PROFILES) {
 
       await openPreview(page, resume.id)
       const preview = await measureSettled(page, probe)
-      const { print, pdf } = await capturePrint(page, probe)
+      const { print, pdf, pdfBuffer } = await capturePrint(page, probe)
       const colours = preview.modelColours
 
       // The Preview's account writer must not have changed what the model says.
@@ -258,6 +263,18 @@ for (const profile of PROFILES) {
       expect(pdf.pages, 'PDF pages').toBeGreaterThan(0)
       expect(pdf.characters, 'PDF text characters').toBeGreaterThan(0)
       expect(pdf.sequence.length, 'PDF sections located').toBeGreaterThan(0)
+      if (profile.content) {
+        expect(pdf.pages, `PDF pages; ${profile.id} exists to print past one page`).toBeGreaterThanOrEqual(
+          profile.content.minimumPrintedPages,
+        )
+      }
+      const printSidebarColumn = profile.rowGroups.includes('print')
+        ? await readPrintSidebarColumn(page, pdfBuffer, pdf)
+        : null
+      if (printSidebarColumn) {
+        expect(printSidebarColumn.rowsRead, 'PDF sidebar column pixel rows read').toBeGreaterThan(0)
+        expect(printSidebarColumn.colours.length, 'PDF sidebar column colours found').toBeGreaterThan(0)
+      }
       if (sampleTypography) {
         expect(preview.typography, 'Preview typography sampled').not.toBeNull()
         expect(pdf.samples, 'PDF typography read from the PDF').not.toBeNull()
@@ -317,6 +334,7 @@ for (const profile of PROFILES) {
         model: expectedModel,
         modelColours: colours,
         surfaces,
+        printSidebarColumn,
         colourChecks,
         evidence: {
           preview: [
@@ -326,6 +344,12 @@ for (const profile of PROFILES) {
           pdf: [
             ...describeSurface('pdf', surfaces.pdf),
             `pdf: ${pdf.pages} page(s), ${pdf.characters} text characters; styles from print media, controls as shipped (${print.renderedHeadingCount} rendered h2)`,
+            ...(printSidebarColumn
+              ? [
+                  `pdf: sidebar column ${printSidebarColumn.rowsRead} pixel rows, colours ${printSidebarColumn.colours.map((c) => c.hex).join(', ')}`,
+                  ...printSidebarColumn.runs.map((run) => `pdf: sidebar column ${run}`),
+                ]
+              : []),
           ],
           docx: [
             ...describeSurface('docx', surfaces.docx),
@@ -361,13 +385,13 @@ for (const row of rowDefinitions()) {
     console.log(formatRowLine(evaluated))
 
     if (known) {
-      test.fail(true, `KNOWN ${known}: expected to diverge until Part 3 closes it`)
+      test.fail(true, `KNOWN ${known}: expected to diverge until its story closes it`)
       if (evaluated.verdict === `KNOWN: ${known}`) {
         throw new Error(`Expected divergence reproduced — ${formatRowLine(evaluated)}`)
       }
       console.log(
         `NOT REPRODUCED: ${row.id} was expected to show ${known} but its verdict is ${evaluated.verdict}. ` +
-          'If Part 3 fixed it, delete the entry from KNOWN_EXPECTATIONS.',
+          'If its story fixed it, delete the entry from KNOWN_EXPECTATIONS in the same commit.',
       )
       return
     }

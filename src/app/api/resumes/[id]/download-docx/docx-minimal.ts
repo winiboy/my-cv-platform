@@ -24,6 +24,8 @@ import {
   extractPrimaryFont,
   isHtmlList,
   parseHtmlListToParagraphs,
+  isPlainTextList,
+  parsePlainTextListToParagraphs,
   parseHtmlToDocxRuns,
   stripHtml,
   type DocxGeneratorSettings,
@@ -165,20 +167,17 @@ export async function generateMinimalDocx(
    *    list is non-empty. The array therefore always has at least one member,
    *    and the `false` branch could never be taken.
    *
-   *  - It was a competing default. It claimed Minimal shows `skills` and
-   *    `projects` by default, while the mapping applied to the real default
-   *    order produces neither — precisely the divergence between an export's
-   *    private defaults and the shared model that this milestone removes. That
-   *    the literal happened to match `minimal-template.tsx`'s hard-coded source
-   *    order made it more misleading, not less: the Preview's order is not
-   *    driven by this list, or by any list.
+   *  - It was a competing default: a private copy of Minimal's sections beside
+   *    the shared mapping, which at the time produced neither `skills` nor
+   *    `projects` from the real default order. Part 3 US-002 closed that
+   *    omission in the shared mapping, not here, so this generator still states
+   *    no section list of its own.
    *
-   *  - The unreachable input still yields a non-empty document — but from the
-   *    header, not the mapping. `mapEditorOrderToMinimal` never returns an
-   *    empty list, yet on empty input it returns only `languagesAndCerts`,
-   *    whose branch is guarded on languages or certifications being present
-   *    and so emits nothing. The title paragraph is what always emits, with a
-   *    'CV TITLE' fallback; on that input it is the whole of the body text.
+   *  - The unreachable input still yields a non-empty list. On empty input
+   *    `mapEditorOrderToMinimal` returns the sections the editor cannot
+   *    position — skills, projects, `languagesAndCerts` — each of whose
+   *    branches is guarded on having a visible item. The title paragraph is
+   *    what always emits, with a 'CV TITLE' fallback.
    *
    * `hiddenMainRaw` no longer carries an `as string[]` cast: it is already
    * declared `string[]` by `DocxGeneratorSettings`, and the cast asserted
@@ -392,6 +391,22 @@ export async function generateMinimalDocx(
               summaryAlignment
             )
             children.push(...listParagraphs)
+          } else if (isPlainTextList(resume.summary)) {
+            children.push(
+              ...parsePlainTextListToParagraphs(
+                resume.summary,
+                {
+                  size: scaledFontSizes.body,
+                  color: SLATE[600],
+                  font,
+                },
+                {
+                  spacingAfterItem: pxToTwips(4),
+                  spacingAfterLast: sectionEndSpacing,
+                  alignment: summaryAlignment,
+                }
+              )
+            )
           } else {
             const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
               size: scaledFontSizes.body,
@@ -541,6 +556,22 @@ export async function generateMinimalDocx(
                   descAlignment
                 )
                 children.push(...listParagraphs)
+              } else if (isPlainTextList(exp.description)) {
+                children.push(
+                  ...parsePlainTextListToParagraphs(
+                    exp.description,
+                    {
+                      size: scaledFontSizes.body,
+                      color: SLATE[700],
+                      font,
+                    },
+                    {
+                      spacingAfterItem: pxToTwips(SPACING.ACHIEVEMENT_GAP),
+                      spacingAfterLast: descSpacingAfter,
+                      alignment: descAlignment,
+                    }
+                  )
+                )
               } else {
                 const descRuns = parseHtmlToDocxRuns(exp.description, {
                   size: scaledFontSizes.body,

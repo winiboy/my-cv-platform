@@ -11,17 +11,22 @@ import {
   type StoredLayoutModel,
 } from '../../src/lib/layout-settings'
 import type { ResumeTemplate } from '../../src/types/database'
-import { FIXTURE_CERTIFICATIONS, FIXTURE_CONTACT, FIXTURE_EXPERIENCE } from '../fixtures/resume'
+import {
+  FIXTURE_CERTIFICATIONS,
+  FIXTURE_CONTACT,
+  FIXTURE_EXPERIENCE,
+  type FixtureExperience,
+} from '../fixtures/resume'
 
 /**
- * US-008: the inputs of the parity check, and what the layout model REQUESTS
+ * Part 2 US-008: the inputs of the parity check, and what the layout model REQUESTS
  * for each template.
  *
  * WHY THE MODEL IS THE REFERENCE, NOT ONLY SURFACE AGAINST SURFACE
  *
  * Two surfaces can agree on ignoring the user. Creative's Preview and DOCX both
  * hardcode the same section sequence, so a surface-against-surface comparison
- * calls creative a match while Part 3's US-005 says it is defective. Every
+ * calls creative a match while Part 3's US-015 says it is defective. Every
  * structural row is therefore compared against the order and visibility the
  * stored layout asks for, and the surfaces are also compared with each other.
  *
@@ -51,9 +56,15 @@ export type ProfileId =
   | 'creative-order'
   | 'modern-empty-main'
   | 'modern-non-integer-hue'
+  | 'font-not-chosen'
+  | 'multi-page'
 
-/** Which row families a profile is run for. */
-export type RowFamilyGroup = 'structure' | 'typography' | 'colour' | 'page'
+/**
+ * Which row families a profile is run for. `font` is the font-family rows alone,
+ * for a profile whose only difference is the font; `typography` already
+ * includes them. `print` reads the sidebar column of every printed page.
+ */
+export type RowFamilyGroup = 'structure' | 'typography' | 'font' | 'colour' | 'page' | 'print'
 
 export interface ParityProfile {
   id: ProfileId
@@ -74,6 +85,11 @@ export interface ParityProfile {
    * template. Rows over these keys compare the surfaces with each other only.
    */
   undecided?: Partial<Record<ResumeTemplate, { keys: readonly string[]; reason: string }>>
+  /**
+   * Content seeded in place of the fixture's, and the fewest pages its print
+   * must fill for the profile to measure what it exists for. Absent: the fixture.
+   */
+  content?: { experience: readonly FixtureExperience[]; minimumPrintedPages: number }
 }
 
 /**
@@ -91,7 +107,7 @@ export interface ParityProfile {
  *   Integers matter: see the `modern-non-integer-hue` probe for why.
  * - `Verdana, Geneva, sans-serif` is one of the stacks the editor's font
  *   carousel offers (`font-carousel-3d.tsx`), not an invented value.
- * - The three per-property sizes are non-default so that P3-US004's second
+ * - The three per-property sizes are non-default so that US-011's second
  *   clause — per-property sizes reach the Preview and not the DOCX — is
  *   observable rather than hidden behind values that happen to coincide.
  */
@@ -111,12 +127,111 @@ const PRIMARY_LAYOUT: StoredLayoutModel = {
   hiddenMainSections: ['education'],
 }
 
+/**
+ * Earlier roles appended to the fixture's two, so the professional document
+ * prints on more than one page. Deterministic like the fixture, and worded to
+ * contain no section title: the PDF reader refuses a title that occurs twice.
+ */
+const EARLIER_ROLES: readonly FixtureExperience[] = [
+  {
+    company: 'Harbour Analytics',
+    position: 'Software Engineer',
+    startDate: '2014-07',
+    endDate: '2016-12',
+    current: false,
+    location: 'Zurich',
+    description: 'Maintained the reporting service behind a regional retail dashboard.',
+    achievements: [
+      'Rebuilt the nightly aggregation job so it completed before offices opened.',
+      'Replaced a hand-maintained release script with a reviewed pipeline.',
+      'Wrote the on-call runbook the team kept for six years.',
+    ],
+    visible: true,
+  },
+  {
+    company: 'Cobalt Freight',
+    position: 'Backend Developer',
+    startDate: '2012-09',
+    endDate: '2014-06',
+    current: false,
+    location: 'Basel',
+    description: 'Developed shipment tracking interfaces for logistics partners.',
+    achievements: [
+      'Designed a carrier webhook gateway handling two million events a day.',
+      'Reduced duplicate shipment records by reconciling partner identifiers.',
+      'Introduced consumer-driven tests between the tracking and billing services.',
+    ],
+    visible: true,
+  },
+  {
+    company: 'Alpine Health Data',
+    position: 'Data Engineer',
+    startDate: '2011-01',
+    endDate: '2012-08',
+    current: false,
+    location: 'Bern',
+    description: 'Operated the anonymisation pipeline for clinical research exports.',
+    achievements: [
+      'Automated consent checks before every research export.',
+      'Moved batch jobs from cron hosts to a monitored scheduler.',
+      'Cut storage costs by compacting historical partitions.',
+    ],
+    visible: true,
+  },
+  {
+    company: 'Lakeside Media',
+    position: 'Web Developer',
+    startDate: '2009-10',
+    endDate: '2010-12',
+    current: false,
+    location: 'Montreux',
+    description: 'Built publishing tools for a regional newspaper group.',
+    achievements: [
+      'Shipped the article scheduling tool editors used every morning.',
+      'Made the image upload flow resumable on unreliable connections.',
+      'Paired with editors to redesign the correction workflow.',
+    ],
+    visible: true,
+  },
+  {
+    company: 'Quarry Robotics',
+    position: 'Firmware Intern',
+    startDate: '2008-06',
+    endDate: '2009-09',
+    current: false,
+    location: 'Neuchatel',
+    description: 'Supported sensor calibration tooling for warehouse robots.',
+    achievements: [
+      'Wrote the calibration report generator used on the factory floor.',
+      'Added checksums to firmware images before flashing.',
+      'Recorded field faults in a searchable log.',
+    ],
+    visible: true,
+  },
+  {
+    company: 'Civic Transit Lab',
+    position: 'Research Assistant',
+    startDate: '2007-09',
+    endDate: '2008-05',
+    current: false,
+    location: 'Lausanne',
+    description: 'Modelled bus network timetables for a municipal study.',
+    achievements: [
+      'Built a timetable simulator from open schedule data.',
+      'Presented route change findings to the city planning office.',
+      'Published the simulator under an open licence.',
+    ],
+    visible: true,
+  },
+]
+
 export const PROFILES: readonly ParityProfile[] = [
   {
     id: 'primary',
     purpose:
       'The fixture. Non-default order, visibility, scale, colour, font family and ' +
-      'per-property sizes, rendered by all five templates.',
+      'per-property sizes, rendered by all five templates. Its font (Verdana) differs from ' +
+      "today's default, so it is US-012's chosen-font case.",
     templates: TEMPLATES,
     rowGroups: ['structure', 'typography', 'colour', 'page'],
     layout: PRIMARY_LAYOUT,
@@ -167,7 +282,7 @@ export const PROFILES: readonly ParityProfile[] = [
   {
     id: 'modern-empty-main',
     purpose:
-      "P3-US003's input. A stored mainContentOrder of ['education'] parses as valid, " +
+      "US-010's input. A stored mainContentOrder of ['education'] parses as valid, " +
       "then maps to an empty Modern main column; no ordinary order reaches it.",
     templates: ['modern'],
     rowGroups: ['structure'],
@@ -182,20 +297,46 @@ export const PROFILES: readonly ParityProfile[] = [
         keys: ['summary', 'experience'],
         reason:
           "What Modern's main column should show when the stored order maps to nothing is " +
-          "Part 3 US-003's decision; until it is made the model has no answer to compare against.",
+          "Part 3 US-010's decision; until it is made the model has no answer to compare against.",
       },
     },
   },
   {
     id: 'modern-non-integer-hue',
     purpose:
-      "US-007 finding F-A. modern-template.tsx deriveAccentColor matches integer HSL only; " +
-      'a stored non-integer hue is accepted by the model and exercises it.',
+      "Part 2 US-007 finding F-A, now US-013. modern-template.tsx deriveAccentColor matches integer " +
+      'HSL only; a stored non-integer hue is accepted by the model and exercises it.',
     templates: ['modern'],
     rowGroups: ['colour'],
     layout: { ...PRIMARY_LAYOUT, sidebarHue: 150.5 },
   },
+  {
+    id: 'font-not-chosen',
+    purpose:
+      "US-012's not-chosen case. Identical to primary except fontFamily at today's default, which " +
+      'the owner decided on 2026-09-15 counts as never chosen. primary is the chosen case.',
+    templates: TEMPLATES,
+    rowGroups: ['font'],
+    layout: { ...PRIMARY_LAYOUT, fontFamily: DEFAULT_RESUME_LAYOUT.fontFamily },
+  },
+  {
+    id: 'multi-page',
+    purpose:
+      "US-013's professional print band. Primary's layout over the fixture with earlier roles " +
+      'appended, so the print runs past one page and the sidebar column of every printed page can be ' +
+      'read from the PDF, where globals.css paints its band behind the document.',
+    templates: ['professional'],
+    rowGroups: ['print'],
+    layout: PRIMARY_LAYOUT,
+    content: { experience: [...FIXTURE_EXPERIENCE, ...EARLIER_ROLES], minimumPrintedPages: 2 },
+  },
 ]
+
+/** Whether a profile's collect test samples title, heading and body typography. */
+export function samplesTypography(profile: ParityProfile): boolean {
+  // Control profiles are sampled too: primary rows read them.
+  return profile.control === true || profile.rowGroups.includes('typography') || profile.rowGroups.includes('font')
+}
 
 // ---------------------------------------------------------------------------
 // Section catalogue
@@ -371,11 +512,13 @@ const MODERN: TemplateSpec = {
 }
 
 /**
- * Classic and Minimal share one vocabulary and one mapping, whose
+ * Classic and Minimal share one vocabulary and one mapping rule, whose
  * `languagesAndCerts` member renders as two headed sections side by side.
- * `skills` and `projects` are not representable in the editor's main order
- * (P3-US001), so the model positions neither — but nothing hides them either,
- * so the reference expects both to be shown.
+ * `skills` and `projects` are not representable in the editor's main order;
+ * since Part 3 US-002 each template's mapping keeps them in the slot its
+ * Preview draws them in, so the model positions them like every other section
+ * it returns. Nothing in the model can hide them, so they are always expected
+ * shown.
  */
 function singleColumn(
   template: 'classic' | 'minimal',
@@ -403,13 +546,9 @@ function singleColumn(
       )
       const hidden = model.hiddenMainSections as readonly string[]
       const shown = (id: string) => expanded.includes(id) && !hidden.includes(id)
-      const positioned = ['summary', 'experience', 'education', 'languages', 'certifications']
+      const positioned = ['summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications']
       return {
-        visible: {
-          ...Object.fromEntries(positioned.map((id) => [id, shown(id)])),
-          skills: true,
-          projects: true,
-        },
+        visible: Object.fromEntries(positioned.map((id) => [id, shown(id)])),
         order: { main: orderedVisible(expanded, positioned, shown) },
       }
     },
@@ -417,7 +556,7 @@ function singleColumn(
 }
 
 /**
- * Creative has no section vocabulary (Part 3 US-005). The reference is the
+ * Creative has no section vocabulary (Part 3 US-015). The reference is the
  * plain reading of the editor ids creative actually renders: `summary` in the
  * header (shown or hidden, never positioned), `skills` and `languages` in the
  * left column, `experience` and `education` in the right. `certifications`
@@ -501,6 +640,15 @@ export function primaryFamily(stack: string): string {
   return stack.split(',')[0].trim().replace(/['"]/g, '')
 }
 
+/**
+ * Whether the model's font was chosen. The model cannot record that yet (US-012
+ * adds it), so this applies the owner's decision of 2026-09-15 literally: a
+ * stored font equal to today's default was never chosen.
+ */
+export function fontChosen(model: ResumeLayoutModel): boolean {
+  return model.fontFamily !== DEFAULT_RESUME_LAYOUT.fontFamily
+}
+
 // ---------------------------------------------------------------------------
 // Proof that the fixture is non-default
 // ---------------------------------------------------------------------------
@@ -510,7 +658,7 @@ export interface NonDefaultLine {
   defaultValue: string
   seededValue: string
   differs: boolean
-  /** Required by the story; the rest are seeded to expose P3-US004 and font-family parity. */
+  /** Required by the story; the rest are seeded to expose US-011 and font-family parity. */
   required: boolean
 }
 

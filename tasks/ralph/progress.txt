@@ -1,0 +1,163 @@
+# Ralph progress — Milestone C Part 3: parity defects
+# Contract: tasks/ralph/prd.json (branch ralph/milestone-c-part-3-parity-defects)
+# PRD: tasks/prds/milestone-c-part-3-parity-defects.md (APPROVED 2026-09-15)
+
+## US-001: The parity check names every Part 3 defect
+Status: PASS
+Priority: 1
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: 64829aebbef2ef14f88737524ed761be820299e0
+Worktree: E:/website/cv-website/my-cv-platform-part3 (the main checkout was in use by another session)
+
+Scope:
+- Scope check: PASS
+- Changed paths: e2e/parity/verdicts.ts, e2e/parity/profiles.ts, e2e/parity/surfaces.ts,
+  e2e/parity/colour.ts, e2e/parity/parity.spec.ts, e2e/parity/sidebar-column.spec.ts (new),
+  e2e/fixtures/resume.ts (additive optional overrides; existing callers byte-neutral),
+  tasks/ralph/prd.json (US-001 passes), tasks/ralph/progress.txt (this file)
+- src/ untouched; e2e/visual untouched; no version change; no push or merge
+
+Checks (run in the worktree on the final diff):
+- pnpm typecheck: PASS — exit 0
+- pnpm lint: PASS — 306 problems (236 errors, 70 warnings), equal to the origin/main baseline; none in e2e/parity or e2e/fixtures
+- pnpm test (unit): PASS — 302/302
+- pnpm test:integration: PASS — 27/27
+- pnpm test:e2e: PASS — 55 passed; --list 55, no parity spec collected
+- pnpm test:visual: PASS — 10 passed; --list 10; e2e/visual status empty
+- pnpm build:verify: PASS — exit 0
+- pnpm test:parity: PASS — two consecutive runs, 236 passed, exit 0 each; reports byte-identical,
+  sha256 6df8b2f9197ec3634893126f1a16e53588bebac6e4336a9537448b998bad5caa
+
+Specialized validation:
+- Browser: NOT_APPLICABLE — no UI change
+- Visual: PASS — baselines unchanged, visual suite green
+- Export: NOT_APPLICABLE — no export code change; exported bytes measured by the parity check are unchanged
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE — test harness only, no trust boundary touched
+
+Agents:
+- senior-coder: implementation, then one scoped fix round after review FAIL
+- ui-expert: NOT_APPLICABLE — no rendered UI change
+- code-reviewer: round 1 FAIL (signatures accepted unregistered divergences: US-011 DOCX size unpinned,
+  US-012 declared-not-drawn face, not-chosen rows without reference, US-003/US-013 Preview side unpinned,
+  US-013 print-band FINDING incomplete); round 2 PASS — reviewer's own offline harness applied 17
+  perturbations (11 new shapes) to the round-2 observations, every one NEW
+
+Acceptance criteria:
+- AC-01: PASS — KnownId union in e2e/parity/verdicts.ts uses Part 3 story ids (US-002-sections-classic ... US-015-creative-sections); P3-US00N ids gone
+- AC-02: PASS — independent recount: all 105 non-MATCH rows of report 10fe632c map to the Divergence Inventory story; all 82 MATCH rows unchanged; F-A row is KNOWN US-013-accent-hue
+- AC-03: PASS — multi-page profile prints >= 2 pages (asserted in parity.spec.ts); colour:print-sidebar-column is measured (NOT EXERCISED 0)
+- AC-04: PASS — font-not-chosen profile (stored default) and chosen-font rows both measured; minimal/creative not-chosen rows referenced to Inter
+- AC-05: PASS — report: MATCH 89, KNOWN 114, NEW 0, unreconciled 0; all 16 known ids CONFIRMED; 25 perturbation cases turn NEW (perturb-check log)
+- AC-06: PASS — git diff -- src empty; e2e/visual unchanged
+- PRD-wide items (FR, regression, verification, FAIL, BLOCKER, out of scope): PASS — no product behaviour changed, required checks above green, no FAIL/BLOCKER condition met
+
+Open owner decisions recorded by this story (not blocking US-001):
+- Before US-012: which family classic body text uses when no font was chosen. Classic draws Inter
+  today, so "classic stays serif" and "no unchosen font changes" cannot both hold. Also confirm that
+  professional/modern not-chosen rows keep the stored default (Arial), as the parity reference now assumes.
+- Before US-013: acceptance criterion 2 (multi-page print shows a visible band) cannot be exercised as
+  written — under print html/body are white !important and the band gradient ends where body ends, so
+  colour:print-sidebar-column matches whether or not the band follows the model. Revise the criterion.
+
+Environment notes:
+- Round 1 saw three ~15 s DOCX stalls, all on the first DOCX request after server start
+  (collect · primary · professional); re-run, not absorbed. Round 2 had no stall.
+- The parity report is deterministic per machine (font-face resolution depends on installed fonts).
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 the parity check names every Part 3 defect
+
+FINAL: PASS
+
+## US-002: The classic and minimal DOCX stop dropping sections
+Status: PASS
+Priority: 2
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: ac21dcc (tree identical to origin/main 3e32910)
+Worktree: E:/website/cv-website/my-cv-platform-part3
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/lib/layout-settings.ts, src/lib/layout-settings.test.ts,
+  src/app/api/resumes/[id]/download-docx/docx-classic.ts, docx-minimal.ts (comment-only),
+  src/app/api/resumes/[id]/download-docx/docx-single-column-sections.test.ts (new),
+  e2e/docx-classic-layout.spec.ts, e2e/docx-minimal-layout.spec.ts,
+  e2e/parity/profiles.ts, e2e/parity/verdicts.ts,
+  tasks/ralph/prd.json, tasks/ralph/progress.txt
+- No Preview/template source changed; no visual baseline moved; no version change
+
+Decision (AC-03) — the filtering changed, not the vocabulary:
+  mapEditorOrderToSingleColumn took section membership from the editor's main order, which
+  parseLayoutModel filters to VALID_MAIN_IDS, so skills and projects never reached the dispatch.
+  Membership now comes from a per-template sequence (CLASSIC_SEQUENCE, MINIMAL_SEQUENCE); the
+  stored order decides only the positions it can name. VALID_MAIN_IDS, parseLayoutModel and
+  DEFAULT_RESUME_LAYOUT are byte-unchanged, so professional, modern and creative cannot move.
+  Widening the vocabulary was rejected: the editor offers neither id on any template, the list is
+  also the other three templates' vocabulary and the source of the default order (FR-5), and
+  skills is already a sidebar id. Recorded in the DECISION (Part 3 US-002) comment in
+  src/lib/layout-settings.ts.
+
+Checks (re-run on the final diff):
+- pnpm typecheck: PASS — exit 0
+- pnpm lint: PASS — 306 problems, at baseline, under the PRD's 311 ceiling
+- pnpm test (unit): PASS — 333/333, including 4 new empty-category cases
+- pnpm test:integration: PASS — 27/27
+- pnpm test:e2e: PASS — 55 passed; --list 55
+- pnpm test:visual: PASS — 10 passed; --list 10; e2e/visual status empty
+- pnpm build:verify: PASS — exit 0
+- pnpm test:parity: PASS — two runs, 236 passed each, reports byte-identical,
+  sha256 e8a314cdc086632a603152560d680e81c1b488e2e4dbcfc6b2b92585b7e37eda
+  Counts: MATCH 93, KNOWN 110, NEW 0, unreconciled 0, FINDING 9, DECISION 3
+
+Specialized validation:
+- Browser: NOT_APPLICABLE — no UI change
+- Visual: PASS — baselines unchanged, suite green
+- Export: PASS — generated DOCX inspected as unzipped word/document.xml, not an HTTP 200;
+  artifact comparison over two layouts: professional/modern/creative byte-identical before and
+  after (6 hashes), classic and minimal insertions-only
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE — no trust boundary touched; stored layout stays untrusted and bounded
+
+Agents:
+- ui-expert: NOT_APPLICABLE — no rendered UI change
+- code-reviewer: round 1 FAIL — classic dropped a visible skill category with no items (heading
+  above nothing, disagreeing with its own Preview and with minimal); plus two behaviour changes
+  unrecorded. Round 2 PASS, with the reviewer reproducing red-before against HEAD's generator and
+  running its own probe suites.
+
+Acceptance criteria:
+- AC-01: PASS — docx-single-column-sections.test.ts unzips word/document.xml and asserts both
+  sections; e2e/docx-classic-layout.spec.ts covers the real route
+- AC-02: PASS — same coverage for minimal
+- AC-03: PASS — see Decision above
+- AC-04: PASS — artifact comparison, 6 byte-identical hashes across two layouts; the changed
+  exports have no consumer outside the two single-column generators
+- AC-05: PASS — no template source in the diff; visual 10/10 with no snapshot update
+- AC-06: PASS — hidden main sections, hidden categories, hidden projects and all-items-hidden
+  (heading included) all stay out, verified by the reviewer's independent probes
+- AC-07: PASS — the four visibility rows for classic and minimal are MATCH; both
+  US-002-sections-* ids removed from the known list (FR-10)
+- PRD-wide items: PASS — AC-48 holds (no section list in any generator), FR-2/FR-5 hold,
+  lint within ceiling, no tolerance or timeout widened
+
+Findings recorded by this story (annotations in the parity report, not defects of it):
+- hiddenSidebarSections: skills is a no-op on every classic/minimal surface. Before this story the
+  DOCX appeared to honour it; now it does not. Not gating the new sections on a list no Preview
+  reads follows FR-3. US-014 owns the control gap under FR-9; the stored value is preserved.
+- Project descriptions (and a category's skillsHtml) are stored as HTML: the classic and minimal
+  Previews render them plainly while the generators parse them. The DOCX is right and the Preview
+  is wrong. No Part 3 story owns Preview rich-text rendering — an owner decision to place it.
+
+Open reviewer finding carried to US-009:
+- The section order is hand-transcribed in three places (CLASSIC_SEQUENCE/MINIMAL_SEQUENCE,
+  PREVIEW_ORDER, the JSX) with no guard: reordering a template's JSX breaks nothing today. No
+  parity profile uses the default main order, so those rows are permanently KNOWN US-009. A
+  default-order profile scoped to ['classic','minimal'] closes it cheaply in US-009.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 the classic and minimal DOCX stop dropping sections
+
+FINAL: PASS
