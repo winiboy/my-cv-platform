@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   buildCoverLetterPdfHtml,
-  escapeHtml,
   type CoverLetterPdfFields,
 } from './cover-letter-pdf-html'
 
@@ -34,31 +33,6 @@ function build(overrides: Partial<CoverLetterPdfFields> = {}): string {
     sanitizeRichText: passthrough,
   })
 }
-
-describe('escapeHtml', () => {
-  it.each([
-    ['&', '&amp;'],
-    ['<', '&lt;'],
-    ['>', '&gt;'],
-    ['"', '&quot;'],
-    ["'", '&#39;'],
-  ])('escapes %s', (input, expected) => {
-    expect(escapeHtml(input)).toBe(expected)
-  })
-
-  it('escapes an existing entity again instead of assuming it is already encoded', () => {
-    expect(escapeHtml('&amp;')).toBe('&amp;amp;')
-  })
-
-  it('returns an empty string for null and undefined', () => {
-    expect(escapeHtml(null)).toBe('')
-    expect(escapeHtml(undefined)).toBe('')
-  })
-
-  it('leaves text without special characters unchanged', () => {
-    expect(escapeHtml('Jane Doe')).toBe('Jane Doe')
-  })
-})
 
 describe('buildCoverLetterPdfHtml plain-text fields', () => {
   const PLAIN_TEXT_FIELDS = [

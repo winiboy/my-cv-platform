@@ -17,6 +17,10 @@ describe('escapeHtml', () => {
     expect(escapeHtml('<&>')).toBe('&lt;&amp;&gt;')
   })
 
+  it('escapes an existing entity again instead of assuming it is already encoded', () => {
+    expect(escapeHtml('&amp;')).toBe('&amp;amp;')
+  })
+
   it('returns an empty string for null and undefined', () => {
     expect(escapeHtml(null)).toBe('')
     expect(escapeHtml(undefined)).toBe('')

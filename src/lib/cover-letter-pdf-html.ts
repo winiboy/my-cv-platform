@@ -1,4 +1,5 @@
 import type { CoverLetter } from '@/types/database'
+import { escapeHtml } from './escape-html'
 
 /** The cover letter fields rendered by the PDF export template. */
 export type CoverLetterPdfFields = Pick<
@@ -21,21 +22,6 @@ export interface CoverLetterPdfHtmlOptions {
   currentDate: string
   /** Sanitizer applied to rich-text paragraphs before interpolation. */
   sanitizeRichText: (html: string) => string
-}
-
-/**
- * Escapes a plain-text value for safe interpolation into HTML text content or
- * a quoted attribute. `&` is replaced first so the entities produced for the
- * other characters are not themselves re-escaped.
- */
-export function escapeHtml(value: string | null | undefined): string {
-  if (value === null || value === undefined) return ''
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 }
 
 /**
