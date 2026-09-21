@@ -35,12 +35,6 @@ export default defineConfig({
     ],
     clearMocks: true,
   },
-  // tsconfig.json sets `jsx: "preserve"` for Next.js, which leaves JSX
-  // untransformed. Pure .tsx render helpers (e.g. src/lib/format-text.tsx)
-  // need it compiled to run under vitest.
-  oxc: {
-    jsx: { runtime: 'automatic' },
-  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
