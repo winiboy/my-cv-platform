@@ -129,6 +129,36 @@ Test-Case 'EXPIRED falls back'           'pnpm lint'                      $expir
 Test-Case 'NO STORY falls back'          'pnpm lint'                      $nostoryCwd  'no-decision'
 Test-Case 'MALFORMED falls back'         'pnpm lint'                      $brokenCwd   'no-decision'
 Test-Case 'ABSENT falls back'            'pnpm lint'                      $absentCwd   'no-decision'
+# --- A subdirectory cwd changes no verdict on a Ralph branch ----------------
+# The Ralph contract is looked up at the repository root. It used to be joined
+# onto the raw cwd, so a call from any subdirectory - routine, since a subagent
+# inherits the orchestrator's shell cwd - was denied as "prd.json is missing".
+# Resolving the root must not move anything else: gates still ask, denials
+# still deny, in both modes.
+$ralphStdCwd = Join-Path $root 'ralph-standard'
+New-FixtureRepo -Path $ralphStdCwd -Branch 'ralph/gov' -State @{ storyId = 'US-904'; mode = 'STANDARD'; activatedAt = $past; expiresOn = $future }
+$ralphFtCwd = Join-Path $root 'ralph-fasttrack'
+New-FixtureRepo -Path $ralphFtCwd -Branch 'ralph/gov' -State @{ storyId = 'US-905'; mode = 'FAST_TRACK'; activatedAt = $past; expiresOn = $future }
+foreach ($r in @($ralphStdCwd, $ralphFtCwd)) {
+    New-Item -ItemType Directory -Path (Join-Path $r 'tasks\ralph') -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $r 'tasks\ralph\prd.json') -Value '{"project":"p","branchName":"ralph/gov"}' -Encoding UTF8
+    New-Item -ItemType Directory -Path (Join-Path $r 'src\lib') -Force | Out-Null
+}
+$ralphStdSub = Join-Path $ralphStdCwd 'src\lib'
+$ralphFtSub  = Join-Path $ralphFtCwd 'src\lib'
+
+Test-Case 'RALPH-CWD [STD] subdir edit'         'src/lib/foo.ts'        $ralphStdSub 'no-decision' 'Edit'
+Test-Case 'RALPH-CWD [STD] subdir git add'      'git add -- src/a.ts'   $ralphStdSub 'no-decision'
+Test-Case 'RALPH-CWD [STD] subdir git push'     'git push'              $ralphStdSub 'ask'
+Test-Case 'RALPH-CWD [STD] subdir push --force' 'git push --force'      $ralphStdSub 'deny'
+Test-Case 'RALPH-CWD [FT] root edit'            'src/lib/foo.ts'        $ralphFtCwd  'allow' 'Edit'
+Test-Case 'RALPH-CWD [FT] subdir git push'      'git push'              $ralphFtSub  'ask'
+Test-Case 'RALPH-CWD [FT] subdir reset --hard'  'git reset --hard HEAD' $ralphFtSub  'deny'
+# Not a grant, and not denied either. governance-state.json is still read from
+# the raw cwd, so from a subdirectory FAST TRACK reads as STANDARD and the hook
+# defers. That fails safe (it grants nothing) and is outside this fix; the case
+# pins it so a change to it is deliberate.
+Test-Case 'RALPH-CWD [FT] subdir edit defers'   'src/lib/foo.ts'        $ralphFtSub  'no-decision' 'Edit'
 # --- main beats everything ------------------------------------------------
 # Phase 05 forbids repository mutation on main outright. Forbidden must beat
 # prompted AND beat granted: an early version returned 'ask' for git commit on

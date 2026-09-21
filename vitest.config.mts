@@ -12,6 +12,10 @@ import { defineConfig } from 'vitest/config'
  * project entry rather than changing this one globally.
  */
 export default defineConfig({
+  // tsconfig.json sets `jsx: preserve` for Next.js, which leaves JSX untransformed
+  // and makes any .tsx import unparseable here. Pure tests still need to import
+  // .tsx modules (e.g. the DOCX plain-text list parity check against formatText).
+  oxc: { jsx: { runtime: 'automatic' } },
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
