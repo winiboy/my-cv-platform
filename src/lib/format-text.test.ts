@@ -9,10 +9,18 @@ import { formatText, renderFormattedText } from './format-text'
  * cases below cover what `renderFormattedText` does with sanitized output
  * (wrapper, no alignment override), not the sanitizer's own attribute
  * filtering.
+ *
+ * HTML is only sanitized and rendered after hydration (see SanitizedHtml); the
+ * server render is an empty wrapper, which sanitized-html.test.ts covers.
+ * `useBrowserRender` is pinned to `true` so these cases render the markup the
+ * browser ends up showing.
  */
 vi.mock('./html-utils', () => ({
   sanitizeHtml: (html: string) => html,
   migrateTextToHtml: (text: string) => text,
+}))
+vi.mock('./hooks/use-browser-render', () => ({
+  useBrowserRender: () => true,
 }))
 
 function render(node: ReactNode): string {

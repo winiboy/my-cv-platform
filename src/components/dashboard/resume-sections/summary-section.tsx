@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { Sparkles, X, Check, Languages } from 'lucide-react'
 import type { Resume } from '@/types/database'
 import { RichTextEditor } from '../rich-text-editor'
 import { htmlToPlainText, migrateTextToHtml } from '@/lib/html-utils'
+import { useBrowserRender } from '@/lib/hooks/use-browser-render'
 import { KeyAchievementsToolbar, KeyAchievementsFormatCommand } from '../key-achievements-toolbar'
 
 interface SummarySectionProps {
@@ -21,6 +22,18 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
   const [translatedSummary, setTranslatedSummary] = useState<string | null>(null)
   const [targetLanguage, setTargetLanguage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // `htmlToPlainText` parses with the DOM as soon as the summary contains a
+  // tag, so the count cannot be produced by the server render of this client
+  // component - it threw there and turned a direct load of
+  // `?section=summary` into an HTTP 500. It is left blank until the browser
+  // can compute it rather than filled with a number the server would be
+  // guessing at.
+  const inBrowser = useBrowserRender()
+  const characterCount = useMemo(
+    () => (inBrowser ? htmlToPlainText(resume.summary || '').length : null),
+    [inBrowser, resume.summary]
+  )
 
   // Handle summary change
   const handleSummaryChange = (html: string, plainText: string) => {
@@ -460,8 +473,10 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
             {dict.resumes?.editor?.recommended || 'Recommended'}: 3-5{' '}
             {dict.resumes?.editor?.sentences || 'sentences'}
           </span>
-          <span>
-            {htmlToPlainText(resume.summary || '').length || 0} {dict.resumes?.editor?.characters || 'characters'}
+          <span data-testid="summary-character-count">
+            {characterCount === null
+              ? null
+              : `${characterCount} ${dict.resumes?.editor?.characters || 'characters'}`}
           </span>
         </div>
       </div>

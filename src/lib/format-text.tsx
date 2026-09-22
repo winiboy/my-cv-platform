@@ -5,7 +5,7 @@
  */
 
 import React from 'react'
-import { sanitizeHtml, migrateTextToHtml } from './html-utils'
+import { SanitizedHtml } from '@/components/sanitized-html'
 
 export interface FormatTextOptions {
   /**
@@ -123,11 +123,6 @@ export function renderFormattedText(
     return formatText(text, options)
   }
 
-  // HTML content - sanitize and render
-  return (
-    <div
-      className="formatted-content"
-      dangerouslySetInnerHTML={{ __html: sanitizeHtml(text) }}
-    />
-  )
+  // HTML content - sanitized in the browser, see SanitizedHtml
+  return <SanitizedHtml className="formatted-content" html={text} />
 }
