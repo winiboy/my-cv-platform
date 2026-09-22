@@ -4,15 +4,55 @@ import { escapeHtml } from './escape-html'
  * Conversion between the cover letter's canonical plain-text representation and
  * the HTML held by the contentEditable editor in the cover letter generator.
  *
- * Canonical model (shared with the DOCX export):
+ * Canonical model (also used by `cover-letter-pdf-layout.ts`; the DOCX export
+ * follows the same convention but still splits the text itself):
  * - `\n\n` separates two paragraphs
  * - a single `\n` is a line break *inside* one paragraph
  *
- * The editor renders with `white-space: pre-line`, so a lone `\n` stays a real
- * text-node newline and `Element.textContent` reads it back unchanged. Emitting
- * `<br>` instead would break that round trip, because `textContent` drops
- * element-level breaks.
+ * The editor renders with `white-space: pre-line`, so a lone `\n` is emitted as
+ * a real text-node newline rather than a `<br>`. A `<br>` can still reach the
+ * DOM — another engine's Shift+Enter, a placeholder in an emptied paragraph —
+ * so reading the editor back maps it to `\n` as well; see
+ * {@link readEditorNodeText}.
  */
+
+/** `Node.TEXT_NODE`, spelled out because the unit suite runs without a DOM. */
+const TEXT_NODE = 3
+/** `Node.ELEMENT_NODE`. */
+const ELEMENT_NODE = 1
+
+/**
+ * The slice of the DOM `Node` interface {@link readEditorNodeText} walks.
+ *
+ * Structural rather than `Node` itself so the reader can be unit-tested with
+ * plain objects; every DOM node satisfies it.
+ */
+export interface EditorTextNode {
+  readonly nodeType: number
+  readonly nodeName: string
+  readonly nodeValue: string | null
+  readonly childNodes: ArrayLike<EditorTextNode>
+}
+
+/**
+ * Reads the text under `node` the way `textContent` does, except that a `<br>`
+ * becomes `\n`.
+ *
+ * `textContent` drops `<br>` outright, so `Kind regards,<br>Jane Doe` would
+ * read back as `Kind regards,Jane Doe` — the two words fused, with neither a
+ * line break nor a space between them.
+ */
+export function readEditorNodeText(node: EditorTextNode): string {
+  if (node.nodeType === TEXT_NODE) return node.nodeValue ?? ''
+  if (node.nodeType !== ELEMENT_NODE) return ''
+  if (node.nodeName === 'BR') return '\n'
+
+  let text = ''
+  for (let index = 0; index < node.childNodes.length; index++) {
+    text += readEditorNodeText(node.childNodes[index])
+  }
+  return text
+}
 
 /**
  * Splits the canonical plain text into its paragraphs, dropping blank ones.
@@ -71,11 +111,12 @@ export function plainTextToEditorHtml(text: string): string {
  * Reads the editor's current DOM back into the canonical plain text.
  *
  * Kept deliberately thin: it only crosses the DOM boundary and delegates every
- * decision to {@link joinEditorParagraphs}, which the unit suite covers — that
- * suite runs in a Node environment with no DOM.
+ * decision to {@link readEditorNodeText} and {@link joinEditorParagraphs},
+ * which the unit suite covers — that suite runs in a Node environment with no
+ * DOM.
  */
 export function editorHtmlToPlainText(root: HTMLElement): string {
-  const paragraphTexts = Array.from(root.querySelectorAll('p'), (p) => p.textContent ?? '')
+  const paragraphTexts = Array.from(root.querySelectorAll('p'), readEditorNodeText)
 
-  return joinEditorParagraphs(paragraphTexts, root.textContent ?? '')
+  return joinEditorParagraphs(paragraphTexts, readEditorNodeText(root))
 }

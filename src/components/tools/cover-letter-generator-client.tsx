@@ -90,31 +90,6 @@ function stripHtmlTags(html: string): string {
 }
 
 /**
- * Resolves the caret position under a pointer coordinate.
- *
- * `caretRangeFromPoint` is the Blink/WebKit spelling, `caretPositionFromPoint`
- * the standard one. Neither is guaranteed, so callers must tolerate `null` and
- * fall back to the selection the document already holds.
- */
-function resolveCaretRange(clientX: number, clientY: number): Range | null {
-  if (typeof document.caretRangeFromPoint === 'function') {
-    return document.caretRangeFromPoint(clientX, clientY)
-  }
-
-  if (typeof document.caretPositionFromPoint === 'function') {
-    const position = document.caretPositionFromPoint(clientX, clientY)
-    if (!position) return null
-
-    const range = document.createRange()
-    range.setStart(position.offsetNode, position.offset)
-    range.collapse(true)
-    return range
-  }
-
-  return null
-}
-
-/**
  * Converts a resume's JSONB content to plain text for analysis.
  * Extracts and formats all relevant sections into a readable text format.
  */
@@ -892,40 +867,6 @@ export function CoverLetterGeneratorClient({
     (e: React.ClipboardEvent) => {
       e.preventDefault()
       const text = e.clipboardData.getData('text/plain')
-      document.execCommand('insertText', false, text)
-      handleEditorInput()
-    },
-    [handleEditorInput]
-  )
-
-  /**
-   * Handles drop events so dragged content lands as plain text.
-   * Without this the browser inserts the dragged markup live into the editor.
-   *
-   * A drag that starts inside the editor is copied rather than moved, because
-   * the default move behaviour is what has to be cancelled to strip the markup.
-   */
-  const handleEditorDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-
-      const editor = editorRef.current
-      if (!editor) return
-
-      const text = e.dataTransfer.getData('text/plain')
-      if (!text) return
-
-      editor.focus()
-
-      // execCommand inserts at the current selection, which is still wherever
-      // the caret sat before the drag, so aim it at the drop point first.
-      const dropRange = resolveCaretRange(e.clientX, e.clientY)
-      if (dropRange && editor.contains(dropRange.startContainer)) {
-        const selection = window.getSelection()
-        selection?.removeAllRanges()
-        selection?.addRange(dropRange)
-      }
-
       document.execCommand('insertText', false, text)
       handleEditorInput()
     },
@@ -2684,7 +2625,6 @@ export function CoverLetterGeneratorClient({
                 onInput={handleEditorInput}
                 onKeyDown={handleEditorKeyDown}
                 onPaste={handleEditorPaste}
-                onDrop={handleEditorDrop}
                 className={cn(
                   // Paragraph spacing lives in globals.css under this class, not
                   // in a Tailwind arbitrary variant: the unlayered global

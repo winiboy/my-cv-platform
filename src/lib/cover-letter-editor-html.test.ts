@@ -2,8 +2,23 @@ import { describe, expect, it } from 'vitest'
 import {
   joinEditorParagraphs,
   plainTextToEditorHtml,
+  readEditorNodeText,
   splitPlainTextIntoParagraphs,
+  type EditorTextNode,
 } from './cover-letter-editor-html'
+
+/** Minimal stand-ins for DOM nodes; the unit suite runs without a DOM. */
+function textNode(value: string): EditorTextNode {
+  return { nodeType: 3, nodeName: '#text', nodeValue: value, childNodes: [] }
+}
+
+function element(tagName: string, ...children: EditorTextNode[]): EditorTextNode {
+  return { nodeType: 1, nodeName: tagName.toUpperCase(), nodeValue: null, childNodes: children }
+}
+
+function commentNode(value: string): EditorTextNode {
+  return { nodeType: 8, nodeName: '#comment', nodeValue: value, childNodes: [] }
+}
 
 /**
  * A letter in the canonical form the generator produces: blank lines between
@@ -57,6 +72,45 @@ describe('joinEditorParagraphs', () => {
 
   it('falls back to the raw text when the editor holds no paragraph', () => {
     expect(joinEditorParagraphs([], 'typed straight in')).toBe('typed straight in')
+  })
+})
+
+describe('readEditorNodeText', () => {
+  it('reads a <br> as a line break, so the words on either side stay apart', () => {
+    // `textContent` would give "Kind regards,Jane Doe".
+    const paragraph = element('p', textNode('Kind regards,'), element('br'), textNode('Jane Doe'))
+
+    expect(readEditorNodeText(paragraph)).toBe('Kind regards,\nJane Doe')
+  })
+
+  it('reads a <br> nested inside inline formatting', () => {
+    const paragraph = element(
+      'p',
+      element('strong', textNode('Kind regards,'), element('br')),
+      textNode('Jane Doe')
+    )
+
+    expect(readEditorNodeText(paragraph)).toBe('Kind regards,\nJane Doe')
+  })
+
+  it('keeps a text-node newline as it is', () => {
+    expect(readEditorNodeText(element('p', textNode('Kind regards,\nJane Doe')))).toBe(
+      'Kind regards,\nJane Doe'
+    )
+  })
+
+  it('reads a placeholder-only paragraph as blank, so joining drops it', () => {
+    const paragraphs = [
+      element('p', textNode('First.')),
+      element('p', element('br')),
+      element('p', textNode('Second.')),
+    ]
+
+    expect(joinEditorParagraphs(paragraphs.map(readEditorNodeText), '')).toBe('First.\n\nSecond.')
+  })
+
+  it('ignores comment nodes, as textContent does', () => {
+    expect(readEditorNodeText(element('p', textNode('A'), commentNode('x'), textNode('B')))).toBe('AB')
   })
 })
 

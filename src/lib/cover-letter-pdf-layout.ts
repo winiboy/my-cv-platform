@@ -9,9 +9,13 @@ import { splitPlainTextIntoParagraphs } from '@/lib/cover-letter-editor-html'
  * document instance, the filename and `doc.save()`, while every decision that
  * affects the rendered page is made here.
  *
- * Canonical text model (shared with the editor and the DOCX export):
+ * Canonical text model, split by the same `splitPlainTextIntoParagraphs` the
+ * editor uses:
  * - `\n\n` separates two paragraphs
  * - a single `\n` is a line break *inside* one paragraph
+ *
+ * The DOCX export follows the same convention but does not share this code: it
+ * still splits the text itself in `cover-letter-generator-client.tsx`.
  *
  * jsPDF's `splitTextToSize` already honours a lone `\n` as a hard break, and
  * keeps doing so when the segment before it also wraps, so the intra-paragraph
