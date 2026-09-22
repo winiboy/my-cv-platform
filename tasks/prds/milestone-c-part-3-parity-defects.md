@@ -1,7 +1,9 @@
 # PRD: Resume Rendering Unification — Part 3, Parity Defects (Milestone C)
 
 **Status:** APPROVED — owner, 2026-09-15, on the revision of the same date
-(`279f8bf`, merged in #56).
+(`279f8bf`, merged in #56). **Amended 2026-09-22** under this document's own
+BLOCKER condition — see *Amendment History*; the amendment takes effect when the
+owner merges the pull request that carries it.
 
 **Two of the five resume templates silently drop supported content from their
 DOCX export today.** A classic or minimal user with a skills or projects section
@@ -116,7 +118,10 @@ end as `MATCH` or as a recorded, evidenced format limitation.
 | Palette | DOCX text colour differs from the Preview's palette, all templates | 13 NEW | US-003 |
 | Spacing | DOCX line spacing written as Word auto multiples | 15 NEW + finding | US-004 |
 | Spacing | DOCX letter spacing differs from CSS `em × px` | 8 NEW | US-005 |
+| Palette | DOCX borders and fills kept in stock Tailwind v3 colours: classic header border and heading rules, minimal rules, creative header and badge fills, professional heading underline | found in US-003 | US-003 |
 | Colour | Modern translucent sidebar text written opaque | 2 NEW | US-006 |
+| Colour | Professional `opacity-80` sidebar text (key-achievement descriptions, skill items, language levels) written opaque white | found in US-003 | US-006 |
+| Colour | Creative translucent header text (`text-white/90` summary, `text-white/80` second contact row) written opaque white over a solid fill | found in US-003 | US-006 |
 | Graphics | Modern skill bars, creative language bars and pills absent from DOCX | 3 findings | US-007 |
 | Geometry | classic, minimal, creative DOCX A4 against Letter elsewhere | 3 NEW | US-008 |
 | Structure | classic and minimal Previews ignore order and visibility | confirmed | US-009 |
@@ -274,11 +279,18 @@ the Preview is what I approved.
 - [ ] Every DOCX text colour for the title, section headings and body text
       equals the colour the Preview renders for that element, compared as sRGB
       with the parity check's declared per-channel tolerance, for all five
-      templates.
+      templates. Text the Preview draws translucent is US-006's.
 - [ ] The DOCX values derive from the palette the Preview actually renders —
       `globals.css`'s redefined tokens and inline colours — rather than from a
       second hand-copied hex table that can drift from it again. How the
       generators obtain those values is a decision to record.
+- [ ] Borders and fills the Preview draws in a theme token or inline colour —
+      classic's header border and heading rules, minimal's rules, creative's
+      header and badge fills, professional's heading underline — derive from the
+      same palette. A fill the Preview draws as a gradient takes the gradient's
+      first stop, and the gradient is recorded as a format limitation.
+- [ ] A test fails when a template draws a text colour the palette does not
+      hold, so a new or changed colour in a template cannot drift silently.
 - [ ] Colours the user sets (sidebar, accent) are unchanged by this story.
 - [ ] Preview rendering is unchanged; visual baselines do not move.
 - [ ] The story's parity rows change to `MATCH`.
@@ -319,19 +331,27 @@ As a user, I want headings in my downloaded CV spaced as they are on screen.
 - [ ] Preview rendering is unchanged; visual baselines do not move.
 - [ ] The story's parity rows change to `MATCH`.
 
-### US-006: Modern's translucent sidebar text keeps its tint in the DOCX
+### US-006: Translucent text keeps its tint in the DOCX
 
 **Description:**
-As a user of the modern template, I want secondary sidebar text in my download to
-look as muted as it does on screen.
+As a user of the modern, professional or creative template, I want secondary text
+in my download to look as muted as it does on screen.
 
 **Acceptance Criteria:**
 
-- [ ] Sidebar text drawn in the Preview as translucent white over the sidebar
-      colour is written to the DOCX as the composited opaque colour, computed
-      against the user's actual sidebar colour rather than a default.
+- [ ] Text drawn in the Preview as translucent white — modern's secondary
+      sidebar text, professional's `opacity-80` sidebar text, and creative's
+      `text-white/90` and `text-white/80` header text — is written to the DOCX as
+      the composited opaque colour, computed against the colour the DOCX
+      actually draws behind it: the user's sidebar colour for modern and
+      professional, the header fill for creative.
 - [ ] Changing the sidebar colour changes the composited DOCX colour
-      accordingly, evidenced at two different colours.
+      accordingly on modern and professional, evidenced at two different colours.
+- [ ] The parity check samples professional's and creative's translucent text,
+      so each is a named row rather than an unmeasured difference.
+- [ ] Creative's header gradient, which the DOCX cannot draw, is recorded as a
+      format limitation with evidence, including the colour its translucent text
+      is composited against.
 - [ ] Preview rendering is unchanged; visual baselines do not move.
 - [ ] The story's parity rows change to `MATCH`.
 
@@ -759,6 +779,19 @@ in. "Creative honours `mainContentOrder`" is therefore not unimplemented but
   approximation (US-007), where `projects` sits in a shared order (US-009), which
   surface is correct for the empty-main fallback (US-010), and how the font-choice
   record is represented (US-012).
+
+## Amendment History
+
+- **2026-09-22 — US-003 BLOCKER.** Implementing US-003 and its independent
+  review found three divergences this document did not name: professional's
+  `opacity-80` sidebar text and creative's translucent header text, both written
+  opaque white in the DOCX; and borders and fills the generators keep in stock
+  Tailwind v3 colours. Under the BLOCKER condition, this amendment names all
+  three in the *Divergence Inventory* and assigns them: the translucent text to
+  US-006, now "Translucent text keeps its tint in the DOCX"; the borders and
+  fills to US-003, with a completeness check so a template colour missing from
+  the palette fails a test. No story is added, removed or reordered, and no
+  cross-story requirement changes.
 
 ## Approval Gate
 
