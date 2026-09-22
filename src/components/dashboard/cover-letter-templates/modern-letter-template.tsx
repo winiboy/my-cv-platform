@@ -1,7 +1,7 @@
 'use client'
 
 import type { CoverLetter } from '@/types/database'
-import { sanitizeHtml } from '@/lib/html-utils'
+import { SanitizedHtml } from '@/components/sanitized-html'
 
 interface ModernLetterTemplateProps {
   coverLetter: CoverLetter
@@ -68,27 +68,17 @@ export function ModernLetterTemplate({ coverLetter, senderName }: ModernLetterTe
 
       {/* Opening paragraph */}
       {coverLetter.opening_paragraph && (
-        <div
-          className="mb-4 text-justify"
-          dangerouslySetInnerHTML={{ __html: sanitizeHtml(coverLetter.opening_paragraph) }}
-        />
+        <SanitizedHtml className="mb-4 text-justify" html={coverLetter.opening_paragraph} />
       )}
 
       {/* Body paragraphs */}
       {bodyParagraphs.map((paragraph, index) => (
-        <div
-          key={index}
-          className="mb-4 text-justify"
-          dangerouslySetInnerHTML={{ __html: sanitizeHtml(paragraph) }}
-        />
+        <SanitizedHtml key={index} className="mb-4 text-justify" html={paragraph} />
       ))}
 
       {/* Closing paragraph */}
       {coverLetter.closing_paragraph && (
-        <div
-          className="mb-6 text-justify"
-          dangerouslySetInnerHTML={{ __html: sanitizeHtml(coverLetter.closing_paragraph) }}
-        />
+        <SanitizedHtml className="mb-6 text-justify" html={coverLetter.closing_paragraph} />
       )}
 
       {/* Sign-off */}
