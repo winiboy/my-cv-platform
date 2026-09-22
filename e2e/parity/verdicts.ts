@@ -52,14 +52,13 @@ import {
  * signature for each.
  *
  * The first draft of that document numbered its stories differently. Its ids
- * map, by its Story Map, as: P3-US001-<template> to US-002-sections-<template>,
- * P3-US002-<template> to US-009-order-<template>, P3-US003 to
- * US-010-empty-main, P3-US004 to US-011-font-size, P3-US005 to
- * US-015-creative-sections. The `US-` form cannot be mistaken for the old one.
+ * map, by its Story Map, as: P3-US001-<template> to US-002-sections-<template>
+ * (closed by US-002, and removed with its signature), P3-US002-<template> to
+ * US-009-order-<template>, P3-US003 to US-010-empty-main, P3-US004 to
+ * US-011-font-size, P3-US005 to US-015-creative-sections. The `US-` form cannot
+ * be mistaken for the old one.
  */
 export type KnownId =
-  | 'US-002-sections-classic'
-  | 'US-002-sections-minimal'
   | 'US-003-palette'
   | 'US-004-line-spacing'
   | 'US-005-letter-spacing'
@@ -76,8 +75,6 @@ export type KnownId =
   | 'US-015-creative-sections'
 
 export const KNOWN_IDS: readonly KnownId[] = [
-  'US-002-sections-classic',
-  'US-002-sections-minimal',
   'US-003-palette',
   'US-004-line-spacing',
   'US-005-letter-spacing',
@@ -129,8 +126,6 @@ function expectations(groups: readonly (readonly [KnownId, readonly string[]])[]
  * failure; it is a hole in Part 3's scope.
  */
 export const KNOWN_EXPECTATIONS: Readonly<Record<string, KnownId>> = expectations([
-  ['US-002-sections-classic', rowIds('primary', ['classic'], ['visibility:skills', 'visibility:projects'])],
-  ['US-002-sections-minimal', rowIds('primary', ['minimal'], ['visibility:skills', 'visibility:projects'])],
   [
     'US-003-palette',
     [
@@ -612,24 +607,6 @@ const TRANSLUCENT_WHITE = /^rgba\(255, 255, 255, 0?\.\d+\)$/
  * may have two shapes: `evaluateRow` throws if signatures overlap.
  */
 const SIGNATURES: readonly Signature[] = [
-  ...(['classic', 'minimal'] as const).map(
-    (template): Signature => ({
-      id: `US-002-sections-${template}`,
-      defect:
-        `The ${template} DOCX omits skills and projects, which its Preview and print show and nothing hides: ` +
-        `docx-${template}.ts dispatches over mainContentOrder, which parseLayoutModel filters to summary, ` +
-        'experience and education, so its skills and projects branches cannot run.',
-      matches: ({ row, reference, values }) =>
-        row.template === template &&
-        row.family === 'visibility' &&
-        ['skills', 'projects'].includes(row.subject) &&
-        reference !== null &&
-        shown(reference) &&
-        shown(values.preview) &&
-        shown(values.pdf) &&
-        !shown(values.docx),
-    }),
-  ),
   {
     id: 'US-003-palette',
     defect:
@@ -1318,6 +1295,33 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
   annotation('FINDING', 'creative', 'technology pills', ['docx'],
     'The Preview draws each technology as a filled pill; the DOCX writes bold purple text. DOCX can shade a ' +
       'run; omitting it is a generator choice. Owned by US-007. Not measured by this check.'),
+  ...(['classic', 'minimal'] as const).map((template) =>
+    annotation('FINDING', template, 'hiddenSidebarSections: skills', ['preview', 'pdf', 'docx'],
+      'A dead control, and since Part 3 US-002 a user-visible one. The editor renders its sidebar panel for ' +
+        `whichever template is selected (resume-editor.tsx:1198), so a ${template} user can hide skills, and ` +
+        `no surface reads that list here: ${template}-template.tsx reads no layout list at all, and ` +
+        `docx-${template}.ts destructures only mainContentOrder and hiddenMainSections. Before US-002 the ` +
+        'export happened to look obedient, because it drew no skills section for anyone; now a user who hid ' +
+        'skills gets a DOCX that shows them. US-002 did not gate the new section on that list on purpose: the ' +
+        'Preview has always shown skills and the Preview is the contract for exports (FR-3), so gating the ' +
+        'DOCX alone would have created the surface disagreement this milestone removes, and would have raised ' +
+        'the same question for languages, whose row matches today. Owned by US-014, which hides a control the ' +
+        'selected template does not apply (FR-9) while keeping the stored value. The visibility rows here ' +
+        'MATCH because no surface hides the section, which is what the model reference says for this template.'),
+  ),
+  ...(['classic', 'minimal'] as const).map((template) =>
+    annotation('FINDING', template, 'rich text in skills and projects', ['preview', 'pdf', 'docx'],
+      'The Preview and the DOCX disagree about rich text in the two sections US-002 made live, and here the ' +
+        'DOCX is the one that is right. projects-section.tsx:175 stores the project description as HTML, ' +
+        `while ${template}-template.tsx renders {project.description} as a plain string, so the Preview and ` +
+        `the print show literal <p> markup where docx-${template}.ts runs parseHtmlToDocxRuns and draws ` +
+        'formatted text. The same shape in skills: a category can carry skillsHtml, which ' +
+        `professional-template.tsx renders and ${template}-template.tsx ignores in favour of items, while ` +
+        'the DOCX strips it into the run. Both are pre-existing — creative renders project descriptions the ' +
+        'same plain way — but they became visible on this template when its export gained the sections. It ' +
+        'must not be closed by degrading the DOCX. No Part 3 story owns Preview rich-text rendering today, so ' +
+        'the owner has to place it. Not measured: this check compares no body text.'),
+  ),
 ]
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,16 @@
 #Requires -Version 5.1
 $ErrorActionPreference = 'Continue'
 
+# The reply is written ASCII-only. [Console]::Out encodes with the console code
+# page, so a reason quoting a non-ASCII cwd or path went out as bytes that are
+# not UTF-8 - and a deny is the one reply that must never be misread.
+function Write-HookJson {
+    param($Payload)
+    $json = $Payload | ConvertTo-Json -Depth 6 -Compress
+    $json = [regex]::Replace($json, '[^\x00-\x7F]', { param($m) '\u{0:x4}' -f [int][char]$m.Value })
+    [Console]::Out.Write($json)
+}
+
 function Emit-Deny {
     param([string]$Reason)
     $payload = @{
@@ -10,8 +20,7 @@ function Emit-Deny {
             permissionDecisionReason = $Reason
         }
     }
-    $json = $payload | ConvertTo-Json -Depth 6 -Compress
-    [Console]::Out.Write($json)
+    Write-HookJson $payload
     exit 0
 }
 
@@ -46,7 +55,7 @@ function Emit-Ask {
             permissionDecisionReason = $Reason
         }
     }
-    [Console]::Out.Write(($payload | ConvertTo-Json -Depth 6 -Compress))
+    Write-HookJson $payload
     exit 0
 }
 
@@ -59,7 +68,7 @@ function Emit-Allow {
             permissionDecisionReason = $Reason
         }
     }
-    [Console]::Out.Write(($payload | ConvertTo-Json -Depth 6 -Compress))
+    Write-HookJson $payload
     exit 0
 }
 
@@ -216,24 +225,145 @@ function Get-Basename {
     return $n.Substring($i + 1)
 }
 
-function Test-IsGitRepo {
+# --- Resolving the cwd's branch --------------------------------------------
+#
+# Every branch rule - the main block and the Ralph preflight - depends on git
+# naming the cwd's branch. Before 2026-09-15 any failure to do so read as "not a
+# repository", so the rules were silently skipped: a fail-open. Three inputs
+# reached it (independent review, 2026-09-15):
+#   - a non-ASCII cwd, garbled by stdin decoding (fixed where stdin is read),
+#   - a cwd with a space and a trailing backslash, which PS 5.1's native
+#     argument quoting turned into an escaped quote for `git -C`,
+#   - a \\localhost\C$\... cwd, which git refuses as "dubious ownership".
+# Git is now run with the cwd as its working directory, so no path is quoted
+# at all, and a cwd git cannot resolve fails closed (Get-RepositoryState).
+
+# Trailing separators are trimmed so the cwd has one spelling, but never past a
+# drive root: 'C:' alone means "the current directory on C:", not 'C:\'.
+#
+# \\localhost\C$\... and \\127.0.0.1\C$\... are the local drive reached through
+# its admin share, i.e. the same working copy. git refuses them under
+# safe.directory, so they are mapped back to the drive path rather than failing
+# closed on a repository that resolves fine. Any other UNC path is left as is.
+function ConvertTo-HookCwd {
     param([string]$Cwd)
-    if ([string]::IsNullOrWhiteSpace($Cwd)) { return $false }
-    if (-not (Test-Path -LiteralPath $Cwd)) { return $false }
-    try {
-        & git -C $Cwd rev-parse --git-dir *> $null
-        return ($LASTEXITCODE -eq 0)
-    } catch { return $false }
+    if ([string]::IsNullOrWhiteSpace($Cwd)) { return '' }
+    $p = $Cwd.Trim()
+    if ($p -match '^[\\/]{2}(?:localhost|127\.0\.0\.1)[\\/]([A-Za-z])\$(?:[\\/](.*))?$') {
+        $p = $Matches[1] + ':\' + $Matches[2]
+    }
+    while ($p.Length -gt 1 -and ($p.EndsWith('\') -or $p.EndsWith('/')) -and $p -notmatch '^[A-Za-z]:[\\/]$') {
+        $p = $p.Substring(0, $p.Length - 1)
+    }
+    return $p
 }
 
-function Get-CurrentBranch {
-    param([string]$Cwd)
+# Runs one read-only git query with $Cwd as the working directory. Returns
+# $null if git cannot be started at all.
+#
+# Not `& git -C $Cwd`: that passes the path through PS 5.1's native quoting
+# (see above) and decodes git's UTF-8 output with the console code page. git is
+# resolved through PATH by Get-Command, as `& git` was, so a git.exe sitting in
+# the cwd is never picked up by CreateProcess's current-directory search.
+function Invoke-GitQuery {
+    param([string]$Cwd, [string]$Arguments)
     try {
-        $b = & git -C $Cwd rev-parse --abbrev-ref HEAD 2>$null
-        if ($LASTEXITCODE -ne 0) { return $null }
-        if ($null -eq $b) { return $null }
-        return ([string]$b).Trim()
+        $git = Get-Command git -CommandType Application -ErrorAction Stop | Select-Object -First 1
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName               = $git.Path
+        $psi.Arguments              = $Arguments
+        $psi.WorkingDirectory       = $Cwd
+        $psi.UseShellExecute        = $false
+        $psi.CreateNoWindow         = $true
+        $psi.RedirectStandardInput  = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError  = $true
+        $psi.StandardOutputEncoding = New-Object System.Text.UTF8Encoding($false)
+        $proc = [System.Diagnostics.Process]::Start($psi)
+        $proc.StandardInput.Close()
+        $stderr = $proc.StandardError.ReadToEndAsync()
+        $stdout = $proc.StandardOutput.ReadToEnd()
+        $proc.WaitForExit()
+        [void]$stderr.Wait()
+        return [pscustomobject]@{ ExitCode = $proc.ExitCode; Output = $stdout.Trim() }
     } catch { return $null }
+}
+
+# The work-tree root containing $Cwd, or $null when there is none: no
+# repository, a bare repository, or a cwd inside .git (git reports a branch in
+# the last two, but there is no work tree). Worktrees resolve to their own root.
+#
+# --show-toplevel is read directly. It was avoided while git's output came back
+# through PS 5.1's console code page, which garbled a non-ASCII root;
+# Invoke-GitQuery decodes as UTF-8, so that reason is gone. The --show-cdup form
+# it replaces was joined onto $Cwd, which overshot whenever $Cwd was a directory
+# junction: git computes '../' from the junction's target, so the join climbed
+# above the real root and a contract that was there read as missing.
+# --is-inside-work-tree is still asked first, because --show-toplevel is empty
+# in a bare repository and inside .git, which would otherwise pass for a root.
+function Get-RepositoryRoot {
+    param([string]$Cwd)
+    if ([string]::IsNullOrWhiteSpace($Cwd)) { return $null }
+    if (-not [System.IO.Directory]::Exists($Cwd)) { return $null }
+    $q = Invoke-GitQuery -Cwd $Cwd -Arguments 'rev-parse --is-inside-work-tree --show-toplevel'
+    if ($null -eq $q -or $q.ExitCode -ne 0) { return $null }
+    $lines = @($q.Output -split "`r?`n" | Where-Object { $_.Trim() -ne '' })
+    if ($lines.Count -lt 2) { return $null }
+    if ($lines[0].Trim() -ne 'true') { return $null }
+    return $lines[1].Trim()
+}
+
+# True if a .git directory or file (a linked worktree) exists at $Path or above
+# it. Separates "no repository here" from "git could not read the repository"
+# without parsing git's error text, which is localisable. If the walk itself
+# fails, the answer is $true - the fail-closed direction.
+function Test-HasGitMarker {
+    param([string]$Path)
+    try {
+        $dir = New-Object System.IO.DirectoryInfo($Path)
+        while ($null -ne $dir) {
+            $marker = Join-Path $dir.FullName '.git'
+            if ([System.IO.Directory]::Exists($marker) -or [System.IO.File]::Exists($marker)) { return $true }
+            $dir = $dir.Parent
+        }
+        return $false
+    } catch { return $true }
+}
+
+function New-RepositoryState {
+    param([string]$State, [string]$Branch, [string]$Detail)
+    return [pscustomobject]@{ State = $State; Branch = $Branch; Detail = $Detail }
+}
+
+# Where the cwd stands:
+#   Branch   git named the branch; 'HEAD' when detached, as rev-parse gave.
+#   None     git finds no repository and no .git exists at or above the cwd.
+#            No branch rule applies, as before.
+#   Unknown  anything else - no cwd, a cwd that does not exist or cannot be
+#            read, git refusing a repository that is there, git not runnable.
+#            Callers treat this like main for mutating tools: it may be main.
+#
+# symbolic-ref rather than rev-parse --abbrev-ref HEAD, because it also names an
+# unborn branch. rev-parse fails there, which would now read as Unknown and deny
+# every write in a freshly initialised feature repository.
+function Get-RepositoryState {
+    param([string]$Cwd)
+    if ([string]::IsNullOrWhiteSpace($Cwd)) {
+        return (New-RepositoryState 'Unknown' $null 'the payload has no cwd')
+    }
+    if (-not [System.IO.Directory]::Exists($Cwd)) {
+        return (New-RepositoryState 'Unknown' $null 'the cwd does not exist or cannot be read')
+    }
+    $q = Invoke-GitQuery -Cwd $Cwd -Arguments 'symbolic-ref --short -q HEAD'
+    if ($null -eq $q) {
+        return (New-RepositoryState 'Unknown' $null 'git could not be run')
+    }
+    if ($q.ExitCode -eq 0 -and $q.Output) { return (New-RepositoryState 'Branch' $q.Output $null) }
+    if ($q.ExitCode -eq 1)                { return (New-RepositoryState 'Branch' 'HEAD' $null) }
+    if (Test-HasGitMarker -Path $Cwd) {
+        return (New-RepositoryState 'Unknown' $null "git could not read the repository (exit $($q.ExitCode))")
+    }
+    return (New-RepositoryState 'None' $null $null)
 }
 
 $ReadOnlyCommandPatterns = @(
@@ -546,7 +676,20 @@ function Test-RalphEnforcement {
     param([string]$Cwd, [string]$Branch)
     if ([string]::IsNullOrWhiteSpace($Branch)) { return $null }
     if ($Branch -notmatch '^ralph/') { return $null }
-    $prdPath = Join-Path $Cwd 'tasks/ralph/prd.json'
+    # The contract lives at the repository root, not at the caller's cwd. Tool
+    # calls routinely arrive from a subdirectory - a subagent inherits the
+    # orchestrator's shell cwd - and joining the raw cwd denied every mutation
+    # there as "prd.json is missing" (Milestone C Part 2 US-004, 2026-09-11).
+    #
+    # No root means the contract cannot be verified, so deny. Failing open here
+    # would let a Ralph branch mutate with no contract check at all. Today this
+    # is reached from a bare repository or a cwd inside .git: with no
+    # repository at all the caller has no branch and never gets here.
+    $repoRoot = Get-RepositoryRoot -Cwd $Cwd
+    if (-not $repoRoot) {
+        return "current branch '$Branch' is a Ralph branch but no repository work tree was found from '$Cwd', so tasks/ralph/prd.json cannot be verified"
+    }
+    $prdPath = Join-Path $repoRoot 'tasks/ralph/prd.json'
     if (-not (Test-Path -LiteralPath $prdPath)) {
         return "current branch '$Branch' is a Ralph branch but tasks/ralph/prd.json is missing"
     }
@@ -571,7 +714,15 @@ function Test-RalphEnforcement {
     return $null
 }
 
-$rawInput = [Console]::In.ReadToEnd()
+# Claude Code writes the payload as UTF-8. [Console]::In decodes stdin with the
+# console code page (IBM437 on the owner's machine), so a non-ASCII cwd (an e-acute, say)
+# arrived garbled, git found nothing there, and every branch rule was skipped.
+# Decode the bytes as UTF-8 explicitly; a BOM, if any, is dropped by the reader.
+$rawInput = $null
+try {
+    $stdinReader = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), (New-Object System.Text.UTF8Encoding($false)))
+    $rawInput = $stdinReader.ReadToEnd()
+} catch { Emit-Noop }
 if ([string]::IsNullOrWhiteSpace($rawInput)) { Emit-Noop }
 
 $hookInput = $null
@@ -579,14 +730,19 @@ try { $hookInput = $rawInput | ConvertFrom-Json -ErrorAction Stop } catch { Emit
 
 $toolName  = Get-Field $hookInput 'tool_name'
 $toolInput = Get-Field $hookInput 'tool_input'
-$cwd       = Get-Field $hookInput 'cwd'
+$cwd       = ConvertTo-HookCwd -Cwd ([string](Get-Field $hookInput 'cwd'))
 
 if ([string]::IsNullOrWhiteSpace($toolName)) { Emit-Noop }
 
-$isRepo = Test-IsGitRepo -Cwd $cwd
-$branch = $null
-if ($isRepo) { $branch = Get-CurrentBranch -Cwd $cwd }
-$isMain = ($branch -eq 'main')
+$repoState    = Get-RepositoryState -Cwd $cwd
+$isRepo       = ($repoState.State -eq 'Branch')
+$branch       = $repoState.Branch
+$isMain       = ($branch -eq 'main')
+# The branch could not be determined, so it may be main. Mutating tools are
+# refused here exactly as on main; read-only commands, including the ones that
+# switch branch, stay available.
+$isUnresolved = ($repoState.State -eq 'Unknown')
+$unresolvedReason = "the branch cannot be determined for cwd '$cwd' ($($repoState.Detail)); it may be 'main' or a Ralph branch, so mutation is refused until git can resolve it"
 
 switch ($toolName) {
 
@@ -602,6 +758,9 @@ switch ($toolName) {
         }
         if ($isMain) {
             Emit-Deny "Phase 05 hook: $toolName mutation is forbidden while on 'main'. Switch to a dedicated feature branch."
+        }
+        if ($isUnresolved) {
+            Emit-Deny "Phase 05 hook: $toolName blocked - $unresolvedReason."
         }
         if ($isRepo -and $branch) {
             $ralphReason = Test-RalphEnforcement -Cwd $cwd -Branch $branch
@@ -662,7 +821,10 @@ switch ($toolName) {
         # this guard, 'git commit' on main downgraded from deny to ask, and
         # FAST TRACK would have granted mutating commands on main. Caught by
         # the Phase 05 suite's MAIN cases, not by inspection.
-        if (-not $isMain) {
+        #
+        # Skipped too where the branch cannot be determined, for the same
+        # reason: it may be main, and forbidden must still beat prompted.
+        if (-not $isMain -and -not $isUnresolved) {
             $protected = Test-CommandIsProtected -Command $command
             if ($protected) {
                 Emit-Ask "Governance gate: $protected always requires explicit approval, in both STANDARD and FAST TRACK mode."
@@ -680,6 +842,12 @@ switch ($toolName) {
             $preview = $command.Trim()
             if ($preview.Length -gt 100) { $preview = $preview.Substring(0, 100) + '...' }
             Emit-Deny "Phase 05 hook: command may mutate repository state and is forbidden while on 'main': $preview"
+        }
+
+        if ($isUnresolved) {
+            $preview = $command.Trim()
+            if ($preview.Length -gt 100) { $preview = $preview.Substring(0, 100) + '...' }
+            Emit-Deny "Phase 05 hook: command may mutate repository state and $unresolvedReason`: $preview"
         }
 
         if ($isRepo -and $branch) {
