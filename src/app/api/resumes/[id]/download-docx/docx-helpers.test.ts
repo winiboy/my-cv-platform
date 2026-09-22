@@ -1,5 +1,8 @@
-import { AlignmentType } from 'docx'
+import { AlignmentType, Document, Packer } from 'docx'
+import JSZip from 'jszip'
+import { isValidElement, type ReactElement, type ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
+import { formatText } from '@/lib/format-text'
 import {
   COLORS,
   extractAlignment,
@@ -7,7 +10,11 @@ import {
   formatDateRange,
   hslToHex,
   isHtmlList,
+  isPlainTextList,
   oklchToHex,
+  parsePlainTextBlocks,
+  parsePlainTextListToParagraphs,
+  type PlainTextBlock,
   pxToHalfPoints,
   pxToTwips,
   renderInlineBullets,
@@ -220,6 +227,201 @@ describe('isHtmlList', () => {
 
   it('does not match a bare list item without its container', () => {
     expect(isHtmlList('<li>orphan</li>')).toBe(false)
+  })
+})
+
+describe('parsePlainTextBlocks', () => {
+  it('turns bullet lines marked with •, - or * into one bullet list', () => {
+    expect(parsePlainTextBlocks('• one\n- two\n* three')).toEqual([
+      { type: 'bullet', items: ['one', 'two', 'three'] },
+    ])
+  })
+
+  it('turns numbered lines into a numbered list, dropping the source numbers', () => {
+    expect(parsePlainTextBlocks('1. first\n2. second\n10. tenth')).toEqual([
+      { type: 'numbered', items: ['first', 'second', 'tenth'] },
+    ])
+  })
+
+  it('prefers bullets when a paragraph mixes bullet and numbered lines', () => {
+    expect(parsePlainTextBlocks('1. numbered\n- bullet')).toEqual([
+      { type: 'bullet', items: ['bullet'] },
+    ])
+  })
+
+  it('drops non-marker lines inside a list paragraph, as the Preview does', () => {
+    expect(parsePlainTextBlocks('Intro line\n- a\ncontinuation\n- b')).toEqual([
+      { type: 'bullet', items: ['a', 'b'] },
+    ])
+  })
+
+  it('keeps a text paragraph and a list paragraph as separate blocks', () => {
+    expect(parsePlainTextBlocks('Intro\nsecond line\n\n\n- a\n- b')).toEqual([
+      { type: 'text', lines: ['Intro', 'second line'] },
+      { type: 'bullet', items: ['a', 'b'] },
+    ])
+  })
+
+  it('accepts leading whitespace before a marker and trims item text', () => {
+    expect(parsePlainTextBlocks('  - indented  \n\t2. tabbed ')).toEqual([
+      { type: 'bullet', items: ['indented'] },
+    ])
+    expect(parsePlainTextBlocks('\t2. tabbed ')).toEqual([
+      { type: 'numbered', items: ['tabbed'] },
+    ])
+  })
+
+  it('does not treat marker-like text without the required spacing as a list', () => {
+    expect(parsePlainTextBlocks('-foo\n1.5 years\n*bold*')).toEqual([
+      { type: 'text', lines: ['-foo', '1.5 years', '*bold*'] },
+    ])
+  })
+
+  it('returns no blocks for empty input', () => {
+    expect(parsePlainTextBlocks('')).toEqual([])
+    expect(parsePlainTextBlocks(null)).toEqual([])
+    expect(parsePlainTextBlocks(undefined)).toEqual([])
+  })
+})
+
+describe('isPlainTextList', () => {
+  it('is true for plain text containing a bullet or numbered list', () => {
+    expect(isPlainTextList('- a\n- b')).toBe(true)
+    expect(isPlainTextList('1. a\n2. b')).toBe(true)
+    expect(isPlainTextList('Summary\n\n* a')).toBe(true)
+  })
+
+  it('is false for plain text without list markers', () => {
+    expect(isPlainTextList('line one\nline two')).toBe(false)
+    expect(isPlainTextList('-foo')).toBe(false)
+    expect(isPlainTextList('1.5 years of experience')).toBe(false)
+  })
+
+  it('is false for HTML, even when its text looks like a list', () => {
+    expect(isPlainTextList('<p>- a</p>\n<p>- b</p>')).toBe(false)
+    expect(isPlainTextList('<ul><li>a</li></ul>')).toBe(false)
+  })
+
+  it('is false for empty input', () => {
+    expect(isPlainTextList('')).toBe(false)
+    expect(isPlainTextList(null)).toBe(false)
+    expect(isPlainTextList(undefined)).toBe(false)
+  })
+})
+
+/**
+ * Reads formatText's element tree back into PlainTextBlocks. formatText is what
+ * the Preview renders, so comparing against it keeps the DOCX rules from
+ * silently drifting away from the Preview.
+ */
+function toNodeArray(node: ReactNode): ReactNode[] {
+  return Array.isArray(node) ? node : [node]
+}
+
+function asElement(node: ReactNode): ReactElement<{ children?: ReactNode }> {
+  if (!isValidElement<{ children?: ReactNode }>(node)) {
+    throw new Error(`Expected a React element, got ${JSON.stringify(node)}`)
+  }
+  return node
+}
+
+function previewBlocks(text: string): PlainTextBlock[] {
+  return toNodeArray(formatText(text)).map((node): PlainTextBlock => {
+    const element = asElement(node)
+
+    if (element.type === 'ul' || element.type === 'ol') {
+      const items = toNodeArray(element.props.children).map(child => {
+        const li = asElement(child)
+        expect(li.type).toBe('li')
+        return li.props.children as string
+      })
+      return { type: element.type === 'ul' ? 'bullet' : 'numbered', items }
+    }
+
+    expect(element.type).toBe('div')
+    // Each line is a Fragment of [lineText, <br /> | false].
+    const lines = toNodeArray(element.props.children).map(child => {
+      const [line] = toNodeArray(asElement(child).props.children)
+      return line as string
+    })
+    return { type: 'text', lines }
+  })
+}
+
+describe('plain-text list parity with the Preview (formatText)', () => {
+  const corpus = [
+    '- a\n- b',
+    '• a\n• b',
+    '* a\n* b',
+    '1. a\n2. b',
+    '1. numbered\n- bullet',
+    'Intro\n- a\ntail\n- b',
+    'Intro\nsecond\n\n- a\n- b\n\n1. c\n2. d\n\nOutro',
+    '  - indented  \n\t- tabbed',
+    '-foo\n1.5 years\n*bold*',
+    'plain line\nanother line',
+    '- \n- a',
+    '\n\n- a\n\n\n',
+    '- a\r\n- b\r\n',
+    '&amp; - not a marker\n- &lt;b&gt; literal',
+  ]
+
+  it.each(corpus)('matches formatText for %j', text => {
+    expect(parsePlainTextBlocks(text)).toEqual(previewBlocks(text))
+  })
+})
+
+describe('parsePlainTextListToParagraphs', () => {
+  const runOptions = { size: 20, color: '333333', font: 'Arial' }
+  const layout = { spacingAfterItem: 60, spacingAfterLast: 480 }
+
+  /** Pack the paragraphs into a real document and read back each paragraph's text. */
+  async function renderParagraphs(text: string): Promise<{ texts: string[]; xml: string }> {
+    const doc = new Document({
+      sections: [{ children: parsePlainTextListToParagraphs(text, runOptions, layout) }],
+    })
+    const zip = await JSZip.loadAsync(await Packer.toBuffer(doc))
+    const body = await zip.file('word/document.xml')!.async('string')
+    const paragraphs = body.match(/<w:p>[\s\S]*?<\/w:p>|<w:p [\s\S]*?<\/w:p>/g) ?? []
+    const texts = paragraphs.map(p =>
+      (p.match(/<w:t[^>]*>[^<]*<\/w:t>|<w:br\/>/g) ?? [])
+        .map(token => (token === '<w:br/>' ? '\n' : token.replace(/<[^>]+>/g, '')))
+        .join('')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+    )
+    return { texts, xml: body }
+  }
+
+  it('emits one paragraph per list item and per text block', () => {
+    expect(parsePlainTextListToParagraphs('Intro\n\n- a\n- b', runOptions, layout)).toHaveLength(3)
+    expect(parsePlainTextListToParagraphs('1. a\n2. b\n3. c', runOptions, layout)).toHaveLength(3)
+  })
+
+  it('skips blank paragraphs that the Preview renders with no height', () => {
+    expect(parsePlainTextListToParagraphs('\n\n- a\n\n\n', runOptions, layout)).toHaveLength(1)
+  })
+
+  it('prefixes items like parseHtmlListToParagraphs and restarts numbering per list', async () => {
+    const { texts } = await renderParagraphs('Intro\nline two\n\n- a\n* b\n\n5. c\n9. d')
+    expect(texts).toEqual(['Intro\nline two', '• a', '• b', '1. c', '2. d'])
+  })
+
+  it('keeps item text literal rather than decoding entities', async () => {
+    const { texts } = await renderParagraphs('- &amp; stays\n- <b> is text')
+    expect(texts).toEqual(['• &amp; stays', '• <b> is text'])
+  })
+
+  it('drops a trailing blank line, which the Preview does not render', async () => {
+    const { texts } = await renderParagraphs('- a\n\nText\n')
+    expect(texts).toEqual(['• a', 'Text'])
+  })
+
+  it('applies item spacing between paragraphs and the last spacing after the final one', async () => {
+    const { xml } = await renderParagraphs('Intro\n\n- a\n- b')
+    const spacings = xml.match(/<w:spacing [^>]*\/>/g) ?? []
+    expect(spacings.map(s => s.match(/w:after="(\d+)"/)?.[1])).toEqual(['60', '60', '480'])
   })
 })
 
