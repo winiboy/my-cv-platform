@@ -1,3 +1,5 @@
+import { escapeHtml } from './escape-html'
+
 /**
  * Conversion between the cover letter's canonical plain-text representation and
  * the HTML held by the contentEditable editor in the cover letter generator.
@@ -11,28 +13,6 @@
  * `<br>` instead would break that round trip, because `textContent` drops
  * element-level breaks.
  */
-
-/**
- * Escapes the HTML metacharacters that would otherwise let text content escape
- * its `<p>` wrapper once assigned to `innerHTML`.
- *
- * A single pass is what makes this safe: `&` is rewritten in the same scan as
- * `<` and `>`, so an entity this function emits can never be re-escaped.
- */
-function escapeHtmlText(text: string): string {
-  return text.replace(/[&<>]/g, (char) => {
-    switch (char) {
-      case '&':
-        return '&amp;'
-      case '<':
-        return '&lt;'
-      case '>':
-        return '&gt;'
-      default:
-        return char
-    }
-  })
-}
 
 /**
  * Splits the canonical plain text into its paragraphs, dropping blank ones.
@@ -70,14 +50,20 @@ export function joinEditorParagraphs(
 }
 
 /**
- * Converts the canonical plain text into the editor's HTML representation.
+ * Converts plain cover-letter text into the paragraph markup rendered by the
+ * contentEditable editor.
  *
- * The text is untrusted — it originates from an AI endpoint whose inputs are
- * caller-supplied — so every paragraph is escaped before interpolation.
+ * Paragraphs are separated by one or more blank lines; whitespace-only
+ * paragraphs are dropped and each remaining paragraph is trimmed. The text is
+ * escaped before it is wrapped because it comes from AI output and user edits,
+ * both untrusted, and the result is assigned to `innerHTML`. Only the `<p>`
+ * wrappers added here are ever real markup.
+ *
+ * Returns an empty string when there is no non-blank paragraph.
  */
 export function plainTextToEditorHtml(text: string): string {
   return splitPlainTextIntoParagraphs(text)
-    .map((paragraph) => `<p>${escapeHtmlText(paragraph)}</p>`)
+    .map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`)
     .join('')
 }
 

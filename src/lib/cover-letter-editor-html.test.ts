@@ -12,6 +12,11 @@ import {
  */
 const LETTER = 'Dear Hiring Manager,\nAcme GmbH\n\nI am applying for the role.\n\nSincerely,\nAda'
 
+/** Removes the only tags the helper is allowed to emit. */
+function stripParagraphTags(html: string): string {
+  return html.replace(/<\/?p>/g, '')
+}
+
 describe('splitPlainTextIntoParagraphs', () => {
   it('splits on a blank line', () => {
     expect(splitPlainTextIntoParagraphs('First.\n\nSecond.')).toEqual(['First.', 'Second.'])
@@ -71,28 +76,27 @@ describe('plainTextToEditorHtml', () => {
     expect(plainTextToEditorHtml('First.\n\nSecond.')).toBe('<p>First.</p><p>Second.</p>')
   })
 
+  it('wraps each benign paragraph in <p> exactly as before', () => {
+    const text = 'Dear Hiring Manager,\n\nI am applying for the role.\n\nKind regards,\nJane Doe'
+    expect(plainTextToEditorHtml(text)).toBe(
+      '<p>Dear Hiring Manager,</p><p>I am applying for the role.</p><p>Kind regards,\nJane Doe</p>'
+    )
+  })
+
+  it('treats multiple blank lines as one separator and drops whitespace-only paragraphs', () => {
+    const text = '  First  \n\n\n\nSecond\n\n   \n\n\t\n\nThird'
+    expect(plainTextToEditorHtml(text)).toBe('<p>First</p><p>Second</p><p>Third</p>')
+  })
+
   it('emits a single newline verbatim rather than as markup', () => {
     // `white-space: pre-line` renders this newline as a line break while
     // `textContent` still reads it back, which a <br> would not.
     expect(plainTextToEditorHtml('Line one\nLine two')).toBe('<p>Line one\nLine two</p>')
   })
 
-  it('produces nothing for empty text', () => {
+  it('returns an empty string for empty or blank input', () => {
     expect(plainTextToEditorHtml('')).toBe('')
-  })
-
-  it('escapes an injected image tag instead of emitting live markup', () => {
-    const html = plainTextToEditorHtml('<img src=x onerror=alert(1)>')
-
-    expect(html).toBe('<p>&lt;img src=x onerror=alert(1)&gt;</p>')
-    expect(html).not.toContain('<img')
-  })
-
-  it('escapes an injected script tag instead of emitting live markup', () => {
-    const html = plainTextToEditorHtml('Regards,\n<script>alert(1)</script>')
-
-    expect(html).toBe('<p>Regards,\n&lt;script&gt;alert(1)&lt;/script&gt;</p>')
-    expect(html).not.toContain('<script')
+    expect(plainTextToEditorHtml('\n\n   \n\n')).toBe('')
   })
 
   it('escapes ampersands', () => {
@@ -103,5 +107,42 @@ describe('plainTextToEditorHtml', () => {
     // Escaping `<` before `&` would turn this into `&amp;lt;`, which renders as
     // the literal text "&lt;" instead of "<".
     expect(plainTextToEditorHtml('&lt;b&gt;')).toBe('<p>&amp;lt;b&amp;gt;</p>')
+  })
+
+  it('escapes quotes and apostrophes, which are ordinary letter text', () => {
+    expect(plainTextToEditorHtml('I\'m "keen" to join.')).toBe(
+      '<p>I&#39;m &quot;keen&quot; to join.</p>'
+    )
+  })
+
+  describe('untrusted markup', () => {
+    it('escapes an <img onerror> payload', () => {
+      const html = plainTextToEditorHtml('<img src=x onerror=alert(1)>')
+      expect(html).not.toContain('<img')
+      expect(html).toBe('<p>&lt;img src=x onerror=alert(1)&gt;</p>')
+    })
+
+    it('escapes a <script> payload', () => {
+      const html = plainTextToEditorHtml('<script>alert(1)</script>')
+      expect(html).not.toContain('<script')
+      expect(html).toBe('<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>')
+    })
+
+    it('escapes a <script> payload that follows a line break inside a paragraph', () => {
+      const html = plainTextToEditorHtml('Regards,\n<script>alert(1)</script>')
+
+      expect(html).toBe('<p>Regards,\n&lt;script&gt;alert(1)&lt;/script&gt;</p>')
+      expect(html).not.toContain('<script')
+    })
+
+    it('emits only <p> tags when a payload spans paragraph breaks', () => {
+      const html = plainTextToEditorHtml(
+        'Hello <b\n\nonmouseover="alert(1)">\n\n</p><img src=x onerror=alert(1)><p>'
+      )
+      expect(stripParagraphTags(html)).not.toContain('<')
+      expect(html).toBe(
+        '<p>Hello &lt;b</p><p>onmouseover=&quot;alert(1)&quot;&gt;</p><p>&lt;/p&gt;&lt;img src=x onerror=alert(1)&gt;&lt;p&gt;</p>'
+      )
+    })
   })
 })

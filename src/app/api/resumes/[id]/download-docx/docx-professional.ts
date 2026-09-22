@@ -27,6 +27,8 @@ import {
   extractAlignment,
   isHtmlList,
   parseHtmlListToParagraphs,
+  isPlainTextList,
+  parsePlainTextListToParagraphs,
   parseHtmlToDocxRuns,
   formatDateRange,
   COLORS,
@@ -312,8 +314,9 @@ export async function generateProfessionalDocx(
               })
             )
             if (achievement.description) {
-              // Extract alignment from HTML if present
-              const descriptionAlignment = extractAlignment(achievement.description) || AlignmentType.JUSTIFIED
+              // Extract alignment from HTML if present. The fallback is LEFT, not
+              // JUSTIFIED, to match the Preview's narrow sidebar column.
+              const descriptionAlignment = extractAlignment(achievement.description) || AlignmentType.LEFT
 
               // Check if description contains a list structure
               if (isHtmlList(achievement.description)) {
@@ -331,6 +334,22 @@ export async function generateProfessionalDocx(
                   descriptionAlignment
                 )
                 sidebarParagraphs.push(...listParagraphs)
+              } else if (isPlainTextList(achievement.description)) {
+                sidebarParagraphs.push(
+                  ...parsePlainTextListToParagraphs(
+                    achievement.description,
+                    {
+                      size: scaledFontSizes.body,
+                      color: COLORS.WHITE,
+                      font: primaryFont,
+                    },
+                    {
+                      spacingAfterItem: pxToTwips(4),
+                      spacingAfterLast: itemEndSpacing,
+                      alignment: descriptionAlignment,
+                    }
+                  )
+                )
               } else {
                 // Parse HTML to DOCX TextRuns with formatting preserved
                 const descriptionRuns = parseHtmlToDocxRuns(achievement.description, {
@@ -424,6 +443,22 @@ export async function generateProfessionalDocx(
                   skillsAlignment
                 )
                 sidebarParagraphs.push(...listParagraphs)
+              } else if (isPlainTextList(skillCat.skillsHtml)) {
+                sidebarParagraphs.push(
+                  ...parsePlainTextListToParagraphs(
+                    skillCat.skillsHtml,
+                    {
+                      size: scaledFontSizes.body,
+                      color: COLORS.WHITE,
+                      font: primaryFont,
+                    },
+                    {
+                      spacingAfterItem: pxToTwips(4),
+                      spacingAfterLast: itemEndSpacing,
+                      alignment: skillsAlignment,
+                    }
+                  )
+                )
               } else {
                 // Non-list content: use inline rendering
                 const skillsRuns = parseHtmlToDocxRuns(skillCat.skillsHtml, {
@@ -731,6 +766,23 @@ export async function generateProfessionalDocx(
               summaryAlignment
             )
             mainContentParagraphs.push(...listParagraphs)
+          } else if (isPlainTextList(resume.summary)) {
+            mainContentParagraphs.push(
+              ...parsePlainTextListToParagraphs(
+                resume.summary,
+                {
+                  size: scaledFontSizes.body,
+                  color: COLORS.BODY_TEXT,
+                  font: primaryFont,
+                },
+                {
+                  spacingAfterItem: pxToTwips(4),
+                  spacingAfterLast: sectionSpacingAfter,
+                  indent: { right: mainContentRightIndent },
+                  alignment: summaryAlignment,
+                }
+              )
+            )
           } else {
             // Non-list content: use inline rendering
             const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
@@ -913,6 +965,23 @@ export async function generateProfessionalDocx(
                   descAlignment
                 )
                 mainContentParagraphs.push(...listParagraphs)
+              } else if (isPlainTextList(exp.description)) {
+                mainContentParagraphs.push(
+                  ...parsePlainTextListToParagraphs(
+                    exp.description,
+                    {
+                      size: scaledFontSizes.body,
+                      color: COLORS.BODY_TEXT,
+                      font: primaryFont,
+                    },
+                    {
+                      spacingAfterItem: pxToTwips(4),
+                      spacingAfterLast: descSpacingAfter,
+                      indent: { right: mainContentRightIndent },
+                      alignment: descAlignment,
+                    }
+                  )
+                )
               } else {
                 // Parse description HTML to preserve formatting
                 const descRuns = parseHtmlToDocxRuns(exp.description, {

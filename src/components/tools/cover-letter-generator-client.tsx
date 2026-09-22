@@ -783,12 +783,7 @@ export function CoverLetterGeneratorClient({
   useEffect(() => {
     if (!editorRef.current || isUserEditingRef.current) return
 
-    if (generatedCoverLetter) {
-      // Convert plain text paragraphs to HTML paragraphs
-      editorRef.current.innerHTML = plainTextToEditorHtml(generatedCoverLetter)
-    } else {
-      editorRef.current.innerHTML = ''
-    }
+    editorRef.current.innerHTML = plainTextToEditorHtml(generatedCoverLetter)
   }, [generatedCoverLetter])
 
   /**
@@ -851,7 +846,8 @@ export function CoverLetterGeneratorClient({
 
     isUserEditingRef.current = true
 
-    // Convert the editor's HTML paragraphs back to double-newline separated text
+    // Read the live editor DOM directly. Reparsing its innerHTML into a detached
+    // element would re-run event-handler attributes such as <img onerror>.
     setGeneratedCoverLetter(editorHtmlToPlainText(editorRef.current))
 
     // Reset the editing flag after a short delay to allow re-sync if needed

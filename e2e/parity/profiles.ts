@@ -512,11 +512,13 @@ const MODERN: TemplateSpec = {
 }
 
 /**
- * Classic and Minimal share one vocabulary and one mapping, whose
+ * Classic and Minimal share one vocabulary and one mapping rule, whose
  * `languagesAndCerts` member renders as two headed sections side by side.
- * `skills` and `projects` are not representable in the editor's main order
- * (US-002), so the model positions neither — but nothing hides them either,
- * so the reference expects both to be shown.
+ * `skills` and `projects` are not representable in the editor's main order;
+ * since Part 3 US-002 each template's mapping keeps them in the slot its
+ * Preview draws them in, so the model positions them like every other section
+ * it returns. Nothing in the model can hide them, so they are always expected
+ * shown.
  */
 function singleColumn(
   template: 'classic' | 'minimal',
@@ -544,13 +546,9 @@ function singleColumn(
       )
       const hidden = model.hiddenMainSections as readonly string[]
       const shown = (id: string) => expanded.includes(id) && !hidden.includes(id)
-      const positioned = ['summary', 'experience', 'education', 'languages', 'certifications']
+      const positioned = ['summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications']
       return {
-        visible: {
-          ...Object.fromEntries(positioned.map((id) => [id, shown(id)])),
-          skills: true,
-          projects: true,
-        },
+        visible: Object.fromEntries(positioned.map((id) => [id, shown(id)])),
         order: { main: orderedVisible(expanded, positioned, shown) },
       }
     },

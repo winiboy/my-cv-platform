@@ -52,7 +52,7 @@ export function RichTextEditor({
         editor.innerHTML = sanitizeHtml(value)
       } else if (value) {
         const html = migrateTextToHtml(value)
-        editor.innerHTML = html
+        editor.innerHTML = sanitizeHtml(html)
       } else {
         editor.innerHTML = ''
       }
