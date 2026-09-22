@@ -123,6 +123,7 @@ end as `MATCH` or as a recorded, evidenced format limitation.
 | Colour | Professional `opacity-80` sidebar text (key-achievement descriptions, skill items, language levels) written opaque white | found in US-003 | US-006 |
 | Colour | Creative translucent header text (`text-white/90` summary, `text-white/80` second contact row) written opaque white over a solid fill | found in US-003 | US-006 |
 | Graphics | Modern skill bars, creative language bars and pills absent from DOCX | 3 findings | US-007 |
+| Graphics | Modern technology chip fill; creative timeline line and dots, project card rule and fill, decorative header circles absent from DOCX | found in US-003 | US-007 |
 | Geometry | classic, minimal, creative DOCX A4 against Letter elsewhere | 3 NEW | US-008 |
 | Structure | classic and minimal Previews ignore order and visibility | confirmed | US-009 |
 | Structure | Modern empty-main fallback disagrees | confirmed | US-010 |
@@ -358,8 +359,8 @@ in my download to look as muted as it does on screen.
 ### US-007: The DOCX draws the graphics the Preview draws
 
 **Description:**
-As a user of the modern or creative template, I want the skill and language
-bars and technology pills I see to appear in my download.
+As a user of the modern or creative template, I want the bars, pills and other
+graphics I see to appear in my download.
 
 **Acceptance Criteria:**
 
@@ -367,13 +368,18 @@ bars and technology pills I see to appear in my download.
       pills appear in the DOCX, approximated with what the format supports — for
       example shaded table cells or shaded runs — and each approximation is
       recorded with its form.
+- [ ] Modern's technology chip fill and creative's timeline line and dots,
+      project card rule and fill, and decorative header circles are each drawn in
+      the DOCX with what the format supports, or recorded as a format limitation
+      with evidence.
 - [ ] Each drawn element carries the same value the Preview shows (a proficiency
       level, a pill's text), asserted on the unzipped document.
 - [ ] Anything that proves genuinely inexpressible in DOCX is recorded as a
       format limitation with evidence, not silently omitted.
 - [ ] Preview rendering is unchanged; visual baselines do not move.
 - [ ] The three graphics findings are closed, each as drawn or as an evidenced
-      limitation.
+      limitation, and no graphic is left on US-003's completeness check as
+      unplaced.
 
 ### US-008: Every resume is A4 on every surface
 
@@ -792,6 +798,14 @@ in. "Creative honours `mainContentOrder`" is therefore not unimplemented but
   fills to US-003, with a completeness check so a template colour missing from
   the palette fails a test. No story is added, removed or reordered, and no
   cross-story requirement changes.
+- **2026-09-22 — graphics found by US-003's completeness check.** The check that
+  every colour a template draws is accounted for found Preview graphics the DOCX
+  does not draw and this document did not name: modern's technology chip fill,
+  and creative's timeline line and dots, project card rule and fill, and
+  decorative header circles. They are added to the *Divergence Inventory* and
+  assigned to US-007, whose graphics scope they share; its final criterion now
+  also requires that no graphic is left unplaced. No story is added, removed or
+  reordered.
 
 ## Approval Gate
 

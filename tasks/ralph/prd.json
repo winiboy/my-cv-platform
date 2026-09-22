@@ -431,13 +431,14 @@
     {
       "id": "US-007",
       "title": "The DOCX draws the graphics the Preview draws",
-      "description": "As a user of the modern or creative template, I want the skill and language bars and technology pills I see to appear in my download.",
+      "description": "As a user of the modern or creative template, I want the bars, pills and other graphics I see to appear in my download.",
       "acceptanceCriteria": [
         "Modern's skill bars, creative's language bars and creative's technology pills appear in the DOCX, approximated with what the format supports — for example shaded table cells or shaded runs — and each approximation is recorded with its form.",
+        "Modern's technology chip fill and creative's timeline line and dots, project card rule and fill, and decorative header circles are each drawn in the DOCX with what the format supports, or recorded as a format limitation with evidence.",
         "Each drawn element carries the same value the Preview shows (a proficiency level, a pill's text), asserted on the unzipped document.",
         "Anything that proves genuinely inexpressible in DOCX is recorded as a format limitation with evidence, not silently omitted.",
         "Preview rendering is unchanged; visual baselines do not move.",
-        "The three graphics findings are closed, each as drawn or as an evidenced limitation.",
+        "The three graphics findings are closed, each as drawn or as an evidenced limitation, and no graphic is left on US-003's completeness check as unplaced.",
         "FR-1: Preview, print/PDF and DOCX render the same sections, in the same order, with the same typography, colour and page geometry for the same resume, to the degree each format supports.",
         "FR-2: No fix may reintroduce an independent authoritative copy of layout state. These stories change what surfaces do with the model, never where it lives.",
         "FR-3: Where surfaces disagree, the rendered Preview is the reference for exports. Any story that instead changes the Preview must say which surface was wrong and why.",
