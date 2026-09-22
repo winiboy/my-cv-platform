@@ -858,9 +858,10 @@ export const DEFAULT_MODERN_MAIN_ORDER: readonly ModernMainId[] = Object.freeze(
  * grid. What they do NOT share is where those sections sit on the page —
  * `minimal-template.tsx` renders `projects` between `experience` and
  * `education`, `classic-template.tsx` after `skills` — but that is an ORDER,
- * owned by each template's rendering, not a MEMBERSHIP. A union's declaration
- * order is invisible to the compiler, so one union states both truthfully,
- * where two would be two copies of one set free to drift apart.
+ * stated per template by `CLASSIC_SEQUENCE` and `MINIMAL_SEQUENCE` below, not a
+ * MEMBERSHIP. A union's declaration order is invisible to the compiler, so one
+ * union states the membership truthfully, where two would be two copies of one
+ * set free to drift apart.
  *
  * Exported for the same reason as `ModernSidebarId`. A private copy inside a
  * generator compiles happily while this one moves, which is exactly how an
@@ -889,66 +890,153 @@ export type ClassicMainId = SingleColumnMainId
 export type MinimalMainId = SingleColumnMainId
 
 /**
- * Maps an editor main-content order to the single-column section IDs.
+ * Where a single-column template draws each of its sections, top to bottom,
+ * as a rank per section.
  *
- * Classic and Minimal each used to carry this rule — first privately inside
- * `docx-classic.ts` and `docx-minimal.ts`, then as two exported functions here
- * whose bodies differed by one cast. It is one function now. The per-template
- * names below are aliases of it, for the same reason as the type aliases above:
- * the first thing likely to separate the two is placing `projects` where each
- * template renders it, and when that happens one alias becomes a function of
- * its own without touching the other template's callers.
+ * A `Record` over the whole union rather than a list, so that adding, removing
+ * or renaming a member of `SingleColumnMainId` fails to compile here until the
+ * template's position for it is stated — a list would accept a missing member
+ * silently, which is exactly how a section comes to be dropped from an export.
+ * `layout-settings.test.ts` pins what each sequence yields for the shared
+ * default order, literally.
+ */
+type SingleColumnSequence = Readonly<Record<SingleColumnMainId, number>>
+
+/**
+ * `classic-template.tsx`: summary, experience, education, skills, projects,
+ * then languages and certifications side by side.
+ */
+const CLASSIC_SEQUENCE: SingleColumnSequence = Object.freeze({
+  summary: 0,
+  experience: 1,
+  education: 2,
+  skills: 3,
+  projects: 4,
+  languagesAndCerts: 5,
+})
+
+/**
+ * `minimal-template.tsx`: summary, experience, PROJECTS, education, skills,
+ * then languages and certifications side by side.
+ */
+const MINIMAL_SEQUENCE: SingleColumnSequence = Object.freeze({
+  summary: 0,
+  experience: 1,
+  projects: 2,
+  education: 3,
+  skills: 4,
+  languagesAndCerts: 5,
+})
+
+/** Whether the editor's main-content order can position `id` at all. */
+function isEditorMainId(id: string): id is EditorMainId {
+  return (VALID_MAIN_IDS as readonly string[]).includes(id)
+}
+
+/**
+ * Maps an editor main-content order onto a single-column template's sections.
+ *
+ * THE RULE
+ *
+ *   The template's sequence is a row of slots. The sections the input
+ *   positions fill the slots those same sections occupy, in the input's order.
+ *   A section the editor cannot position keeps its own slot. An editor section
+ *   the input leaves out is not rendered.
+ *
+ * So the user's order permutes summary, experience and education among the
+ * three places the template draws them, and skills, projects and the combined
+ * languages-and-certifications section stay where the template draws them.
+ * For the shared default order the result IS the template's sequence, which is
+ * what each Preview renders.
+ *
+ * DECISION (Part 3 US-002): THE FILTERING CHANGED, NOT THE VOCABULARY
+ *
+ * Skills and projects were unreachable because this function took its
+ * MEMBERSHIP from the editor's main-content order, which `parseLayoutModel`
+ * filters to `VALID_MAIN_IDS` — summary, experience, education. Only
+ * `languagesAndCerts` escaped, by being appended. Both DOCX exports therefore
+ * dropped two sections both Previews render.
+ *
+ * Membership now comes from the template's own sequence, and the editor order
+ * decides only the positions it can name. The alternative — adding `skills`
+ * and `projects` to `VALID_MAIN_IDS` — was rejected on the evidence:
+ *
+ *  - The editor offers neither in its main-content panel on any template, so no
+ *    writer would ever produce them there. Widening the vocabulary would not by
+ *    itself put them into a single resume's order.
+ *  - `VALID_MAIN_IDS` is also the editor's vocabulary for professional, modern
+ *    and creative, and `DEFAULT_RESUME_LAYOUT.mainContentOrder` is built from
+ *    it. Changing it changes the default order, the editor's main panel and
+ *    what every other template is handed — a template-isolation breach (FR-5)
+ *    for a defect confined to two templates.
+ *  - `skills` is already a SIDEBAR id. Admitting it to the main list would give
+ *    one section two competing positions in one stored model.
+ *
+ * `parseLayoutModel`'s filter is left exactly as it is: it guards stored,
+ * untrusted state (FR-6) and is correct for the vocabulary it guards.
+ *
+ * WHY THE FIXED SLOTS FOLLOW THE PREVIEW
+ *
+ * The Preview is the fidelity contract for exports (FR-3). Neither Preview
+ * reads the layout model at all (that is Part 3 US-009): each draws its sections in the
+ * fixed sequence recorded above and shows skills and projects whenever they
+ * have a visible item. The editor offers no control that orders or hides them
+ * on these templates — `skills` appears only in the sidebar panel, which
+ * neither single-column template reads on any surface — so the only hiding a
+ * user can do here is per item, and both generators honour it.
+ *
+ * Where the slots sit when the user REORDERS the main sections is not settled
+ * by this story. The Preview ignores that order today, so there is nothing to
+ * follow; US-009 makes the Preview honour it and must choose one placement for
+ * `projects`. Keeping each section in its own template slot is the reading
+ * that changes least until then.
  *
  * WHY THE PARAMETER IS `readonly string[]`, WHERE THE MODERN MAPPING TAKES UNIONS
  *
  * `mapEditorOrderToModern` takes `EditorSidebarId` / `EditorMainId` because
- * every id it can receive is one. This function cannot be typed that way: it
- * also accepts `'skills'`, `'projects'`, `'languages'`, `'certifications'` and
- * `'languagesAndCerts'`, none of which is an `EditorMainId`. Narrowing the
- * parameter would force those five cases to be deleted, and deleting a branch
- * is a behaviour change rather than a consolidation.
- *
- * Those five ids are in fact unreachable from the application today — the sole
- * caller is the DOCX route, which resolves its lists through
- * `resolveResumeLayout`, and `parseLayoutModel` filters `mainContentOrder`
- * against `VALID_MAIN_IDS`. Neither single-column DOCX therefore renders a
- * skills or projects section, while both Preview templates do. That is recorded
- * as a finding against each export (US-005, US-006 F-1) rather than acted on
- * here: what an export should do with an id the editor cannot currently produce
- * is a decision, not a refactor.
+ * every id it can receive is one. This function also accepts `'skills'`,
+ * `'projects'`, `'languages'`, `'certifications'` and `'languagesAndCerts'`,
+ * none of which is an `EditorMainId`. Those five are unreachable from the
+ * application — the DOCX route and the parity reference resolve their lists
+ * through `resolveResumeLayout` — and are kept as Part 2 kept them: dropping an
+ * out-of-vocabulary id is a decision about stored state, not about this
+ * omission. When one does arrive it is positioned like any other: it takes a
+ * slot in the input's order instead of keeping its own.
  *
  * NO CAST ON THE PUSH. A `switch` over a `string` narrows the subject to the
- * case literals, so `mapped.push(id)` type-checks as written, and removing or
- * renaming a member of `SingleColumnMainId` fails on that line with TS2345.
- * The former Classic copy wrote `push(id as ClassicMainId)`, which suppressed
- * exactly that error and left the declared return type free to become a lie.
+ * case literals, so `positioned.push(id)` type-checks as written, and removing
+ * or renaming a member of `SingleColumnMainId` fails on that line with TS2345.
  *
- * `languagesAndCerts` is appended whenever the input did not already produce
- * it, so the result is never empty — a property both `generateClassicDocx` and
+ * The result is never empty: every section the editor cannot position keeps
+ * its slot, so on any input it holds at least skills, projects and
+ * `languagesAndCerts` — a property both `generateClassicDocx` and
  * `generateMinimalDocx` rely on, and one the empty-input case pins.
  */
-export function mapEditorOrderToSingleColumn(rawOrder: readonly string[]): SingleColumnMainId[] {
-  const mapped: SingleColumnMainId[] = []
-  const seen = new Set<string>()
+function mapEditorOrderToSingleColumn(
+  rawOrder: readonly string[],
+  sequence: SingleColumnSequence,
+): SingleColumnMainId[] {
+  const positioned: SingleColumnMainId[] = []
+  const seen = new Set<SingleColumnMainId>()
 
   for (const id of rawOrder) {
-    if (seen.has(id)) continue
-
     switch (id) {
       case 'summary':
       case 'experience':
       case 'education':
       case 'skills':
       case 'projects':
-        mapped.push(id)
-        seen.add(id)
+        if (!seen.has(id)) {
+          positioned.push(id)
+          seen.add(id)
+        }
         break
       // Languages and certifications are treated as a combined section
       case 'languages':
       case 'certifications':
       case 'languagesAndCerts':
         if (!seen.has('languagesAndCerts')) {
-          mapped.push('languagesAndCerts')
+          positioned.push('languagesAndCerts')
           seen.add('languagesAndCerts')
         }
         break
@@ -958,18 +1046,36 @@ export function mapEditorOrderToSingleColumn(rawOrder: readonly string[]): Singl
     }
   }
 
-  // Ensure languagesAndCerts is included if not already mapped
-  if (!seen.has('languagesAndCerts')) {
-    mapped.push('languagesAndCerts')
+  const slots = (Object.keys(sequence) as SingleColumnMainId[]).sort(
+    (a, b) => sequence[a] - sequence[b],
+  )
+
+  // Every positioned id is a member of the union and therefore has exactly one
+  // slot, so the positioned ids are consumed exactly once each, in order. The
+  // index is still checked rather than asserted: this runs inside document
+  // generation, where being one short must drop a section rather than write
+  // `undefined` into a dispatch.
+  const mapped: SingleColumnMainId[] = []
+  let next = 0
+  for (const slot of slots) {
+    if (seen.has(slot)) {
+      const positionedId: SingleColumnMainId | undefined = positioned[next]
+      next += 1
+      if (positionedId !== undefined) mapped.push(positionedId)
+    } else if (!isEditorMainId(slot)) {
+      mapped.push(slot)
+    }
   }
 
   return mapped
 }
 
-/** Classic's name for {@link mapEditorOrderToSingleColumn}; see `ClassicMainId`. */
-export const mapEditorOrderToClassic: (rawOrder: readonly string[]) => ClassicMainId[] =
-  mapEditorOrderToSingleColumn
+/** Classic's section order for an editor main-content order; see `mapEditorOrderToSingleColumn`. */
+export function mapEditorOrderToClassic(rawOrder: readonly string[]): ClassicMainId[] {
+  return mapEditorOrderToSingleColumn(rawOrder, CLASSIC_SEQUENCE)
+}
 
-/** Minimal's name for {@link mapEditorOrderToSingleColumn}; see `MinimalMainId`. */
-export const mapEditorOrderToMinimal: (rawOrder: readonly string[]) => MinimalMainId[] =
-  mapEditorOrderToSingleColumn
+/** Minimal's section order for an editor main-content order; see `mapEditorOrderToSingleColumn`. */
+export function mapEditorOrderToMinimal(rawOrder: readonly string[]): MinimalMainId[] {
+  return mapEditorOrderToSingleColumn(rawOrder, MINIMAL_SEQUENCE)
+}
