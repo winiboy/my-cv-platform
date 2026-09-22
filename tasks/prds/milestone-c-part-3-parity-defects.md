@@ -117,6 +117,8 @@ end as `MATCH` or as a recorded, evidenced format limitation.
 | Content | classic and minimal DOCX omit skills and projects | confirmed | US-002 |
 | Palette | DOCX text colour differs from the Preview's palette, all templates | 13 NEW | US-003 |
 | Spacing | DOCX line spacing written as Word auto multiples | 15 NEW + finding | US-004 |
+| Spacing | DOCX paragraphs without explicit spacing (contact lines, positions, dates, companies, skills, languages, certifications) inherit the document default, itself a Word auto multiple | found in US-004 | US-004 |
+| Spacing | Formatted (HTML) body text draws at `.formatted-content`'s line height (`globals.css`, 1.4 `!important`) rather than the template's ratio; the DOCX writes the template ratio, and the parity fixture holds plain text only, so the row is not exercised | found in US-004 | US-004 |
 | Spacing | DOCX letter spacing differs from CSS `em × px` | 8 NEW | US-005 |
 | Palette | DOCX borders and fills kept in stock Tailwind v3 colours: classic header border and heading rules, minimal rules, creative header and badge fills, professional heading underline | found in US-003 | US-003 |
 | Colour | Modern translucent sidebar text written opaque | 2 NEW | US-006 |
@@ -308,6 +310,12 @@ because a CV that runs longer in Word than in the Preview breaks differently.
       size — for example `lineRule="exact"` or `atLeast` computed from the run
       size — rather than as a Word `auto` multiple, which scales the font's own
       single-line height.
+- [ ] Every DOCX paragraph takes its spacing from the leading the Preview draws
+      for its element, including paragraphs that today inherit the document
+      default; no paragraph is left on a Word `auto` multiple.
+- [ ] Formatted (HTML) body text, which the Preview draws at
+      `.formatted-content`'s line height, is written at that line height, per
+      FR-3; the parity check exercises it with a profile whose body text is HTML.
 - [ ] Line height is compared on drawn leading, not on the encoded value, for
       the title, headings and body text of all five templates.
 - [ ] Spacing chosen to avoid clipping glyphs (Word's exact spacing can cut
@@ -806,6 +814,15 @@ in. "Creative honours `mainContentOrder`" is therefore not unimplemented but
   assigned to US-007, whose graphics scope they share; its final criterion now
   also requires that no graphic is left unplaced. No story is added, removed or
   reordered.
+- **2026-09-22 — US-004 BLOCKER.** Reading the Preview side of line height found
+  two divergences this document did not name. Most DOCX paragraphs set no
+  spacing and inherit the document default, itself a Word `auto` multiple; they
+  are assigned to US-004, whose first criterion already forbids `auto`
+  multiples. Formatted (HTML) body text draws at `.formatted-content`'s 1.4 line
+  height in the Preview, not the template's ratio; under FR-3 the Preview is the
+  reference, so US-004 writes the DOCX at the height the Preview draws and adds
+  an HTML-body parity profile so the row is exercised. No story is added,
+  removed or reordered.
 
 ## Approval Gate
 

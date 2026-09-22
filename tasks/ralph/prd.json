@@ -224,6 +224,8 @@
       "description": "As a user, I want the lines in my downloaded CV spaced as they are on screen, because a CV that runs longer in Word than in the Preview breaks differently.",
       "acceptanceCriteria": [
         "The generators express CSS line-height as spacing that scales the font size — for example `lineRule=\"exact\"` or `atLeast` computed from the run size — rather than as a Word `auto` multiple, which scales the font's own single-line height.",
+        "Every DOCX paragraph takes its spacing from the leading the Preview draws for its element, including paragraphs that today inherit the document default; no paragraph is left on a Word `auto` multiple.",
+        "Formatted (HTML) body text, which the Preview draws at `.formatted-content`'s line height, is written at that line height, per FR-3; the parity check exercises it with a profile whose body text is HTML.",
         "Line height is compared on drawn leading, not on the encoded value, for the title, headings and body text of all five templates.",
         "Spacing chosen to avoid clipping glyphs (Word's exact spacing can cut ascenders and descenders) is evidenced on a generated document, and any residual difference is recorded as a finding with the reason.",
         "Preview rendering is unchanged; visual baselines do not move.",
