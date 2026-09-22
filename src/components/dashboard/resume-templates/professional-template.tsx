@@ -344,7 +344,7 @@ export function ProfessionalTemplate({
                         </h3>
                         {achievement.description && (
                           <div className="opacity-80" style={{ fontSize: `${scaledBodyFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}>
-                            {renderFormattedText(achievement.description)}
+                            {renderFormattedText(achievement.description, { justify: false })}
                           </div>
                         )}
                       </div>

@@ -14,9 +14,14 @@ $hook = Join-Path (Get-Location).Path '.claude/hooks/pre-tool-guard.ps1'
 # Phase 05's semantics are mode-independent, so its fixtures must be too. A
 # fixture repo has no governance state, which the hook reads as STANDARD.
 
-# Ephemeral test repos rooted in TEMP
-$root = Join-Path $env:TEMP 'phase-05-3-fixtures'
-if (Test-Path $root) { Remove-Item -Recurse -Force $root }
+# Ephemeral test repos rooted in TEMP, under a per-run name.
+#
+# The name used to be fixed, and the run began by deleting it: a second run of
+# this suite - another session, an agent worktree - wiped the fixtures of the
+# first one mid-run, and every case after that point failed with "the cwd does
+# not exist". Observed 2026-09-20, 23 cases. run-governance-modes.ps1 already
+# rooted itself this way.
+$root = Join-Path $env:TEMP ('phase-05-3-fixtures-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
 New-Item -ItemType Directory -Path $root | Out-Null
 
 function New-Repo {
@@ -126,18 +131,106 @@ $repoRalphDecoy   = New-Repo 'r-ralph-decoy' 'ralph/foo'
 $subRalphDecoy    = New-SubDir $repoRalphDecoy 'src/deep'
 Set-PrdJson $subRalphDecoy '{"project":"p","branchName":"ralph/foo"}'
 
+# A junction whose target is a subdirectory of a Ralph repository. git resolves
+# it to the real work tree, so the contract at the root must still be found;
+# joining git's relative '../' answer onto the junction path overshot it.
+$repoRalphJunction = New-Repo 'r-ralph-junction' 'ralph/foo'
+Set-PrdJson $repoRalphJunction '{"project":"p","branchName":"ralph/foo"}'
+$subRalphJunctionTarget = New-SubDir $repoRalphJunction 'src/deep'
+$junctionRalph = Join-Path $root 'jn-ralph-sub'
+New-Item -ItemType Junction -Path $junctionRalph -Target $subRalphJunctionTarget | Out-Null
+$repoMainJunction = New-Repo 'r-main-junction' 'main'
+$junctionMain = Join-Path $root 'jn-main-sub'
+New-Item -ItemType Junction -Path $junctionMain -Target (New-SubDir $repoMainJunction 'src/deep') | Out-Null
+
+# --- cwd spellings (independent review, 2026-09-15) ---
+# The same kinds of repository reached through cwd spellings that used to skip
+# every branch rule: a space plus a trailing backslash, a non-ASCII path sent as
+# raw UTF-8 the way Claude Code sends it, and the \\localhost\C$ admin share.
+# [char] rather than a literal, because PS 5.1 reads this BOM-less file as ANSI.
+$accentDir        = 'caf' + [char]0x00E9 + ' dir'
+$spMain           = New-Repo 'some dir\r-main' 'main'
+$spRalphNoPrd     = New-Repo 'some dir\r-ralph-noprd' 'ralph/foo'
+$spFeat           = New-Repo 'some dir\r-feature' 'chore/x'
+$acMain           = New-Repo "$accentDir\r-main" 'main'
+$acRalphNoPrd     = New-Repo "$accentDir\r-ralph-noprd" 'ralph/foo'
+$acFeat           = New-Repo "$accentDir\r-feature" 'chore/x'
+[System.IO.Directory]::CreateDirectory((Join-Path $spRalphNoPrd 'src')) | Out-Null
+
+# Lexical only: the hook maps this spelling back to the drive path, so the
+# cases below do not depend on the admin share being reachable.
+function ConvertTo-LocalhostUnc {
+    param([string]$Path)
+    return '\\localhost\' + $Path.Substring(0, 1) + '$' + $Path.Substring(2)
+}
+$uncSpMain        = ConvertTo-LocalhostUnc $spMain
+$uncSpRalphNoPrdSub = ConvertTo-LocalhostUnc (Join-Path $spRalphNoPrd 'src')
+$uncSpFeat        = ConvertTo-LocalhostUnc $spFeat
+$uncAcMainSlash   = (ConvertTo-LocalhostUnc $acMain) + '\'
+
+# --- cwds whose branch git cannot determine ---
+# A .git file pointing nowhere: visibly a repository, but git fails on it. That
+# is the state git's safe.directory refusal produces, reproducible without
+# changing ownership. A missing directory, and no cwd at all, are the others.
+$repoBrokenGit    = Join-Path $root 'r-broken-gitfile'
+New-Item -ItemType Directory -Path $repoBrokenGit | Out-Null
+[System.IO.File]::WriteAllText((Join-Path $repoBrokenGit '.git'), 'gitdir: ' + (Join-Path $root 'no-such-gitdir'))
+$cwdMissing       = Join-Path $root 'no-such-cwd'
+$cwdMissingAccent = Join-Path $root ('no-such-caf' + [char]0x00E9)
+$dirNoRepo        = Join-Path $root 'not-a-repo'
+New-Item -ItemType Directory -Path $dirNoRepo | Out-Null
+
+# Unborn branches: no commit yet. rev-parse --abbrev-ref HEAD fails there, which
+# read as "no branch" and skipped the main block; symbolic-ref names it.
+function New-UnbornRepo {
+    param([string]$Name, [string]$Branch)
+    $path = Join-Path $root $Name
+    New-Item -ItemType Directory -Path $path | Out-Null
+    Push-Location $path
+    & git init -b $Branch --quiet
+    Pop-Location
+    return $path
+}
+$repoUnbornMain   = New-UnbornRepo 'r-unborn-main' 'main'
+$repoUnbornFeat   = New-UnbornRepo 'r-unborn-feature' 'chore/x'
+
 $results = New-Object System.Collections.Generic.List[object]
 
+# Sends the payload as raw UTF-8 bytes, as Claude Code does, and reads the reply
+# as strict UTF-8. The pipe in Invoke-Fixture can do neither: PS 5.1 writes to a
+# native process in ASCII (a non-ASCII cwd arrives as '?') and decodes the reply
+# with the console code page, which hides a reply that is not valid UTF-8.
+function Send-Utf8Payload {
+    param([string]$Json)
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = 'powershell.exe'
+    $psi.Arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $hook + '"'
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardInput = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.StandardOutputEncoding = New-Object System.Text.UTF8Encoding($false, $true)
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    $bytes = (New-Object System.Text.UTF8Encoding($false)).GetBytes($Json)
+    $proc.StandardInput.BaseStream.Write($bytes, 0, $bytes.Length)
+    $proc.StandardInput.Close()
+    try { $out = $proc.StandardOutput.ReadToEnd() } catch { $out = 'reply is not valid UTF-8' }
+    $proc.WaitForExit()
+    return $out
+}
+
 function Invoke-Fixture {
-    param([string]$Name, [hashtable]$InputData, [string]$Expected, [string]$ReasonLike)
+    param([string]$Name, [hashtable]$InputData, [string]$Expected, [string]$ReasonLike, [switch]$Utf8)
     $json = $InputData | ConvertTo-Json -Compress -Depth 6
-    # Escape non-ASCII as \uXXXX. PS 5.1 pipes to a native process in ASCII, so
-    # a raw non-ASCII cwd would arrive as '?' and never reach the code under test.
-    # This covers the root resolution only. The hook itself also decodes stdin
-    # with the console code page, so an unescaped non-ASCII cwd from a real
-    # caller is garbled before any branch check runs - a separate, open defect.
-    $json = [regex]::Replace($json, '[^\x00-\x7F]', { param($m) '\u{0:x4}' -f [int][char]$m.Value })
-    $out = $json | & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $hook
+    if ($Utf8) {
+        $out = Send-Utf8Payload -Json $json
+    } else {
+        # Escape non-ASCII as \uXXXX: PS 5.1 pipes to a native process in ASCII,
+        # so a raw non-ASCII cwd would arrive as '?' and never reach the code
+        # under test. The hook's own stdin decoding is covered by the -Utf8
+        # cases, which send the same payload as unescaped bytes.
+        $json = [regex]::Replace($json, '[^\x00-\x7F]', { param($m) '\u{0:x4}' -f [int][char]$m.Value })
+        $out = $json | & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $hook
+    }
     $decision = 'no-decision'
     $reason = ''
     if ($out) {
@@ -149,9 +242,9 @@ function Invoke-Fixture {
     }
     $status = if ($decision -eq $Expected) { 'PASS' } else { 'FAIL' }
     # Where the same decision can come from more than one rule, pin which one.
-    if ($status -eq 'PASS' -and $ReasonLike -and -not $reason.Contains($ReasonLike)) {
+    if ($status -eq 'PASS' -and $ReasonLike -and $reason -notlike "*$ReasonLike*") {
         $status = 'FAIL'
-        $decision = "$decision(reason)"
+        $decision = "$decision (other rule: $reason)"
     }
     $script:results.Add([pscustomobject]@{
         Name     = $Name
@@ -406,11 +499,78 @@ $fixtures = @(
     @{ Name='ENV-OK: PS Get-Content README.md';      Data=@{tool_name='PowerShell'; tool_input=@{command='Get-Content README.md'}; cwd=$featCwd}; Exp='no-decision' },
     @{ Name='ENV-OK: cp .env.example .env.new';      Data=@{tool_name='Bash'; tool_input=@{command='cp .env.example configured.env.example'}; cwd=$featCwd}; Exp='no-decision' },
     @{ Name='ENV-OK: git grep .env README.md';       Data=@{tool_name='Bash'; tool_input=@{command='git grep .env README.md'}; cwd=$featCwd}; Exp='no-decision' },
-    @{ Name='ENV-OK: sed 1p README.md';              Data=@{tool_name='Bash'; tool_input=@{command='sed 1p README.md'}; cwd=$featCwd}; Exp='no-decision' }
+    @{ Name='ENV-OK: sed 1p README.md';              Data=@{tool_name='Bash'; tool_input=@{command='sed 1p README.md'}; cwd=$featCwd}; Exp='no-decision' },
+
+    # ==================================================================
+    # cwd spelling (independent review, 2026-09-15). Each group mirrors
+    # plain-path cases above: how the cwd is spelled must not change the
+    # verdict. Why= pins the rule, because a cwd git cannot resolve now
+    # denies too, and these must not pass for that reason instead.
+    # ==================================================================
+
+    # --- Space plus trailing backslash: PS 5.1 quoting mangled `git -C` ---
+    @{ Name='CWD: space+trailing\ main, Write';       Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd="$spMain\"}; Exp='deny'; Why="while on 'main'" },
+    @{ Name='CWD: space+trailing\ main, git commit';  Data=@{tool_name='Bash'; tool_input=@{command='git commit -m x'}; cwd="$spMain\"}; Exp='deny'; Why="while on 'main'" },
+    @{ Name='CWD: space+trailing\ ralph no prd, Write'; Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd="$spRalphNoPrd\"}; Exp='deny'; Why='prd.json is missing' },
+    @{ Name='CWD: space+trailing\ feature, Write';    Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd="$spFeat\"}; Exp='no-decision' },
+    @{ Name='CWD: space+trailing\ feature, git push'; Data=@{tool_name='Bash'; tool_input=@{command='git push'}; cwd="$spFeat\"}; Exp='ask' },
+
+    # --- Non-ASCII cwd as raw UTF-8: stdin was decoded as IBM437 ---
+    @{ Name='CWD: utf-8 main, Write';                 Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$acMain}; Exp='deny'; Why="while on 'main'"; Utf8=$true },
+    @{ Name='CWD: utf-8 main, git commit';            Data=@{tool_name='Bash'; tool_input=@{command='git commit -m x'}; cwd=$acMain}; Exp='deny'; Why="while on 'main'"; Utf8=$true },
+    @{ Name='CWD: utf-8 ralph no prd, Write';         Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$acRalphNoPrd}; Exp='deny'; Why='prd.json is missing'; Utf8=$true },
+    @{ Name='CWD: utf-8 feature, Write';              Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$acFeat}; Exp='no-decision'; Utf8=$true },
+    @{ Name='CWD: utf-8 feature, git push';           Data=@{tool_name='Bash'; tool_input=@{command='git push'}; cwd=$acFeat}; Exp='ask'; Utf8=$true },
+
+    # --- \\localhost\C$ admin share: git refused it (safe.directory) ---
+    @{ Name='CWD: unc main, Write';                   Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$uncSpMain}; Exp='deny'; Why="while on 'main'" },
+    @{ Name='CWD: unc main, git commit';              Data=@{tool_name='Bash'; tool_input=@{command='git commit -m x'}; cwd=$uncSpMain}; Exp='deny'; Why="while on 'main'" },
+    @{ Name='CWD: unc ralph no prd subdir, Write';    Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$uncSpRalphNoPrdSub}; Exp='deny'; Why='prd.json is missing' },
+    @{ Name='CWD: unc feature, Write';                Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$uncSpFeat}; Exp='no-decision' },
+    @{ Name='CWD: unc feature, git push';             Data=@{tool_name='Bash'; tool_input=@{command='git push'}; cwd=$uncSpFeat}; Exp='ask' },
+    @{ Name='CWD: unc+utf-8+trailing\ main, Write';   Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$uncAcMainSlash}; Exp='deny'; Why="while on 'main'"; Utf8=$true },
+
+    # --- Branch cannot be determined: fail closed, as on main ---
+    # It may be main. Mutation is denied; inspection and leaving stay possible;
+    # a shipping action is denied rather than prompted (forbidden beats
+    # prompted, as on main); every existing deny keeps its own reason.
+    @{ Name='UNRESOLVED: broken .git, Write';         Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$repoBrokenGit}; Exp='deny'; Why='cannot be determined' },
+    @{ Name='UNRESOLVED: broken .git, Edit';          Data=@{tool_name='Edit';  tool_input=@{file_path='x'}; cwd=$repoBrokenGit}; Exp='deny'; Why='cannot be determined' },
+    @{ Name='UNRESOLVED: broken .git, NotebookEdit';  Data=@{tool_name='NotebookEdit'; tool_input=@{notebook_path='x.ipynb'}; cwd=$repoBrokenGit}; Exp='deny'; Why='cannot be determined' },
+    @{ Name='UNRESOLVED: broken .git, pnpm add';      Data=@{tool_name='Bash'; tool_input=@{command='pnpm add foo'}; cwd=$repoBrokenGit}; Exp='deny'; Why='cannot be determined' },
+    @{ Name='UNRESOLVED: broken .git, git commit';    Data=@{tool_name='Bash'; tool_input=@{command='git commit -m x'}; cwd=$repoBrokenGit}; Exp='deny'; Why='cannot be determined' },
+    @{ Name='UNRESOLVED: broken .git, git push';      Data=@{tool_name='Bash'; tool_input=@{command='git push'}; cwd=$repoBrokenGit}; Exp='deny'; Why='cannot be determined' },
+    @{ Name='UNRESOLVED: broken .git, git status';    Data=@{tool_name='Bash'; tool_input=@{command='git status'}; cwd=$repoBrokenGit}; Exp='no-decision' },
+    @{ Name='UNRESOLVED: broken .git, git switch -c'; Data=@{tool_name='Bash'; tool_input=@{command='git switch -c chore/x'}; cwd=$repoBrokenGit}; Exp='no-decision' },
+    @{ Name='UNRESOLVED: broken .git, reset --hard';  Data=@{tool_name='Bash'; tool_input=@{command='git reset --hard'}; cwd=$repoBrokenGit}; Exp='deny'; Why='destructive Git command' },
+    @{ Name='UNRESOLVED: broken .git, git add .';     Data=@{tool_name='Bash'; tool_input=@{command='git add .'}; cwd=$repoBrokenGit}; Exp='deny'; Why='unsafe git staging' },
+    @{ Name='UNRESOLVED: broken .git, Read .env';     Data=@{tool_name='Read'; tool_input=@{file_path='.env'}; cwd=$repoBrokenGit}; Exp='deny'; Why='protected .env file' },
+    @{ Name='UNRESOLVED: broken .git, Read file';     Data=@{tool_name='Read'; tool_input=@{file_path='x'}; cwd=$repoBrokenGit}; Exp='no-decision' },
+    @{ Name='UNRESOLVED: missing cwd, Write';         Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$cwdMissing}; Exp='deny'; Why='cannot be determined' },
+    # The reason quotes the non-ASCII cwd; the reply must still be valid UTF-8.
+    @{ Name='UNRESOLVED: missing utf-8 cwd, Write';   Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$cwdMissingAccent}; Exp='deny'; Why='cannot be determined'; Utf8=$true },
+    @{ Name='UNRESOLVED: no cwd, Write';              Data=@{tool_name='Write'; tool_input=@{file_path='x'}}; Exp='deny'; Why='no cwd' },
+    @{ Name='UNRESOLVED: no cwd, Read file';          Data=@{tool_name='Read'; tool_input=@{file_path='x'}}; Exp='no-decision' },
+
+    # --- Outside any repository nothing changes ---
+    @{ Name='NOREPO: plain directory, Write';         Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$dirNoRepo}; Exp='no-decision' },
+    @{ Name='NOREPO: plain directory, pnpm add';      Data=@{tool_name='Bash'; tool_input=@{command='pnpm add foo'}; cwd=$dirNoRepo}; Exp='no-decision' },
+
+    # --- A junction cwd resolves to the real work tree ---
+    # git answers for the junction's target, so the contract at that repository's
+    # root must be found. Joining git's relative '../' answer onto the junction
+    # path climbed above the root and denied this as "prd.json is missing".
+    @{ Name='CWD: junction into ralph repo, Write';   Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$junctionRalph}; Exp='no-decision' },
+    @{ Name='CWD: junction into main repo, Write';    Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$junctionMain}; Exp='deny'; Why="while on 'main'" },
+
+    # --- Unborn branch ---
+    @{ Name='UNBORN: main, Write';                    Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$repoUnbornMain}; Exp='deny'; Why="while on 'main'" },
+    @{ Name='UNBORN: main, git add file';             Data=@{tool_name='Bash'; tool_input=@{command='git add src/x'}; cwd=$repoUnbornMain}; Exp='deny'; Why="while on 'main'" },
+    @{ Name='UNBORN: feature, Write';                 Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$repoUnbornFeat}; Exp='no-decision' }
 )
 
 foreach ($f in $fixtures) {
-    Invoke-Fixture -Name $f.Name -InputData $f.Data -Expected $f.Exp -ReasonLike $f.Why
+    Invoke-Fixture -Name $f.Name -InputData $f.Data -Expected $f.Exp -ReasonLike $f.Why -Utf8:([bool]$f.Utf8)
 }
 
 # Print results
@@ -422,6 +582,10 @@ foreach ($r in $results) {
 ""
 "TOTAL: $($results.Count)  PASS: $pass  FAIL: $fail"
 
-# Cleanup ephemeral repos
+# Cleanup ephemeral repos. The junctions are unlinked first: Remove-Item
+# -Recurse follows one on PS 5.1 and would delete through it.
+foreach ($jn in @($junctionRalph, $junctionMain)) {
+    if ([System.IO.Directory]::Exists($jn)) { [System.IO.Directory]::Delete($jn) }
+}
 Remove-Item -Recurse -Force $root
 "Cleanup: removed $root"
