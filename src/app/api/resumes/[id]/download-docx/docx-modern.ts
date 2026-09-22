@@ -41,6 +41,7 @@ import {
   COLORS,
   type DocxGeneratorSettings,
 } from './docx-helpers'
+import { DOCX_PALETTE } from './docx-palette'
 import {
   assertExhaustiveSection,
   DEFAULT_MODERN_MAIN_ORDER,
@@ -50,6 +51,13 @@ import {
   type ModernMainId,
   type ModernSidebarId,
 } from '@/lib/layout-settings'
+
+/**
+ * Every text run the Preview draws in a colour of its own (US-003). The sidebar
+ * text it draws in translucent white keeps `COLORS.WHITE`; compositing it over
+ * the user's colour is US-006.
+ */
+const PALETTE = DOCX_PALETTE.modern
 
 // ============================================================
 // FONT SIZE CONSTANTS (matching modern-template.tsx)
@@ -427,7 +435,7 @@ export async function generateModernDocx(
           text: title.toUpperCase(),
           bold: true,
           size: scaledFontSizes.sidebarSectionTitle,
-          color: COLORS.WHITE,
+          color: PALETTE.white,
           font: primaryFont,
           characterSpacing: 8, // letterSpacing 0.08em approximation
         }),
@@ -454,7 +462,7 @@ export async function generateModernDocx(
           text: title.toUpperCase(),
           bold: true,
           size: scaledFontSizes.mainSectionTitle,
-          color: COLORS.DARK_HEADING,
+          color: PALETTE.heading,
           font: primaryFont,
           characterSpacing: 8, // letterSpacing 0.08em approximation
         }),
@@ -667,13 +675,13 @@ export async function generateModernDocx(
                 new TextRun({
                   text: `${entry.icon} `,
                   size: scaledFontSizes.contactValue,
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   font: primaryFont,
                 }),
                 new TextRun({
                   text: entry.value,
                   size: scaledFontSizes.contactValue,
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   font: primaryFont,
                 }),
               ],
@@ -707,7 +715,7 @@ export async function generateModernDocx(
                     text: degreeText.toUpperCase(),
                     bold: true,
                     size: scaledFontSizes.educationDegree,
-                    color: COLORS.WHITE,
+                    color: PALETTE.white,
                     font: primaryFont,
                   }),
                 ],
@@ -765,7 +773,7 @@ export async function generateModernDocx(
                       text: skillCategory.category.toUpperCase(),
                       bold: true,
                       size: scaledFontSizes.skillCategory,
-                      color: COLORS.WHITE,
+                      color: PALETTE.white,
                       font: primaryFont,
                       characterSpacing: 3, // letterSpacing 0.03em
                     }),
@@ -786,7 +794,7 @@ export async function generateModernDocx(
                   skillCategory.skillsHtml,
                   {
                     size: scaledFontSizes.skillItem,
-                    color: COLORS.WHITE,
+                    color: PALETTE.white,
                     font: primaryFont,
                   },
                   pxToTwips(4),
@@ -798,7 +806,7 @@ export async function generateModernDocx(
               } else {
                 const skillsRuns = parseHtmlToDocxRuns(skillCategory.skillsHtml, {
                   size: scaledFontSizes.skillItem,
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   font: primaryFont,
                 })
 
@@ -824,7 +832,7 @@ export async function generateModernDocx(
                       new TextRun({
                         text: skillName,
                         size: scaledFontSizes.skillItem,
-                        color: COLORS.WHITE,
+                        color: PALETTE.white,
                         font: primaryFont,
                       }),
                     ],
@@ -861,7 +869,7 @@ export async function generateModernDocx(
                     text: lang.language,
                     bold: true,
                     size: scaledFontSizes.languageName,
-                    color: COLORS.WHITE,
+                    color: PALETTE.white,
                     font: primaryFont,
                   }),
                   new TextRun({
@@ -907,7 +915,7 @@ export async function generateModernDocx(
                     text: cert.name,
                     bold: true,
                     size: scaledFontSizes.certName,
-                    color: COLORS.WHITE,
+                    color: PALETTE.white,
                     font: primaryFont,
                   }),
                 ],
@@ -980,7 +988,7 @@ export async function generateModernDocx(
           text: (contact.name || 'Your Name').toUpperCase(),
           bold: true,
           size: scaledFontSizes.name,
-          color: COLORS.DARK_HEADING,
+          color: PALETTE['slate-900'],
           font: primaryFont,
           characterSpacing: 15, // letterSpacing 0.15em
         }),
@@ -1003,7 +1011,7 @@ export async function generateModernDocx(
             text: resume.title.toUpperCase(),
             bold: true,
             size: scaledFontSizes.jobTitleBar,
-            color: COLORS.WHITE,
+            color: PALETTE.white,
             font: primaryFont,
             characterSpacing: 5, // tracking-wide
           }),
@@ -1028,7 +1036,7 @@ export async function generateModernDocx(
           new TextRun({
             text: contact.location,
             size: scaledFontSizes.location,
-            color: COLORS.META_TEXT, // #6b7280
+            color: PALETTE.meta, // #6b7280
             font: primaryFont,
           }),
         ],
@@ -1074,7 +1082,7 @@ export async function generateModernDocx(
               resume.summary,
               {
                 size: scaledFontSizes.summary,
-                color: COLORS.BODY_TEXT, // #374151 approximated
+                color: PALETTE['slate-700'],
                 font: primaryFont,
               },
               pxToTwips(4),
@@ -1089,7 +1097,7 @@ export async function generateModernDocx(
                 resume.summary,
                 {
                   size: scaledFontSizes.summary,
-                  color: COLORS.BODY_TEXT,
+                  color: PALETTE['slate-700'],
                   font: primaryFont,
                 },
                 {
@@ -1103,7 +1111,7 @@ export async function generateModernDocx(
           } else {
             const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
               size: scaledFontSizes.summary,
-              color: COLORS.BODY_TEXT,
+              color: PALETTE['slate-700'],
               font: primaryFont,
             })
 
@@ -1152,7 +1160,7 @@ export async function generateModernDocx(
                     text: (exp.position || '').toUpperCase(),
                     bold: true,
                     size: scaledFontSizes.experiencePosition,
-                    color: COLORS.DARK_HEADING,
+                    color: PALETTE.heading,
                     font: primaryFont,
                   }),
                 ],
@@ -1169,7 +1177,7 @@ export async function generateModernDocx(
                     new TextRun({
                       text: dateText,
                       size: scaledFontSizes.experienceDate,
-                      color: COLORS.META_TEXT, // #6b7280
+                      color: PALETTE.meta, // #6b7280
                       font: primaryFont,
                     }),
                   ],
@@ -1187,7 +1195,7 @@ export async function generateModernDocx(
                       text: exp.company,
                       bold: true,
                       size: scaledFontSizes.experienceCompany,
-                      color: COLORS.DARK_HEADING,
+                      color: PALETTE.heading,
                       font: primaryFont,
                     }),
                   ],
@@ -1204,7 +1212,7 @@ export async function generateModernDocx(
                     new TextRun({
                       text: exp.location,
                       size: scaledFontSizes.experienceLocation,
-                      color: COLORS.META_TEXT, // #6b7280
+                      color: PALETTE.meta, // #6b7280
                       font: primaryFont,
                     }),
                   ],
@@ -1230,7 +1238,7 @@ export async function generateModernDocx(
                   exp.description,
                   {
                     size: scaledFontSizes.body,
-                    color: COLORS.BODY_TEXT,
+                    color: PALETTE.experienceBody,
                     font: primaryFont,
                   },
                   pxToTwips(4),
@@ -1245,7 +1253,7 @@ export async function generateModernDocx(
                     exp.description,
                     {
                       size: scaledFontSizes.body,
-                      color: COLORS.BODY_TEXT,
+                      color: PALETTE.experienceBody,
                       font: primaryFont,
                     },
                     {
@@ -1258,7 +1266,7 @@ export async function generateModernDocx(
               } else {
                 const descRuns = parseHtmlToDocxRuns(exp.description, {
                   size: scaledFontSizes.body,
-                  color: COLORS.BODY_TEXT,
+                  color: PALETTE.experienceBody,
                   font: primaryFont,
                 })
 
@@ -1286,7 +1294,7 @@ export async function generateModernDocx(
                 const cleanAchievement = achievement.replace(/<\/?(?:em|i)>/gi, '')
                 const achievementRuns = parseHtmlToDocxRuns(`<em>${cleanAchievement}</em>`, {
                   size: scaledFontSizes.body,
-                  color: COLORS.BODY_TEXT,
+                  color: PALETTE.experienceBody,
                   font: primaryFont,
                 })
 
@@ -1413,7 +1421,7 @@ export async function generateModernDocx(
               text: project.name || '',
               bold: true,
               size: pxToHalfPoints(18 * fontScale), // text-lg
-              color: COLORS.DARK_HEADING,
+              color: PALETTE['slate-900'],
               font: primaryFont,
             }),
           ],
@@ -1429,7 +1437,7 @@ export async function generateModernDocx(
             project.description,
             {
               size: scaledFontSizes.body,
-              color: COLORS.BODY_TEXT,
+              color: PALETTE['slate-700'],
               font: primaryFont,
             },
             pxToTwips(4),
@@ -1443,7 +1451,7 @@ export async function generateModernDocx(
               project.description,
               {
                 size: scaledFontSizes.body,
-                color: COLORS.BODY_TEXT,
+                color: PALETTE['slate-700'],
                 font: primaryFont,
               },
               {
@@ -1456,7 +1464,7 @@ export async function generateModernDocx(
         } else {
           const descRuns = parseHtmlToDocxRuns(project.description, {
             size: scaledFontSizes.body,
-            color: COLORS.BODY_TEXT,
+            color: PALETTE['slate-700'],
             font: primaryFont,
           })
 
@@ -1482,7 +1490,7 @@ export async function generateModernDocx(
               new TextRun({
                 text: project.technologies.join(' \u2022 '),
                 size: pxToHalfPoints(12 * fontScale), // text-xs
-                color: COLORS.BODY_TEXT,
+                color: PALETTE['slate-700'],
                 font: primaryFont,
               }),
             ],

@@ -29,6 +29,7 @@ import {
   stripHtml,
   type DocxGeneratorSettings,
 } from './docx-helpers'
+import { DOCX_PALETTE } from './docx-palette'
 import {
   assertExhaustiveSection,
   mapEditorOrderToClassic,
@@ -46,15 +47,10 @@ const CLASSIC_DICT: Record<string, Record<string, string>> = {
 }
 
 // ============================================================
-// CLASSIC TEMPLATE COLORS (Tailwind Slate palette)
+// CLASSIC TEMPLATE COLORS
 // ============================================================
-const SLATE = {
-  900: '0F172A',
-  800: '1E293B',
-  700: '334155',
-  600: '475569',
-  400: '94A3B8',
-}
+/** Every text run and rule, in the colour of the class the Preview draws it with (US-003). */
+const PALETTE = DOCX_PALETTE.classic
 
 // ============================================================
 // FONT SIZE CONSTANTS (matching classic-template.tsx defaults)
@@ -202,7 +198,7 @@ export async function generateClassicDocx(
           text: title.toUpperCase(),
           bold: true,
           size: scaledFontSizes.sectionTitle,
-          color: SLATE[900],
+          color: PALETTE['slate-900'],
           font: SERIF_FONT,
         }),
       ],
@@ -211,7 +207,7 @@ export async function generateClassicDocx(
       },
       border: {
         bottom: {
-          color: SLATE[400],
+          color: PALETTE['slate-400'],
           space: 1, // pb-1 spacing between text and border
           style: BorderStyle.SINGLE,
           size: 4, // 1px border
@@ -235,7 +231,7 @@ export async function generateClassicDocx(
           text: (resume.title || 'CV TITLE').toUpperCase(),
           bold: true,
           size: scaledFontSizes.title,
-          color: SLATE[900],
+          color: PALETTE['slate-900'],
           font: SERIF_FONT,
           characterSpacing: 8, // tracking-wide
         }),
@@ -274,7 +270,7 @@ export async function generateClassicDocx(
           new TextRun({
             text: contactLine1Items.join('  •  '),
             size: scaledFontSizes.contact,
-            color: SLATE[700],
+            color: PALETTE['slate-700'],
             font: SERIF_FONT,
           }),
         ],
@@ -293,7 +289,7 @@ export async function generateClassicDocx(
           new TextRun({
             text: contactLine2Items.join('  •  '),
             size: scaledFontSizes.contact,
-            color: SLATE[600],
+            color: PALETTE['slate-600'],
             font: SERIF_FONT,
           }),
         ],
@@ -313,7 +309,7 @@ export async function generateClassicDocx(
       },
       border: {
         bottom: {
-          color: SLATE[900],
+          color: PALETTE['slate-900'],
           space: 1,
           style: BorderStyle.SINGLE,
           size: 8, // 2px border
@@ -350,7 +346,7 @@ export async function generateClassicDocx(
               resume.summary,
               {
                 size: scaledFontSizes.body,
-                color: SLATE[800],
+                color: PALETTE['slate-800'],
                 font: SERIF_FONT,
               },
               pxToTwips(4),
@@ -365,7 +361,7 @@ export async function generateClassicDocx(
                 resume.summary,
                 {
                   size: scaledFontSizes.body,
-                  color: SLATE[800],
+                  color: PALETTE['slate-800'],
                   font: SERIF_FONT,
                 },
                 {
@@ -378,7 +374,7 @@ export async function generateClassicDocx(
           } else {
             const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
               size: scaledFontSizes.body,
-              color: SLATE[800],
+              color: PALETTE['slate-800'],
               font: SERIF_FONT,
             })
 
@@ -428,7 +424,7 @@ export async function generateClassicDocx(
                     text: exp.position || '',
                     bold: true,
                     size: scaledFontSizes.body,
-                    color: SLATE[900],
+                    color: PALETTE['slate-900'],
                     font: SERIF_FONT,
                   }),
                   ...(dateText ? [
@@ -436,7 +432,7 @@ export async function generateClassicDocx(
                       text: '\t' + dateText,
                       italics: true,
                       size: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale), // text-sm
-                      color: SLATE[600],
+                      color: PALETTE['slate-600'],
                       font: SERIF_FONT,
                     }),
                   ] : []),
@@ -459,14 +455,14 @@ export async function generateClassicDocx(
                     text: exp.company || '',
                     italics: true,
                     size: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale), // text-sm
-                    color: SLATE[700],
+                    color: PALETTE['slate-700'],
                     font: SERIF_FONT,
                   }),
                   ...(exp.location ? [
                     new TextRun({
                       text: '\t' + exp.location,
                       size: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale), // text-sm
-                      color: SLATE[600],
+                      color: PALETTE['slate-600'],
                       font: SERIF_FONT,
                     }),
                   ] : []),
@@ -488,7 +484,7 @@ export async function generateClassicDocx(
 
                 const achievementRuns = parseHtmlToDocxRuns(achievement, {
                   size: scaledFontSizes.body,
-                  color: SLATE[800],
+                  color: PALETTE['slate-800'],
                   font: SERIF_FONT,
                 })
 
@@ -505,7 +501,7 @@ export async function generateClassicDocx(
                       new TextRun({
                         text: '• ',
                         size: scaledFontSizes.body,
-                        color: SLATE[800],
+                        color: PALETTE['slate-800'],
                         font: SERIF_FONT,
                       }),
                       ...achievementRuns,
@@ -527,7 +523,7 @@ export async function generateClassicDocx(
                   exp.description,
                   {
                     size: scaledFontSizes.body,
-                    color: SLATE[800],
+                    color: PALETTE['slate-800'],
                     font: SERIF_FONT,
                   },
                   pxToTwips(4),
@@ -542,7 +538,7 @@ export async function generateClassicDocx(
                     exp.description,
                     {
                       size: scaledFontSizes.body,
-                      color: SLATE[800],
+                      color: PALETTE['slate-800'],
                       font: SERIF_FONT,
                     },
                     {
@@ -555,7 +551,7 @@ export async function generateClassicDocx(
               } else {
                 const descRuns = parseHtmlToDocxRuns(exp.description, {
                   size: scaledFontSizes.body,
-                  color: SLATE[800],
+                  color: PALETTE['slate-800'],
                   font: SERIF_FONT,
                 })
 
@@ -622,7 +618,7 @@ export async function generateClassicDocx(
                     text: edu.degree || '',
                     bold: true,
                     size: scaledFontSizes.body,
-                    color: SLATE[900],
+                    color: PALETTE['slate-900'],
                     font: SERIF_FONT,
                   }),
                   ...(eduDateText ? [
@@ -630,7 +626,7 @@ export async function generateClassicDocx(
                       text: '\t' + eduDateText,
                       italics: true,
                       size: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale), // text-sm
-                      color: SLATE[600],
+                      color: PALETTE['slate-600'],
                       font: SERIF_FONT,
                     }),
                   ] : []),
@@ -657,7 +653,7 @@ export async function generateClassicDocx(
                     text: schoolText,
                     italics: true,
                     size: scaledFontSizes.body,
-                    color: SLATE[700],
+                    color: PALETTE['slate-700'],
                     font: SERIF_FONT,
                   }),
                 ],
@@ -673,14 +669,14 @@ export async function generateClassicDocx(
                     new TextRun({
                       text: 'GPA: ',
                       size: scaledFontSizes.body,
-                      color: SLATE[600],
+                      color: PALETTE['slate-600'],
                       font: SERIF_FONT,
                     }),
                     new TextRun({
                       text: edu.gpa,
                       bold: true,
                       size: scaledFontSizes.body,
-                      color: SLATE[600],
+                      color: PALETTE['slate-600'],
                       font: SERIF_FONT,
                     }),
                   ],
@@ -693,7 +689,7 @@ export async function generateClassicDocx(
             if (edu.description) {
               const eduDescRuns = parseHtmlToDocxRuns(edu.description, {
                 size: scaledFontSizes.body,
-                color: SLATE[800],
+                color: PALETTE['slate-800'],
                 font: SERIF_FONT,
               })
 
@@ -735,13 +731,13 @@ export async function generateClassicDocx(
                       text: `${skillCat.category}: `,
                       bold: true,
                       size: scaledFontSizes.body,
-                      color: SLATE[900],
+                      color: PALETTE['slate-900'],
                       font: SERIF_FONT,
                     }),
                     new TextRun({
                       text: plainSkills,
                       size: scaledFontSizes.body,
-                      color: SLATE[800],
+                      color: PALETTE['slate-800'],
                       font: SERIF_FONT,
                     }),
                   ],
@@ -756,13 +752,13 @@ export async function generateClassicDocx(
                       text: `${skillCat.category}: `,
                       bold: true,
                       size: scaledFontSizes.body,
-                      color: SLATE[900],
+                      color: PALETTE['slate-900'],
                       font: SERIF_FONT,
                     }),
                     new TextRun({
                       text: skillCat.items.join(', '),
                       size: scaledFontSizes.body,
-                      color: SLATE[800],
+                      color: PALETTE['slate-800'],
                       font: SERIF_FONT,
                     }),
                   ],
@@ -784,7 +780,7 @@ export async function generateClassicDocx(
                       text: `${skillCat.category}: `,
                       bold: true,
                       size: scaledFontSizes.body,
-                      color: SLATE[900],
+                      color: PALETTE['slate-900'],
                       font: SERIF_FONT,
                     }),
                   ],
@@ -819,7 +815,7 @@ export async function generateClassicDocx(
                     text: project.name || '',
                     bold: true,
                     size: scaledFontSizes.body,
-                    color: SLATE[900],
+                    color: PALETTE['slate-900'],
                     font: SERIF_FONT,
                   }),
                 ],
@@ -831,7 +827,7 @@ export async function generateClassicDocx(
             if (hasDescription) {
               const projectDescRuns = parseHtmlToDocxRuns(project.description, {
                 size: scaledFontSizes.body,
-                color: SLATE[800],
+                color: PALETTE['slate-800'],
                 font: SERIF_FONT,
               })
 
@@ -854,13 +850,13 @@ export async function generateClassicDocx(
                       text: 'Technologies: ',
                       bold: true,
                       size: scaledFontSizes.body,
-                      color: SLATE[700],
+                      color: PALETTE['slate-700'],
                       font: SERIF_FONT,
                     }),
                     new TextRun({
                       text: project.technologies.join(', '),
                       size: scaledFontSizes.body,
-                      color: SLATE[700],
+                      color: PALETTE['slate-700'],
                       font: SERIF_FONT,
                     }),
                   ],
@@ -897,13 +893,13 @@ export async function generateClassicDocx(
                       text: lang.language || '',
                       bold: true,
                       size: scaledFontSizes.body,
-                      color: SLATE[900],
+                      color: PALETTE['slate-900'],
                       font: SERIF_FONT,
                     }),
                     new TextRun({
                       text: '\t' + levelText,
                       size: scaledFontSizes.body,
-                      color: SLATE[700],
+                      color: PALETTE['slate-700'],
                       font: SERIF_FONT,
                     }),
                   ],
@@ -941,7 +937,7 @@ export async function generateClassicDocx(
                       text: cert.name || '',
                       bold: true,
                       size: scaledFontSizes.body,
-                      color: SLATE[900],
+                      color: PALETTE['slate-900'],
                       font: SERIF_FONT,
                     }),
                   ],
@@ -957,7 +953,7 @@ export async function generateClassicDocx(
                       new TextRun({
                         text: cert.issuer,
                         size: scaledFontSizes.body,
-                        color: SLATE[700],
+                        color: PALETTE['slate-700'],
                         font: SERIF_FONT,
                       }),
                     ],
@@ -978,7 +974,7 @@ export async function generateClassicDocx(
                         }),
                         italics: true,
                         size: scaledFontSizes.body,
-                        color: SLATE[600],
+                        color: PALETTE['slate-600'],
                         font: SERIF_FONT,
                       }),
                     ],

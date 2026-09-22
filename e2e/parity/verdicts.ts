@@ -3,7 +3,6 @@ import {
   COLOUR_CHANNEL_TOLERANCE,
   compositeOver,
   coloursAgree,
-  convertCssColour,
   type ConvertedColour,
 } from './colour'
 import {
@@ -57,9 +56,11 @@ import {
  * US-009-order-<template>, P3-US003 to US-010-empty-main, P3-US004 to
  * US-011-font-size, P3-US005 to US-015-creative-sections. The `US-` form cannot
  * be mistaken for the old one.
+ *
+ * US-003-palette was closed by US-003 and removed with its signature and the
+ * two colour tables only that signature read.
  */
 export type KnownId =
-  | 'US-003-palette'
   | 'US-004-line-spacing'
   | 'US-005-letter-spacing'
   | 'US-006-translucent-text'
@@ -75,7 +76,6 @@ export type KnownId =
   | 'US-015-creative-sections'
 
 export const KNOWN_IDS: readonly KnownId[] = [
-  'US-003-palette',
   'US-004-line-spacing',
   'US-005-letter-spacing',
   'US-006-translucent-text',
@@ -126,14 +126,6 @@ function expectations(groups: readonly (readonly [KnownId, readonly string[]])[]
  * failure; it is a hole in Part 3's scope.
  */
 export const KNOWN_EXPECTATIONS: Readonly<Record<string, KnownId>> = expectations([
-  [
-    'US-003-palette',
-    [
-      ...rowIds('primary', ['professional', 'modern', 'classic', 'minimal'], ['colour:documentTitle']),
-      ...rowIds('primary', ['professional', 'classic', 'minimal', 'creative'], ['colour:sectionHeading']),
-      ...rowIds('primary', TEMPLATES, ['colour:bodyText']),
-    ],
-  ],
   ['US-004-line-spacing', rowIds('primary', TEMPLATES, elementProperties('line-height'))],
   [
     'US-005-letter-spacing',
@@ -459,50 +451,6 @@ const PER_PROPERTY: Readonly<Record<TypographyElement, 'titleFontSize' | 'sectio
   bodyText: 'sectionDescFontSize',
 }
 
-/**
- * US-003: the text colour each DOCX generator hardcodes, for the elements where
- * it differs from the Preview. Stock Tailwind v3 and neutral hex:
- * `docx-helpers.ts` COLORS (DARK_HEADING, BODY_TEXT) for professional and
- * modern; the slate tables of `docx-classic.ts` and `docx-minimal.ts`;
- * `docx-creative.ts` PURPLE_600 and SLATE_700.
- */
-const STOCK_TEXT_COLOUR: Readonly<Record<ResumeTemplate, Partial<Record<TypographyElement, string>>>> = {
-  professional: { documentTitle: '#1A1A1A', sectionHeading: '#1A1A1A', bodyText: '#333333' },
-  modern: { documentTitle: '#1A1A1A', bodyText: '#333333' },
-  classic: { documentTitle: '#0F172A', sectionHeading: '#0F172A', bodyText: '#1E293B' },
-  minimal: { documentTitle: '#0F172A', sectionHeading: '#94A3B8', bodyText: '#334155' },
-  creative: { sectionHeading: '#9333EA', bodyText: '#334155' },
-}
-
-/**
- * US-003: the colour the Preview renders for the same elements, as the CSS its
- * source gives. Tailwind utilities resolve through the tokens `globals.css`
- * redefines in `@theme inline`: slate-900 oklch(0.08 0 0), slate-800
- * oklch(0.15 0 0), slate-700 oklch(0.25 0 0), slate-400 oklch(0.65 0 0),
- * purple-600 oklch(0.5 0.22 290). Inline styles: professional-template.tsx
- * title and main headings oklch(0.2 0 0), achievements oklch(0.3 0 0);
- * modern-template.tsx experience text '#374151', written here as the same
- * colour in rgb() because that is a form colour.ts converts. Converted without
- * the browser, so a Preview that renders any other colour is a different
- * divergence.
- */
-const PREVIEW_TEXT_COLOUR_CSS: Readonly<Record<ResumeTemplate, Partial<Record<TypographyElement, string>>>> = {
-  professional: { documentTitle: 'oklch(0.2 0 0)', sectionHeading: 'oklch(0.2 0 0)', bodyText: 'oklch(0.3 0 0)' },
-  modern: { documentTitle: 'oklch(0.08 0 0)', bodyText: 'rgb(55, 65, 81)' },
-  classic: { documentTitle: 'oklch(0.08 0 0)', sectionHeading: 'oklch(0.08 0 0)', bodyText: 'oklch(0.15 0 0)' },
-  minimal: { documentTitle: 'oklch(0.08 0 0)', sectionHeading: 'oklch(0.65 0 0)', bodyText: 'oklch(0.25 0 0)' },
-  creative: { sectionHeading: 'oklch(0.5 0.22 290)', bodyText: 'oklch(0.25 0 0)' },
-}
-
-/** The same table converted once, at load: an entry colour.ts cannot convert fails on import, not on a row. */
-const PREVIEW_TEXT_COLOUR: Readonly<Record<ResumeTemplate, Partial<Record<TypographyElement, ConvertedColour>>>> =
-  Object.fromEntries(
-    Object.entries(PREVIEW_TEXT_COLOUR_CSS).map(([template, elements]) => [
-      template,
-      Object.fromEntries(Object.entries(elements).map(([element, css]) => [element, convertCssColour(css)])),
-    ]),
-  ) as Record<ResumeTemplate, Partial<Record<TypographyElement, ConvertedColour>>>
-
 /** US-013: `DEFAULT_ACCENT_COLOR` in modern-template.tsx, the gold the accent falls back to. */
 const MODERN_ACCENT_FALLBACK = '#D4A843'
 
@@ -607,28 +555,6 @@ const TRANSLUCENT_WHITE = /^rgba\(255, 255, 255, 0?\.\d+\)$/
  * may have two shapes: `evaluateRow` throws if signatures overlap.
  */
 const SIGNATURES: readonly Signature[] = [
-  {
-    id: 'US-003-palette',
-    defect:
-      'The DOCX writes the stock hex its generator hardcodes, where the Preview and print render the colour ' +
-      "globals.css's redefined tokens or the template's inline style give: a different sRGB colour.",
-    matches: ({ row, values }) => {
-      if (row.family !== 'colour' || !isTypographyElement(row.subject)) return false
-      const stock = STOCK_TEXT_COLOUR[row.template][row.subject]
-      const palette = PREVIEW_TEXT_COLOUR[row.template][row.subject]
-      return (
-        stock !== undefined &&
-        palette !== undefined &&
-        values.docx.kind === 'colour' &&
-        values.docx.hex === stock &&
-        values.preview.kind === 'colour' &&
-        values.preview.over === undefined &&
-        coloursAgree(opaque(values.preview.hex), palette) &&
-        equal(values.pdf, values.preview) &&
-        !equal(values.docx, values.preview)
-      )
-    },
-  },
   {
     id: 'US-004-line-spacing',
     defect:
@@ -1247,8 +1173,10 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
       'collect test fails if the two disagree. Translucent colours are composited over their measured ' +
       'backdrop before comparison. Colours outside sRGB are clipped.'),
   annotation('LIMITATION', 'creative', 'header gradient', ['docx'],
-    'The header is a three-stop CSS gradient. DOCX paragraph and table-cell shading is a single solid fill ' +
-      '(w:shd); the generator uses solid purple. Not compared.'),
+    'The header is a three-stop CSS gradient (from-purple-600 via-pink-500 to-orange-400). DOCX paragraph and ' +
+      'table-cell shading is a single solid fill (w:shd), so since Part 3 US-003 the generator fills the header ' +
+      "with the gradient's first stop, globals.css purple-600, taken from src/lib/resume-palette.ts. The other " +
+      'two stops are not drawn. Not compared.'),
   annotation('LIMITATION', 'modern', 'colour:accent reference', ['preview', 'pdf', 'docx'],
     'The accent is not stored in the model. It is derived from the sidebar colour by the rule documented in ' +
       'modern-template.tsx and docx-modern.ts (saturation +20 capped at 100, lightness +25 capped at 65); ' +

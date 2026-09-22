@@ -34,11 +34,19 @@ import {
   COLORS,
   type DocxGeneratorSettings,
 } from './docx-helpers'
+import { DOCX_PALETTE } from './docx-palette'
 import {
   assertExhaustiveSection,
   type EditorMainId,
   type EditorSidebarId,
 } from '@/lib/layout-settings'
+
+/**
+ * Every text run and rule the Preview draws in a colour of its own (US-003).
+ * The sidebar text it draws at `opacity-80` over the user's colour keeps
+ * `COLORS.WHITE`; that is US-006's.
+ */
+const PALETTE = DOCX_PALETTE.professional
 
 // ============================================================
 // FONT SIZE CONSTANTS (matching professional-template.tsx)
@@ -243,7 +251,7 @@ export async function generateProfessionalDocx(
           text: contact.name || 'Your Name',
           bold: true,
           size: scaledFontSizes.name,
-          color: COLORS.WHITE,
+          color: PALETTE.white,
           font: primaryFont,
         }),
       ],
@@ -275,14 +283,14 @@ export async function generateProfessionalDocx(
                   text: (dict as any).resumes?.template?.keyAchievements || 'Key Achievements',
                   bold: true,
                   size: scaledFontSizes.sectionTitle,
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   font: primaryFont,
                 }),
               ],
               spacing: { after: pxToTwips(16) }, // mb-4 in Preview
               border: {
                 bottom: {
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   space: 1,
                   style: BorderStyle.SINGLE,
                   size: 6,
@@ -306,7 +314,7 @@ export async function generateProfessionalDocx(
                     text: achievement.title,
                     bold: true,
                     size: scaledFontSizes.jobTitle,
-                    color: COLORS.WHITE,
+                    color: PALETTE.white,
                     font: primaryFont,
                   }),
                 ],
@@ -382,14 +390,14 @@ export async function generateProfessionalDocx(
                   text: (dict as any).resumes?.template?.skills || 'Skills',
                   bold: true,
                   size: scaledFontSizes.sectionTitle,
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   font: primaryFont,
                 }),
               ],
               spacing: { after: pxToTwips(16) }, // mb-4 in Preview
               border: {
                 bottom: {
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   space: 1,
                   style: BorderStyle.SINGLE,
                   size: 6,
@@ -414,7 +422,7 @@ export async function generateProfessionalDocx(
                     text: `${skillCat.category}:`,
                     bold: true,
                     size: scaledFontSizes.skillCategory,
-                    color: COLORS.WHITE,
+                    color: PALETTE.white,
                     font: primaryFont,
                   }),
                 ],
@@ -506,14 +514,14 @@ export async function generateProfessionalDocx(
                   text: (dict as any).resumes?.template?.languages || 'Languages',
                   bold: true,
                   size: scaledFontSizes.sectionTitle,
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   font: primaryFont,
                 }),
               ],
               spacing: { after: pxToTwips(16) }, // mb-4 in Preview
               border: {
                 bottom: {
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   space: 1,
                   style: BorderStyle.SINGLE,
                   size: 6,
@@ -537,7 +545,7 @@ export async function generateProfessionalDocx(
                   new TextRun({
                     text: lang.language,
                     size: scaledFontSizes.body,
-                    color: COLORS.WHITE,
+                    color: PALETTE.white,
                     font: primaryFont,
                   }),
                   new TextRun({
@@ -571,14 +579,14 @@ export async function generateProfessionalDocx(
                   text: (dict as any).resumes?.template?.training || 'Training',
                   bold: true,
                   size: scaledFontSizes.sectionTitle,
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   font: primaryFont,
                 }),
               ],
               spacing: { after: pxToTwips(16) }, // mb-4 in Preview
               border: {
                 bottom: {
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   space: 1,
                   style: BorderStyle.SINGLE,
                   size: 6,
@@ -603,7 +611,7 @@ export async function generateProfessionalDocx(
                     text: cert.name,
                     bold: true,
                     size: scaledFontSizes.jobTitle,
-                    color: COLORS.WHITE,
+                    color: PALETTE.white,
                     font: primaryFont,
                   }),
                 ],
@@ -616,7 +624,7 @@ export async function generateProfessionalDocx(
                   new TextRun({
                     text: cert.issuer,
                     size: scaledFontSizes.meta,
-                    color: COLORS.WHITE,
+                    color: PALETTE.white,
                     font: primaryFont,
                   }),
                 ],
@@ -633,7 +641,7 @@ export async function generateProfessionalDocx(
                         year: 'numeric',
                       }),
                       size: scaledFontSizes.meta,
-                      color: COLORS.WHITE,
+                      color: PALETTE.white,
                       font: primaryFont,
                     }),
                   ],
@@ -663,7 +671,7 @@ export async function generateProfessionalDocx(
           text: resume.title || 'PROFESSIONAL TITLE',
           bold: true,
           size: scaledFontSizes.professionalTitle,
-          color: COLORS.DARK_HEADING,
+          color: PALETTE.heading,
           font: primaryFont,
         }),
       ],
@@ -691,7 +699,7 @@ export async function generateProfessionalDocx(
           new TextRun({
             text: contactItems.join('    '),
             size: scaledFontSizes.contact,
-            color: COLORS.META_TEXT,
+            color: PALETTE.meta,
             font: primaryFont,
           }),
         ],
@@ -731,14 +739,14 @@ export async function generateProfessionalDocx(
                   text: (dict as any).resumes?.template?.summary || 'Summary',
                   bold: true,
                   size: scaledFontSizes.resumeSectionTitle,
-                  color: COLORS.DARK_HEADING,
+                  color: PALETTE.heading,
                   font: primaryFont,
                 }),
               ],
               spacing: { after: pxToTwips(SPACING.SECTION_GAP) },
               border: {
                 bottom: {
-                  color: COLORS.DARK_HEADING,
+                  color: PALETTE.heading,
                   space: 1,
                   style: BorderStyle.SINGLE,
                   size: 6,
@@ -757,7 +765,7 @@ export async function generateProfessionalDocx(
               resume.summary,
               {
                 size: scaledFontSizes.body,
-                color: COLORS.BODY_TEXT,
+                color: PALETTE.body,
                 font: primaryFont,
               },
               pxToTwips(4), // spacing between list items
@@ -772,7 +780,7 @@ export async function generateProfessionalDocx(
                 resume.summary,
                 {
                   size: scaledFontSizes.body,
-                  color: COLORS.BODY_TEXT,
+                  color: PALETTE.body,
                   font: primaryFont,
                 },
                 {
@@ -787,7 +795,7 @@ export async function generateProfessionalDocx(
             // Non-list content: use inline rendering
             const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
               size: scaledFontSizes.body,
-              color: COLORS.BODY_TEXT,
+              color: PALETTE.body,
               font: primaryFont,
             })
 
@@ -818,14 +826,14 @@ export async function generateProfessionalDocx(
                   text: (dict as any).resumes?.template?.experience || 'Experience',
                   bold: true,
                   size: scaledFontSizes.sectionTitle,
-                  color: COLORS.DARK_HEADING,
+                  color: PALETTE.heading,
                   font: primaryFont,
                 }),
               ],
               spacing: { after: pxToTwips(SPACING.SECTION_GAP) },
               border: {
                 bottom: {
-                  color: COLORS.DARK_HEADING,
+                  color: PALETTE.heading,
                   space: 1,
                   style: BorderStyle.SINGLE,
                   size: 6,
@@ -846,13 +854,13 @@ export async function generateProfessionalDocx(
                     text: exp.position || '',
                     bold: true,
                     size: scaledFontSizes.jobTitle,
-                    color: COLORS.DARK_HEADING,
+                    color: PALETTE.heading,
                     font: primaryFont,
                   }),
                   new TextRun({
                     text: '\t' + formatDateRange(exp.startDate, exp.endDate, exp.current, locale as Locale, dict),
                     size: scaledFontSizes.meta,
-                    color: COLORS.DATE_TEXT,
+                    color: PALETTE.date,
                     font: primaryFont,
                   }),
                 ],
@@ -874,14 +882,14 @@ export async function generateProfessionalDocx(
                   new TextRun({
                     text: exp.company || '',
                     size: scaledFontSizes.meta,
-                    color: COLORS.META_TEXT,
+                    color: PALETTE.meta,
                     font: primaryFont,
                   }),
                   ...(exp.location ? [
                     new TextRun({
                       text: ` • ${exp.location}`,
                       size: scaledFontSizes.meta,
-                      color: COLORS.META_TEXT,
+                      color: PALETTE.meta,
                       font: primaryFont,
                     }),
                   ] : []),
@@ -898,7 +906,7 @@ export async function generateProfessionalDocx(
                 // Parse achievement HTML to preserve formatting
                 const achievementRuns = parseHtmlToDocxRuns(achievement, {
                   size: scaledFontSizes.body,
-                  color: COLORS.BODY_TEXT,
+                  color: PALETTE.body,
                   font: primaryFont,
                 })
 
@@ -921,7 +929,7 @@ export async function generateProfessionalDocx(
                       new TextRun({
                         text: '• ',
                         size: scaledFontSizes.body,
-                        color: COLORS.DARK_HEADING,
+                        color: PALETTE.heading,
                         font: primaryFont,
                       }),
                       ...achievementRuns,
@@ -956,7 +964,7 @@ export async function generateProfessionalDocx(
                   exp.description,
                   {
                     size: scaledFontSizes.body,
-                    color: COLORS.BODY_TEXT,
+                    color: PALETTE.body,
                     font: primaryFont,
                   },
                   pxToTwips(4), // spacing between list items
@@ -971,7 +979,7 @@ export async function generateProfessionalDocx(
                     exp.description,
                     {
                       size: scaledFontSizes.body,
-                      color: COLORS.BODY_TEXT,
+                      color: PALETTE.body,
                       font: primaryFont,
                     },
                     {
@@ -986,7 +994,7 @@ export async function generateProfessionalDocx(
                 // Parse description HTML to preserve formatting
                 const descRuns = parseHtmlToDocxRuns(exp.description, {
                   size: scaledFontSizes.body,
-                  color: COLORS.BODY_TEXT,
+                  color: PALETTE.body,
                   font: primaryFont,
                 })
 
@@ -1022,14 +1030,14 @@ export async function generateProfessionalDocx(
                   text: (dict as any).resumes?.template?.education || 'Education',
                   bold: true,
                   size: scaledFontSizes.sectionTitle,
-                  color: COLORS.DARK_HEADING,
+                  color: PALETTE.heading,
                   font: primaryFont,
                 }),
               ],
               spacing: { after: pxToTwips(SPACING.SECTION_GAP) },
               border: {
                 bottom: {
-                  color: COLORS.DARK_HEADING,
+                  color: PALETTE.heading,
                   space: 1,
                   style: BorderStyle.SINGLE,
                   size: 6,
@@ -1051,21 +1059,21 @@ export async function generateProfessionalDocx(
                     text: edu.degree || '',
                     bold: true,
                     size: scaledFontSizes.jobTitle,
-                    color: COLORS.DARK_HEADING,
+                    color: PALETTE.heading,
                     font: primaryFont,
                   }),
                   ...(edu.field ? [
                     new TextRun({
                       text: ` ${inText} ${edu.field}`,
                       size: scaledFontSizes.jobTitle,
-                      color: COLORS.DARK_HEADING,
+                      color: PALETTE.heading,
                       font: primaryFont,
                     }),
                   ] : []),
                   new TextRun({
                     text: '\t' + formatDateRange(edu.startDate, edu.endDate, false, locale as Locale, dict),
                     size: scaledFontSizes.meta,
-                    color: COLORS.DATE_TEXT,
+                    color: PALETTE.date,
                     font: primaryFont,
                   }),
                 ],
@@ -1087,14 +1095,14 @@ export async function generateProfessionalDocx(
                   new TextRun({
                     text: edu.school || '',
                     size: scaledFontSizes.meta,
-                    color: COLORS.META_TEXT,
+                    color: PALETTE.meta,
                     font: primaryFont,
                   }),
                   ...((edu as any).location ? [
                     new TextRun({
                       text: `\t${(edu as any).location}`,
                       size: scaledFontSizes.meta,
-                      color: COLORS.DATE_TEXT,
+                      color: PALETTE.date,
                       font: primaryFont,
                     }),
                   ] : []),
@@ -1119,7 +1127,7 @@ export async function generateProfessionalDocx(
                     new TextRun({
                       text: `${gpaText}: ${edu.gpa}`,
                       size: scaledFontSizes.meta,
-                      color: COLORS.META_TEXT,
+                      color: PALETTE.meta,
                       font: primaryFont,
                     }),
                   ],

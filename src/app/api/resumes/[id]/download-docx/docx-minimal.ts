@@ -30,6 +30,7 @@ import {
   stripHtml,
   type DocxGeneratorSettings,
 } from './docx-helpers'
+import { DOCX_PALETTE } from './docx-palette'
 import {
   assertExhaustiveSection,
   mapEditorOrderToMinimal,
@@ -47,17 +48,10 @@ const MINIMAL_DICT: Record<string, Record<string, string>> = {
 }
 
 // ============================================================
-// MINIMAL TEMPLATE COLORS (Tailwind Slate palette — lighter than Classic)
+// MINIMAL TEMPLATE COLORS
 // ============================================================
-const SLATE = {
-  900: '0F172A', // titles only
-  700: '334155', // body text, achievements, skill category names
-  600: '475569', // secondary text (company, summary, skill items)
-  500: '64748B', // dates, contact info, metadata
-  400: '94A3B8', // section headers (light gray)
-  300: 'CBD5E1', // header bottom border
-  200: 'E2E8F0', // section title borders (very light)
-}
+/** Every text run and rule, in the colour of the class the Preview draws it with (US-003). */
+const PALETTE = DOCX_PALETTE.minimal
 
 // ============================================================
 // FONT SIZE CONSTANTS (matching minimal-template.tsx defaults)
@@ -227,7 +221,7 @@ export async function generateMinimalDocx(
           text: title.toUpperCase(),
           bold: true, // font-semibold approximated as bold
           size: scaledFontSizes.sectionTitle,
-          color: SLATE[400], // Light gray — key difference from Classic
+          color: PALETTE['slate-400'], // Light gray — key difference from Classic
           font,
           characterSpacing: trackingWidestTwips,
         }),
@@ -237,7 +231,7 @@ export async function generateMinimalDocx(
       },
       border: {
         bottom: {
-          color: SLATE[200], // Very light border — key difference from Classic
+          color: PALETTE['slate-200'], // Very light border — key difference from Classic
           space: 1, // pb-2 spacing between text and border
           style: BorderStyle.SINGLE,
           size: 4, // 1px border
@@ -291,7 +285,7 @@ export async function generateMinimalDocx(
           // font-light (300) = normal (non-bold) in DOCX
           bold: false,
           size: scaledFontSizes.title,
-          color: SLATE[900],
+          color: PALETTE['slate-900'],
           font,
         }),
       ],
@@ -325,7 +319,7 @@ export async function generateMinimalDocx(
           new TextRun({
             text: contactItems.join('    '), // Wide spacing between items (gap-x-6)
             size: scaledFontSizes.contact,
-            color: SLATE[500],
+            color: PALETTE['slate-500'],
             font,
           }),
         ],
@@ -344,7 +338,7 @@ export async function generateMinimalDocx(
       },
       border: {
         bottom: {
-          color: SLATE[300], // slate-300, lighter than Classic's slate-900
+          color: PALETTE['slate-300'], // slate-300, lighter than Classic's slate-900
           space: 1,
           style: BorderStyle.SINGLE,
           size: 4, // 1px border
@@ -382,7 +376,7 @@ export async function generateMinimalDocx(
               resume.summary,
               {
                 size: scaledFontSizes.body,
-                color: SLATE[600], // slate-600 for summary text
+                color: PALETTE['slate-600'], // slate-600 for summary text
                 font,
               },
               pxToTwips(4),
@@ -397,7 +391,7 @@ export async function generateMinimalDocx(
                 resume.summary,
                 {
                   size: scaledFontSizes.body,
-                  color: SLATE[600],
+                  color: PALETTE['slate-600'],
                   font,
                 },
                 {
@@ -410,7 +404,7 @@ export async function generateMinimalDocx(
           } else {
             const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
               size: scaledFontSizes.body,
-              color: SLATE[600],
+              color: PALETTE['slate-600'],
               font,
             })
 
@@ -456,14 +450,14 @@ export async function generateMinimalDocx(
                     text: exp.position || '',
                     bold: true, // font-medium approximated as bold
                     size: scaledFontSizes.position, // text-xl = 20px
-                    color: SLATE[900],
+                    color: PALETTE['slate-900'],
                     font,
                   }),
                   ...(dateText ? [
                     new TextRun({
                       text: '\t' + dateText,
                       size: scaledFontSizes.date, // text-sm = 14px
-                      color: SLATE[500],
+                      color: PALETTE['slate-500'],
                       font,
                     }),
                   ] : []),
@@ -490,7 +484,7 @@ export async function generateMinimalDocx(
                     new TextRun({
                       text: companyText,
                       size: scaledFontSizes.company, // text-base = 16px
-                      color: SLATE[600],
+                      color: PALETTE['slate-600'],
                       font,
                       // font-light = non-bold (default)
                     }),
@@ -507,7 +501,7 @@ export async function generateMinimalDocx(
 
                 const achievementRuns = parseHtmlToDocxRuns(achievement, {
                   size: scaledFontSizes.body,
-                  color: SLATE[700], // slate-700 for achievement text
+                  color: PALETTE['slate-700'], // slate-700 for achievement text
                   font,
                 })
 
@@ -525,7 +519,7 @@ export async function generateMinimalDocx(
                       new TextRun({
                         text: '\u2022 ', // Small bullet character
                         size: scaledFontSizes.body,
-                        color: SLATE[400], // Bullet color matches slate-400
+                        color: PALETTE['slate-400'], // Bullet color matches slate-400
                         font,
                       }),
                       ...achievementRuns,
@@ -547,7 +541,7 @@ export async function generateMinimalDocx(
                   exp.description,
                   {
                     size: scaledFontSizes.body,
-                    color: SLATE[700],
+                    color: PALETTE['slate-700'],
                     font,
                   },
                   pxToTwips(SPACING.ACHIEVEMENT_GAP),
@@ -562,7 +556,7 @@ export async function generateMinimalDocx(
                     exp.description,
                     {
                       size: scaledFontSizes.body,
-                      color: SLATE[700],
+                      color: PALETTE['slate-700'],
                       font,
                     },
                     {
@@ -575,7 +569,7 @@ export async function generateMinimalDocx(
               } else {
                 const descRuns = parseHtmlToDocxRuns(exp.description, {
                   size: scaledFontSizes.body,
-                  color: SLATE[700],
+                  color: PALETTE['slate-700'],
                   font,
                 })
 
@@ -627,7 +621,7 @@ export async function generateMinimalDocx(
                     text: project.name || '',
                     bold: true,
                     size: scaledFontSizes.position, // text-xl = 20px
-                    color: SLATE[900],
+                    color: PALETTE['slate-900'],
                     font,
                   }),
                 ],
@@ -643,7 +637,7 @@ export async function generateMinimalDocx(
             if (hasDescription) {
               const projectDescRuns = parseHtmlToDocxRuns(project.description, {
                 size: scaledFontSizes.body,
-                color: SLATE[700],
+                color: PALETTE['slate-700'],
                 font,
               })
 
@@ -670,7 +664,7 @@ export async function generateMinimalDocx(
                     new TextRun({
                       text: project.technologies.join('    '), // Wide spacing to simulate gap-3 flex
                       size: scaledFontSizes.tech, // text-xs = 12px
-                      color: SLATE[500],
+                      color: PALETTE['slate-500'],
                       font,
                       // font-light = non-bold (default)
                     }),
@@ -712,14 +706,14 @@ export async function generateMinimalDocx(
                     text: edu.degree || '',
                     bold: true,
                     size: scaledFontSizes.position, // text-xl = 20px
-                    color: SLATE[900],
+                    color: PALETTE['slate-900'],
                     font,
                   }),
                   ...(eduDateText ? [
                     new TextRun({
                       text: '\t' + eduDateText,
                       size: scaledFontSizes.date,
-                      color: SLATE[500],
+                      color: PALETTE['slate-500'],
                       font,
                     }),
                   ] : []),
@@ -747,7 +741,7 @@ export async function generateMinimalDocx(
                   new TextRun({
                     text: schoolText,
                     size: scaledFontSizes.body,
-                    color: SLATE[600],
+                    color: PALETTE['slate-600'],
                     font,
                     // font-light = non-bold
                   }),
@@ -768,7 +762,7 @@ export async function generateMinimalDocx(
                     new TextRun({
                       text: `GPA: ${edu.gpa}`,
                       size: scaledFontSizes.body,
-                      color: SLATE[500],
+                      color: PALETTE['slate-500'],
                       font,
                     }),
                   ],
@@ -806,7 +800,7 @@ export async function generateMinimalDocx(
                     text: skillCat.category || '',
                     bold: true,
                     size: scaledFontSizes.body,
-                    color: SLATE[700],
+                    color: PALETTE['slate-700'],
                     font,
                   }),
                 ],
@@ -831,7 +825,7 @@ export async function generateMinimalDocx(
                     new TextRun({
                       text: skillText,
                       size: scaledFontSizes.body,
-                      color: SLATE[600],
+                      color: PALETTE['slate-600'],
                       font,
                     }),
                   ],
@@ -870,14 +864,14 @@ export async function generateMinimalDocx(
                     new TextRun({
                       text: lang.language || '',
                       size: scaledFontSizes.body,
-                      color: SLATE[700],
+                      color: PALETTE['slate-700'],
                       font,
                       // Not bold — Minimal template uses non-bold for language names
                     }),
                     new TextRun({
                       text: '\t' + levelText,
                       size: scaledFontSizes.body,
-                      color: SLATE[500],
+                      color: PALETTE['slate-500'],
                       font,
                       // font-light = non-bold
                     }),
@@ -915,7 +909,7 @@ export async function generateMinimalDocx(
                       text: cert.name || '',
                       bold: true,
                       size: scaledFontSizes.body,
-                      color: SLATE[700],
+                      color: PALETTE['slate-700'],
                       font,
                     }),
                   ],
@@ -931,7 +925,7 @@ export async function generateMinimalDocx(
                       new TextRun({
                         text: cert.issuer,
                         size: scaledFontSizes.body,
-                        color: SLATE[500],
+                        color: PALETTE['slate-500'],
                         font,
                       }),
                     ],
@@ -951,7 +945,7 @@ export async function generateMinimalDocx(
                           year: 'numeric',
                         }),
                         size: scaledFontSizes.body,
-                        color: SLATE[400],
+                        color: PALETTE['slate-400'],
                         font,
                       }),
                     ],

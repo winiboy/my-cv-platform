@@ -161,3 +161,91 @@ Commit:
 - Commit message: ralph: US-002 the classic and minimal DOCX stop dropping sections
 
 FINAL: PASS
+
+## US-003: DOCX text colour matches the palette the Preview renders
+Status: PASS
+Priority: 3
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: 23af3af (tree identical to origin/main 3e84df6); PRD amendments d9f7228, ef1993c
+Checkout: E:/website/cv-website/my-cv-platform (main checkout; no worktree)
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/lib/resume-palette.ts (new), src/lib/resume-palette.test.ts (new),
+  src/app/api/resumes/[id]/download-docx/docx-palette.ts (new), docx-palette.test.ts (new),
+  docx-text-palette.test.ts (new), docx-{professional,modern,classic,minimal,creative}.ts,
+  docx-helpers.ts, docx-helpers.test.ts, e2e/parity/verdicts.ts,
+  tasks/ralph/prd.json, tasks/ralph/progress.txt
+- No template, globals.css or visual-baseline change; no version change
+- Widened on purpose from title/heading/body to every solid text-run colour: criterion 2 forbids a
+  second hand-copied table, and a partial table left classic's title and job titles in different
+  colours although the Preview draws both in slate-900
+
+Decision (AC-02) — how the DOCX obtains the Preview's palette:
+  src/lib/resume-palette.ts holds each template's colours in the form the Preview source writes them
+  (oklch(...), #374151), keyed by the Preview's own name for the colour (a token such as 'slate-900'
+  or an inline role). docx-palette.ts converts them to DOCX hex once at module load and throws on
+  anything it cannot convert. resume-palette.test.ts guards both directions: each entry must equal
+  its globals.css @theme value (or Tailwind's default theme for tokens globals.css leaves alone) and
+  appear in its template; and every colour a template draws, with its count, must resolve to a
+  palette entry or to an exclusion naming its owner. The generators never import e2e/parity, so
+  parity still compares the DOCX against what the browser draws. Rejected: reading globals.css at
+  request time (depends on deployment layout) and importing CSS as text (no bundler rule).
+  Known limit: the completeness check cannot see which element a colour sits on, so swapping two
+  elements' colours without changing the counts passes it; parity and the per-element DOCX tests
+  cover the sampled elements. Non-literal values under non-colour style keys and attributes are not
+  scanned; none is a text colour and no template uses one.
+
+Checks (on the final diff):
+- pnpm typecheck: PASS — exit 0
+- pnpm lint: PASS — 305 problems, under the 311 ceiling; new and changed files clean
+- pnpm test (unit): PASS — 765/765
+- pnpm test:integration: PASS — 27/27
+- pnpm test:e2e: PASS — 116 passed; --list 116
+- pnpm test:visual: PASS — 10 passed; --list 10; e2e/visual status empty
+- pnpm build:verify: PASS — exit 0
+- pnpm test:parity: PASS — two runs, 236 passed each, reports byte-identical,
+  sha256 efec255ed33b80774597910a7bc25e7d7a10d7d0290827afe3c67de1eaf7dcd2 (reproduced by the reviewer)
+  Counts: MATCH 106, KNOWN 97, NEW 0, unreconciled 0; 13 rows KNOWN US-003-palette -> MATCH
+
+Specialized validation:
+- Browser: NOT_APPLICABLE — no UI change
+- Visual: PASS — baselines unchanged
+- Export: PASS — artifact comparison, 2 layouts x 5 templates: document.xml byte-identical once run
+  colours, fills and borders are masked; only the listed colour changes appear; user sidebar and
+  accent colours unchanged in every fill and run
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE
+
+Agents:
+- ui-expert: NOT_APPLICABLE — no rendered UI change
+- code-reviewer: round 1 BLOCKER — three divergences the PRD did not name (professional opacity-80
+  sidebar text, creative translucent header text, stock border and fill colours), resolved by PRD
+  amendment d9f7228; round 2 FAIL — the completeness check failed open for arbitrary-value classes and
+  non-inline style objects; round 3 PASS, with 18 mutations run by the reviewer
+
+Acceptance criteria:
+- AC-01: PASS — docx-text-palette.test.ts pins every moved element to the palette (123 of 155 red
+  against HEAD's generators); parity's 13 sampled rows MATCH
+- AC-02: PASS — see Decision
+- AC-03: PASS — classic and minimal rules, creative header fill (first stop 693AD4, gradient recorded
+  as a LIMITATION) and badge fill, professional underline, all from the palette
+- AC-04: PASS — the completeness check catches every text-colour mutation tried, 11 by the implementer
+  and 18 by the reviewer
+- AC-05: PASS — user colours byte-identical in the artifact comparison
+- AC-06: PASS — no Preview source changed; visual 10/10, no snapshot update
+- AC-07: PASS — 13 rows MATCH; US-003-palette removed from the known list (FR-10)
+- PRD-wide items: PASS — no NEW row, no tolerance widened, no other template output changed beyond
+  run, fill and border colours
+
+Divergences found and placed by amendment (not defects of this story):
+- d9f7228: professional opacity-80 sidebar text and creative translucent header text -> US-006;
+  stock borders and fills -> US-003
+- ef1993c: modern technology chip fill; creative timeline line and dots, project card rule and fill,
+  decorative header circles -> US-007
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 DOCX colours come from the palette the Preview renders
+
+FINAL: PASS

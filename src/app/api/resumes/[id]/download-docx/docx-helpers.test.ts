@@ -150,14 +150,6 @@ describe('COLORS', () => {
       expect(value, name).toMatch(HEX_6)
     }
   })
-
-  it('orders the greyscale ramp from darkest heading to lightest date text', () => {
-    const luminance = (hex: string) => parseInt(hex.slice(0, 2), 16)
-    expect(luminance(COLORS.DARK_HEADING)).toBeLessThan(luminance(COLORS.BODY_TEXT))
-    expect(luminance(COLORS.BODY_TEXT)).toBeLessThan(luminance(COLORS.META_TEXT))
-    expect(luminance(COLORS.META_TEXT)).toBeLessThan(luminance(COLORS.DATE_TEXT))
-    expect(luminance(COLORS.DATE_TEXT)).toBeLessThan(luminance(COLORS.WHITE))
-  })
 })
 
 describe('extractPrimaryFont', () => {

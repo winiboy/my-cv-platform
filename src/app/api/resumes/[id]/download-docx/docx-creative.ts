@@ -30,6 +30,7 @@ import {
   stripHtml,
   type DocxGeneratorSettings,
 } from './docx-helpers'
+import { DOCX_PALETTE } from './docx-palette'
 
 // ============================================================
 // TRANSLATION DICTIONARY (matching creative-template.tsx section labels)
@@ -42,19 +43,26 @@ const CREATIVE_DICT: Record<string, Record<string, string>> = {
 }
 
 // ============================================================
-// COLOR PALETTE (matching creative-template.tsx Tailwind classes)
+// COLOR PALETTE
 // ============================================================
+/**
+ * Every text run and fill the Preview draws in a colour of its own (US-003).
+ * The header is a three-stop gradient (`from-purple-600 via-pink-500
+ * to-orange-400`); DOCX shading is one solid colour, so the header takes the
+ * first stop — a format limitation the parity report records.
+ */
+const PALETTE = DOCX_PALETTE.creative
+
+/**
+ * Runs with no single Preview colour to take, still stock. The header summary
+ * and second contact row are `text-white/90` and `text-white/80` over the
+ * gradient (US-006); the language level text and the technologies stand in for
+ * the level bars and gradient pills (US-007).
+ */
 const COLORS = {
-  PURPLE_600: '9333EA',  // Primary accent, section titles, company names
-  PURPLE_700: '7E22CE',  // Date badge text
-  PURPLE_500: 'A855F7',  // Triangle bullets
-  PURPLE_100: 'F3E8FF',  // Date badge background
-  SLATE_900: '0F172A',   // Darkest headings (position, degree, project name)
-  SLATE_800: '1E293B',   // Category names, language names, cert names
-  SLATE_700: '334155',   // Body text, achievement text, descriptions
-  SLATE_600: '475569',   // Issuer text, location
-  SLATE_500: '64748B',   // Cert dates
-  WHITE: 'FFFFFF',
+  PURPLE_600: '9333EA',  // Technologies (for the pills)
+  SLATE_600: '475569',   // Language level text (for the level bars)
+  WHITE: 'FFFFFF',       // Header summary and second contact row
 }
 
 // ============================================================
@@ -199,14 +207,14 @@ export async function generateCreativeDocx(
           text: '|  ',
           bold: true,
           size: scaledFontSizes.sectionTitle,
-          color: COLORS.PURPLE_600,
+          color: PALETTE['purple-600'],
           font,
         }),
         new TextRun({
           text: title.toUpperCase(),
           bold: true,
           size: scaledFontSizes.sectionTitle,
-          color: COLORS.PURPLE_600,
+          color: PALETTE['purple-600'],
           font,
         }),
       ],
@@ -255,7 +263,7 @@ export async function generateCreativeDocx(
           text: (resume.title || contact.name || 'Your Name').toUpperCase(),
           bold: true,
           size: scaledFontSizes.name,
-          color: COLORS.WHITE,
+          color: PALETTE.white,
           font,
         }),
       ],
@@ -266,8 +274,8 @@ export async function generateCreativeDocx(
       },
       shading: {
         type: ShadingType.SOLID,
-        fill: COLORS.PURPLE_600,
-        color: COLORS.PURPLE_600,
+        fill: PALETTE['purple-600'],
+        color: PALETTE['purple-600'],
       },
     })
   )
@@ -298,8 +306,8 @@ export async function generateCreativeDocx(
             },
             shading: {
               type: ShadingType.SOLID,
-              fill: COLORS.PURPLE_600,
-              color: COLORS.PURPLE_600,
+              fill: PALETTE['purple-600'],
+              color: PALETTE['purple-600'],
             },
           }
         )
@@ -322,8 +330,8 @@ export async function generateCreativeDocx(
           alignment: summaryAlignment,
           shading: {
             type: ShadingType.SOLID,
-            fill: COLORS.PURPLE_600,
-            color: COLORS.PURPLE_600,
+            fill: PALETTE['purple-600'],
+            color: PALETTE['purple-600'],
           },
         })
       )
@@ -347,7 +355,7 @@ export async function generateCreativeDocx(
           new TextRun({
             text: '  \u2022  ',
             size: scaledFontSizes.contact,
-            color: COLORS.WHITE,
+            color: PALETTE.white,
             font,
           })
         )
@@ -356,7 +364,7 @@ export async function generateCreativeDocx(
         new TextRun({
           text: item,
           size: scaledFontSizes.contact,
-          color: COLORS.WHITE,
+          color: PALETTE.white,
           font,
         })
       )
@@ -368,8 +376,8 @@ export async function generateCreativeDocx(
         spacing: { after: 0 },
         shading: {
           type: ShadingType.SOLID,
-          fill: COLORS.PURPLE_600,
-          color: COLORS.PURPLE_600,
+          fill: PALETTE['purple-600'],
+          color: PALETTE['purple-600'],
         },
       })
     )
@@ -414,8 +422,8 @@ export async function generateCreativeDocx(
         },
         shading: {
           type: ShadingType.SOLID,
-          fill: COLORS.PURPLE_600,
-          color: COLORS.PURPLE_600,
+          fill: PALETTE['purple-600'],
+          color: PALETTE['purple-600'],
         },
       })
     )
@@ -451,7 +459,7 @@ export async function generateCreativeDocx(
                 text: skillCategory.category,
                 bold: true,
                 size: scaledFontSizes.body,
-                color: COLORS.SLATE_800,
+                color: PALETTE['slate-800'],
                 font,
               }),
             ],
@@ -469,7 +477,7 @@ export async function generateCreativeDocx(
             skillCategory.skillsHtml,
             {
               size: scaledFontSizes.body,
-              color: COLORS.SLATE_700,
+              color: PALETTE['slate-700'],
               font,
             },
             pxToTwips(SPACING.SKILLS_ITEM_GAP),
@@ -490,7 +498,7 @@ export async function generateCreativeDocx(
                   new TextRun({
                     text: `\u2022 ${item}`,
                     size: scaledFontSizes.body,
-                    color: COLORS.SLATE_700,
+                    color: PALETTE['slate-700'],
                     font,
                   }),
                 ],
@@ -514,7 +522,7 @@ export async function generateCreativeDocx(
                 new TextRun({
                   text: `\u2022 ${skillName}`,
                   size: scaledFontSizes.body,
-                  color: COLORS.SLATE_700,
+                  color: PALETTE['slate-700'],
                   font,
                 }),
               ],
@@ -554,7 +562,7 @@ export async function generateCreativeDocx(
               text: lang.language || '',
               bold: true,
               size: scaledFontSizes.body,
-              color: COLORS.SLATE_800,
+              color: PALETTE['slate-800'],
               font,
             }),
           ],
@@ -603,7 +611,7 @@ export async function generateCreativeDocx(
               text: cert.name || '',
               bold: true,
               size: scaledFontSizes.body,
-              color: COLORS.SLATE_800,
+              color: PALETTE['slate-800'],
               font,
             }),
           ],
@@ -619,7 +627,7 @@ export async function generateCreativeDocx(
               new TextRun({
                 text: cert.issuer,
                 size: scaledFontSizes.body,
-                color: COLORS.SLATE_600,
+                color: PALETTE['slate-600'],
                 font,
               }),
             ],
@@ -639,7 +647,7 @@ export async function generateCreativeDocx(
                   year: 'numeric',
                 }),
                 size: scaledFontSizes.body,
-                color: COLORS.SLATE_500,
+                color: PALETTE['slate-500'],
                 font,
               }),
             ],
@@ -679,7 +687,7 @@ export async function generateCreativeDocx(
               text: exp.position || '',
               bold: true,
               size: scaledFontSizes.body,
-              color: COLORS.SLATE_900,
+              color: PALETTE['slate-900'],
               font,
             }),
           ],
@@ -696,7 +704,7 @@ export async function generateCreativeDocx(
                 text: exp.company,
                 bold: true,
                 size: scaledFontSizes.body,
-                color: COLORS.PURPLE_600,
+                color: PALETTE['purple-600'],
                 font,
               }),
             ],
@@ -715,12 +723,12 @@ export async function generateCreativeDocx(
                 text: dateText,
                 bold: true,
                 size: scaledFontSizes.body,
-                color: COLORS.PURPLE_700,
+                color: PALETTE['purple-700'],
                 font,
                 shading: {
                   type: ShadingType.SOLID,
-                  fill: COLORS.PURPLE_100,
-                  color: COLORS.PURPLE_100,
+                  fill: PALETTE['purple-100'],
+                  color: PALETTE['purple-100'],
                 },
               }),
             ],
@@ -737,7 +745,7 @@ export async function generateCreativeDocx(
               new TextRun({
                 text: exp.location,
                 size: scaledFontSizes.body,
-                color: COLORS.SLATE_600,
+                color: PALETTE['slate-600'],
                 font,
               }),
             ],
@@ -753,7 +761,7 @@ export async function generateCreativeDocx(
 
           const achievementRuns = parseHtmlToDocxRuns(achievement, {
             size: scaledFontSizes.body,
-            color: COLORS.SLATE_700,
+            color: PALETTE['slate-700'],
             font,
           })
 
@@ -768,7 +776,7 @@ export async function generateCreativeDocx(
                 new TextRun({
                   text: '\u25B8 ',
                   size: scaledFontSizes.body,
-                  color: COLORS.PURPLE_500,
+                  color: PALETTE['purple-500'],
                   font,
                 }),
                 ...achievementRuns,
@@ -790,7 +798,7 @@ export async function generateCreativeDocx(
             exp.description,
             {
               size: scaledFontSizes.body,
-              color: COLORS.SLATE_700,
+              color: PALETTE['slate-700'],
               font,
             },
             pxToTwips(SPACING.ACHIEVEMENT_GAP),
@@ -805,7 +813,7 @@ export async function generateCreativeDocx(
               exp.description,
               {
                 size: scaledFontSizes.body,
-                color: COLORS.SLATE_700,
+                color: PALETTE['slate-700'],
                 font,
               },
               {
@@ -818,7 +826,7 @@ export async function generateCreativeDocx(
         } else {
           const descRuns = parseHtmlToDocxRuns(exp.description, {
             size: scaledFontSizes.body,
-            color: COLORS.SLATE_700,
+            color: PALETTE['slate-700'],
             font,
           })
 
@@ -872,7 +880,7 @@ export async function generateCreativeDocx(
               text: project.name || '',
               bold: true,
               size: scaledFontSizes.body,
-              color: COLORS.SLATE_900,
+              color: PALETTE['slate-900'],
               font,
             }),
           ],
@@ -888,7 +896,7 @@ export async function generateCreativeDocx(
       if (project.description) {
         const projectDescRuns = parseHtmlToDocxRuns(project.description, {
           size: scaledFontSizes.body,
-          color: COLORS.SLATE_700,
+          color: PALETTE['slate-700'],
           font,
         })
 
@@ -947,7 +955,7 @@ export async function generateCreativeDocx(
               text: edu.degree || '',
               bold: true,
               size: scaledFontSizes.body,
-              color: COLORS.SLATE_900,
+              color: PALETTE['slate-900'],
               font,
             }),
           ],
@@ -967,7 +975,7 @@ export async function generateCreativeDocx(
               new TextRun({
                 text: schoolFieldText,
                 size: scaledFontSizes.body,
-                color: COLORS.PURPLE_600,
+                color: PALETTE['purple-600'],
                 font,
               }),
             ],
@@ -984,7 +992,7 @@ export async function generateCreativeDocx(
               new TextRun({
                 text: `GPA: ${edu.gpa}`,
                 size: scaledFontSizes.body,
-                color: COLORS.SLATE_600,
+                color: PALETTE['slate-600'],
                 font,
               }),
             ],
@@ -1003,12 +1011,12 @@ export async function generateCreativeDocx(
                 text: eduDateText,
                 bold: true,
                 size: scaledFontSizes.body,
-                color: COLORS.PURPLE_700,
+                color: PALETTE['purple-700'],
                 font,
                 shading: {
                   type: ShadingType.SOLID,
-                  fill: COLORS.PURPLE_100,
-                  color: COLORS.PURPLE_100,
+                  fill: PALETTE['purple-100'],
+                  color: PALETTE['purple-100'],
                 },
               }),
             ],
@@ -1028,7 +1036,7 @@ export async function generateCreativeDocx(
       ? headerParagraphs
       : [new Paragraph({ children: [] })],
     shading: {
-      fill: COLORS.PURPLE_600,
+      fill: PALETTE['purple-600'],
       color: 'auto',
     },
     margins: {
