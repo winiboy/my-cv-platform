@@ -134,6 +134,7 @@ end as `MATCH` or as a recorded, evidenced format limitation.
 | Colour | Modern accent fallback on non-integer hue (F-A); professional print band | 1 NEW + not exercised | US-013 |
 | Controls | sidebar colour on classic, minimal, creative; stored sizes on professional, modern | 3 NEW + 4 NEW | US-014 |
 | Controls | creative section controls a no-op on both surfaces | confirmed | US-015 |
+| Content | modern, creative, classic and minimal Previews ignore skills saved as `skillsHtml`; classic, minimal and creative Previews print HTML descriptions as literal markup | found in US-002 and US-004 | US-016 |
 
 ## Resolved Decisions
 
@@ -624,6 +625,43 @@ in. "Creative honours `mainContentOrder`" is therefore not unimplemented but
 - [ ] Any visual baseline that moves is approved with its cause understood.
 - [ ] The story's parity rows change to `MATCH`.
 
+### US-016: The Preview shows the content the user saved
+
+> **Added 2026-09-22**, when US-004 found that the modern and creative Previews
+> ignore skills saved as rich text. US-002 had already recorded the same shape
+> for classic and minimal as an unowned finding. This story owns both.
+
+**Description:**
+As a user, I want the Preview to show the skills and descriptions I typed,
+because they are what my downloaded CV contains.
+
+**Context — the DOCX is right and the Preview is wrong.** The skills editor saves
+each category as `skillsHtml` (`skills-section.tsx`), converting older `items`
+lists as it goes. Professional's Preview renders `skillsHtml` and falls back to
+`items`; the modern, creative, classic and minimal Previews read `items` only, so
+after an edit they show a stale list or nothing, while every DOCX renders what was
+typed. Project descriptions and other rich-text fields are stored as HTML, and the
+classic and minimal Previews (and creative's project descriptions) print them as
+literal markup, while the DOCX parses them.
+
+**Acceptance Criteria:**
+
+- [ ] A skill category saved as `skillsHtml` renders in the Preview of every
+      template, as professional's does; `items` is used only when no
+      `skillsHtml` exists.
+- [ ] Rich-text fields stored as HTML — project and education descriptions and
+      any other — render as formatted text in every template's Preview, never as
+      literal markup.
+- [ ] All such rendering goes through the inert sanitiser; no path writes
+      unsanitised HTML, on the server or the client.
+- [ ] The DOCX is unchanged, evidenced by artifact comparison across all five
+      templates.
+- [ ] The parity check exercises it with a profile whose skills and descriptions
+      are HTML, and the "rich text in skills and projects" findings are closed.
+- [ ] Rendered browser evidence and `ui-expert` validation show each template's
+      Preview with rich-text skills and descriptions.
+- [ ] Any visual baseline that moves is approved with its cause understood.
+
 ## Story Map
 
 | This revision | First draft |
@@ -636,6 +674,7 @@ in. "Creative honours `mainContentOrder`" is therefore not unimplemented but
 | US-011 | US-004 |
 | US-012 to US-014 | — (new) |
 | US-015 | US-005 |
+| US-016 | — (added 2026-09-22) |
 
 ## Functional Requirements
 
@@ -823,6 +862,14 @@ in. "Creative honours `mainContentOrder`" is therefore not unimplemented but
   reference, so US-004 writes the DOCX at the height the Preview draws and adds
   an HTML-body parity profile so the row is exercised. No story is added,
   removed or reordered.
+- **2026-09-22 — US-016 added.** US-004 found that the modern and creative
+  Previews read a skill category's `items` only, ignoring the `skillsHtml` the
+  editor saves, so an edited skills section shows a stale list or nothing in the
+  Preview while the DOCX shows what was typed. US-002 had recorded the same shape
+  for classic and minimal, and for HTML descriptions, as a finding no story
+  owned. The DOCX is right, so the fix is on the Preview side, and no existing
+  story covers it: **US-016 is added at the end**, so no story is renumbered.
+  This is the only amendment that adds a story.
 
 ## Approval Gate
 
