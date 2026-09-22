@@ -3,6 +3,8 @@ import {
   FIXTURE_EDUCATION,
   FIXTURE_EXPERIENCE,
   FIXTURE_LANGUAGES,
+  FIXTURE_PROJECTS,
+  FIXTURE_SKILLS,
   seedFixtureResume,
 } from './fixtures/resume'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
@@ -48,12 +50,13 @@ import {
  * property at a time and confirming the group fails — the mutations and their
  * output are recorded in the story evidence.
  *
- * WHAT IS DELIBERATELY NOT ASSERTED
+ * SKILLS AND PROJECTS
  *
- * The Classic DOCX renders no skills section and no projects section, while
- * `classic-template.tsx` renders both. That is a fidelity finding recorded
- * against this story (F-1), not behaviour to pin: asserting it here would
- * enshrine the gap the parity story has to close.
+ * Until Part 3 US-002 the Classic DOCX rendered neither, while
+ * `classic-template.tsx` renders both (Part 2 US-005 F-1). They are asserted
+ * present here, through the real route and a persisted layout. Where they sit
+ * under a REORDERED main list is not asserted: the Preview ignores that order
+ * today, and Part 3 US-009 decides it.
  */
 
 const SUPABASE_URL = process.env.TEST_SUPABASE_URL ?? LOCAL_SUPABASE_URL
@@ -100,6 +103,8 @@ const MARKERS = {
   summary: 'multi-tenant',
   /** Opens the combined languages + certifications section. */
   languages: FIXTURE_LANGUAGES[0].language,
+  skills: FIXTURE_SKILLS[0].category,
+  projects: FIXTURE_PROJECTS[0].name,
 } as const
 
 /** Unique to the education section, which the seeded layout hides. */
@@ -193,10 +198,10 @@ test('the classic DOCX takes section order, visibility and type scale from the a
   // table row splitting the body into columns as there is in Modern.
   //
   // The seeded editor order `['education', 'experience', 'summary']` maps to
-  // `['education', 'experience', 'summary', 'languagesAndCerts']`, and
-  // education is hidden, leaving experience, then summary, then the combined
-  // section. The default order would put summary FIRST and experience second,
-  // so this pair is the discriminator.
+  // `['education', 'experience', 'summary', 'skills', 'projects',
+  // 'languagesAndCerts']`, and education is hidden, leaving experience, then
+  // summary, then the sections the editor cannot order. The default order would
+  // put summary FIRST and experience second, so this pair is the discriminator.
   const experience = positionOf(text, MARKERS.experience, 'the experience section')
   const summary = positionOf(text, MARKERS.summary, 'the summary section')
   const languages = positionOf(text, MARKERS.languages, 'the languages section')
@@ -211,6 +216,10 @@ test('the classic DOCX takes section order, visibility and type scale from the a
 
   // --- Section visibility ---
   expect(text).not.toContain(HIDDEN_EDUCATION_MARKER)
+
+  // Part 3 US-002: skills and projects are exported, as the Preview shows them.
+  positionOf(text, MARKERS.skills, 'the skills section')
+  positionOf(text, MARKERS.projects, 'the projects section')
 
   // --- Typography scaling ---
   expect(xml).toMatch(fontSizePattern(SCALED_TITLE_HALF_POINTS))
@@ -248,5 +257,5 @@ test('the seeded layout really is non-default, in every property this file asser
   const visible = seeded.filter(
     (id) => !(ACCOUNT_LAYOUT.hiddenMainSections as string[]).includes(id),
   )
-  expect(visible).toEqual(['experience', 'summary', 'languagesAndCerts'])
+  expect(visible).toEqual(['experience', 'summary', 'skills', 'projects', 'languagesAndCerts'])
 })

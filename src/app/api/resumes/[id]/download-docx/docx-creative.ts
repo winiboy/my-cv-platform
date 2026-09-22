@@ -24,6 +24,8 @@ import {
   extractAlignment,
   isHtmlList,
   parseHtmlListToParagraphs,
+  isPlainTextList,
+  parsePlainTextListToParagraphs,
   parseHtmlToDocxRuns,
   stripHtml,
   type DocxGeneratorSettings,
@@ -274,28 +276,58 @@ export async function generateCreativeDocx(
   if (resume.summary) {
     const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.JUSTIFIED
 
-    const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
-      size: scaledFontSizes.summary,
-      color: COLORS.WHITE,
-      font,
-    })
-
-    headerParagraphs.push(
-      new Paragraph({
-        children: summaryRuns,
-        spacing: {
-          after: pxToTwips(SPACING.SUMMARY_MB),
-          line: Math.round(240 * LINE_HEIGHTS.BODY),
-          lineRule: LineRuleType.AUTO,
-        },
-        alignment: summaryAlignment,
-        shading: {
-          type: ShadingType.SOLID,
-          fill: COLORS.PURPLE_600,
-          color: COLORS.PURPLE_600,
-        },
+    if (isPlainTextList(resume.summary)) {
+      // No HTML-list branch exists here to follow: keep the summary paragraph's
+      // header shading and line height, with the 4px gap the other templates use
+      // between list items.
+      headerParagraphs.push(
+        ...parsePlainTextListToParagraphs(
+          resume.summary,
+          {
+            size: scaledFontSizes.summary,
+            color: COLORS.WHITE,
+            font,
+          },
+          {
+            spacingAfterItem: pxToTwips(4),
+            spacingAfterLast: pxToTwips(SPACING.SUMMARY_MB),
+            alignment: summaryAlignment,
+            lineSpacing: {
+              line: Math.round(240 * LINE_HEIGHTS.BODY),
+              lineRule: LineRuleType.AUTO,
+            },
+            shading: {
+              type: ShadingType.SOLID,
+              fill: COLORS.PURPLE_600,
+              color: COLORS.PURPLE_600,
+            },
+          }
+        )
+      )
+    } else {
+      const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
+        size: scaledFontSizes.summary,
+        color: COLORS.WHITE,
+        font,
       })
-    )
+
+      headerParagraphs.push(
+        new Paragraph({
+          children: summaryRuns,
+          spacing: {
+            after: pxToTwips(SPACING.SUMMARY_MB),
+            line: Math.round(240 * LINE_HEIGHTS.BODY),
+            lineRule: LineRuleType.AUTO,
+          },
+          alignment: summaryAlignment,
+          shading: {
+            type: ShadingType.SOLID,
+            fill: COLORS.PURPLE_600,
+            color: COLORS.PURPLE_600,
+          },
+        })
+      )
+    }
   }
 
   // Contact info: White text with white dot separators
@@ -767,6 +799,22 @@ export async function generateCreativeDocx(
             descAlignment
           )
           rightParagraphs.push(...listParagraphs)
+        } else if (isPlainTextList(exp.description)) {
+          rightParagraphs.push(
+            ...parsePlainTextListToParagraphs(
+              exp.description,
+              {
+                size: scaledFontSizes.body,
+                color: COLORS.SLATE_700,
+                font,
+              },
+              {
+                spacingAfterItem: pxToTwips(SPACING.ACHIEVEMENT_GAP),
+                spacingAfterLast: descSpacingAfter,
+                alignment: descAlignment,
+              }
+            )
+          )
         } else {
           const descRuns = parseHtmlToDocxRuns(exp.description, {
             size: scaledFontSizes.body,
