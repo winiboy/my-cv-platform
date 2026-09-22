@@ -3,9 +3,13 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { FileText, Sparkles, Mail, Loader2, ClipboardPaste, Briefcase, Settings, ListChecks, Bold, Italic, Underline, Wand2, Copy, Check, FileDown, AlertCircle, X, RefreshCw, Info, CheckCircle2, Upload, FolderOpen } from 'lucide-react'
 import type { Locale } from '@/lib/i18n'
+import {
+  editorHtmlToPlainText,
+  plainTextToEditorHtml,
+} from '@/lib/cover-letter-editor-html'
+import { renderCoverLetterPdf } from '@/lib/cover-letter-pdf-layout'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { plainTextToEditorHtml } from '@/lib/cover-letter-editor-html'
 import {
   ResumeLinker,
   type ResumeLinkerTranslations,
@@ -819,20 +823,7 @@ export function CoverLetterGeneratorClient({
 
     // Read the live editor DOM directly. Reparsing its innerHTML into a detached
     // element would re-run event-handler attributes such as <img onerror>.
-    const paragraphs = editorRef.current.querySelectorAll('p')
-    let plainText: string
-
-    if (paragraphs.length > 0) {
-      plainText = Array.from(paragraphs)
-        .map((p) => p.textContent || '')
-        .filter((text) => text.trim().length > 0)
-        .join('\n\n')
-    } else {
-      // Handle case where content is not in paragraphs (e.g., directly typed)
-      plainText = editorRef.current.textContent || ''
-    }
-
-    setGeneratedCoverLetter(plainText)
+    setGeneratedCoverLetter(editorHtmlToPlainText(editorRef.current))
 
     // Reset the editing flag after a short delay to allow re-sync if needed
     setTimeout(() => {
@@ -1323,11 +1314,9 @@ export function CoverLetterGeneratorClient({
 
   /**
    * Handles exporting the cover letter as a PDF file.
-   * Creates a hidden container with styled HTML content, uses html2pdf.js
-   * to generate a PDF with proper formatting (1 inch margins, 12pt font),
-   * and triggers download with timestamp-based filename.
-   *
-   * Uses a timeout mechanism to prevent freezing if html2pdf fails silently.
+   * Builds a Letter-sized jsPDF document, hands the canonical text to
+   * {@link renderCoverLetterPdf} for layout, and triggers a download with a
+   * timestamp-based filename.
    */
   const handlePdfExport = useCallback(async () => {
     if (!generatedCoverLetter || isExportingPdf) return
@@ -1338,52 +1327,15 @@ export function CoverLetterGeneratorClient({
       // Dynamically import jsPDF to avoid SSR issues
       const { jsPDF } = await import('jspdf')
 
-      // Create PDF document (Letter size: 8.5 x 11 inches)
+      // Create PDF document (Letter size: 8.5 x 11 inches) — the page format
+      // the layout module's point measurements assume.
       const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'pt',
         format: 'letter',
       })
 
-      // Page dimensions and margins (1 inch = 72 points)
-      const pageWidth = 612 // 8.5 inches
-      const pageHeight = 792 // 11 inches
-      const margin = 72 // 1 inch margins
-      const contentWidth = pageWidth - 2 * margin
-      const lineHeight = 20 // Line height in points
-      const paragraphSpacing = 12 // Extra space between paragraphs
-
-      // Set font
-      doc.setFont('times', 'normal')
-      doc.setFontSize(12)
-      doc.setTextColor(31, 41, 55) // text-gray-800
-
-      // Split content into paragraphs
-      const paragraphs = generatedCoverLetter
-        .split(/\n\n+/)
-        .filter((p) => p.trim().length > 0)
-        .map((p) => p.trim().replace(/\n/g, ' '))
-
-      let currentY = margin
-
-      for (const paragraph of paragraphs) {
-        // Split paragraph into lines that fit within content width
-        const lines = doc.splitTextToSize(paragraph, contentWidth)
-
-        for (const line of lines) {
-          // Check if we need a new page
-          if (currentY + lineHeight > pageHeight - margin) {
-            doc.addPage()
-            currentY = margin
-          }
-
-          doc.text(line, margin, currentY)
-          currentY += lineHeight
-        }
-
-        // Add paragraph spacing
-        currentY += paragraphSpacing
-      }
+      renderCoverLetterPdf(doc, generatedCoverLetter)
 
       // Generate filename with timestamp
       const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '').replace('T', '_')
@@ -2674,6 +2626,12 @@ export function CoverLetterGeneratorClient({
                 onKeyDown={handleEditorKeyDown}
                 onPaste={handleEditorPaste}
                 className={cn(
+                  // Paragraph spacing lives in globals.css under this class, not
+                  // in a Tailwind arbitrary variant: the unlayered global
+                  // `[contenteditable="true"] p { margin: 0 !important }` beats
+                  // any utility from `@layer utilities`, so `[&_p]:mb-4` here
+                  // would silently never apply.
+                  'cover-letter-editor',
                   'min-h-[250px] max-h-[calc(100vh-350px)] overflow-y-auto',
                   'rounded-lg border border-slate-200 bg-white p-4',
                   'dark:border-slate-600 dark:bg-slate-700/30',
@@ -2681,8 +2639,10 @@ export function CoverLetterGeneratorClient({
                   'dark:focus:border-teal-400 dark:focus:ring-teal-400/20',
                   // Typography styles matching the original display
                   'font-serif text-base leading-relaxed text-slate-800 dark:text-slate-200',
-                  // Paragraph styling within the editor
-                  '[&_p]:mb-4 [&_p]:last:mb-0'
+                  // A single newline is a line break within a paragraph; pre-line
+                  // renders it without turning it into a <br>, which would stop
+                  // textContent round-tripping the editor back to plain text.
+                  'whitespace-pre-line'
                 )}
                 suppressContentEditableWarning
                 role="textbox"

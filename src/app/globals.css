@@ -168,6 +168,23 @@
   padding: 0 !important;
 }
 
+/*
+ * Cover letter editor: paragraphs are separated blocks, not flush lines.
+ * `!important` is required because the rule directly above is unlayered and
+ * already `!important`, so a Tailwind utility (which lives in @layer utilities)
+ * can never win this cascade. Qualifying the class with the attribute gives
+ * specificity (0,2,1) over the global's (0,1,1), so this wins deterministically
+ * and only for this one editor - every other contentEditable surface keeps the
+ * shared zero-margin behaviour.
+ */
+.cover-letter-editor[contenteditable="true"] p {
+  margin-bottom: 1rem !important;
+}
+
+.cover-letter-editor[contenteditable="true"] p:last-child {
+  margin-bottom: 0 !important;
+}
+
 /* Don't override font properties on spans - they carry inline font styles */
 [contenteditable="true"] span {
   line-height: inherit !important;

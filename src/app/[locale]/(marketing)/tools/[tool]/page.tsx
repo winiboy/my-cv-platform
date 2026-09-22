@@ -20,10 +20,16 @@ import { locales, getTranslations } from "@/lib/i18n";
  *
  * Note: "cover-letter-checker" is excluded because it has a dedicated page at:
  * - src/app/[locale]/(marketing)/tools/cover-letter-checker/page.tsx
+ *
+ * Note: "cover-letter-generator" is excluded because it has a dedicated page at:
+ * - src/app/[locale]/(marketing)/tools/cover-letter-generator/page.tsx
+ * Leaving it listed made this route pre-build a "Coming Soon" copy of that
+ * path, which on some production server starts answered
+ * /en/tools/cover-letter-generator (`x-nextjs-cache: HIT`) in place of the
+ * real generator.
  */
 const VALID_TOOL_SLUGS = [
   "resume-job-match",
-  "cover-letter-generator",
 ] as const;
 
 type ToolSlug = (typeof VALID_TOOL_SLUGS)[number];

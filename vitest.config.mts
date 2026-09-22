@@ -4,17 +4,23 @@ import { defineConfig } from 'vitest/config'
 /**
  * Unit-test configuration.
  *
- * Scope is deliberately narrow: pure, deterministic functions only. Tests live
- * beside the module they cover as `<module>.test.ts`.
+ * Scope is pure, deterministic functions plus components rendered to a string
+ * with `react-dom/server`. Tests live beside the module they cover as
+ * `<module>.test.ts`.
  *
- * `environment: 'node'` is correct while this suite covers pure logic. Adding
- * React component tests later requires a DOM environment and a separate
- * project entry rather than changing this one globally.
+ * `environment: 'node'` is not a limitation here, it is the subject: pure logic
+ * and pure `.tsx` render helpers need no DOM, and the server render is
+ * precisely what has none, so a jsdom environment would hide the failures
+ * these tests exist to catch. A component test that needs to mount, click or
+ * hydrate does need a DOM, and that belongs in a separate project entry rather
+ * than in a global change to this one.
  */
 export default defineConfig({
   // tsconfig.json sets `jsx: preserve` for Next.js, which leaves JSX untransformed
-  // and makes any .tsx import unparseable here. Pure tests still need to import
-  // .tsx modules (e.g. the DOCX plain-text list parity check against formatText).
+  // and makes any .tsx import unparseable here. Tests still need to import .tsx
+  // modules (e.g. the DOCX plain-text list parity check against formatText, or
+  // a component server-rendered to a string), so they get the same automatic
+  // runtime Next.js uses.
   oxc: { jsx: { runtime: 'automatic' } },
   test: {
     environment: 'node',
