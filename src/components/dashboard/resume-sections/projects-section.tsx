@@ -5,7 +5,7 @@ import { useState, useRef, useCallback } from 'react'
 import type { Resume, ResumeProject } from '@/types/database'
 import { RichTextEditor } from '../rich-text-editor'
 import { KeyAchievementsToolbar, KeyAchievementsFormatCommand } from '../key-achievements-toolbar'
-import { htmlToPlainText, migrateTextToHtml } from '@/lib/html-utils'
+import { htmlToPlainText, migrateTextToHtml, sanitizeHtml } from '@/lib/html-utils'
 
 interface ProjectsSectionProps {
   resume: Resume
@@ -630,7 +630,7 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
                       </div>
                       <div
                         className="mb-4 text-sm leading-relaxed text-slate-900 prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: optimizedDescriptions[index] }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(optimizedDescriptions[index]) }}
                       />
                       <div className="flex gap-2">
                         <button
@@ -667,7 +667,7 @@ export function ProjectsSection({ resume, updateResume, dict, locale }: Projects
                       </div>
                       <div
                         className="mb-4 text-sm leading-relaxed text-slate-900 prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: translatedDescriptions[index].text }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(translatedDescriptions[index].text) }}
                       />
                       <div className="flex gap-2">
                         <button

@@ -5,6 +5,7 @@ import { FileText, Sparkles, Mail, Loader2, ClipboardPaste, Briefcase, Settings,
 import type { Locale } from '@/lib/i18n'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { plainTextToEditorHtml } from '@/lib/cover-letter-editor-html'
 import {
   ResumeLinker,
   type ResumeLinkerTranslations,
@@ -753,17 +754,7 @@ export function CoverLetterGeneratorClient({
   useEffect(() => {
     if (!editorRef.current || isUserEditingRef.current) return
 
-    if (generatedCoverLetter) {
-      // Convert plain text paragraphs to HTML paragraphs
-      const htmlContent = generatedCoverLetter
-        .split(/\n\n+/)
-        .filter((paragraph) => paragraph.trim().length > 0)
-        .map((paragraph) => `<p>${paragraph.trim()}</p>`)
-        .join('')
-      editorRef.current.innerHTML = htmlContent
-    } else {
-      editorRef.current.innerHTML = ''
-    }
+    editorRef.current.innerHTML = plainTextToEditorHtml(generatedCoverLetter)
   }, [generatedCoverLetter])
 
   /**
@@ -826,14 +817,9 @@ export function CoverLetterGeneratorClient({
 
     isUserEditingRef.current = true
 
-    // Extract plain text from the HTML content for state storage
-    const htmlContent = editorRef.current.innerHTML
-    // Convert HTML paragraphs back to double-newline separated text
-    const tempDiv = document.createElement('div')
-    tempDiv.innerHTML = htmlContent
-
-    // Convert paragraphs to text with double newlines
-    const paragraphs = tempDiv.querySelectorAll('p')
+    // Read the live editor DOM directly. Reparsing its innerHTML into a detached
+    // element would re-run event-handler attributes such as <img onerror>.
+    const paragraphs = editorRef.current.querySelectorAll('p')
     let plainText: string
 
     if (paragraphs.length > 0) {
@@ -843,7 +829,7 @@ export function CoverLetterGeneratorClient({
         .join('\n\n')
     } else {
       // Handle case where content is not in paragraphs (e.g., directly typed)
-      plainText = tempDiv.textContent || ''
+      plainText = editorRef.current.textContent || ''
     }
 
     setGeneratedCoverLetter(plainText)

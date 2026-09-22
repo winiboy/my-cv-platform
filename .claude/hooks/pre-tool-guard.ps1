@@ -236,6 +236,30 @@ function Get-CurrentBranch {
     } catch { return $null }
 }
 
+# The work-tree root containing $Cwd, or $null when there is none: no
+# repository, a bare repository, or a cwd inside .git (git reports a branch in
+# the last two, but there is no work tree). Worktrees resolve to their own root.
+#
+# The root is built from $Cwd plus git's relative '../' answer, never read back
+# as an absolute path: PS 5.1 decodes git's UTF-8 output with the console code
+# page, so --show-toplevel garbled any non-ASCII root. Both answers used here
+# are pure ASCII. --show-cdup alone is not enough - it exits 0 with an empty
+# answer in a bare repository and inside .git, which would pass for a root.
+function Get-RepositoryRoot {
+    param([string]$Cwd)
+    if ([string]::IsNullOrWhiteSpace($Cwd)) { return $null }
+    if (-not (Test-Path -LiteralPath $Cwd)) { return $null }
+    try {
+        $lines = @(& git -C $Cwd rev-parse --is-inside-work-tree --show-cdup 2>$null)
+        if ($LASTEXITCODE -ne 0) { return $null }
+        if ($lines.Count -lt 1 -or ([string]$lines[0]).Trim() -ne 'true') { return $null }
+        $cdup = ''
+        if ($lines.Count -ge 2) { $cdup = ([string]$lines[1]).Trim() }
+        if ([string]::IsNullOrEmpty($cdup)) { return $Cwd }
+        return (Join-Path $Cwd $cdup)
+    } catch { return $null }
+}
+
 $ReadOnlyCommandPatterns = @(
     '^git\s+status(\s|$)',
     '^git\s+diff(\s|$)',
@@ -546,7 +570,20 @@ function Test-RalphEnforcement {
     param([string]$Cwd, [string]$Branch)
     if ([string]::IsNullOrWhiteSpace($Branch)) { return $null }
     if ($Branch -notmatch '^ralph/') { return $null }
-    $prdPath = Join-Path $Cwd 'tasks/ralph/prd.json'
+    # The contract lives at the repository root, not at the caller's cwd. Tool
+    # calls routinely arrive from a subdirectory - a subagent inherits the
+    # orchestrator's shell cwd - and joining the raw cwd denied every mutation
+    # there as "prd.json is missing" (Milestone C Part 2 US-004, 2026-09-11).
+    #
+    # No root means the contract cannot be verified, so deny. Failing open here
+    # would let a Ralph branch mutate with no contract check at all. Today this
+    # is reached from a bare repository or a cwd inside .git: with no
+    # repository at all the caller has no branch and never gets here.
+    $repoRoot = Get-RepositoryRoot -Cwd $Cwd
+    if (-not $repoRoot) {
+        return "current branch '$Branch' is a Ralph branch but no repository work tree was found from '$Cwd', so tasks/ralph/prd.json cannot be verified"
+    }
+    $prdPath = Join-Path $repoRoot 'tasks/ralph/prd.json'
     if (-not (Test-Path -LiteralPath $prdPath)) {
         return "current branch '$Branch' is a Ralph branch but tasks/ralph/prd.json is missing"
     }

@@ -197,13 +197,10 @@ test('a cover letter with HTML paragraphs loads directly and renders them saniti
  * sanitizing does. `?section=summary` is enough to make the server render that
  * section, because the editor seeds its active section from the query string.
  *
- * `expectNoInjectedCodeRan` is deliberately not repeated here. Both the rich
- * text editor and the character counter parse this summary in the live
- * document once mounted, so the injected `<img>` is fetched and its `onerror`
- * can fire on this page too - the same defect the tests above already assert
- * against and which the inert-parse work owns. It fires only when the failed
- * request lands before the assertion, so repeating the check here would add a
- * third intermittent copy of one known failure rather than new coverage.
+ * Both the rich text editor and the character counter parse this summary once
+ * mounted. They do so through `sanitizeHtml` and `htmlToPlainText`, which parse
+ * in an inert document, so the injected `<img>` is never fetched and its
+ * `onerror` cannot fire here either.
  */
 test('a resume whose summary is HTML loads its editor directly and counts the characters', async ({
   page,
@@ -227,4 +224,5 @@ test('a resume whose summary is HTML loads its editor directly and counts the ch
   await expect(page.getByTestId('summary-character-count')).toHaveText(
     `${SUMMARY_PLAIN_TEXT.length} characters`
   )
+  await expectNoInjectedCodeRan(page)
 })

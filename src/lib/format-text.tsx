@@ -7,14 +7,29 @@
 import React from 'react'
 import { SanitizedHtml } from '@/components/sanitized-html'
 
+export interface FormatTextOptions {
+  /**
+   * Justify plain-text blocks. Defaults to `true`. Narrow columns (e.g. a
+   * sidebar) opt out because justification stretches short wrapped lines
+   * with large word gaps.
+   */
+  justify?: boolean
+}
+
 /**
  * Formats text content for CV display, preserving structure
  * - Converts line breaks to <br /> tags
  * - Converts bullet points (•, -, *) to HTML lists
  * - Converts numbered lists to HTML ordered lists
+ * - Justifies every block unless `options.justify` is `false`
  */
-export function formatText(text: string | null | undefined): React.ReactNode {
+export function formatText(
+  text: string | null | undefined,
+  { justify = true }: FormatTextOptions = {}
+): React.ReactNode {
   if (!text) return null
+
+  const justifyClass = justify ? ' text-justify' : ''
 
   // Split by double line breaks to identify paragraphs
   const paragraphs = text.split(/\n\n+/)
@@ -35,7 +50,7 @@ export function formatText(text: string | null | undefined): React.ReactNode {
         .map(line => line.replace(/^[\s]*[•\-*]\s+/, '').trim())
 
       return (
-        <ul key={pIndex} className="list-disc space-y-1 pl-5 text-justify">
+        <ul key={pIndex} className={`list-disc space-y-1 pl-5${justifyClass}`}>
           {items.map((item, i) => (
             <li key={i}>{item}</li>
           ))}
@@ -50,7 +65,7 @@ export function formatText(text: string | null | undefined): React.ReactNode {
         .map(line => line.replace(/^[\s]*\d+\.\s+/, '').trim())
 
       return (
-        <ol key={pIndex} className="list-decimal space-y-1 pl-5 text-justify">
+        <ol key={pIndex} className={`list-decimal space-y-1 pl-5${justifyClass}`}>
           {items.map((item, i) => (
             <li key={i}>{item}</li>
           ))}
@@ -60,7 +75,7 @@ export function formatText(text: string | null | undefined): React.ReactNode {
 
     // Regular paragraph with line breaks
     return (
-      <div key={pIndex} className="text-justify">
+      <div key={pIndex} className={justify ? 'text-justify' : undefined}>
         {lines.map((line, lIndex) => (
           <React.Fragment key={lIndex}>
             {line}
@@ -90,10 +105,14 @@ export function formatSimpleText(text: string | null | undefined): React.ReactNo
 /**
  * Renders formatted text - supports both HTML and plain text
  * This is the main function to use in templates for all text content
- * - For HTML content: sanitizes and renders HTML
- * - For plain text: uses formatText() for backward compatibility
+ * - For HTML content: sanitizes and renders HTML; `options` does not apply,
+ *   so alignment set inline in the HTML is kept as authored
+ * - For plain text: uses formatText() with `options` for backward compatibility
  */
-export function renderFormattedText(text: string | null | undefined): React.ReactNode {
+export function renderFormattedText(
+  text: string | null | undefined,
+  options: FormatTextOptions = {}
+): React.ReactNode {
   if (!text) return null
 
   // Check if content is HTML (contains tags)
@@ -101,7 +120,7 @@ export function renderFormattedText(text: string | null | undefined): React.Reac
 
   if (!isHtml) {
     // Legacy plain text - use existing formatText logic
-    return formatText(text)
+    return formatText(text, options)
   }
 
   // HTML content - sanitized in the browser, see SanitizedHtml
