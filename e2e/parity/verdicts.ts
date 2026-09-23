@@ -58,10 +58,11 @@ import {
  * be mistaken for the old one.
  *
  * US-003-palette was closed by US-003 and removed with its signature and the
- * two colour tables only that signature read.
+ * two colour tables only that signature read. US-004-line-spacing was closed by
+ * US-004 and removed with its signature and the Word auto spacing table only
+ * that signature read.
  */
 export type KnownId =
-  | 'US-004-line-spacing'
   | 'US-005-letter-spacing'
   | 'US-006-translucent-text'
   | 'US-008-page-width'
@@ -76,7 +77,6 @@ export type KnownId =
   | 'US-015-creative-sections'
 
 export const KNOWN_IDS: readonly KnownId[] = [
-  'US-004-line-spacing',
   'US-005-letter-spacing',
   'US-006-translucent-text',
   'US-008-page-width',
@@ -126,7 +126,6 @@ function expectations(groups: readonly (readonly [KnownId, readonly string[]])[]
  * failure; it is a hole in Part 3's scope.
  */
 export const KNOWN_EXPECTATIONS: Readonly<Record<string, KnownId>> = expectations([
-  ['US-004-line-spacing', rowIds('primary', TEMPLATES, elementProperties('line-height'))],
   [
     'US-005-letter-spacing',
     [
@@ -260,6 +259,12 @@ export function rowDefinitions(): RowDefinition[] {
       if (profile.rowGroups.includes('font')) {
         for (const element of TYPOGRAPHY_ELEMENTS) add('font-family', `font-family:${element}`, element)
       }
+      if (profile.rowGroups.includes('body-line-height')) {
+        if (profile.rowGroups.includes('typography')) {
+          throw new Error(`${profile.id}: the body-line-height row group repeats a row the typography group already reports`)
+        }
+        add('line-height', 'line-height:bodyText', 'bodyText')
+      }
       if (profile.rowGroups.includes('colour')) {
         // Every template, including those that draw no sidebar: the editor offers
         // and stores the colour for all of them, so a template that renders it
@@ -339,9 +344,10 @@ function equal(a: Value, b: Value): boolean {
       if (b.kind !== 'line-height') return false
       const [x, y] = [a.lineHeight, b.lineHeight]
       // Different kinds never match. In particular a Word auto multiple scales
-      // the font's single-line height and a CSS ratio scales the font size, so
-      // equal numbers draw different leading: comparing only the encoding
-      // would be a MATCH over nothing.
+      // the font's single-line height and a CSS ratio scales the font size, and
+      // at-least spacing may be drawn taller than its number, so equal numbers
+      // can draw different leading: comparing only the encoding would be a
+      // MATCH over nothing. Only `ratio` is drawn leading.
       if (x.kind !== y.kind) return false
       if (x.kind === 'normal' || y.kind === 'normal') return true
       return Math.abs(x.ratio - y.ratio) <= LINE_HEIGHT_TOLERANCE
@@ -395,6 +401,8 @@ function display(value: Value | null): string {
           return `x${value.lineHeight.ratio.toFixed(3)} font size`
         case 'auto-multiple':
           return `auto x${value.lineHeight.ratio.toFixed(3)} single line`
+        case 'at-least':
+          return `at least x${value.lineHeight.ratio.toFixed(3)} font size`
       }
     case 'length':
       return `${value.inches.toFixed(2)}in`
@@ -474,19 +482,6 @@ const STOCK_BASE_SIZE_PX: Readonly<Record<ResumeTemplate, Partial<Record<Typogra
 const toHalfPoints = (px: number) => Math.round(px * 1.5)
 
 /**
- * US-004: the Word auto spacing each generator writes for the sampled elements.
- * A number is `w:lineRule="auto"` at that multiple; `normal` is auto single
- * line, written or left to the default.
- */
-const STOCK_AUTO_SPACING: Readonly<Record<ResumeTemplate, Readonly<Record<TypographyElement, number | 'normal'>>>> = {
-  professional: { documentTitle: 1.2, sectionHeading: 'normal', bodyText: 1.35 },
-  modern: { documentTitle: 1.2, sectionHeading: 1.2, bodyText: 1.5 },
-  classic: { documentTitle: 1.2, sectionHeading: 'normal', bodyText: 1.625 },
-  minimal: { documentTitle: 1.2, sectionHeading: 'normal', bodyText: 1.625 },
-  creative: { documentTitle: 1.2, sectionHeading: 'normal', bodyText: 1.625 },
-}
-
-/**
  * US-005: the characterSpacing, in twips, each generator writes for the elements
  * where it differs from the Preview; 0 where it writes none. `docx-modern.ts`
  * 15 (title) and 8 (headings), `docx-classic.ts` 8, `docx-minimal.ts`
@@ -555,24 +550,6 @@ const TRANSLUCENT_WHITE = /^rgba\(255, 255, 255, 0?\.\d+\)$/
  * may have two shapes: `evaluateRow` throws if signatures overlap.
  */
 const SIGNATURES: readonly Signature[] = [
-  {
-    id: 'US-004-line-spacing',
-    defect:
-      'The Preview and print give leading as a multiple of the font size; the DOCX writes Word auto spacing, ' +
-      "which multiplies the font's single-line height instead, so the drawn leading differs whatever the " +
-      'encoded numbers. See the FINDING.',
-    matches: ({ row, values }) => {
-      if (row.family !== 'line-height' || !isTypographyElement(row.subject)) return false
-      const stock = STOCK_AUTO_SPACING[row.template][row.subject]
-      if (values.preview.kind !== 'line-height' || values.docx.kind !== 'line-height') return false
-      const docx = values.docx.lineHeight
-      const docxIsStock =
-        stock === 'normal'
-          ? docx.kind === 'normal'
-          : docx.kind === 'auto-multiple' && Math.abs(docx.ratio - stock) <= LINE_HEIGHT_TOLERANCE
-      return values.preview.lineHeight.kind === 'ratio' && equal(values.pdf, values.preview) && docxIsStock
-    },
-  },
   {
     id: 'US-005-letter-spacing',
     defect:
@@ -1059,7 +1036,14 @@ function newDivergenceNote({ row, values, reference }: SignatureContext): string
           (encodingMatches
             ? 'Encoded ratio matches, but Word auto scales single-line height, so drawn leading differs. '
             : 'The encoded ratios differ, and Word auto scales single-line height rather than font size. ') +
-          'The DOCX uses w:lineRule="auto" where the CSS means a multiple of the font size (see the FINDING).'
+          'The DOCX uses w:lineRule="auto" where the CSS means a multiple of the font size; since Part 3 ' +
+          'US-004 the generators write exact spacing.'
+        )
+      }
+      if (docx?.kind === 'at-least') {
+        return (
+          'The DOCX writes at-least spacing, drawn at its multiple of the font size only where the ' +
+          "font's single line is not taller; this check reads no font metrics, so it is not drawn leading."
         )
       }
       if (docx?.kind === 'normal' || preview?.kind === 'normal') {
@@ -1160,13 +1144,38 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
   annotation('LIMITATION', 'all', 'font weight', ['docx'],
     'A DOCX run carries bold on or off (w:b). CSS weights such as black (900), semibold (600), medium (500) ' +
       'and light (300) have no DOCX encoding and are not compared.'),
-  annotation('FINDING', 'all', 'line height, Word auto spacing', ['docx'],
-    'The generators write CSS line-height ratios as w:lineRule="auto" multiples (for example 1.5 as line=360). ' +
-      "A Word auto multiple scales the font's single-line height (ascent + descent + line gap, about 1.215 em " +
-      'for Verdana), where the CSS ratio scales the font size, so Word draws visibly more leading than the ' +
-      'Preview. DOCX can express the CSS intent exactly (w:lineRule="exact" in twips). Owned by US-004, whose ' +
-      'line-height rows are expected failures under US-004-line-spacing. This check reads no font metrics, so ' +
-      'it does not compute drawn leading, and it never lets a matching encoding stand as a MATCH.'),
+  annotation('DECISION', 'all', 'line height: Word exact spacing', ['docx'],
+    'Closed the Word auto line spacing finding (Part 3 US-004). Every DOCX paragraph, and the document default, ' +
+      'is written as w:lineRule="exact" at the Preview line height of its element times the size of its run, in ' +
+      'twips, taken from src/lib/resume-line-height.ts. Exact rather than at-least: exact is drawn at exactly ' +
+      "that pitch in every font, where at-least is drawn at the font's single line whenever that is taller — " +
+      'Verdana\'s 1.215 em against the 1.2 of the professional and modern titles. The line-height rows compare ' +
+      'the DOCX exact spacing divided by the run size, which is its drawn leading; at-least and auto spacing are ' +
+      'read as what they ask for and never match a CSS line height.'),
+  annotation('FINDING', 'all', 'line height: what exact spacing does not carry', ['docx'],
+    'Residual differences after Part 3 US-004, each measured on DOCX files the generators wrote, exported to PDF ' +
+      'by Word 16 and read back with pdf.js. (1) Baseline position: Word lays each line of an exact paragraph ' +
+      'at the written pitch (summary baselines 13.44/13.56pt apart for 13.5pt written, 20.28pt for 20.3pt; ' +
+      "Word places lines on a grid of about 0.12pt) but puts the baseline at 80% of the line's height, where " +
+      'CSS centres the font\'s ascent-plus-descent in the line box, so glyphs sit up to about 0.1em higher or ' +
+      'lower within the same line box (classic title: 3.7pt lower; professional title: 0.75pt higher). The ' +
+      "effect is largest on modern's job-title bar, whose paragraph stands for the bar's padded box: the fill is " +
+      'the Preview\'s height (27.75pt, its line plus 4px above and below), but Word draws the baseline 22.2pt ' +
+      'down it where the Preview draws it about 19.7pt down, so the title sits about 2.5pt low in the bar, ' +
+      '5.5pt from its bottom edge instead of 8pt; nothing of it is cut. OOXML has no property that places the ' +
+      'baseline within an exact line. Nothing clipped: the tallest accented capitals ' +
+      'and the descenders of g, j, p, q, y rendered whole in Verdana at 1.2, the tightest ratio any generator ' +
+      'writes, and in Times New Roman at 1.5. (2) One Word paragraph has one line height and one pair of gaps: ' +
+      'where the Preview draws two boxes side by side in a flex row and the text may wrap, the two cannot both ' +
+      'hold. A title and its date take the taller line box for every line, so a title that wraps is spaced at ' +
+      "that height rather than its own. A creative heading instead keeps its own leading and carries its bar's " +
+      'surplus height as fixed space above and below, so a heading that wraps is 2 lines plus that surplus ' +
+      '(2 x 360 + 120 twips for a main-column heading at the default size) where the Preview draws the taller ' +
+      'of the bar and the two lines, about 8px less. Halving the surplus rounds up, so the one-line row can be ' +
+      'a twip over the bar (361 against 360 for a sidebar heading at font scale 0.8; 481 against 480 for a main ' +
+      "one at 1.2). modern's bullet, a separate flex item at 1.5, can make a one-line HTML achievement 0.1em " +
+      'taller than its 1.4 text leading. (3) Paragraphs that draw no text (spacers, the paragraph a table cell requires, the ' +
+      'paragraph after a final table) take a 1-twip exact line, where the Preview draws none.'),
   annotation('LIMITATION', 'all', 'colour conversion', ['preview', 'pdf', 'docx'],
     `Compared as 8-bit sRGB with a tolerance of ${COLOUR_CHANNEL_TOLERANCE} level per channel. CSS colours are ` +
       'converted by the browser canvas and, independently, by the OKLab matrices in e2e/parity/colour.ts; a ' +

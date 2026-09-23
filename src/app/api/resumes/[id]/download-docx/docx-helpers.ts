@@ -2,6 +2,7 @@ import {
   Paragraph,
   TextRun,
   AlignmentType,
+  LineRuleType,
   type IShadingAttributesProperties,
   type ISpacingProperties,
 } from 'docx'
@@ -55,6 +56,51 @@ export function pxToTwips(px: number): number {
   // So 1px = 1440/96 = 15 twips
   return Math.round(px * 15)
 }
+
+/** A paragraph's line spacing, as every generator writes it. */
+export type LineSpacing = Required<Pick<ISpacingProperties, 'line' | 'lineRule'>>
+
+/**
+ * Word exact line spacing for the CSS line boxes a paragraph stands for
+ * (Part 3 US-004).
+ *
+ * Each box is a CSS `line-height` ratio and the size, in half-points, of the
+ * run written for that text. CSS multiplies the ratio by the font size; Word
+ * `exact` spacing is that product in twips (half-points × 10), and every line
+ * of the paragraph is laid at exactly that pitch whatever the font. A Word
+ * `auto` multiple would scale the font's own single-line height instead, so it
+ * is never written.
+ *
+ * Where one paragraph carries text the Preview draws as several elements side
+ * by side — a title and its date in one flex row — the row is as tall as its
+ * tallest line box, so the largest is written. An element whose own box is
+ * filled and padded (modern's job-title bar) adds its vertical padding, top
+ * plus bottom, so the DOCX shading covers what the Preview fills; height a
+ * SIBLING box contributes to the row is space before and after, not leading,
+ * or a paragraph that wraps would be spaced at the sibling's height.
+ */
+export type RowBox =
+  | readonly [lineHeight: number, halfPoints: number]
+  | { readonly lineHeight: number; readonly halfPoints: number; readonly paddingPx: number }
+
+function boxTwips(box: RowBox): number {
+  if ('paddingPx' in box) return box.lineHeight * box.halfPoints * 10 + box.paddingPx * 15
+  const [lineHeight, halfPoints] = box
+  return lineHeight * halfPoints * 10
+}
+
+export function exactLineSpacing(...boxes: readonly RowBox[]): LineSpacing {
+  if (boxes.length === 0) throw new Error('exactLineSpacing needs at least one line box')
+  return { line: Math.round(Math.max(...boxes.map(boxTwips))), lineRule: LineRuleType.EXACT }
+}
+
+/**
+ * The line of a paragraph that stands for no Preview text: a spacer carrying a
+ * gap as its space before or after, or the empty paragraph OOXML requires in a
+ * table cell or after a table. The Preview draws no line there, so the
+ * paragraph takes a 1-twip exact line rather than a line of text height.
+ */
+export const NO_TEXT_LINE: LineSpacing = { line: 1, lineRule: LineRuleType.EXACT }
 
 /**
  * Convert HSL color string to hex (without #)
@@ -203,6 +249,7 @@ export function parseHtmlListToParagraphs(
   options: DocxTextRunOptions,
   spacingAfterItem: number,
   spacingAfterLast: number,
+  lineSpacing: LineSpacing,
   indent?: { right?: number; left?: number },
   alignment?: typeof AlignmentType[keyof typeof AlignmentType]
 ): Paragraph[] {
@@ -242,7 +289,7 @@ export function parseHtmlListToParagraphs(
           }),
           ...itemRuns,
         ],
-        spacing: { after: isLast ? spacingAfterLast : spacingAfterItem },
+        spacing: { after: isLast ? spacingAfterLast : spacingAfterItem, ...lineSpacing },
         indent: indent,
         alignment: alignment,
       })
@@ -317,7 +364,7 @@ export interface PlainTextParagraphLayout {
   spacingAfterLast: number
   indent?: { right?: number; left?: number }
   alignment?: typeof AlignmentType[keyof typeof AlignmentType]
-  lineSpacing?: Pick<ISpacingProperties, 'line' | 'lineRule'>
+  lineSpacing: LineSpacing
   shading?: IShadingAttributesProperties
 }
 

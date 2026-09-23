@@ -28,9 +28,18 @@ import {
   parsePlainTextListToParagraphs,
   parseHtmlToDocxRuns,
   stripHtml,
+  exactLineSpacing,
+  NO_TEXT_LINE,
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
+import {
+  CREATIVE_HEADING_BAR_STEP,
+  PREFLIGHT_LINE_HEIGHT,
+  TAILWIND_LEADING,
+  TAILWIND_TEXT_LINE_HEIGHT,
+  tailwindHeightPx,
+} from '@/lib/resume-line-height'
 
 // ============================================================
 // TRANSLATION DICTIONARY (matching creative-template.tsx section labels)
@@ -77,11 +86,19 @@ const FONT_SIZES = {
   BODY: 14,                // sectionDescFontSize default — used for most body text
 }
 
-// Line heights
-const LINE_HEIGHTS = {
-  BODY: 1.625,     // leading-relaxed
-  HEADING: 1.2,
-}
+/**
+ * The Preview's line heights (US-004), from `resume-line-height.ts`.
+ * `creative-template.tsx` sets none inline: elements inherit Tailwind's
+ * preflight 1.5 unless a class sets one — `leading-relaxed` on the header
+ * summary and the experience and project descriptions, `text-xs` on the
+ * second contact row. The template renders every text plainly (`formatText`
+ * or as a string), never as formatted content.
+ */
+const LINE_HEIGHT = {
+  inherited: PREFLIGHT_LINE_HEIGHT,
+  textXs: TAILWIND_TEXT_LINE_HEIGHT['text-xs'],
+  relaxed: TAILWIND_LEADING['leading-relaxed'],
+} as const
 
 // Spacing constants (px, converted to twips at usage)
 const SPACING = {
@@ -179,6 +196,10 @@ export async function generateCreativeDocx(
     body: pxToHalfPoints(FONT_SIZES.BODY * fontScale),
   }
 
+  // Line spacing shared by many paragraphs.
+  const inheritedBody = exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.body])
+  const relaxedBody = exactLineSpacing([LINE_HEIGHT.relaxed, scaledFontSizes.body])
+
   // Page dimensions: A4
   const pageWidthTwips = convertInchesToTwip(8.27)
   const pageHeightTwips = convertInchesToTwip(11.69)
@@ -200,7 +221,14 @@ export async function generateCreativeDocx(
   // HELPER: Create section header with vertical bar prefix
   // Matches: "|" in purple-600 + title in font-black uppercase purple-600
   // ============================================================
-  function createSectionHeader(title: string, spacingAfter: number): Paragraph {
+  function createSectionHeader(
+    title: string,
+    spacingAfter: number,
+    column: keyof typeof CREATIVE_HEADING_BAR_STEP,
+  ): Paragraph {
+    const headingLine = exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.sectionTitle])
+    const barTwips = pxToTwips(tailwindHeightPx(CREATIVE_HEADING_BAR_STEP[column]))
+    const headingRowPadding = Math.round(Math.max(0, barTwips - headingLine.line) / 2)
     return new Paragraph({
       children: [
         new TextRun({
@@ -218,7 +246,17 @@ export async function generateCreativeDocx(
           font,
         }),
       ],
-      spacing: { after: pxToTwips(spacingAfter) },
+      // The h2 is a flex row of its gradient bar, which the "|" run stands in for,
+      // and the title, which inherits 1.5. The bar is taller than the title's line
+      // at ordinary heading sizes, and `items-center` centres the title in the row,
+      // so the paragraph keeps the title's leading and carries the rest of the
+      // row's height as space above and below. Putting it in the line instead would
+      // space a heading that wraps at the bar's height rather than its own.
+      spacing: {
+        before: headingRowPadding,
+        after: pxToTwips(spacingAfter) + headingRowPadding,
+        ...headingLine,
+      },
     })
   }
 
@@ -269,8 +307,7 @@ export async function generateCreativeDocx(
       ],
       spacing: {
         after: pxToTwips(SPACING.NAME_MB),
-        line: Math.round(240 * LINE_HEIGHTS.HEADING),
-        lineRule: LineRuleType.AUTO,
+        ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.name]),
       },
       shading: {
         type: ShadingType.SOLID,
@@ -283,6 +320,8 @@ export async function generateCreativeDocx(
   // Summary (optional): White/90, base text, justified
   if (resume.summary) {
     const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.JUSTIFIED
+    // The summary div is `text-base leading-relaxed`; leading-relaxed wins.
+    const summaryLineSpacing = exactLineSpacing([LINE_HEIGHT.relaxed, scaledFontSizes.summary])
 
     if (isPlainTextList(resume.summary)) {
       // No HTML-list branch exists here to follow: keep the summary paragraph's
@@ -300,10 +339,7 @@ export async function generateCreativeDocx(
             spacingAfterItem: pxToTwips(4),
             spacingAfterLast: pxToTwips(SPACING.SUMMARY_MB),
             alignment: summaryAlignment,
-            lineSpacing: {
-              line: Math.round(240 * LINE_HEIGHTS.BODY),
-              lineRule: LineRuleType.AUTO,
-            },
+            lineSpacing: summaryLineSpacing,
             shading: {
               type: ShadingType.SOLID,
               fill: PALETTE['purple-600'],
@@ -324,8 +360,7 @@ export async function generateCreativeDocx(
           children: summaryRuns,
           spacing: {
             after: pxToTwips(SPACING.SUMMARY_MB),
-            line: Math.round(240 * LINE_HEIGHTS.BODY),
-            lineRule: LineRuleType.AUTO,
+            ...summaryLineSpacing,
           },
           alignment: summaryAlignment,
           shading: {
@@ -373,7 +408,7 @@ export async function generateCreativeDocx(
     headerParagraphs.push(
       new Paragraph({
         children: contactRuns,
-        spacing: { after: 0 },
+        spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.contact]) },
         shading: {
           type: ShadingType.SOLID,
           fill: PALETTE['purple-600'],
@@ -419,6 +454,7 @@ export async function generateCreativeDocx(
         spacing: {
           before: pxToTwips(SPACING.LINKS_ROW_MT),
           after: 0,
+          ...exactLineSpacing([LINE_HEIGHT.textXs, scaledFontSizes.contactLinks]),
         },
         shading: {
           type: ShadingType.SOLID,
@@ -439,7 +475,8 @@ export async function generateCreativeDocx(
     leftParagraphs.push(
       createSectionHeader(
         (dict as any).resumes?.editor?.sections?.skills || creativeDict.skills,
-        SPACING.SECTION_TITLE_MB_LEFT
+        SPACING.SECTION_TITLE_MB_LEFT,
+        'sidebar',
       )
     )
 
@@ -463,12 +500,15 @@ export async function generateCreativeDocx(
                 font,
               }),
             ],
-            spacing: { after: pxToTwips(SPACING.SKILLS_CATEGORY_NAME_MB) },
+            spacing: { after: pxToTwips(SPACING.SKILLS_CATEGORY_NAME_MB), ...inheritedBody },
           })
         )
       }
 
-      // Skill items as bullet list using skillsHtml or items array
+      // Skill items as bullet list using skillsHtml or items array.
+      // The Preview renders `items` only, never `skillsHtml`; that content
+      // divergence is Part 3 US-016's. Every skill line takes the line height
+      // of the Preview's skill item, which inherits 1.5.
       if (skillCategory.skillsHtml) {
         const skillsAlignment = extractAlignment(skillCategory.skillsHtml) || AlignmentType.LEFT
 
@@ -482,6 +522,7 @@ export async function generateCreativeDocx(
             },
             pxToTwips(SPACING.SKILLS_ITEM_GAP),
             pxToTwips(categoryEndSpacing),
+            inheritedBody,
             undefined,
             skillsAlignment
           )
@@ -506,6 +547,7 @@ export async function generateCreativeDocx(
                   after: isLastItem
                     ? pxToTwips(categoryEndSpacing)
                     : pxToTwips(SPACING.SKILLS_ITEM_GAP),
+                  ...inheritedBody,
                 },
               })
             )
@@ -530,6 +572,7 @@ export async function generateCreativeDocx(
                 after: isLastItem
                   ? pxToTwips(categoryEndSpacing)
                   : pxToTwips(SPACING.SKILLS_ITEM_GAP),
+                ...inheritedBody,
               },
             })
           )
@@ -543,7 +586,8 @@ export async function generateCreativeDocx(
     leftParagraphs.push(
       createSectionHeader(
         (dict as any).resumes?.editor?.sections?.languages || creativeDict.languages,
-        SPACING.SECTION_TITLE_MB_LEFT
+        SPACING.SECTION_TITLE_MB_LEFT,
+        'sidebar',
       )
     )
 
@@ -566,7 +610,7 @@ export async function generateCreativeDocx(
               font,
             }),
           ],
-          spacing: { after: pxToTwips(SPACING.LANGUAGE_NAME_MB) },
+          spacing: { after: pxToTwips(SPACING.LANGUAGE_NAME_MB), ...inheritedBody },
         })
       )
 
@@ -583,7 +627,9 @@ export async function generateCreativeDocx(
                 font,
               }),
             ],
-            spacing: { after: pxToTwips(itemEndSpacing) },
+            // Stands in for the level bars (US-007), which draw no text; it takes
+            // the inherited 1.5 of the language block it sits in.
+            spacing: { after: pxToTwips(itemEndSpacing), ...inheritedBody },
           })
         )
       }
@@ -595,7 +641,8 @@ export async function generateCreativeDocx(
     leftParagraphs.push(
       createSectionHeader(
         (dict as any).resumes?.editor?.sections?.certifications || creativeDict.certifications,
-        SPACING.SECTION_TITLE_MB_LEFT
+        SPACING.SECTION_TITLE_MB_LEFT,
+        'sidebar',
       )
     )
 
@@ -615,7 +662,7 @@ export async function generateCreativeDocx(
               font,
             }),
           ],
-          spacing: { after: cert.issuer || cert.date ? 0 : pxToTwips(itemEndSpacing) },
+          spacing: { after: cert.issuer || cert.date ? 0 : pxToTwips(itemEndSpacing), ...inheritedBody },
         })
       )
 
@@ -631,7 +678,7 @@ export async function generateCreativeDocx(
                 font,
               }),
             ],
-            spacing: { after: cert.date ? 0 : pxToTwips(itemEndSpacing) },
+            spacing: { after: cert.date ? 0 : pxToTwips(itemEndSpacing), ...inheritedBody },
           })
         )
       }
@@ -651,7 +698,7 @@ export async function generateCreativeDocx(
                 font,
               }),
             ],
-            spacing: { after: pxToTwips(itemEndSpacing) },
+            spacing: { after: pxToTwips(itemEndSpacing), ...inheritedBody },
           })
         )
       }
@@ -668,7 +715,8 @@ export async function generateCreativeDocx(
     rightParagraphs.push(
       createSectionHeader(
         (dict as any).resumes?.editor?.sections?.experience || creativeDict.experience,
-        SPACING.SECTION_TITLE_MB_RIGHT
+        SPACING.SECTION_TITLE_MB_RIGHT,
+        'main',
       )
     )
 
@@ -691,7 +739,7 @@ export async function generateCreativeDocx(
               font,
             }),
           ],
-          spacing: { after: 0 },
+          spacing: { after: 0, ...inheritedBody },
         })
       )
 
@@ -708,7 +756,7 @@ export async function generateCreativeDocx(
                 font,
               }),
             ],
-            spacing: { after: pxToTwips(SPACING.EXPERIENCE_HEADER_MB) },
+            spacing: { after: pxToTwips(SPACING.EXPERIENCE_HEADER_MB), ...inheritedBody },
           })
         )
       }
@@ -732,7 +780,7 @@ export async function generateCreativeDocx(
                 },
               }),
             ],
-            spacing: { after: pxToTwips(SPACING.EXPERIENCE_HEADER_MB) },
+            spacing: { after: pxToTwips(SPACING.EXPERIENCE_HEADER_MB), ...inheritedBody },
           })
         )
       }
@@ -749,7 +797,7 @@ export async function generateCreativeDocx(
                 font,
               }),
             ],
-            spacing: { after: pxToTwips(SPACING.EXPERIENCE_LOCATION_MB) },
+            spacing: { after: pxToTwips(SPACING.EXPERIENCE_LOCATION_MB), ...inheritedBody },
           })
         )
       }
@@ -781,10 +829,10 @@ export async function generateCreativeDocx(
                 }),
                 ...achievementRuns,
               ],
+              // The achievement list sets no leading, so it inherits 1.5.
               spacing: {
                 after: achievementSpacingAfter,
-                line: Math.round(240 * LINE_HEIGHTS.BODY),
-                lineRule: LineRuleType.AUTO,
+                ...inheritedBody,
               },
             })
           )
@@ -803,6 +851,7 @@ export async function generateCreativeDocx(
             },
             pxToTwips(SPACING.ACHIEVEMENT_GAP),
             descSpacingAfter,
+            relaxedBody,
             undefined,
             descAlignment
           )
@@ -820,6 +869,7 @@ export async function generateCreativeDocx(
                 spacingAfterItem: pxToTwips(SPACING.ACHIEVEMENT_GAP),
                 spacingAfterLast: descSpacingAfter,
                 alignment: descAlignment,
+                lineSpacing: relaxedBody,
               }
             )
           )
@@ -835,20 +885,20 @@ export async function generateCreativeDocx(
               children: descRuns,
               spacing: {
                 after: descSpacingAfter,
-                line: Math.round(240 * LINE_HEIGHTS.BODY),
-                lineRule: LineRuleType.AUTO,
+                ...relaxedBody,
               },
               alignment: descAlignment,
             })
           )
         }
       } else {
-        // No description or achievements — still need spacing
+        // No description or achievements — still need spacing. The spacer
+        // carries only the gap; the Preview draws no line there.
         if (!isLastExp || nextSectionExists) {
           rightParagraphs.push(
             new Paragraph({
               children: [],
-              spacing: { after: pxToTwips(expEndSpacing) },
+              spacing: { after: pxToTwips(expEndSpacing), ...NO_TEXT_LINE },
             })
           )
         }
@@ -861,7 +911,8 @@ export async function generateCreativeDocx(
     rightParagraphs.push(
       createSectionHeader(
         (dict as any).resumes?.editor?.sections?.projects || creativeDict.projects,
-        SPACING.SECTION_TITLE_MB_RIGHT
+        SPACING.SECTION_TITLE_MB_RIGHT,
+        'main',
       )
     )
 
@@ -888,6 +939,7 @@ export async function generateCreativeDocx(
             after: project.description || (project.technologies && project.technologies.length > 0)
               ? pxToTwips(SPACING.PROJECT_NAME_MB)
               : pxToTwips(projectEndSpacing),
+            ...inheritedBody,
           },
         })
       )
@@ -907,8 +959,7 @@ export async function generateCreativeDocx(
               after: project.technologies && project.technologies.length > 0
                 ? pxToTwips(SPACING.PROJECT_DESC_MB)
                 : pxToTwips(projectEndSpacing),
-              line: Math.round(240 * LINE_HEIGHTS.BODY),
-              lineRule: LineRuleType.AUTO,
+              ...relaxedBody,
             },
           })
         )
@@ -927,7 +978,8 @@ export async function generateCreativeDocx(
                 font,
               }),
             ],
-            spacing: { after: pxToTwips(projectEndSpacing) },
+            // Each pill's text inherits 1.5; the pill's padding and fill are US-007's.
+            spacing: { after: pxToTwips(projectEndSpacing), ...inheritedBody },
           })
         )
       }
@@ -939,7 +991,8 @@ export async function generateCreativeDocx(
     rightParagraphs.push(
       createSectionHeader(
         (dict as any).resumes?.editor?.sections?.education || creativeDict.education,
-        SPACING.SECTION_TITLE_MB_RIGHT
+        SPACING.SECTION_TITLE_MB_RIGHT,
+        'main',
       )
     )
 
@@ -959,7 +1012,7 @@ export async function generateCreativeDocx(
               font,
             }),
           ],
-          spacing: { after: 0 },
+          spacing: { after: 0, ...inheritedBody },
         })
       )
 
@@ -979,7 +1032,7 @@ export async function generateCreativeDocx(
                 font,
               }),
             ],
-            spacing: { after: edu.gpa ? 0 : pxToTwips(4) },
+            spacing: { after: edu.gpa ? 0 : pxToTwips(4), ...inheritedBody },
           })
         )
       }
@@ -996,7 +1049,7 @@ export async function generateCreativeDocx(
                 font,
               }),
             ],
-            spacing: { after: pxToTwips(4) },
+            spacing: { after: pxToTwips(4), ...inheritedBody },
           })
         )
       }
@@ -1020,7 +1073,7 @@ export async function generateCreativeDocx(
                 },
               }),
             ],
-            spacing: { after: pxToTwips(eduEndSpacing) },
+            spacing: { after: pxToTwips(eduEndSpacing), ...inheritedBody },
           })
         )
       }
@@ -1034,7 +1087,7 @@ export async function generateCreativeDocx(
   const headerCell = new TableCell({
     children: headerParagraphs.length > 0
       ? headerParagraphs
-      : [new Paragraph({ children: [] })],
+      : [new Paragraph({ children: [], spacing: NO_TEXT_LINE })],
     shading: {
       fill: PALETTE['purple-600'],
       color: 'auto',
@@ -1080,7 +1133,7 @@ export async function generateCreativeDocx(
   const leftCell = new TableCell({
     children: leftParagraphs.length > 0
       ? leftParagraphs
-      : [new Paragraph({ children: [] })],
+      : [new Paragraph({ children: [], spacing: NO_TEXT_LINE })],
     verticalAlign: VerticalAlign.TOP,
     width: {
       size: leftColumnWidth,
@@ -1098,7 +1151,7 @@ export async function generateCreativeDocx(
   const rightCell = new TableCell({
     children: rightParagraphs.length > 0
       ? rightParagraphs
-      : [new Paragraph({ children: [] })],
+      : [new Paragraph({ children: [], spacing: NO_TEXT_LINE })],
     verticalAlign: VerticalAlign.TOP,
     width: {
       size: rightColumnWidth,
@@ -1146,12 +1199,13 @@ export async function generateCreativeDocx(
             font,
             size: scaledFontSizes.body,
           },
+          // Every paragraph writes its own line spacing; the default is the
+          // inherited 1.5 at the body size, so nothing falls back to Word auto.
           paragraph: {
             spacing: {
               before: 0,
               after: 0,
-              line: 240,
-              lineRule: LineRuleType.AUTO,
+              ...inheritedBody,
             },
           },
         },

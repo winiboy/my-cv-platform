@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest'
 import { formatText } from '@/lib/format-text'
 import {
   COLORS,
+  exactLineSpacing,
+  NO_TEXT_LINE,
   extractAlignment,
   extractPrimaryFont,
   formatDateRange,
@@ -365,7 +367,7 @@ describe('plain-text list parity with the Preview (formatText)', () => {
 
 describe('parsePlainTextListToParagraphs', () => {
   const runOptions = { size: 20, color: '333333', font: 'Arial' }
-  const layout = { spacingAfterItem: 60, spacingAfterLast: 480 }
+  const layout = { spacingAfterItem: 60, spacingAfterLast: 480, lineSpacing: exactLineSpacing([1.5, 20]) }
 
   /** Pack the paragraphs into a real document and read back each paragraph's text. */
   async function renderParagraphs(text: string): Promise<{ texts: string[]; xml: string }> {
@@ -414,6 +416,37 @@ describe('parsePlainTextListToParagraphs', () => {
     const { xml } = await renderParagraphs('Intro\n\n- a\n- b')
     const spacings = xml.match(/<w:spacing [^>]*\/>/g) ?? []
     expect(spacings.map(s => s.match(/w:after="(\d+)"/)?.[1])).toEqual(['60', '60', '480'])
+  })
+
+  it('writes the given exact line spacing on every paragraph', async () => {
+    const { xml } = await renderParagraphs('Intro\n\n- a\n- b')
+    const spacings = xml.match(/<w:spacing [^>]*\/>/g) ?? []
+    expect(spacings).toHaveLength(3)
+    for (const spacing of spacings) {
+      expect(spacing).toMatch(/w:line="300"/)
+      expect(spacing).toMatch(/w:lineRule="exact"/)
+    }
+  })
+})
+
+describe('exactLineSpacing (Part 3 US-004)', () => {
+  it('is the CSS line-height times the run size, in twips, as Word exact spacing', () => {
+    // 1.35 × 11px: the run is pxToHalfPoints(11) = 17 half-points = 8.5pt, so 11.475pt = 229.5 twips.
+    expect(exactLineSpacing([1.35, 17])).toEqual({ line: 230, lineRule: 'exact' })
+    expect(exactLineSpacing([1.5, 21])).toEqual({ line: 315, lineRule: 'exact' })
+  })
+
+  it('takes the tallest line box when one paragraph stands for several side by side', () => {
+    expect(exactLineSpacing([1.2, 20], [1.35, 17])).toEqual({ line: 240, lineRule: 'exact' })
+    expect(exactLineSpacing([1.35, 17], [1.2, 20])).toEqual({ line: 240, lineRule: 'exact' })
+  })
+
+  it('refuses to write a line with no line box to measure', () => {
+    expect(() => exactLineSpacing()).toThrow()
+  })
+
+  it('writes a 1-twip exact line for a paragraph that stands for no text', () => {
+    expect(NO_TEXT_LINE).toEqual({ line: 1, lineRule: 'exact' })
   })
 })
 

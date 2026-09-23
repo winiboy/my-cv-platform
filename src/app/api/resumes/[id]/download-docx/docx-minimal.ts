@@ -28,9 +28,12 @@ import {
   parsePlainTextListToParagraphs,
   parseHtmlToDocxRuns,
   stripHtml,
+  exactLineSpacing,
+  NO_TEXT_LINE,
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
+import { PREFLIGHT_LINE_HEIGHT, TAILWIND_LEADING, TAILWIND_TEXT_LINE_HEIGHT } from '@/lib/resume-line-height'
 import {
   assertExhaustiveSection,
   mapEditorOrderToMinimal,
@@ -67,11 +70,22 @@ const FONT_SIZES = {
   TECH: 12,          // text-xs for technology tags
 }
 
-// Line heights
-const LINE_HEIGHTS = {
-  BODY: 1.625,    // leading-relaxed
-  HEADING: 1.2,
-}
+/**
+ * The Preview's line heights (US-004), from `resume-line-height.ts`.
+ * `minimal-template.tsx` sets none inline: elements inherit Tailwind's
+ * preflight 1.5 unless a class sets one — `text-xl` (position, degree, project
+ * name), `text-base` (company), `text-sm` (dates), `text-xs` (technologies)
+ * and `leading-relaxed` (summary, achievements, descriptions). The template
+ * renders every text plainly (`formatText`), never as formatted content.
+ */
+const LINE_HEIGHT = {
+  inherited: PREFLIGHT_LINE_HEIGHT,
+  textXl: TAILWIND_TEXT_LINE_HEIGHT['text-xl'],
+  textBase: TAILWIND_TEXT_LINE_HEIGHT['text-base'],
+  textSm: TAILWIND_TEXT_LINE_HEIGHT['text-sm'],
+  textXs: TAILWIND_TEXT_LINE_HEIGHT['text-xs'],
+  relaxed: TAILWIND_LEADING['leading-relaxed'],
+} as const
 
 // Spacing constants (px, converted to twips at usage)
 // Wider than Classic to match the Minimal template's airy feel
@@ -193,6 +207,15 @@ export async function generateMinimalDocx(
     tech: pxToHalfPoints(FONT_SIZES.TECH * fontScale),
   }
 
+  // Line spacing shared by many paragraphs.
+  const inheritedBody = exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.body])
+  const relaxedBody = exactLineSpacing([LINE_HEIGHT.relaxed, scaledFontSizes.body])
+  // A title and its date in one flex row: the text-xl h3 beside the text-sm date.
+  const titleAndDateLine = exactLineSpacing(
+    [LINE_HEIGHT.textXl, scaledFontSizes.position],
+    [LINE_HEIGHT.textSm, scaledFontSizes.date],
+  )
+
   // Page dimensions: A4
   const pageWidthTwips = convertInchesToTwip(8.27)
   const pageHeightTwips = convertInchesToTwip(11.69)
@@ -228,6 +251,7 @@ export async function generateMinimalDocx(
       ],
       spacing: {
         after: spacingAfter ?? pxToTwips(SPACING.SECTION_TITLE_MB),
+        ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.sectionTitle]),
       },
       border: {
         bottom: {
@@ -292,8 +316,7 @@ export async function generateMinimalDocx(
       alignment: AlignmentType.CENTER,
       spacing: {
         after: pxToTwips(16), // space-y-4 between title and contact
-        line: Math.round(240 * LINE_HEIGHTS.HEADING),
-        lineRule: LineRuleType.AUTO,
+        ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.title]),
       },
     })
   )
@@ -324,17 +347,21 @@ export async function generateMinimalDocx(
           }),
         ],
         alignment: AlignmentType.CENTER,
-        spacing: { after: 0 },
+        spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.contact]) },
       })
     )
   }
 
-  // Header bottom border: border-b border-slate-300, pb-6
+  // Header bottom border: border-b border-slate-300, pb-6.
+  // It draws no text; its line stands for the header's pb-6, the padding the
+  // Preview draws between the contact line and the border.
   children.push(
     new Paragraph({
       children: [],
       spacing: {
         after: pxToTwips(SPACING.SECTION_GAP),
+        line: pxToTwips(SPACING.HEADER_PB),
+        lineRule: LineRuleType.EXACT,
       },
       border: {
         bottom: {
@@ -381,6 +408,7 @@ export async function generateMinimalDocx(
               },
               pxToTwips(4),
               sectionEndSpacing,
+              relaxedBody,
               undefined,
               summaryAlignment
             )
@@ -398,6 +426,7 @@ export async function generateMinimalDocx(
                   spacingAfterItem: pxToTwips(4),
                   spacingAfterLast: sectionEndSpacing,
                   alignment: summaryAlignment,
+                  lineSpacing: relaxedBody,
                 }
               )
             )
@@ -414,8 +443,7 @@ export async function generateMinimalDocx(
                 alignment: summaryAlignment,
                 spacing: {
                   after: sectionEndSpacing,
-                  line: Math.round(240 * LINE_HEIGHTS.BODY),
-                  lineRule: LineRuleType.AUTO,
+                  ...relaxedBody,
                 },
               })
             )
@@ -462,7 +490,7 @@ export async function generateMinimalDocx(
                     }),
                   ] : []),
                 ],
-                spacing: { after: pxToTwips(SPACING.EXP_LINE1_MB) },
+                spacing: { after: pxToTwips(SPACING.EXP_LINE1_MB), ...titleAndDateLine },
                 tabStops: [
                   {
                     type: TabStopType.RIGHT,
@@ -489,7 +517,10 @@ export async function generateMinimalDocx(
                       // font-light = non-bold (default)
                     }),
                   ],
-                  spacing: { after: pxToTwips(SPACING.EXP_LINE2_MB) },
+                  spacing: {
+                    after: pxToTwips(SPACING.EXP_LINE2_MB),
+                    ...exactLineSpacing([LINE_HEIGHT.textBase, scaledFontSizes.company]),
+                  },
                 })
               )
             }
@@ -524,10 +555,11 @@ export async function generateMinimalDocx(
                       }),
                       ...achievementRuns,
                     ],
+                    // The achievement text is a leading-relaxed span; the Preview's
+                    // bullet is a drawn dot, not text.
                     spacing: {
                       after: achievementSpacingAfter,
-                      line: Math.round(240 * LINE_HEIGHTS.BODY),
-                      lineRule: LineRuleType.AUTO,
+                      ...relaxedBody,
                     },
                   })
                 )
@@ -546,6 +578,7 @@ export async function generateMinimalDocx(
                   },
                   pxToTwips(SPACING.ACHIEVEMENT_GAP),
                   descSpacingAfter,
+                  relaxedBody,
                   undefined,
                   descAlignment
                 )
@@ -563,6 +596,7 @@ export async function generateMinimalDocx(
                       spacingAfterItem: pxToTwips(SPACING.ACHIEVEMENT_GAP),
                       spacingAfterLast: descSpacingAfter,
                       alignment: descAlignment,
+                      lineSpacing: relaxedBody,
                     }
                   )
                 )
@@ -578,19 +612,19 @@ export async function generateMinimalDocx(
                     children: descRuns,
                     spacing: {
                       after: descSpacingAfter,
-                      line: Math.round(240 * LINE_HEIGHTS.BODY),
-                      lineRule: LineRuleType.AUTO,
+                      ...relaxedBody,
                     },
                     alignment: descAlignment,
                   })
                 )
               }
             } else {
-              // No description or achievements
+              // No description or achievements. The spacer carries only the gap;
+              // the Preview draws no line there.
               children.push(
                 new Paragraph({
                   children: [],
-                  spacing: { after: isLastExp ? sectionEndSpacing : pxToTwips(SPACING.EXPERIENCE_ITEM_GAP) },
+                  spacing: { after: isLastExp ? sectionEndSpacing : pxToTwips(SPACING.EXPERIENCE_ITEM_GAP), ...NO_TEXT_LINE },
                 })
               )
             }
@@ -629,6 +663,7 @@ export async function generateMinimalDocx(
                   after: hasDescription || hasTechnologies
                     ? pxToTwips(SPACING.PROJECT_NAME_MB)
                     : (isLastProject ? sectionEndSpacing : pxToTwips(SPACING.PROJECT_ITEM_GAP)),
+                  ...exactLineSpacing([LINE_HEIGHT.textXl, scaledFontSizes.position]),
                 },
               })
             )
@@ -648,8 +683,7 @@ export async function generateMinimalDocx(
                     after: hasTechnologies
                       ? pxToTwips(SPACING.PROJECT_DESC_MB)
                       : (isLastProject ? sectionEndSpacing : pxToTwips(SPACING.PROJECT_ITEM_GAP)),
-                    line: Math.round(240 * LINE_HEIGHTS.BODY),
-                    lineRule: LineRuleType.AUTO,
+                    ...relaxedBody,
                   },
                 })
               )
@@ -671,6 +705,7 @@ export async function generateMinimalDocx(
                   ],
                   spacing: {
                     after: isLastProject ? sectionEndSpacing : pxToTwips(SPACING.PROJECT_ITEM_GAP),
+                    ...exactLineSpacing([LINE_HEIGHT.textXs, scaledFontSizes.tech]),
                   },
                 })
               )
@@ -718,7 +753,7 @@ export async function generateMinimalDocx(
                     }),
                   ] : []),
                 ],
-                spacing: { after: pxToTwips(SPACING.EDU_LINE1_MB) },
+                spacing: { after: pxToTwips(SPACING.EDU_LINE1_MB), ...titleAndDateLine },
                 tabStops: [
                   {
                     type: TabStopType.RIGHT,
@@ -750,6 +785,7 @@ export async function generateMinimalDocx(
                   after: hasGpa
                     ? pxToTwips(4) // mt-1 before GPA
                     : (isLastEdu ? sectionEndSpacing : pxToTwips(SPACING.EDUCATION_ITEM_GAP)),
+                  ...inheritedBody,
                 },
               })
             )
@@ -768,6 +804,7 @@ export async function generateMinimalDocx(
                   ],
                   spacing: {
                     after: isLastEdu ? sectionEndSpacing : pxToTwips(SPACING.EDUCATION_ITEM_GAP),
+                    ...inheritedBody,
                   },
                 })
               )
@@ -804,12 +841,15 @@ export async function generateMinimalDocx(
                     font,
                   }),
                 ],
-                spacing: { after: pxToTwips(SPACING.SKILLS_ITEM_MB) },
+                spacing: { after: pxToTwips(SPACING.SKILLS_ITEM_MB), ...inheritedBody },
               })
             )
 
             // Skill items (slate-600, flex-wrapped with gap-x-4)
-            // Use skillsHtml if available, otherwise items array
+            // Use skillsHtml if available, otherwise items array.
+            // The Preview renders `items` only, never `skillsHtml`; that content
+            // divergence is Part 3 US-016's. Either way the paragraph takes the
+            // line height of the Preview's skill items, which inherit 1.5.
             let skillText = ''
             if (skillCat.skillsHtml) {
               skillText = stripHtml(skillCat.skillsHtml)
@@ -829,7 +869,7 @@ export async function generateMinimalDocx(
                       font,
                     }),
                   ],
-                  spacing: { after: itemEndSpacing },
+                  spacing: { after: itemEndSpacing, ...inheritedBody },
                 })
               )
             }
@@ -876,7 +916,7 @@ export async function generateMinimalDocx(
                       // font-light = non-bold
                     }),
                   ],
-                  spacing: { after: isLast ? 0 : pxToTwips(SPACING.LANGUAGE_ITEM_GAP) },
+                  spacing: { after: isLast ? 0 : pxToTwips(SPACING.LANGUAGE_ITEM_GAP), ...inheritedBody },
                   tabStops: [
                     {
                       type: TabStopType.RIGHT,
@@ -913,7 +953,7 @@ export async function generateMinimalDocx(
                       font,
                     }),
                   ],
-                  spacing: { after: cert.issuer || cert.date ? 0 : (isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP)) },
+                  spacing: { after: cert.issuer || cert.date ? 0 : (isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP)), ...inheritedBody },
                 })
               )
 
@@ -929,7 +969,7 @@ export async function generateMinimalDocx(
                         font,
                       }),
                     ],
-                    spacing: { after: cert.date ? 0 : (isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP)) },
+                    spacing: { after: cert.date ? 0 : (isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP)), ...inheritedBody },
                   })
                 )
               }
@@ -949,7 +989,7 @@ export async function generateMinimalDocx(
                         font,
                       }),
                     ],
-                    spacing: { after: isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP) },
+                    spacing: { after: isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP), ...inheritedBody },
                   })
                 )
               }
@@ -963,21 +1003,22 @@ export async function generateMinimalDocx(
           if (languages.length > 0 && certifications.length > 0) {
             // Both columns: 3-column table (lang | gap | certs)
             const langCell = new TableCell({
-              children: langParagraphs.length > 0 ? langParagraphs : [new Paragraph({ children: [] })],
+              children: langParagraphs.length > 0 ? langParagraphs : [new Paragraph({ children: [], spacing: NO_TEXT_LINE })],
               verticalAlign: VerticalAlign.TOP,
               width: { size: halfColumnWidth, type: WidthType.DXA },
               margins: { top: 0, bottom: 0, left: 0, right: 0 },
             })
 
+            // The grid gap: a cell OOXML requires to hold one paragraph, drawing no text.
             const gapCell = new TableCell({
-              children: [new Paragraph({ children: [] })],
+              children: [new Paragraph({ children: [], spacing: NO_TEXT_LINE })],
               verticalAlign: VerticalAlign.TOP,
               width: { size: gapWidth, type: WidthType.DXA },
               margins: { top: 0, bottom: 0, left: 0, right: 0 },
             })
 
             const certCell = new TableCell({
-              children: certParagraphs.length > 0 ? certParagraphs : [new Paragraph({ children: [] })],
+              children: certParagraphs.length > 0 ? certParagraphs : [new Paragraph({ children: [], spacing: NO_TEXT_LINE })],
               verticalAlign: VerticalAlign.TOP,
               width: { size: halfColumnWidth, type: WidthType.DXA },
               margins: { top: 0, bottom: 0, left: 0, right: 0 },
@@ -1032,12 +1073,13 @@ export async function generateMinimalDocx(
             font,
             size: scaledFontSizes.body,
           },
+          // Every paragraph writes its own line spacing; the default is the
+          // inherited 1.5 at the body size, so nothing falls back to Word auto.
           paragraph: {
             spacing: {
               before: 0,
               after: 0,
-              line: 240,
-              lineRule: LineRuleType.AUTO,
+              ...inheritedBody,
             },
           },
         },
@@ -1060,7 +1102,13 @@ export async function generateMinimalDocx(
             },
           },
         },
-        children,
+        // OOXML ends a body with a paragraph. When the document ends with the
+        // languages and certifications table, write that paragraph explicitly
+        // with a 1-twip line: left to Word, it would take the document default's
+        // text line and could push an exactly full page onto a blank one.
+        children: children[children.length - 1] instanceof Table
+          ? [...children, new Paragraph({ children: [], spacing: { before: 0, after: 0, ...NO_TEXT_LINE } })]
+          : children,
       },
     ],
   })

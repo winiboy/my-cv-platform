@@ -43,18 +43,25 @@ export interface ColourSample {
 }
 
 /**
- * How a line's leading is specified.
+ * A line's leading: the distance from one baseline to the next.
  *
- * `ratio` multiplies the FONT SIZE: a CSS unitless or px line-height, or a DOCX
- * exact / at-least spacing divided by the run size. `auto-multiple` is a Word
- * auto spacing, which multiplies the font's SINGLE-LINE HEIGHT (ascent +
- * descent + line gap) — a different quantity, so the two are never equal even
- * when their numbers are. `normal` is the font's own single line on either side.
+ * `ratio` is DRAWN leading as a multiple of the FONT SIZE: a CSS line-height
+ * (the height of the element's line boxes), or a DOCX exact spacing divided by
+ * the run size — Word lays every line of an exact paragraph at exactly that
+ * pitch, whatever the font. The other kinds are what a surface ASKED for, whose
+ * drawn leading depends on font metrics this check does not read, so none of
+ * them ever equals a `ratio`:
+ * - `auto-multiple`: Word auto spacing, a multiple of the font's SINGLE-LINE
+ *   HEIGHT (ascent + descent + line gap), not of its size;
+ * - `at-least`: Word at-least spacing, drawn at this multiple of the run size
+ *   or at the font's single line, whichever is taller;
+ * - `normal`: the font's own single line, on either surface.
  */
 export type LineHeight =
   | { kind: 'normal' }
   | { kind: 'ratio'; ratio: number }
   | { kind: 'auto-multiple'; ratio: number }
+  | { kind: 'at-least'; ratio: number }
 
 export interface StyleSample {
   /** The text the sample was taken from, for the log. */
@@ -1043,15 +1050,27 @@ export async function measureDocx(buffer: Buffer, probe: SurfaceProbe): Promise<
       throw new Error(`DOCX run "${run.text}" has no resolvable size or font`)
     }
     const line = paragraph.line ?? defaultLine ?? 240
+    // OOXML: an omitted w:lineRule means auto.
     const lineRule = paragraph.line === null ? (defaultLineRule ?? 'auto') : (paragraph.lineRule ?? 'auto')
-    // Auto spacing is in 240ths of the font's single line; exact and at-least spacing are
-    // twips, and divided by the run size they become a multiple of the font size like CSS.
-    const lineHeight: LineHeight =
-      lineRule === 'auto'
-        ? line === 240
-          ? { kind: 'normal' }
-          : { kind: 'auto-multiple', ratio: Math.round((line / 240) * 1000) / 1000 }
-        : { kind: 'ratio', ratio: Math.round((line / 20 / (halfPoints / 2)) * 1000) / 1000 }
+    // Auto spacing is in 240ths of the font's single line. Exact and at-least spacing are
+    // twips (1/20 pt) and the run size is in half-points, so their quotient is a multiple
+    // of the font size like CSS. Only exact spacing is drawn at that multiple for every
+    // font; at-least is drawn at it only where the font's single line is not taller.
+    const perFontSize = Math.round((line / 20 / (halfPoints / 2)) * 1000) / 1000
+    let lineHeight: LineHeight
+    switch (lineRule) {
+      case 'auto':
+        lineHeight = line === 240 ? { kind: 'normal' } : { kind: 'auto-multiple', ratio: Math.round((line / 240) * 1000) / 1000 }
+        break
+      case 'exact':
+        lineHeight = { kind: 'ratio', ratio: perFontSize }
+        break
+      case 'atLeast':
+        lineHeight = { kind: 'at-least', ratio: perFontSize }
+        break
+      default:
+        throw new Error(`DOCX run "${run.text}" has a line rule this check does not read: ${lineRule}`)
+    }
     return {
       text: run.text,
       px: halfPoints / 1.5,

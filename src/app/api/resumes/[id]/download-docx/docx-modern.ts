@@ -39,9 +39,19 @@ import {
   parseHtmlToDocxRuns,
   formatDateRange,
   COLORS,
+  exactLineSpacing,
+  NO_TEXT_LINE,
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
+import {
+  MODERN_LINE_HEIGHT,
+  MODERN_TITLE_BAR_PADDING_Y_PX,
+  PREFLIGHT_LINE_HEIGHT,
+  TAILWIND_LEADING,
+  TAILWIND_TEXT_LINE_HEIGHT,
+  formattedTextLineHeight,
+} from '@/lib/resume-line-height'
 import {
   assertExhaustiveSection,
   DEFAULT_MODERN_MAIN_ORDER,
@@ -87,13 +97,16 @@ const FONT_SIZES = {
   CERT_DATE: 10,               // cert.date
 }
 
-// Line heights (matching modern-template.tsx)
-const LINE_HEIGHTS = {
-  BODY: 1.5,
-  HEADING: 1.2,
-  SIDEBAR: 1.4,
-  SIDEBAR_TIGHT: 1.5,
-}
+/**
+ * The Preview's line heights (US-004), from the module `modern-template.tsx`
+ * imports them from: `title` for the name; `compact` for headings, labels and
+ * entry lines; `text` for running text and secondary lines. Elements that set
+ * none inherit Tailwind's preflight 1.5; the project name and technologies
+ * draw at their `text-lg` and `text-xs` line heights, and the project
+ * description at `leading-relaxed`. Formatted (HTML) text draws at
+ * `.formatted-content`'s height, through `formattedTextLineHeight`.
+ */
+const LINE_HEIGHT = MODERN_LINE_HEIGHT
 
 // Spacing constants in px (matching modern-template.tsx)
 const SPACING = {
@@ -441,7 +454,10 @@ export async function generateModernDocx(
         }),
       ],
       indent: sidebarTextIndent,
-      spacing: { after: pxToTwips(SPACING.SIDEBAR_SECTION_HEADER_MB) },
+      spacing: {
+        after: pxToTwips(SPACING.SIDEBAR_SECTION_HEADER_MB),
+        ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.sidebarSectionTitle]),
+      },
       shading: {
         type: ShadingType.SOLID,
         fill: accentColorHex,
@@ -469,8 +485,7 @@ export async function generateModernDocx(
       ],
       spacing: {
         after: pxToTwips(SPACING.MAIN_SECTION_HEADER_MB),
-        line: Math.round(240 * LINE_HEIGHTS.HEADING),
-        lineRule: LineRuleType.AUTO,
+        ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.mainSectionTitle]),
       },
       border: {
         bottom: {
@@ -594,6 +609,7 @@ export async function generateModernDocx(
         spacing: {
           before: photoZoneOffset,
           after: pxToTwips(sidebarTopMargin),
+          ...NO_TEXT_LINE,
         },
         indent: sidebarTextIndent,
         children: [],
@@ -603,7 +619,7 @@ export async function generateModernDocx(
     // Always add the top padding spacer paragraph before first text content
     sidebarParagraphs.push(
       new Paragraph({
-        spacing: { before: photoZoneOffset, after: 0 },
+        spacing: { before: photoZoneOffset, after: 0, ...NO_TEXT_LINE },
         indent: sidebarTextIndent,
         children: [],
       })
@@ -663,7 +679,7 @@ export async function generateModernDocx(
                 }),
               ],
               indent: sidebarTextIndent,
-              spacing: { after: 0 },
+              spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.contactLabel]) },
             })
           )
 
@@ -686,7 +702,7 @@ export async function generateModernDocx(
                 }),
               ],
               indent: sidebarTextIndent,
-              spacing: { after: itemEndSpacing },
+              spacing: { after: itemEndSpacing, ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.contactValue]) },
             })
           )
         })
@@ -720,7 +736,7 @@ export async function generateModernDocx(
                   }),
                 ],
                 indent: sidebarTextIndent,
-                spacing: { after: 0 },
+                spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.educationDegree]) },
               })
             )
 
@@ -743,7 +759,7 @@ export async function generateModernDocx(
                   }),
                 ],
                 indent: sidebarTextIndent,
-                spacing: { after: itemEndSpacing },
+                spacing: { after: itemEndSpacing, ...exactLineSpacing([LINE_HEIGHT.text, scaledFontSizes.educationSchool]) },
               })
             )
           })
@@ -779,13 +795,20 @@ export async function generateModernDocx(
                     }),
                   ],
                   indent: sidebarTextIndent,
-                  spacing: { after: pxToTwips(8) }, // margin 0 0 8px 0
+                  // margin 0 0 8px 0
+                  spacing: { after: pxToTwips(8), ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.skillCategory]) },
                 })
               )
             }
 
+            // Every skill line takes the Preview skill item's line height.
+            const skillLineSpacing = exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.skillItem])
+
             // Skill items as text list (progress bars cannot render in DOCX)
-            // Use skillsHtml if available, otherwise fall back to items array
+            // Use skillsHtml if available, otherwise fall back to items array.
+            // The Preview renders `items` only, never `skillsHtml`; that content
+            // divergence is Part 3 US-016's. Until then these paragraphs take the
+            // line height of the element they stand in for, the skill item.
             if (skillCategory.skillsHtml) {
               const skillsAlignment = extractAlignment(skillCategory.skillsHtml) || AlignmentType.LEFT
 
@@ -799,6 +822,7 @@ export async function generateModernDocx(
                   },
                   pxToTwips(4),
                   categoryEndSpacing,
+                  skillLineSpacing,
                   sidebarTextIndent,
                   skillsAlignment
                 )
@@ -814,7 +838,7 @@ export async function generateModernDocx(
                   new Paragraph({
                     children: skillsRuns,
                     indent: sidebarTextIndent,
-                    spacing: { after: categoryEndSpacing },
+                    spacing: { after: categoryEndSpacing, ...skillLineSpacing },
                     alignment: skillsAlignment,
                   })
                 )
@@ -837,7 +861,7 @@ export async function generateModernDocx(
                       }),
                     ],
                     indent: sidebarTextIndent,
-                    spacing: { after: itemSpacing },
+                    spacing: { after: itemSpacing, ...skillLineSpacing },
                   })
                 )
               })
@@ -880,7 +904,14 @@ export async function generateModernDocx(
                   }),
                 ],
                 indent: sidebarTextIndent,
-                spacing: { after: itemEndSpacing },
+                // One flex row in the Preview: the name and the level, each at the compact height.
+                spacing: {
+                  after: itemEndSpacing,
+                  ...exactLineSpacing(
+                    [LINE_HEIGHT.compact, scaledFontSizes.languageName],
+                    [LINE_HEIGHT.compact, scaledFontSizes.languageLevel],
+                  ),
+                },
                 tabStops: [
                   {
                     type: TabStopType.RIGHT,
@@ -920,7 +951,10 @@ export async function generateModernDocx(
                   }),
                 ],
                 indent: sidebarTextIndent,
-                spacing: { after: cert.issuer || cert.date ? 0 : itemEndSpacing },
+                spacing: {
+                  after: cert.issuer || cert.date ? 0 : itemEndSpacing,
+                  ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.certName]),
+                },
               })
             )
 
@@ -937,7 +971,10 @@ export async function generateModernDocx(
                     }),
                   ],
                   indent: sidebarTextIndent,
-                  spacing: { after: cert.date ? 0 : itemEndSpacing },
+                  spacing: {
+                    after: cert.date ? 0 : itemEndSpacing,
+                    ...exactLineSpacing([LINE_HEIGHT.text, scaledFontSizes.certIssuer]),
+                  },
                 })
               )
             }
@@ -958,7 +995,7 @@ export async function generateModernDocx(
                     }),
                   ],
                   indent: sidebarTextIndent,
-                  spacing: { after: itemEndSpacing },
+                  spacing: { after: itemEndSpacing, ...exactLineSpacing([LINE_HEIGHT.text, scaledFontSizes.certDate]) },
                 })
               )
             }
@@ -996,8 +1033,7 @@ export async function generateModernDocx(
       spacing: {
         before: initialMainSpacing,
         after: pxToTwips(SPACING.NAME_MB),
-        line: Math.round(240 * LINE_HEIGHTS.HEADING),
-        lineRule: LineRuleType.AUTO,
+        ...exactLineSpacing([LINE_HEIGHT.title, scaledFontSizes.name]),
       },
     })
   )
@@ -1016,8 +1052,16 @@ export async function generateModernDocx(
             characterSpacing: 5, // tracking-wide
           }),
         ],
+        // The paragraph stands for the accent bar's box: its text line, which
+        // inherits preflight's height, plus the bar's padding above and below, so
+        // the shading covers what the Preview fills.
         spacing: {
           after: pxToTwips(SPACING.TITLE_BAR_MB),
+          ...exactLineSpacing({
+            lineHeight: PREFLIGHT_LINE_HEIGHT,
+            halfPoints: scaledFontSizes.jobTitleBar,
+            paddingPx: 2 * MODERN_TITLE_BAR_PADDING_Y_PX,
+          }),
         },
         shading: {
           type: ShadingType.SOLID,
@@ -1040,8 +1084,10 @@ export async function generateModernDocx(
             font: primaryFont,
           }),
         ],
+        // The address line sets no line height, so it inherits preflight's.
         spacing: {
           after: pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN),
+          ...exactLineSpacing([PREFLIGHT_LINE_HEIGHT, scaledFontSizes.location]),
         },
       })
     )
@@ -1049,7 +1095,7 @@ export async function generateModernDocx(
     // Gap after title bar if no location
     mainContentParagraphs.push(
       new Paragraph({
-        spacing: { after: pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN) },
+        spacing: { after: pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN), ...NO_TEXT_LINE },
         children: [],
       })
     )
@@ -1076,6 +1122,11 @@ export async function generateModernDocx(
           const sectionEndSpacing = isLastSection ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN)
 
           const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.LEFT
+          // The summary div's inline `text` height overrides its leading-relaxed class.
+          const summaryLineSpacing = exactLineSpacing([
+            formattedTextLineHeight(resume.summary, LINE_HEIGHT.text),
+            scaledFontSizes.summary,
+          ])
 
           if (isHtmlList(resume.summary)) {
             const listParagraphs = parseHtmlListToParagraphs(
@@ -1087,6 +1138,7 @@ export async function generateModernDocx(
               },
               pxToTwips(4),
               sectionEndSpacing,
+              summaryLineSpacing,
               { right: mainContentRightIndent },
               summaryAlignment
             )
@@ -1105,6 +1157,7 @@ export async function generateModernDocx(
                   spacingAfterLast: sectionEndSpacing,
                   indent: { right: mainContentRightIndent },
                   alignment: summaryAlignment,
+                  lineSpacing: summaryLineSpacing,
                 }
               )
             )
@@ -1122,8 +1175,7 @@ export async function generateModernDocx(
                 indent: { right: mainContentRightIndent },
                 spacing: {
                   after: sectionEndSpacing,
-                  line: Math.round(240 * LINE_HEIGHTS.BODY),
-                  lineRule: LineRuleType.AUTO,
+                  ...summaryLineSpacing,
                 },
               })
             )
@@ -1164,7 +1216,7 @@ export async function generateModernDocx(
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: pxToTwips(2) },
+                spacing: { after: pxToTwips(2), ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.experiencePosition]) },
               })
             )
 
@@ -1181,7 +1233,7 @@ export async function generateModernDocx(
                       font: primaryFont,
                     }),
                   ],
-                  spacing: { after: pxToTwips(8) },
+                  spacing: { after: pxToTwips(8), ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.experienceDate]) },
                 })
               )
             }
@@ -1199,7 +1251,10 @@ export async function generateModernDocx(
                       font: primaryFont,
                     }),
                   ],
-                  spacing: { after: exp.location ? pxToTwips(2) : 0 },
+                  spacing: {
+                    after: exp.location ? pxToTwips(2) : 0,
+                    ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.experienceCompany]),
+                  },
                 })
               )
             }
@@ -1216,14 +1271,14 @@ export async function generateModernDocx(
                       font: primaryFont,
                     }),
                   ],
-                  spacing: { after: 0 },
+                  spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.experienceLocation]) },
                 })
               )
             }
 
             // Ensure at least one paragraph in left column
             if (leftParagraphs.length === 0) {
-              leftParagraphs.push(new Paragraph({ children: [] }))
+              leftParagraphs.push(new Paragraph({ children: [], spacing: NO_TEXT_LINE }))
             }
 
             // --- Build RIGHT column paragraphs (60%) ---
@@ -1232,6 +1287,10 @@ export async function generateModernDocx(
             // Description
             if (exp.description) {
               const descAlignment = extractAlignment(exp.description) || AlignmentType.LEFT
+              const descLineSpacing = exactLineSpacing([
+                formattedTextLineHeight(exp.description, LINE_HEIGHT.text),
+                scaledFontSizes.body,
+              ])
 
               if (isHtmlList(exp.description)) {
                 const listParagraphs = parseHtmlListToParagraphs(
@@ -1243,6 +1302,7 @@ export async function generateModernDocx(
                   },
                   pxToTwips(4),
                   exp.achievements && exp.achievements.length > 0 ? pxToTwips(6) : 0,
+                  descLineSpacing,
                   undefined,
                   descAlignment
                 )
@@ -1260,6 +1320,7 @@ export async function generateModernDocx(
                       spacingAfterItem: pxToTwips(4),
                       spacingAfterLast: exp.achievements && exp.achievements.length > 0 ? pxToTwips(6) : 0,
                       alignment: descAlignment,
+                      lineSpacing: descLineSpacing,
                     }
                   )
                 )
@@ -1275,8 +1336,7 @@ export async function generateModernDocx(
                     children: descRuns,
                     spacing: {
                       after: exp.achievements && exp.achievements.length > 0 ? pxToTwips(6) : 0,
-                      line: Math.round(240 * LINE_HEIGHTS.BODY),
-                      lineRule: LineRuleType.AUTO,
+                      ...descLineSpacing,
                     },
                     alignment: descAlignment,
                   })
@@ -1310,10 +1370,15 @@ export async function generateModernDocx(
                       }),
                       ...achievementRuns,
                     ],
+                    // The achievement's lines are spaced at its text's height: the li's
+                    // `text`, or the formatted-content height when it is HTML. The bullet
+                    // is a separate flex item at the li's `text` height; it can make a
+                    // one-line HTML item 0.1em taller in the Preview than its leading,
+                    // which one Word paragraph cannot also express (recorded as a
+                    // FINDING in the parity report).
                     spacing: {
                       after: isLastAchievement ? 0 : pxToTwips(SPACING.ACHIEVEMENT_GAP),
-                      line: Math.round(240 * LINE_HEIGHTS.BODY),
-                      lineRule: LineRuleType.AUTO,
+                      ...exactLineSpacing([formattedTextLineHeight(achievement, LINE_HEIGHT.text), scaledFontSizes.body]),
                     },
                   })
                 )
@@ -1322,7 +1387,7 @@ export async function generateModernDocx(
 
             // Ensure at least one paragraph in right column
             if (rightParagraphs.length === 0) {
-              rightParagraphs.push(new Paragraph({ children: [] }))
+              rightParagraphs.push(new Paragraph({ children: [], spacing: NO_TEXT_LINE }))
             }
 
             // --- Create 2-column nested table for this experience entry ---
@@ -1380,7 +1445,7 @@ export async function generateModernDocx(
             if (expEndSpacing > 0) {
               mainContentParagraphs.push(
                 new Paragraph({
-                  spacing: { after: expEndSpacing },
+                  spacing: { after: expEndSpacing, ...NO_TEXT_LINE },
                   children: [],
                 })
               )
@@ -1406,6 +1471,12 @@ export async function generateModernDocx(
     projects.forEach((project: any, i: number) => {
       const isLast = i === projects.length - 1
       const itemEndSpacing = isLast ? 0 : pxToTwips(16)
+      const projectNameSize = pxToHalfPoints(18 * fontScale) // text-lg
+      // The description div's leading-relaxed, or the formatted-content height for HTML.
+      const projectDescLineSpacing = exactLineSpacing([
+        formattedTextLineHeight(project.description, TAILWIND_LEADING['leading-relaxed']),
+        scaledFontSizes.body,
+      ])
 
       // Project name (bold)
       mainContentParagraphs.push(
@@ -1420,12 +1491,17 @@ export async function generateModernDocx(
             new TextRun({
               text: project.name || '',
               bold: true,
-              size: pxToHalfPoints(18 * fontScale), // text-lg
+              size: projectNameSize,
               color: PALETTE['slate-900'],
               font: primaryFont,
             }),
           ],
-          spacing: { after: project.description || (project.technologies && project.technologies.length > 0) ? pxToTwips(4) : itemEndSpacing },
+          // The h3 draws at text-lg's line height. The Preview's dot is a drawn
+          // circle beside it, not text, so the bullet run adds no line box.
+          spacing: {
+            after: project.description || (project.technologies && project.technologies.length > 0) ? pxToTwips(4) : itemEndSpacing,
+            ...exactLineSpacing([TAILWIND_TEXT_LINE_HEIGHT['text-lg'], projectNameSize]),
+          },
           indent: { right: mainContentRightIndent },
         })
       )
@@ -1442,6 +1518,7 @@ export async function generateModernDocx(
             },
             pxToTwips(4),
             project.technologies && project.technologies.length > 0 ? pxToTwips(8) : itemEndSpacing,
+            projectDescLineSpacing,
             { left: pxToTwips(16), right: mainContentRightIndent }
           )
           mainContentParagraphs.push(...listParagraphs)
@@ -1458,6 +1535,7 @@ export async function generateModernDocx(
                 spacingAfterItem: pxToTwips(4),
                 spacingAfterLast: project.technologies && project.technologies.length > 0 ? pxToTwips(8) : itemEndSpacing,
                 indent: { left: pxToTwips(16), right: mainContentRightIndent },
+                lineSpacing: projectDescLineSpacing,
               }
             )
           )
@@ -1473,8 +1551,7 @@ export async function generateModernDocx(
               children: descRuns,
               spacing: {
                 after: project.technologies && project.technologies.length > 0 ? pxToTwips(8) : itemEndSpacing,
-                line: Math.round(240 * LINE_HEIGHTS.BODY),
-                lineRule: LineRuleType.AUTO,
+                ...projectDescLineSpacing,
               },
               indent: { left: pxToTwips(16), right: mainContentRightIndent },
             })
@@ -1494,7 +1571,12 @@ export async function generateModernDocx(
                 font: primaryFont,
               }),
             ],
-            spacing: { after: itemEndSpacing },
+            // Each chip's text draws at text-xs's line height; the chip's padding
+            // and fill are graphics (US-007), not leading.
+            spacing: {
+              after: itemEndSpacing,
+              ...exactLineSpacing([TAILWIND_TEXT_LINE_HEIGHT['text-xs'], pxToHalfPoints(12 * fontScale)]),
+            },
             indent: { left: pxToTwips(16), right: mainContentRightIndent },
           })
         )
@@ -1515,7 +1597,7 @@ export async function generateModernDocx(
   const sidebarCell = new TableCell({
     children: sidebarParagraphs.length > 0
       ? sidebarParagraphs
-      : [new Paragraph({ children: [] })], // DOCX requires at least one paragraph
+      : [new Paragraph({ children: [], spacing: NO_TEXT_LINE })], // DOCX requires at least one paragraph
     shading: {
       fill: sidebarColorHex,
       color: 'auto',
@@ -1537,7 +1619,7 @@ export async function generateModernDocx(
   const mainContentCell = new TableCell({
     children: mainContentChildren.length > 0
       ? mainContentChildren
-      : [new Paragraph({ children: [] })],
+      : [new Paragraph({ children: [], spacing: NO_TEXT_LINE })],
     margins: {
       top: convertInchesToTwip(0.33),
       bottom: convertInchesToTwip(0.33),
@@ -1604,12 +1686,13 @@ export async function generateModernDocx(
             font: primaryFont,
             size: scaledFontSizes.body,
           },
+          // Every paragraph writes its own line spacing; the default is running
+          // text's, at the default run size, so nothing falls back to Word auto.
           paragraph: {
             spacing: {
               before: 0,
               after: 0,
-              line: 240,
-              lineRule: LineRuleType.AUTO,
+              ...exactLineSpacing([LINE_HEIGHT.text, scaledFontSizes.body]),
             },
           },
         },

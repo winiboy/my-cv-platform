@@ -13,6 +13,7 @@ import type {
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
 import { renderFormattedText } from '@/lib/format-text'
+import { MODERN_LINE_HEIGHT, MODERN_TITLE_BAR_PADDING_Y_PX } from '@/lib/resume-line-height'
 import {
   assertExhaustiveSection,
   DEFAULT_MODERN_MAIN_ORDER,
@@ -61,7 +62,7 @@ function SidebarSectionHeader({ title, accentColor, fontScale = 1 }: { title: st
           textTransform: 'uppercase',
           letterSpacing: '0.08em',
           margin: 0,
-          lineHeight: 1.4,
+          lineHeight: MODERN_LINE_HEIGHT.compact,
         }}
       >
         {title}
@@ -84,7 +85,7 @@ function ContactItem({ label, value, accentColor, icon, fontScale = 1 }: { label
             letterSpacing: '0.05em',
             color: 'rgba(255,255,255,0.6)',
             margin: 0,
-            lineHeight: 1.4,
+            lineHeight: MODERN_LINE_HEIGHT.compact,
           }}
         >
           {label}
@@ -94,7 +95,7 @@ function ContactItem({ label, value, accentColor, icon, fontScale = 1 }: { label
             fontSize: `${11 * fontScale}px`,
             color: '#FFFFFF',
             margin: 0,
-            lineHeight: 1.4,
+            lineHeight: MODERN_LINE_HEIGHT.compact,
             wordBreak: 'break-all',
           }}
         >
@@ -133,7 +134,7 @@ function MainSectionHeader({ title, accentColor, fontScale = 1, children }: { ti
           letterSpacing: '0.08em',
           margin: 0,
           paddingBottom: '6px',
-          lineHeight: 1.4,
+          lineHeight: MODERN_LINE_HEIGHT.compact,
         }}
       >
         {title}
@@ -341,7 +342,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                       textTransform: 'uppercase',
                       color: '#FFFFFF',
                       margin: 0,
-                      lineHeight: 1.4,
+                      lineHeight: MODERN_LINE_HEIGHT.compact,
                     }}
                   >
                     {edu.degree}
@@ -352,7 +353,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                       fontSize: `${11 * activeScale}px`,
                       color: 'rgba(255,255,255,0.8)',
                       margin: 0,
-                      lineHeight: 1.5,
+                      lineHeight: MODERN_LINE_HEIGHT.text,
                     }}
                   >
                     {edu.school}
@@ -383,7 +384,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                         fontWeight: 700,
                         color: '#FFFFFF',
                         margin: '0 0 8px 0',
-                        lineHeight: 1.4,
+                        lineHeight: MODERN_LINE_HEIGHT.compact,
                         textTransform: 'uppercase',
                         letterSpacing: '0.03em',
                       }}
@@ -402,7 +403,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                               fontSize: `${11 * activeScale}px`,
                               color: '#FFFFFF',
                               margin: '0 0 3px 0',
-                              lineHeight: 1.4,
+                              lineHeight: MODERN_LINE_HEIGHT.compact,
                             }}
                           >
                             {skillName}
@@ -447,7 +448,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                       fontSize: `${12 * activeScale}px`,
                       fontWeight: 700,
                       color: '#FFFFFF',
-                      lineHeight: 1.4,
+                      lineHeight: MODERN_LINE_HEIGHT.compact,
                     }}
                   >
                     {lang.language}
@@ -456,7 +457,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                     style={{
                       fontSize: `${11 * activeScale}px`,
                       color: 'rgba(255,255,255,0.7)',
-                      lineHeight: 1.4,
+                      lineHeight: MODERN_LINE_HEIGHT.compact,
                     }}
                   >
                     {dict.resumes?.editor?.levels?.[lang.level.toLowerCase()] || lang.level}
@@ -481,7 +482,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                       fontWeight: 700,
                       color: '#FFFFFF',
                       margin: 0,
-                      lineHeight: 1.4,
+                      lineHeight: MODERN_LINE_HEIGHT.compact,
                     }}
                   >
                     {cert.name}
@@ -492,7 +493,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                         fontSize: `${11 * activeScale}px`,
                         color: 'rgba(255,255,255,0.7)',
                         margin: 0,
-                        lineHeight: 1.5,
+                        lineHeight: MODERN_LINE_HEIGHT.text,
                       }}
                     >
                       {cert.issuer}
@@ -504,7 +505,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                         fontSize: `${10 * activeScale}px`,
                         color: 'rgba(255,255,255,0.6)',
                         margin: 0,
-                        lineHeight: 1.5,
+                        lineHeight: MODERN_LINE_HEIGHT.text,
                       }}
                     >
                       {new Date(cert.date + '-01').toLocaleDateString(locale, {
@@ -535,7 +536,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
             <MainSectionHeader title={dict.resumes?.editor?.sections?.summary || 'Professional Profile'} accentColor={accentColor} fontScale={activeScale} />
             <div
               className="leading-relaxed text-slate-700 text-justify"
-              style={{ fontSize: `${sectionDescFontSize * activeScale}px`, lineHeight: 1.5 }}
+              style={{ fontSize: `${sectionDescFontSize * activeScale}px`, lineHeight: MODERN_LINE_HEIGHT.text }}
             >
               {renderFormattedText(resume.summary)}
             </div>
@@ -561,7 +562,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                         textTransform: 'uppercase',
                         color: '#1a1a1a',
                         margin: 0,
-                        lineHeight: 1.4,
+                        lineHeight: MODERN_LINE_HEIGHT.compact,
                       }}
                     >
                       {exp.position}
@@ -571,7 +572,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                         fontSize: `${12 * activeScale}px`,
                         color: '#6b7280',
                         margin: '2px 0 0 0',
-                        lineHeight: 1.4,
+                        lineHeight: MODERN_LINE_HEIGHT.compact,
                       }}
                     >
                       {exp.startDate &&
@@ -593,7 +594,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                         fontWeight: 700,
                         color: '#1a1a1a',
                         margin: '8px 0 0 0',
-                        lineHeight: 1.4,
+                        lineHeight: MODERN_LINE_HEIGHT.compact,
                       }}
                     >
                       {exp.company}
@@ -604,7 +605,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                           fontSize: `${11 * activeScale}px`,
                           color: '#6b7280',
                           margin: '2px 0 0 0',
-                          lineHeight: 1.4,
+                          lineHeight: MODERN_LINE_HEIGHT.compact,
                         }}
                       >
                         {exp.location}
@@ -618,7 +619,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                         style={{
                           fontSize: `${sectionDescFontSize * activeScale}px`,
                           color: '#374151',
-                          lineHeight: 1.5,
+                          lineHeight: MODERN_LINE_HEIGHT.text,
                           textAlign: 'justify',
                           margin: 0,
                         }}
@@ -646,7 +647,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                               gap: '6px',
                               fontSize: `${sectionDescFontSize * activeScale}px`,
                               color: '#374151',
-                              lineHeight: 1.5,
+                              lineHeight: MODERN_LINE_HEIGHT.text,
                               fontStyle: 'italic',
                             }}
                           >
@@ -975,7 +976,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
             style={{
               fontSize: `${titleFontSize * activeScale}px`,
               letterSpacing: '0.15em',
-              lineHeight: 1.2,
+              lineHeight: MODERN_LINE_HEIGHT.title,
               marginBottom: '8px',
             }}
           >
@@ -990,7 +991,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                 backgroundColor: accentColor,
                 color: '#FFFFFF',
                 fontSize: `${16 * activeScale}px`,
-                padding: '4px 12px',
+                padding: `${MODERN_TITLE_BAR_PADDING_Y_PX}px 12px`,
                 marginBottom: '8px',
               }}
             >

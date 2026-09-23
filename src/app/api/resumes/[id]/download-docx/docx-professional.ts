@@ -32,9 +32,12 @@ import {
   parseHtmlToDocxRuns,
   formatDateRange,
   COLORS,
+  exactLineSpacing,
+  NO_TEXT_LINE,
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
+import { PROFESSIONAL_LINE_HEIGHT, formattedTextLineHeight } from '@/lib/resume-line-height'
 import {
   assertExhaustiveSection,
   type EditorMainId,
@@ -63,11 +66,13 @@ const FONT_SIZES = {
   CONTACT: 10.5,              // Contact information
 }
 
-// Line heights
-const LINE_HEIGHTS = {
-  BODY: 1.35,
-  HEADING: 1.2,
-}
+/**
+ * The Preview's line heights (US-004), from the module the template itself
+ * imports them from. Headings, the name and entry titles draw at `heading`;
+ * every other element at `body`; formatted (HTML) text at `.formatted-content`'s
+ * height, through `formattedTextLineHeight`.
+ */
+const LINE_HEIGHT = PROFESSIONAL_LINE_HEIGHT
 
 /**
  * Spacing in px, converted to twips at use. These MUST match the Preview.
@@ -257,8 +262,7 @@ export async function generateProfessionalDocx(
       ],
       spacing: {
         after: sidebarSpacingTwips,
-        line: Math.round(240 * LINE_HEIGHTS.HEADING),
-        lineRule: LineRuleType.AUTO,
+        ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.name]),
       },
     })
   )
@@ -287,7 +291,8 @@ export async function generateProfessionalDocx(
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: pxToTwips(16) }, // mb-4 in Preview
+              // mb-4 in Preview
+              spacing: { after: pxToTwips(16), ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.sectionTitle]) },
               border: {
                 bottom: {
                   color: PALETTE.white,
@@ -318,10 +323,17 @@ export async function generateProfessionalDocx(
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: achievement.description ? pxToTwips(4) : itemEndSpacing },
+                spacing: {
+                  after: achievement.description ? pxToTwips(4) : itemEndSpacing,
+                  ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.jobTitle]),
+                },
               })
             )
             if (achievement.description) {
+              const descriptionLineSpacing = exactLineSpacing([
+                formattedTextLineHeight(achievement.description, LINE_HEIGHT.body),
+                scaledFontSizes.body,
+              ])
               // Extract alignment from HTML if present. The fallback is LEFT, not
               // JUSTIFIED, to match the Preview's narrow sidebar column.
               const descriptionAlignment = extractAlignment(achievement.description) || AlignmentType.LEFT
@@ -338,6 +350,7 @@ export async function generateProfessionalDocx(
                   },
                   pxToTwips(4), // spacing between list items
                   itemEndSpacing, // spacing after last item
+                  descriptionLineSpacing,
                   undefined, // no indent for sidebar
                   descriptionAlignment
                 )
@@ -355,6 +368,7 @@ export async function generateProfessionalDocx(
                       spacingAfterItem: pxToTwips(4),
                       spacingAfterLast: itemEndSpacing,
                       alignment: descriptionAlignment,
+                      lineSpacing: descriptionLineSpacing,
                     }
                   )
                 )
@@ -369,7 +383,7 @@ export async function generateProfessionalDocx(
                 sidebarParagraphs.push(
                   new Paragraph({
                     children: descriptionRuns,
-                    spacing: { after: itemEndSpacing },
+                    spacing: { after: itemEndSpacing, ...descriptionLineSpacing },
                     alignment: descriptionAlignment,
                   })
                 )
@@ -394,7 +408,8 @@ export async function generateProfessionalDocx(
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: pxToTwips(16) }, // mb-4 in Preview
+              // mb-4 in Preview
+              spacing: { after: pxToTwips(16), ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.sectionTitle]) },
               border: {
                 bottom: {
                   color: PALETTE.white,
@@ -426,12 +441,17 @@ export async function generateProfessionalDocx(
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: pxToTwips(4) }, // mb-1 in Preview
+                // mb-1 in Preview
+                spacing: { after: pxToTwips(4), ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.skillCategory]) },
               })
             )
 
             // Use skillsHtml if available, otherwise fall back to items array
             if (skillCat.skillsHtml) {
+              const skillsLineSpacing = exactLineSpacing([
+                formattedTextLineHeight(skillCat.skillsHtml, LINE_HEIGHT.body),
+                scaledFontSizes.body,
+              ])
               // Extract alignment from HTML if present
               const skillsAlignment = extractAlignment(skillCat.skillsHtml) || AlignmentType.LEFT
 
@@ -447,6 +467,7 @@ export async function generateProfessionalDocx(
                   },
                   pxToTwips(4), // spacing between list items
                   itemEndSpacing, // spacing after last item
+                  skillsLineSpacing,
                   undefined, // no indent for sidebar
                   skillsAlignment
                 )
@@ -464,6 +485,7 @@ export async function generateProfessionalDocx(
                       spacingAfterItem: pxToTwips(4),
                       spacingAfterLast: itemEndSpacing,
                       alignment: skillsAlignment,
+                      lineSpacing: skillsLineSpacing,
                     }
                   )
                 )
@@ -478,7 +500,7 @@ export async function generateProfessionalDocx(
                 sidebarParagraphs.push(
                   new Paragraph({
                     children: skillsRuns,
-                    spacing: { after: itemEndSpacing },
+                    spacing: { after: itemEndSpacing, ...skillsLineSpacing },
                     alignment: skillsAlignment,
                   })
                 )
@@ -494,7 +516,7 @@ export async function generateProfessionalDocx(
                       font: primaryFont,
                     }),
                   ],
-                  spacing: { after: itemEndSpacing },
+                  spacing: { after: itemEndSpacing, ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.body]) },
                   alignment: AlignmentType.JUSTIFIED,
                 })
               )
@@ -518,7 +540,8 @@ export async function generateProfessionalDocx(
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: pxToTwips(16) }, // mb-4 in Preview
+              // mb-4 in Preview
+              spacing: { after: pxToTwips(16), ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.sectionTitle]) },
               border: {
                 bottom: {
                   color: PALETTE.white,
@@ -555,7 +578,7 @@ export async function generateProfessionalDocx(
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: itemEndSpacing },
+                spacing: { after: itemEndSpacing, ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.body]) },
                 tabStops: [
                   {
                     type: TabStopType.RIGHT,
@@ -583,7 +606,8 @@ export async function generateProfessionalDocx(
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: pxToTwips(16) }, // mb-4 in Preview
+              // mb-4 in Preview
+              spacing: { after: pxToTwips(16), ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.sectionTitle]) },
               border: {
                 bottom: {
                   color: PALETTE.white,
@@ -615,7 +639,8 @@ export async function generateProfessionalDocx(
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: pxToTwips(4) }, // mb-1 in Preview
+                // mb-1 in Preview
+                spacing: { after: pxToTwips(4), ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.jobTitle]) },
               })
             )
             sidebarParagraphs.push(
@@ -628,7 +653,10 @@ export async function generateProfessionalDocx(
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: cert.date ? pxToTwips(2) : itemEndSpacing },
+                spacing: {
+                  after: cert.date ? pxToTwips(2) : itemEndSpacing,
+                  ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.meta]),
+                },
               })
             )
             if (cert.date) {
@@ -645,7 +673,7 @@ export async function generateProfessionalDocx(
                       font: primaryFont,
                     }),
                   ],
-                  spacing: { after: itemEndSpacing },
+                  spacing: { after: itemEndSpacing, ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.meta]) },
                 })
               )
             }
@@ -677,8 +705,7 @@ export async function generateProfessionalDocx(
       ],
       spacing: {
         after: pxToTwips(SPACING.TITLE_GAP),
-        line: Math.round(240 * LINE_HEIGHTS.HEADING),
-        lineRule: LineRuleType.AUTO,
+        ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.professionalTitle]),
       },
     })
   )
@@ -705,16 +732,16 @@ export async function generateProfessionalDocx(
         ],
         spacing: {
           after: pxToTwips(24 + mainContentTopMargin),
-          line: Math.round(240 * LINE_HEIGHTS.BODY),
-          lineRule: LineRuleType.AUTO,
+          ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.contact]),
         },
       })
     )
   } else {
-    // Even without contact info, we need the same gap as Preview's pb-6 + marginBottom
+    // Even without contact info, we need the same gap as Preview's pb-6 + marginBottom.
+    // This paragraph carries only that gap; the Preview draws no line here.
     mainContentParagraphs.push(
       new Paragraph({
-        spacing: { after: pxToTwips(24 + mainContentTopMargin) },
+        spacing: { after: pxToTwips(24 + mainContentTopMargin), ...NO_TEXT_LINE },
       })
     )
   }
@@ -743,7 +770,10 @@ export async function generateProfessionalDocx(
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: pxToTwips(SPACING.SECTION_GAP) },
+              spacing: {
+                after: pxToTwips(SPACING.SECTION_GAP),
+                ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.resumeSectionTitle]),
+              },
               border: {
                 bottom: {
                   color: PALETTE.heading,
@@ -757,6 +787,10 @@ export async function generateProfessionalDocx(
 
           // Extract alignment from HTML if present
           const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.JUSTIFIED
+          const summaryLineSpacing = exactLineSpacing([
+            formattedTextLineHeight(resume.summary, LINE_HEIGHT.body),
+            scaledFontSizes.body,
+          ])
 
           // Summary text - check if it contains a list structure
           if (isHtmlList(resume.summary)) {
@@ -770,6 +804,7 @@ export async function generateProfessionalDocx(
               },
               pxToTwips(4), // spacing between list items
               sectionSpacingAfter, // spacing after last item
+              summaryLineSpacing,
               { right: mainContentRightIndent }, // indent
               summaryAlignment
             )
@@ -788,6 +823,7 @@ export async function generateProfessionalDocx(
                   spacingAfterLast: sectionSpacingAfter,
                   indent: { right: mainContentRightIndent },
                   alignment: summaryAlignment,
+                  lineSpacing: summaryLineSpacing,
                 }
               )
             )
@@ -806,8 +842,7 @@ export async function generateProfessionalDocx(
                 indent: { right: mainContentRightIndent },
                 spacing: {
                   after: sectionSpacingAfter,
-                  line: Math.round(240 * LINE_HEIGHTS.BODY),
-                  lineRule: LineRuleType.AUTO,
+                  ...summaryLineSpacing,
                 },
               })
             )
@@ -830,7 +865,10 @@ export async function generateProfessionalDocx(
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: pxToTwips(SPACING.SECTION_GAP) },
+              spacing: {
+                after: pxToTwips(SPACING.SECTION_GAP),
+                ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.sectionTitle]),
+              },
               border: {
                 bottom: {
                   color: PALETTE.heading,
@@ -864,7 +902,11 @@ export async function generateProfessionalDocx(
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: pxToTwips(4) },
+                // One flex row in the Preview: the h3 at heading height beside the date at body height.
+                spacing: {
+                  after: pxToTwips(4),
+                  ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.jobTitle], [LINE_HEIGHT.body, scaledFontSizes.meta]),
+                },
                 indent: { right: mainContentRightIndent },
                 tabStops: [
                   {
@@ -894,7 +936,7 @@ export async function generateProfessionalDocx(
                     }),
                   ] : []),
                 ],
-                spacing: { after: pxToTwips(8) },
+                spacing: { after: pxToTwips(8), ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.meta]) },
                 indent: { right: mainContentRightIndent },
               })
             )
@@ -934,10 +976,12 @@ export async function generateProfessionalDocx(
                       }),
                       ...achievementRuns,
                     ],
+                    // The achievement's lines are spaced at its text's height: the li's
+                    // body height, or the formatted-content height when it is HTML. The
+                    // bullet beside it is a separate flex item no taller than either.
                     spacing: {
                       after: achievementSpacingAfter,
-                      line: Math.round(240 * LINE_HEIGHTS.BODY),
-                      lineRule: LineRuleType.AUTO,
+                      ...exactLineSpacing([formattedTextLineHeight(achievement, LINE_HEIGHT.body), scaledFontSizes.body]),
                     },
                     indent: { right: mainContentRightIndent },
                   })
@@ -956,6 +1000,10 @@ export async function generateProfessionalDocx(
 
               // Extract alignment from HTML if present
               const descAlignment = extractAlignment(exp.description) || AlignmentType.JUSTIFIED
+              const descLineSpacing = exactLineSpacing([
+                formattedTextLineHeight(exp.description, LINE_HEIGHT.body),
+                scaledFontSizes.body,
+              ])
 
               // Check if description contains a list structure
               if (isHtmlList(exp.description)) {
@@ -969,6 +1017,7 @@ export async function generateProfessionalDocx(
                   },
                   pxToTwips(4), // spacing between list items
                   descSpacingAfter, // spacing after last item
+                  descLineSpacing,
                   { right: mainContentRightIndent }, // indent
                   descAlignment
                 )
@@ -987,6 +1036,7 @@ export async function generateProfessionalDocx(
                       spacingAfterLast: descSpacingAfter,
                       indent: { right: mainContentRightIndent },
                       alignment: descAlignment,
+                      lineSpacing: descLineSpacing,
                     }
                   )
                 )
@@ -1003,8 +1053,7 @@ export async function generateProfessionalDocx(
                     children: descRuns,
                     spacing: {
                       after: descSpacingAfter,
-                      line: Math.round(240 * LINE_HEIGHTS.BODY),
-                      lineRule: LineRuleType.AUTO,
+                      ...descLineSpacing,
                     },
                     alignment: descAlignment,
                     indent: { right: mainContentRightIndent },
@@ -1034,7 +1083,10 @@ export async function generateProfessionalDocx(
                   font: primaryFont,
                 }),
               ],
-              spacing: { after: pxToTwips(SPACING.SECTION_GAP) },
+              spacing: {
+                after: pxToTwips(SPACING.SECTION_GAP),
+                ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.sectionTitle]),
+              },
               border: {
                 bottom: {
                   color: PALETTE.heading,
@@ -1077,7 +1129,11 @@ export async function generateProfessionalDocx(
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: pxToTwips(4) },
+                // One flex row in the Preview: the h3 at heading height beside the dates at body height.
+                spacing: {
+                  after: pxToTwips(4),
+                  ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.jobTitle], [LINE_HEIGHT.body, scaledFontSizes.meta]),
+                },
                 indent: { right: mainContentRightIndent },
                 tabStops: [
                   {
@@ -1107,7 +1163,10 @@ export async function generateProfessionalDocx(
                     }),
                   ] : []),
                 ],
-                spacing: { after: edu.gpa ? pxToTwips(4) : (isLast && isLastSection ? 0 : pxToTwips(16)) },
+                spacing: {
+                  after: edu.gpa ? pxToTwips(4) : (isLast && isLastSection ? 0 : pxToTwips(16)),
+                  ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.meta]),
+                },
                 indent: { right: mainContentRightIndent },
                 tabStops: [
                   {
@@ -1131,7 +1190,10 @@ export async function generateProfessionalDocx(
                       font: primaryFont,
                     }),
                   ],
-                  spacing: { after: isLast && isLastSection ? 0 : pxToTwips(16) },
+                  spacing: {
+                    after: isLast && isLastSection ? 0 : pxToTwips(16),
+                    ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.meta]),
+                  },
                   indent: { right: mainContentRightIndent },
                 })
               )
@@ -1227,9 +1289,10 @@ export async function generateProfessionalDocx(
     },
   })
 
-  // Create document with font settings and minimal default paragraph spacing
-  // The paragraph defaults ensure the implicit trailing paragraph (required by OOXML
-  // for section properties) takes minimal space, preventing page overflow.
+  // Create document with font settings and no default paragraph spacing.
+  // Every paragraph writes its own line spacing; the default is the body
+  // text's, at the default run size, so nothing can fall back to a Word auto
+  // multiple.
   const doc = new Document({
     styles: {
       default: {
@@ -1242,8 +1305,7 @@ export async function generateProfessionalDocx(
             spacing: {
               before: 0,
               after: 0,
-              line: 240, // Single line spacing (240 twips = 1 line at 12pt)
-              lineRule: LineRuleType.AUTO,
+              ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.body]),
             },
           },
         },

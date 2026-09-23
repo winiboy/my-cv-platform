@@ -249,3 +249,97 @@ Commit:
 - Commit message: ralph: US-003 DOCX colours come from the palette the Preview renders
 
 FINAL: PASS
+
+## US-004: DOCX line spacing matches the leading the Preview draws
+Status: PASS
+Priority: 4
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: 80eab66 (PRD amendments b1721f3 line-height scope, 80eab66 US-016 added)
+Checkout: E:/website/cv-website/my-cv-platform (main checkout; no worktree)
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/lib/resume-line-height.ts (new), src/lib/resume-line-height.test.ts (new),
+  src/app/api/resumes/[id]/download-docx/docx-line-spacing.test.ts (new),
+  docx-{professional,modern,classic,minimal,creative}.ts, docx-helpers.ts, docx-helpers.test.ts,
+  src/components/dashboard/resume-templates/{professional,modern}-template.tsx,
+  src/lib/format-text.tsx, e2e/parity/{profiles,surfaces,verdicts}.ts,
+  tasks/ralph/prd.json, tasks/ralph/progress.txt
+- Template edits are pure refactors (constants imported from the shared module); no visual baseline
+  moved; no version change
+
+Decisions:
+- Rule: exact everywhere. atLeast draws the font's own single line when that is taller: Verdana's
+  1.215em exceeds the 1.2 ratio of the professional and modern titles, so those rows could never
+  match. Word takes any shortfall from above the text; the tightest case is 1.2 with Verdana.
+- One source: src/lib/resume-line-height.ts. Values TypeScript cannot import from CSS (preflight
+  1.5, Tailwind text-* and leading-relaxed, .formatted-content 1.4) are declared in the form the CSS
+  writes them, and resume-line-height.test.ts reads that CSS and the templates and fails on drift.
+  rendersAsFormattedContent is shared by the Preview's renderFormattedText and the generators, so
+  the two cannot disagree on what counts as HTML.
+- Own padding goes in the line; a sibling's height goes in the gaps. Modern's job-title bar is a
+  filled box whose padding Word shading must cover, so it is written into the line. Creative's
+  heading bar is a separate flex child, so its surplus is written as space before and after, split
+  as items-center does. Writing the bar into the line made the sectionHeading row NEW at x1.655
+  against the Preview x1.500, because that row compares the heading text leading, not the row
+  height; and a wrapped heading would have been spaced at the bar height.
+
+Checks (on the final diff):
+- pnpm typecheck: PASS - exit 0
+- pnpm lint: PASS - 305 problems, unchanged, under the 311 ceiling
+- pnpm test (unit): PASS - 991/991 across 21 files
+- pnpm test:integration: PASS - 27/27
+- pnpm test:e2e: PASS - 116 passed; --list 116
+- pnpm test:visual: PASS - 10 passed; --list 10; e2e/visual status empty
+- pnpm build:verify: PASS - exit 0
+- pnpm test:parity: PASS - two runs, 240 passed each, reports byte-identical,
+  sha256 52889fe7ac99780d64706d9a48629d83b9a609ee216e14c23ea6808a4604648a
+  Counts: MATCH 123, KNOWN 82, NEW 0, unreconciled 0, LIMITATION 11, FINDING 9, DECISION 4
+
+Specialized validation:
+- Browser: NOT_APPLICABLE - no rendered UI change (template edits are constant imports)
+- Visual: PASS - baselines unchanged
+- Export: PASS - artifact comparison, 5 templates x 2 layouts: every zip part identical once
+  w:line/w:lineRule and the listed gap changes are accounted for; page counts verified in Word 16
+  across 50 generated documents
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE - format-text.tsx keeps the same regex and the inert sanitiser
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no rendered UI change
+- code-reviewer: round 1 BLOCKER - creative heading bars were a divergence the PRD does not name,
+  recorded only inside a FINDING; resolved inside the story under its own taller-box rule. Round 2
+  PASS, the reviewer reproducing the creative arithmetic at five font scales, re-running minimal-06
+  through Word (3 pages without the fix, 2 with) and running ten drift-guard mutations of its own
+
+Acceptance criteria:
+- AC-01: PASS - every site uses exactLineSpacing; no LineRuleType.AUTO remains; the list helpers
+  require a line spacing so the compiler finds any caller that omits one
+- AC-02: PASS - 152 paragraph sites, none without line spacing; each template document default is
+  exact; the reviewer confirmed on its own richer fixture at three scales
+- AC-03: PASS - formatted (HTML) body text writes 1.4, read from globals.css; the new formatted-body
+  parity profile (professional and modern, the templates that render .formatted-content) MATCHes
+- AC-04: PASS - the harness counts only exact / run size as drawn leading; atLeast is its own kind
+  and an unknown rule throws; all 15 primary line-height rows MATCH
+- AC-05: PASS - Word 16 to PDF to raster: accented capitals and descenders whole in Verdana at 1.2
+  and Times at 1.5; drawn pitch equals the written value. Residual FINDING records Word placing the
+  baseline at 80% of an exact line (up to ~0.1em), modern job-title baseline ~2.5pt low inside a bar
+  of the Preview height, a wrapped creative heading ~8px taller than the Preview, and 1-twip rounding
+- AC-06: PASS - visual 10/10, no snapshot update; template diffs are constant imports only
+- AC-07: PASS - 15 rows KNOWN to MATCH plus 2 new formatted-body rows MATCH; US-004-line-spacing
+  removed from the known list and the Word auto line spacing FINDING closed, replaced by a DECISION
+- PRD-wide items: PASS - no NEW row, no tolerance widened (LINE_HEIGHT_TOLERANCE untouched), no
+  other template affected
+
+Known limits recorded:
+- The drift guard cannot see an element remapped from one declared ratio to another; the sampled
+  title, heading and body rows are pinned by parity and docx-line-spacing.test.ts, the remaining
+  paragraph sites by review. Stated in the test header comment, following the US-003 precedent.
+- Creative heading centring uses space-before, which Word can suppress at the top of a page under
+  some compatibility settings.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-004 DOCX line spacing matches the leading the Preview draws
+
+FINAL: PASS

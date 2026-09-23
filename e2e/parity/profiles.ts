@@ -58,13 +58,16 @@ export type ProfileId =
   | 'modern-non-integer-hue'
   | 'font-not-chosen'
   | 'multi-page'
+  | 'formatted-body'
 
 /**
  * Which row families a profile is run for. `font` is the font-family rows alone,
  * for a profile whose only difference is the font; `typography` already
- * includes them. `print` reads the sidebar column of every printed page.
+ * includes them. `body-line-height` is the body text's line-height row alone,
+ * for a profile whose only difference is how the body text is stored. `print`
+ * reads the sidebar column of every printed page.
  */
-export type RowFamilyGroup = 'structure' | 'typography' | 'font' | 'colour' | 'page' | 'print'
+export type RowFamilyGroup = 'structure' | 'typography' | 'font' | 'body-line-height' | 'colour' | 'page' | 'print'
 
 export interface ParityProfile {
   id: ProfileId
@@ -225,6 +228,15 @@ const EARLIER_ROLES: readonly FixtureExperience[] = [
   },
 ]
 
+/**
+ * The fixture's roles with the sampled achievement — the body marker — stored
+ * as an HTML paragraph. Only the markup changes: the marker's text, and so
+ * every locator, is the same.
+ */
+const FORMATTED_BODY_EXPERIENCE: readonly FixtureExperience[] = FIXTURE_EXPERIENCE.map((role, index) =>
+  index === 0 ? { ...role, achievements: role.achievements.map((a, i) => (i === 0 ? `<p>${a}</p>` : a)) } : role,
+)
+
 export const PROFILES: readonly ParityProfile[] = [
   {
     id: 'primary',
@@ -330,12 +342,31 @@ export const PROFILES: readonly ParityProfile[] = [
     layout: PRIMARY_LAYOUT,
     content: { experience: [...FIXTURE_EXPERIENCE, ...EARLIER_ROLES], minimumPrintedPages: 2 },
   },
+  {
+    id: 'formatted-body',
+    purpose:
+      "Part 3 US-004's formatted body text. Primary's layout over the fixture with the sampled achievement " +
+      'stored as HTML, as the rich-text editor saves it. Professional and modern render HTML through ' +
+      "renderFormattedText into .formatted-content, whose globals.css line height overrides the template's, " +
+      'so their body text draws at a different height than for plain text. Classic, minimal and creative ' +
+      'render every text plainly (formatText) and draw no .formatted-content, so they are not run here; ' +
+      'how they show HTML is Part 3 US-016.',
+    templates: ['professional', 'modern'],
+    rowGroups: ['body-line-height'],
+    layout: PRIMARY_LAYOUT,
+    content: { experience: FORMATTED_BODY_EXPERIENCE, minimumPrintedPages: 1 },
+  },
 ]
 
 /** Whether a profile's collect test samples title, heading and body typography. */
 export function samplesTypography(profile: ParityProfile): boolean {
   // Control profiles are sampled too: primary rows read them.
-  return profile.control === true || profile.rowGroups.includes('typography') || profile.rowGroups.includes('font')
+  return (
+    profile.control === true ||
+    profile.rowGroups.includes('typography') ||
+    profile.rowGroups.includes('font') ||
+    profile.rowGroups.includes('body-line-height')
+  )
 }
 
 // ---------------------------------------------------------------------------

@@ -13,6 +13,7 @@ import type {
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
 import { renderFormattedText } from '@/lib/format-text'
+import { PROFESSIONAL_LINE_HEIGHT } from '@/lib/resume-line-height'
 import {
   DEFAULT_RESUME_LAYOUT,
   type EditorMainId,
@@ -64,9 +65,9 @@ const HEADER_GAP = 12
  */
 const SIDEBAR_COLOR = `hsl(${DEFAULT_RESUME_LAYOUT.sidebarHue}, ${DEFAULT_RESUME_LAYOUT.sidebarSaturation}%, ${DEFAULT_RESUME_LAYOUT.sidebarBrightness}%)`
 
-// Line heights
-const BODY_LINE_HEIGHT = 1.35
-const HEADING_LINE_HEIGHT = 1.2
+// Line heights, shared with the DOCX generator (Part 3 US-004)
+const BODY_LINE_HEIGHT = PROFESSIONAL_LINE_HEIGHT.body
+const HEADING_LINE_HEIGHT = PROFESSIONAL_LINE_HEIGHT.heading
 
 /**
  * Professional Template - Faithful to reference CV design with header modification
