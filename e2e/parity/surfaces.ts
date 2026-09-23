@@ -84,8 +84,14 @@ export interface StyleSample {
    * the used face so a report shows how this machine resolved each request.
    */
   declaredFamily: string
-  /** Letter spacing in twips (1px = 15 twips); `normal` is 0. */
-  letterSpacingTwips: number
+  /**
+   * Letter spacing as a multiple of the font size, the way CSS declares it
+   * (`em`), each surface dividing by the size it draws the element at. Compared
+   * that way and not in absolute twips, because the two sides are anchored to
+   * different sizes wherever a size still diverges, and whether the size is
+   * right is its own row. `normal` is 0.
+   */
+  letterSpacingEm: number
   lineHeight: LineHeight
 }
 
@@ -321,7 +327,7 @@ export async function measureDom(page: Page, probe: SurfaceProbe): Promise<DomMe
           backdrop: backdropOf(element),
           fontFamily: declaredFamily(style.fontFamily),
           declaredFamily: declaredFamily(style.fontFamily),
-          letterSpacingTwips: Math.round(letterSpacing * 15),
+          letterSpacingEm: letterSpacing / px,
           lineHeight,
         }
       }
@@ -1079,7 +1085,9 @@ export async function measureDocx(buffer: Buffer, probe: SurfaceProbe): Promise<
       backdrop: null,
       fontFamily: font,
       declaredFamily: font,
-      letterSpacingTwips: run.letterSpacingTwips ?? defaultLetterSpacing,
+      // Character spacing is twentieths of a point and the run size is half-points,
+      // which are ten of those, so their quotient is the em CSS declares.
+      letterSpacingEm: (run.letterSpacingTwips ?? defaultLetterSpacing) / (halfPoints * 10),
       lineHeight,
     }
   }

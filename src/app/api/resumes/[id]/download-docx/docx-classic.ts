@@ -28,10 +28,12 @@ import {
   parseHtmlToDocxRuns,
   stripHtml,
   exactLineSpacing,
+  trackingSpacing,
   NO_TEXT_LINE,
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
+import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import { PREFLIGHT_LINE_HEIGHT, TAILWIND_LEADING, TAILWIND_TEXT_LINE_HEIGHT } from '@/lib/resume-line-height'
 import {
   assertExhaustiveSection,
@@ -54,6 +56,9 @@ const CLASSIC_DICT: Record<string, Record<string, string>> = {
 // ============================================================
 /** Every text run and rule, in the colour of the class the Preview draws it with (US-003). */
 const PALETTE = DOCX_PALETTE.classic
+
+/** The letter spacing the Preview draws, in em, applied at each run's own size (US-005). */
+const TRACKING = PREVIEW_TRACKING.classic
 
 // ============================================================
 // FONT SIZE CONSTANTS (matching classic-template.tsx defaults)
@@ -257,7 +262,7 @@ export async function generateClassicDocx(
           size: scaledFontSizes.title,
           color: PALETTE['slate-900'],
           font: SERIF_FONT,
-          characterSpacing: 8, // tracking-wide
+          characterSpacing: trackingSpacing(TRACKING.title, scaledFontSizes.title),
         }),
       ],
       alignment: AlignmentType.CENTER,

@@ -29,10 +29,12 @@ import {
   parseHtmlToDocxRuns,
   stripHtml,
   exactLineSpacing,
+  trackingSpacing,
   NO_TEXT_LINE,
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
+import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import {
   CREATIVE_HEADING_BAR_STEP,
   PREFLIGHT_LINE_HEIGHT,
@@ -61,6 +63,9 @@ const CREATIVE_DICT: Record<string, Record<string, string>> = {
  * first stop — a format limitation the parity report records.
  */
 const PALETTE = DOCX_PALETTE.creative
+
+/** The letter spacing the Preview draws, in em, applied at each run's own size (US-005). */
+const TRACKING = PREVIEW_TRACKING.creative
 
 /**
  * Runs with no single Preview colour to take, still stock. The header summary
@@ -303,6 +308,7 @@ export async function generateCreativeDocx(
           size: scaledFontSizes.name,
           color: PALETTE.white,
           font,
+          characterSpacing: trackingSpacing(TRACKING.title, scaledFontSizes.name),
         }),
       ],
       spacing: {

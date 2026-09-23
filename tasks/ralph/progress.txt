@@ -343,3 +343,91 @@ Commit:
 - Commit message: ralph: US-004 DOCX line spacing matches the leading the Preview draws
 
 FINAL: PASS
+
+## US-005: DOCX letter spacing matches the Preview
+Status: PASS
+Priority: 5
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: dc0f33d
+Checkout: E:/website/cv-website/my-cv-platform (main checkout; no worktree)
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/lib/resume-letter-spacing.ts (new), src/lib/resume-letter-spacing.test.ts (new),
+  src/app/api/resumes/[id]/download-docx/docx-letter-spacing.test.ts (new), docx-helpers.ts,
+  docx-{professional,modern,classic,minimal,creative}.ts,
+  src/components/dashboard/resume-templates/modern-template.tsx,
+  e2e/parity/{surfaces,verdicts}.ts, tasks/ralph/prd.json, tasks/ralph/progress.txt
+- Modern's template change is a constant import rendering the identical string; no visual baseline
+  moved; no version change
+
+Decisions:
+- One source: src/lib/resume-letter-spacing.ts, a sibling of resume-palette.ts (US-003) and
+  resume-line-height.ts (US-004). It holds Tailwind's six --tracking-* values in em as theme.css
+  writes them, plus a per-template record keyed by the Preview's own name for each element. Modern's
+  template imports its four inline values. Conversion lives with the other DOCX unit maths in
+  docx-helpers.ts: trackingSpacing(em, halfPoints) = round(em * halfPoints * 10), following the run
+  size so font scale carries.
+- Comparison basis changed from absolute twips to em. Preview and DOCX are anchored to different
+  font sizes while US-011-font-size is open, so an em-correct DOCX would still have differed in
+  absolute twips (modern's title 98 against 81) and four rows would have turned NEW - reporting the
+  size divergence a second time under letter spacing. Each surface is now held to half of the
+  unchanged TWIPS_TOLERANCE in its own encoding. The reviewer recomputed the slack per row and
+  mutated encoded values: +/-2 twips turns every row NEW and +/-1 turns 9 of 15 NEW, where the old
+  absolute rule accepted +/-1 on all of them, so this is a tightening. The size divergence remains
+  independently KNOWN on the font-size rows.
+- Scope covers every element whose characterSpacing the generators write, not only the sampled ones
+  (modern's contact labels, skill categories and job-title bar; professional's headings and title).
+  Criterion 1's first clause is unqualified, and it is the same named divergence on the same
+  property; the reviewer accepted this rather than treating it as unnamed.
+
+Checks (on the final diff):
+- pnpm typecheck: PASS - exit 0
+- pnpm lint: PASS - 305 problems, unchanged, under the 311 ceiling
+- pnpm test (unit): PASS - 1031/1031 across 23 files
+- pnpm test:integration: PASS - 27/27
+- pnpm test:e2e: PASS - 116 passed; --list 116
+- pnpm test:visual: PASS - 10 passed; --list 10; e2e/visual status empty
+- pnpm build:verify: PASS - exit 0
+- pnpm test:parity: PASS - two runs, 240 passed each, reports byte-identical,
+  sha256 09e2c59b45eedee6cbf1a19ce9a1a9d936fc72c48dea8c95d232d4a0b71931fc
+  Counts: MATCH 131, KNOWN 74, NEW 0, unreconciled 0
+
+Specialized validation:
+- Browser: NOT_APPLICABLE - no rendered UI change
+- Visual: PASS - baselines unchanged
+- Export: PASS - artifact comparison, 5 templates x 2 layouts: every changed line in all ten
+  documents is a run-level w:spacing, zero of any other kind; all ten styles.xml byte-identical
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no rendered UI change
+- code-reviewer: PASS first round, having re-derived trackingSlack and equal from the harness and
+  driven them with the measured sizes, verified the drift guard's Tailwind and preflight assertions
+  on this machine, and re-run typecheck, unit, lint and the artifact comparison itself. One required
+  change, a misplaced constant separating a comment from the constants it documents, was applied.
+
+Acceptance criteria:
+- AC-01: PASS - all 15 letter-spacing rows MATCH; docx-letter-spacing.test.ts pins every run in both
+  directions (a claimed run carries exactly that spacing; an unclaimed run carries none)
+- AC-02: PASS - every case runs at scales 0.8, 1 and 1.2; the artifact comparison shows layout B
+  values differing from layout A throughout
+- AC-03: PASS - visual 10/10, no snapshot update; the template edit renders the identical string
+- AC-04: PASS - 8 rows KNOWN -> MATCH; US-005-letter-spacing removed from the known list (FR-10)
+- PRD-wide items: PASS - no NEW row, no tolerance widened (TWIPS_TOLERANCE untouched at 1), no other
+  template affected
+
+Known limits recorded:
+- Sub-twip quantisation: professional's heading needs 6.5 twips and is written as 7 (0.0269em against
+  0.025em); modern's title 0.1508em; minimal's and creative's titles -0.0244em. Recorded in the
+  DECISION annotation, following the precedent US-004 set for Word's exact spacing.
+- surfaces.ts divides by halfPoints * 10 without a guard; safe today behind an existing null check,
+  but a zero-size run would yield Infinity rather than a diagnosable failure. Left for a later
+  harness story.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-005 DOCX letter spacing matches the Preview
+
+FINAL: PASS

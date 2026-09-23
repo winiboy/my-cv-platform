@@ -7,7 +7,6 @@ import {
 } from './colour'
 import {
   PROFILES,
-  TEMPLATES,
   TEMPLATE_SPECS,
   describeNonDefault,
   fontChosen,
@@ -60,10 +59,10 @@ import {
  * US-003-palette was closed by US-003 and removed with its signature and the
  * two colour tables only that signature read. US-004-line-spacing was closed by
  * US-004 and removed with its signature and the Word auto spacing table only
- * that signature read.
+ * that signature read. US-005-letter-spacing was closed by US-005 and removed
+ * with its signature and the stock tracking table only that signature read.
  */
 export type KnownId =
-  | 'US-005-letter-spacing'
   | 'US-006-translucent-text'
   | 'US-008-page-width'
   | 'US-009-order-classic'
@@ -77,7 +76,6 @@ export type KnownId =
   | 'US-015-creative-sections'
 
 export const KNOWN_IDS: readonly KnownId[] = [
-  'US-005-letter-spacing',
   'US-006-translucent-text',
   'US-008-page-width',
   'US-009-order-classic',
@@ -126,13 +124,6 @@ function expectations(groups: readonly (readonly [KnownId, readonly string[]])[]
  * failure; it is a hole in Part 3's scope.
  */
 export const KNOWN_EXPECTATIONS: Readonly<Record<string, KnownId>> = expectations([
-  [
-    'US-005-letter-spacing',
-    [
-      ...rowIds('primary', TEMPLATES, ['letter-spacing:documentTitle']),
-      ...rowIds('primary', ['professional', 'modern', 'minimal'], ['letter-spacing:sectionHeading']),
-    ],
-  ],
   ['US-006-translucent-text', rowIds('primary', ['modern'], ['colour:sidebarLabel', 'colour:sidebarSecondary'])],
   ['US-008-page-width', rowIds('primary', CLASSIC_MINIMAL_CREATIVE, ['page-width'])],
   ['US-009-order-classic', rowIds('primary', ['classic'], ['visibility:education', 'order:main', 'order:document'])],
@@ -302,11 +293,18 @@ type Value =
   | { kind: 'colours'; hexes: readonly string[] }
   | { kind: 'not-rendered' }
   | { kind: 'family'; name: string }
-  | { kind: 'twips'; twips: number }
+  /** Letter spacing as a multiple of the run size, with the slack of the twip it was encoded in. */
+  | { kind: 'tracking'; em: number; slack: number }
   | { kind: 'line-height'; lineHeight: LineHeight }
   | { kind: 'length'; inches: number }
 
-/** Letter spacing is compared in twips; CSS px convert at 15 twips per px and round once. */
+/**
+ * Letter spacing is compared to one twip, as it always was, but per surface
+ * rather than between them: a surface's em is whatever its own encoding could
+ * express, so each side is allowed half of this in its own twips (see
+ * `trackingSlack`). Where two surfaces draw an element at the same size — which
+ * is what the font-size rows are for — that is the same single-twip tolerance.
+ */
 const TWIPS_TOLERANCE = 1
 
 /** Line-height ratios are declared to three decimals at most (1.625, 1.5, 1.2). */
@@ -338,8 +336,8 @@ function equal(a: Value, b: Value): boolean {
       )
     case 'not-rendered':
       return b.kind === 'not-rendered'
-    case 'twips':
-      return b.kind === 'twips' && Math.abs(a.twips - b.twips) <= TWIPS_TOLERANCE
+    case 'tracking':
+      return b.kind === 'tracking' && Math.abs(a.em - b.em) <= a.slack + b.slack
     case 'line-height': {
       if (b.kind !== 'line-height') return false
       const [x, y] = [a.lineHeight, b.lineHeight]
@@ -391,8 +389,8 @@ function display(value: Value | null): string {
       return value.hexes.join(' then ')
     case 'not-rendered':
       return 'not rendered'
-    case 'twips':
-      return `${value.twips}tw`
+    case 'tracking':
+      return `${value.em.toFixed(4)}em`
     case 'line-height':
       switch (value.lineHeight.kind) {
         case 'normal':
@@ -482,20 +480,6 @@ const STOCK_BASE_SIZE_PX: Readonly<Record<ResumeTemplate, Partial<Record<Typogra
 const toHalfPoints = (px: number) => Math.round(px * 1.5)
 
 /**
- * US-005: the characterSpacing, in twips, each generator writes for the elements
- * where it differs from the Preview; 0 where it writes none. `docx-modern.ts`
- * 15 (title) and 8 (headings), `docx-classic.ts` 8, `docx-minimal.ts`
- * pxToTwips(1.6) on its headings.
- */
-const STOCK_TRACKING_TWIPS: Readonly<Record<ResumeTemplate, Partial<Record<TypographyElement, number>>>> = {
-  professional: { documentTitle: 0, sectionHeading: 0 },
-  modern: { documentTitle: 15, sectionHeading: 8 },
-  classic: { documentTitle: 8 },
-  minimal: { documentTitle: 0, sectionHeading: 24 },
-  creative: { documentTitle: 0 },
-}
-
-/**
  * US-012: the family each template declares for a sampled element in place of
  * the model's font. `classic-template.tsx` sets font-serif (ui-serif) on its
  * title and headings and leaves its body to the app's Inter (next/font in the
@@ -550,23 +534,6 @@ const TRANSLUCENT_WHITE = /^rgba\(255, 255, 255, 0?\.\d+\)$/
  * may have two shapes: `evaluateRow` throws if signatures overlap.
  */
 const SIGNATURES: readonly Signature[] = [
-  {
-    id: 'US-005-letter-spacing',
-    defect:
-      'The DOCX writes the fixed characterSpacing its generator hardcodes, or none, where the Preview and ' +
-      'print draw the CSS letter-spacing: em times the font size, in twips.',
-    matches: ({ row, values }) => {
-      if (row.family !== 'letter-spacing' || !isTypographyElement(row.subject)) return false
-      const stock = STOCK_TRACKING_TWIPS[row.template][row.subject]
-      return (
-        stock !== undefined &&
-        values.docx.kind === 'twips' &&
-        values.docx.twips === stock &&
-        equal(values.pdf, values.preview) &&
-        !equal(values.docx, values.preview)
-      )
-    },
-  },
   {
     id: 'US-006-translucent-text',
     defect:
@@ -819,6 +786,19 @@ function sizeSlack(surface: SurfaceId, sample: StyleSample): number {
   return surface === 'docx' ? 0.5 / sample.halfPoints : 0.001
 }
 
+/**
+ * Half of `TWIPS_TOLERANCE`, in em, at the size this surface draws the element:
+ * the DOCX encodes its character spacing in whole twips of a run measured in
+ * half-points (ten twips each), the Preview and print in CSS px (fifteen twips
+ * each). The PDF takes the em from the print rendering, so its slack is that of
+ * the size the PDF reports for the same text, within a fraction of a point of
+ * the print's.
+ */
+function trackingSlack(surface: SurfaceId, sample: StyleSample): number {
+  const twipsPerEm = surface === 'docx' ? sample.halfPoints * 10 : sample.px * 15
+  return TWIPS_TOLERANCE / 2 / twipsPerEm
+}
+
 export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): EvaluatedRow {
   const observation = resolve(row.inputs[0])
   if (observation.profile !== row.profile || observation.template !== row.template) {
@@ -891,7 +871,10 @@ export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): E
       break
     }
     case 'letter-spacing': {
-      for (const s of SURFACES) values[s] = { kind: 'twips', twips: typographyOf(observation, s, row).letterSpacingTwips }
+      for (const s of SURFACES) {
+        const sample = typographyOf(observation, s, row)
+        values[s] = { kind: 'tracking', em: sample.letterSpacingEm, slack: trackingSlack(s, sample) }
+      }
       break
     }
     case 'line-height': {
@@ -1026,7 +1009,10 @@ function newDivergenceNote({ row, values, reference }: SignatureContext): string
     case 'font-scale':
       return 'A surface does not scale this element by the model fontScale in the way US-011 describes.'
     case 'letter-spacing':
-      return 'Letter spacing differs; DOCX can express it (w:spacing w:val) and the generators set it for some runs.'
+      return (
+        'Letter spacing differs as a multiple of the size each surface draws the element at; DOCX can express ' +
+        'it (w:spacing w:val), and since Part 3 US-005 the generators write it from the Preview em at the run size.'
+      )
     case 'line-height': {
       const docx = values.docx.kind === 'line-height' ? values.docx.lineHeight : null
       const preview = values.preview.kind === 'line-height' ? values.preview.lineHeight : null
@@ -1144,6 +1130,17 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
   annotation('LIMITATION', 'all', 'font weight', ['docx'],
     'A DOCX run carries bold on or off (w:b). CSS weights such as black (900), semibold (600), medium (500) ' +
       'and light (300) have no DOCX encoding and are not compared.'),
+  annotation('DECISION', 'all', 'letter spacing: compared as a multiple of the run size', ['preview', 'pdf', 'docx'],
+    'Closed the letter-spacing divergence (Part 3 US-005). Every DOCX run is written with the character spacing ' +
+      'its Preview element draws — the em in src/lib/resume-letter-spacing.ts times the size of that run, in ' +
+      'twentieths of a point — where the generators previously wrote one fixed twip count, correct at one font ' +
+      'size only. The rows therefore compare the em, each surface dividing its own spacing by its own size, not ' +
+      'the absolute twips: on the four templates where the DOCX still draws a title at a different size from the ' +
+      "Preview's, absolute twips would report US-011's size divergence a second time under letter spacing, and " +
+      'would go on reporting it after this story had made the spacing right. The tolerance is unchanged — half of ' +
+      'the declared one twip per side, in that side\'s own twips, which is one twip between two surfaces drawing ' +
+      'at the same size. Sub-twip quantisation remains: 0.025em over a 13pt heading is 6.5 twips and is written ' +
+      'as 7.'),
   annotation('DECISION', 'all', 'line height: Word exact spacing', ['docx'],
     'Closed the Word auto line spacing finding (Part 3 US-004). Every DOCX paragraph, and the document default, ' +
       'is written as w:lineRule="exact" at the Preview line height of its element times the size of its run, in ' +

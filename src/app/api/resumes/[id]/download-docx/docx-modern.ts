@@ -40,10 +40,12 @@ import {
   formatDateRange,
   COLORS,
   exactLineSpacing,
+  trackingSpacing,
   NO_TEXT_LINE,
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
+import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import {
   MODERN_LINE_HEIGHT,
   MODERN_TITLE_BAR_PADDING_Y_PX,
@@ -68,6 +70,9 @@ import {
  * the user's colour is US-006.
  */
 const PALETTE = DOCX_PALETTE.modern
+
+/** The letter spacing the Preview draws, in em, applied at each run's own size (US-005). */
+const TRACKING = PREVIEW_TRACKING.modern
 
 // ============================================================
 // FONT SIZE CONSTANTS (matching modern-template.tsx)
@@ -450,7 +455,7 @@ export async function generateModernDocx(
           size: scaledFontSizes.sidebarSectionTitle,
           color: PALETTE.white,
           font: primaryFont,
-          characterSpacing: 8, // letterSpacing 0.08em approximation
+          characterSpacing: trackingSpacing(TRACKING.sectionHeading, scaledFontSizes.sidebarSectionTitle),
         }),
       ],
       indent: sidebarTextIndent,
@@ -480,7 +485,7 @@ export async function generateModernDocx(
           size: scaledFontSizes.mainSectionTitle,
           color: PALETTE.heading,
           font: primaryFont,
-          characterSpacing: 8, // letterSpacing 0.08em approximation
+          characterSpacing: trackingSpacing(TRACKING.sectionHeading, scaledFontSizes.mainSectionTitle),
         }),
       ],
       spacing: {
@@ -675,7 +680,7 @@ export async function generateModernDocx(
                   size: scaledFontSizes.contactLabel,
                   color: 'FFFFFF', // rgba(255,255,255,0.6) approximated as white in DOCX
                   font: primaryFont,
-                  characterSpacing: 5, // letterSpacing 0.05em
+                  characterSpacing: trackingSpacing(TRACKING.contactLabel, scaledFontSizes.contactLabel),
                 }),
               ],
               indent: sidebarTextIndent,
@@ -791,7 +796,7 @@ export async function generateModernDocx(
                       size: scaledFontSizes.skillCategory,
                       color: PALETTE.white,
                       font: primaryFont,
-                      characterSpacing: 3, // letterSpacing 0.03em
+                      characterSpacing: trackingSpacing(TRACKING.skillCategory, scaledFontSizes.skillCategory),
                     }),
                   ],
                   indent: sidebarTextIndent,
@@ -1027,7 +1032,7 @@ export async function generateModernDocx(
           size: scaledFontSizes.name,
           color: PALETTE['slate-900'],
           font: primaryFont,
-          characterSpacing: 15, // letterSpacing 0.15em
+          characterSpacing: trackingSpacing(TRACKING.name, scaledFontSizes.name),
         }),
       ],
       spacing: {
@@ -1049,7 +1054,7 @@ export async function generateModernDocx(
             size: scaledFontSizes.jobTitleBar,
             color: PALETTE.white,
             font: primaryFont,
-            characterSpacing: 5, // tracking-wide
+            characterSpacing: trackingSpacing(TRACKING.jobTitleBar, scaledFontSizes.jobTitleBar),
           }),
         ],
         // The paragraph stands for the accent bar's box: its text line, which

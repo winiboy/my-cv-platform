@@ -13,6 +13,7 @@ import type {
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
 import { renderFormattedText } from '@/lib/format-text'
+import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import { MODERN_LINE_HEIGHT, MODERN_TITLE_BAR_PADDING_Y_PX } from '@/lib/resume-line-height'
 import {
   assertExhaustiveSection,
@@ -29,6 +30,9 @@ import {
  */
 const DEFAULT_SIDEBAR_COLOR = '#333333'
 const DEFAULT_ACCENT_COLOR = '#D4A843'
+
+/** The letter spacing this template draws, in em; the DOCX generator writes the same values (US-005). */
+const TRACKING = PREVIEW_TRACKING.modern
 
 /** Derive a lighter, more saturated accent color from the sidebar HSL color.
  *  Falls back to the default gold when no sidebarColor is provided or it cannot be parsed. */
@@ -60,7 +64,7 @@ function SidebarSectionHeader({ title, accentColor, fontScale = 1 }: { title: st
           fontSize: `${13 * fontScale}px`,
           fontWeight: 700,
           textTransform: 'uppercase',
-          letterSpacing: '0.08em',
+          letterSpacing: `${TRACKING.sectionHeading}em`,
           margin: 0,
           lineHeight: MODERN_LINE_HEIGHT.compact,
         }}
@@ -82,7 +86,7 @@ function ContactItem({ label, value, accentColor, icon, fontScale = 1 }: { label
             fontSize: `${10 * fontScale}px`,
             fontWeight: 700,
             textTransform: 'uppercase',
-            letterSpacing: '0.05em',
+            letterSpacing: `${TRACKING.contactLabel}em`,
             color: 'rgba(255,255,255,0.6)',
             margin: 0,
             lineHeight: MODERN_LINE_HEIGHT.compact,
@@ -131,7 +135,7 @@ function MainSectionHeader({ title, accentColor, fontScale = 1, children }: { ti
           fontSize: `${16 * fontScale}px`,
           fontWeight: 700,
           textTransform: 'uppercase',
-          letterSpacing: '0.08em',
+          letterSpacing: `${TRACKING.sectionHeading}em`,
           margin: 0,
           paddingBottom: '6px',
           lineHeight: MODERN_LINE_HEIGHT.compact,
@@ -386,7 +390,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                         margin: '0 0 8px 0',
                         lineHeight: MODERN_LINE_HEIGHT.compact,
                         textTransform: 'uppercase',
-                        letterSpacing: '0.03em',
+                        letterSpacing: `${TRACKING.skillCategory}em`,
                       }}
                     >
                       {skillCategory.category}
@@ -975,7 +979,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
             className="font-bold uppercase text-slate-900"
             style={{
               fontSize: `${titleFontSize * activeScale}px`,
-              letterSpacing: '0.15em',
+              letterSpacing: `${TRACKING.name}em`,
               lineHeight: MODERN_LINE_HEIGHT.title,
               marginBottom: '8px',
             }}

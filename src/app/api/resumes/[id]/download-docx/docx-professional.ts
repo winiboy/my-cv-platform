@@ -33,10 +33,12 @@ import {
   formatDateRange,
   COLORS,
   exactLineSpacing,
+  trackingSpacing,
   NO_TEXT_LINE,
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
+import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import { PROFESSIONAL_LINE_HEIGHT, formattedTextLineHeight } from '@/lib/resume-line-height'
 import {
   assertExhaustiveSection,
@@ -50,6 +52,9 @@ import {
  * `COLORS.WHITE`; that is US-006's.
  */
 const PALETTE = DOCX_PALETTE.professional
+
+/** The letter spacing the Preview draws, in em, applied at the size of each run (US-005). */
+const TRACKING = PREVIEW_TRACKING.professional
 
 // ============================================================
 // FONT SIZE CONSTANTS (matching professional-template.tsx)
@@ -289,6 +294,7 @@ export async function generateProfessionalDocx(
                   size: scaledFontSizes.sectionTitle,
                   color: PALETTE.white,
                   font: primaryFont,
+                  characterSpacing: trackingSpacing(TRACKING.heading, scaledFontSizes.sectionTitle),
                 }),
               ],
               // mb-4 in Preview
@@ -406,6 +412,7 @@ export async function generateProfessionalDocx(
                   size: scaledFontSizes.sectionTitle,
                   color: PALETTE.white,
                   font: primaryFont,
+                  characterSpacing: trackingSpacing(TRACKING.heading, scaledFontSizes.sectionTitle),
                 }),
               ],
               // mb-4 in Preview
@@ -538,6 +545,7 @@ export async function generateProfessionalDocx(
                   size: scaledFontSizes.sectionTitle,
                   color: PALETTE.white,
                   font: primaryFont,
+                  characterSpacing: trackingSpacing(TRACKING.heading, scaledFontSizes.sectionTitle),
                 }),
               ],
               // mb-4 in Preview
@@ -604,6 +612,7 @@ export async function generateProfessionalDocx(
                   size: scaledFontSizes.sectionTitle,
                   color: PALETTE.white,
                   font: primaryFont,
+                  characterSpacing: trackingSpacing(TRACKING.heading, scaledFontSizes.sectionTitle),
                 }),
               ],
               // mb-4 in Preview
@@ -701,6 +710,7 @@ export async function generateProfessionalDocx(
           size: scaledFontSizes.professionalTitle,
           color: PALETTE.heading,
           font: primaryFont,
+          characterSpacing: trackingSpacing(TRACKING.title, scaledFontSizes.professionalTitle),
         }),
       ],
       spacing: {
@@ -768,6 +778,7 @@ export async function generateProfessionalDocx(
                   size: scaledFontSizes.resumeSectionTitle,
                   color: PALETTE.heading,
                   font: primaryFont,
+                  characterSpacing: trackingSpacing(TRACKING.heading, scaledFontSizes.resumeSectionTitle),
                 }),
               ],
               spacing: {
@@ -863,6 +874,7 @@ export async function generateProfessionalDocx(
                   size: scaledFontSizes.sectionTitle,
                   color: PALETTE.heading,
                   font: primaryFont,
+                  characterSpacing: trackingSpacing(TRACKING.heading, scaledFontSizes.sectionTitle),
                 }),
               ],
               spacing: {
@@ -1081,6 +1093,7 @@ export async function generateProfessionalDocx(
                   size: scaledFontSizes.sectionTitle,
                   color: PALETTE.heading,
                   font: primaryFont,
+                  characterSpacing: trackingSpacing(TRACKING.heading, scaledFontSizes.sectionTitle),
                 }),
               ],
               spacing: {

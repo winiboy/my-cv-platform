@@ -103,6 +103,21 @@ export function exactLineSpacing(...boxes: readonly RowBox[]): LineSpacing {
 export const NO_TEXT_LINE: LineSpacing = { line: 1, lineRule: LineRuleType.EXACT }
 
 /**
+ * Word character spacing, in twips, for the letter spacing the Preview draws on
+ * a run (Part 3 US-005).
+ *
+ * CSS gives letter spacing in `em`, a multiple of the font size, from
+ * `resume-letter-spacing.ts`. A run's `characterSpacing` is twentieths of a
+ * point, so the same spacing is the em times the run's size: half-points are
+ * twentieths of a point times ten. It therefore follows the size the generator
+ * writes — font scale included — where a fixed twip count holds at one size
+ * only.
+ */
+export function trackingSpacing(em: number, halfPoints: number): number {
+  return Math.round(em * halfPoints * 10)
+}
+
+/**
  * Convert HSL color string to hex (without #)
  * Input: "hsl(240, 85%, 35%)" or computed from hue/brightness
  */
