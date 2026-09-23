@@ -431,3 +431,101 @@ Commit:
 - Commit message: ralph: US-005 DOCX letter spacing matches the Preview
 
 FINAL: PASS
+
+## US-006: Translucent text keeps its tint in the DOCX
+Status: PASS
+Priority: 6
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: 9f9e2fe; story amended by d9f7228 (professional and creative added to US-006)
+Checkout: E:/website/cv-website/my-cv-platform (main checkout; no worktree)
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/lib/resume-text-opacity.ts (new), src/lib/resume-text-opacity.test.ts (new),
+  src/app/api/resumes/[id]/download-docx/docx-text-opacity.ts (new), docx-text-opacity.test.ts (new),
+  docx-{professional,modern,creative}.ts, docx-helpers.ts, src/lib/resume-palette.test.ts,
+  e2e/parity/{colour,profiles,surfaces,verdicts}.ts, tasks/ralph/prd.json, tasks/ralph/progress.txt
+- No template file touched, so Preview rendering is unchanged by construction; no visual baseline
+  moved; no version change
+
+Decisions:
+- One source: src/lib/resume-text-opacity.ts holds each template's per-element alpha in the form its
+  template writes it, with classic and minimal carrying empty records as the statement that they
+  draw none. docx-text-opacity.ts mirrors docx-palette.ts and takes its foreground from the palette.
+- Compositing in gamma-encoded sRGB, source-over, alpha quantised to eight bits first, which makes
+  the arithmetic byte-identical to compositeOver in e2e/parity/colour.ts so the two sides of a row
+  cannot disagree over rounding. Measured on painted pixels, every Chromium path lands within one
+  level and none matches exactly: an opacity layer and an rgba() fill both paint a level low
+  (#CECEED against the written CFCFED at 0.8 over #0D0DA5), while color-mix(in oklab) is exact in
+  one case and a level high elsewhere. Recorded in the module.
+- Modern's template does not import the alphas, unlike US-004 and US-005. They sit inside complete
+  rgba(255,255,255,0.6) literals that the palette guard scans as colours; interpolating a constant
+  would turn five readable literals into expressions the scanner cannot read, weakening one guard to
+  build another. The drift test replaces the coupling in both directions.
+- TEXT_BACKDROP was demoted to a comment rather than consumed by the generators: a consumable
+  version needs a role tag at every call site, still cannot check the hex the generator passes, and
+  would change generator code for no new guarantee. The reviewer preferred this to its own suggestion.
+
+Checks (on the final diff):
+- pnpm typecheck: PASS - exit 0
+- pnpm lint: PASS - 305 problems, unchanged, under the 311 ceiling
+- pnpm test (unit): PASS - 1072/1072 across 25 files (1074 before TEXT_BACKDROP's two tests went
+  with the constant)
+- pnpm test:integration: PASS - 27/27
+- pnpm test:e2e: PASS - 116 passed; --list 116
+- pnpm test:visual: PASS - 10 passed; --list 10; e2e/visual status empty
+- pnpm build:verify: PASS - exit 0
+- pnpm test:parity: PASS - two runs, byte-identical,
+  sha256 cd8c46123abea60e7583ae8fe4c80514cdc64deada28e031849097a0958357f9
+  Counts: MATCH 136, KNOWN 72, NEW 0, unreconciled 0
+
+Specialized validation:
+- Browser: PASS - painted pixels read from the real creative Preview through the parity config, to
+  establish what the header actually draws behind its translucent text
+- Visual: PASS - baselines unchanged
+- Export: PASS - artifact comparison, 5 templates x 2 layouts: classic and minimal byte-identical;
+  the other six change only run colours, and masking every colour makes before and after identical
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no rendered UI change
+- code-reviewer: round 1 FAIL - the creative LIMITATION stated two things measurably false, the
+  substituted backdrop printed like a measured one, and opacityOf contradicted its own comment.
+  Round 2 PASS, the reviewer re-measuring all ten cited pixels in its own browser (10/10 within one
+  level, four exact), confirming the overNote appears on those two rows and nowhere else, and
+  re-running both guards and the parity mutation checks.
+
+Acceptance criteria:
+- AC-01: PASS - professional 8 sites, modern 5, creative 4 write the composited colour; all eight
+  expected hexes recomputed by hand by the reviewer, independently of the code
+- AC-02: PASS - unit tests at two sidebar colours with literal expected hexes, plus two more colours
+  in the artifacts
+- AC-03: PASS - three rows added (professional sidebarSecondary, creative headerSummary and
+  headerLinks), all MATCH
+- AC-04: PASS - the creative LIMITATION names the top-left corner as the only place the fill is
+  right, both discs with centres and radii, the four measured backdrop hexes, the Preview tints
+  #F8EFF9 and #FADCEE against the DOCX's #F0ECFB and #E1D8F6, and the 25-level red gap as a hue
+  difference rather than a lightening
+- AC-05: PASS - no template file changed; visual 10/10
+- AC-06: PASS - modern's two rows KNOWN -> MATCH; US-006-translucent-text removed from the known
+  list (FR-10)
+- PRD-wide items: PASS - no NEW row, COLOUR_CHANNEL_TOLERANCE untouched at 1, classic and minimal
+  byte-identical
+
+Known limits recorded:
+- The two creative rows composite both surfaces over the same substituted colour, the fill the DOCX
+  draws, so they MATCH by construction. The report now prints that in the row itself, and
+  seenColour's contract names the exception.
+- Accepted without acting: the reviewer suggested noting that the two 50% corner hexes in the
+  annotation are measured under a disc. True and harmless, since the next sentence names the discs;
+  not worth two further parity runs for a clarifying clause.
+- Removing an alpha entry whose written form another element of the same template shares does not
+  fail the palette guard; docx-text-opacity.test.ts and typecheck both catch it. Documented in the
+  guard's not-covered list.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-006 translucent text keeps its tint in the DOCX
+
+FINAL: PASS

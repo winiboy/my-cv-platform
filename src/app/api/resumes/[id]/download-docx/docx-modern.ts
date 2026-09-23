@@ -38,13 +38,13 @@ import {
   parsePlainTextListToParagraphs,
   parseHtmlToDocxRuns,
   formatDateRange,
-  COLORS,
   exactLineSpacing,
   trackingSpacing,
   NO_TEXT_LINE,
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
+import { docxTranslucentText } from './docx-text-opacity'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import {
   MODERN_LINE_HEIGHT,
@@ -66,8 +66,8 @@ import {
 
 /**
  * Every text run the Preview draws in a colour of its own (US-003). The sidebar
- * text it draws in translucent white keeps `COLORS.WHITE`; compositing it over
- * the user's colour is US-006.
+ * text it draws in translucent white has no colour of its own: it is composited
+ * over the user's colour per request (US-006, below).
  */
 const PALETTE = DOCX_PALETTE.modern
 
@@ -387,6 +387,19 @@ export async function generateModernDocx(
   const sidebarColorHex = hslToHex(sidebarHue, sidebarSaturation, sidebarBrightness)
   const accentColorHex = deriveAccentColorHex(sidebarHue, sidebarSaturation, sidebarBrightness)
 
+  /**
+   * The sidebar text the Preview draws in translucent white (US-006). A DOCX
+   * run carries no alpha, so each element is written in the colour its own
+   * translucency composites to over the sidebar fill this document draws.
+   */
+  const translucent = {
+    contactLabel: docxTranslucentText('modern', 'contactLabel', sidebarColorHex),
+    educationSchool: docxTranslucentText('modern', 'educationSchool', sidebarColorHex),
+    languageLevel: docxTranslucentText('modern', 'languageLevel', sidebarColorHex),
+    certIssuer: docxTranslucentText('modern', 'certIssuer', sidebarColorHex),
+    certDate: docxTranslucentText('modern', 'certDate', sidebarColorHex),
+  }
+
   // Calculate scaled font sizes
   const scaledFontSizes = {
     name: pxToHalfPoints(FONT_SIZES.NAME * fontScale),
@@ -678,7 +691,7 @@ export async function generateModernDocx(
                   text: entry.label.toUpperCase(),
                   bold: true,
                   size: scaledFontSizes.contactLabel,
-                  color: 'FFFFFF', // rgba(255,255,255,0.6) approximated as white in DOCX
+                  color: translucent.contactLabel,
                   font: primaryFont,
                   characterSpacing: trackingSpacing(TRACKING.contactLabel, scaledFontSizes.contactLabel),
                 }),
@@ -759,7 +772,7 @@ export async function generateModernDocx(
                   new TextRun({
                     text: schoolLine,
                     size: scaledFontSizes.educationSchool,
-                    color: COLORS.WHITE, // rgba(255,255,255,0.8) approximated
+                    color: translucent.educationSchool,
                     font: primaryFont,
                   }),
                 ],
@@ -904,7 +917,7 @@ export async function generateModernDocx(
                   new TextRun({
                     text: '\t' + levelText,
                     size: scaledFontSizes.languageLevel,
-                    color: COLORS.WHITE, // rgba(255,255,255,0.7) approximated
+                    color: translucent.languageLevel,
                     font: primaryFont,
                   }),
                 ],
@@ -971,7 +984,7 @@ export async function generateModernDocx(
                     new TextRun({
                       text: cert.issuer,
                       size: scaledFontSizes.certIssuer,
-                      color: COLORS.WHITE, // rgba(255,255,255,0.7) approximated
+                      color: translucent.certIssuer,
                       font: primaryFont,
                     }),
                   ],
@@ -995,7 +1008,7 @@ export async function generateModernDocx(
                         year: 'numeric',
                       }),
                       size: scaledFontSizes.certDate,
-                      color: COLORS.WHITE, // rgba(255,255,255,0.6) approximated
+                      color: translucent.certDate,
                       font: primaryFont,
                     }),
                   ],

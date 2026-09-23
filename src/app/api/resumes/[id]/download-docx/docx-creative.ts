@@ -34,6 +34,7 @@ import {
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
+import { docxTranslucentText } from './docx-text-opacity'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import {
   CREATIVE_HEADING_BAR_STEP,
@@ -68,15 +69,27 @@ const PALETTE = DOCX_PALETTE.creative
 const TRACKING = PREVIEW_TRACKING.creative
 
 /**
- * Runs with no single Preview colour to take, still stock. The header summary
- * and second contact row are `text-white/90` and `text-white/80` over the
- * gradient (US-006); the language level text and the technologies stand in for
- * the level bars and gradient pills (US-007).
+ * Runs with no single Preview colour to take, still stock: the language level
+ * text and the technologies stand in for the level bars and gradient pills
+ * (US-007).
  */
 const COLORS = {
   PURPLE_600: '9333EA',  // Technologies (for the pills)
   SLATE_600: '475569',   // Language level text (for the level bars)
-  WHITE: 'FFFFFF',       // Header summary and second contact row
+}
+
+/**
+ * The header text the Preview draws translucent — `text-white/90` for the
+ * summary, `text-white/80` for the second contact row (US-006). A DOCX run
+ * carries no alpha, so each is written in the colour that translucency
+ * composites to over the fill the header paragraphs actually carry, which is
+ * the gradient's first stop. The Preview's other two stops, and the `bg-white/10`
+ * circles the header draws over them, are not in the DOCX; both are recorded
+ * with this composite in the parity report's creative header limitation.
+ */
+const HEADER_TRANSLUCENT = {
+  summary: docxTranslucentText('creative', 'headerSummary', PALETTE['purple-600']),
+  links: docxTranslucentText('creative', 'headerLinks', PALETTE['purple-600']),
 }
 
 // ============================================================
@@ -338,7 +351,7 @@ export async function generateCreativeDocx(
           resume.summary,
           {
             size: scaledFontSizes.summary,
-            color: COLORS.WHITE,
+            color: HEADER_TRANSLUCENT.summary,
             font,
           },
           {
@@ -357,7 +370,7 @@ export async function generateCreativeDocx(
     } else {
       const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
         size: scaledFontSizes.summary,
-        color: COLORS.WHITE,
+        color: HEADER_TRANSLUCENT.summary,
         font,
       })
 
@@ -439,7 +452,7 @@ export async function generateCreativeDocx(
           new TextRun({
             text: '     ',
             size: scaledFontSizes.contactLinks,
-            color: COLORS.WHITE,
+            color: HEADER_TRANSLUCENT.links,
             font,
           })
         )
@@ -448,7 +461,7 @@ export async function generateCreativeDocx(
         new TextRun({
           text: item,
           size: scaledFontSizes.contactLinks,
-          color: COLORS.WHITE,
+          color: HEADER_TRANSLUCENT.links,
           font,
         })
       )

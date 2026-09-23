@@ -164,18 +164,6 @@ export function oklchToHex(lightness: number): string {
   return `${hex}${hex}${hex}`.toUpperCase()
 }
 
-/**
- * The one colour the professional and modern generators write that is NOT
- * taken from the Preview's palette (`docx-palette.ts`, US-003). It does not
- * match what the Preview renders.
- */
-export const COLORS = {
-  // Sidebar text the Preview draws translucent over the user's colour
-  // (professional `opacity-80`, modern `rgba(255,255,255,…)`), written opaque
-  // white here until US-006 composites it.
-  WHITE: 'FFFFFF',
-}
-
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================

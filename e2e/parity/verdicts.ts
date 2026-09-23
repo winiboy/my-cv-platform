@@ -61,9 +61,10 @@ import {
  * US-004 and removed with its signature and the Word auto spacing table only
  * that signature read. US-005-letter-spacing was closed by US-005 and removed
  * with its signature and the stock tracking table only that signature read.
+ * US-006-translucent-text was closed by US-006 and removed with its signature
+ * and the translucent-white pattern only that signature read.
  */
 export type KnownId =
-  | 'US-006-translucent-text'
   | 'US-008-page-width'
   | 'US-009-order-classic'
   | 'US-009-order-minimal'
@@ -76,7 +77,6 @@ export type KnownId =
   | 'US-015-creative-sections'
 
 export const KNOWN_IDS: readonly KnownId[] = [
-  'US-006-translucent-text',
   'US-008-page-width',
   'US-009-order-classic',
   'US-009-order-minimal',
@@ -124,7 +124,6 @@ function expectations(groups: readonly (readonly [KnownId, readonly string[]])[]
  * failure; it is a hole in Part 3's scope.
  */
 export const KNOWN_EXPECTATIONS: Readonly<Record<string, KnownId>> = expectations([
-  ['US-006-translucent-text', rowIds('primary', ['modern'], ['colour:sidebarLabel', 'colour:sidebarSecondary'])],
   ['US-008-page-width', rowIds('primary', CLASSIC_MINIMAL_CREATIVE, ['page-width'])],
   ['US-009-order-classic', rowIds('primary', ['classic'], ['visibility:education', 'order:main', 'order:document'])],
   ['US-009-order-minimal', rowIds('primary', ['minimal'], ['visibility:education', 'order:main', 'order:document'])],
@@ -288,7 +287,7 @@ type Value =
   /** A size ratio, with the quantisation slack of the sizes it was computed from. */
   | { kind: 'ratio'; ratio: number; slack: number }
   | { kind: 'responds'; responds: boolean }
-  | { kind: 'colour'; hex: string; css?: string; over?: string }
+  | { kind: 'colour'; hex: string; css?: string; over?: string; overNote?: string }
   /** More than one colour where one is drawn, in order of first appearance. Never equal to a single colour. */
   | { kind: 'colours'; hexes: readonly string[] }
   | { kind: 'not-rendered' }
@@ -382,7 +381,8 @@ function display(value: Value | null): string {
     case 'family':
       return value.name
     case 'colour': {
-      const source = value.css ? ` (${value.css}${value.over ? ` over ${value.over}` : ''})` : ''
+      const over = value.over ? ` over ${value.over}${value.overNote ? ` (${value.overNote})` : ''}` : ''
+      const source = value.css ? ` (${value.css}${over})` : ''
       return `${value.hex}${source}`
     }
     case 'colours':
@@ -408,19 +408,44 @@ function display(value: Value | null): string {
 }
 
 /**
- * The colour as seen: translucent text composited over the opaque backdrop the
- * surface measured behind it. Nothing translucent is ever compared raw, and
- * nothing translucent is excused.
+ * The colour as seen: translucent text composited over the opaque backdrop
+ * behind it. Nothing translucent is ever compared raw, and nothing translucent
+ * is excused.
+ *
+ * Two things make text see-through and the browser paints their product, so
+ * both are folded into one alpha before compositing: the alpha of the colour
+ * itself (`rgba()`, `text-white/90`) and the CSS `opacity` the element is drawn
+ * through (`opacity-80`), which `getComputedStyle` reports separately. The
+ * product is quantised to eight bits.
+ *
+ * The backdrop is what the surface measured behind the text, EXCEPT where the
+ * sample declares a substitute (`note`), which the row then prints beside it so
+ * a substituted backdrop cannot read as a measured one. Creative's two header
+ * rows are the only ones today: the Preview paints a gradient there, which has
+ * no single colour to measure and which the DOCX cannot draw, so both sides
+ * composite over the solid fill the DOCX does draw. See the creative header
+ * gradient LIMITATION for what that hides.
  */
-function seenColour(colour: ColourSample, backdrop: ColourSample | null, label: string): Value {
-  if (colour.alpha === 255) return { kind: 'colour', hex: colour.hex, ...(colour.css ? { css: colour.css } : {}) }
-  if (!backdrop) throw new Error(`${label}: translucent colour ${colour.hex} a=${colour.alpha} has no measured backdrop`)
-  const seen: ConvertedColour = compositeOver(colour, backdrop)
+function seenColour(
+  colour: ColourSample,
+  backdrop: ColourSample | null,
+  label: string,
+  opacity = 1,
+  note: string | null = null,
+): Value {
+  if (!(opacity >= 0 && opacity <= 1)) throw new Error(`${label}: an opacity of ${opacity} is not a fraction`)
+  const alpha = Math.round(colour.alpha * opacity)
+  const drawn = opacity === 1 ? '' : ` x opacity ${opacity}`
+  const source = colour.css ? { css: `${colour.css}${drawn}` } : {}
+  if (alpha === 255) return { kind: 'colour', hex: colour.hex, ...source }
+  if (!backdrop) throw new Error(`${label}: translucent colour ${colour.hex} a=${alpha} has no measured backdrop`)
+  const seen: ConvertedColour = compositeOver({ hex: colour.hex, alpha }, backdrop)
   return {
     kind: 'colour',
     hex: seen.hex,
-    ...(colour.css ? { css: colour.css } : {}),
+    ...source,
     over: backdrop.hex,
+    ...(note ? { overNote: note } : {}),
   }
 }
 
@@ -523,9 +548,6 @@ function fontFamilyReference(template: ResumeTemplate, model: Observation['model
 const LETTER_INCHES = '8.50'
 const A4_INCHES = '8.27'
 
-/** Translucent white, as modern-template.tsx writes its sidebar label and secondary text. */
-const TRANSLUCENT_WHITE = /^rgba\(255, 255, 255, 0?\.\d+\)$/
-
 /**
  * What each known defect looks like on a row. A divergence is attributed to a
  * story only when it has that defect's shape — the surfaces that are wrong,
@@ -534,21 +556,6 @@ const TRANSLUCENT_WHITE = /^rgba\(255, 255, 255, 0?\.\d+\)$/
  * may have two shapes: `evaluateRow` throws if signatures overlap.
  */
 const SIGNATURES: readonly Signature[] = [
-  {
-    id: 'US-006-translucent-text',
-    defect:
-      "Modern's Preview and print draw this sidebar text in translucent white, seen as a tint of the sidebar " +
-      'colour; the DOCX writes it opaque white.',
-    matches: ({ row, values }) =>
-      row.template === 'modern' &&
-      ['sidebarLabel', 'sidebarSecondary'].includes(row.subject) &&
-      values.preview.kind === 'colour' &&
-      values.preview.over !== undefined &&
-      TRANSLUCENT_WHITE.test(values.preview.css ?? '') &&
-      equal(values.pdf, values.preview) &&
-      values.docx.kind === 'colour' &&
-      values.docx.hex === '#FFFFFF',
-  },
   {
     id: 'US-008-page-width',
     defect:
@@ -885,7 +892,7 @@ export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): E
       if (isTypographyElement(row.subject)) {
         for (const s of SURFACES) {
           const sample = typographyOf(observation, s, row)
-          values[s] = seenColour(sample.colour, sample.backdrop, `${row.id} ${s}`)
+          values[s] = seenColour(sample.colour, sample.backdrop, `${row.id} ${s}`, sample.opacity)
         }
         break
       }
@@ -893,7 +900,7 @@ export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): E
         for (const s of SURFACES) {
           const sample = surfaces[s].extraColours[row.subject]
           if (!sample) throw new Error(`${row.id}: ${s} has no ${row.subject} measurement`)
-          values[s] = seenColour(sample.colour, sample.backdrop, `${row.id} ${s}`)
+          values[s] = seenColour(sample.colour, sample.backdrop, `${row.id} ${s}`, sample.opacity, sample.backdropNote)
         }
         break
       }
@@ -1141,6 +1148,17 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
       'the declared one twip per side, in that side\'s own twips, which is one twip between two surfaces drawing ' +
       'at the same size. Sub-twip quantisation remains: 0.025em over a 13pt heading is 6.5 twips and is written ' +
       'as 7.'),
+  annotation('DECISION', 'all', 'translucent text: composited against what the DOCX draws behind it', ['preview', 'pdf', 'docx'],
+    'Closed the translucent text divergence (Part 3 US-006). A DOCX run carries no alpha, so every run whose ' +
+      'Preview counterpart is see-through is written in the opaque colour that tint composites to over the ' +
+      'colour the DOCX itself draws behind it: the user\'s sidebar fill on professional and modern, the header ' +
+      'fill on creative. The alphas come from src/lib/resume-text-opacity.ts, which declares each one in the ' +
+      'form its template writes it — professional opacity-80, modern rgba(255,255,255,0.6/0.7/0.8), creative ' +
+      'text-white/90 and /80 — and which resume-palette.test.ts holds to the template sources in both ' +
+      'directions. Compositing is source-over in 8-bit sRGB as encoded, not in linear light, which is what the ' +
+      'browser draws; the alpha is quantised to eight bits on both sides so neither can round differently. ' +
+      'The Preview side of a row folds the element\'s CSS opacity into the alpha of its colour, because ' +
+      'getComputedStyle reports the two separately and the browser paints their product.'),
   annotation('DECISION', 'all', 'line height: Word exact spacing', ['docx'],
     'Closed the Word auto line spacing finding (Part 3 US-004). Every DOCX paragraph, and the document default, ' +
       'is written as w:lineRule="exact" at the Preview line height of its element times the size of its run, in ' +
@@ -1182,7 +1200,22 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
     'The header is a three-stop CSS gradient (from-purple-600 via-pink-500 to-orange-400). DOCX paragraph and ' +
       'table-cell shading is a single solid fill (w:shd), so since Part 3 US-003 the generator fills the header ' +
       "with the gradient's first stop, globals.css purple-600, taken from src/lib/resume-palette.ts. The other " +
-      'two stops are not drawn. Not compared.'),
+      'two stops are not drawn, and neither are the two bg-white/10 circles the Preview draws over the gradient ' +
+      "inside the same header (US-007's). The fill is not compared. Part 3 US-006 composites the header's " +
+      'translucent text against that same first stop, on both sides: the colour:headerSummary and ' +
+      'colour:headerLinks rows print it as the "over" colour, read from the computed background-image of the ' +
+      'header the Preview actually rendered, never assumed, and marked as the DOCX fill rather than a measured ' +
+      'backdrop. WHAT THAT HIDES, measured on the painted pixels of the primary profile\'s creative Preview ' +
+      '(header 816x273): the gradient runs to-br, so the first stop is the top-left CORNER only — painted ' +
+      '#6A3AD4 at (1,1), against #F747A4, #F647A4 and #FF890B at the other three, and already #B047BA halfway ' +
+      'down the left edge. Both sampled texts also lie inside the bottom-left bg-white/10 disc (centre (56,217), ' +
+      'r=96; the summary 83 away, the links 18), and the right end of the summary lies inside the top-right disc ' +
+      '(centre (768,48), r=128; 74 away). So the backdrop actually painted behind them is pink, not the first ' +
+      'stop: #BC58BE level with the summary and #E750AC level with the links, reaching #FA6095 and #F84490 at ' +
+      'their right ends. The Preview therefore draws those two texts at about #F8EFF9 and #FADCEE where the DOCX ' +
+      'writes #F0ECFB and #E1D8F6 — a hue difference, pink against lavender, 25 levels of red apart on the links ' +
+      'row, not a uniform lightening. Nothing in DOCX shading can carry a gradient or a disc, so the rows match ' +
+      'on the fill the format can draw and this records what they cannot cover.'),
   annotation('LIMITATION', 'modern', 'colour:accent reference', ['preview', 'pdf', 'docx'],
     'The accent is not stored in the model. It is derived from the sidebar colour by the rule documented in ' +
       'modern-template.tsx and docx-modern.ts (saturation +20 capped at 100, lightness +25 capped at 65); ' +

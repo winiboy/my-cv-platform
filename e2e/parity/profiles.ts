@@ -15,6 +15,8 @@ import {
   FIXTURE_CERTIFICATIONS,
   FIXTURE_CONTACT,
   FIXTURE_EXPERIENCE,
+  FIXTURE_SKILLS,
+  FIXTURE_SUMMARY,
   type FixtureExperience,
 } from '../fixtures/resume'
 
@@ -408,11 +410,35 @@ export interface TemplateSpec {
   accentDepth: number | null
   /**
    * Further text colours to compare, located by their exact text on every
-   * surface. Modern's sidebar secondary text is translucent white in the
-   * Preview; it is composited over its backdrop and compared, never excused.
+   * surface. Text the Preview draws translucent is composited over its backdrop
+   * and compared, never excused.
    */
-  extraColourSamples: readonly { key: string; text: string }[]
+  extraColourSamples: readonly ExtraColourSpec[]
   reference(model: ResumeLayoutModel): TemplateReference
+}
+
+/**
+ * Where an extra colour sample's backdrop comes from.
+ *
+ * `nearest-opaque` is the ordinary case: the first opaque background at or
+ * above the element, which is what the browser draws the text on.
+ *
+ * `gradient-first-stop` is creative's header. Its background is a CSS gradient,
+ * which has no `background-color` at all, so walking up for an opaque one finds
+ * the page paper and would composite white over white. The DOCX cannot draw a
+ * gradient — it fills the header with the first stop (US-003) — so the Preview
+ * side is composited over that same first stop, read from the computed
+ * `background-image` rather than assumed. That the other two stops, and the
+ * `bg-white/10` circles the header draws over them, are not in the DOCX is
+ * recorded as the creative header limitation.
+ */
+export type BackdropSource = 'nearest-opaque' | 'gradient-first-stop'
+
+export interface ExtraColourSpec {
+  key: string
+  text: string
+  /** Default `nearest-opaque`. */
+  backdrop?: BackdropSource
 }
 
 interface CommonDictionary {
@@ -458,7 +484,12 @@ const PROFESSIONAL: TemplateSpec = {
   headingSampleKey: 'experience',
   sidebarBackgroundDepth: 1,
   accentDepth: null,
-  extraColourSamples: [],
+  // The skill items of the first category, drawn in an `opacity-80` div inside
+  // the `text-white` sidebar (professional-template.tsx); opaque white runs in
+  // docx-professional.ts before US-006. The same `opacity-80` carries the
+  // key-achievement descriptions and the language levels, which the primary
+  // profile hides.
+  extraColourSamples: [{ key: 'sidebarSecondary', text: FIXTURE_SKILLS[0].items.join(' • ') }],
   sections: [
     { key: 'keyAchievements', column: 'sidebar', locator: heading(T.keyAchievements) },
     { key: 'skills', column: 'sidebar', locator: heading(T.skills) },
@@ -497,7 +528,7 @@ const MODERN: TemplateSpec = {
   sidebarBackgroundDepth: 2,
   accentDepth: 1,
   // rgba(255,255,255,0.6) contact label and rgba(255,255,255,0.7) certificate issuer
-  // in modern-template.tsx; opaque white runs in docx-modern.ts.
+  // in modern-template.tsx; opaque white runs in docx-modern.ts before US-006.
   extraColourSamples: [
     { key: 'sidebarLabel', text: 'Email' },
     { key: 'sidebarSecondary', text: FIXTURE_CERTIFICATIONS[0].issuer },
@@ -601,7 +632,14 @@ const CREATIVE: TemplateSpec = {
   headingSampleKey: 'experience',
   sidebarBackgroundDepth: null,
   accentDepth: null,
-  extraColourSamples: [],
+  // The header summary (`text-white/90`) and the second contact row
+  // (`text-white/80`) in creative-template.tsx; opaque white runs in
+  // docx-creative.ts before US-006. Both are drawn on the header gradient, so
+  // both take their backdrop from its first stop — the fill the DOCX draws.
+  extraColourSamples: [
+    { key: 'headerSummary', text: FIXTURE_SUMMARY, backdrop: 'gradient-first-stop' },
+    { key: 'headerLinks', text: FIXTURE_CONTACT.linkedin, backdrop: 'gradient-first-stop' },
+  ],
   sections: [
     { key: 'summary', column: 'header', locator: { kind: 'marker', text: SUMMARY_MARKER } },
     { key: 'skills', column: 'sidebar', locator: heading(S.skills) },

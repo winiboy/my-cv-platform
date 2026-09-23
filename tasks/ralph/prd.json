@@ -427,7 +427,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

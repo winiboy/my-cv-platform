@@ -4,7 +4,6 @@ import { isValidElement, type ReactElement, type ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
 import { formatText } from '@/lib/format-text'
 import {
-  COLORS,
   exactLineSpacing,
   NO_TEXT_LINE,
   extractAlignment,
@@ -143,14 +142,6 @@ describe('oklchToHex', () => {
   it('returns bare uppercase 6-digit hex', () => {
     expect(oklchToHex(0.2)).toMatch(HEX_6)
     expect(oklchToHex(0)).toMatch(HEX_6)
-  })
-})
-
-describe('COLORS', () => {
-  it('exposes every colour as bare uppercase 6-digit hex', () => {
-    for (const [name, value] of Object.entries(COLORS)) {
-      expect(value, name).toMatch(HEX_6)
-    }
   })
 })
 

@@ -31,13 +31,13 @@ import {
   parsePlainTextListToParagraphs,
   parseHtmlToDocxRuns,
   formatDateRange,
-  COLORS,
   exactLineSpacing,
   trackingSpacing,
   NO_TEXT_LINE,
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
+import { docxTranslucentText } from './docx-text-opacity'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import { PROFESSIONAL_LINE_HEIGHT, formattedTextLineHeight } from '@/lib/resume-line-height'
 import {
@@ -48,8 +48,8 @@ import {
 
 /**
  * Every text run and rule the Preview draws in a colour of its own (US-003).
- * The sidebar text it draws at `opacity-80` over the user's colour keeps
- * `COLORS.WHITE`; that is US-006's.
+ * The sidebar text it draws at `opacity-80` over the user's colour is not a
+ * colour of its own: it is composited per request (US-006, below).
  */
 const PALETTE = DOCX_PALETTE.professional
 
@@ -211,6 +211,14 @@ export async function generateProfessionalDocx(
   // Preview is not showing.
   const sidebarColorHex = hslToHex(sidebarHue, settings.sidebarSaturation, sidebarBrightness)
 
+  /**
+   * The key-achievement descriptions, skill items and language levels the
+   * Preview draws at `opacity-80` inside the `text-white` sidebar (US-006).
+   * A DOCX run carries no alpha, so each is written in the colour that
+   * translucency composites to over the sidebar fill this document draws.
+   */
+  const sidebarSecondaryColor = docxTranslucentText('professional', 'sidebarSecondary', sidebarColorHex)
+
   // Calculate scaled font sizes
   const scaledFontSizes = {
     name: pxToHalfPoints(FONT_SIZES.NAME * fontScale),
@@ -351,7 +359,7 @@ export async function generateProfessionalDocx(
                   achievement.description,
                   {
                     size: scaledFontSizes.body,
-                    color: COLORS.WHITE,
+                    color: sidebarSecondaryColor,
                     font: primaryFont,
                   },
                   pxToTwips(4), // spacing between list items
@@ -367,7 +375,7 @@ export async function generateProfessionalDocx(
                     achievement.description,
                     {
                       size: scaledFontSizes.body,
-                      color: COLORS.WHITE,
+                      color: sidebarSecondaryColor,
                       font: primaryFont,
                     },
                     {
@@ -382,7 +390,7 @@ export async function generateProfessionalDocx(
                 // Parse HTML to DOCX TextRuns with formatting preserved
                 const descriptionRuns = parseHtmlToDocxRuns(achievement.description, {
                   size: scaledFontSizes.body,
-                  color: COLORS.WHITE,
+                  color: sidebarSecondaryColor,
                   font: primaryFont,
                 })
 
@@ -469,7 +477,7 @@ export async function generateProfessionalDocx(
                   skillCat.skillsHtml,
                   {
                     size: scaledFontSizes.body,
-                    color: COLORS.WHITE,
+                    color: sidebarSecondaryColor,
                     font: primaryFont,
                   },
                   pxToTwips(4), // spacing between list items
@@ -485,7 +493,7 @@ export async function generateProfessionalDocx(
                     skillCat.skillsHtml,
                     {
                       size: scaledFontSizes.body,
-                      color: COLORS.WHITE,
+                      color: sidebarSecondaryColor,
                       font: primaryFont,
                     },
                     {
@@ -500,7 +508,7 @@ export async function generateProfessionalDocx(
                 // Non-list content: use inline rendering
                 const skillsRuns = parseHtmlToDocxRuns(skillCat.skillsHtml, {
                   size: scaledFontSizes.body,
-                  color: COLORS.WHITE,
+                  color: sidebarSecondaryColor,
                   font: primaryFont,
                 })
 
@@ -519,7 +527,7 @@ export async function generateProfessionalDocx(
                     new TextRun({
                       text: skillCat.items.join(' • '),
                       size: scaledFontSizes.body,
-                      color: COLORS.WHITE,
+                      color: sidebarSecondaryColor,
                       font: primaryFont,
                     }),
                   ],
@@ -582,7 +590,7 @@ export async function generateProfessionalDocx(
                   new TextRun({
                     text: '\t' + levelText,
                     size: scaledFontSizes.body,
-                    color: COLORS.WHITE,
+                    color: sidebarSecondaryColor,
                     font: primaryFont,
                   }),
                 ],

@@ -6,7 +6,13 @@ import pdfParse from 'pdf-parse'
 import type { ResumeLayoutModel } from '../../src/lib/layout-settings'
 import type { ResumeTemplate } from '../../src/types/database'
 import { coloursAgree, isBlendOf } from './colour'
-import { BODY_MARKER, type ProfileId, type SectionSpec, type TemplateSpec } from './profiles'
+import {
+  BODY_MARKER,
+  type ExtraColourSpec,
+  type ProfileId,
+  type SectionSpec,
+  type TemplateSpec,
+} from './profiles'
 
 /**
  * Part 2 US-008: how each surface is measured.
@@ -74,6 +80,14 @@ export interface StyleSample {
   /** The opaque background the text is drawn on; `null` for DOCX runs. */
   backdrop: ColourSample | null
   /**
+   * The CSS `opacity` the element is drawn through, multiplied down the
+   * ancestors between it and its backdrop. `getComputedStyle` reports `color`
+   * and `opacity` separately, but the browser paints their product, so the
+   * colour a surface SEES is the colour at `colour.alpha × opacity`. 1 where
+   * nothing is see-through, and 1 for DOCX runs, which carry no alpha at all.
+   */
+  opacity: number
+  /**
    * The face actually used: Chromium's platform font for the Preview, the
    * embedded font for the PDF, `w:rFonts` for the DOCX.
    */
@@ -98,6 +112,14 @@ export interface StyleSample {
 export interface ExtraColourSample {
   colour: ColourSample
   backdrop: ColourSample | null
+  /** As `StyleSample.opacity`. */
+  opacity: number
+  /**
+   * Why this backdrop is not simply the one the surface paints behind the text,
+   * printed beside it so a substituted backdrop cannot read as a measured one.
+   * `null` for the ordinary case.
+   */
+  backdropNote: string | null
 }
 
 /** Everything the verdicts read from one surface. */
@@ -140,7 +162,7 @@ export interface SurfaceProbe {
   sidebarKeys: readonly string[]
   sidebarBackgroundDepth: number | null
   accentDepth: number | null
-  extraColourSamples: readonly { key: string; text: string }[]
+  extraColourSamples: readonly ExtraColourSpec[]
   /**
    * Whether to sample title, heading and body typography. Off for probes whose
    * point is that a section a sample would read from is missing on one surface.
@@ -300,10 +322,67 @@ export async function measureDom(page: Page, probe: SurfaceProbe): Promise<DomMe
         return found
       }
 
+      /** The nearest element at or above `element` whose background is opaque, if any. */
+      const opaqueBackgroundElement = (element: Element): Element | null => {
+        for (let current: Element | null = element; current; current = current.parentElement) {
+          if (toColour(getComputedStyle(current).backgroundColor).alpha === 255) return current
+          if (current === root) break
+        }
+        return null
+      }
+
       /** The nearest opaque background at or above `element`: what its text is drawn on. */
       const backdropOf = (element: Element) =>
         // Above the document there is only the page, white in every template and in print.
         opaqueBackgrounds(element)[0] ?? toColour(getComputedStyle(document.body).backgroundColor)
+
+      /**
+       * A CSS colour written as a function or a hex literal. Matched inside a
+       * computed `background-image`, whose gradient function name is never one
+       * of these, so the first match is the gradient's first stop.
+       */
+      const COLOUR_TOKEN = /(?<![\w-])(?:rgba?|hsla?|oklch|oklab|lab|lch|color)\([^()]*\)|#[0-9a-fA-F]{3,8}\b/
+
+      /**
+       * The colour the nearest painted background image starts with. A gradient
+       * has no `background-color`, so an element painted with one has no opaque
+       * backdrop to walk to; its first stop is what a solid fill approximates.
+       */
+      const gradientFirstStop = (element: Element) => {
+        for (let current: Element | null = element; current; current = current.parentElement) {
+          const image = getComputedStyle(current).backgroundImage
+          if (image && image !== 'none') {
+            const stop = COLOUR_TOKEN.exec(image)
+            if (!stop) throw new Error(`Cannot read a first stop from the background image "${image}"`)
+            const colour = toColour(stop[0])
+            if (colour.alpha !== 255) throw new Error(`The first stop of "${image}" is not opaque`)
+            return colour
+          }
+          if (current === root) break
+        }
+        throw new Error('No ancestor of this element paints a background image')
+      }
+
+      /**
+       * The CSS `opacity` the element is drawn through, multiplied down to but
+       * NOT including the element whose background is its backdrop: that one
+       * dims the backdrop and the text alike, so it cannot change the tint
+       * between them. Every opacity below it can.
+       */
+      const opacityOf = (element: Element) => {
+        const until = opaqueBackgroundElement(element)
+        let factor = 1
+        for (let current: Element | null = element; current; current = current.parentElement) {
+          if (current === until) break
+          const value = Number(getComputedStyle(current).opacity)
+          if (!Number.isFinite(value)) throw new Error('An element has an unreadable opacity')
+          factor *= value
+          // No opaque background anywhere above: the backdrop is the page, below
+          // the document, so the document's own opacity does change the tint.
+          if (current === root) break
+        }
+        return factor
+      }
 
       const one = (label: string, matches: readonly HTMLElement[]) => {
         if (matches.length !== 1) throw new Error(`Expected one element for the ${label}, found ${matches.length}`)
@@ -325,6 +404,7 @@ export async function measureDom(page: Page, probe: SurfaceProbe): Promise<DomMe
           halfPoints: Math.round(px * 1.5),
           colour: toColour(style.color),
           backdrop: backdropOf(element),
+          opacity: opacityOf(element),
           fontFamily: declaredFamily(style.fontFamily),
           declaredFamily: declaredFamily(style.fontFamily),
           letterSpacingEm: letterSpacing / px,
@@ -347,10 +427,24 @@ export async function measureDom(page: Page, probe: SurfaceProbe): Promise<DomMe
         }
       }
 
-      const extraColours: Record<string, { colour: ReturnType<typeof toColour>; backdrop: ReturnType<typeof toColour> }> = {}
+      const extraColours: Record<
+        string,
+        {
+          colour: ReturnType<typeof toColour>
+          backdrop: ReturnType<typeof toColour>
+          opacity: number
+          backdropNote: string | null
+        }
+      > = {}
       for (const extra of p.extraColourSamples) {
         const element = one(`"${extra.text}" text`, exactText(extra.text))
-        extraColours[extra.key] = { colour: toColour(getComputedStyle(element).color), backdrop: backdropOf(element) }
+        const substituted = extra.backdrop === 'gradient-first-stop'
+        extraColours[extra.key] = {
+          colour: toColour(getComputedStyle(element).color),
+          backdrop: substituted ? gradientFirstStop(element) : backdropOf(element),
+          opacity: opacityOf(element),
+          backdropNote: substituted ? 'DOCX fill; the Preview paints a gradient here' : null,
+        }
       }
 
       const sidebarAnchor = anchors.find((anchor) => p.sidebarKeys.includes(anchor.key))
@@ -1083,6 +1177,8 @@ export async function measureDocx(buffer: Buffer, probe: SurfaceProbe): Promise<
       halfPoints,
       colour: runColour(run),
       backdrop: null,
+      // A DOCX run is drawn at one opaque colour; there is no alpha to fold in.
+      opacity: 1,
       fontFamily: font,
       declaredFamily: font,
       // Character spacing is twentieths of a point and the run size is half-points,
@@ -1105,7 +1201,7 @@ export async function measureDocx(buffer: Buffer, probe: SurfaceProbe): Promise<
   const extraColours: Record<string, ExtraColourSample> = {}
   for (const extra of probe.extraColourSamples) {
     const { run } = uniqueRun(`"${extra.text}" text`, paragraphs, (r) => normalise(r.text) === normalise(extra.text))
-    extraColours[extra.key] = { colour: runColour(run), backdrop: null }
+    extraColours[extra.key] = { colour: runColour(run), backdrop: null, opacity: 1, backdropNote: null }
   }
 
   return {

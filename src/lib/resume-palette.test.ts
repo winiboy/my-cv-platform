@@ -4,31 +4,41 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 import type { ResumeTemplate } from '@/types/database'
 import { PREVIEW_PALETTE, TAILWIND_DEFAULT_TOKENS, THEME_TOKENS, type PreviewColour } from './resume-palette'
+import { PREVIEW_TEXT_ALPHA, type PreviewAlpha } from './resume-text-opacity'
 
 /**
- * Part 3 US-003: the palette may not drift from what the Preview's source
- * declares, in either direction.
+ * Part 3 US-003, extended by US-006: what a template paints may not drift from
+ * what the Preview's source declares, in either direction.
  *
  * Forward: every value in `resume-palette.ts` equals what `globals.css`,
  * Tailwind's default theme or the template declares.
  *
  * Reverse: the colours a template draws outside its `print:hidden` editing
  * controls are listed in `DRAWN` below with the number of times the template
- * uses each, and each resolves to a palette entry or to an exclusion that names
- * its owner. A colour added, removed, or used a different number of times
- * fails here.
+ * uses each, and each resolves to a palette entry, to a translucency
+ * `resume-text-opacity.ts` declares, or to an exclusion that names its owner.
+ * A colour added, removed, or used a different number of times fails here.
+ *
+ * Translucency is part of what is painted, so the scan reads it too (US-006):
+ * the `opacity-*` utilities and `opacity` styles a template sets, alongside the
+ * colour modifiers (`text-white/90`) and `rgba()` literals it already read. The
+ * translucency of TEXT — an `opacity-*` utility, a `text-…/…` modifier, an
+ * inline `rgba()` text colour — must be one `PREVIEW_TEXT_ALPHA` declares for
+ * that template, written the same way, and every entry it declares must be
+ * drawn. Translucent fills and graphics keep their owners; those are US-007's.
  *
  * Covered:
  * - Class lists, read fully or rejected. Every named or arbitrary-value colour
- *   utility counts (`text-slate-700`, `ring-red-500`, `text-[#ff0000]`); a class
+ *   utility counts (`text-slate-700`, `ring-red-500`, `text-[#ff0000]`), as does
+ *   every `opacity-*` utility; a class
  *   list built from anything but literals, templates, ternaries and `&&` / `||`
  *   / `??` fails the test with its file and line.
  * - Style objects, which must be object literals: a `style` that is a variable
  *   or call, or holds a spread, shorthand or computed entry, fails the test with
  *   its file and line, as does a spread attribute.
  * - Any value under the four colour keys `color`, `borderColor`, `background`
- *   and `backgroundColor`: a literal is counted as written, anything else as its
- *   expression (`style color: {accentColor}`).
+ *   and `backgroundColor`, and under `opacity`: a literal is counted as written,
+ *   anything else as its expression (`style color: {accentColor}`).
  * - A literal colour-like string under any other style key or in any attribute
  *   (`borderBottom: '2px solid #ff0000'`, `fill="#FFFFFF"`).
  *
@@ -37,9 +47,15 @@ import { PREVIEW_PALETTE, TAILWIND_DEFAULT_TOKENS, THEME_TOKENS, type PreviewCol
  *   variable or interpolation in a border shorthand or `boxShadow`, an SVG
  *   `fill` / `stroke`, the HTML `color` attribute. None of these is a text
  *   colour, and none of today's templates uses one.
- * - Which element a colour sits on: swapping two elements' colours without
- *   changing the counts passes here. The per-element DOCX tests and
- *   `pnpm test:parity` cover the sampled elements.
+ * - Which element a colour or a translucency sits on: swapping two elements'
+ *   colours without changing the counts passes here. The per-element DOCX tests
+ *   and `pnpm test:parity` cover the sampled elements.
+ * - Removing a `PREVIEW_TEXT_ALPHA` entry whose written form another entry of
+ *   the same template shares — deleting `modern.certDate`, whose
+ *   `rgba(255,255,255,0.6)` `modern.contactLabel` also writes. The forms drawn
+ *   and the forms declared still match, because this compares forms, not
+ *   entries; the DOCX loses the element, which `docx-text-opacity.test.ts`
+ *   catches on a generated document, and `tsc` catches at the call site.
  */
 
 const ROOT = path.resolve(__dirname, '../..')
@@ -89,7 +105,11 @@ const COLOUR_FAMILIES =
 const COLOUR_UTILITY = new RegExp(
   `^(?:[a-z0-9-]+:)*(?:${COLOUR_FAMILIES})-(?:(?:(?:${COLOUR_NAMES})-\\d{2,3}|white|black)(?:/\\d+)?|\\[[^\\]]+\\])$`,
 )
+/** A Tailwind opacity utility, with any variant prefix: `opacity-80`, `group-hover:opacity-100`. */
+const OPACITY_UTILITY = /^(?:[a-z0-9-]+:)*opacity-(\d{1,3})$/
 const STYLE_COLOUR_KEYS = new Set(['color', 'borderColor', 'background', 'backgroundColor'])
+/** Style keys read for their literal value even though they hold no colour. */
+const STYLE_OPACITY_KEY = 'opacity'
 /** Values that paint nothing. */
 const NOT_A_COLOUR = new Set(['none', 'transparent', 'currentColor', 'inherit'])
 
@@ -234,6 +254,10 @@ function scanTemplate(template: ResumeTemplate): Scan {
         }
         continue
       }
+      if (key === STYLE_OPACITY_KEY) {
+        count(ts.isNumericLiteral(value) ? `style ${key}: ${value.text}` : `style ${key}: {${value.getText()}}`)
+        continue
+      }
       for (const text of literals(value)) if (COLOUR_LIKE.test(text)) count(`style ${key}: ${text}`)
     }
   }
@@ -242,6 +266,7 @@ function scanTemplate(template: ResumeTemplate): Scan {
     const signature = [...names].sort().join(' ')
     for (const name of names) {
       if (COLOUR_UTILITY.test(name)) count(split.has(name) ? `${name} @ ${signature}` : name)
+      else if (OPACITY_UTILITY.test(name)) count(name)
     }
     for (const property of element.attributes.properties) {
       if (ts.isJsxSpreadAttribute(property)) {
@@ -321,7 +346,6 @@ function scanTemplate(template: ResumeTemplate): Scan {
 
 /** Why a drawn colour has no palette entry, and whose it is. */
 type Owner =
-  | 'US-006: translucent text, composited by that story'
   | 'US-007: bars and pills, drawn by that story'
   | "the user's colour, from the layout model"
   | "later gradient stops: DOCX shading is solid, so the DOCX takes the first stop (a recorded LIMITATION)"
@@ -329,9 +353,16 @@ type Owner =
   | 'the photo zone: the photo is browser-local and not in the DOCX (a recorded DECISION)'
   | 'US-007: another graphic the DOCX does not draw yet (assigned by the PRD amendment of 2026-09-22)'
 
-type Drawn = { count: number; palette: string } | { count: number; excluded: Owner }
+/**
+ * `translucent` marks text the Preview draws see-through: its colour is not a
+ * palette entry but the tint `resume-text-opacity.ts` declares, resolved
+ * against that module below.
+ */
+type Drawn =
+  | { count: number; palette: string }
+  | { count: number; translucent: true }
+  | { count: number; excluded: Owner }
 
-const US006: Owner = 'US-006: translucent text, composited by that story'
 const US007: Owner = 'US-007: bars and pills, drawn by that story'
 const USER: Owner = "the user's colour, from the layout model"
 const STOPS: Owner = 'later gradient stops: DOCX shading is solid, so the DOCX takes the first stop (a recorded LIMITATION)'
@@ -350,6 +381,8 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     "style color: oklch(0.5 0 0)": { count: 3, palette: 'date' },
     'style backgroundColor: white': { count: 1, excluded: PAGE },
     'style backgroundColor: {activeSidebarColor}': { count: 1, excluded: USER },
+    // Key-achievement descriptions, skill items and language levels.
+    'opacity-80': { count: 3, translucent: true },
   },
   modern: {
     'text-slate-900': { count: 2, palette: 'slate-900' },
@@ -361,9 +394,10 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     'style color: #FFFFFF': { count: 8, palette: 'white' },
     'attr stroke: #FFFFFF': { count: 5, palette: 'white' },
     'attr fill: #FFFFFF': { count: 1, palette: 'white' },
-    'style color: rgba(255,255,255,0.6)': { count: 2, excluded: US006 },
-    'style color: rgba(255,255,255,0.7)': { count: 2, excluded: US006 },
-    'style color: rgba(255,255,255,0.8)': { count: 1, excluded: US006 },
+    // Contact labels and certification dates; language levels and issuers; education schools.
+    'style color: rgba(255,255,255,0.6)': { count: 2, translucent: true },
+    'style color: rgba(255,255,255,0.7)': { count: 2, translucent: true },
+    'style color: rgba(255,255,255,0.8)': { count: 1, translucent: true },
     'style backgroundColor: rgba(255,255,255,0.2)': { count: 1, excluded: US007 },
     'style color: {accentColor}': { count: 1, excluded: USER },
     'style backgroundColor: {accentColor}': { count: 6, excluded: USER },
@@ -431,8 +465,9 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     'text-slate-700': { count: 4, palette: 'slate-700' },
     'text-slate-600': { count: 3, palette: 'slate-600' },
     'text-slate-500': { count: 1, palette: 'slate-500' },
-    'text-white/90': { count: 1, excluded: US006 },
-    'text-white/80': { count: 1, excluded: US006 },
+    // The header summary, and the header's second contact row.
+    'text-white/90': { count: 1, translucent: true },
+    'text-white/80': { count: 1, translucent: true },
     // The header gradient's later stops.
     'via-pink-500': { count: 1, excluded: STOPS },
     'to-orange-400': { count: 1, excluded: STOPS },
@@ -462,6 +497,32 @@ function utilityToken(use: string): string | null {
   const utility = use.split(' @ ')[0]
   if (utility.includes(' ')) return null
   return new RegExp(`^(?:[a-z0-9-]+:)*(?:${COLOUR_FAMILIES})-(.+)$`).exec(utility)?.[1] ?? null
+}
+
+/**
+ * The alpha a use draws TEXT at, or null where it draws text opaque — or draws
+ * no text at all. Three forms make text see-through: an `opacity-*` utility on
+ * the element, an opacity modifier on a text colour (`text-white/90`), and an
+ * inline `rgba()` under `color`. A translucent fill, border or SVG paint is not
+ * text and keeps its owner in `DRAWN`.
+ */
+function textAlpha(use: string): number | null {
+  const utility = use.split(' @ ')[0]
+  const opacity = OPACITY_UTILITY.exec(utility)
+  if (opacity) return Number(opacity[1]) / 100
+  if (COLOUR_UTILITY.test(utility) && /^(?:[a-z0-9-]+:)*text-/.test(utility)) {
+    const modifier = /\/(\d{1,3})$/.exec(utility)
+    if (modifier) return Number(modifier[1]) / 100
+  }
+  const colour = /^style color: (.+)$/.exec(use)?.[1]
+  const rgba = colour ? /^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\s*\)$/.exec(colour) : null
+  if (rgba) return Number(rgba[1])
+  return null
+}
+
+/** How `PREVIEW_TEXT_ALPHA` says the template writes one translucency, as the scan keys it. */
+function writtenForm(entry: PreviewAlpha): string {
+  return entry.source === 'inline' ? `style color: ${entry.css}` : entry.utility
 }
 
 /** Whether a drawn colour is the colour of the palette entry it claims. */
@@ -558,5 +619,30 @@ describe.each(TEMPLATES)('%s-template.tsx draws only colours the palette or an o
       Object.values(expected).flatMap((entry) => ('palette' in entry ? [entry.palette] : [])),
     )
     expect(Object.keys(PREVIEW_PALETTE[template]).filter((key) => !claimed.has(key))).toEqual([])
+  })
+
+  it('marks every translucent text colour as one, and nothing else', () => {
+    const inventoried = Object.entries(expected)
+      .filter(([, entry]) => 'translucent' in entry)
+      .map(([use]) => use)
+      .sort()
+    expect(
+      Object.keys(drawn).filter((use) => textAlpha(use) !== null).sort(),
+      'A use that draws text see-through is a translucency, not an owned exclusion, and the reverse.',
+    ).toEqual(inventoried)
+  })
+
+  it('draws the translucencies resume-text-opacity.ts declares for it, and no others', () => {
+    const declared: Readonly<Record<string, PreviewAlpha>> = PREVIEW_TEXT_ALPHA[template]
+    const forms = new Map(Object.values(declared).map((entry) => [writtenForm(entry), entry.alpha]))
+    const inventoried = Object.entries(expected).filter(([, entry]) => 'translucent' in entry).map(([use]) => use)
+    expect(
+      inventoried.sort(),
+      `${templateFile(template)} and PREVIEW_TEXT_ALPHA.${template} disagree on which text is translucent ` +
+        'and how it is written. Declare it there, or stop drawing it.',
+    ).toEqual([...forms.keys()].sort())
+    for (const use of inventoried) {
+      expect(textAlpha(use), `${use} draws a different alpha than ${template} declares for it`).toBe(forms.get(use))
+    }
   })
 })
