@@ -436,7 +436,7 @@
       "description": "As a user of the modern or creative template, I want the bars, pills and other graphics I see to appear in my download.",
       "acceptanceCriteria": [
         "Modern's skill bars, creative's language bars and creative's technology pills appear in the DOCX, approximated with what the format supports — for example shaded table cells or shaded runs — and each approximation is recorded with its form.",
-        "Modern's technology chip fill and creative's timeline line and dots, project card rule and fill, and decorative header circles are each drawn in the DOCX with what the format supports, or recorded as a format limitation with evidence.",
+        "Modern's technology chip fill and creative's timeline line and dots, project card rule and fill, and decorative header circles are each drawn in the DOCX with what the format supports, recorded as a format limitation with evidence, or — where the format can express it but the cost or the side effects are judged not worth it — recorded as an owner decision naming the route that was open and why it was not taken.",
         "Each drawn element carries the same value the Preview shows (a proficiency level, a pill's text), asserted on the unzipped document.",
         "Anything that proves genuinely inexpressible in DOCX is recorded as a format limitation with evidence, not silently omitted.",
         "Preview rendering is unchanged; visual baselines do not move.",

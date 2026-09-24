@@ -379,8 +379,10 @@ graphics I see to appear in my download.
       recorded with its form.
 - [ ] Modern's technology chip fill and creative's timeline line and dots,
       project card rule and fill, and decorative header circles are each drawn in
-      the DOCX with what the format supports, or recorded as a format limitation
-      with evidence.
+      the DOCX with what the format supports, recorded as a format limitation
+      with evidence, or — where the format can express it but the cost or the
+      side effects are judged not worth it — recorded as an owner decision
+      naming the route that was open and why it was not taken.
 - [ ] Each drawn element carries the same value the Preview shows (a proficiency
       level, a pill's text), asserted on the unzipped document.
 - [ ] Anything that proves genuinely inexpressible in DOCX is recorded as a
@@ -870,6 +872,17 @@ literal markup, while the DOCX parses them.
   owned. The DOCX is right, so the fix is on the Preview side, and no existing
   story covers it: **US-016 is added at the end**, so no story is renumbered.
   This is the only amendment that adds a story.
+- **2026-09-24 — US-007's third disposition.** Criterion 2 offered two outcomes
+  for each graphic: drawn, or a format limitation with evidence. Creative's
+  timeline dot is neither. It was drawn as a `●` glyph prefixed to the position
+  paragraph, which put a decoration inside a field an ATS parses as the job
+  title, so the owner had it removed; the continuous left rule already carries
+  the timeline. The floating-raster route the header circles now take is open —
+  the dot is a disc too — but anchoring one image per experience entry, with the
+  page-break risk that carries, was judged not worth a 6px decoration. The
+  criterion now admits that third disposition: the format can express it, and the
+  record must name the route that was open and why it was not taken. No story is
+  added, removed or reordered.
 
 ## Approval Gate
 
