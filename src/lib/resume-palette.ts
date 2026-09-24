@@ -41,13 +41,21 @@ import type { ResumeTemplate } from '@/types/database'
  * DOCX fills it with purple-600, because DOCX shading is one solid colour. The
  * parity report records the gradient as a LIMITATION.
  *
- * Not here: text the Preview draws translucent over a backdrop (US-006), the
- * bars and pills US-007 owns, and the user's sidebar and accent colours, which
- * come from the layout model.
+ * Since US-007 the bars, pills, rules and markers the Preview draws are entries
+ * here too; what each of them is DRAWN AS in the DOCX — a row of shaded cells, a
+ * shaded run, a paragraph border, a glyph — is `resume-graphics.ts`, which holds
+ * their geometry and nothing about colour.
+ *
+ * Not here: text the Preview draws translucent over a backdrop (US-006),
+ * modern's skill-bar track, which is a translucent fill and therefore a
+ * composite rather than a colour, and the user's sidebar and accent colours,
+ * which come from the layout model.
  */
 
 /** Tokens `globals.css` redefines in `@theme inline`. */
 export const THEME_TOKENS = {
+  'slate-50': 'oklch(0.98 0 0)',
+  'slate-100': 'oklch(0.96 0 0)',
   'slate-200': 'oklch(0.92 0 0)',
   'slate-300': 'oklch(0.85 0 0)',
   'slate-400': 'oklch(0.65 0 0)',
@@ -64,6 +72,7 @@ export const THEME_TOKENS = {
 export const TAILWIND_DEFAULT_TOKENS = {
   white: '#fff',
   'purple-100': 'oklch(94.6% 0.033 307.174)',
+  'purple-300': 'oklch(82.7% 0.119 306.383)',
   'purple-700': 'oklch(49.6% 0.265 301.924)',
 } as const
 
@@ -112,6 +121,8 @@ export const PREVIEW_PALETTE = {
     experienceBody: inline('#374151'),
     /** Opaque sidebar text and icons, and the job title on the accent bar. */
     white: inline('#FFFFFF'),
+    /** The project technology chips' fill (US-007). */
+    'slate-100': theme('slate-100'),
   },
   classic: {
     /** Title, headings, names; the header rule. */
@@ -142,11 +153,18 @@ export const PREVIEW_PALETTE = {
     'purple-100': tailwind('purple-100'),
     /** Headings, company and school names; the header fill (its gradient's first stop). */
     'purple-600': theme('purple-600'),
+    /** Technology pills and language bar segments (their gradients' first stop), and the project card's rule (US-007). */
     'purple-500': theme('purple-500'),
+    /** The experience timeline line (its gradient's first stop) (US-007). */
+    'purple-300': tailwind('purple-300'),
     'slate-900': theme('slate-900'),
     'slate-800': theme('slate-800'),
     'slate-700': theme('slate-700'),
     'slate-600': theme('slate-600'),
     'slate-500': theme('slate-500'),
+    /** A language bar's empty segments (US-007). */
+    'slate-200': theme('slate-200'),
+    /** The project card's fill (US-007). */
+    'slate-50': theme('slate-50'),
   },
 } as const satisfies Readonly<Record<ResumeTemplate, Readonly<Record<string, PreviewColour>>>>

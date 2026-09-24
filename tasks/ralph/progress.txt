@@ -529,3 +529,115 @@ Commit:
 - Commit message: ralph: US-006 translucent text keeps its tint in the DOCX
 
 FINAL: PASS
+
+## US-007: The DOCX draws the graphics the Preview draws
+Status: PASS
+Priority: 7
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: 70339c1; story amended by ef1993c (four more graphics) and 70339c1 (third disposition)
+Checkout: E:/website/cv-website/my-cv-platform (main checkout; no worktree)
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/lib/resume-graphics.ts (new), src/lib/resume-graphics.test.ts (new),
+  src/app/api/resumes/[id]/download-docx/docx-graphics.ts (new), docx-graphics.test.ts (new),
+  docx-disc.ts (new), docx-creative.ts, docx-modern.ts, docx-helpers.ts,
+  docx-text-palette.test.ts, src/lib/resume-palette.ts, src/lib/resume-palette.test.ts,
+  e2e/parity/verdicts.ts, tasks/ralph/prd.json, tasks/ralph/progress.txt
+- No template file touched; no visual baseline moved; no version change
+
+What each graphic became:
+- modern skill bars: shaded-cells, a nested one-row two-cell table, accent against a composited
+  track, exact row height
+- modern technology chip fill: shaded runs, slate-700 on slate-100
+- creative language bars: shaded-cells, five bands and four gaps, purple-500 on slate-200
+- creative technology pills: shaded runs, white on purple-500
+- creative timeline line: paragraph-border, a purple-300 left rule on every paragraph of an entry
+- creative project card: shaded-cell, a single-cell table, slate-50 fill, 4px purple-500 left
+  border, 16px margins. Paragraph shading was rejected because Word paints it from the left indent
+  to the right text margin, so the card can have its padding or its fill over it, not both (probe3)
+- creative header discs: floating-raster. Probe 4 through Word showed behindDoc=1 renders invisible
+  because Word paints the drawing behind the cell own fill, behindDoc=0 renders translucent over
+  it, and Word clips an overhanging disc to the cell as the Preview overflow-hidden does. Probe 5
+  showed the bottom disc, anchored in a zero-height paragraph appended after the header last, holds
+  its offset against summaries wrapping to one, two and four lines. docx-disc.ts encodes the RGBA
+  PNG on node:zlib, since the docx package has no vector primitive
+- creative timeline dot: NOT DRAWN, by owner decision. It was a bullet glyph prefixed to the
+  position paragraph, which put a decoration inside a field an ATS parses as the job title. The
+  floating-raster route is open, but anchoring one image per experience entry, with the page-break
+  risk that carries, was judged not worth a 6px decoration. The continuous left rule carries the
+  timeline. PRD amendment 70339c1 admits this third disposition.
+
+Decisions:
+- The creative language level is no longer written as text. The Preview draws five bars and no
+  text; that text was an export-side invention. FR-3 makes the Preview the reference, and the four
+  templates whose Previews show the level still write it. The level survives as the count of filled
+  bands, asserted on the unzipped document. An out-of-union stored level, which the old code echoed
+  verbatim, now reaches no surface - as on the Preview and in print.
+- Residuals of the discs, recorded: the Preview stacks them under the text and OOXML has no layer
+  between a cell fill and its text, so the DOCX draws them over. Measured, 10% white lifts a channel
+  by 0.1 x (255 - v): 0 on the opaque white title, 1.9 on the text-white/90 summary, 3.9 on the
+  green of the text-white/80 links row. That is above the one-level tolerance and no row catches it,
+  because neither side of a colour row sees a disc - the Preview side reads computed style and the
+  DOCX side reads the run colour. docx-graphics.test.ts is what confirms the discs.
+
+Checks (on the final diff):
+- pnpm typecheck: PASS - exit 0
+- pnpm lint: PASS - 305 problems, unchanged, under the 311 ceiling; none in the five new files
+- pnpm test (unit): PASS - 1132/1132 across 27 files
+- pnpm test:integration: PASS - 27/27
+- pnpm test:e2e: PASS - 116 passed; --list 116
+- pnpm test:visual: PASS - 10 passed; --list 10; e2e/visual status empty
+- pnpm build:verify: PASS - exit 0
+- pnpm test:parity: PASS - two runs, byte-identical,
+  sha256 ef36b667fd9fd4eb004b70c458c705739965414e8fa5df051f1320974affd578
+  Counts: MATCH 136, KNOWN 72, NEW 0, unreconciled 0, LIMITATION 11, FINDING 6, DECISION 9
+
+Specialized validation:
+- Browser: NOT_APPLICABLE - no rendered UI change
+- Visual: PASS - baselines unchanged
+- Export: PASS - artifact comparison across 5 templates x 2 profiles: classic, minimal and
+  professional byte-identical on all 16 zip entries; creative adds two media parts and their
+  relationships, modern changes document.xml only. Rendered through Word 16 to PDF and rastered;
+  crops in scratchpad/p3us007/crops/. The reviewer decoded both PNGs independently - every CRC
+  valid, centre alpha 26/255, no timestamp chunk - and proved the disc bytes identical across
+  processes
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no rendered UI change
+- code-reviewer: round 1 FAIL - the header-circles limitation was false (this codebase already
+  anchors a floating drawing in a table cell) and unprobed, the project card recorded form
+  contradicted the code, and the timeline dot wrote a glyph into the job title. Round 2 FAIL - the
+  criterion admitted only two dispositions, and two records still said the dot was drawn. Round 3
+  PASS, the reviewer decoding the PNGs, deriving the anchor geometry independently, measuring the
+  disc channel shift and confirming no row can catch it.
+
+Acceptance criteria:
+- AC-01: PASS - bars and pills drawn; each form recorded in resume-graphics.ts and held to the
+  templates by resume-graphics.test.ts
+- AC-02: PASS - chip fill, timeline rule, project card and header discs drawn; the dot recorded
+  under the amended third disposition
+- AC-03: PASS - asserted on the unzipped document: the skill bar cell widths read back as 70% at
+  two sidebar colours, the language bars filled-band count equals the level (4/1/5, and 0 for an
+  unrecognised level), each pill and chip run carries its own label
+- AC-04: PASS - no graphic silently omitted; the drift test now fails on prose claiming cannot,
+  impossible, no way to or has nothing - the exact claim this story got wrong first time
+- AC-05: PASS - no template file changed; visual 10/10
+- AC-06: PASS - the three graphics findings closed (FINDING 9 to 6); no graphic left unplaced, the
+  dot now carrying a typed DOT owner so contradicting it is a compile error
+- PRD-wide items: PASS - no NEW row, no tolerance widened, three templates byte-identical
+
+Known limits recorded:
+- The form-to-shape check asserts a document contains each recorded form, not that the graphic is
+  that shape, and not-drawn passes freely. Carried as harness work.
+- docx-disc.ts memoises into an unbounded module-level map; bounded in practice at two entries.
+- Two exports of one resume agree in every part but docProps/core.xml, which carries the Packer
+  wall-clock stamp and has never been reproducible.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-007 the DOCX draws the graphics the Preview draws
+
+FINAL: PASS

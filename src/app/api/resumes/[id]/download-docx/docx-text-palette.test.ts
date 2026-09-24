@@ -525,9 +525,21 @@ describe('DOCX borders and fills', () => {
 
   it('creative: the header, cell and paragraphs, is filled with its gradient’s first stop, purple-600', async () => {
     const purple = hexOf('creative', 'purple-600')
-    const cells = await cellShadings('creative')
-    expect(cells.length, 'creative: the header cell is shaded').toBeGreaterThan(0)
-    for (const cell of cells) expect(cell.fill, 'creative header cell fill').toBe(purple)
+    // Every cell fill of the document: the header, and since US-007 one card
+    // per project and one cell per language-bar segment — four filled and one
+    // empty for the fixture's single Fluent language. A fill this test does not
+    // name fails it.
+    expect(
+      (await cellShadings('creative')).map((cell) => cell.fill).sort(),
+      'creative: the header, the project cards and the language bar segments are the only shaded cells',
+    ).toEqual(
+      [
+        purple,
+        hexOf('creative', 'slate-50'),
+        ...Array(4).fill(hexOf('creative', 'purple-500')),
+        hexOf('creative', 'slate-200'),
+      ].sort(),
+    )
 
     const shaded = (await documentParagraphs('creative')).filter((p) => p.shading !== null)
     expect(shaded.some((p) => p.text.includes(MARK.title.toUpperCase())), 'creative: the title paragraph is shaded').toBe(true)
@@ -536,12 +548,21 @@ describe('DOCX borders and fills', () => {
     }
   })
 
-  it('creative: the date badges are filled bg-purple-100', async () => {
+  it('creative: the date badges are filled bg-purple-100 and the pills the gradient’s first stop', async () => {
     const lavender = hexOf('creative', 'purple-100')
+    const pill = hexOf('creative', 'purple-500')
     const shaded = (await documentRuns('creative')).filter((run) => run.shading !== null)
     for (const year of [MARK.roleYear, MARK.educationYear]) {
       expect(shaded.some((run) => run.text.includes(year)), `creative: the ${year} badge is shaded`).toBe(true)
     }
-    for (const run of shaded) expect(run.shading, `creative badge "${run.text}"`).toEqual({ fill: lavender, colour: lavender })
+    // Since US-007 a technology is a shaded run too; every other shaded run is
+    // a date badge, and a third fill would fail here.
+    const [pills, badges] = [
+      shaded.filter((run) => run.text.includes(MARK.technology) || run.text.includes('Go')),
+      shaded.filter((run) => !(run.text.includes(MARK.technology) || run.text.includes('Go'))),
+    ]
+    expect(pills.map((run) => run.text.trim()), 'creative: one shaded run per technology').toEqual([MARK.technology, 'Go'])
+    for (const run of pills) expect(run.shading, `creative pill "${run.text}"`).toEqual({ fill: pill, colour: 'AUTO' })
+    for (const run of badges) expect(run.shading, `creative badge "${run.text}"`).toEqual({ fill: lavender, colour: lavender })
   })
 })

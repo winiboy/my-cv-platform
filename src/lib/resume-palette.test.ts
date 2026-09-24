@@ -25,7 +25,17 @@ import { PREVIEW_TEXT_ALPHA, type PreviewAlpha } from './resume-text-opacity'
  * translucency of TEXT — an `opacity-*` utility, a `text-…/…` modifier, an
  * inline `rgba()` text colour — must be one `PREVIEW_TEXT_ALPHA` declares for
  * that template, written the same way, and every entry it declares must be
- * drawn. Translucent fills and graphics keep their owners; those are US-007's.
+ * drawn. A translucent FILL is not text: it keeps an owner, because the colour
+ * the DOCX draws for it is a composite over what the DOCX itself draws behind
+ * it, not a palette colour.
+ *
+ * Since US-007 the bars, pills, chips, rules and cards the Preview draws are
+ * palette entries like any other colour, and the only owners left are ones no
+ * later story retires: the user's colour, the page paper, the photo zone, the
+ * later stops of a gradient, the two the Preview draws see-through, which are
+ * drawn but are not opaque colours — modern's skill-bar track, written as a
+ * composite, and creative's header circles, drawn as rasters with real alpha —
+ * and creative's timeline dot, which is drawable and deliberately not drawn.
  *
  * Covered:
  * - Class lists, read fully or rejected. Every named or arbitrary-value colour
@@ -346,12 +356,13 @@ function scanTemplate(template: ResumeTemplate): Scan {
 
 /** Why a drawn colour has no palette entry, and whose it is. */
 type Owner =
-  | 'US-007: bars and pills, drawn by that story'
   | "the user's colour, from the layout model"
   | "later gradient stops: DOCX shading is solid, so the DOCX takes the first stop (a recorded LIMITATION)"
   | 'the page paper: the DOCX page is white and writes no fill'
   | 'the photo zone: the photo is browser-local and not in the DOCX (a recorded DECISION)'
-  | 'US-007: another graphic the DOCX does not draw yet (assigned by the PRD amendment of 2026-09-22)'
+  | 'a translucent fill: the DOCX draws the composite over what it draws behind it (src/lib/resume-graphics.ts)'
+  | 'a translucent shape: the DOCX draws it as a floating raster whose alpha channel carries the tint (src/lib/resume-graphics.ts)'
+  | 'the experience timeline dot: the DOCX does not draw it, by an owner decision recorded in src/lib/resume-graphics.ts'
 
 /**
  * `translucent` marks text the Preview draws see-through: its colour is not a
@@ -363,12 +374,16 @@ type Drawn =
   | { count: number; translucent: true }
   | { count: number; excluded: Owner }
 
-const US007: Owner = 'US-007: bars and pills, drawn by that story'
 const USER: Owner = "the user's colour, from the layout model"
 const STOPS: Owner = 'later gradient stops: DOCX shading is solid, so the DOCX takes the first stop (a recorded LIMITATION)'
 const PAGE: Owner = 'the page paper: the DOCX page is white and writes no fill'
 const PHOTO: Owner = 'the photo zone: the photo is browser-local and not in the DOCX (a recorded DECISION)'
-const US007_GRAPHIC: Owner = 'US-007: another graphic the DOCX does not draw yet (assigned by the PRD amendment of 2026-09-22)'
+const COMPOSITE: Owner =
+  'a translucent fill: the DOCX draws the composite over what it draws behind it (src/lib/resume-graphics.ts)'
+const RASTER: Owner =
+  'a translucent shape: the DOCX draws it as a floating raster whose alpha channel carries the tint (src/lib/resume-graphics.ts)'
+const DOT: Owner =
+  'the experience timeline dot: the DOCX does not draw it, by an owner decision recorded in src/lib/resume-graphics.ts'
 
 const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> = {
   professional: {
@@ -398,15 +413,16 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     'style color: rgba(255,255,255,0.6)': { count: 2, translucent: true },
     'style color: rgba(255,255,255,0.7)': { count: 2, translucent: true },
     'style color: rgba(255,255,255,0.8)': { count: 1, translucent: true },
-    'style backgroundColor: rgba(255,255,255,0.2)': { count: 1, excluded: US007 },
+    // The skill bar's track, drawn over the sidebar fill (US-007).
+    'style backgroundColor: rgba(255,255,255,0.2)': { count: 1, excluded: COMPOSITE },
     'style color: {accentColor}': { count: 1, excluded: USER },
     'style backgroundColor: {accentColor}': { count: 6, excluded: USER },
     'style backgroundColor: {activeSidebarColor}': { count: 1, excluded: USER },
     'style backgroundColor: white': { count: 2, excluded: PAGE },
     'style backgroundColor: #444444': { count: 1, excluded: PHOTO },
     'attr fill: rgba(255,255,255,0.3)': { count: 2, excluded: PHOTO },
-    // The technology chips' fill; the DOCX writes the technologies as a line of text.
-    'bg-slate-100': { count: 1, excluded: US007_GRAPHIC },
+    // The technology chips' fill; the DOCX shades one run per chip.
+    'bg-slate-100': { count: 1, palette: 'slate-100' },
   },
   classic: {
     'text-slate-900': { count: 14, palette: 'slate-900' },
@@ -432,21 +448,25 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     // The header, whose text is white; the header fill is the gradient below.
     'text-white @ bg-gradient-to-br from-purple-600 overflow-hidden p-10 print:p-8 relative text-white to-orange-400 via-pink-500':
       { count: 1, palette: 'white' },
-    // A technology pill: the DOCX writes the technologies as stock-purple text in place of the pills.
+    // A technology pill: the DOCX shades one run per pill, in the gradient's first stop.
     'text-white @ bg-gradient-to-r font-semibold from-purple-500 px-3 py-1 rounded-full text-white to-pink-500':
-      { count: 1, excluded: US007 },
+      { count: 1, palette: 'white' },
     'from-purple-500 @ bg-gradient-to-r font-semibold from-purple-500 px-3 py-1 rounded-full text-white to-pink-500':
-      { count: 1, excluded: US007 },
+      { count: 1, palette: 'purple-500' },
     'to-pink-500 @ bg-gradient-to-r font-semibold from-purple-500 px-3 py-1 rounded-full text-white to-pink-500':
-      { count: 1, excluded: US007 },
-    // A language level bar segment, filled or empty.
-    'from-purple-500 @ bg-gradient-to-r bg-slate-200 from-purple-500 h-1.5 rounded to-pink-500 w-full': { count: 1, excluded: US007 },
-    'to-pink-500 @ bg-gradient-to-r bg-slate-200 from-purple-500 h-1.5 rounded to-pink-500 w-full': { count: 1, excluded: US007 },
-    // The experience timeline dot.
+      { count: 1, excluded: STOPS },
+    // A language level bar segment, filled or empty: shaded cells of a nested table.
+    'from-purple-500 @ bg-gradient-to-r bg-slate-200 from-purple-500 h-1.5 rounded to-pink-500 w-full':
+      { count: 1, palette: 'purple-500' },
+    'to-pink-500 @ bg-gradient-to-r bg-slate-200 from-purple-500 h-1.5 rounded to-pink-500 w-full':
+      { count: 1, excluded: STOPS },
+    // The experience timeline dot. Neither stop is drawn: the DOCX draws the
+    // timeline's rule and no marker. Not STOPS, which is for a gradient whose
+    // first stop the DOCX does take.
     'from-purple-500 @ absolute bg-gradient-to-br from-purple-500 h-3 left-0 rounded-full to-pink-500 top-1 w-3':
-      { count: 1, excluded: US007_GRAPHIC },
+      { count: 1, excluded: DOT },
     'to-pink-500 @ absolute bg-gradient-to-br from-purple-500 h-3 left-0 rounded-full to-pink-500 top-1 w-3':
-      { count: 1, excluded: US007_GRAPHIC },
+      { count: 1, excluded: DOT },
     // The bars before the section headings; the DOCX writes a purple-600 "|" in their place.
     'to-pink-500 @ bg-gradient-to-b from-purple-600 h-6 to-pink-500 w-1': { count: 3, excluded: STOPS },
     'to-pink-500 @ bg-gradient-to-b from-purple-600 h-8 to-pink-500 w-1.5': { count: 3, excluded: STOPS },
@@ -472,12 +492,14 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     'via-pink-500': { count: 1, excluded: STOPS },
     'to-orange-400': { count: 1, excluded: STOPS },
     // A language level bar's empty segments.
-    'bg-slate-200': { count: 1, excluded: US007 },
-    // The experience timeline line, the project card's rule and fill, the header's decorative circles.
-    'from-purple-300': { count: 1, excluded: US007_GRAPHIC },
-    'border-purple-500': { count: 1, excluded: US007_GRAPHIC },
-    'bg-slate-50': { count: 1, excluded: US007_GRAPHIC },
-    'bg-white/10': { count: 2, excluded: US007_GRAPHIC },
+    'bg-slate-200': { count: 1, palette: 'slate-200' },
+    // The experience timeline line (a left paragraph border, at the gradient's first stop).
+    'from-purple-300': { count: 1, palette: 'purple-300' },
+    // The project card's rule and fill.
+    'border-purple-500': { count: 1, palette: 'purple-500' },
+    'bg-slate-50': { count: 1, palette: 'slate-50' },
+    // The header's decorative circles, drawn as floating PNG discs (US-007).
+    'bg-white/10': { count: 2, excluded: RASTER },
   },
 }
 

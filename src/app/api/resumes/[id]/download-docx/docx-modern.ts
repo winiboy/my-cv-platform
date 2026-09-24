@@ -45,7 +45,9 @@ import {
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
 import { docxTranslucentText } from './docx-text-opacity'
+import { graphicHeightTwips, pillRuns, proportionalBar, shadedCellBar } from './docx-graphics'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
+import { MODERN_SKILL_BAR, modernSkillBarTrack } from '@/lib/resume-graphics'
 import {
   MODERN_LINE_HEIGHT,
   MODERN_TITLE_BAR_PADDING_Y_PX,
@@ -123,6 +125,7 @@ const SPACING = {
   EDUCATION_ITEM_GAP: 12,            // gap between education entries
   SKILL_CATEGORY_GAP: 16,            // gap between skill categories
   SKILL_ITEM_GAP: 8,                 // gap between skill items
+  SKILL_NAME_MB: 3,                  // margin below a skill name, above its bar
   LANGUAGE_ITEM_GAP: 8,              // gap between language items
   CERT_ITEM_GAP: 12,                 // gap between certifications
   EXPERIENCE_ITEM_GAP: 16,           // gap between experience entries
@@ -400,6 +403,13 @@ export async function generateModernDocx(
     certDate: docxTranslucentText('modern', 'certDate', sidebarColorHex),
   }
 
+  /**
+   * The skill bar's track (US-007): the Preview draws it in translucent white
+   * over the sidebar, and a cell fill carries no alpha any more than a run does,
+   * so it is written as the same composite US-006 writes for the text above it.
+   */
+  const skillBarTrackHex = modernSkillBarTrack(PALETTE.white, sidebarColorHex)
+
   // Calculate scaled font sizes
   const scaledFontSizes = {
     name: pxToHalfPoints(FONT_SIZES.NAME * fontScale),
@@ -443,6 +453,9 @@ export async function generateModernDocx(
     left: convertInchesToTwip(0.33),
     right: convertInchesToTwip(0.33),
   }
+
+  // A sidebar skill bar is `width: 100%` of the same column that indent defines.
+  const skillBarWidthTwips = sidebarWidthTwips - sidebarTextIndent.left - sidebarTextIndent.right
 
   // No-border definition for nested tables
   const noBorders = {
@@ -595,7 +608,8 @@ export async function generateModernDocx(
   // ============================================================
   // BUILD SIDEBAR CONTENT
   // ============================================================
-  const sidebarParagraphs: Paragraph[] = []
+  // Tables as well as paragraphs: a skill's proficiency bar is a table (US-007).
+  const sidebarParagraphs: (Paragraph | Table)[] = []
 
   // Photo anchor paragraph — placed inside the sidebar cell so it does not
   // create an extra page before the table. The floating image uses
@@ -822,7 +836,6 @@ export async function generateModernDocx(
             // Every skill line takes the Preview skill item's line height.
             const skillLineSpacing = exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.skillItem])
 
-            // Skill items as text list (progress bars cannot render in DOCX)
             // Use skillsHtml if available, otherwise fall back to items array.
             // The Preview renders `items` only, never `skillsHtml`; that content
             // divergence is Part 3 US-016's. Until then these paragraphs take the
@@ -862,7 +875,12 @@ export async function generateModernDocx(
                 )
               }
             } else if (skillCategory.items && skillCategory.items.length > 0) {
-              // Render each skill item as a separate line (matching Preview layout)
+              // Render each skill item as a separate line (matching Preview layout),
+              // each followed by the proficiency bar the Preview draws under it
+              // (US-007). A table carries no spacing of its own, so the gap to the
+              // next item is a paragraph of its own after the bar — which is also
+              // what keeps a bar from being the last child of the sidebar cell,
+              // where `docx` would append a default-spaced paragraph to it.
               skillCategory.items.forEach((skill: any, j: number) => {
                 const skillName = typeof skill === 'string' ? skill : String(skill)
                 const isLastSkill = j === skillCategory.items.length - 1
@@ -879,8 +897,23 @@ export async function generateModernDocx(
                       }),
                     ],
                     indent: sidebarTextIndent,
-                    spacing: { after: itemSpacing, ...skillLineSpacing },
+                    spacing: { after: pxToTwips(SPACING.SKILL_NAME_MB), ...skillLineSpacing },
                   })
+                )
+                sidebarParagraphs.push(
+                  shadedCellBar(
+                    proportionalBar(
+                      skillBarWidthTwips,
+                      MODERN_SKILL_BAR.levelPercent,
+                      accentColorHex,
+                      skillBarTrackHex,
+                    ),
+                    graphicHeightTwips(MODERN_SKILL_BAR.heightPx),
+                    sidebarTextIndent.left,
+                  )
+                )
+                sidebarParagraphs.push(
+                  new Paragraph({ children: [], spacing: { after: itemSpacing, ...NO_TEXT_LINE } })
                 )
               })
             }
@@ -1577,20 +1610,21 @@ export async function generateModernDocx(
         }
       }
 
-      // Technologies
+      // Technologies: one shaded run per chip (US-007), slate-700 on slate-100.
       if (project.technologies && project.technologies.length > 0) {
         mainContentParagraphs.push(
           new Paragraph({
-            children: [
-              new TextRun({
-                text: project.technologies.join(' \u2022 '),
+            children: pillRuns(
+              project.technologies.map((technology: unknown) => String(technology)),
+              {
                 size: pxToHalfPoints(12 * fontScale), // text-xs
                 color: PALETTE['slate-700'],
+                fill: PALETTE['slate-100'],
                 font: primaryFont,
-              }),
-            ],
-            // Each chip's text draws at text-xs's line height; the chip's padding
-            // and fill are graphics (US-007), not leading.
+              },
+            ),
+            // Each chip's text draws at text-xs's line height; the chip's vertical
+            // padding is not leading and a run's shading cannot carry it.
             spacing: {
               after: itemEndSpacing,
               ...exactLineSpacing([TAILWIND_TEXT_LINE_HEIGHT['text-xs'], pxToHalfPoints(12 * fontScale)]),

@@ -3,6 +3,7 @@ import {
   TextRun,
   AlignmentType,
   LineRuleType,
+  type IBordersOptions,
   type IShadingAttributesProperties,
   type ISpacingProperties,
 } from 'docx'
@@ -55,6 +56,14 @@ export function pxToTwips(px: number): number {
   // 1 inch = 96px at 96 DPI, 1 inch = 1440 twips
   // So 1px = 1440/96 = 15 twips
   return Math.round(px * 15)
+}
+
+/**
+ * Convert twips to English Metric Units, which is what a floating drawing's
+ * position is given in (1 inch = 1440 twips = 914400 EMU, so 1 twip = 635 EMU).
+ */
+export function twipsToEmu(twips: number): number {
+  return Math.round(twips * 635)
 }
 
 /** A paragraph's line spacing, as every generator writes it. */
@@ -254,7 +263,12 @@ export function parseHtmlListToParagraphs(
   spacingAfterLast: number,
   lineSpacing: LineSpacing,
   indent?: { right?: number; left?: number },
-  alignment?: typeof AlignmentType[keyof typeof AlignmentType]
+  alignment?: typeof AlignmentType[keyof typeof AlignmentType],
+  /**
+   * Paragraph borders every item takes, so a rule the Preview draws beside a
+   * whole block runs behind its list items too (US-007, creative's timeline).
+   */
+  border?: IBordersOptions
 ): Paragraph[] {
   const { size, color, font } = options
   const paragraphs: Paragraph[] = []
@@ -295,6 +309,7 @@ export function parseHtmlListToParagraphs(
         spacing: { after: isLast ? spacingAfterLast : spacingAfterItem, ...lineSpacing },
         indent: indent,
         alignment: alignment,
+        border: border,
       })
     )
   })
@@ -369,6 +384,11 @@ export interface PlainTextParagraphLayout {
   alignment?: typeof AlignmentType[keyof typeof AlignmentType]
   lineSpacing: LineSpacing
   shading?: IShadingAttributesProperties
+  /**
+   * Paragraph borders every paragraph takes, so a rule the Preview draws beside
+   * a whole block runs behind its list items too (US-007, creative's timeline).
+   */
+  border?: IBordersOptions
 }
 
 /**
@@ -430,6 +450,7 @@ export function parsePlainTextListToParagraphs(
       indent: layout.indent,
       alignment: layout.alignment,
       shading: layout.shading,
+      border: layout.border,
     })
   )
 }

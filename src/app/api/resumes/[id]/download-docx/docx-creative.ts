@@ -16,6 +16,10 @@ import {
   TableLayoutType,
   PageOrientation,
   ShadingType,
+  ImageRun,
+  HorizontalPositionRelativeFrom,
+  VerticalPositionRelativeFrom,
+  TextWrappingType,
 } from 'docx'
 import {
   pxToHalfPoints,
@@ -30,12 +34,23 @@ import {
   stripHtml,
   exactLineSpacing,
   trackingSpacing,
+  twipsToEmu,
   NO_TEXT_LINE,
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
 import { docxTranslucentText } from './docx-text-opacity'
+import { graphicHeightTwips, pillRuns, segmentedBar, shadedCellBar, verticalRule } from './docx-graphics'
+import { translucentDiscPng } from './docx-disc'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
+import {
+  CREATIVE_HEADER_CIRCLES,
+  CREATIVE_LANGUAGE_BAR,
+  CREATIVE_PROJECT_CARD,
+  CREATIVE_TIMELINE,
+  creativeLanguageBarSegments,
+  graphicHeightPx,
+} from '@/lib/resume-graphics'
 import {
   CREATIVE_HEADING_BAR_STEP,
   PREFLIGHT_LINE_HEIGHT,
@@ -69,23 +84,22 @@ const PALETTE = DOCX_PALETTE.creative
 const TRACKING = PREVIEW_TRACKING.creative
 
 /**
- * Runs with no single Preview colour to take, still stock: the language level
- * text and the technologies stand in for the level bars and gradient pills
- * (US-007).
- */
-const COLORS = {
-  PURPLE_600: '9333EA',  // Technologies (for the pills)
-  SLATE_600: '475569',   // Language level text (for the level bars)
-}
-
-/**
  * The header text the Preview draws translucent — `text-white/90` for the
  * summary, `text-white/80` for the second contact row (US-006). A DOCX run
  * carries no alpha, so each is written in the colour that translucency
  * composites to over the fill the header paragraphs actually carry, which is
- * the gradient's first stop. The Preview's other two stops, and the `bg-white/10`
- * circles the header draws over them, are not in the DOCX; both are recorded
- * with this composite in the parity report's creative header limitation.
+ * the gradient's first stop. The Preview's other two stops are not in the DOCX,
+ * and are recorded with this composite in the parity report's creative header
+ * limitation.
+ *
+ * The `bg-white/10` circles the header draws over the gradient ARE in the DOCX
+ * since US-007, as floating rasters (`headerCircle` below). They are not folded
+ * into this composite: each is a 10% white wash over part of the header only,
+ * and the text it reaches is white or near-white, so it moves that text by
+ * 0.1 x (255 - v) a channel — nothing on the opaque white title, at most 3.9 on
+ * the darkest channel of the composited `text-white/80` links row. The parity
+ * check composites the sampled text against the header fill on both sides, so
+ * neither side accounts for them.
  */
 const HEADER_TRANSLUCENT = {
   summary: docxTranslucentText('creative', 'headerSummary', PALETTE['purple-600']),
@@ -145,20 +159,6 @@ const SPACING = {
   PROJECT_NAME_MB: 8,              // mb-2 = 8px below project name
   PROJECT_DESC_MB: 12,             // mb-3 = 12px below project description
   EDUCATION_ITEM_GAP: 16,          // space-y-4 = 16px between education items
-}
-
-// ============================================================
-// HELPER: Map language level string to numeric level for display
-// ============================================================
-function languageLevelToText(level: string): string {
-  switch (level) {
-    case 'Native': return 'Native (5/5)'
-    case 'Fluent': return 'Fluent (4/5)'
-    case 'Professional': return 'Professional (3/5)'
-    case 'Intermediate': return 'Intermediate (2/5)'
-    case 'Basic': return 'Basic (1/5)'
-    default: return level || ''
-  }
 }
 
 // ============================================================
@@ -234,6 +234,115 @@ export async function generateCreativeDocx(
   // 1/3 and 2/3 split: the gap is distributed as cell margin
   const leftColumnWidth = Math.round(bodyContentWidth / 3)
   const rightColumnWidth = bodyContentWidth - leftColumnWidth
+
+  // The width a graphic drawn `w-full` in a column actually has: the column less
+  // the cell margins below (US-007).
+  const leftContentWidth = leftColumnWidth - bodyPaddingTwips - Math.round(gapTwips / 2)
+  const rightContentWidth = rightColumnWidth - bodyPaddingTwips - Math.round(gapTwips / 2)
+
+  /**
+   * The experience timeline (US-007): every paragraph of an entry is indented by
+   * the Preview's `pl-6` gutter and carries a left border in its place, which
+   * Word draws as one continuous rule down consecutive paragraphs. It is solid
+   * purple-300 where the Preview fades the gradient out to transparent.
+   */
+  const timelineBorder = {
+    left: verticalRule(
+      CREATIVE_TIMELINE.lineWidthPx,
+      PALETTE['purple-300'],
+      CREATIVE_TIMELINE.gutterPx - CREATIVE_TIMELINE.lineLeftPx,
+    ),
+  }
+  const timelineIndent = { left: pxToTwips(CREATIVE_TIMELINE.gutterPx) }
+
+  /**
+   * The header's two decorative discs (US-007), each a floating PNG whose alpha
+   * channel carries the Preview's `bg-white/10`. See `docx-disc.ts` for why a
+   * raster, and `resume-graphics.ts` for what the DOCX does not reproduce.
+   *
+   * `behindDocument: false` because true puts the drawing behind the header
+   * cell's own fill, where Word does not show it. Word clips each drawing to the
+   * cell, which is the Preview's `overflow-hidden`, so the offsets below place
+   * the discs exactly where the Preview does, overhang included.
+   *
+   * @param anchor whether the run sits in the header's first paragraph, from
+   *        whose top the Preview measures `-top-20`, or in the zero-height
+   *        paragraph after its last, from whose top the header's bottom edge is
+   *        one cell margin away whatever the text above did.
+   */
+  function headerCircle(anchor: 'top' | 'bottom'): ImageRun {
+    // Both offsets are measured from the anchor paragraph's own top-left, which
+    // sits one header padding inside the header box on each axis.
+    const padding = pxToTwips(CREATIVE_HEADER_CIRCLES.paddingPx)
+    const { sizePx, overhangPx } =
+      anchor === 'top' ? CREATIVE_HEADER_CIRCLES.topRight : CREATIVE_HEADER_CIRCLES.bottomLeft
+    const size = pxToTwips(sizePx)
+    const overhang = pxToTwips(overhangPx)
+    const offset =
+      anchor === 'top'
+        ? { x: pageWidthTwips - padding - size + overhang, y: -(padding + overhang) }
+        : { x: -(padding + overhang), y: padding + overhang - size }
+    return new ImageRun({
+      type: 'png',
+      data: translucentDiscPng(sizePx, PALETTE.white, CREATIVE_HEADER_CIRCLES.alpha),
+      transformation: { width: sizePx, height: sizePx },
+      floating: {
+        horizontalPosition: { relative: HorizontalPositionRelativeFrom.COLUMN, offset: twipsToEmu(offset.x) },
+        verticalPosition: { relative: VerticalPositionRelativeFrom.PARAGRAPH, offset: twipsToEmu(offset.y) },
+        wrap: { type: TextWrappingType.NONE },
+        behindDocument: false,
+        layoutInCell: true,
+        allowOverlap: true,
+      },
+    })
+  }
+
+  /**
+   * The card a project sits in (US-007), as a single-cell table: the cell's fill
+   * is `bg-slate-50`, its left border `border-l-4 border-purple-500`, and its
+   * margins the `p-4` padding. `rounded-lg` has no OOXML counterpart. The header
+   * above uses the same one-cell idiom for the same reason — a cell is the only
+   * thing in this format that carries a fill and its own padding.
+   */
+  function projectCard(children: readonly Paragraph[]): Table {
+    return new Table({
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [...children],
+              width: { size: rightContentWidth, type: WidthType.DXA },
+              shading: { type: ShadingType.CLEAR, fill: PALETTE['slate-50'], color: 'auto' },
+              margins: {
+                top: pxToTwips(CREATIVE_PROJECT_CARD.paddingPx),
+                bottom: pxToTwips(CREATIVE_PROJECT_CARD.paddingPx),
+                left: pxToTwips(CREATIVE_PROJECT_CARD.paddingPx),
+                right: pxToTwips(CREATIVE_PROJECT_CARD.paddingPx),
+              },
+              borders: {
+                top: { style: BorderStyle.NONE },
+                bottom: { style: BorderStyle.NONE },
+                right: { style: BorderStyle.NONE },
+                left: verticalRule(CREATIVE_PROJECT_CARD.rulePx, PALETTE['purple-500'], 0),
+              },
+              verticalAlign: VerticalAlign.TOP,
+            }),
+          ],
+        }),
+      ],
+      width: { size: rightContentWidth, type: WidthType.DXA },
+      columnWidths: [rightContentWidth],
+      layout: TableLayoutType.FIXED,
+      borders: {
+        top: { style: BorderStyle.NONE },
+        bottom: { style: BorderStyle.NONE },
+        left: { style: BorderStyle.NONE },
+        right: { style: BorderStyle.NONE },
+        insideHorizontal: { style: BorderStyle.NONE },
+        insideVertical: { style: BorderStyle.NONE },
+      },
+    })
+  }
 
   // ============================================================
   // HELPER: Create section header with vertical bar prefix
@@ -311,10 +420,19 @@ export async function generateCreativeDocx(
   // ============================================================
   const headerParagraphs: Paragraph[] = []
 
-  // Name: White, font-black, uppercase, 48px
+  // Name: White, font-black, uppercase, 48px. It carries the top-right
+  // decorative disc (US-007): a floating drawing takes no inline space, so the
+  // run sits in the first header paragraph without moving the title, and the
+  // Preview measures that disc's `-top-20` from the header's top edge.
+  //
+  // Its pair, the bottom-left disc, is pushed after the LAST header paragraph,
+  // just before the header cell is built — search `headerCircle('bottom')`.
+  // Only one of the two can be anchored here: the Preview places that one from
+  // the header's bottom edge, which is not known until the text above it ends.
   headerParagraphs.push(
     new Paragraph({
       children: [
+        headerCircle('top'),
         new TextRun({
           text: (resume.title || contact.name || 'Your Name').toUpperCase(),
           bold: true,
@@ -487,7 +605,8 @@ export async function generateCreativeDocx(
   // ============================================================
   // BUILD LEFT COLUMN (1/3): Skills, Languages, Certifications
   // ============================================================
-  const leftParagraphs: Paragraph[] = []
+  // Tables as well as paragraphs: a language's level bar is a table (US-007).
+  const leftParagraphs: (Paragraph | Table)[] = []
 
   // --- SKILLS ---
   if (skills.length > 0) {
@@ -633,25 +752,29 @@ export async function generateCreativeDocx(
         })
       )
 
-      // Proficiency: rendered as text since DOCX cannot replicate gradient bars
-      const levelText = languageLevelToText(lang.level)
-      if (levelText) {
-        leftParagraphs.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: levelText,
-                size: scaledFontSizes.body,
-                color: COLORS.SLATE_600,
-                font,
-              }),
-            ],
-            // Stands in for the level bars (US-007), which draw no text; it takes
-            // the inherited 1.5 of the language block it sits in.
-            spacing: { after: pxToTwips(itemEndSpacing), ...inheritedBody },
-          })
+      // Proficiency: the five-segment bar the Preview draws, as five shaded
+      // cells of a nested table (US-007). It replaces the "Fluent (4/5)" line
+      // that stood in for it, which the Preview never showed; the number of
+      // filled segments is the level, on both surfaces, and an unrecognised
+      // stored level fills none on both.
+      leftParagraphs.push(
+        shadedCellBar(
+          segmentedBar(
+            leftContentWidth,
+            CREATIVE_LANGUAGE_BAR.segments,
+            graphicHeightTwips(graphicHeightPx(CREATIVE_LANGUAGE_BAR.gapStep)),
+            creativeLanguageBarSegments(lang.level),
+            PALETTE['purple-500'],
+            PALETTE['slate-200'],
+          ),
+          graphicHeightTwips(graphicHeightPx(CREATIVE_LANGUAGE_BAR.heightStep)),
         )
-      }
+      )
+      // A table carries no spacing, and `docx` would append a default-spaced
+      // paragraph to a cell whose last child is one.
+      leftParagraphs.push(
+        new Paragraph({ children: [], spacing: { after: pxToTwips(itemEndSpacing), ...NO_TEXT_LINE } })
+      )
     })
   }
 
@@ -727,7 +850,8 @@ export async function generateCreativeDocx(
   // ============================================================
   // BUILD RIGHT COLUMN (2/3): Experience, Projects, Education
   // ============================================================
-  const rightParagraphs: Paragraph[] = []
+  // Tables as well as paragraphs: a project's card is a table (US-007).
+  const rightParagraphs: (Paragraph | Table)[] = []
 
   // --- EXPERIENCE ---
   if (experiences.length > 0) {
@@ -746,7 +870,10 @@ export async function generateCreativeDocx(
         ? (nextSectionExists ? SPACING.RIGHT_SECTION_GAP : 0)
         : SPACING.EXPERIENCE_ITEM_GAP
 
-      // Position: bold, slate-900
+      // Position: bold, slate-900. The Preview also draws a dot in the gutter
+      // here; the DOCX does not (US-007). A "●" run was built and rendered, and
+      // rejected by the owner: it writes characters into the job title, which is
+      // a field read as text. The timeline rule already marks the entry.
       rightParagraphs.push(
         new Paragraph({
           children: [
@@ -758,6 +885,8 @@ export async function generateCreativeDocx(
               font,
             }),
           ],
+          border: timelineBorder,
+          indent: timelineIndent,
           spacing: { after: 0, ...inheritedBody },
         })
       )
@@ -775,6 +904,8 @@ export async function generateCreativeDocx(
                 font,
               }),
             ],
+            border: timelineBorder,
+            indent: timelineIndent,
             spacing: { after: pxToTwips(SPACING.EXPERIENCE_HEADER_MB), ...inheritedBody },
           })
         )
@@ -799,6 +930,8 @@ export async function generateCreativeDocx(
                 },
               }),
             ],
+            border: timelineBorder,
+            indent: timelineIndent,
             spacing: { after: pxToTwips(SPACING.EXPERIENCE_HEADER_MB), ...inheritedBody },
           })
         )
@@ -816,6 +949,8 @@ export async function generateCreativeDocx(
                 font,
               }),
             ],
+            border: timelineBorder,
+            indent: timelineIndent,
             spacing: { after: pxToTwips(SPACING.EXPERIENCE_LOCATION_MB), ...inheritedBody },
           })
         )
@@ -848,6 +983,8 @@ export async function generateCreativeDocx(
                 }),
                 ...achievementRuns,
               ],
+              border: timelineBorder,
+              indent: timelineIndent,
               // The achievement list sets no leading, so it inherits 1.5.
               spacing: {
                 after: achievementSpacingAfter,
@@ -871,8 +1008,9 @@ export async function generateCreativeDocx(
             pxToTwips(SPACING.ACHIEVEMENT_GAP),
             descSpacingAfter,
             relaxedBody,
-            undefined,
-            descAlignment
+            timelineIndent,
+            descAlignment,
+            timelineBorder
           )
           rightParagraphs.push(...listParagraphs)
         } else if (isPlainTextList(exp.description)) {
@@ -889,6 +1027,8 @@ export async function generateCreativeDocx(
                 spacingAfterLast: descSpacingAfter,
                 alignment: descAlignment,
                 lineSpacing: relaxedBody,
+                indent: timelineIndent,
+                border: timelineBorder,
               }
             )
           )
@@ -902,6 +1042,8 @@ export async function generateCreativeDocx(
           rightParagraphs.push(
             new Paragraph({
               children: descRuns,
+              border: timelineBorder,
+              indent: timelineIndent,
               spacing: {
                 after: descSpacingAfter,
                 ...relaxedBody,
@@ -942,8 +1084,17 @@ export async function generateCreativeDocx(
         ? (nextSectionExists ? SPACING.RIGHT_SECTION_GAP : 0)
         : SPACING.PROJECT_ITEM_GAP
 
+      // The Preview draws each project in a card (US-007): a slate-50 fill, a
+      // 4px purple-500 rule down its left edge and 16px of padding all round.
+      // A single-cell table is what carries all three \u2014 cell margins are the
+      // only padding OOXML has, and paragraph shading would start at the text
+      // indent and leave the padding unfilled. The gap to the next card is a
+      // paragraph after it, because a table carries no spacing of its own.
+      const cardParagraphs: Paragraph[] = []
+      const hasTechnologies = Boolean(project.technologies && project.technologies.length > 0)
+
       // Project name: bold, slate-900
-      rightParagraphs.push(
+      cardParagraphs.push(
         new Paragraph({
           children: [
             new TextRun({
@@ -955,9 +1106,7 @@ export async function generateCreativeDocx(
             }),
           ],
           spacing: {
-            after: project.description || (project.technologies && project.technologies.length > 0)
-              ? pxToTwips(SPACING.PROJECT_NAME_MB)
-              : pxToTwips(projectEndSpacing),
+            after: project.description || hasTechnologies ? pxToTwips(SPACING.PROJECT_NAME_MB) : 0,
             ...inheritedBody,
           },
         })
@@ -971,37 +1120,42 @@ export async function generateCreativeDocx(
           font,
         })
 
-        rightParagraphs.push(
+        cardParagraphs.push(
           new Paragraph({
             children: projectDescRuns,
             spacing: {
-              after: project.technologies && project.technologies.length > 0
-                ? pxToTwips(SPACING.PROJECT_DESC_MB)
-                : pxToTwips(projectEndSpacing),
+              after: hasTechnologies ? pxToTwips(SPACING.PROJECT_DESC_MB) : 0,
               ...relaxedBody,
             },
           })
         )
       }
 
-      // Technologies: bold purple-600 text (approximation of gradient pills)
-      if (project.technologies && project.technologies.length > 0) {
-        rightParagraphs.push(
+      // Technologies: one shaded run per pill (US-007), white on purple-500.
+      if (hasTechnologies) {
+        cardParagraphs.push(
           new Paragraph({
-            children: [
-              new TextRun({
-                text: project.technologies.join('  \u2022  '),
-                bold: true,
+            children: pillRuns(
+              project.technologies.map((technology: unknown) => String(technology)),
+              {
                 size: scaledFontSizes.body,
-                color: COLORS.PURPLE_600,
+                color: PALETTE.white,
+                fill: PALETTE['purple-500'],
                 font,
-              }),
-            ],
-            // Each pill's text inherits 1.5; the pill's padding and fill are US-007's.
-            spacing: { after: pxToTwips(projectEndSpacing), ...inheritedBody },
+                bold: true,
+              },
+            ),
+            // Each pill's text inherits 1.5; its vertical padding is not leading
+            // and a run's shading cannot carry it.
+            spacing: { after: 0, ...inheritedBody },
           })
         )
       }
+
+      rightParagraphs.push(projectCard(cardParagraphs))
+      rightParagraphs.push(
+        new Paragraph({ children: [], spacing: { after: pxToTwips(projectEndSpacing), ...NO_TEXT_LINE } })
+      )
     })
   }
 
@@ -1099,14 +1253,21 @@ export async function generateCreativeDocx(
     })
   }
 
+  // The bottom-left decorative disc (US-007). The Preview places it from the
+  // header's BOTTOM edge, which depends on how the text above wrapped, so it is
+  // anchored in a paragraph of its own after the last: from that paragraph's top
+  // the header's bottom is one cell margin away, whatever happened above it. The
+  // paragraph carries no text and a one-twip exact line (US-004).
+  headerParagraphs.push(
+    new Paragraph({ children: [headerCircle('bottom')], spacing: { after: 0, ...NO_TEXT_LINE } })
+  )
+
   // ============================================================
   // CREATE HEADER TABLE (full-width, purple background)
   // Using a single-cell table to get consistent background shading
   // ============================================================
   const headerCell = new TableCell({
-    children: headerParagraphs.length > 0
-      ? headerParagraphs
-      : [new Paragraph({ children: [], spacing: NO_TEXT_LINE })],
+    children: headerParagraphs,
     shading: {
       fill: PALETTE['purple-600'],
       color: 'auto',

@@ -1200,8 +1200,9 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
     'The header is a three-stop CSS gradient (from-purple-600 via-pink-500 to-orange-400). DOCX paragraph and ' +
       'table-cell shading is a single solid fill (w:shd), so since Part 3 US-003 the generator fills the header ' +
       "with the gradient's first stop, globals.css purple-600, taken from src/lib/resume-palette.ts. The other " +
-      'two stops are not drawn, and neither are the two bg-white/10 circles the Preview draws over the gradient ' +
-      "inside the same header (US-007's). The fill is not compared. Part 3 US-006 composites the header's " +
+      'two stops are not drawn. The two bg-white/10 circles the Preview draws over the gradient inside the same ' +
+      'header ARE drawn, since Part 3 US-007, as floating rasters; they have their own DECISION row, and they ' +
+      "are not folded into the composite below. The fill is not compared. Part 3 US-006 composites the header's " +
       'translucent text against that same first stop, on both sides: the colour:headerSummary and ' +
       'colour:headerLinks rows print it as the "over" colour, read from the computed background-image of the ' +
       'header the Preview actually rendered, never assumed, and marked as the DOCX fill rather than a measured ' +
@@ -1251,17 +1252,68 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
       'show the band following the sidebar colour, cannot be exercised as written; the owner must revise it ' +
       'before US-013 starts, or that story meets the PRD BLOCKER "cannot exercise the divergence a story ' +
       'closes". Owned by US-013.'),
-  annotation('FINDING', 'modern', 'skill level bars', ['docx'],
-    'The Preview draws a level bar under every skill; the DOCX lists the skills as text. DOCX can approximate ' +
-      'a bar with a shaded cell or run; omitting it is a generator choice. Owned by US-007. Not measured by ' +
-      'this check.'),
-  annotation('FINDING', 'creative', 'language level bars', ['docx'],
-    'The Preview draws five-segment level bars; the DOCX writes "Fluent (4/5)" text. DOCX can approximate the ' +
-      'bars with shaded cells or runs; omitting them is a generator choice. Owned by US-007. Not measured by ' +
-      'this check.'),
-  annotation('FINDING', 'creative', 'technology pills', ['docx'],
-    'The Preview draws each technology as a filled pill; the DOCX writes bold purple text. DOCX can shade a ' +
-      'run; omitting it is a generator choice. Owned by US-007. Not measured by this check.'),
+  annotation('DECISION', 'modern', 'graphics: skill level bars and technology chips', ['docx'],
+    'Closed the modern half of the graphics divergence (Part 3 US-007). The skill level bars, which the DOCX ' +
+      'previously omitted, are drawn as a one-row two-cell table under each skill: the accent colour across the ' +
+      'level the Preview draws (src/lib/resume-graphics.ts MODERN_SKILL_BAR.levelPercent, a constant in the ' +
+      'Preview too) and the track across the rest, at the bar\'s own height as an exact row height. The track is ' +
+      'rgba(255,255,255,0.2) over the sidebar in the Preview and a cell fill carries no alpha, so it is written ' +
+      'as the composite US-006 writes for translucent text, over the same backdrop. The technology chips, ' +
+      'previously one line of bullet-separated text, are one shaded run each, slate-700 on slate-100. Not ' +
+      'drawn: the corner radius of either, which OOXML has for neither a cell nor a run, and the chips\' ' +
+      'vertical padding, because a run\'s shading is exactly as tall as its line. The bars appear under the ' +
+      'skills the Preview draws bars for — a category\'s `items`; a category carrying `skillsHtml` is the ' +
+      'content divergence US-016 owns and gets no bar. Not measured by this check: it samples text, and these ' +
+      'graphics carry none. Asserted on generated documents by docx-graphics.test.ts.'),
+  annotation('DECISION', 'creative', 'graphics: level bars, pills, timeline and project cards', ['docx'],
+    'Closed the creative half of the graphics divergence (Part 3 US-007). The five-segment language level bars, ' +
+      'for which the DOCX wrote "Fluent (4/5)", are drawn as a one-row table of five shaded cells and four ' +
+      'unshaded gaps, purple-500 for a filled segment and slate-200 for an empty one; the number filled is the ' +
+      'level, so the value is in the document, and the text that stood in for them is gone because the Preview ' +
+      'never showed it. A stored level the Preview does not recognise fills none, on both surfaces: the old ' +
+      'code echoed such a value verbatim, so an out-of-union level that ResumeLanguage forbids but a stored row ' +
+      'may still hold now reaches no surface at all — the Preview and the print never showed it either, and ' +
+      'closing the divergence on the Preview\'s side is FR-3. The ' +
+      'technology pills, which the DOCX wrote as one bold stock-purple line, are one shaded run each, white on ' +
+      'purple-500. The experience timeline is a left paragraph border on every paragraph of an entry, which ' +
+      'Word draws as one continuous rule. Its dot is NOT drawn: a "●" run at the head of the entry was built ' +
+      'and rendered, and the owner rejected it because the head of that entry is the job title and a run there ' +
+      'writes "●  " into the text an ATS reads as the title — and because standing text in for a shape is the ' +
+      'inverse of what this story does everywhere else. The rule already marks where each entry begins. The ' +
+      'project card is a single-cell table: ' +
+      'slate-50 fill, a 4px purple-500 left border and 16px cell margins. Every colour is now a ' +
+      'resume-palette.ts entry; the two stock hexes the generator kept for the level text and the pills are ' +
+      'gone. Also not drawn, each measured rather than assumed: corner radii, which OOXML has for neither a ' +
+      'cell nor a run; the timeline line\'s fade to transparent and the pills\' and bars\' later gradient stop, ' +
+      'both first-stop substitutions this report already records; and the pills\' vertical padding, because a ' +
+      'run\'s shading is exactly as tall as its line. Paragraph shading was tried for the card before the cell ' +
+      'was: Word paints it from the paragraph\'s left INDENT to the right text margin, so the card can have the ' +
+      'padding or the fill over it but not both. Not measured by this check: it samples text, and these ' +
+      'graphics carry none. Asserted on generated documents by docx-graphics.test.ts.'),
+  annotation('DECISION', 'creative', 'graphics: the header\'s decorative discs', ['docx'],
+    'Closed by Part 3 US-007, after a first attempt recorded it as a format limitation and the review found ' +
+      'that claim false. The Preview draws two `bg-white/10` discs, 256px and 192px, positioned outside the ' +
+      'header box and clipped by it. Each is now a floating `w:drawing` anchored inside the header cell — the ' +
+      'same mechanism docx-modern.ts already uses for the photo — holding a PNG whose alpha channel carries ' +
+      'the 10% white (src/app/api/resumes/[id]/download-docx/docx-disc.ts). MEASURED IN WORD 16 before it was ' +
+      'written: with behindDoc="1" the drawing is painted behind the cell\'s own w:shd fill and cannot be seen ' +
+      'at all; with behindDoc="0" it is painted over the fill, and Word clips it to the cell, which is exactly ' +
+      'the Preview\'s `overflow-hidden`, so the overhanging parts are cut where the Preview cuts them. A second ' +
+      'probe placed the bottom disc against summaries wrapping to one, two and four lines: anchored in a ' +
+      'zero-height paragraph after the header\'s last, it holds its distance from the header\'s bottom edge in ' +
+      'all three, so the content-dependent header height does not move it. TWO DIFFERENCES REMAIN, both ' +
+      'recorded rather than absorbed. The Preview stacks the discs UNDER the header text (`relative z-10` on ' +
+      'the content) and OOXML has no layer between a cell\'s fill and its text, so the DOCX draws them over it; ' +
+      'the text they reach is white or near-white, so the wash moves it by 0.1 x (255 - v) a channel: nothing ' +
+      'on the opaque white title, and at most 3.9 — four levels once rounded — on the darkest of them, the ' +
+      'green of the composited text-white/80 links row. That is ABOVE this check\'s one-level tolerance, and it ' +
+      'is not caught, because neither side of a colour row sees a disc at all: the Preview side reads the ' +
+      'computed style rather than the painted pixel, and the DOCX side reads the run colour. A row here can ' +
+      'therefore not confirm the discs; the assertions that do are in docx-graphics.test.ts, on the drawing and ' +
+      'its PNG. And the disc is a raster scaled to size where the Preview draws ' +
+      'a vector, because the docx package exposes no shape primitive. Not measured by this check: it samples ' +
+      'text colour, and composites the sampled header text against the header fill on both sides, so neither ' +
+      'side accounts for a disc that may lie over it.'),
   ...(['classic', 'minimal'] as const).map((template) =>
     annotation('FINDING', template, 'hiddenSidebarSections: skills', ['preview', 'pdf', 'docx'],
       'A dead control, and since Part 3 US-002 a user-visible one. The editor renders its sidebar panel for ' +
