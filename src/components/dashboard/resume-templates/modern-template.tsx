@@ -15,6 +15,7 @@ import type { Locale } from '@/lib/i18n'
 import { renderFormattedText } from '@/lib/format-text'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import { MODERN_LINE_HEIGHT, MODERN_TITLE_BAR_PADDING_Y_PX } from '@/lib/resume-line-height'
+import { PAGE_HEIGHT_CSS, PAGE_WIDTH_CSS } from '@/lib/resume-page-size'
 import {
   assertExhaustiveSection,
   DEFAULT_MODERN_MAIN_ORDER,
@@ -396,6 +397,18 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                       {skillCategory.category}
                     </p>
                   )}
+                  {/* A category saved as rich text has no discrete items to draw a level bar for, so it renders as the text it was typed as - what the DOCX already draws. */}
+                  {skillCategory.skillsHtml ? (
+                  <div
+                    style={{
+                      fontSize: `${11 * activeScale}px`,
+                      color: '#FFFFFF',
+                      lineHeight: MODERN_LINE_HEIGHT.compact,
+                    }}
+                  >
+                    {renderFormattedText(skillCategory.skillsHtml)}
+                  </div>
+                  ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {skillCategory.items.map((skill, i) => {
                       const skillName = typeof skill === 'string' ? skill : String(skill)
@@ -433,6 +446,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                       )
                     })}
                   </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -680,8 +694,8 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
       className="mx-auto shadow-lg print:shadow-none"
       style={{
         position: 'relative',
-        width: '816px',
-        minHeight: '1056px',
+        width: PAGE_WIDTH_CSS,
+        minHeight: PAGE_HEIGHT_CSS,
         backgroundColor: 'white',
         fontFamily: fontFamily,
       }}

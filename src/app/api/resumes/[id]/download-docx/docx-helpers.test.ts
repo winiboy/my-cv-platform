@@ -3,11 +3,14 @@ import JSZip from 'jszip'
 import { isValidElement, type ReactElement, type ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
 import { formatText } from '@/lib/format-text'
+import { DEFAULT_RESUME_LAYOUT } from '@/lib/layout-settings'
 import {
+  APP_BODY_FONT,
   exactLineSpacing,
   NO_TEXT_LINE,
   extractAlignment,
   extractPrimaryFont,
+  resolveDocxFont,
   formatDateRange,
   hslToHex,
   isHtmlList,
@@ -538,5 +541,34 @@ describe('formatDateRange', () => {
 
   it('keeps a zero-padded two-digit month', () => {
     expect(formatDateRange('2020-09', '2020-12', false, 'en', noDict)).toBe('09/2020 - 12/2020')
+  })
+})
+
+/**
+ * Part 3 US-012: which family a generator writes.
+ *
+ * The chosen/not-chosen rule itself is pinned in `layout-settings.test.ts`;
+ * what matters here is that a generator asks it rather than applying the
+ * stored stack unconditionally, and that an unchosen font yields the family
+ * the template's Preview draws.
+ */
+describe('resolveDocxFont', () => {
+  it("writes the template's own font when no font was chosen", () => {
+    expect(resolveDocxFont(DEFAULT_RESUME_LAYOUT.fontFamily, APP_BODY_FONT)).toBe('Inter')
+    expect(resolveDocxFont(DEFAULT_RESUME_LAYOUT.fontFamily, 'Georgia')).toBe('Georgia')
+  })
+
+  it('writes the primary family of a chosen stack, on every template', () => {
+    for (const designed of [APP_BODY_FONT, 'Georgia']) {
+      expect(resolveDocxFont('Verdana, Geneva, sans-serif', designed)).toBe('Verdana')
+      expect(resolveDocxFont("'Times New Roman', serif", designed)).toBe('Times New Roman')
+    }
+  })
+
+  it("falls back to the template's font when a chosen stack names none", () => {
+    // Not reachable through `parseLayoutModel`, which rejects a blank stack;
+    // the fallback exists so an unusable value degrades to what the Preview
+    // draws rather than to a family no surface uses.
+    expect(resolveDocxFont('   ', 'Georgia')).toBe('Georgia')
   })
 })

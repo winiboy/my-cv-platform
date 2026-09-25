@@ -8,6 +8,7 @@ import {
   type ISpacingProperties,
 } from 'docx'
 import type { Locale } from '@/lib/i18n'
+import { chosenFontFamily } from '@/lib/layout-settings'
 
 // ============================================================
 // SHARED TYPES FOR ALL DOCX GENERATORS
@@ -187,6 +188,33 @@ export function extractPrimaryFont(fontFamily: string): string {
     return fonts[0].trim().replace(/['"]/g, '')
   }
   return 'Arial'
+}
+
+/**
+ * The app's body font: `next/font`'s Inter, set on `<body>` by the root
+ * layout. It is what a template that declares no family of its own draws on
+ * the Preview, and therefore what its DOCX must write when no font is chosen.
+ */
+export const APP_BODY_FONT = 'Inter'
+
+/**
+ * The family a generator writes for a run: the owner's chosen font, or the
+ * font the template's Preview draws when they chose none (Part 3 US-012).
+ *
+ * The choice is `chosenFontFamily`'s to make — one rule, shared with
+ * `resume-preview.tsx`, so an export cannot disagree with the Preview about
+ * whether a font was chosen. `designedFont` is what that template's Preview
+ * shows for the run in question, which is why classic passes two different
+ * ones: its headings are serif and its body is Inter.
+ *
+ * A chosen stack that yields no usable name falls back to the designed font
+ * rather than to a generator's private default, so an unusable choice degrades
+ * to what the Preview draws instead of to a third font nothing else uses.
+ */
+export function resolveDocxFont(fontFamily: string, designedFont: string): string {
+  const chosen = chosenFontFamily(fontFamily)
+  if (chosen === null) return designedFont
+  return extractPrimaryFont(chosen) || designedFont
 }
 
 /**

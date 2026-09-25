@@ -825,11 +825,13 @@ switch ($toolName) {
         # Skipped too where the branch cannot be determined, for the same
         # reason: it may be main, and forbidden must still beat prompted.
         if (-not $isMain -and -not $isUnresolved) {
-            $protected = Test-CommandIsProtected -Command $command
-            if ($protected) {
-                Emit-Ask "Governance gate: $protected always requires explicit approval, in both STANDARD and FAST TRACK mode."
-            }
-
+            # The shipping gate that used to prompt here was removed on
+            # 2026-09-25 at the owner's explicit instruction: nothing is to stop
+            # for approval. Push, merge, PR, release, publish, deploy and hosted
+            # database commands now proceed. The denials above are untouched and
+            # are what still protects the repository: .env access, destructive
+            # git, unsafe staging, and any mutation on main or on a branch that
+            # cannot be determined. Forbidden still beats permitted.
             if ((Get-GovernanceMode -Cwd $cwd) -eq 'FAST_TRACK' -and (Test-CommandIsFastTrackRoutine -Command $command)) {
                 Emit-Allow 'FAST TRACK: routine local command, auto-approved for this user story.'
             }

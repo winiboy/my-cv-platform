@@ -29,10 +29,13 @@ import {
   stripHtml,
   exactLineSpacing,
   trackingSpacing,
+  resolveDocxFont,
+  APP_BODY_FONT,
   NO_TEXT_LINE,
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
+import { PAGE_HEIGHT_INCHES, PAGE_WIDTH_INCHES } from '@/lib/resume-page-size'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import { PREFLIGHT_LINE_HEIGHT, TAILWIND_LEADING, TAILWIND_TEXT_LINE_HEIGHT } from '@/lib/resume-line-height'
 import {
@@ -103,8 +106,18 @@ const SPACING = {
   GRID_GAP: 24,                // gap-6 = 24px between grid columns
 }
 
-// Serif font used by the Classic template
-const SERIF_FONT = 'Times New Roman'
+/**
+ * The serif Classic's Preview actually draws (Part 3 US-012).
+ *
+ * `classic-template.tsx` puts Tailwind's `font-serif` on the title and the
+ * section headings, whose stack is `ui-serif, Georgia, Cambria, "Times New
+ * Roman", Times, serif`. `ui-serif` is a generic the platform resolves, and
+ * Georgia is the first family a reader can actually be given — it is the face
+ * Chromium uses on the Preview and the print. This generator previously wrote
+ * Times New Roman, which no surface drew and which no stored value asked for:
+ * a private third font, not the template's.
+ */
+const SERIF_FONT = 'Georgia'
 
 // ============================================================
 // CLASSIC TEMPLATE DOCX GENERATOR
@@ -121,11 +134,24 @@ export async function generateClassicDocx(
   settings: DocxGeneratorSettings
 ): Promise<Buffer> {
   const {
+    fontFamily,
     fontScale,
     locale,
     mainContentOrder: mainContentOrderRaw,
     hiddenMainSections: hiddenMainRaw,
   } = settings
+
+  /**
+   * The two families the Preview draws, and what a chosen font replaces them
+   * with (Part 3 US-012).
+   *
+   * Classic is the one template whose Preview uses two: `font-serif` on the
+   * title and the section headings, the app's Inter everywhere else. A chosen
+   * font replaces both, exactly as `classic-template.tsx` withdraws its serif
+   * class and sets the chosen family on the document root.
+   */
+  const headingFont = resolveDocxFont(fontFamily, SERIF_FONT)
+  const bodyFont = resolveDocxFont(fontFamily, APP_BODY_FONT)
 
   // Load translations — use i18n dict for section labels, fall back to built-in dict
   const dict = getTranslations(locale as Locale, 'common')
@@ -201,9 +227,9 @@ export async function generateClassicDocx(
     [LINE_HEIGHT.textSm, scaledFontSizes.textSm],
   )
 
-  // Page dimensions: A4 (8.27" x 11.69") — the spec says A4 size
-  const pageWidthTwips = convertInchesToTwip(8.27)
-  const pageHeightTwips = convertInchesToTwip(11.69)
+  // Page dimensions: A4, from the one declaration every surface reads.
+  const pageWidthTwips = convertInchesToTwip(PAGE_WIDTH_INCHES)
+  const pageHeightTwips = convertInchesToTwip(PAGE_HEIGHT_INCHES)
 
   // Margins: p-12 in the template = 48px ≈ 720 twips
   const marginTwips = pxToTwips(SPACING.OUTER_PADDING)
@@ -227,7 +253,7 @@ export async function generateClassicDocx(
           bold: true,
           size: scaledFontSizes.sectionTitle,
           color: PALETTE['slate-900'],
-          font: SERIF_FONT,
+          font: headingFont,
         }),
       ],
       spacing: {
@@ -261,7 +287,7 @@ export async function generateClassicDocx(
           bold: true,
           size: scaledFontSizes.title,
           color: PALETTE['slate-900'],
-          font: SERIF_FONT,
+          font: headingFont,
           characterSpacing: trackingSpacing(TRACKING.title, scaledFontSizes.title),
         }),
       ],
@@ -299,7 +325,7 @@ export async function generateClassicDocx(
             text: contactLine1Items.join('  •  '),
             size: scaledFontSizes.contact,
             color: PALETTE['slate-700'],
-            font: SERIF_FONT,
+            font: bodyFont,
           }),
         ],
         alignment: AlignmentType.CENTER,
@@ -319,7 +345,7 @@ export async function generateClassicDocx(
             text: contactLine2Items.join('  •  '),
             size: scaledFontSizes.contact,
             color: PALETTE['slate-600'],
-            font: SERIF_FONT,
+            font: bodyFont,
           }),
         ],
         alignment: AlignmentType.CENTER,
@@ -380,7 +406,7 @@ export async function generateClassicDocx(
               {
                 size: scaledFontSizes.body,
                 color: PALETTE['slate-800'],
-                font: SERIF_FONT,
+                font: bodyFont,
               },
               pxToTwips(4),
               sectionEndSpacing,
@@ -396,7 +422,7 @@ export async function generateClassicDocx(
                 {
                   size: scaledFontSizes.body,
                   color: PALETTE['slate-800'],
-                  font: SERIF_FONT,
+                  font: bodyFont,
                 },
                 {
                   spacingAfterItem: pxToTwips(4),
@@ -410,7 +436,7 @@ export async function generateClassicDocx(
             const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
               size: scaledFontSizes.body,
               color: PALETTE['slate-800'],
-              font: SERIF_FONT,
+              font: bodyFont,
             })
 
             children.push(
@@ -459,7 +485,7 @@ export async function generateClassicDocx(
                     bold: true,
                     size: scaledFontSizes.body,
                     color: PALETTE['slate-900'],
-                    font: SERIF_FONT,
+                    font: bodyFont,
                   }),
                   ...(dateText ? [
                     new TextRun({
@@ -467,7 +493,7 @@ export async function generateClassicDocx(
                       italics: true,
                       size: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale), // text-sm
                       color: PALETTE['slate-600'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     }),
                   ] : []),
                 ],
@@ -490,14 +516,14 @@ export async function generateClassicDocx(
                     italics: true,
                     size: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale), // text-sm
                     color: PALETTE['slate-700'],
-                    font: SERIF_FONT,
+                    font: bodyFont,
                   }),
                   ...(exp.location ? [
                     new TextRun({
                       text: '\t' + exp.location,
                       size: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale), // text-sm
                       color: PALETTE['slate-600'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     }),
                   ] : []),
                 ],
@@ -519,7 +545,7 @@ export async function generateClassicDocx(
                 const achievementRuns = parseHtmlToDocxRuns(achievement, {
                   size: scaledFontSizes.body,
                   color: PALETTE['slate-800'],
-                  font: SERIF_FONT,
+                  font: bodyFont,
                 })
 
                 // Spacing: between achievements = 4px, between experiences = 16px, between sections = 20px
@@ -536,7 +562,7 @@ export async function generateClassicDocx(
                         text: '• ',
                         size: scaledFontSizes.body,
                         color: PALETTE['slate-800'],
-                        font: SERIF_FONT,
+                        font: bodyFont,
                       }),
                       ...achievementRuns,
                     ],
@@ -558,7 +584,7 @@ export async function generateClassicDocx(
                   {
                     size: scaledFontSizes.body,
                     color: PALETTE['slate-800'],
-                    font: SERIF_FONT,
+                    font: bodyFont,
                   },
                   pxToTwips(4),
                   descSpacingAfter,
@@ -574,7 +600,7 @@ export async function generateClassicDocx(
                     {
                       size: scaledFontSizes.body,
                       color: PALETTE['slate-800'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     },
                     {
                       spacingAfterItem: pxToTwips(4),
@@ -588,7 +614,7 @@ export async function generateClassicDocx(
                 const descRuns = parseHtmlToDocxRuns(exp.description, {
                   size: scaledFontSizes.body,
                   color: PALETTE['slate-800'],
-                  font: SERIF_FONT,
+                  font: bodyFont,
                 })
 
                 children.push(
@@ -655,7 +681,7 @@ export async function generateClassicDocx(
                     bold: true,
                     size: scaledFontSizes.body,
                     color: PALETTE['slate-900'],
-                    font: SERIF_FONT,
+                    font: bodyFont,
                   }),
                   ...(eduDateText ? [
                     new TextRun({
@@ -663,7 +689,7 @@ export async function generateClassicDocx(
                       italics: true,
                       size: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale), // text-sm
                       color: PALETTE['slate-600'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     }),
                   ] : []),
                 ],
@@ -690,7 +716,7 @@ export async function generateClassicDocx(
                     italics: true,
                     size: scaledFontSizes.body,
                     color: PALETTE['slate-700'],
-                    font: SERIF_FONT,
+                    font: bodyFont,
                   }),
                 ],
                 spacing: {
@@ -709,14 +735,14 @@ export async function generateClassicDocx(
                       text: 'GPA: ',
                       size: scaledFontSizes.body,
                       color: PALETTE['slate-600'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     }),
                     new TextRun({
                       text: edu.gpa,
                       bold: true,
                       size: scaledFontSizes.body,
                       color: PALETTE['slate-600'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     }),
                   ],
                   spacing: {
@@ -732,7 +758,7 @@ export async function generateClassicDocx(
               const eduDescRuns = parseHtmlToDocxRuns(edu.description, {
                 size: scaledFontSizes.body,
                 color: PALETTE['slate-800'],
-                font: SERIF_FONT,
+                font: bodyFont,
               })
 
               children.push(
@@ -778,13 +804,13 @@ export async function generateClassicDocx(
                       bold: true,
                       size: scaledFontSizes.body,
                       color: PALETTE['slate-900'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     }),
                     new TextRun({
                       text: plainSkills,
                       size: scaledFontSizes.body,
                       color: PALETTE['slate-800'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     }),
                   ],
                   spacing: { after: itemEndSpacing, ...inheritedBody },
@@ -799,13 +825,13 @@ export async function generateClassicDocx(
                       bold: true,
                       size: scaledFontSizes.body,
                       color: PALETTE['slate-900'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     }),
                     new TextRun({
                       text: skillCat.items.join(', '),
                       size: scaledFontSizes.body,
                       color: PALETTE['slate-800'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     }),
                   ],
                   spacing: { after: itemEndSpacing, ...inheritedBody },
@@ -827,7 +853,7 @@ export async function generateClassicDocx(
                       bold: true,
                       size: scaledFontSizes.body,
                       color: PALETTE['slate-900'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     }),
                   ],
                   spacing: { after: itemEndSpacing, ...inheritedBody },
@@ -862,7 +888,7 @@ export async function generateClassicDocx(
                     bold: true,
                     size: scaledFontSizes.body,
                     color: PALETTE['slate-900'],
-                    font: SERIF_FONT,
+                    font: bodyFont,
                   }),
                 ],
                 spacing: {
@@ -877,7 +903,7 @@ export async function generateClassicDocx(
               const projectDescRuns = parseHtmlToDocxRuns(project.description, {
                 size: scaledFontSizes.body,
                 color: PALETTE['slate-800'],
-                font: SERIF_FONT,
+                font: bodyFont,
               })
 
               children.push(
@@ -901,13 +927,13 @@ export async function generateClassicDocx(
                       bold: true,
                       size: scaledFontSizes.body,
                       color: PALETTE['slate-700'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     }),
                     new TextRun({
                       text: project.technologies.join(', '),
                       size: scaledFontSizes.body,
                       color: PALETTE['slate-700'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     }),
                   ],
                   spacing: { after: isLastProject ? sectionEndSpacing : pxToTwips(SPACING.PROJECT_ITEM_GAP), ...inheritedBody },
@@ -944,13 +970,13 @@ export async function generateClassicDocx(
                       bold: true,
                       size: scaledFontSizes.body,
                       color: PALETTE['slate-900'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     }),
                     new TextRun({
                       text: '\t' + levelText,
                       size: scaledFontSizes.body,
                       color: PALETTE['slate-700'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     }),
                   ],
                   spacing: { after: isLast ? 0 : pxToTwips(SPACING.LANGUAGE_ITEM_GAP), ...inheritedBody },
@@ -988,7 +1014,7 @@ export async function generateClassicDocx(
                       bold: true,
                       size: scaledFontSizes.body,
                       color: PALETTE['slate-900'],
-                      font: SERIF_FONT,
+                      font: bodyFont,
                     }),
                   ],
                   spacing: { after: cert.issuer || cert.date ? 0 : (isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP)), ...inheritedBody },
@@ -1004,7 +1030,7 @@ export async function generateClassicDocx(
                         text: cert.issuer,
                         size: scaledFontSizes.body,
                         color: PALETTE['slate-700'],
-                        font: SERIF_FONT,
+                        font: bodyFont,
                       }),
                     ],
                     spacing: { after: cert.date ? 0 : (isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP)), ...inheritedBody },
@@ -1025,7 +1051,7 @@ export async function generateClassicDocx(
                         italics: true,
                         size: scaledFontSizes.body,
                         color: PALETTE['slate-600'],
-                        font: SERIF_FONT,
+                        font: bodyFont,
                       }),
                     ],
                     spacing: { after: isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP), ...inheritedBody },
@@ -1112,7 +1138,7 @@ export async function generateClassicDocx(
       default: {
         document: {
           run: {
-            font: SERIF_FONT,
+            font: bodyFont,
             size: scaledFontSizes.body,
           },
           // Every paragraph writes its own line spacing; the default is the

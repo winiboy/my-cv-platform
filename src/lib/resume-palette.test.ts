@@ -406,7 +406,7 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     'style color: #1a1a1a': { count: 3, palette: 'heading' },
     'style color: #6b7280': { count: 3, palette: 'meta' },
     'style color: #374151': { count: 2, palette: 'experienceBody' },
-    'style color: #FFFFFF': { count: 8, palette: 'white' },
+    'style color: #FFFFFF': { count: 9, palette: 'white' },
     'attr stroke: #FFFFFF': { count: 5, palette: 'white' },
     'attr fill: #FFFFFF': { count: 1, palette: 'white' },
     // Contact labels and certification dates; language levels and issuers; education schools.
@@ -436,7 +436,8 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
   minimal: {
     'text-slate-900': { count: 4, palette: 'slate-900' },
     'text-slate-700': { count: 6, palette: 'slate-700' },
-    'text-slate-600': { count: 4, palette: 'slate-600' },
+    // One per skills branch: the rich-text one US-016 added, and the items list.
+    'text-slate-600': { count: 5, palette: 'slate-600' },
     'text-slate-500': { count: 7, palette: 'slate-500' },
     'text-slate-400': { count: 8, palette: 'slate-400' },
     'bg-slate-400': { count: 1, palette: 'slate-400' },
@@ -482,7 +483,8 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     'text-purple-500': { count: 1, palette: 'purple-500' },
     'text-slate-900': { count: 3, palette: 'slate-900' },
     'text-slate-800': { count: 3, palette: 'slate-800' },
-    'text-slate-700': { count: 4, palette: 'slate-700' },
+    // Includes both skills branches: the rich-text one US-016 added, and the items list.
+    'text-slate-700': { count: 5, palette: 'slate-700' },
     'text-slate-600': { count: 3, palette: 'slate-600' },
     'text-slate-500': { count: 1, palette: 'slate-500' },
     // The header summary, and the header's second contact row.

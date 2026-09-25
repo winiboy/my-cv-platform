@@ -21,7 +21,8 @@ import {
   pxToHalfPoints,
   pxToTwips,
   extractAlignment,
-  extractPrimaryFont,
+  resolveDocxFont,
+  APP_BODY_FONT,
   isHtmlList,
   parseHtmlListToParagraphs,
   isPlainTextList,
@@ -34,6 +35,7 @@ import {
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
+import { PAGE_HEIGHT_INCHES, PAGE_WIDTH_INCHES } from '@/lib/resume-page-size'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import { PREFLIGHT_LINE_HEIGHT, TAILWIND_LEADING, TAILWIND_TEXT_LINE_HEIGHT } from '@/lib/resume-line-height'
 import {
@@ -116,8 +118,9 @@ const SPACING = {
   EDU_LINE1_MB: 8,              // mb-2 = 8px between degree line and school line
 }
 
-// Minimal template uses sans-serif, not serif
-const DEFAULT_SANS_FONT = 'Arial'
+// Minimal template uses sans-serif, not serif. Its Preview declares no family
+// of its own, so the sans it draws is the app's Inter (Part 3 US-012).
+const DESIGNED_FONT = APP_BODY_FONT
 
 // ============================================================
 // MINIMAL TEMPLATE DOCX GENERATOR
@@ -146,9 +149,8 @@ export async function generateMinimalDocx(
   const dict = getTranslations(locale as Locale, 'common')
   const minimalDict = MINIMAL_DICT[locale] || MINIMAL_DICT.en
 
-  // Determine font: extract primary from settings, default to sans-serif
-  const primaryFont = extractPrimaryFont(fontFamily)
-  const font = primaryFont || DEFAULT_SANS_FONT
+  // The owner's chosen font, or the font the Preview draws when none was chosen.
+  const font = resolveDocxFont(fontFamily, DESIGNED_FONT)
 
   const contact = resume.contact || {}
 
@@ -222,8 +224,8 @@ export async function generateMinimalDocx(
   )
 
   // Page dimensions: A4
-  const pageWidthTwips = convertInchesToTwip(8.27)
-  const pageHeightTwips = convertInchesToTwip(11.69)
+  const pageWidthTwips = convertInchesToTwip(PAGE_WIDTH_INCHES)
+  const pageHeightTwips = convertInchesToTwip(PAGE_HEIGHT_INCHES)
 
   // Margins: p-16 = 64px = 960 twips
   const marginTwips = pxToTwips(SPACING.OUTER_PADDING)

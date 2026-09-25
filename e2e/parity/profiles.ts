@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import {
+  chosenFontFamily,
   DEFAULT_RESUME_LAYOUT,
   mapEditorOrderToClassic,
   mapEditorOrderToMinimal,
@@ -15,9 +16,12 @@ import {
   FIXTURE_CERTIFICATIONS,
   FIXTURE_CONTACT,
   FIXTURE_EXPERIENCE,
+  FIXTURE_PROJECTS,
   FIXTURE_SKILLS,
   FIXTURE_SUMMARY,
   type FixtureExperience,
+  type FixtureProject,
+  type FixtureSkillCategory,
 } from '../fixtures/resume'
 
 /**
@@ -61,6 +65,7 @@ export type ProfileId =
   | 'font-not-chosen'
   | 'multi-page'
   | 'formatted-body'
+  | 'html-body-and-skills'
 
 /**
  * Which row families a profile is run for. `font` is the font-family rows alone,
@@ -94,7 +99,13 @@ export interface ParityProfile {
    * Content seeded in place of the fixture's, and the fewest pages its print
    * must fill for the profile to measure what it exists for. Absent: the fixture.
    */
-  content?: { experience: readonly FixtureExperience[]; minimumPrintedPages: number }
+  content?: {
+    experience: readonly FixtureExperience[]
+    /** Absent: the fixture's own. Present: what this profile stores in place of it. */
+    skills?: readonly FixtureSkillCategory[]
+    projects?: readonly FixtureProject[]
+    minimumPrintedPages: number
+  }
 }
 
 /**
@@ -239,6 +250,24 @@ const FORMATTED_BODY_EXPERIENCE: readonly FixtureExperience[] = FIXTURE_EXPERIEN
   index === 0 ? { ...role, achievements: role.achievements.map((a, i) => (i === 0 ? `<p>${a}</p>` : a)) } : role,
 )
 
+/**
+ * Part 3 US-016: the fixture's skill categories as the skills editor saves them.
+ * `skillsHtml` is what the editor writes on every save, converting the legacy
+ * `items` list as it goes (skills-section.tsx), and `items` is kept because a
+ * real stored row keeps it - that is exactly the pair whose precedence the
+ * Preview has to get right.
+ */
+const HTML_SKILLS: readonly FixtureSkillCategory[] = FIXTURE_SKILLS.map((category) => ({
+  ...category,
+  skillsHtml: `<p>${category.items.join(', ')}</p>`,
+}))
+
+/** The fixture's project with its description stored as HTML, as projects-section.tsx saves it. */
+const HTML_PROJECTS: readonly FixtureProject[] = FIXTURE_PROJECTS.map((project) => ({
+  ...project,
+  description: `<p>${project.description}</p>`,
+}))
+
 export const PROFILES: readonly ParityProfile[] = [
   {
     id: 'primary',
@@ -351,12 +380,42 @@ export const PROFILES: readonly ParityProfile[] = [
       'stored as HTML, as the rich-text editor saves it. Professional and modern render HTML through ' +
       "renderFormattedText into .formatted-content, whose globals.css line height overrides the template's, " +
       'so their body text draws at a different height than for plain text. Classic, minimal and creative ' +
-      'render every text plainly (formatText) and draw no .formatted-content, so they are not run here; ' +
-      'how they show HTML is Part 3 US-016.',
+      'drew every text plainly (formatText) when this profile was written, so they are not run here; ' +
+      'US-016 changed that, and the html-body-and-skills profile below runs all five.',
     templates: ['professional', 'modern'],
     rowGroups: ['body-line-height'],
     layout: PRIMARY_LAYOUT,
     content: { experience: FORMATTED_BODY_EXPERIENCE, minimumPrintedPages: 1 },
+  },
+  {
+    id: 'html-body-and-skills',
+    purpose:
+      "Part 3 US-016's rich text, on all five templates: the sampled achievement and the project " +
+      'description stored as HTML, as the editors save them. Before US-016 only ' +
+      'professional read skillsHtml and only professional and modern rendered stored HTML as formatted ' +
+      'text, so classic, minimal and creative showed a stale items list and literal <p> markup while the ' +
+      'DOCX drew what was typed. Every template now routes the same stored HTML through the same inert ' +
+      'sanitiser into .formatted-content, so the body line height they draw it at is the one row that can ' +
+      'say so without reading body text.',
+    templates: TEMPLATES,
+    rowGroups: ['body-line-height'],
+    layout: PRIMARY_LAYOUT,
+    content: {
+      experience: FORMATTED_BODY_EXPERIENCE,
+      // Skills are deliberately left as the fixture's plain items here, though
+      // US-016 fixed them too. A category stored as `skillsHtml` draws in the
+      // DOCX as the parsed runs of that HTML, not as one run of joined items,
+      // and every sampler in `surfaces.ts` finds a run by its whole text — so a
+      // rich-text skills category makes the collect step fail to find its run
+      // rather than report a divergence. Teaching the samplers to read a run
+      // sequence is harness work this story did not take on.
+      //
+      // What covers it instead: `rich-text.test.ts` asserts, per template, that
+      // `skillsHtml` renders and that a stale `items` list does not, and the
+      // rendered evidence in `scratchpad/p3us016/` shows all five Previews.
+      projects: HTML_PROJECTS,
+      minimumPrintedPages: 1,
+    },
   },
 ]
 
@@ -710,12 +769,13 @@ export function primaryFamily(stack: string): string {
 }
 
 /**
- * Whether the model's font was chosen. The model cannot record that yet (US-012
- * adds it), so this applies the owner's decision of 2026-09-15 literally: a
- * stored font equal to today's default was never chosen.
+ * Whether the model's font was chosen, as the APPLICATION decides it. US-012
+ * made `chosenFontFamily` the one rule — a stored stack equal to today's
+ * default records no choice — and this check asks it rather than restating it,
+ * so the check cannot disagree with the surfaces it is checking.
  */
 export function fontChosen(model: ResumeLayoutModel): boolean {
-  return model.fontFamily !== DEFAULT_RESUME_LAYOUT.fontFamily
+  return chosenFontFamily(model.fontFamily) !== null
 }
 
 // ---------------------------------------------------------------------------

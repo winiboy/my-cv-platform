@@ -138,17 +138,20 @@ Never weaken security controls to make a feature pass locally.
 
 ## 14. Mandatory Verification
 A change is not complete because it compiles or appears correct.
-Current mandatory baseline:
+Current mandatory baseline — the set CI requires, which is the floor, not a target:
 
+* `pnpm typecheck`
+* `pnpm test`
+* `pnpm test:integration`
+* `pnpm test:e2e`
+* `pnpm build` (use `pnpm build:verify` when a dev server is running)
 * `pnpm lint`
-* `pnpm build`
-  When repository scripts exist, also run checks required by the active PRD:
-* Typecheck
-* Unit tests
-* Integration tests
-* E2E/browser tests
-* Visual regression tests
+  Also run every check the active PRD requires for the affected scope, which may add:
+* Visual regression tests (`pnpm test:visual`)
+* Parity tests (`pnpm test:parity`)
+  `pnpm lint` exits non-zero at the tracked baseline, so it is judged by comparison, not exit code: record the problem count and the baseline or PRD ceiling it is compared against. A count above baseline is a FAIL.
   Never claim a check passed unless it actually ran successfully.
+  What is machine-enforced versus convention: `docs/engineering/ralph-pass-criteria.md`.
 
 ## 15. Validation and Review
 When UI is affected, `ui-expert` validation is mandatory and must inspect the rendered result.
@@ -156,7 +159,9 @@ For completed implementation, `code-reviewer` validation is mandatory.
 Review scope, correctness, regressions, architecture, security, and evidence.
 FAIL returns the work to `senior-coder`.
 PASS requires all mandatory acceptance criteria and required checks to be verified.
+Required checks must have run on the final diff. Any fix made after a check ran invalidates that check, and it is re-run before PASS.
 PASS must be evidence-based, never confidence-based.
+Evidence is recorded in `progress.txt` in the shape required by `docs/engineering/progress-log-format.md`.
 
 ## 16. Git and Commit Rules
 For Ralph work:

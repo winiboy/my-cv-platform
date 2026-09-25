@@ -24,7 +24,8 @@ import {
 import {
   pxToHalfPoints,
   pxToTwips,
-  extractPrimaryFont,
+  resolveDocxFont,
+  APP_BODY_FONT,
   extractAlignment,
   isHtmlList,
   parseHtmlListToParagraphs,
@@ -42,6 +43,7 @@ import { DOCX_PALETTE } from './docx-palette'
 import { docxTranslucentText } from './docx-text-opacity'
 import { graphicHeightTwips, pillRuns, segmentedBar, shadedCellBar, verticalRule } from './docx-graphics'
 import { translucentDiscPng } from './docx-disc'
+import { PAGE_HEIGHT_INCHES, PAGE_WIDTH_INCHES } from '@/lib/resume-page-size'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import {
   CREATIVE_HEADER_CIRCLES,
@@ -190,9 +192,10 @@ export async function generateCreativeDocx(
   const dict = getTranslations(locale as Locale, 'common')
   const creativeDict = CREATIVE_DICT[locale] || CREATIVE_DICT.en
 
-  // Determine font
-  const primaryFont = extractPrimaryFont(fontFamily)
-  const font = primaryFont || 'Arial'
+  // The owner's chosen font, or the font the Preview draws when none was
+  // chosen: creative declares no family of its own, so that is the app's Inter
+  // (Part 3 US-012).
+  const font = resolveDocxFont(fontFamily, APP_BODY_FONT)
 
   const contact = resume.contact || {}
 
@@ -219,8 +222,8 @@ export async function generateCreativeDocx(
   const relaxedBody = exactLineSpacing([LINE_HEIGHT.relaxed, scaledFontSizes.body])
 
   // Page dimensions: A4
-  const pageWidthTwips = convertInchesToTwip(8.27)
-  const pageHeightTwips = convertInchesToTwip(11.69)
+  const pageWidthTwips = convertInchesToTwip(PAGE_WIDTH_INCHES)
+  const pageHeightTwips = convertInchesToTwip(PAGE_HEIGHT_INCHES)
 
   // Margins: p-10 = 40px = 600 twips for the body section
   // Header has its own padding via cell margins, so page margins are 0

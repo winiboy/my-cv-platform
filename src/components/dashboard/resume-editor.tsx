@@ -25,7 +25,9 @@ import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n'
 import type { Resume, ResumeSkillCategory } from '@/types/database'
 import type { EditorMainId, EditorSidebarId } from '@/lib/layout-settings'
+import { chosenFontFamily, templateOffersLayoutControl } from '@/lib/layout-settings'
 import { useResumeLayout } from '@/lib/hooks/use-resume-layout'
+import { PAGE_WIDTH_PX } from '@/lib/resume-page-size'
 import { ContactSection } from './resume-sections/contact-section'
 import { SummarySection } from './resume-sections/summary-section'
 import { ExperienceSection } from './resume-sections/experience-section'
@@ -134,6 +136,29 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const [activeSection, setActiveSection] = useState<SectionId>(
     initialSection && SECTIONS.some(s => s.id === initialSection) ? initialSection : 'contact'
   )
+
+  // Part 3 US-014: which layout controls this template applies, from the one
+  // template x control matrix in `layout-settings.ts`. DERIVED, never stored and
+  // never written back — a control that is not offered leaves the model's value
+  // exactly where it is, so selecting a template that reads it again shows it
+  // unchanged. Nothing below may clear or rewrite a value because it is hidden.
+  const offersSidebarColour = templateOffersLayoutControl(resume.template, 'sidebarColour')
+  const offersSidebarSections = templateOffersLayoutControl(resume.template, 'sidebarSections')
+
+  // The nav entries this template can act on. `editSidebar` reorders and hides
+  // sidebar sections, which classic and minimal draw on no surface.
+  const visibleSections = SECTIONS.filter(
+    (section) => section.id !== 'editSidebar' || offersSidebarSections,
+  )
+
+  // A section can stop being offered while it is open — a saved URL names it, or
+  // the resume's template is not the one it was opened under. Falling back at
+  // RENDER rather than resetting the state keeps the user's place if they return
+  // to a template that offers it, and touches no editing state.
+  const shownSection: SectionId = visibleSections.some((section) => section.id === activeSection)
+    ? activeSection
+    : 'contact'
+
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
@@ -846,8 +871,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     const container = previewContainerRef.current
     const containerWidth = container.clientWidth - 64 // Subtract padding (p-8 = 32px each side)
 
-    // CV dimensions (A4 size - standard letter)
-    const cvWidth = 816
+    // The page the templates draw on; see src/lib/resume-page-size.ts.
+    const cvWidth = PAGE_WIDTH_PX
 
     // Use full available width - allows zoom in with vertical scrolling
     const scale = containerWidth / cvWidth
@@ -1117,9 +1142,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
         {/* Sidebar Navigation */}
         <div className="w-64 border-r border-slate-200 bg-slate-50">
           <nav className="space-y-1 p-4">
-            {SECTIONS.map((section) => {
+            {visibleSections.map((section) => {
               const Icon = section.icon
-              const isActive = activeSection === section.id
+              const isActive = shownSection === section.id
               const isModified = modifiedSections.has(section.id)
 
               return (
@@ -1151,31 +1176,31 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
             style={{ width: `${splitPosition}%` }}
           >
             <div className="mx-auto max-w-xl">
-              {activeSection === 'contact' && (
+              {shownSection === 'contact' && (
                 <ContactSection resume={resume} updateResume={updateResume} dict={dict} />
               )}
-              {activeSection === 'summary' && (
+              {shownSection === 'summary' && (
                 <SummarySection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
               )}
-              {activeSection === 'experience' && (
+              {shownSection === 'experience' && (
                 <ExperienceSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
               )}
-              {activeSection === 'education' && (
+              {shownSection === 'education' && (
                 <EducationSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
               )}
-              {activeSection === 'skills' && (
+              {shownSection === 'skills' && (
                 <SkillsSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
               )}
-              {activeSection === 'languages' && (
+              {shownSection === 'languages' && (
                 <LanguagesSection resume={resume} updateResume={updateResume} dict={dict} />
               )}
-              {activeSection === 'certifications' && (
+              {shownSection === 'certifications' && (
                 <CertificationsSection resume={resume} updateResume={updateResume} dict={dict} />
               )}
-              {activeSection === 'projects' && (
+              {shownSection === 'projects' && (
                 <ProjectsSection resume={resume} updateResume={updateResume} dict={dict} locale={locale} />
               )}
-              {activeSection === 'jobApplication' && (
+              {shownSection === 'jobApplication' && (
                 <JobAssociationSection
                   currentJobApplicationId={currentJobApplicationId}
                   currentJobApplication={currentJobApplication}
@@ -1185,7 +1210,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                   onJobApplicationChange={handleJobApplicationChange}
                 />
               )}
-              {activeSection === 'coverLetters' && (
+              {shownSection === 'coverLetters' && (
                 <CoverLetterAssociationSection
                   resumeId={resume.id}
                   coverLetters={coverLetters}
@@ -1195,7 +1220,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                   onAssociate={handleAssociateCoverLetter}
                 />
               )}
-              {activeSection === 'editSidebar' && (
+              {shownSection === 'editSidebar' && (
                 <div className="space-y-6">
                   <div>
                     <h2 className="text-lg font-semibold text-slate-900 mb-2">
@@ -1265,7 +1290,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                   </div>
                 </div>
               )}
-              {activeSection === 'editMainContent' && (
+              {shownSection === 'editMainContent' && (
                 <div className="space-y-6">
                   <div>
                     <h2 className="text-lg font-semibold text-slate-900 mb-2">
@@ -1354,152 +1379,160 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
           >
             {/* Sliders Container - NOT scaled, fixed 15px gaps */}
             <div className="flex justify-center" style={{ marginBottom: '15px' }}>
-              <div style={{ width: `${816 * previewScale}px` }} className="flex flex-wrap gap-y-3">
-                {/* Left column: Sidebar sliders - independent stacking */}
-                <div style={{ flex: '1 1 200px', minWidth: '200px', paddingRight: '8px' }} className="flex flex-col justify-end">
-                  {/* Brightness Slider - fixed 15px above Color slider */}
-                  <div style={{ marginBottom: '15px' }}>
-                    <div className="flex items-center gap-2">
-                      {/* Small sun icon (dim) */}
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
-                        <circle cx="12" cy="12" r="4"/>
-                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-                      </svg>
+              <div style={{ width: `${PAGE_WIDTH_PX * previewScale}px` }} className="flex flex-wrap gap-y-3">
+                {/*
+                  Left column: Sidebar sliders - independent stacking.
+                  Part 3 US-014: offered only for the templates that paint a sidebar
+                  fill. Hiding it does not touch the three stored colour components;
+                  they are still written, still read, and apply again unchanged on a
+                  template that offers the control.
+                */}
+                {offersSidebarColour && (
+                  <div style={{ flex: '1 1 200px', minWidth: '200px', paddingRight: '8px' }} className="flex flex-col justify-end">
+                    {/* Brightness Slider - fixed 15px above Color slider */}
+                    <div style={{ marginBottom: '15px' }}>
+                      <div className="flex items-center gap-2">
+                        {/* Small sun icon (dim) */}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
+                          <circle cx="12" cy="12" r="4"/>
+                          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                        </svg>
+                        <input
+                          type="range"
+                          min="20"
+                          max="50"
+                          value={sidebarBrightness}
+                          onChange={(e) => setSidebarBrightness(parseInt(e.target.value))}
+                          className="brightness-slider"
+                          style={{
+                            flex: 1,
+                            height: '20px',
+                            appearance: 'none',
+                            background: `linear-gradient(to right, hsl(${sidebarHue}, 85%, 20%), hsl(${sidebarHue}, 85%, 50%))`,
+                            borderRadius: '10px',
+                            cursor: `url('/hand-cursor.png') 16 0, pointer`,
+                          }}
+                        />
+                        {/* Large sun icon (bright) */}
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
+                          <circle cx="12" cy="12" r="4"/>
+                          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                        </svg>
+                      </div>
+                    </div>
+                    {/* Color Slider - Above sidebar */}
+                    <div>
                       <input
                         type="range"
-                        min="20"
-                        max="50"
-                        value={sidebarBrightness}
-                        onChange={(e) => setSidebarBrightness(parseInt(e.target.value))}
-                        className="brightness-slider"
+                        min="0"
+                        max="360"
+                        value={sidebarHue}
+                        onChange={(e) => setSidebarHue(parseInt(e.target.value))}
+                        className="color-slider"
                         style={{
-                          flex: 1,
-                          height: '20px',
+                          width: '100%',
+                          height: '24px',
                           appearance: 'none',
-                          background: `linear-gradient(to right, hsl(${sidebarHue}, 85%, 20%), hsl(${sidebarHue}, 85%, 50%))`,
-                          borderRadius: '10px',
+                          background: `linear-gradient(to right, hsl(0, 85%, ${sidebarBrightness}%), hsl(60, 85%, ${sidebarBrightness}%), hsl(120, 85%, ${sidebarBrightness}%), hsl(180, 85%, ${sidebarBrightness}%), hsl(240, 85%, ${sidebarBrightness}%), hsl(300, 85%, ${sidebarBrightness}%), hsl(360, 85%, ${sidebarBrightness}%))`,
+                          borderRadius: '12px',
                           cursor: `url('/hand-cursor.png') 16 0, pointer`,
                         }}
                       />
-                      {/* Large sun icon (bright) */}
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
-                        <circle cx="12" cy="12" r="4"/>
-                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-                      </svg>
                     </div>
-                  </div>
-                  {/* Color Slider - Above sidebar */}
-                  <div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="360"
-                      value={sidebarHue}
-                      onChange={(e) => setSidebarHue(parseInt(e.target.value))}
-                      className="color-slider"
-                      style={{
-                        width: '100%',
-                        height: '24px',
-                        appearance: 'none',
-                        background: `linear-gradient(to right, hsl(0, 85%, ${sidebarBrightness}%), hsl(60, 85%, ${sidebarBrightness}%), hsl(120, 85%, ${sidebarBrightness}%), hsl(180, 85%, ${sidebarBrightness}%), hsl(240, 85%, ${sidebarBrightness}%), hsl(300, 85%, ${sidebarBrightness}%), hsl(360, 85%, ${sidebarBrightness}%))`,
-                        borderRadius: '12px',
-                        cursor: `url('/hand-cursor.png') 16 0, pointer`,
-                      }}
-                    />
-                  </div>
-                  {/* Predefined Color Swatches */}
-                  <div style={{
-                    display: 'flex',
-                    gap: '6px',
-                    marginTop: '8px',
-                    justifyContent: 'space-between',
-                    width: '100%'
-                  }}>
-                    {[
-                      { hex: '#2C3E50', hue: 210, saturation: 29, lightness: 24 },
-                      { hex: '#243A5E', hue: 217, saturation: 45, lightness: 25 },
-                      { hex: '#333333', hue: 0, saturation: 0, lightness: 20 },
-                      { hex: '#5C6F91', hue: 218, saturation: 22, lightness: 46 },
-                      { hex: '#2A7F7F', hue: 180, saturation: 50, lightness: 33 },
-                      { hex: '#1F3A5F', hue: 215, saturation: 51, lightness: 25 },
-                    ].map((color, index) => (
+                    {/* Predefined Color Swatches */}
+                    <div style={{
+                      display: 'flex',
+                      gap: '6px',
+                      marginTop: '8px',
+                      justifyContent: 'space-between',
+                      width: '100%'
+                    }}>
+                      {[
+                        { hex: '#2C3E50', hue: 210, saturation: 29, lightness: 24 },
+                        { hex: '#243A5E', hue: 217, saturation: 45, lightness: 25 },
+                        { hex: '#333333', hue: 0, saturation: 0, lightness: 20 },
+                        { hex: '#5C6F91', hue: 218, saturation: 22, lightness: 46 },
+                        { hex: '#2A7F7F', hue: 180, saturation: 50, lightness: 33 },
+                        { hex: '#1F3A5F', hue: 215, saturation: 51, lightness: 25 },
+                      ].map((color, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => {
+                            setSidebarHue(color.hue)
+                            setSidebarSaturation(color.saturation)
+                            setSidebarBrightness(color.lightness)
+                          }}
+                          title={color.hex}
+                          className="swatch-button"
+                          style={{
+                            ...SWATCH_BASE_STYLE,
+                            border: '2px solid #e2e8f0',
+                            backgroundColor: color.hex,
+                            boxShadow: sidebarHue === color.hue && sidebarSaturation === color.saturation && sidebarBrightness === color.lightness
+                              ? '0 0 0 2px #3b82f6'
+                              : 'none',
+                          }}
+                        />
+                      ))}
+                      {/*
+                        7th swatch: Dynamic current color indicator - always shows currently selected color.
+                        No-op click handler: maintains consistent UX with other swatches while indicating current selection.
+                        Click handler exists for consistent tactile feedback with other swatches.
+                      */}
                       <button
-                        key={index}
                         type="button"
+                        title="Current color"
+                        className="swatch-button"
                         onClick={() => {
-                          setSidebarHue(color.hue)
-                          setSidebarSaturation(color.saturation)
-                          setSidebarBrightness(color.lightness)
+                          // Intentionally no-op: this swatch represents the current color selection
                         }}
-                        title={color.hex}
-                        className="swatch-button"
                         style={{
                           ...SWATCH_BASE_STYLE,
-                          border: '2px solid #e2e8f0',
-                          backgroundColor: color.hex,
-                          boxShadow: sidebarHue === color.hue && sidebarSaturation === color.saturation && sidebarBrightness === color.lightness
-                            ? '0 0 0 2px #3b82f6'
-                            : 'none',
-                        }}
-                      />
-                    ))}
-                    {/*
-                      7th swatch: Dynamic current color indicator - always shows currently selected color.
-                      No-op click handler: maintains consistent UX with other swatches while indicating current selection.
-                      Click handler exists for consistent tactile feedback with other swatches.
-                    */}
-                    <button
-                      type="button"
-                      title="Current color"
-                      className="swatch-button"
-                      onClick={() => {
-                        // Intentionally no-op: this swatch represents the current color selection
-                      }}
-                      style={{
-                        ...SWATCH_BASE_STYLE,
-                        border: '2px dashed #94a3b8',
-                        backgroundColor: sidebarColor,
-                        boxShadow: '0 0 0 2px #3b82f6',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      {/* White checkmark icon */}
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="white"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    </button>
-                    {/* Eyedropper button - only shown if EyeDropper API is supported */}
-                    {isEyeDropperSupported && (
-                      <button
-                        type="button"
-                        onClick={handleEyedropperClick}
-                        title="Pick color from screen"
-                        className="swatch-button"
-                        style={{
-                          ...SWATCH_BASE_STYLE,
-                          border: '2px solid #e2e8f0',
-                          backgroundColor: '#64748b',
+                          border: '2px dashed #94a3b8',
+                          backgroundColor: sidebarColor,
+                          boxShadow: '0 0 0 2px #3b82f6',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}
                       >
-                        <Pipette className="h-4 w-4 text-white" />
+                        {/* White checkmark icon */}
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="white"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
                       </button>
-                    )}
+                      {/* Eyedropper button - only shown if EyeDropper API is supported */}
+                      {isEyeDropperSupported && (
+                        <button
+                          type="button"
+                          onClick={handleEyedropperClick}
+                          title="Pick color from screen"
+                          className="swatch-button"
+                          style={{
+                            ...SWATCH_BASE_STYLE,
+                            border: '2px solid #e2e8f0',
+                            backgroundColor: '#64748b',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Pipette className="h-4 w-4 text-white" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
                 {/* Right column: Main content sliders - independent stacking */}
                 <div style={{ flex: '2 1 220px', minWidth: '220px', paddingLeft: '8px' }} className="flex flex-col justify-end">
                   {/* 3D Font Carousel - Above Font Size slider */}
@@ -1536,7 +1569,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
             <div className="flex items-start justify-center min-h-full">
               <div
                 style={{
-                  width: '816px',
+                  width: `${PAGE_WIDTH_PX}px`,
                   transformOrigin: 'top center',
                   transform: `scale(${previewScale})`,
                   transition: isDragging ? 'none' : 'transform 0.1s ease-out',
@@ -1546,19 +1579,18 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                   switch (resume.template) {
                     case 'modern':
                       return (
+                        // Part 3 US-014: modern offers no per-property size control, so it
+                        // receives the stored sizes it draws with and none of the setters that
+                        // would render an input. The stored sizes themselves are untouched.
                         <ModernTemplate
                           resume={resume}
                           locale={locale}
                           dict={dict}
                           sidebarColor={sidebarColor}
                           titleFontSize={titleFontSize}
-                          setTitleFontSize={setTitleFontSize}
                           contactFontSize={contactFontSize}
-                          setContactFontSize={setContactFontSize}
                           sectionTitleFontSize={sectionTitleFontSize}
-                          setSectionTitleFontSize={setSectionTitleFontSize}
                           sectionDescFontSize={sectionDescFontSize}
-                          setSectionDescFontSize={setSectionDescFontSize}
                           fontScale={fontScale}
                           fontFamily={fontFamily}
                           sidebarTopMargin={sidebarTopMargin}
@@ -1583,6 +1615,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                     case 'classic':
                       return (
                         <ClassicTemplate
+                          fontFamily={chosenFontFamily(fontFamily) ?? undefined}
                           resume={resume}
                           locale={locale}
                           dict={dict}
@@ -1599,6 +1632,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                     case 'minimal':
                       return (
                         <MinimalTemplate
+                          fontFamily={chosenFontFamily(fontFamily) ?? undefined}
                           resume={resume}
                           locale={locale}
                           dict={dict}
@@ -1615,6 +1649,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                     case 'creative':
                       return (
                         <CreativeTemplate
+                          fontFamily={chosenFontFamily(fontFamily) ?? undefined}
                           resume={resume}
                           locale={locale}
                           dict={dict}
@@ -1651,19 +1686,18 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                       )
                     default:
                       return (
+                        // Part 3 US-014: modern offers no per-property size control, so it
+                        // receives the stored sizes it draws with and none of the setters that
+                        // would render an input. The stored sizes themselves are untouched.
                         <ModernTemplate
                           resume={resume}
                           locale={locale}
                           dict={dict}
                           sidebarColor={sidebarColor}
                           titleFontSize={titleFontSize}
-                          setTitleFontSize={setTitleFontSize}
                           contactFontSize={contactFontSize}
-                          setContactFontSize={setContactFontSize}
                           sectionTitleFontSize={sectionTitleFontSize}
-                          setSectionTitleFontSize={setSectionTitleFontSize}
                           sectionDescFontSize={sectionDescFontSize}
-                          setSectionDescFontSize={setSectionDescFontSize}
                           fontScale={fontScale}
                           fontFamily={fontFamily}
                           sidebarTopMargin={sidebarTopMargin}

@@ -38,6 +38,7 @@ import {
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
 import { docxTranslucentText } from './docx-text-opacity'
+import { PAGE_HEIGHT_INCHES, PAGE_WIDTH_INCHES } from '@/lib/resume-page-size'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import { PROFESSIONAL_LINE_HEIGHT, formattedTextLineHeight } from '@/lib/resume-line-height'
 import {
@@ -236,7 +237,7 @@ export async function generateProfessionalDocx(
   const primaryFont = extractPrimaryFont(fontFamily)
 
   // Calculate page dimensions for layout
-  const pageWidthTwips = convertInchesToTwip(8.5)
+  const pageWidthTwips = convertInchesToTwip(PAGE_WIDTH_INCHES)
   const sidebarWidthTwips = Math.round(pageWidthTwips * (sidebarWidthPercent / 100))
   const mainContentWidthTwips = pageWidthTwips - sidebarWidthTwips
 
@@ -1270,8 +1271,8 @@ export async function generateProfessionalDocx(
 
   // Create table with FIXED layout to prevent Word auto-resizing
   // This is critical for maintaining exact sidebar width parity with Preview
-  // Page height: US Letter = 11"
-  const pageHeightTwips = convertInchesToTwip(11)
+  // Page height: A4, from the one declaration every surface reads.
+  const pageHeightTwips = convertInchesToTwip(PAGE_HEIGHT_INCHES)
 
   // Row height must account for the trailing paragraph that OOXML requires.
   // Testing with large buffer to confirm root cause.
@@ -1337,7 +1338,7 @@ export async function generateProfessionalDocx(
         properties: {
           page: {
             size: {
-              width: convertInchesToTwip(8.5),
+              width: convertInchesToTwip(PAGE_WIDTH_INCHES),
               height: pageHeightTwips,
               orientation: PageOrientation.PORTRAIT,
             },

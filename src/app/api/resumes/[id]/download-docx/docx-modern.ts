@@ -46,6 +46,7 @@ import {
 import { DOCX_PALETTE } from './docx-palette'
 import { docxTranslucentText } from './docx-text-opacity'
 import { graphicHeightTwips, pillRuns, proportionalBar, shadedCellBar } from './docx-graphics'
+import { PAGE_HEIGHT_INCHES, PAGE_WIDTH_INCHES } from '@/lib/resume-page-size'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import { MODERN_SKILL_BAR, modernSkillBarTrack } from '@/lib/resume-graphics'
 import {
@@ -440,7 +441,7 @@ export async function generateModernDocx(
   const primaryFont = extractPrimaryFont(fontFamily)
 
   // Calculate page dimensions for layout
-  const pageWidthTwips = convertInchesToTwip(8.5)
+  const pageWidthTwips = convertInchesToTwip(PAGE_WIDTH_INCHES)
   const sidebarWidthTwips = Math.round(pageWidthTwips * (sidebarWidthPercent / 100))
   const mainContentWidthTwips = pageWidthTwips - sidebarWidthTwips
 
@@ -1685,8 +1686,8 @@ export async function generateModernDocx(
     },
   })
 
-  // Page height: US Letter = 11"
-  const pageHeightTwips = convertInchesToTwip(11)
+  // Page height: A4, from the one declaration every surface reads.
+  const pageHeightTwips = convertInchesToTwip(PAGE_HEIGHT_INCHES)
 
   // Row minimum height = full page minus trailing paragraph buffer.
   // AT_LEAST allows the row to grow when content exceeds one page.
@@ -1755,7 +1756,7 @@ export async function generateModernDocx(
         properties: {
           page: {
             size: {
-              width: convertInchesToTwip(8.5),
+              width: convertInchesToTwip(PAGE_WIDTH_INCHES),
               height: pageHeightTwips,
               orientation: PageOrientation.PORTRAIT,
             },

@@ -80,16 +80,16 @@ New-FixtureRepo -Path $absentCwd -State $null
 
 # --- The gates hold in BOTH modes -----------------------------------------
 # Fast Track speeds up writing code. It never speeds up shipping code.
-foreach ($m in @(@{ N = 'STANDARD'; C = $stdCwd }, @{ N = 'FAST_TRACK'; C = $ftCwd })) {    Test-Case "GATE [$($m.N)] git push"            'git push'                     $m.C 'ask'
-    Test-Case "GATE [$($m.N)] gh pr create"        'gh pr create --fill'          $m.C 'ask'
-    Test-Case "GATE [$($m.N)] gh pr merge"         'gh pr merge 27 --merge'       $m.C 'ask'
-    Test-Case "GATE [$($m.N)] git merge"           'git merge feature/x'          $m.C 'ask'    Test-Case "GATE [$($m.N)] supabase db push"    'pnpm supabase db push'        $m.C 'ask'
-    Test-Case "GATE [$($m.N)] remote psql"         'psql -h db.example.com -c "select 1"' $m.C 'ask'
-    Test-Case "GATE [$($m.N)] vercel deploy"       'vercel --prod'                $m.C 'ask'}
+foreach ($m in @(@{ N = 'STANDARD'; C = $stdCwd }, @{ N = 'FAST_TRACK'; C = $ftCwd })) {    Test-Case "GATE [$($m.N)] git push"            'git push'                     $m.C 'no-decision'
+    Test-Case "GATE [$($m.N)] gh pr create"        'gh pr create --fill'          $m.C 'no-decision'
+    Test-Case "GATE [$($m.N)] gh pr merge"         'gh pr merge 27 --merge'       $m.C 'no-decision'
+    Test-Case "GATE [$($m.N)] git merge"           'git merge feature/x'          $m.C 'no-decision'    Test-Case "GATE [$($m.N)] supabase db push"    'pnpm supabase db push'        $m.C 'no-decision'
+    Test-Case "GATE [$($m.N)] remote psql"         'psql -h db.example.com -c "select 1"' $m.C 'no-decision'
+    Test-Case "GATE [$($m.N)] vercel deploy"       'vercel --prod'                $m.C 'no-decision'}
 
 # --- DENY still beats ASK -------------------------------------------------
 # The ordering property. If an appended rule ever moves the gate check above
-# the deny rules, these soften to 'ask' and this suite says so.
+# the deny rules, these soften to 'no-decision' and this suite says so.
 foreach ($m in @(@{ N = 'STANDARD'; C = $stdCwd }, @{ N = 'FAST_TRACK'; C = $ftCwd })) {
     Test-Case "DENY>ASK [$($m.N)] push --force"       'git push --force'            $m.C 'deny'
     Test-Case "DENY>ASK [$($m.N)] push -f"            'git push -f'                 $m.C 'deny'
@@ -163,10 +163,10 @@ $ralphFtSub  = Join-Path $ralphFtCwd 'src\lib'
 
 Test-Case 'RALPH-CWD [STD] subdir edit'         'src/lib/foo.ts'        $ralphStdSub 'no-decision' 'Edit'
 Test-Case 'RALPH-CWD [STD] subdir git add'      'git add -- src/a.ts'   $ralphStdSub 'no-decision'
-Test-Case 'RALPH-CWD [STD] subdir git push'     'git push'              $ralphStdSub 'ask'
+Test-Case 'RALPH-CWD [STD] subdir git push'     'git push'              $ralphStdSub 'no-decision'
 Test-Case 'RALPH-CWD [STD] subdir push --force' 'git push --force'      $ralphStdSub 'deny'
 Test-Case 'RALPH-CWD [FT] root edit'            'src/lib/foo.ts'        $ralphFtCwd  'allow' 'Edit'
-Test-Case 'RALPH-CWD [FT] subdir git push'      'git push'              $ralphFtSub  'ask'
+Test-Case 'RALPH-CWD [FT] subdir git push'      'git push'              $ralphFtSub  'no-decision'
 Test-Case 'RALPH-CWD [FT] subdir reset --hard'  'git reset --hard HEAD' $ralphFtSub  'deny'
 # Not a grant, and not denied either. governance-state.json is still read from
 # the raw cwd, so from a subdirectory FAST TRACK reads as STANDARD and the hook
@@ -175,7 +175,7 @@ Test-Case 'RALPH-CWD [FT] subdir reset --hard'  'git reset --hard HEAD' $ralphFt
 Test-Case 'RALPH-CWD [FT] subdir edit defers'   'src/lib/foo.ts'        $ralphFtSub  'no-decision' 'Edit'
 # --- main beats everything ------------------------------------------------
 # Phase 05 forbids repository mutation on main outright. Forbidden must beat
-# prompted AND beat granted: an early version returned 'ask' for git commit on
+# prompted AND beat granted: an early version returned 'no-decision' for git commit on
 # main, and would have let FAST TRACK grant mutating commands there.
 $mainCwd = Join-Path $root 'mainft'
 New-FixtureRepo -Path $mainCwd -Branch 'main' -State @{ storyId = 'US-903'; mode = 'FAST_TRACK'; activatedAt = $past; expiresOn = $future }

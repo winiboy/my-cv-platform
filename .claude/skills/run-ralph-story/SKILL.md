@@ -135,6 +135,8 @@ evidence
 ```
 Never report PASS for a check that did not actually pass.
 Skipped, flaky, or unevaluated checks are not PASS.
+`pnpm lint` exits non-zero at the tracked baseline, so judge it by comparison: record the problem count and the baseline or PRD ceiling compared against. Above baseline is FAIL.
+Checks must have run on the final diff; any later fix invalidates them and they are re-run.
 Do not invent an unadopted framework or command.
 Environmental inability to run a required check is `BLOCKED`.
 If implementation causes a failure:
@@ -237,6 +239,7 @@ FINAL: PASS
 ```
 `THIS_COMMIT` is intentional: a commit cannot contain its own SHA inside its tree without changing that SHA. Return the real SHA after the commit.
 Do not use `TBD` as PASS evidence.
+This is the skeleton; the required content standard — counts not adjectives, hashes pinning artifacts, named limits, and the `Decision` / `Open owner decisions` / `Environment notes` sections — is `docs/engineering/progress-log-format.md`. The log is append-only: never rewrite a past entry.
 ### 12. Stage only story files
 Before staging:
 1. re-inspect final diff,

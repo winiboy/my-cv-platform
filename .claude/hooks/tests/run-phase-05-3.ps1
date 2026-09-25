@@ -278,7 +278,7 @@ $fixtures = @(
     @{ Name='RALPH-CWD: malformed prd, subdir, Write';Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$subRalphBad}        ; Exp='deny' },
     @{ Name='RALPH-CWD: chore/x, subdir, Write';      Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$subChore}           ; Exp='no-decision' },
     @{ Name='RALPH-CWD: main, subdir, Write';         Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$subMain}            ; Exp='deny' },
-    @{ Name='RALPH-CWD: match, subdir, git push';     Data=@{tool_name='Bash';  tool_input=@{command='git push'}; cwd=$subRalphMatch} ; Exp='ask' },
+    @{ Name='RALPH-CWD: match, subdir, git push';     Data=@{tool_name='Bash';  tool_input=@{command='git push'}; cwd=$subRalphMatch} ; Exp='no-decision' },
     @{ Name='RALPH-CWD: match, subdir, push --force'; Data=@{tool_name='Bash';  tool_input=@{command='git push --force'}; cwd=$subRalphMatch}; Exp='deny' },
     @{ Name='RALPH-CWD: match, subdir, cat .env';     Data=@{tool_name='Bash';  tool_input=@{command='cat .env'}; cwd=$subRalphMatch} ; Exp='deny' },
     # No work tree: the root cannot be resolved, so the contract cannot be
@@ -334,13 +334,13 @@ $fixtures = @(
     @{ Name='SAFE: git branch -D foo';               Data=@{tool_name='Bash'; tool_input=@{command='git branch -D foo'};      cwd=$featCwd}; Exp='no-decision' },
     @{ Name='SAFE: git branch -d foo';               Data=@{tool_name='Bash'; tool_input=@{command='git branch -d foo'};      cwd=$featCwd}; Exp='no-decision' },
     @{ Name='SAFE: git tag -d tag';                  Data=@{tool_name='Bash'; tool_input=@{command='git tag -d v1'};          cwd=$featCwd}; Exp='no-decision' },
-    @{ Name='GATED: git merge feature';               Data=@{tool_name='Bash'; tool_input=@{command='git merge feature'};      cwd=$featCwd}; Exp='ask' },
+    @{ Name='GATED: git merge feature';               Data=@{tool_name='Bash'; tool_input=@{command='git merge feature'};      cwd=$featCwd}; Exp='no-decision' },
     @{ Name='SAFE: git rebase main';                 Data=@{tool_name='Bash'; tool_input=@{command='git rebase main'};        cwd=$featCwd}; Exp='no-decision' },
     @{ Name='SAFE: git commit -m';                   Data=@{tool_name='Bash'; tool_input=@{command='git commit -m "hi"'};     cwd=$featCwd}; Exp='no-decision' },
-    @{ Name='GATED: git push';                        Data=@{tool_name='Bash'; tool_input=@{command='git push'};               cwd=$featCwd}; Exp='ask' },
-    @{ Name='GATED: git push origin main';            Data=@{tool_name='Bash'; tool_input=@{command='git push origin main'};   cwd=$featCwd}; Exp='ask' },
-    @{ Name='GATED: gh pr create';                    Data=@{tool_name='Bash'; tool_input=@{command='gh pr create'};           cwd=$featCwd}; Exp='ask' },
-    @{ Name='GATED: gh pr merge 123';                 Data=@{tool_name='Bash'; tool_input=@{command='gh pr merge 123'};        cwd=$featCwd}; Exp='ask' },
+    @{ Name='GATED: git push';                        Data=@{tool_name='Bash'; tool_input=@{command='git push'};               cwd=$featCwd}; Exp='no-decision' },
+    @{ Name='GATED: git push origin main';            Data=@{tool_name='Bash'; tool_input=@{command='git push origin main'};   cwd=$featCwd}; Exp='no-decision' },
+    @{ Name='GATED: gh pr create';                    Data=@{tool_name='Bash'; tool_input=@{command='gh pr create'};           cwd=$featCwd}; Exp='no-decision' },
+    @{ Name='GATED: gh pr merge 123';                 Data=@{tool_name='Bash'; tool_input=@{command='gh pr merge 123'};        cwd=$featCwd}; Exp='no-decision' },
     @{ Name='SAFE: git status';                      Data=@{tool_name='Bash'; tool_input=@{command='git status'};             cwd=$featCwd}; Exp='no-decision' },
     @{ Name='SAFE: git diff';                        Data=@{tool_name='Bash'; tool_input=@{command='git diff'};               cwd=$featCwd}; Exp='no-decision' },
     @{ Name='SAFE: git diff --cached';               Data=@{tool_name='Bash'; tool_input=@{command='git diff --cached'};      cwd=$featCwd}; Exp='no-decision' },
@@ -513,21 +513,21 @@ $fixtures = @(
     @{ Name='CWD: space+trailing\ main, git commit';  Data=@{tool_name='Bash'; tool_input=@{command='git commit -m x'}; cwd="$spMain\"}; Exp='deny'; Why="while on 'main'" },
     @{ Name='CWD: space+trailing\ ralph no prd, Write'; Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd="$spRalphNoPrd\"}; Exp='deny'; Why='prd.json is missing' },
     @{ Name='CWD: space+trailing\ feature, Write';    Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd="$spFeat\"}; Exp='no-decision' },
-    @{ Name='CWD: space+trailing\ feature, git push'; Data=@{tool_name='Bash'; tool_input=@{command='git push'}; cwd="$spFeat\"}; Exp='ask' },
+    @{ Name='CWD: space+trailing\ feature, git push'; Data=@{tool_name='Bash'; tool_input=@{command='git push'}; cwd="$spFeat\"}; Exp='no-decision' },
 
     # --- Non-ASCII cwd as raw UTF-8: stdin was decoded as IBM437 ---
     @{ Name='CWD: utf-8 main, Write';                 Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$acMain}; Exp='deny'; Why="while on 'main'"; Utf8=$true },
     @{ Name='CWD: utf-8 main, git commit';            Data=@{tool_name='Bash'; tool_input=@{command='git commit -m x'}; cwd=$acMain}; Exp='deny'; Why="while on 'main'"; Utf8=$true },
     @{ Name='CWD: utf-8 ralph no prd, Write';         Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$acRalphNoPrd}; Exp='deny'; Why='prd.json is missing'; Utf8=$true },
     @{ Name='CWD: utf-8 feature, Write';              Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$acFeat}; Exp='no-decision'; Utf8=$true },
-    @{ Name='CWD: utf-8 feature, git push';           Data=@{tool_name='Bash'; tool_input=@{command='git push'}; cwd=$acFeat}; Exp='ask'; Utf8=$true },
+    @{ Name='CWD: utf-8 feature, git push';           Data=@{tool_name='Bash'; tool_input=@{command='git push'}; cwd=$acFeat}; Exp='no-decision'; Utf8=$true },
 
     # --- \\localhost\C$ admin share: git refused it (safe.directory) ---
     @{ Name='CWD: unc main, Write';                   Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$uncSpMain}; Exp='deny'; Why="while on 'main'" },
     @{ Name='CWD: unc main, git commit';              Data=@{tool_name='Bash'; tool_input=@{command='git commit -m x'}; cwd=$uncSpMain}; Exp='deny'; Why="while on 'main'" },
     @{ Name='CWD: unc ralph no prd subdir, Write';    Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$uncSpRalphNoPrdSub}; Exp='deny'; Why='prd.json is missing' },
     @{ Name='CWD: unc feature, Write';                Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$uncSpFeat}; Exp='no-decision' },
-    @{ Name='CWD: unc feature, git push';             Data=@{tool_name='Bash'; tool_input=@{command='git push'}; cwd=$uncSpFeat}; Exp='ask' },
+    @{ Name='CWD: unc feature, git push';             Data=@{tool_name='Bash'; tool_input=@{command='git push'}; cwd=$uncSpFeat}; Exp='no-decision' },
     @{ Name='CWD: unc+utf-8+trailing\ main, Write';   Data=@{tool_name='Write'; tool_input=@{file_path='x'}; cwd=$uncAcMainSlash}; Exp='deny'; Why="while on 'main'"; Utf8=$true },
 
     # --- Branch cannot be determined: fail closed, as on main ---

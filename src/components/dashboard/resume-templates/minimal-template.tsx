@@ -9,7 +9,8 @@ import type {
   ResumeProject,
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
-import { formatText } from '@/lib/format-text'
+import { renderFormattedText } from '@/lib/format-text'
+import { PAGE_WIDTH_CSS } from '@/lib/resume-page-size'
 
 interface MinimalTemplateProps {
   resume: Resume
@@ -23,6 +24,13 @@ interface MinimalTemplateProps {
   setSectionTitleFontSize?: (size: number) => void
   sectionDescFontSize?: number
   setSectionDescFontSize?: (size: number) => void
+  /**
+   * The font the owner CHOSE, or undefined when they chose none (Part 3
+   * US-012). Minimal declares no family of its own and so draws the app's
+   * Inter until one is chosen; `resume-preview.tsx` applies
+   * `chosenFontFamily` before passing it.
+   */
+  fontFamily?: string
 }
 
 export function MinimalTemplate({
@@ -36,7 +44,8 @@ export function MinimalTemplate({
   sectionTitleFontSize = 16,
   setSectionTitleFontSize,
   sectionDescFontSize = 14,
-  setSectionDescFontSize
+  setSectionDescFontSize,
+  fontFamily
 }: MinimalTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
@@ -48,7 +57,7 @@ export function MinimalTemplate({
   const projects = ((resume.projects as unknown as ResumeProject[]) || []).filter(proj => proj.visible !== false)
 
   return (
-    <div data-testid="resume-document" className="mx-auto bg-white shadow-lg print:shadow-none" style={{ width: '8.5in' }}>
+    <div data-testid="resume-document" className="mx-auto bg-white shadow-lg print:shadow-none" style={{ width: PAGE_WIDTH_CSS, fontFamily: fontFamily }}>
       <div className="space-y-10 p-16 print:p-10">
         {/* Header: CV Title and Contact */}
         <div className="space-y-4 pb-6 border-b border-slate-300" style={{ position: 'relative' }}>
@@ -155,7 +164,7 @@ export function MinimalTemplate({
               )}
             </h2>
             <div className="max-w-3xl leading-relaxed text-slate-600 text-justify" style={{ fontSize: `${sectionDescFontSize}px` }}>
-              {formatText(resume.summary)}
+              {renderFormattedText(resume.summary)}
             </div>
           </div>
         )}
@@ -197,7 +206,7 @@ export function MinimalTemplate({
                       {exp.achievements.map((achievement, i) => (
                         <li key={i} className="flex gap-3">
                           <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-slate-400"></span>
-                          <span className="flex-1 leading-relaxed">{formatText(achievement)}</span>
+                          <span className="flex-1 leading-relaxed">{renderFormattedText(achievement)}</span>
                         </li>
                       ))}
 
@@ -230,7 +239,7 @@ export function MinimalTemplate({
                     </ul>
                   ) : exp.description ? (
                     <div className="mb-3 leading-relaxed text-slate-700 text-justify" style={{ position: 'relative', fontSize: `${sectionDescFontSize}px` }}>
-                      {formatText(exp.description)}
+                      {renderFormattedText(exp.description)}
 
                       {/* Section Description Font Size Slider - Only show on first experience */}
                       {index === 0 && setSectionDescFontSize && (
@@ -277,9 +286,9 @@ export function MinimalTemplate({
                 <div key={index}>
                   <h3 className="mb-2 text-xl font-medium text-slate-900">{project.name}</h3>
                   {project.description && (
-                    <p className="mb-3 leading-relaxed text-slate-700" style={{ fontSize: `${sectionDescFontSize}px` }}>
-                      {project.description}
-                    </p>
+                    <div className="mb-3 leading-relaxed text-slate-700" style={{ fontSize: `${sectionDescFontSize}px` }}>
+                      {renderFormattedText(project.description)}
+                    </div>
                   )}
                   {project.technologies && project.technologies.length > 0 && (
                     <div className="flex flex-wrap gap-3">
@@ -345,13 +354,19 @@ export function MinimalTemplate({
                   <h3 className="mb-2 font-medium text-slate-700" style={{ fontSize: `${sectionDescFontSize}px` }}>
                     {skillCategory.category}
                   </h3>
-                  <div className="flex flex-wrap gap-x-4 gap-y-2">
-                    {skillCategory.items.map((skill, i) => (
-                      <span key={i} className="text-slate-600" style={{ fontSize: `${sectionDescFontSize}px` }}>
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
+                  {skillCategory.skillsHtml ? (
+                    <div className="text-slate-600" style={{ fontSize: `${sectionDescFontSize}px` }}>
+                      {renderFormattedText(skillCategory.skillsHtml)}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                      {skillCategory.items.map((skill, i) => (
+                        <span key={i} className="text-slate-600" style={{ fontSize: `${sectionDescFontSize}px` }}>
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

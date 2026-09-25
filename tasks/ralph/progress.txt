@@ -641,3 +641,94 @@ Commit:
 - Commit message: ralph: US-007 the DOCX draws the graphics the Preview draws
 
 FINAL: PASS
+
+## US-008, US-012, US-014, US-016 — the five-hour close-out, 2026-09-25
+Status: PASS (all four)
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: 84b08c7
+
+These four ran under an owner-set five-hour budget to close the programme, with
+one review round each rather than the two to four the earlier stories took, and
+one verification pass across all of them instead of one per story. The owner
+accepted the scope reduction explicitly: fix what users meet, record the rest.
+
+US-008 - Every resume is A4 on every surface:
+- One source, src/lib/resume-page-size.ts (210 x 297 mm, with the inch and CSS px
+  forms each surface needs), read by all five templates, globals.css @page, all
+  five generators, professional's drag maths and the editor's preview scaling.
+- resume-page-size.test.ts bounds the rounded units against the millimetre
+  definition and reads globals.css, so a stylesheet drift fails a test.
+- All ten visual baselines moved once, recorded in docs/engineering/visual-regression.md.
+- The five page-width rows needed a comparison change, not a page change: all
+  three surfaces are A4, but Chromium writes a printed media box in whole points,
+  so it reports 8.2633in against the Preview's 8.2708in and the DOCX's 8.2694in.
+  The length comparison now allows 0.01in (0.254mm). Letter against A4 is 0.23in,
+  a format apart, so this admits the rounding and not a defect. Shaving the page
+  to 209.7mm to satisfy a two-decimal string was rejected.
+
+US-012 - The chosen font reaches every template, and an unchosen font does not:
+- chosenFontFamily() in layout-settings.ts: a stored stack equal to the default
+  records "not chosen", anything else records the choice. No new key, no schema
+  migration, no backfill; layout_settings keeps migration 007's shape and bound.
+- Cost recorded: the template default and the default stack are one state, so
+  choosing a font and then choosing the default again returns to not chosen.
+- Classic's DOCX now writes Georgia for headings (the face its Preview's ui-serif
+  actually resolves to) and Inter for body, instead of Times New Roman for both;
+  minimal and creative write Inter instead of Arial.
+- The editor renders classic, minimal and creative directly rather than through
+  ResumePreview, so the chosen font is handed to those three call sites too.
+
+US-014 - The editor offers only the controls the selected template applies:
+- The gating lives in the shared layout model beside the per-template
+  vocabularies, not as conditionals in the editor.
+- Hidden: the sidebar colour column on classic, minimal and creative; the Edit
+  Sidebar panel on classic and minimal; the per-property size setters on
+  professional and modern, which rendered no input but were being forwarded.
+- Stored values are kept and reapply on a template that uses them, asserted by a
+  unit test. Nothing writes the model back when a control is hidden.
+- The rows are not made MATCH: a dead control has no rendering to match against,
+  so they are no longer generated and the facts are recorded as DECISIONs.
+- Rendered evidence at 1280, 768 and 375. Noted, pre-existing and out of scope:
+  the editor shell itself does not respond below about 1024px.
+
+US-016 - The Preview shows the content the user saved:
+- All five templates now render a skill category's skillsHtml when present and
+  items only when absent, and render stored HTML descriptions as formatted text,
+  through the inert sanitiser after mount. No generator changed.
+- professional's section gate also fixed: a category created after the editor's
+  skillsHtml migration has items: [] and was hiding the whole skills section.
+- Three templates' baselines moved, screen and print, confined to description
+  lines; recorded with the diff images read rather than the counts trusted.
+- A new parity profile exercises HTML body text on all five templates. It carries
+  the fixture's plain skills, not HTML skills: a rich-text category draws in the
+  DOCX as the parsed runs of that HTML, and every sampler finds a run by its
+  whole text, so HTML skills make the collect step fail to find a run rather than
+  report a divergence. Teaching the samplers to read a run sequence is harness
+  work this pass did not take. rich-text.test.ts covers it per template instead.
+
+Divergence this pass created and registered, not hidden:
+- US-016-html-body-line-height. Fixing the Preview revealed that classic, minimal
+  and creative write their template's own body ratio for HTML body text where the
+  Preview and print now draw .formatted-content's 1.4. Professional and modern
+  already follow, through formattedTextLineHeight. The Preview is right and the
+  DOCX side is owed; the signature pins both sides, so a generator drifting to a
+  third value is NEW rather than absorbed.
+
+Verification, once, across all four (logs in scratchpad/final/):
+- pnpm typecheck: PASS
+- pnpm lint: PASS - 305 problems, under the 311 ceiling
+- pnpm test: PASS - 1200 passed, 5 skipped, 29 files
+- pnpm test:integration: PASS - 27/27
+- pnpm test:e2e: PASS - 116 passed
+- pnpm test:visual: PASS - 10 passed, ten baselines updated and recorded
+- pnpm build:verify: PASS - 108/108 static pages
+- pnpm test:parity: PASS - 246 passed, 0 NEW, 0 unreconciled;
+  MATCH 159, KNOWN 47, LIMITATION 11, FINDING 4, DECISION 14
+
+Not done, deliberately, and recorded in docs/engineering/programme-closure.md:
+- US-009, US-010, US-011, US-013, US-015 remain open and named by the check.
+- ui-expert and code-reviewer did not run on these four. The earlier seven stories
+  each had both; these four traded that for the deadline, with the owner's
+  agreement. The gates above all ran on the final combined tree.
+
+FINAL: PASS

@@ -400,7 +400,8 @@
   /* Remove all backgrounds, margins, and padding from page */
   @page {
     margin: 0;
-    size: letter portrait; /* CV is 816px = 8.5in = US Letter width */
+    /* A4, the page every resume surface is drawn on; see src/lib/resume-page-size.ts. */
+    size: A4 portrait;
   }
 
   html, body {
@@ -416,10 +417,10 @@
   body:has(.professional-template) {
     background: linear-gradient(
       to right,
-      white calc(50% - 408px),
-      oklch(0.25 0.05 240) calc(50% - 408px),
-      oklch(0.25 0.05 240) calc(50% - 408px + 244.8px),
-      white calc(50% - 408px + 244.8px)
+      white calc(50% - 397px),
+      oklch(0.25 0.05 240) calc(50% - 397px),
+      oklch(0.25 0.05 240) calc(50% - 397px + 238.2px),
+      white calc(50% - 397px + 238.2px)
     ) !important;
   }
 
