@@ -477,6 +477,41 @@ A baseline change is an **approval decision**, not a test fix. The rules:
 - `ui-expert` may run `pnpm test:visual`. It may **not** run
   `test:visual:update` — blessing a baseline is not a validation act.
 
+### Moved: all ten baselines, 2026-09-25 — the page became A4
+
+**Cause.** Part 3 US-008, "Every resume is A4 on every surface". The page is
+now 210 x 297 mm everywhere, from one declaration (`src/lib/resume-page-size.ts`).
+Before it, the Preview and the print were US Letter (816 x 1056 CSS px,
+`@page size: letter`). Every template draws inside that page, so every
+baseline moves — this is the intended change, not a tolerance problem.
+
+**What moved.** Each capture narrowed from 816 px to 794 px, and the heights
+followed:
+
+| Baseline | Before | After |
+|---|---|---|
+| `professional.png` / `-print.png` | 816 x 1056 | 794 x 1123 |
+| `modern.png` / `-print.png` | 816 x 1056 | 794 x 1123 |
+| `classic.png` | 816 x 1395 | 794 x 1395 |
+| `classic-print.png` | 816 x 1340 | 794 x 1363 |
+| `minimal.png` / `-print.png` | 816 x 1711 / 1663 | 794 x 1711 / 1663 |
+| `creative.png` | 816 x 1154 | 794 x 1219 |
+| `creative-print.png` | 816 x 1080 | 794 x 1122 |
+
+Professional and modern take the A4 height directly: they pin a page-height
+`min-height`, which was 1056 px and is now 1123 px. The others have no height
+pin, so their height is their content's: where it grew, a 22 px narrower
+column wrapped text onto one more line. Minimal's did not grow because its
+text already broke where it breaks at 794 px.
+
+**Confirmed page-size only, by eye.** `professional.png` (screen): text shifted
+left by the width change, the sidebar's right edge moved from x 245 to x 238 —
+its 30% share of the narrower page — and a band appeared at the foot, the extra
+67 px of page height. `classic-print.png`: the summary wrapped one extra line
+and everything below it shifted down by that line. In both, the sections, their
+order, the type and the colours are the ones the old baseline shows. No other
+category of difference appears in either diff.
+
 ### Re-blessed: `professional.png`, 2026-09-07
 
 **What moved.** 879 pixels, across 10 rows (y 620–629), x 81–220 — one text
@@ -547,3 +582,26 @@ unrelated to correctness.
 
 `playwright.config.ts` excludes `**/visual/**` for the same reason: run on that
 config, these specs would compare against no baseline and silently pass.
+
+### Moved: classic, minimal and creative, screen and print, 2026-09-25 — rich text
+
+**Cause.** Part 3 US-016, "The Preview shows the content the user saved". Those
+three templates printed a stored project or education description as a plain
+string and read a skill category's `items` only, so a category saved as
+`skillsHtml` showed a stale list or nothing while every DOCX drew what was
+typed. All five templates now route stored HTML through the same inert
+sanitiser, and plain text through the same formatter the summary and the
+achievements already used.
+
+**What moved.** Only the description lines, and only their flow: roughly 200 to
+2,600 pixels per capture, about 1% of each image. The text is the same text. It
+re-flows because a description now renders through `renderFormattedText` inside
+a `<div>` rather than as a bare string inside a `<p>` — the arrangement the
+other body fields have always had. Section order, type, colour and the page box
+are unchanged, and the six captures for professional and modern did not move at
+all, which is the control: neither template's rich-text path changed.
+
+**Checked before updating.** The diff images were read, not just counted: each
+highlighted region sits on a description line. `pnpm test:parity` was run on the
+same tree and reports 0 NEW rows, so no surface disagrees with another because
+of this.

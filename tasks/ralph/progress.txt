@@ -161,3 +161,574 @@ Commit:
 - Commit message: ralph: US-002 the classic and minimal DOCX stop dropping sections
 
 FINAL: PASS
+
+## US-003: DOCX text colour matches the palette the Preview renders
+Status: PASS
+Priority: 3
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: 23af3af (tree identical to origin/main 3e84df6); PRD amendments d9f7228, ef1993c
+Checkout: E:/website/cv-website/my-cv-platform (main checkout; no worktree)
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/lib/resume-palette.ts (new), src/lib/resume-palette.test.ts (new),
+  src/app/api/resumes/[id]/download-docx/docx-palette.ts (new), docx-palette.test.ts (new),
+  docx-text-palette.test.ts (new), docx-{professional,modern,classic,minimal,creative}.ts,
+  docx-helpers.ts, docx-helpers.test.ts, e2e/parity/verdicts.ts,
+  tasks/ralph/prd.json, tasks/ralph/progress.txt
+- No template, globals.css or visual-baseline change; no version change
+- Widened on purpose from title/heading/body to every solid text-run colour: criterion 2 forbids a
+  second hand-copied table, and a partial table left classic's title and job titles in different
+  colours although the Preview draws both in slate-900
+
+Decision (AC-02) — how the DOCX obtains the Preview's palette:
+  src/lib/resume-palette.ts holds each template's colours in the form the Preview source writes them
+  (oklch(...), #374151), keyed by the Preview's own name for the colour (a token such as 'slate-900'
+  or an inline role). docx-palette.ts converts them to DOCX hex once at module load and throws on
+  anything it cannot convert. resume-palette.test.ts guards both directions: each entry must equal
+  its globals.css @theme value (or Tailwind's default theme for tokens globals.css leaves alone) and
+  appear in its template; and every colour a template draws, with its count, must resolve to a
+  palette entry or to an exclusion naming its owner. The generators never import e2e/parity, so
+  parity still compares the DOCX against what the browser draws. Rejected: reading globals.css at
+  request time (depends on deployment layout) and importing CSS as text (no bundler rule).
+  Known limit: the completeness check cannot see which element a colour sits on, so swapping two
+  elements' colours without changing the counts passes it; parity and the per-element DOCX tests
+  cover the sampled elements. Non-literal values under non-colour style keys and attributes are not
+  scanned; none is a text colour and no template uses one.
+
+Checks (on the final diff):
+- pnpm typecheck: PASS — exit 0
+- pnpm lint: PASS — 305 problems, under the 311 ceiling; new and changed files clean
+- pnpm test (unit): PASS — 765/765
+- pnpm test:integration: PASS — 27/27
+- pnpm test:e2e: PASS — 116 passed; --list 116
+- pnpm test:visual: PASS — 10 passed; --list 10; e2e/visual status empty
+- pnpm build:verify: PASS — exit 0
+- pnpm test:parity: PASS — two runs, 236 passed each, reports byte-identical,
+  sha256 efec255ed33b80774597910a7bc25e7d7a10d7d0290827afe3c67de1eaf7dcd2 (reproduced by the reviewer)
+  Counts: MATCH 106, KNOWN 97, NEW 0, unreconciled 0; 13 rows KNOWN US-003-palette -> MATCH
+
+Specialized validation:
+- Browser: NOT_APPLICABLE — no UI change
+- Visual: PASS — baselines unchanged
+- Export: PASS — artifact comparison, 2 layouts x 5 templates: document.xml byte-identical once run
+  colours, fills and borders are masked; only the listed colour changes appear; user sidebar and
+  accent colours unchanged in every fill and run
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE
+
+Agents:
+- ui-expert: NOT_APPLICABLE — no rendered UI change
+- code-reviewer: round 1 BLOCKER — three divergences the PRD did not name (professional opacity-80
+  sidebar text, creative translucent header text, stock border and fill colours), resolved by PRD
+  amendment d9f7228; round 2 FAIL — the completeness check failed open for arbitrary-value classes and
+  non-inline style objects; round 3 PASS, with 18 mutations run by the reviewer
+
+Acceptance criteria:
+- AC-01: PASS — docx-text-palette.test.ts pins every moved element to the palette (123 of 155 red
+  against HEAD's generators); parity's 13 sampled rows MATCH
+- AC-02: PASS — see Decision
+- AC-03: PASS — classic and minimal rules, creative header fill (first stop 693AD4, gradient recorded
+  as a LIMITATION) and badge fill, professional underline, all from the palette
+- AC-04: PASS — the completeness check catches every text-colour mutation tried, 11 by the implementer
+  and 18 by the reviewer
+- AC-05: PASS — user colours byte-identical in the artifact comparison
+- AC-06: PASS — no Preview source changed; visual 10/10, no snapshot update
+- AC-07: PASS — 13 rows MATCH; US-003-palette removed from the known list (FR-10)
+- PRD-wide items: PASS — no NEW row, no tolerance widened, no other template output changed beyond
+  run, fill and border colours
+
+Divergences found and placed by amendment (not defects of this story):
+- d9f7228: professional opacity-80 sidebar text and creative translucent header text -> US-006;
+  stock borders and fills -> US-003
+- ef1993c: modern technology chip fill; creative timeline line and dots, project card rule and fill,
+  decorative header circles -> US-007
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 DOCX colours come from the palette the Preview renders
+
+FINAL: PASS
+
+## US-004: DOCX line spacing matches the leading the Preview draws
+Status: PASS
+Priority: 4
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: 80eab66 (PRD amendments b1721f3 line-height scope, 80eab66 US-016 added)
+Checkout: E:/website/cv-website/my-cv-platform (main checkout; no worktree)
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/lib/resume-line-height.ts (new), src/lib/resume-line-height.test.ts (new),
+  src/app/api/resumes/[id]/download-docx/docx-line-spacing.test.ts (new),
+  docx-{professional,modern,classic,minimal,creative}.ts, docx-helpers.ts, docx-helpers.test.ts,
+  src/components/dashboard/resume-templates/{professional,modern}-template.tsx,
+  src/lib/format-text.tsx, e2e/parity/{profiles,surfaces,verdicts}.ts,
+  tasks/ralph/prd.json, tasks/ralph/progress.txt
+- Template edits are pure refactors (constants imported from the shared module); no visual baseline
+  moved; no version change
+
+Decisions:
+- Rule: exact everywhere. atLeast draws the font's own single line when that is taller: Verdana's
+  1.215em exceeds the 1.2 ratio of the professional and modern titles, so those rows could never
+  match. Word takes any shortfall from above the text; the tightest case is 1.2 with Verdana.
+- One source: src/lib/resume-line-height.ts. Values TypeScript cannot import from CSS (preflight
+  1.5, Tailwind text-* and leading-relaxed, .formatted-content 1.4) are declared in the form the CSS
+  writes them, and resume-line-height.test.ts reads that CSS and the templates and fails on drift.
+  rendersAsFormattedContent is shared by the Preview's renderFormattedText and the generators, so
+  the two cannot disagree on what counts as HTML.
+- Own padding goes in the line; a sibling's height goes in the gaps. Modern's job-title bar is a
+  filled box whose padding Word shading must cover, so it is written into the line. Creative's
+  heading bar is a separate flex child, so its surplus is written as space before and after, split
+  as items-center does. Writing the bar into the line made the sectionHeading row NEW at x1.655
+  against the Preview x1.500, because that row compares the heading text leading, not the row
+  height; and a wrapped heading would have been spaced at the bar height.
+
+Checks (on the final diff):
+- pnpm typecheck: PASS - exit 0
+- pnpm lint: PASS - 305 problems, unchanged, under the 311 ceiling
+- pnpm test (unit): PASS - 991/991 across 21 files
+- pnpm test:integration: PASS - 27/27
+- pnpm test:e2e: PASS - 116 passed; --list 116
+- pnpm test:visual: PASS - 10 passed; --list 10; e2e/visual status empty
+- pnpm build:verify: PASS - exit 0
+- pnpm test:parity: PASS - two runs, 240 passed each, reports byte-identical,
+  sha256 52889fe7ac99780d64706d9a48629d83b9a609ee216e14c23ea6808a4604648a
+  Counts: MATCH 123, KNOWN 82, NEW 0, unreconciled 0, LIMITATION 11, FINDING 9, DECISION 4
+
+Specialized validation:
+- Browser: NOT_APPLICABLE - no rendered UI change (template edits are constant imports)
+- Visual: PASS - baselines unchanged
+- Export: PASS - artifact comparison, 5 templates x 2 layouts: every zip part identical once
+  w:line/w:lineRule and the listed gap changes are accounted for; page counts verified in Word 16
+  across 50 generated documents
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE - format-text.tsx keeps the same regex and the inert sanitiser
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no rendered UI change
+- code-reviewer: round 1 BLOCKER - creative heading bars were a divergence the PRD does not name,
+  recorded only inside a FINDING; resolved inside the story under its own taller-box rule. Round 2
+  PASS, the reviewer reproducing the creative arithmetic at five font scales, re-running minimal-06
+  through Word (3 pages without the fix, 2 with) and running ten drift-guard mutations of its own
+
+Acceptance criteria:
+- AC-01: PASS - every site uses exactLineSpacing; no LineRuleType.AUTO remains; the list helpers
+  require a line spacing so the compiler finds any caller that omits one
+- AC-02: PASS - 152 paragraph sites, none without line spacing; each template document default is
+  exact; the reviewer confirmed on its own richer fixture at three scales
+- AC-03: PASS - formatted (HTML) body text writes 1.4, read from globals.css; the new formatted-body
+  parity profile (professional and modern, the templates that render .formatted-content) MATCHes
+- AC-04: PASS - the harness counts only exact / run size as drawn leading; atLeast is its own kind
+  and an unknown rule throws; all 15 primary line-height rows MATCH
+- AC-05: PASS - Word 16 to PDF to raster: accented capitals and descenders whole in Verdana at 1.2
+  and Times at 1.5; drawn pitch equals the written value. Residual FINDING records Word placing the
+  baseline at 80% of an exact line (up to ~0.1em), modern job-title baseline ~2.5pt low inside a bar
+  of the Preview height, a wrapped creative heading ~8px taller than the Preview, and 1-twip rounding
+- AC-06: PASS - visual 10/10, no snapshot update; template diffs are constant imports only
+- AC-07: PASS - 15 rows KNOWN to MATCH plus 2 new formatted-body rows MATCH; US-004-line-spacing
+  removed from the known list and the Word auto line spacing FINDING closed, replaced by a DECISION
+- PRD-wide items: PASS - no NEW row, no tolerance widened (LINE_HEIGHT_TOLERANCE untouched), no
+  other template affected
+
+Known limits recorded:
+- The drift guard cannot see an element remapped from one declared ratio to another; the sampled
+  title, heading and body rows are pinned by parity and docx-line-spacing.test.ts, the remaining
+  paragraph sites by review. Stated in the test header comment, following the US-003 precedent.
+- Creative heading centring uses space-before, which Word can suppress at the top of a page under
+  some compatibility settings.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-004 DOCX line spacing matches the leading the Preview draws
+
+FINAL: PASS
+
+## US-005: DOCX letter spacing matches the Preview
+Status: PASS
+Priority: 5
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: dc0f33d
+Checkout: E:/website/cv-website/my-cv-platform (main checkout; no worktree)
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/lib/resume-letter-spacing.ts (new), src/lib/resume-letter-spacing.test.ts (new),
+  src/app/api/resumes/[id]/download-docx/docx-letter-spacing.test.ts (new), docx-helpers.ts,
+  docx-{professional,modern,classic,minimal,creative}.ts,
+  src/components/dashboard/resume-templates/modern-template.tsx,
+  e2e/parity/{surfaces,verdicts}.ts, tasks/ralph/prd.json, tasks/ralph/progress.txt
+- Modern's template change is a constant import rendering the identical string; no visual baseline
+  moved; no version change
+
+Decisions:
+- One source: src/lib/resume-letter-spacing.ts, a sibling of resume-palette.ts (US-003) and
+  resume-line-height.ts (US-004). It holds Tailwind's six --tracking-* values in em as theme.css
+  writes them, plus a per-template record keyed by the Preview's own name for each element. Modern's
+  template imports its four inline values. Conversion lives with the other DOCX unit maths in
+  docx-helpers.ts: trackingSpacing(em, halfPoints) = round(em * halfPoints * 10), following the run
+  size so font scale carries.
+- Comparison basis changed from absolute twips to em. Preview and DOCX are anchored to different
+  font sizes while US-011-font-size is open, so an em-correct DOCX would still have differed in
+  absolute twips (modern's title 98 against 81) and four rows would have turned NEW - reporting the
+  size divergence a second time under letter spacing. Each surface is now held to half of the
+  unchanged TWIPS_TOLERANCE in its own encoding. The reviewer recomputed the slack per row and
+  mutated encoded values: +/-2 twips turns every row NEW and +/-1 turns 9 of 15 NEW, where the old
+  absolute rule accepted +/-1 on all of them, so this is a tightening. The size divergence remains
+  independently KNOWN on the font-size rows.
+- Scope covers every element whose characterSpacing the generators write, not only the sampled ones
+  (modern's contact labels, skill categories and job-title bar; professional's headings and title).
+  Criterion 1's first clause is unqualified, and it is the same named divergence on the same
+  property; the reviewer accepted this rather than treating it as unnamed.
+
+Checks (on the final diff):
+- pnpm typecheck: PASS - exit 0
+- pnpm lint: PASS - 305 problems, unchanged, under the 311 ceiling
+- pnpm test (unit): PASS - 1031/1031 across 23 files
+- pnpm test:integration: PASS - 27/27
+- pnpm test:e2e: PASS - 116 passed; --list 116
+- pnpm test:visual: PASS - 10 passed; --list 10; e2e/visual status empty
+- pnpm build:verify: PASS - exit 0
+- pnpm test:parity: PASS - two runs, 240 passed each, reports byte-identical,
+  sha256 09e2c59b45eedee6cbf1a19ce9a1a9d936fc72c48dea8c95d232d4a0b71931fc
+  Counts: MATCH 131, KNOWN 74, NEW 0, unreconciled 0
+
+Specialized validation:
+- Browser: NOT_APPLICABLE - no rendered UI change
+- Visual: PASS - baselines unchanged
+- Export: PASS - artifact comparison, 5 templates x 2 layouts: every changed line in all ten
+  documents is a run-level w:spacing, zero of any other kind; all ten styles.xml byte-identical
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no rendered UI change
+- code-reviewer: PASS first round, having re-derived trackingSlack and equal from the harness and
+  driven them with the measured sizes, verified the drift guard's Tailwind and preflight assertions
+  on this machine, and re-run typecheck, unit, lint and the artifact comparison itself. One required
+  change, a misplaced constant separating a comment from the constants it documents, was applied.
+
+Acceptance criteria:
+- AC-01: PASS - all 15 letter-spacing rows MATCH; docx-letter-spacing.test.ts pins every run in both
+  directions (a claimed run carries exactly that spacing; an unclaimed run carries none)
+- AC-02: PASS - every case runs at scales 0.8, 1 and 1.2; the artifact comparison shows layout B
+  values differing from layout A throughout
+- AC-03: PASS - visual 10/10, no snapshot update; the template edit renders the identical string
+- AC-04: PASS - 8 rows KNOWN -> MATCH; US-005-letter-spacing removed from the known list (FR-10)
+- PRD-wide items: PASS - no NEW row, no tolerance widened (TWIPS_TOLERANCE untouched at 1), no other
+  template affected
+
+Known limits recorded:
+- Sub-twip quantisation: professional's heading needs 6.5 twips and is written as 7 (0.0269em against
+  0.025em); modern's title 0.1508em; minimal's and creative's titles -0.0244em. Recorded in the
+  DECISION annotation, following the precedent US-004 set for Word's exact spacing.
+- surfaces.ts divides by halfPoints * 10 without a guard; safe today behind an existing null check,
+  but a zero-size run would yield Infinity rather than a diagnosable failure. Left for a later
+  harness story.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-005 DOCX letter spacing matches the Preview
+
+FINAL: PASS
+
+## US-006: Translucent text keeps its tint in the DOCX
+Status: PASS
+Priority: 6
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: 9f9e2fe; story amended by d9f7228 (professional and creative added to US-006)
+Checkout: E:/website/cv-website/my-cv-platform (main checkout; no worktree)
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/lib/resume-text-opacity.ts (new), src/lib/resume-text-opacity.test.ts (new),
+  src/app/api/resumes/[id]/download-docx/docx-text-opacity.ts (new), docx-text-opacity.test.ts (new),
+  docx-{professional,modern,creative}.ts, docx-helpers.ts, src/lib/resume-palette.test.ts,
+  e2e/parity/{colour,profiles,surfaces,verdicts}.ts, tasks/ralph/prd.json, tasks/ralph/progress.txt
+- No template file touched, so Preview rendering is unchanged by construction; no visual baseline
+  moved; no version change
+
+Decisions:
+- One source: src/lib/resume-text-opacity.ts holds each template's per-element alpha in the form its
+  template writes it, with classic and minimal carrying empty records as the statement that they
+  draw none. docx-text-opacity.ts mirrors docx-palette.ts and takes its foreground from the palette.
+- Compositing in gamma-encoded sRGB, source-over, alpha quantised to eight bits first, which makes
+  the arithmetic byte-identical to compositeOver in e2e/parity/colour.ts so the two sides of a row
+  cannot disagree over rounding. Measured on painted pixels, every Chromium path lands within one
+  level and none matches exactly: an opacity layer and an rgba() fill both paint a level low
+  (#CECEED against the written CFCFED at 0.8 over #0D0DA5), while color-mix(in oklab) is exact in
+  one case and a level high elsewhere. Recorded in the module.
+- Modern's template does not import the alphas, unlike US-004 and US-005. They sit inside complete
+  rgba(255,255,255,0.6) literals that the palette guard scans as colours; interpolating a constant
+  would turn five readable literals into expressions the scanner cannot read, weakening one guard to
+  build another. The drift test replaces the coupling in both directions.
+- TEXT_BACKDROP was demoted to a comment rather than consumed by the generators: a consumable
+  version needs a role tag at every call site, still cannot check the hex the generator passes, and
+  would change generator code for no new guarantee. The reviewer preferred this to its own suggestion.
+
+Checks (on the final diff):
+- pnpm typecheck: PASS - exit 0
+- pnpm lint: PASS - 305 problems, unchanged, under the 311 ceiling
+- pnpm test (unit): PASS - 1072/1072 across 25 files (1074 before TEXT_BACKDROP's two tests went
+  with the constant)
+- pnpm test:integration: PASS - 27/27
+- pnpm test:e2e: PASS - 116 passed; --list 116
+- pnpm test:visual: PASS - 10 passed; --list 10; e2e/visual status empty
+- pnpm build:verify: PASS - exit 0
+- pnpm test:parity: PASS - two runs, byte-identical,
+  sha256 cd8c46123abea60e7583ae8fe4c80514cdc64deada28e031849097a0958357f9
+  Counts: MATCH 136, KNOWN 72, NEW 0, unreconciled 0
+
+Specialized validation:
+- Browser: PASS - painted pixels read from the real creative Preview through the parity config, to
+  establish what the header actually draws behind its translucent text
+- Visual: PASS - baselines unchanged
+- Export: PASS - artifact comparison, 5 templates x 2 layouts: classic and minimal byte-identical;
+  the other six change only run colours, and masking every colour makes before and after identical
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no rendered UI change
+- code-reviewer: round 1 FAIL - the creative LIMITATION stated two things measurably false, the
+  substituted backdrop printed like a measured one, and opacityOf contradicted its own comment.
+  Round 2 PASS, the reviewer re-measuring all ten cited pixels in its own browser (10/10 within one
+  level, four exact), confirming the overNote appears on those two rows and nowhere else, and
+  re-running both guards and the parity mutation checks.
+
+Acceptance criteria:
+- AC-01: PASS - professional 8 sites, modern 5, creative 4 write the composited colour; all eight
+  expected hexes recomputed by hand by the reviewer, independently of the code
+- AC-02: PASS - unit tests at two sidebar colours with literal expected hexes, plus two more colours
+  in the artifacts
+- AC-03: PASS - three rows added (professional sidebarSecondary, creative headerSummary and
+  headerLinks), all MATCH
+- AC-04: PASS - the creative LIMITATION names the top-left corner as the only place the fill is
+  right, both discs with centres and radii, the four measured backdrop hexes, the Preview tints
+  #F8EFF9 and #FADCEE against the DOCX's #F0ECFB and #E1D8F6, and the 25-level red gap as a hue
+  difference rather than a lightening
+- AC-05: PASS - no template file changed; visual 10/10
+- AC-06: PASS - modern's two rows KNOWN -> MATCH; US-006-translucent-text removed from the known
+  list (FR-10)
+- PRD-wide items: PASS - no NEW row, COLOUR_CHANNEL_TOLERANCE untouched at 1, classic and minimal
+  byte-identical
+
+Known limits recorded:
+- The two creative rows composite both surfaces over the same substituted colour, the fill the DOCX
+  draws, so they MATCH by construction. The report now prints that in the row itself, and
+  seenColour's contract names the exception.
+- Accepted without acting: the reviewer suggested noting that the two 50% corner hexes in the
+  annotation are measured under a disc. True and harmless, since the next sentence names the discs;
+  not worth two further parity runs for a clarifying clause.
+- Removing an alpha entry whose written form another element of the same template shares does not
+  fail the palette guard; docx-text-opacity.test.ts and typecheck both catch it. Documented in the
+  guard's not-covered list.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-006 translucent text keeps its tint in the DOCX
+
+FINAL: PASS
+
+## US-007: The DOCX draws the graphics the Preview draws
+Status: PASS
+Priority: 7
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: 70339c1; story amended by ef1993c (four more graphics) and 70339c1 (third disposition)
+Checkout: E:/website/cv-website/my-cv-platform (main checkout; no worktree)
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/lib/resume-graphics.ts (new), src/lib/resume-graphics.test.ts (new),
+  src/app/api/resumes/[id]/download-docx/docx-graphics.ts (new), docx-graphics.test.ts (new),
+  docx-disc.ts (new), docx-creative.ts, docx-modern.ts, docx-helpers.ts,
+  docx-text-palette.test.ts, src/lib/resume-palette.ts, src/lib/resume-palette.test.ts,
+  e2e/parity/verdicts.ts, tasks/ralph/prd.json, tasks/ralph/progress.txt
+- No template file touched; no visual baseline moved; no version change
+
+What each graphic became:
+- modern skill bars: shaded-cells, a nested one-row two-cell table, accent against a composited
+  track, exact row height
+- modern technology chip fill: shaded runs, slate-700 on slate-100
+- creative language bars: shaded-cells, five bands and four gaps, purple-500 on slate-200
+- creative technology pills: shaded runs, white on purple-500
+- creative timeline line: paragraph-border, a purple-300 left rule on every paragraph of an entry
+- creative project card: shaded-cell, a single-cell table, slate-50 fill, 4px purple-500 left
+  border, 16px margins. Paragraph shading was rejected because Word paints it from the left indent
+  to the right text margin, so the card can have its padding or its fill over it, not both (probe3)
+- creative header discs: floating-raster. Probe 4 through Word showed behindDoc=1 renders invisible
+  because Word paints the drawing behind the cell own fill, behindDoc=0 renders translucent over
+  it, and Word clips an overhanging disc to the cell as the Preview overflow-hidden does. Probe 5
+  showed the bottom disc, anchored in a zero-height paragraph appended after the header last, holds
+  its offset against summaries wrapping to one, two and four lines. docx-disc.ts encodes the RGBA
+  PNG on node:zlib, since the docx package has no vector primitive
+- creative timeline dot: NOT DRAWN, by owner decision. It was a bullet glyph prefixed to the
+  position paragraph, which put a decoration inside a field an ATS parses as the job title. The
+  floating-raster route is open, but anchoring one image per experience entry, with the page-break
+  risk that carries, was judged not worth a 6px decoration. The continuous left rule carries the
+  timeline. PRD amendment 70339c1 admits this third disposition.
+
+Decisions:
+- The creative language level is no longer written as text. The Preview draws five bars and no
+  text; that text was an export-side invention. FR-3 makes the Preview the reference, and the four
+  templates whose Previews show the level still write it. The level survives as the count of filled
+  bands, asserted on the unzipped document. An out-of-union stored level, which the old code echoed
+  verbatim, now reaches no surface - as on the Preview and in print.
+- Residuals of the discs, recorded: the Preview stacks them under the text and OOXML has no layer
+  between a cell fill and its text, so the DOCX draws them over. Measured, 10% white lifts a channel
+  by 0.1 x (255 - v): 0 on the opaque white title, 1.9 on the text-white/90 summary, 3.9 on the
+  green of the text-white/80 links row. That is above the one-level tolerance and no row catches it,
+  because neither side of a colour row sees a disc - the Preview side reads computed style and the
+  DOCX side reads the run colour. docx-graphics.test.ts is what confirms the discs.
+
+Checks (on the final diff):
+- pnpm typecheck: PASS - exit 0
+- pnpm lint: PASS - 305 problems, unchanged, under the 311 ceiling; none in the five new files
+- pnpm test (unit): PASS - 1132/1132 across 27 files
+- pnpm test:integration: PASS - 27/27
+- pnpm test:e2e: PASS - 116 passed; --list 116
+- pnpm test:visual: PASS - 10 passed; --list 10; e2e/visual status empty
+- pnpm build:verify: PASS - exit 0
+- pnpm test:parity: PASS - two runs, byte-identical,
+  sha256 ef36b667fd9fd4eb004b70c458c705739965414e8fa5df051f1320974affd578
+  Counts: MATCH 136, KNOWN 72, NEW 0, unreconciled 0, LIMITATION 11, FINDING 6, DECISION 9
+
+Specialized validation:
+- Browser: NOT_APPLICABLE - no rendered UI change
+- Visual: PASS - baselines unchanged
+- Export: PASS - artifact comparison across 5 templates x 2 profiles: classic, minimal and
+  professional byte-identical on all 16 zip entries; creative adds two media parts and their
+  relationships, modern changes document.xml only. Rendered through Word 16 to PDF and rastered;
+  crops in scratchpad/p3us007/crops/. The reviewer decoded both PNGs independently - every CRC
+  valid, centre alpha 26/255, no timestamp chunk - and proved the disc bytes identical across
+  processes
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE
+
+Agents:
+- ui-expert: NOT_APPLICABLE - no rendered UI change
+- code-reviewer: round 1 FAIL - the header-circles limitation was false (this codebase already
+  anchors a floating drawing in a table cell) and unprobed, the project card recorded form
+  contradicted the code, and the timeline dot wrote a glyph into the job title. Round 2 FAIL - the
+  criterion admitted only two dispositions, and two records still said the dot was drawn. Round 3
+  PASS, the reviewer decoding the PNGs, deriving the anchor geometry independently, measuring the
+  disc channel shift and confirming no row can catch it.
+
+Acceptance criteria:
+- AC-01: PASS - bars and pills drawn; each form recorded in resume-graphics.ts and held to the
+  templates by resume-graphics.test.ts
+- AC-02: PASS - chip fill, timeline rule, project card and header discs drawn; the dot recorded
+  under the amended third disposition
+- AC-03: PASS - asserted on the unzipped document: the skill bar cell widths read back as 70% at
+  two sidebar colours, the language bars filled-band count equals the level (4/1/5, and 0 for an
+  unrecognised level), each pill and chip run carries its own label
+- AC-04: PASS - no graphic silently omitted; the drift test now fails on prose claiming cannot,
+  impossible, no way to or has nothing - the exact claim this story got wrong first time
+- AC-05: PASS - no template file changed; visual 10/10
+- AC-06: PASS - the three graphics findings closed (FINDING 9 to 6); no graphic left unplaced, the
+  dot now carrying a typed DOT owner so contradicting it is a compile error
+- PRD-wide items: PASS - no NEW row, no tolerance widened, three templates byte-identical
+
+Known limits recorded:
+- The form-to-shape check asserts a document contains each recorded form, not that the graphic is
+  that shape, and not-drawn passes freely. Carried as harness work.
+- docx-disc.ts memoises into an unbounded module-level map; bounded in practice at two entries.
+- Two exports of one resume agree in every part but docProps/core.xml, which carries the Packer
+  wall-clock stamp and has never been reproducible.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-007 the DOCX draws the graphics the Preview draws
+
+FINAL: PASS
+
+## US-008, US-012, US-014, US-016 — the five-hour close-out, 2026-09-25
+Status: PASS (all four)
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: 84b08c7
+
+These four ran under an owner-set five-hour budget to close the programme, with
+one review round each rather than the two to four the earlier stories took, and
+one verification pass across all of them instead of one per story. The owner
+accepted the scope reduction explicitly: fix what users meet, record the rest.
+
+US-008 - Every resume is A4 on every surface:
+- One source, src/lib/resume-page-size.ts (210 x 297 mm, with the inch and CSS px
+  forms each surface needs), read by all five templates, globals.css @page, all
+  five generators, professional's drag maths and the editor's preview scaling.
+- resume-page-size.test.ts bounds the rounded units against the millimetre
+  definition and reads globals.css, so a stylesheet drift fails a test.
+- All ten visual baselines moved once, recorded in docs/engineering/visual-regression.md.
+- The five page-width rows needed a comparison change, not a page change: all
+  three surfaces are A4, but Chromium writes a printed media box in whole points,
+  so it reports 8.2633in against the Preview's 8.2708in and the DOCX's 8.2694in.
+  The length comparison now allows 0.01in (0.254mm). Letter against A4 is 0.23in,
+  a format apart, so this admits the rounding and not a defect. Shaving the page
+  to 209.7mm to satisfy a two-decimal string was rejected.
+
+US-012 - The chosen font reaches every template, and an unchosen font does not:
+- chosenFontFamily() in layout-settings.ts: a stored stack equal to the default
+  records "not chosen", anything else records the choice. No new key, no schema
+  migration, no backfill; layout_settings keeps migration 007's shape and bound.
+- Cost recorded: the template default and the default stack are one state, so
+  choosing a font and then choosing the default again returns to not chosen.
+- Classic's DOCX now writes Georgia for headings (the face its Preview's ui-serif
+  actually resolves to) and Inter for body, instead of Times New Roman for both;
+  minimal and creative write Inter instead of Arial.
+- The editor renders classic, minimal and creative directly rather than through
+  ResumePreview, so the chosen font is handed to those three call sites too.
+
+US-014 - The editor offers only the controls the selected template applies:
+- The gating lives in the shared layout model beside the per-template
+  vocabularies, not as conditionals in the editor.
+- Hidden: the sidebar colour column on classic, minimal and creative; the Edit
+  Sidebar panel on classic and minimal; the per-property size setters on
+  professional and modern, which rendered no input but were being forwarded.
+- Stored values are kept and reapply on a template that uses them, asserted by a
+  unit test. Nothing writes the model back when a control is hidden.
+- The rows are not made MATCH: a dead control has no rendering to match against,
+  so they are no longer generated and the facts are recorded as DECISIONs.
+- Rendered evidence at 1280, 768 and 375. Noted, pre-existing and out of scope:
+  the editor shell itself does not respond below about 1024px.
+
+US-016 - The Preview shows the content the user saved:
+- All five templates now render a skill category's skillsHtml when present and
+  items only when absent, and render stored HTML descriptions as formatted text,
+  through the inert sanitiser after mount. No generator changed.
+- professional's section gate also fixed: a category created after the editor's
+  skillsHtml migration has items: [] and was hiding the whole skills section.
+- Three templates' baselines moved, screen and print, confined to description
+  lines; recorded with the diff images read rather than the counts trusted.
+- A new parity profile exercises HTML body text on all five templates. It carries
+  the fixture's plain skills, not HTML skills: a rich-text category draws in the
+  DOCX as the parsed runs of that HTML, and every sampler finds a run by its
+  whole text, so HTML skills make the collect step fail to find a run rather than
+  report a divergence. Teaching the samplers to read a run sequence is harness
+  work this pass did not take. rich-text.test.ts covers it per template instead.
+
+Divergence this pass created and registered, not hidden:
+- US-016-html-body-line-height. Fixing the Preview revealed that classic, minimal
+  and creative write their template's own body ratio for HTML body text where the
+  Preview and print now draw .formatted-content's 1.4. Professional and modern
+  already follow, through formattedTextLineHeight. The Preview is right and the
+  DOCX side is owed; the signature pins both sides, so a generator drifting to a
+  third value is NEW rather than absorbed.
+
+Verification, once, across all four (logs in scratchpad/final/):
+- pnpm typecheck: PASS
+- pnpm lint: PASS - 305 problems, under the 311 ceiling
+- pnpm test: PASS - 1200 passed, 5 skipped, 29 files
+- pnpm test:integration: PASS - 27/27
+- pnpm test:e2e: PASS - 116 passed
+- pnpm test:visual: PASS - 10 passed, ten baselines updated and recorded
+- pnpm build:verify: PASS - 108/108 static pages
+- pnpm test:parity: PASS - 246 passed, 0 NEW, 0 unreconciled;
+  MATCH 159, KNOWN 47, LIMITATION 11, FINDING 4, DECISION 14
+
+Not done, deliberately, and recorded in docs/engineering/programme-closure.md:
+- US-009, US-010, US-011, US-013, US-015 remain open and named by the check.
+- ui-expert and code-reviewer did not run on these four. The earlier seven stories
+  each had both; these four traded that for the deadline, with the owner's
+  agreement. The gates above all ran on the final combined tree.
+
+FINAL: PASS

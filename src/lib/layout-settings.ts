@@ -17,7 +17,7 @@
  *    not an authority — see `resolveResumeLayout`.
  */
 
-import type { ResumeLayoutSettings } from '@/types/database'
+import type { ResumeLayoutSettings, ResumeTemplate } from '@/types/database'
 
 /** Known sidebar section IDs — used for validation and migration. */
 const VALID_SIDEBAR_IDS = ['keyAchievements', 'skills', 'languages', 'training'] as const
@@ -590,6 +590,52 @@ export function serializeLayoutModel(model: ResumeLayoutModel): string {
   return JSON.stringify(toStoredLayout(model))
 }
 
+// ---------- Whether the owner chose a font ----------
+
+/**
+ * The font the owner CHOSE, or null when they chose none.
+ *
+ * HOW "CHOSEN" IS REPRESENTED, AND WHY IT NEEDS NO MIGRATION (Part 3 US-012).
+ *
+ * `fontFamily` carries the answer itself. A stored stack equal to
+ * `DEFAULT_RESUME_LAYOUT.fontFamily` records "no font chosen"; any other
+ * accepted stack records the font chosen. That is the owner's decision of
+ * 2026-09-15 stated as code, and it is the whole representation: no twentieth
+ * property, no new column, no change to what a blob may hold. The
+ * `resumes.layout_settings` JSONB keeps exactly the shape and the 4096-byte
+ * `resumes_layout_settings_check` that migration 007 gave it, so NO SCHEMA
+ * MIGRATION IS REQUIRED and no stored row has to be rewritten.
+ *
+ * A separate flag — a boolean key, or `fontFamily: null` — was rejected on two
+ * grounds. It would have to be added to the model, to `toStoredLayout`, to the
+ * localStorage blob and to every reader; and it would still have to decide what
+ * a row written before it means, which is the same question this rule answers,
+ * reached by way of a backfill. The sentinel answers it for every existing row
+ * at once, and answers it the way criterion 1 requires: no resume changes font
+ * merely because this shipped.
+ *
+ * WHAT IT COSTS, STATED PLAINLY. "The template default" and "the default stack"
+ * are one state, not two. An owner who chooses a font and then chooses the
+ * default stack again is back to not having chosen — which is the behaviour the
+ * product wants (the template's own font returns) and the only reading under
+ * which a user cannot get stuck with a choice they cannot undo. What it cannot
+ * express is an owner who deliberately wants Arial ON A TEMPLATE WHOSE OWN FONT
+ * IS NOT ARIAL: they get the template's font instead. Naming the same stack
+ * under a second label would express it, and is the change to make if that is
+ * ever asked for; nothing else here would move.
+ *
+ * Loading and saving is therefore a fixed point: `toStoredLayout` writes the
+ * stack back unchanged, so the answer after a round trip is the answer before
+ * it. `layout-settings.test.ts` pins that, and the back-to-default case above.
+ *
+ * Takes the stack rather than a whole model so that the Preview, which receives
+ * `fontFamily` as a prop, and the DOCX generators, which receive it in
+ * `DocxGeneratorSettings`, apply the one rule rather than two copies of it.
+ */
+export function chosenFontFamily(fontFamily: string): string | null {
+  return fontFamily === DEFAULT_RESUME_LAYOUT.fontFamily ? null : fontFamily
+}
+
 // ---------- Section order migration ----------
 
 /**
@@ -1079,3 +1125,128 @@ export function mapEditorOrderToClassic(rawOrder: readonly string[]): ClassicMai
 export function mapEditorOrderToMinimal(rawOrder: readonly string[]): MinimalMainId[] {
   return mapEditorOrderToSingleColumn(rawOrder, MINIMAL_SEQUENCE)
 }
+
+// ---------- Which layout controls a template applies ----------
+
+/**
+ * A group of layout-model keys that one editor control writes.
+ *
+ * Grouped rather than keyed per property because the editor's controls are
+ * grouped: one colour picker writes all three sidebar-colour components, and
+ * one drag-and-drop panel writes both sidebar-section keys. Gating per group is
+ * gating per control, which is what FR-9 is about.
+ */
+export type LayoutControlId = 'sidebarColour' | 'perPropertySize' | 'sidebarSections'
+
+/** The model keys each control writes. Nothing else may write them. */
+export const LAYOUT_CONTROL_KEYS: Readonly<
+  Record<LayoutControlId, readonly (keyof ResumeLayoutModel)[]>
+> = Object.freeze({
+  sidebarColour: Object.freeze(['sidebarHue', 'sidebarSaturation', 'sidebarBrightness'] as const),
+  perPropertySize: Object.freeze([
+    'titleFontSize',
+    'contactFontSize',
+    'sectionTitleFontSize',
+    'sectionDescFontSize',
+  ] as const),
+  sidebarSections: Object.freeze(['sidebarOrder', 'hiddenSidebarSections'] as const),
+})
+
+/**
+ * THE TEMPLATE × CONTROL MATRIX (Part 3 US-014, FR-9).
+ *
+ * Which of the grouped controls above the editor OFFERS for each template. A
+ * control is offered exactly where the template applies it; where it is not
+ * offered, the stored keys are left untouched and apply again the moment a
+ * template that reads them is selected.
+ *
+ * Read off the code, not inferred. `resume-editor.tsx`'s template switch is the
+ * one place a layout value reaches a Preview, and `download-docx/route.ts` hands
+ * each generator the same model, so what a template is PASSED and what its
+ * generator READS is the whole of the question:
+ *
+ *                     professional  modern   classic  minimal  creative
+ *   sidebarColour          yes       yes       no       no       no
+ *   perPropertySize        no        no        yes      yes      yes
+ *   sidebarSections        yes       yes       no       no       yes
+ *
+ * sidebarColour — professional and modern are the only templates the editor
+ *   passes `sidebarColor` to, and the only DOCX generators that paint a sidebar
+ *   fill. Classic, minimal and creative receive it on no surface.
+ *
+ * perPropertySize — classic, minimal and creative render the in-Preview size
+ *   inputs themselves, gated on the `set*FontSize` props this editor passes
+ *   them. Professional is passed no size prop at all; modern is passed the
+ *   setters but renders no input for any of them. Modern nonetheless APPLIES
+ *   two of the stored sizes (`titleFontSize` on its document title,
+ *   `sectionDescFontSize` on its body text) and ignores the other two, so the
+ *   stored values are not inert there — they are simply not adjustable. That
+ *   asymmetry is the DECISION the parity check records for professional's three
+ *   sizes and modern's section heading; it is not closed by hiding anything,
+ *   because there is nothing rendered to hide.
+ *
+ * sidebarSections — classic and minimal draw no sidebar on any surface:
+ *   neither template, and neither `docx-classic.ts` nor `docx-minimal.ts`,
+ *   mentions `sidebarOrder` or `hiddenSidebarSections`, and
+ *   `mapEditorOrderToSingleColumn` above takes only the MAIN order. The panel is
+ *   dead there permanently. Creative keeps it: it ignores section state on every
+ *   surface today, which is Part 3 US-015's defect to close, not a control to
+ *   withdraw.
+ *
+ * NOT IN THIS MAP, deliberately. `fontScale` and `fontFamily` do not reach the
+ * classic, minimal and creative Previews today, and the main-content panel does
+ * not reach those three either. Each is a live divergence owned by another Part
+ * 3 story — US-011, US-012 and US-009/US-015 respectively — which closes it by
+ * making the control APPLY. Hiding them here would pre-empt those stories and
+ * remove capability the product is about to gain.
+ */
+export const TEMPLATE_LAYOUT_CONTROLS: Readonly<
+  Record<ResumeTemplate, readonly LayoutControlId[]>
+> = Object.freeze({
+  professional: Object.freeze(['sidebarColour', 'sidebarSections'] as const),
+  modern: Object.freeze(['sidebarColour', 'sidebarSections'] as const),
+  classic: Object.freeze(['perPropertySize'] as const),
+  minimal: Object.freeze(['perPropertySize'] as const),
+  creative: Object.freeze(['perPropertySize', 'sidebarSections'] as const),
+})
+
+/**
+ * Whether the editor offers `control` while `template` is selected.
+ *
+ * Takes a `string` because `resumes.template` is stored text: a row holding
+ * something outside the five identifiers still has to render. It resolves like
+ * the editor's own template switch, whose `default` branch draws modern.
+ */
+export function templateOffersLayoutControl(template: string, control: LayoutControlId): boolean {
+  const offered =
+    template in TEMPLATE_LAYOUT_CONTROLS
+      ? TEMPLATE_LAYOUT_CONTROLS[template as ResumeTemplate]
+      : TEMPLATE_LAYOUT_CONTROLS.modern
+  return offered.includes(control)
+}
+
+/** The per-property size keys, in the order `LAYOUT_CONTROL_KEYS` lists them. */
+export type PerPropertySizeKey =
+  | 'titleFontSize'
+  | 'contactFontSize'
+  | 'sectionTitleFontSize'
+  | 'sectionDescFontSize'
+
+/**
+ * The per-property sizes each template APPLIES, which is not the same question
+ * as which it offers a control for — see the matrix above for why modern is the
+ * one template where the two answers differ.
+ *
+ * Stated so the parity check can tell a size that no surface applies (a
+ * recorded decision: stored, preserved, adjustable nowhere) from one that a
+ * Preview applies and an export does not (Part 3 US-011's divergence).
+ */
+export const TEMPLATE_APPLIED_SIZE_KEYS: Readonly<
+  Record<ResumeTemplate, readonly PerPropertySizeKey[]>
+> = Object.freeze({
+  professional: Object.freeze([] as const),
+  modern: Object.freeze(['titleFontSize', 'sectionDescFontSize'] as const),
+  classic: LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[],
+  minimal: LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[],
+  creative: LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[],
+})

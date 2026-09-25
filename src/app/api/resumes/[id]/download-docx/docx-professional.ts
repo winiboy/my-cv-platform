@@ -31,14 +31,31 @@ import {
   parsePlainTextListToParagraphs,
   parseHtmlToDocxRuns,
   formatDateRange,
-  COLORS,
+  exactLineSpacing,
+  trackingSpacing,
+  NO_TEXT_LINE,
   type DocxGeneratorSettings,
 } from './docx-helpers'
+import { DOCX_PALETTE } from './docx-palette'
+import { docxTranslucentText } from './docx-text-opacity'
+import { PAGE_HEIGHT_INCHES, PAGE_WIDTH_INCHES } from '@/lib/resume-page-size'
+import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
+import { PROFESSIONAL_LINE_HEIGHT, formattedTextLineHeight } from '@/lib/resume-line-height'
 import {
   assertExhaustiveSection,
   type EditorMainId,
   type EditorSidebarId,
 } from '@/lib/layout-settings'
+
+/**
+ * Every text run and rule the Preview draws in a colour of its own (US-003).
+ * The sidebar text it draws at `opacity-80` over the user's colour is not a
+ * colour of its own: it is composited per request (US-006, below).
+ */
+const PALETTE = DOCX_PALETTE.professional
+
+/** The letter spacing the Preview draws, in em, applied at the size of each run (US-005). */
+const TRACKING = PREVIEW_TRACKING.professional
 
 // ============================================================
 // FONT SIZE CONSTANTS (matching professional-template.tsx)
@@ -55,11 +72,13 @@ const FONT_SIZES = {
   CONTACT: 10.5,              // Contact information
 }
 
-// Line heights
-const LINE_HEIGHTS = {
-  BODY: 1.35,
-  HEADING: 1.2,
-}
+/**
+ * The Preview's line heights (US-004), from the module the template itself
+ * imports them from. Headings, the name and entry titles draw at `heading`;
+ * every other element at `body`; formatted (HTML) text at `.formatted-content`'s
+ * height, through `formattedTextLineHeight`.
+ */
+const LINE_HEIGHT = PROFESSIONAL_LINE_HEIGHT
 
 /**
  * Spacing in px, converted to twips at use. These MUST match the Preview.
@@ -193,6 +212,14 @@ export async function generateProfessionalDocx(
   // Preview is not showing.
   const sidebarColorHex = hslToHex(sidebarHue, settings.sidebarSaturation, sidebarBrightness)
 
+  /**
+   * The key-achievement descriptions, skill items and language levels the
+   * Preview draws at `opacity-80` inside the `text-white` sidebar (US-006).
+   * A DOCX run carries no alpha, so each is written in the colour that
+   * translucency composites to over the sidebar fill this document draws.
+   */
+  const sidebarSecondaryColor = docxTranslucentText('professional', 'sidebarSecondary', sidebarColorHex)
+
   // Calculate scaled font sizes
   const scaledFontSizes = {
     name: pxToHalfPoints(FONT_SIZES.NAME * fontScale),
@@ -210,7 +237,7 @@ export async function generateProfessionalDocx(
   const primaryFont = extractPrimaryFont(fontFamily)
 
   // Calculate page dimensions for layout
-  const pageWidthTwips = convertInchesToTwip(8.5)
+  const pageWidthTwips = convertInchesToTwip(PAGE_WIDTH_INCHES)
   const sidebarWidthTwips = Math.round(pageWidthTwips * (sidebarWidthPercent / 100))
   const mainContentWidthTwips = pageWidthTwips - sidebarWidthTwips
 
@@ -243,14 +270,13 @@ export async function generateProfessionalDocx(
           text: contact.name || 'Your Name',
           bold: true,
           size: scaledFontSizes.name,
-          color: COLORS.WHITE,
+          color: PALETTE.white,
           font: primaryFont,
         }),
       ],
       spacing: {
         after: sidebarSpacingTwips,
-        line: Math.round(240 * LINE_HEIGHTS.HEADING),
-        lineRule: LineRuleType.AUTO,
+        ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.name]),
       },
     })
   )
@@ -275,14 +301,16 @@ export async function generateProfessionalDocx(
                   text: (dict as any).resumes?.template?.keyAchievements || 'Key Achievements',
                   bold: true,
                   size: scaledFontSizes.sectionTitle,
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   font: primaryFont,
+                  characterSpacing: trackingSpacing(TRACKING.heading, scaledFontSizes.sectionTitle),
                 }),
               ],
-              spacing: { after: pxToTwips(16) }, // mb-4 in Preview
+              // mb-4 in Preview
+              spacing: { after: pxToTwips(16), ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.sectionTitle]) },
               border: {
                 bottom: {
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   space: 1,
                   style: BorderStyle.SINGLE,
                   size: 6,
@@ -306,14 +334,21 @@ export async function generateProfessionalDocx(
                     text: achievement.title,
                     bold: true,
                     size: scaledFontSizes.jobTitle,
-                    color: COLORS.WHITE,
+                    color: PALETTE.white,
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: achievement.description ? pxToTwips(4) : itemEndSpacing },
+                spacing: {
+                  after: achievement.description ? pxToTwips(4) : itemEndSpacing,
+                  ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.jobTitle]),
+                },
               })
             )
             if (achievement.description) {
+              const descriptionLineSpacing = exactLineSpacing([
+                formattedTextLineHeight(achievement.description, LINE_HEIGHT.body),
+                scaledFontSizes.body,
+              ])
               // Extract alignment from HTML if present. The fallback is LEFT, not
               // JUSTIFIED, to match the Preview's narrow sidebar column.
               const descriptionAlignment = extractAlignment(achievement.description) || AlignmentType.LEFT
@@ -325,11 +360,12 @@ export async function generateProfessionalDocx(
                   achievement.description,
                   {
                     size: scaledFontSizes.body,
-                    color: COLORS.WHITE,
+                    color: sidebarSecondaryColor,
                     font: primaryFont,
                   },
                   pxToTwips(4), // spacing between list items
                   itemEndSpacing, // spacing after last item
+                  descriptionLineSpacing,
                   undefined, // no indent for sidebar
                   descriptionAlignment
                 )
@@ -340,13 +376,14 @@ export async function generateProfessionalDocx(
                     achievement.description,
                     {
                       size: scaledFontSizes.body,
-                      color: COLORS.WHITE,
+                      color: sidebarSecondaryColor,
                       font: primaryFont,
                     },
                     {
                       spacingAfterItem: pxToTwips(4),
                       spacingAfterLast: itemEndSpacing,
                       alignment: descriptionAlignment,
+                      lineSpacing: descriptionLineSpacing,
                     }
                   )
                 )
@@ -354,14 +391,14 @@ export async function generateProfessionalDocx(
                 // Parse HTML to DOCX TextRuns with formatting preserved
                 const descriptionRuns = parseHtmlToDocxRuns(achievement.description, {
                   size: scaledFontSizes.body,
-                  color: COLORS.WHITE,
+                  color: sidebarSecondaryColor,
                   font: primaryFont,
                 })
 
                 sidebarParagraphs.push(
                   new Paragraph({
                     children: descriptionRuns,
-                    spacing: { after: itemEndSpacing },
+                    spacing: { after: itemEndSpacing, ...descriptionLineSpacing },
                     alignment: descriptionAlignment,
                   })
                 )
@@ -382,14 +419,16 @@ export async function generateProfessionalDocx(
                   text: (dict as any).resumes?.template?.skills || 'Skills',
                   bold: true,
                   size: scaledFontSizes.sectionTitle,
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   font: primaryFont,
+                  characterSpacing: trackingSpacing(TRACKING.heading, scaledFontSizes.sectionTitle),
                 }),
               ],
-              spacing: { after: pxToTwips(16) }, // mb-4 in Preview
+              // mb-4 in Preview
+              spacing: { after: pxToTwips(16), ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.sectionTitle]) },
               border: {
                 bottom: {
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   space: 1,
                   style: BorderStyle.SINGLE,
                   size: 6,
@@ -414,16 +453,21 @@ export async function generateProfessionalDocx(
                     text: `${skillCat.category}:`,
                     bold: true,
                     size: scaledFontSizes.skillCategory,
-                    color: COLORS.WHITE,
+                    color: PALETTE.white,
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: pxToTwips(4) }, // mb-1 in Preview
+                // mb-1 in Preview
+                spacing: { after: pxToTwips(4), ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.skillCategory]) },
               })
             )
 
             // Use skillsHtml if available, otherwise fall back to items array
             if (skillCat.skillsHtml) {
+              const skillsLineSpacing = exactLineSpacing([
+                formattedTextLineHeight(skillCat.skillsHtml, LINE_HEIGHT.body),
+                scaledFontSizes.body,
+              ])
               // Extract alignment from HTML if present
               const skillsAlignment = extractAlignment(skillCat.skillsHtml) || AlignmentType.LEFT
 
@@ -434,11 +478,12 @@ export async function generateProfessionalDocx(
                   skillCat.skillsHtml,
                   {
                     size: scaledFontSizes.body,
-                    color: COLORS.WHITE,
+                    color: sidebarSecondaryColor,
                     font: primaryFont,
                   },
                   pxToTwips(4), // spacing between list items
                   itemEndSpacing, // spacing after last item
+                  skillsLineSpacing,
                   undefined, // no indent for sidebar
                   skillsAlignment
                 )
@@ -449,13 +494,14 @@ export async function generateProfessionalDocx(
                     skillCat.skillsHtml,
                     {
                       size: scaledFontSizes.body,
-                      color: COLORS.WHITE,
+                      color: sidebarSecondaryColor,
                       font: primaryFont,
                     },
                     {
                       spacingAfterItem: pxToTwips(4),
                       spacingAfterLast: itemEndSpacing,
                       alignment: skillsAlignment,
+                      lineSpacing: skillsLineSpacing,
                     }
                   )
                 )
@@ -463,14 +509,14 @@ export async function generateProfessionalDocx(
                 // Non-list content: use inline rendering
                 const skillsRuns = parseHtmlToDocxRuns(skillCat.skillsHtml, {
                   size: scaledFontSizes.body,
-                  color: COLORS.WHITE,
+                  color: sidebarSecondaryColor,
                   font: primaryFont,
                 })
 
                 sidebarParagraphs.push(
                   new Paragraph({
                     children: skillsRuns,
-                    spacing: { after: itemEndSpacing },
+                    spacing: { after: itemEndSpacing, ...skillsLineSpacing },
                     alignment: skillsAlignment,
                   })
                 )
@@ -482,11 +528,11 @@ export async function generateProfessionalDocx(
                     new TextRun({
                       text: skillCat.items.join(' • '),
                       size: scaledFontSizes.body,
-                      color: COLORS.WHITE,
+                      color: sidebarSecondaryColor,
                       font: primaryFont,
                     }),
                   ],
-                  spacing: { after: itemEndSpacing },
+                  spacing: { after: itemEndSpacing, ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.body]) },
                   alignment: AlignmentType.JUSTIFIED,
                 })
               )
@@ -506,14 +552,16 @@ export async function generateProfessionalDocx(
                   text: (dict as any).resumes?.template?.languages || 'Languages',
                   bold: true,
                   size: scaledFontSizes.sectionTitle,
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   font: primaryFont,
+                  characterSpacing: trackingSpacing(TRACKING.heading, scaledFontSizes.sectionTitle),
                 }),
               ],
-              spacing: { after: pxToTwips(16) }, // mb-4 in Preview
+              // mb-4 in Preview
+              spacing: { after: pxToTwips(16), ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.sectionTitle]) },
               border: {
                 bottom: {
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   space: 1,
                   style: BorderStyle.SINGLE,
                   size: 6,
@@ -537,17 +585,17 @@ export async function generateProfessionalDocx(
                   new TextRun({
                     text: lang.language,
                     size: scaledFontSizes.body,
-                    color: COLORS.WHITE,
+                    color: PALETTE.white,
                     font: primaryFont,
                   }),
                   new TextRun({
                     text: '\t' + levelText,
                     size: scaledFontSizes.body,
-                    color: COLORS.WHITE,
+                    color: sidebarSecondaryColor,
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: itemEndSpacing },
+                spacing: { after: itemEndSpacing, ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.body]) },
                 tabStops: [
                   {
                     type: TabStopType.RIGHT,
@@ -571,14 +619,16 @@ export async function generateProfessionalDocx(
                   text: (dict as any).resumes?.template?.training || 'Training',
                   bold: true,
                   size: scaledFontSizes.sectionTitle,
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   font: primaryFont,
+                  characterSpacing: trackingSpacing(TRACKING.heading, scaledFontSizes.sectionTitle),
                 }),
               ],
-              spacing: { after: pxToTwips(16) }, // mb-4 in Preview
+              // mb-4 in Preview
+              spacing: { after: pxToTwips(16), ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.sectionTitle]) },
               border: {
                 bottom: {
-                  color: COLORS.WHITE,
+                  color: PALETTE.white,
                   space: 1,
                   style: BorderStyle.SINGLE,
                   size: 6,
@@ -603,11 +653,12 @@ export async function generateProfessionalDocx(
                     text: cert.name,
                     bold: true,
                     size: scaledFontSizes.jobTitle,
-                    color: COLORS.WHITE,
+                    color: PALETTE.white,
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: pxToTwips(4) }, // mb-1 in Preview
+                // mb-1 in Preview
+                spacing: { after: pxToTwips(4), ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.jobTitle]) },
               })
             )
             sidebarParagraphs.push(
@@ -616,11 +667,14 @@ export async function generateProfessionalDocx(
                   new TextRun({
                     text: cert.issuer,
                     size: scaledFontSizes.meta,
-                    color: COLORS.WHITE,
+                    color: PALETTE.white,
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: cert.date ? pxToTwips(2) : itemEndSpacing },
+                spacing: {
+                  after: cert.date ? pxToTwips(2) : itemEndSpacing,
+                  ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.meta]),
+                },
               })
             )
             if (cert.date) {
@@ -633,11 +687,11 @@ export async function generateProfessionalDocx(
                         year: 'numeric',
                       }),
                       size: scaledFontSizes.meta,
-                      color: COLORS.WHITE,
+                      color: PALETTE.white,
                       font: primaryFont,
                     }),
                   ],
-                  spacing: { after: itemEndSpacing },
+                  spacing: { after: itemEndSpacing, ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.meta]) },
                 })
               )
             }
@@ -663,14 +717,14 @@ export async function generateProfessionalDocx(
           text: resume.title || 'PROFESSIONAL TITLE',
           bold: true,
           size: scaledFontSizes.professionalTitle,
-          color: COLORS.DARK_HEADING,
+          color: PALETTE.heading,
           font: primaryFont,
+          characterSpacing: trackingSpacing(TRACKING.title, scaledFontSizes.professionalTitle),
         }),
       ],
       spacing: {
         after: pxToTwips(SPACING.TITLE_GAP),
-        line: Math.round(240 * LINE_HEIGHTS.HEADING),
-        lineRule: LineRuleType.AUTO,
+        ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.professionalTitle]),
       },
     })
   )
@@ -691,22 +745,22 @@ export async function generateProfessionalDocx(
           new TextRun({
             text: contactItems.join('    '),
             size: scaledFontSizes.contact,
-            color: COLORS.META_TEXT,
+            color: PALETTE.meta,
             font: primaryFont,
           }),
         ],
         spacing: {
           after: pxToTwips(24 + mainContentTopMargin),
-          line: Math.round(240 * LINE_HEIGHTS.BODY),
-          lineRule: LineRuleType.AUTO,
+          ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.contact]),
         },
       })
     )
   } else {
-    // Even without contact info, we need the same gap as Preview's pb-6 + marginBottom
+    // Even without contact info, we need the same gap as Preview's pb-6 + marginBottom.
+    // This paragraph carries only that gap; the Preview draws no line here.
     mainContentParagraphs.push(
       new Paragraph({
-        spacing: { after: pxToTwips(24 + mainContentTopMargin) },
+        spacing: { after: pxToTwips(24 + mainContentTopMargin), ...NO_TEXT_LINE },
       })
     )
   }
@@ -731,14 +785,18 @@ export async function generateProfessionalDocx(
                   text: (dict as any).resumes?.template?.summary || 'Summary',
                   bold: true,
                   size: scaledFontSizes.resumeSectionTitle,
-                  color: COLORS.DARK_HEADING,
+                  color: PALETTE.heading,
                   font: primaryFont,
+                  characterSpacing: trackingSpacing(TRACKING.heading, scaledFontSizes.resumeSectionTitle),
                 }),
               ],
-              spacing: { after: pxToTwips(SPACING.SECTION_GAP) },
+              spacing: {
+                after: pxToTwips(SPACING.SECTION_GAP),
+                ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.resumeSectionTitle]),
+              },
               border: {
                 bottom: {
-                  color: COLORS.DARK_HEADING,
+                  color: PALETTE.heading,
                   space: 1,
                   style: BorderStyle.SINGLE,
                   size: 6,
@@ -749,6 +807,10 @@ export async function generateProfessionalDocx(
 
           // Extract alignment from HTML if present
           const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.JUSTIFIED
+          const summaryLineSpacing = exactLineSpacing([
+            formattedTextLineHeight(resume.summary, LINE_HEIGHT.body),
+            scaledFontSizes.body,
+          ])
 
           // Summary text - check if it contains a list structure
           if (isHtmlList(resume.summary)) {
@@ -757,11 +819,12 @@ export async function generateProfessionalDocx(
               resume.summary,
               {
                 size: scaledFontSizes.body,
-                color: COLORS.BODY_TEXT,
+                color: PALETTE.body,
                 font: primaryFont,
               },
               pxToTwips(4), // spacing between list items
               sectionSpacingAfter, // spacing after last item
+              summaryLineSpacing,
               { right: mainContentRightIndent }, // indent
               summaryAlignment
             )
@@ -772,7 +835,7 @@ export async function generateProfessionalDocx(
                 resume.summary,
                 {
                   size: scaledFontSizes.body,
-                  color: COLORS.BODY_TEXT,
+                  color: PALETTE.body,
                   font: primaryFont,
                 },
                 {
@@ -780,6 +843,7 @@ export async function generateProfessionalDocx(
                   spacingAfterLast: sectionSpacingAfter,
                   indent: { right: mainContentRightIndent },
                   alignment: summaryAlignment,
+                  lineSpacing: summaryLineSpacing,
                 }
               )
             )
@@ -787,7 +851,7 @@ export async function generateProfessionalDocx(
             // Non-list content: use inline rendering
             const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
               size: scaledFontSizes.body,
-              color: COLORS.BODY_TEXT,
+              color: PALETTE.body,
               font: primaryFont,
             })
 
@@ -798,8 +862,7 @@ export async function generateProfessionalDocx(
                 indent: { right: mainContentRightIndent },
                 spacing: {
                   after: sectionSpacingAfter,
-                  line: Math.round(240 * LINE_HEIGHTS.BODY),
-                  lineRule: LineRuleType.AUTO,
+                  ...summaryLineSpacing,
                 },
               })
             )
@@ -818,14 +881,18 @@ export async function generateProfessionalDocx(
                   text: (dict as any).resumes?.template?.experience || 'Experience',
                   bold: true,
                   size: scaledFontSizes.sectionTitle,
-                  color: COLORS.DARK_HEADING,
+                  color: PALETTE.heading,
                   font: primaryFont,
+                  characterSpacing: trackingSpacing(TRACKING.heading, scaledFontSizes.sectionTitle),
                 }),
               ],
-              spacing: { after: pxToTwips(SPACING.SECTION_GAP) },
+              spacing: {
+                after: pxToTwips(SPACING.SECTION_GAP),
+                ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.sectionTitle]),
+              },
               border: {
                 bottom: {
-                  color: COLORS.DARK_HEADING,
+                  color: PALETTE.heading,
                   space: 1,
                   style: BorderStyle.SINGLE,
                   size: 6,
@@ -846,17 +913,21 @@ export async function generateProfessionalDocx(
                     text: exp.position || '',
                     bold: true,
                     size: scaledFontSizes.jobTitle,
-                    color: COLORS.DARK_HEADING,
+                    color: PALETTE.heading,
                     font: primaryFont,
                   }),
                   new TextRun({
                     text: '\t' + formatDateRange(exp.startDate, exp.endDate, exp.current, locale as Locale, dict),
                     size: scaledFontSizes.meta,
-                    color: COLORS.DATE_TEXT,
+                    color: PALETTE.date,
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: pxToTwips(4) },
+                // One flex row in the Preview: the h3 at heading height beside the date at body height.
+                spacing: {
+                  after: pxToTwips(4),
+                  ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.jobTitle], [LINE_HEIGHT.body, scaledFontSizes.meta]),
+                },
                 indent: { right: mainContentRightIndent },
                 tabStops: [
                   {
@@ -874,19 +945,19 @@ export async function generateProfessionalDocx(
                   new TextRun({
                     text: exp.company || '',
                     size: scaledFontSizes.meta,
-                    color: COLORS.META_TEXT,
+                    color: PALETTE.meta,
                     font: primaryFont,
                   }),
                   ...(exp.location ? [
                     new TextRun({
                       text: ` • ${exp.location}`,
                       size: scaledFontSizes.meta,
-                      color: COLORS.META_TEXT,
+                      color: PALETTE.meta,
                       font: primaryFont,
                     }),
                   ] : []),
                 ],
-                spacing: { after: pxToTwips(8) },
+                spacing: { after: pxToTwips(8), ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.meta]) },
                 indent: { right: mainContentRightIndent },
               })
             )
@@ -898,7 +969,7 @@ export async function generateProfessionalDocx(
                 // Parse achievement HTML to preserve formatting
                 const achievementRuns = parseHtmlToDocxRuns(achievement, {
                   size: scaledFontSizes.body,
-                  color: COLORS.BODY_TEXT,
+                  color: PALETTE.body,
                   font: primaryFont,
                 })
 
@@ -921,15 +992,17 @@ export async function generateProfessionalDocx(
                       new TextRun({
                         text: '• ',
                         size: scaledFontSizes.body,
-                        color: COLORS.DARK_HEADING,
+                        color: PALETTE.heading,
                         font: primaryFont,
                       }),
                       ...achievementRuns,
                     ],
+                    // The achievement's lines are spaced at its text's height: the li's
+                    // body height, or the formatted-content height when it is HTML. The
+                    // bullet beside it is a separate flex item no taller than either.
                     spacing: {
                       after: achievementSpacingAfter,
-                      line: Math.round(240 * LINE_HEIGHTS.BODY),
-                      lineRule: LineRuleType.AUTO,
+                      ...exactLineSpacing([formattedTextLineHeight(achievement, LINE_HEIGHT.body), scaledFontSizes.body]),
                     },
                     indent: { right: mainContentRightIndent },
                   })
@@ -948,6 +1021,10 @@ export async function generateProfessionalDocx(
 
               // Extract alignment from HTML if present
               const descAlignment = extractAlignment(exp.description) || AlignmentType.JUSTIFIED
+              const descLineSpacing = exactLineSpacing([
+                formattedTextLineHeight(exp.description, LINE_HEIGHT.body),
+                scaledFontSizes.body,
+              ])
 
               // Check if description contains a list structure
               if (isHtmlList(exp.description)) {
@@ -956,11 +1033,12 @@ export async function generateProfessionalDocx(
                   exp.description,
                   {
                     size: scaledFontSizes.body,
-                    color: COLORS.BODY_TEXT,
+                    color: PALETTE.body,
                     font: primaryFont,
                   },
                   pxToTwips(4), // spacing between list items
                   descSpacingAfter, // spacing after last item
+                  descLineSpacing,
                   { right: mainContentRightIndent }, // indent
                   descAlignment
                 )
@@ -971,7 +1049,7 @@ export async function generateProfessionalDocx(
                     exp.description,
                     {
                       size: scaledFontSizes.body,
-                      color: COLORS.BODY_TEXT,
+                      color: PALETTE.body,
                       font: primaryFont,
                     },
                     {
@@ -979,6 +1057,7 @@ export async function generateProfessionalDocx(
                       spacingAfterLast: descSpacingAfter,
                       indent: { right: mainContentRightIndent },
                       alignment: descAlignment,
+                      lineSpacing: descLineSpacing,
                     }
                   )
                 )
@@ -986,7 +1065,7 @@ export async function generateProfessionalDocx(
                 // Parse description HTML to preserve formatting
                 const descRuns = parseHtmlToDocxRuns(exp.description, {
                   size: scaledFontSizes.body,
-                  color: COLORS.BODY_TEXT,
+                  color: PALETTE.body,
                   font: primaryFont,
                 })
 
@@ -995,8 +1074,7 @@ export async function generateProfessionalDocx(
                     children: descRuns,
                     spacing: {
                       after: descSpacingAfter,
-                      line: Math.round(240 * LINE_HEIGHTS.BODY),
-                      lineRule: LineRuleType.AUTO,
+                      ...descLineSpacing,
                     },
                     alignment: descAlignment,
                     indent: { right: mainContentRightIndent },
@@ -1022,14 +1100,18 @@ export async function generateProfessionalDocx(
                   text: (dict as any).resumes?.template?.education || 'Education',
                   bold: true,
                   size: scaledFontSizes.sectionTitle,
-                  color: COLORS.DARK_HEADING,
+                  color: PALETTE.heading,
                   font: primaryFont,
+                  characterSpacing: trackingSpacing(TRACKING.heading, scaledFontSizes.sectionTitle),
                 }),
               ],
-              spacing: { after: pxToTwips(SPACING.SECTION_GAP) },
+              spacing: {
+                after: pxToTwips(SPACING.SECTION_GAP),
+                ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.sectionTitle]),
+              },
               border: {
                 bottom: {
-                  color: COLORS.DARK_HEADING,
+                  color: PALETTE.heading,
                   space: 1,
                   style: BorderStyle.SINGLE,
                   size: 6,
@@ -1051,25 +1133,29 @@ export async function generateProfessionalDocx(
                     text: edu.degree || '',
                     bold: true,
                     size: scaledFontSizes.jobTitle,
-                    color: COLORS.DARK_HEADING,
+                    color: PALETTE.heading,
                     font: primaryFont,
                   }),
                   ...(edu.field ? [
                     new TextRun({
                       text: ` ${inText} ${edu.field}`,
                       size: scaledFontSizes.jobTitle,
-                      color: COLORS.DARK_HEADING,
+                      color: PALETTE.heading,
                       font: primaryFont,
                     }),
                   ] : []),
                   new TextRun({
                     text: '\t' + formatDateRange(edu.startDate, edu.endDate, false, locale as Locale, dict),
                     size: scaledFontSizes.meta,
-                    color: COLORS.DATE_TEXT,
+                    color: PALETTE.date,
                     font: primaryFont,
                   }),
                 ],
-                spacing: { after: pxToTwips(4) },
+                // One flex row in the Preview: the h3 at heading height beside the dates at body height.
+                spacing: {
+                  after: pxToTwips(4),
+                  ...exactLineSpacing([LINE_HEIGHT.heading, scaledFontSizes.jobTitle], [LINE_HEIGHT.body, scaledFontSizes.meta]),
+                },
                 indent: { right: mainContentRightIndent },
                 tabStops: [
                   {
@@ -1087,19 +1173,22 @@ export async function generateProfessionalDocx(
                   new TextRun({
                     text: edu.school || '',
                     size: scaledFontSizes.meta,
-                    color: COLORS.META_TEXT,
+                    color: PALETTE.meta,
                     font: primaryFont,
                   }),
                   ...((edu as any).location ? [
                     new TextRun({
                       text: `\t${(edu as any).location}`,
                       size: scaledFontSizes.meta,
-                      color: COLORS.DATE_TEXT,
+                      color: PALETTE.date,
                       font: primaryFont,
                     }),
                   ] : []),
                 ],
-                spacing: { after: edu.gpa ? pxToTwips(4) : (isLast && isLastSection ? 0 : pxToTwips(16)) },
+                spacing: {
+                  after: edu.gpa ? pxToTwips(4) : (isLast && isLastSection ? 0 : pxToTwips(16)),
+                  ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.meta]),
+                },
                 indent: { right: mainContentRightIndent },
                 tabStops: [
                   {
@@ -1119,11 +1208,14 @@ export async function generateProfessionalDocx(
                     new TextRun({
                       text: `${gpaText}: ${edu.gpa}`,
                       size: scaledFontSizes.meta,
-                      color: COLORS.META_TEXT,
+                      color: PALETTE.meta,
                       font: primaryFont,
                     }),
                   ],
-                  spacing: { after: isLast && isLastSection ? 0 : pxToTwips(16) },
+                  spacing: {
+                    after: isLast && isLastSection ? 0 : pxToTwips(16),
+                    ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.meta]),
+                  },
                   indent: { right: mainContentRightIndent },
                 })
               )
@@ -1179,8 +1271,8 @@ export async function generateProfessionalDocx(
 
   // Create table with FIXED layout to prevent Word auto-resizing
   // This is critical for maintaining exact sidebar width parity with Preview
-  // Page height: US Letter = 11"
-  const pageHeightTwips = convertInchesToTwip(11)
+  // Page height: A4, from the one declaration every surface reads.
+  const pageHeightTwips = convertInchesToTwip(PAGE_HEIGHT_INCHES)
 
   // Row height must account for the trailing paragraph that OOXML requires.
   // Testing with large buffer to confirm root cause.
@@ -1219,9 +1311,10 @@ export async function generateProfessionalDocx(
     },
   })
 
-  // Create document with font settings and minimal default paragraph spacing
-  // The paragraph defaults ensure the implicit trailing paragraph (required by OOXML
-  // for section properties) takes minimal space, preventing page overflow.
+  // Create document with font settings and no default paragraph spacing.
+  // Every paragraph writes its own line spacing; the default is the body
+  // text's, at the default run size, so nothing can fall back to a Word auto
+  // multiple.
   const doc = new Document({
     styles: {
       default: {
@@ -1234,8 +1327,7 @@ export async function generateProfessionalDocx(
             spacing: {
               before: 0,
               after: 0,
-              line: 240, // Single line spacing (240 twips = 1 line at 12pt)
-              lineRule: LineRuleType.AUTO,
+              ...exactLineSpacing([LINE_HEIGHT.body, scaledFontSizes.body]),
             },
           },
         },
@@ -1246,7 +1338,7 @@ export async function generateProfessionalDocx(
         properties: {
           page: {
             size: {
-              width: convertInchesToTwip(8.5),
+              width: convertInchesToTwip(PAGE_WIDTH_INCHES),
               height: pageHeightTwips,
               orientation: PageOrientation.PORTRAIT,
             },

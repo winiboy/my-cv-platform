@@ -9,7 +9,8 @@ import type {
   ResumeProject,
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
-import { formatText } from '@/lib/format-text'
+import { renderFormattedText } from '@/lib/format-text'
+import { PAGE_WIDTH_CSS } from '@/lib/resume-page-size'
 
 interface CreativeTemplateProps {
   resume: Resume
@@ -23,6 +24,13 @@ interface CreativeTemplateProps {
   setSectionTitleFontSize?: (size: number) => void
   sectionDescFontSize?: number
   setSectionDescFontSize?: (size: number) => void
+  /**
+   * The font the owner CHOSE, or undefined when they chose none (Part 3
+   * US-012). Creative declares no family of its own and so draws the app's
+   * Inter until one is chosen; `resume-preview.tsx` applies
+   * `chosenFontFamily` before passing it.
+   */
+  fontFamily?: string
 }
 
 export function CreativeTemplate({
@@ -36,7 +44,8 @@ export function CreativeTemplate({
   sectionTitleFontSize = 16,
   setSectionTitleFontSize,
   sectionDescFontSize = 14,
-  setSectionDescFontSize
+  setSectionDescFontSize,
+  fontFamily
 }: CreativeTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
@@ -48,7 +57,7 @@ export function CreativeTemplate({
   const projects = ((resume.projects as unknown as ResumeProject[]) || []).filter(proj => proj.visible !== false)
 
   return (
-    <div data-testid="resume-document" className="mx-auto bg-white shadow-lg print:shadow-none" style={{ width: '8.5in' }}>
+    <div data-testid="resume-document" className="mx-auto bg-white shadow-lg print:shadow-none" style={{ width: PAGE_WIDTH_CSS, fontFamily: fontFamily }}>
       {/* Header with gradient background */}
       <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 p-10 text-white print:p-8" style={{ position: 'relative' }}>
         <div className="relative z-10">
@@ -86,7 +95,7 @@ export function CreativeTemplate({
 
           {resume.summary && (
             <div className="mb-4 max-w-2xl text-base leading-relaxed text-white/90 text-justify">
-              {formatText(resume.summary)}
+              {renderFormattedText(resume.summary)}
             </div>
           )}
           <div className="relative flex flex-wrap gap-x-5 gap-y-2" style={{ fontSize: `${contactFontSize}px` }}>
@@ -225,13 +234,19 @@ export function CreativeTemplate({
                       <h3 className="mb-2 font-bold text-slate-800" style={{ fontSize: `${sectionDescFontSize}px` }}>
                         {skillCategory.category}
                       </h3>
-                      <div className="space-y-1">
-                        {skillCategory.items.map((skill, i) => (
-                          <div key={i} className="text-slate-700" style={{ fontSize: `${sectionDescFontSize}px` }}>
-                            • {skill}
-                          </div>
-                        ))}
-                      </div>
+                      {skillCategory.skillsHtml ? (
+                        <div className="text-slate-700" style={{ fontSize: `${sectionDescFontSize}px` }}>
+                          {renderFormattedText(skillCategory.skillsHtml)}
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          {skillCategory.items.map((skill, i) => (
+                            <div key={i} className="text-slate-700" style={{ fontSize: `${sectionDescFontSize}px` }}>
+                              • {skill}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -345,13 +360,13 @@ export function CreativeTemplate({
                           {exp.achievements.map((achievement, i) => (
                             <li key={i} className="flex gap-2">
                               <span className="text-purple-500">▸</span>
-                              <span>{formatText(achievement)}</span>
+                              <span>{renderFormattedText(achievement)}</span>
                             </li>
                           ))}
                         </ul>
                       ) : exp.description ? (
                         <div className="mb-3 leading-relaxed text-slate-700 text-justify" style={{ fontSize: `${sectionDescFontSize}px` }}>
-                          {formatText(exp.description)}
+                          {renderFormattedText(exp.description)}
                         </div>
                       ) : null}
                     </div>
@@ -375,9 +390,9 @@ export function CreativeTemplate({
                     >
                       <h3 className="mb-2 font-bold text-slate-900" style={{ fontSize: `${sectionDescFontSize}px` }}>{project.name}</h3>
                       {project.description && (
-                        <p className="mb-3 leading-relaxed text-slate-700" style={{ fontSize: `${sectionDescFontSize}px` }}>
-                          {project.description}
-                        </p>
+                        <div className="mb-3 leading-relaxed text-slate-700" style={{ fontSize: `${sectionDescFontSize}px` }}>
+                          {renderFormattedText(project.description)}
+                        </div>
                       )}
                       {project.technologies && project.technologies.length > 0 && (
                         <div className="flex flex-wrap gap-2">

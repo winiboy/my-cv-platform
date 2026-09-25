@@ -6,6 +6,7 @@
 
 import React from 'react'
 import { SanitizedHtml } from '@/components/sanitized-html'
+import { rendersAsFormattedContent } from '@/lib/resume-line-height'
 
 export interface FormatTextOptions {
   /**
@@ -115,10 +116,9 @@ export function renderFormattedText(
 ): React.ReactNode {
   if (!text) return null
 
-  // Check if content is HTML (contains tags)
-  const isHtml = /<[^>]+>/.test(text)
-
-  if (!isHtml) {
+  // Check if content is HTML (contains tags). The DOCX generators decide which
+  // line height the text draws at with the same test (US-004).
+  if (!rendersAsFormattedContent(text)) {
     // Legacy plain text - use existing formatText logic
     return formatText(text, options)
   }

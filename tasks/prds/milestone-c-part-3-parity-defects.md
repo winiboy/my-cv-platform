@@ -1,7 +1,9 @@
 # PRD: Resume Rendering Unification — Part 3, Parity Defects (Milestone C)
 
 **Status:** APPROVED — owner, 2026-09-15, on the revision of the same date
-(`279f8bf`, merged in #56).
+(`279f8bf`, merged in #56). **Amended 2026-09-22** under this document's own
+BLOCKER condition — see *Amendment History*; the amendment takes effect when the
+owner merges the pull request that carries it.
 
 **Two of the five resume templates silently drop supported content from their
 DOCX export today.** A classic or minimal user with a skills or projects section
@@ -115,9 +117,15 @@ end as `MATCH` or as a recorded, evidenced format limitation.
 | Content | classic and minimal DOCX omit skills and projects | confirmed | US-002 |
 | Palette | DOCX text colour differs from the Preview's palette, all templates | 13 NEW | US-003 |
 | Spacing | DOCX line spacing written as Word auto multiples | 15 NEW + finding | US-004 |
+| Spacing | DOCX paragraphs without explicit spacing (contact lines, positions, dates, companies, skills, languages, certifications) inherit the document default, itself a Word auto multiple | found in US-004 | US-004 |
+| Spacing | Formatted (HTML) body text draws at `.formatted-content`'s line height (`globals.css`, 1.4 `!important`) rather than the template's ratio; the DOCX writes the template ratio, and the parity fixture holds plain text only, so the row is not exercised | found in US-004 | US-004 |
 | Spacing | DOCX letter spacing differs from CSS `em × px` | 8 NEW | US-005 |
+| Palette | DOCX borders and fills kept in stock Tailwind v3 colours: classic header border and heading rules, minimal rules, creative header and badge fills, professional heading underline | found in US-003 | US-003 |
 | Colour | Modern translucent sidebar text written opaque | 2 NEW | US-006 |
+| Colour | Professional `opacity-80` sidebar text (key-achievement descriptions, skill items, language levels) written opaque white | found in US-003 | US-006 |
+| Colour | Creative translucent header text (`text-white/90` summary, `text-white/80` second contact row) written opaque white over a solid fill | found in US-003 | US-006 |
 | Graphics | Modern skill bars, creative language bars and pills absent from DOCX | 3 findings | US-007 |
+| Graphics | Modern technology chip fill; creative timeline line and dots, project card rule and fill, decorative header circles absent from DOCX | found in US-003 | US-007 |
 | Geometry | classic, minimal, creative DOCX A4 against Letter elsewhere | 3 NEW | US-008 |
 | Structure | classic and minimal Previews ignore order and visibility | confirmed | US-009 |
 | Structure | Modern empty-main fallback disagrees | confirmed | US-010 |
@@ -126,6 +134,7 @@ end as `MATCH` or as a recorded, evidenced format limitation.
 | Colour | Modern accent fallback on non-integer hue (F-A); professional print band | 1 NEW + not exercised | US-013 |
 | Controls | sidebar colour on classic, minimal, creative; stored sizes on professional, modern | 3 NEW + 4 NEW | US-014 |
 | Controls | creative section controls a no-op on both surfaces | confirmed | US-015 |
+| Content | modern, creative, classic and minimal Previews ignore skills saved as `skillsHtml`; classic, minimal and creative Previews print HTML descriptions as literal markup | found in US-002 and US-004 | US-016 |
 
 ## Resolved Decisions
 
@@ -274,11 +283,18 @@ the Preview is what I approved.
 - [ ] Every DOCX text colour for the title, section headings and body text
       equals the colour the Preview renders for that element, compared as sRGB
       with the parity check's declared per-channel tolerance, for all five
-      templates.
+      templates. Text the Preview draws translucent is US-006's.
 - [ ] The DOCX values derive from the palette the Preview actually renders —
       `globals.css`'s redefined tokens and inline colours — rather than from a
       second hand-copied hex table that can drift from it again. How the
       generators obtain those values is a decision to record.
+- [ ] Borders and fills the Preview draws in a theme token or inline colour —
+      classic's header border and heading rules, minimal's rules, creative's
+      header and badge fills, professional's heading underline — derive from the
+      same palette. A fill the Preview draws as a gradient takes the gradient's
+      first stop, and the gradient is recorded as a format limitation.
+- [ ] A test fails when a template draws a text colour the palette does not
+      hold, so a new or changed colour in a template cannot drift silently.
 - [ ] Colours the user sets (sidebar, accent) are unchanged by this story.
 - [ ] Preview rendering is unchanged; visual baselines do not move.
 - [ ] The story's parity rows change to `MATCH`.
@@ -295,6 +311,12 @@ because a CV that runs longer in Word than in the Preview breaks differently.
       size — for example `lineRule="exact"` or `atLeast` computed from the run
       size — rather than as a Word `auto` multiple, which scales the font's own
       single-line height.
+- [ ] Every DOCX paragraph takes its spacing from the leading the Preview draws
+      for its element, including paragraphs that today inherit the document
+      default; no paragraph is left on a Word `auto` multiple.
+- [ ] Formatted (HTML) body text, which the Preview draws at
+      `.formatted-content`'s line height, is written at that line height, per
+      FR-3; the parity check exercises it with a profile whose body text is HTML.
 - [ ] Line height is compared on drawn leading, not on the encoded value, for
       the title, headings and body text of all five templates.
 - [ ] Spacing chosen to avoid clipping glyphs (Word's exact spacing can cut
@@ -319,27 +341,35 @@ As a user, I want headings in my downloaded CV spaced as they are on screen.
 - [ ] Preview rendering is unchanged; visual baselines do not move.
 - [ ] The story's parity rows change to `MATCH`.
 
-### US-006: Modern's translucent sidebar text keeps its tint in the DOCX
+### US-006: Translucent text keeps its tint in the DOCX
 
 **Description:**
-As a user of the modern template, I want secondary sidebar text in my download to
-look as muted as it does on screen.
+As a user of the modern, professional or creative template, I want secondary text
+in my download to look as muted as it does on screen.
 
 **Acceptance Criteria:**
 
-- [ ] Sidebar text drawn in the Preview as translucent white over the sidebar
-      colour is written to the DOCX as the composited opaque colour, computed
-      against the user's actual sidebar colour rather than a default.
+- [ ] Text drawn in the Preview as translucent white — modern's secondary
+      sidebar text, professional's `opacity-80` sidebar text, and creative's
+      `text-white/90` and `text-white/80` header text — is written to the DOCX as
+      the composited opaque colour, computed against the colour the DOCX
+      actually draws behind it: the user's sidebar colour for modern and
+      professional, the header fill for creative.
 - [ ] Changing the sidebar colour changes the composited DOCX colour
-      accordingly, evidenced at two different colours.
+      accordingly on modern and professional, evidenced at two different colours.
+- [ ] The parity check samples professional's and creative's translucent text,
+      so each is a named row rather than an unmeasured difference.
+- [ ] Creative's header gradient, which the DOCX cannot draw, is recorded as a
+      format limitation with evidence, including the colour its translucent text
+      is composited against.
 - [ ] Preview rendering is unchanged; visual baselines do not move.
 - [ ] The story's parity rows change to `MATCH`.
 
 ### US-007: The DOCX draws the graphics the Preview draws
 
 **Description:**
-As a user of the modern or creative template, I want the skill and language
-bars and technology pills I see to appear in my download.
+As a user of the modern or creative template, I want the bars, pills and other
+graphics I see to appear in my download.
 
 **Acceptance Criteria:**
 
@@ -347,13 +377,20 @@ bars and technology pills I see to appear in my download.
       pills appear in the DOCX, approximated with what the format supports — for
       example shaded table cells or shaded runs — and each approximation is
       recorded with its form.
+- [ ] Modern's technology chip fill and creative's timeline line and dots,
+      project card rule and fill, and decorative header circles are each drawn in
+      the DOCX with what the format supports, recorded as a format limitation
+      with evidence, or — where the format can express it but the cost or the
+      side effects are judged not worth it — recorded as an owner decision
+      naming the route that was open and why it was not taken.
 - [ ] Each drawn element carries the same value the Preview shows (a proficiency
       level, a pill's text), asserted on the unzipped document.
 - [ ] Anything that proves genuinely inexpressible in DOCX is recorded as a
       format limitation with evidence, not silently omitted.
 - [ ] Preview rendering is unchanged; visual baselines do not move.
 - [ ] The three graphics findings are closed, each as drawn or as an evidenced
-      limitation.
+      limitation, and no graphic is left on US-003's completeness check as
+      unplaced.
 
 ### US-008: Every resume is A4 on every surface
 
@@ -590,6 +627,43 @@ in. "Creative honours `mainContentOrder`" is therefore not unimplemented but
 - [ ] Any visual baseline that moves is approved with its cause understood.
 - [ ] The story's parity rows change to `MATCH`.
 
+### US-016: The Preview shows the content the user saved
+
+> **Added 2026-09-22**, when US-004 found that the modern and creative Previews
+> ignore skills saved as rich text. US-002 had already recorded the same shape
+> for classic and minimal as an unowned finding. This story owns both.
+
+**Description:**
+As a user, I want the Preview to show the skills and descriptions I typed,
+because they are what my downloaded CV contains.
+
+**Context — the DOCX is right and the Preview is wrong.** The skills editor saves
+each category as `skillsHtml` (`skills-section.tsx`), converting older `items`
+lists as it goes. Professional's Preview renders `skillsHtml` and falls back to
+`items`; the modern, creative, classic and minimal Previews read `items` only, so
+after an edit they show a stale list or nothing, while every DOCX renders what was
+typed. Project descriptions and other rich-text fields are stored as HTML, and the
+classic and minimal Previews (and creative's project descriptions) print them as
+literal markup, while the DOCX parses them.
+
+**Acceptance Criteria:**
+
+- [ ] A skill category saved as `skillsHtml` renders in the Preview of every
+      template, as professional's does; `items` is used only when no
+      `skillsHtml` exists.
+- [ ] Rich-text fields stored as HTML — project and education descriptions and
+      any other — render as formatted text in every template's Preview, never as
+      literal markup.
+- [ ] All such rendering goes through the inert sanitiser; no path writes
+      unsanitised HTML, on the server or the client.
+- [ ] The DOCX is unchanged, evidenced by artifact comparison across all five
+      templates.
+- [ ] The parity check exercises it with a profile whose skills and descriptions
+      are HTML, and the "rich text in skills and projects" findings are closed.
+- [ ] Rendered browser evidence and `ui-expert` validation show each template's
+      Preview with rich-text skills and descriptions.
+- [ ] Any visual baseline that moves is approved with its cause understood.
+
 ## Story Map
 
 | This revision | First draft |
@@ -602,6 +676,7 @@ in. "Creative honours `mainContentOrder`" is therefore not unimplemented but
 | US-011 | US-004 |
 | US-012 to US-014 | — (new) |
 | US-015 | US-005 |
+| US-016 | — (added 2026-09-22) |
 
 ## Functional Requirements
 
@@ -759,6 +834,55 @@ in. "Creative honours `mainContentOrder`" is therefore not unimplemented but
   approximation (US-007), where `projects` sits in a shared order (US-009), which
   surface is correct for the empty-main fallback (US-010), and how the font-choice
   record is represented (US-012).
+
+## Amendment History
+
+- **2026-09-22 — US-003 BLOCKER.** Implementing US-003 and its independent
+  review found three divergences this document did not name: professional's
+  `opacity-80` sidebar text and creative's translucent header text, both written
+  opaque white in the DOCX; and borders and fills the generators keep in stock
+  Tailwind v3 colours. Under the BLOCKER condition, this amendment names all
+  three in the *Divergence Inventory* and assigns them: the translucent text to
+  US-006, now "Translucent text keeps its tint in the DOCX"; the borders and
+  fills to US-003, with a completeness check so a template colour missing from
+  the palette fails a test. No story is added, removed or reordered, and no
+  cross-story requirement changes.
+- **2026-09-22 — graphics found by US-003's completeness check.** The check that
+  every colour a template draws is accounted for found Preview graphics the DOCX
+  does not draw and this document did not name: modern's technology chip fill,
+  and creative's timeline line and dots, project card rule and fill, and
+  decorative header circles. They are added to the *Divergence Inventory* and
+  assigned to US-007, whose graphics scope they share; its final criterion now
+  also requires that no graphic is left unplaced. No story is added, removed or
+  reordered.
+- **2026-09-22 — US-004 BLOCKER.** Reading the Preview side of line height found
+  two divergences this document did not name. Most DOCX paragraphs set no
+  spacing and inherit the document default, itself a Word `auto` multiple; they
+  are assigned to US-004, whose first criterion already forbids `auto`
+  multiples. Formatted (HTML) body text draws at `.formatted-content`'s 1.4 line
+  height in the Preview, not the template's ratio; under FR-3 the Preview is the
+  reference, so US-004 writes the DOCX at the height the Preview draws and adds
+  an HTML-body parity profile so the row is exercised. No story is added,
+  removed or reordered.
+- **2026-09-22 — US-016 added.** US-004 found that the modern and creative
+  Previews read a skill category's `items` only, ignoring the `skillsHtml` the
+  editor saves, so an edited skills section shows a stale list or nothing in the
+  Preview while the DOCX shows what was typed. US-002 had recorded the same shape
+  for classic and minimal, and for HTML descriptions, as a finding no story
+  owned. The DOCX is right, so the fix is on the Preview side, and no existing
+  story covers it: **US-016 is added at the end**, so no story is renumbered.
+  This is the only amendment that adds a story.
+- **2026-09-24 — US-007's third disposition.** Criterion 2 offered two outcomes
+  for each graphic: drawn, or a format limitation with evidence. Creative's
+  timeline dot is neither. It was drawn as a `●` glyph prefixed to the position
+  paragraph, which put a decoration inside a field an ATS parses as the job
+  title, so the owner had it removed; the continuous left rule already carries
+  the timeline. The floating-raster route the header circles now take is open —
+  the dot is a disc too — but anchoring one image per experience entry, with the
+  page-break risk that carries, was judged not worth a 6px decoration. The
+  criterion now admits that third disposition: the format can express it, and the
+  record must name the route that was open and why it was not taken. No story is
+  added, removed or reordered.
 
 ## Approval Gate
 

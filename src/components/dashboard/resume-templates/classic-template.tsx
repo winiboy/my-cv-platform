@@ -9,7 +9,8 @@ import type {
   ResumeProject,
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
-import { formatText } from '@/lib/format-text'
+import { renderFormattedText } from '@/lib/format-text'
+import { PAGE_WIDTH_CSS } from '@/lib/resume-page-size'
 
 interface ClassicTemplateProps {
   resume: Resume
@@ -23,6 +24,13 @@ interface ClassicTemplateProps {
   setSectionTitleFontSize?: (size: number) => void
   sectionDescFontSize?: number
   setSectionDescFontSize?: (size: number) => void
+  /**
+   * The font the owner CHOSE, or undefined when they chose none (Part 3
+   * US-012). Classic keeps its designed serif until one is chosen, so this
+   * prop is the choice and not the stored stack — `resume-preview.tsx` applies
+   * `chosenFontFamily` before passing it.
+   */
+  fontFamily?: string
 }
 
 export function ClassicTemplate({
@@ -36,7 +44,8 @@ export function ClassicTemplate({
   sectionTitleFontSize = 16,
   setSectionTitleFontSize,
   sectionDescFontSize = 14,
-  setSectionDescFontSize
+  setSectionDescFontSize,
+  fontFamily
 }: ClassicTemplateProps) {
   const contact = (resume.contact as unknown as ResumeContact) || {}
   // Filter to show only visible items
@@ -47,12 +56,26 @@ export function ClassicTemplate({
   const certifications = ((resume.certifications as unknown as ResumeCertification[]) || []).filter(cert => cert.visible !== false)
   const projects = ((resume.projects as unknown as ResumeProject[]) || []).filter(proj => proj.visible !== false)
 
+  /**
+   * Classic's title and section headings are serif, its body the app's Inter,
+   * and that is its identity while no font is chosen (Part 3 US-012). A chosen
+   * font replaces BOTH: it is set on the document root, which the body
+   * inherits, and the serif class is withdrawn below so the headings inherit it
+   * too — a class on the heading would otherwise beat an inherited family and
+   * leave the document in two fonts. `docx-classic.ts` writes the same two
+   * families.
+   *
+   * The condition is written out at each heading rather than hoisted into a
+   * variable because `resume-palette.test.ts` scans these class lists for the
+   * colours this template draws, and fails closed on a class list built from a
+   * variable: it can read a conditional, not an identifier.
+   */
   return (
-    <div data-testid="resume-document" className="mx-auto bg-white shadow-lg print:shadow-none" style={{ width: '8.5in' }}>
+    <div data-testid="resume-document" className="mx-auto bg-white shadow-lg print:shadow-none" style={{ width: PAGE_WIDTH_CSS, fontFamily: fontFamily }}>
       <div className="space-y-5 p-12 print:p-8">
         {/* Header: CV Title */}
         <div className="border-b-2 border-slate-900 pb-4 text-center" style={{ position: 'relative' }}>
-          <h1 className="mb-3 font-serif font-bold uppercase tracking-wide text-slate-900" style={{ fontSize: `${titleFontSize}px` }}>
+          <h1 className={`mb-3 ${fontFamily ? '' : 'font-serif'} font-bold uppercase tracking-wide text-slate-900`} style={{ fontSize: `${titleFontSize}px` }}>
             {resume.title || 'CV TITLE'}
           </h1>
 
@@ -152,7 +175,7 @@ export function ClassicTemplate({
         {/* Summary */}
         {resume.summary && (
           <div>
-            <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif font-bold uppercase text-slate-900" style={{ position: 'relative', fontSize: `${sectionTitleFontSize}px` }}>
+            <h2 className={`mb-3 border-b border-slate-400 pb-1 ${fontFamily ? '' : 'font-serif'} font-bold uppercase text-slate-900`} style={{ position: 'relative', fontSize: `${sectionTitleFontSize}px` }}>
               {dict.resumes?.editor?.sections?.summary || 'Professional Summary'}
 
               {/* Section Title Font Size Slider */}
@@ -182,14 +205,14 @@ export function ClassicTemplate({
                 </div>
               )}
             </h2>
-            <div className="leading-relaxed text-slate-800 text-justify" style={{ fontSize: `${sectionDescFontSize}px` }}>{formatText(resume.summary)}</div>
+            <div className="leading-relaxed text-slate-800 text-justify" style={{ fontSize: `${sectionDescFontSize}px` }}>{renderFormattedText(resume.summary)}</div>
           </div>
         )}
 
         {/* Experience */}
         {experiences.length > 0 && (
           <div>
-            <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif font-bold uppercase text-slate-900" style={{ fontSize: `${sectionTitleFontSize}px` }}>
+            <h2 className={`mb-3 border-b border-slate-400 pb-1 ${fontFamily ? '' : 'font-serif'} font-bold uppercase text-slate-900`} style={{ fontSize: `${sectionTitleFontSize}px` }}>
               {dict.resumes?.editor?.sections?.experience || 'Professional Experience'}
             </h2>
             <div className="space-y-4">
@@ -221,7 +244,7 @@ export function ClassicTemplate({
                   {exp.achievements && exp.achievements.length > 0 ? (
                     <ul className="mt-2 list-inside list-disc space-y-1 text-slate-800" style={{ position: index === 0 ? 'relative' : undefined, fontSize: `${sectionDescFontSize}px` }}>
                       {exp.achievements.map((achievement, i) => (
-                        <li key={i}>{formatText(achievement)}</li>
+                        <li key={i}>{renderFormattedText(achievement)}</li>
                       ))}
 
                       {/* Description Font Size Slider - on first experience */}
@@ -253,7 +276,7 @@ export function ClassicTemplate({
                     </ul>
                   ) : exp.description ? (
                     <div className="mt-2 leading-relaxed text-slate-800 text-justify" style={{ position: index === 0 ? 'relative' : undefined, fontSize: `${sectionDescFontSize}px` }}>
-                      {formatText(exp.description)}
+                      {renderFormattedText(exp.description)}
 
                       {/* Description Font Size Slider - on first experience */}
                       {index === 0 && setSectionDescFontSize && (
@@ -292,7 +315,7 @@ export function ClassicTemplate({
         {/* Education */}
         {education.length > 0 && (
           <div>
-            <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif font-bold uppercase text-slate-900" style={{ fontSize: `${sectionTitleFontSize}px` }}>
+            <h2 className={`mb-3 border-b border-slate-400 pb-1 ${fontFamily ? '' : 'font-serif'} font-bold uppercase text-slate-900`} style={{ fontSize: `${sectionTitleFontSize}px` }}>
               {dict.resumes?.editor?.sections?.education || 'Education'}
             </h2>
             <div className="space-y-3">
@@ -325,7 +348,7 @@ export function ClassicTemplate({
                     </p>
                   )}
                   {edu.description && (
-                    <p className="mt-1 text-slate-800" style={{ fontSize: `${sectionDescFontSize}px` }}>{edu.description}</p>
+                    <div className="mt-1 text-slate-800" style={{ fontSize: `${sectionDescFontSize}px` }}>{renderFormattedText(edu.description)}</div>
                   )}
                 </div>
               ))}
@@ -336,7 +359,7 @@ export function ClassicTemplate({
         {/* Skills */}
         {skills.length > 0 && (
           <div>
-            <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif font-bold uppercase text-slate-900" style={{ fontSize: `${sectionTitleFontSize}px` }}>
+            <h2 className={`mb-3 border-b border-slate-400 pb-1 ${fontFamily ? '' : 'font-serif'} font-bold uppercase text-slate-900`} style={{ fontSize: `${sectionTitleFontSize}px` }}>
               {dict.resumes?.editor?.sections?.skills || 'Skills'}
             </h2>
             <div className="space-y-2">
@@ -344,7 +367,9 @@ export function ClassicTemplate({
                 <div key={index}>
                   <span className="font-bold text-slate-900">{skillCategory.category}: </span>
                   <span className="text-slate-800" style={{ fontSize: `${sectionDescFontSize}px` }}>
-                    {skillCategory.items.join(', ')}
+                    {skillCategory.skillsHtml
+                      ? renderFormattedText(skillCategory.skillsHtml)
+                      : skillCategory.items.join(', ')}
                   </span>
                 </div>
               ))}
@@ -355,7 +380,7 @@ export function ClassicTemplate({
         {/* Projects */}
         {projects.length > 0 && (
           <div>
-            <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif font-bold uppercase text-slate-900" style={{ fontSize: `${sectionTitleFontSize}px` }}>
+            <h2 className={`mb-3 border-b border-slate-400 pb-1 ${fontFamily ? '' : 'font-serif'} font-bold uppercase text-slate-900`} style={{ fontSize: `${sectionTitleFontSize}px` }}>
               {dict.resumes?.editor?.sections?.projects || 'Projects'}
             </h2>
             <div className="space-y-3">
@@ -363,7 +388,7 @@ export function ClassicTemplate({
                 <div key={index}>
                   <h3 className="font-bold text-slate-900">{project.name}</h3>
                   {project.description && (
-                    <p className="mt-1 text-slate-800" style={{ fontSize: `${sectionDescFontSize}px` }}>{project.description}</p>
+                    <div className="mt-1 text-slate-800" style={{ fontSize: `${sectionDescFontSize}px` }}>{renderFormattedText(project.description)}</div>
                   )}
                   {project.technologies && project.technologies.length > 0 && (
                     <p className="mt-1 text-slate-700" style={{ fontSize: `${sectionDescFontSize}px` }}>
@@ -383,7 +408,7 @@ export function ClassicTemplate({
             {/* Languages */}
             {languages.length > 0 && (
               <div>
-                <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif font-bold uppercase text-slate-900" style={{ fontSize: `${sectionTitleFontSize}px` }}>
+                <h2 className={`mb-3 border-b border-slate-400 pb-1 ${fontFamily ? '' : 'font-serif'} font-bold uppercase text-slate-900`} style={{ fontSize: `${sectionTitleFontSize}px` }}>
                   {dict.resumes?.editor?.sections?.languages || 'Languages'}
                 </h2>
                 <div className="space-y-1">
@@ -402,7 +427,7 @@ export function ClassicTemplate({
             {/* Certifications */}
             {certifications.length > 0 && (
               <div>
-                <h2 className="mb-3 border-b border-slate-400 pb-1 font-serif font-bold uppercase text-slate-900" style={{ fontSize: `${sectionTitleFontSize}px` }}>
+                <h2 className={`mb-3 border-b border-slate-400 pb-1 ${fontFamily ? '' : 'font-serif'} font-bold uppercase text-slate-900`} style={{ fontSize: `${sectionTitleFontSize}px` }}>
                   {dict.resumes?.editor?.sections?.certifications || 'Certifications'}
                 </h2>
                 <div className="space-y-2">

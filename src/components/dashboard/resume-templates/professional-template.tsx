@@ -13,6 +13,8 @@ import type {
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
 import { renderFormattedText } from '@/lib/format-text'
+import { PROFESSIONAL_LINE_HEIGHT } from '@/lib/resume-line-height'
+import { PAGE_HEIGHT_CSS, PAGE_WIDTH_CSS, PAGE_WIDTH_PX } from '@/lib/resume-page-size'
 import {
   DEFAULT_RESUME_LAYOUT,
   type EditorMainId,
@@ -64,9 +66,9 @@ const HEADER_GAP = 12
  */
 const SIDEBAR_COLOR = `hsl(${DEFAULT_RESUME_LAYOUT.sidebarHue}, ${DEFAULT_RESUME_LAYOUT.sidebarSaturation}%, ${DEFAULT_RESUME_LAYOUT.sidebarBrightness}%)`
 
-// Line heights
-const BODY_LINE_HEIGHT = 1.35
-const HEADING_LINE_HEIGHT = 1.2
+// Line heights, shared with the DOCX generator (Part 3 US-004)
+const BODY_LINE_HEIGHT = PROFESSIONAL_LINE_HEIGHT.body
+const HEADING_LINE_HEIGHT = PROFESSIONAL_LINE_HEIGHT.heading
 
 /**
  * Professional Template - Faithful to reference CV design with header modification
@@ -213,8 +215,8 @@ export function ProfessionalTemplate({
   const handleSidebarWidthMouseMove = useCallback((e: MouseEvent) => {
     if (!isDraggingSidebarWidth || !setSidebarWidth) return
     const deltaX = e.clientX - sidebarWidthDragStartX.current
-    // Convert pixel delta to percentage (816px is the template width)
-    const deltaPercent = (deltaX / 816) * 100
+    // Convert pixel delta to percentage, against the page the template draws on
+    const deltaPercent = (deltaX / PAGE_WIDTH_PX) * 100
     const newWidth = Math.max(20, Math.min(45, sidebarWidthDragStartWidth.current + deltaPercent))
     setSidebarWidth(newWidth)
   }, [isDraggingSidebarWidth, setSidebarWidth])
@@ -251,8 +253,8 @@ export function ProfessionalTemplate({
       data-testid="resume-document"
       className="professional-template mx-auto shadow-lg print:shadow-none print:bg-transparent"
       style={{
-        width: '816px',
-        minHeight: '1056px',
+        width: PAGE_WIDTH_CSS,
+        minHeight: PAGE_HEIGHT_CSS,
         position: 'relative',
         backgroundColor: 'white',
         fontFamily: fontFamily
@@ -303,7 +305,7 @@ export function ProfessionalTemplate({
             const visibleSections = sidebarOrder.filter(sectionId => !hiddenSidebarSections.includes(sectionId))
             const firstRenderedSidebarSection = visibleSections.find(sectionId => {
               if (sectionId === 'keyAchievements') return keyAchievements.length > 0
-              if (sectionId === 'skills') return skills.filter(s => s.category && s.items && s.items.length > 0).length > 0
+              if (sectionId === 'skills') return skills.filter(s => s.category && (s.skillsHtml || (s.items && s.items.length > 0))).length > 0
               if (sectionId === 'languages') return languages.length > 0
               if (sectionId === 'training') return certifications.length > 0
               return false
@@ -354,7 +356,7 @@ export function ProfessionalTemplate({
               )
             }
 
-            if (sectionId === 'skills' && skills.filter(s => s.category && s.items && s.items.length > 0).length > 0) {
+            if (sectionId === 'skills' && skills.filter(s => s.category && (s.skillsHtml || (s.items && s.items.length > 0))).length > 0) {
               return (
                 <div key={sectionId} className={isLastSection ? '' : 'mb-8'}>
                   <h2 className="relative mb-4 pb-1 border-b border-white font-bold tracking-wide capitalize" style={{ fontSize: `${scaledSectionTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT }}>

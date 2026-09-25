@@ -21,15 +21,23 @@ import {
   pxToHalfPoints,
   pxToTwips,
   extractAlignment,
-  extractPrimaryFont,
+  resolveDocxFont,
+  APP_BODY_FONT,
   isHtmlList,
   parseHtmlListToParagraphs,
   isPlainTextList,
   parsePlainTextListToParagraphs,
   parseHtmlToDocxRuns,
   stripHtml,
+  exactLineSpacing,
+  trackingSpacing,
+  NO_TEXT_LINE,
   type DocxGeneratorSettings,
 } from './docx-helpers'
+import { DOCX_PALETTE } from './docx-palette'
+import { PAGE_HEIGHT_INCHES, PAGE_WIDTH_INCHES } from '@/lib/resume-page-size'
+import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
+import { PREFLIGHT_LINE_HEIGHT, TAILWIND_LEADING, TAILWIND_TEXT_LINE_HEIGHT } from '@/lib/resume-line-height'
 import {
   assertExhaustiveSection,
   mapEditorOrderToMinimal,
@@ -47,17 +55,13 @@ const MINIMAL_DICT: Record<string, Record<string, string>> = {
 }
 
 // ============================================================
-// MINIMAL TEMPLATE COLORS (Tailwind Slate palette — lighter than Classic)
+// MINIMAL TEMPLATE COLORS
 // ============================================================
-const SLATE = {
-  900: '0F172A', // titles only
-  700: '334155', // body text, achievements, skill category names
-  600: '475569', // secondary text (company, summary, skill items)
-  500: '64748B', // dates, contact info, metadata
-  400: '94A3B8', // section headers (light gray)
-  300: 'CBD5E1', // header bottom border
-  200: 'E2E8F0', // section title borders (very light)
-}
+/** Every text run and rule, in the colour of the class the Preview draws it with (US-003). */
+const PALETTE = DOCX_PALETTE.minimal
+
+/** The letter spacing the Preview draws, in em, applied at each run's own size (US-005). */
+const TRACKING = PREVIEW_TRACKING.minimal
 
 // ============================================================
 // FONT SIZE CONSTANTS (matching minimal-template.tsx defaults)
@@ -73,11 +77,22 @@ const FONT_SIZES = {
   TECH: 12,          // text-xs for technology tags
 }
 
-// Line heights
-const LINE_HEIGHTS = {
-  BODY: 1.625,    // leading-relaxed
-  HEADING: 1.2,
-}
+/**
+ * The Preview's line heights (US-004), from `resume-line-height.ts`.
+ * `minimal-template.tsx` sets none inline: elements inherit Tailwind's
+ * preflight 1.5 unless a class sets one — `text-xl` (position, degree, project
+ * name), `text-base` (company), `text-sm` (dates), `text-xs` (technologies)
+ * and `leading-relaxed` (summary, achievements, descriptions). The template
+ * renders every text plainly (`formatText`), never as formatted content.
+ */
+const LINE_HEIGHT = {
+  inherited: PREFLIGHT_LINE_HEIGHT,
+  textXl: TAILWIND_TEXT_LINE_HEIGHT['text-xl'],
+  textBase: TAILWIND_TEXT_LINE_HEIGHT['text-base'],
+  textSm: TAILWIND_TEXT_LINE_HEIGHT['text-sm'],
+  textXs: TAILWIND_TEXT_LINE_HEIGHT['text-xs'],
+  relaxed: TAILWIND_LEADING['leading-relaxed'],
+} as const
 
 // Spacing constants (px, converted to twips at usage)
 // Wider than Classic to match the Minimal template's airy feel
@@ -103,8 +118,9 @@ const SPACING = {
   EDU_LINE1_MB: 8,              // mb-2 = 8px between degree line and school line
 }
 
-// Minimal template uses sans-serif, not serif
-const DEFAULT_SANS_FONT = 'Arial'
+// Minimal template uses sans-serif, not serif. Its Preview declares no family
+// of its own, so the sans it draws is the app's Inter (Part 3 US-012).
+const DESIGNED_FONT = APP_BODY_FONT
 
 // ============================================================
 // MINIMAL TEMPLATE DOCX GENERATOR
@@ -133,9 +149,8 @@ export async function generateMinimalDocx(
   const dict = getTranslations(locale as Locale, 'common')
   const minimalDict = MINIMAL_DICT[locale] || MINIMAL_DICT.en
 
-  // Determine font: extract primary from settings, default to sans-serif
-  const primaryFont = extractPrimaryFont(fontFamily)
-  const font = primaryFont || DEFAULT_SANS_FONT
+  // The owner's chosen font, or the font the Preview draws when none was chosen.
+  const font = resolveDocxFont(fontFamily, DESIGNED_FONT)
 
   const contact = resume.contact || {}
 
@@ -199,9 +214,18 @@ export async function generateMinimalDocx(
     tech: pxToHalfPoints(FONT_SIZES.TECH * fontScale),
   }
 
+  // Line spacing shared by many paragraphs.
+  const inheritedBody = exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.body])
+  const relaxedBody = exactLineSpacing([LINE_HEIGHT.relaxed, scaledFontSizes.body])
+  // A title and its date in one flex row: the text-xl h3 beside the text-sm date.
+  const titleAndDateLine = exactLineSpacing(
+    [LINE_HEIGHT.textXl, scaledFontSizes.position],
+    [LINE_HEIGHT.textSm, scaledFontSizes.date],
+  )
+
   // Page dimensions: A4
-  const pageWidthTwips = convertInchesToTwip(8.27)
-  const pageHeightTwips = convertInchesToTwip(11.69)
+  const pageWidthTwips = convertInchesToTwip(PAGE_WIDTH_INCHES)
+  const pageHeightTwips = convertInchesToTwip(PAGE_HEIGHT_INCHES)
 
   // Margins: p-16 = 64px = 960 twips
   const marginTwips = pxToTwips(SPACING.OUTER_PADDING)
@@ -209,11 +233,6 @@ export async function generateMinimalDocx(
   // Content width for tab stop calculations
   const contentWidthTwips = pageWidthTwips - (2 * marginTwips)
   const rightTabPosition = contentWidthTwips
-
-  // Character spacing for tracking-widest on section headers
-  // CSS tracking-widest = 0.1em. At 16px font, 0.1em ~ 1.6px ~ 24 twips
-  // Using a generous value to match the wide appearance
-  const trackingWidestTwips = pxToTwips(1.6)
 
   // ============================================================
   // HELPER: Section header with very light bottom border
@@ -227,17 +246,18 @@ export async function generateMinimalDocx(
           text: title.toUpperCase(),
           bold: true, // font-semibold approximated as bold
           size: scaledFontSizes.sectionTitle,
-          color: SLATE[400], // Light gray — key difference from Classic
+          color: PALETTE['slate-400'], // Light gray — key difference from Classic
           font,
-          characterSpacing: trackingWidestTwips,
+          characterSpacing: trackingSpacing(TRACKING.heading, scaledFontSizes.sectionTitle),
         }),
       ],
       spacing: {
         after: spacingAfter ?? pxToTwips(SPACING.SECTION_TITLE_MB),
+        ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.sectionTitle]),
       },
       border: {
         bottom: {
-          color: SLATE[200], // Very light border — key difference from Classic
+          color: PALETTE['slate-200'], // Very light border — key difference from Classic
           space: 1, // pb-2 spacing between text and border
           style: BorderStyle.SINGLE,
           size: 4, // 1px border
@@ -291,15 +311,15 @@ export async function generateMinimalDocx(
           // font-light (300) = normal (non-bold) in DOCX
           bold: false,
           size: scaledFontSizes.title,
-          color: SLATE[900],
+          color: PALETTE['slate-900'],
           font,
+          characterSpacing: trackingSpacing(TRACKING.title, scaledFontSizes.title),
         }),
       ],
       alignment: AlignmentType.CENTER,
       spacing: {
         after: pxToTwips(16), // space-y-4 between title and contact
-        line: Math.round(240 * LINE_HEIGHTS.HEADING),
-        lineRule: LineRuleType.AUTO,
+        ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.title]),
       },
     })
   )
@@ -325,26 +345,30 @@ export async function generateMinimalDocx(
           new TextRun({
             text: contactItems.join('    '), // Wide spacing between items (gap-x-6)
             size: scaledFontSizes.contact,
-            color: SLATE[500],
+            color: PALETTE['slate-500'],
             font,
           }),
         ],
         alignment: AlignmentType.CENTER,
-        spacing: { after: 0 },
+        spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.contact]) },
       })
     )
   }
 
-  // Header bottom border: border-b border-slate-300, pb-6
+  // Header bottom border: border-b border-slate-300, pb-6.
+  // It draws no text; its line stands for the header's pb-6, the padding the
+  // Preview draws between the contact line and the border.
   children.push(
     new Paragraph({
       children: [],
       spacing: {
         after: pxToTwips(SPACING.SECTION_GAP),
+        line: pxToTwips(SPACING.HEADER_PB),
+        lineRule: LineRuleType.EXACT,
       },
       border: {
         bottom: {
-          color: SLATE[300], // slate-300, lighter than Classic's slate-900
+          color: PALETTE['slate-300'], // slate-300, lighter than Classic's slate-900
           space: 1,
           style: BorderStyle.SINGLE,
           size: 4, // 1px border
@@ -382,11 +406,12 @@ export async function generateMinimalDocx(
               resume.summary,
               {
                 size: scaledFontSizes.body,
-                color: SLATE[600], // slate-600 for summary text
+                color: PALETTE['slate-600'], // slate-600 for summary text
                 font,
               },
               pxToTwips(4),
               sectionEndSpacing,
+              relaxedBody,
               undefined,
               summaryAlignment
             )
@@ -397,20 +422,21 @@ export async function generateMinimalDocx(
                 resume.summary,
                 {
                   size: scaledFontSizes.body,
-                  color: SLATE[600],
+                  color: PALETTE['slate-600'],
                   font,
                 },
                 {
                   spacingAfterItem: pxToTwips(4),
                   spacingAfterLast: sectionEndSpacing,
                   alignment: summaryAlignment,
+                  lineSpacing: relaxedBody,
                 }
               )
             )
           } else {
             const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
               size: scaledFontSizes.body,
-              color: SLATE[600],
+              color: PALETTE['slate-600'],
               font,
             })
 
@@ -420,8 +446,7 @@ export async function generateMinimalDocx(
                 alignment: summaryAlignment,
                 spacing: {
                   after: sectionEndSpacing,
-                  line: Math.round(240 * LINE_HEIGHTS.BODY),
-                  lineRule: LineRuleType.AUTO,
+                  ...relaxedBody,
                 },
               })
             )
@@ -456,19 +481,19 @@ export async function generateMinimalDocx(
                     text: exp.position || '',
                     bold: true, // font-medium approximated as bold
                     size: scaledFontSizes.position, // text-xl = 20px
-                    color: SLATE[900],
+                    color: PALETTE['slate-900'],
                     font,
                   }),
                   ...(dateText ? [
                     new TextRun({
                       text: '\t' + dateText,
                       size: scaledFontSizes.date, // text-sm = 14px
-                      color: SLATE[500],
+                      color: PALETTE['slate-500'],
                       font,
                     }),
                   ] : []),
                 ],
-                spacing: { after: pxToTwips(SPACING.EXP_LINE1_MB) },
+                spacing: { after: pxToTwips(SPACING.EXP_LINE1_MB), ...titleAndDateLine },
                 tabStops: [
                   {
                     type: TabStopType.RIGHT,
@@ -490,12 +515,15 @@ export async function generateMinimalDocx(
                     new TextRun({
                       text: companyText,
                       size: scaledFontSizes.company, // text-base = 16px
-                      color: SLATE[600],
+                      color: PALETTE['slate-600'],
                       font,
                       // font-light = non-bold (default)
                     }),
                   ],
-                  spacing: { after: pxToTwips(SPACING.EXP_LINE2_MB) },
+                  spacing: {
+                    after: pxToTwips(SPACING.EXP_LINE2_MB),
+                    ...exactLineSpacing([LINE_HEIGHT.textBase, scaledFontSizes.company]),
+                  },
                 })
               )
             }
@@ -507,7 +535,7 @@ export async function generateMinimalDocx(
 
                 const achievementRuns = parseHtmlToDocxRuns(achievement, {
                   size: scaledFontSizes.body,
-                  color: SLATE[700], // slate-700 for achievement text
+                  color: PALETTE['slate-700'], // slate-700 for achievement text
                   font,
                 })
 
@@ -525,15 +553,16 @@ export async function generateMinimalDocx(
                       new TextRun({
                         text: '\u2022 ', // Small bullet character
                         size: scaledFontSizes.body,
-                        color: SLATE[400], // Bullet color matches slate-400
+                        color: PALETTE['slate-400'], // Bullet color matches slate-400
                         font,
                       }),
                       ...achievementRuns,
                     ],
+                    // The achievement text is a leading-relaxed span; the Preview's
+                    // bullet is a drawn dot, not text.
                     spacing: {
                       after: achievementSpacingAfter,
-                      line: Math.round(240 * LINE_HEIGHTS.BODY),
-                      lineRule: LineRuleType.AUTO,
+                      ...relaxedBody,
                     },
                   })
                 )
@@ -547,11 +576,12 @@ export async function generateMinimalDocx(
                   exp.description,
                   {
                     size: scaledFontSizes.body,
-                    color: SLATE[700],
+                    color: PALETTE['slate-700'],
                     font,
                   },
                   pxToTwips(SPACING.ACHIEVEMENT_GAP),
                   descSpacingAfter,
+                  relaxedBody,
                   undefined,
                   descAlignment
                 )
@@ -562,20 +592,21 @@ export async function generateMinimalDocx(
                     exp.description,
                     {
                       size: scaledFontSizes.body,
-                      color: SLATE[700],
+                      color: PALETTE['slate-700'],
                       font,
                     },
                     {
                       spacingAfterItem: pxToTwips(SPACING.ACHIEVEMENT_GAP),
                       spacingAfterLast: descSpacingAfter,
                       alignment: descAlignment,
+                      lineSpacing: relaxedBody,
                     }
                   )
                 )
               } else {
                 const descRuns = parseHtmlToDocxRuns(exp.description, {
                   size: scaledFontSizes.body,
-                  color: SLATE[700],
+                  color: PALETTE['slate-700'],
                   font,
                 })
 
@@ -584,19 +615,19 @@ export async function generateMinimalDocx(
                     children: descRuns,
                     spacing: {
                       after: descSpacingAfter,
-                      line: Math.round(240 * LINE_HEIGHTS.BODY),
-                      lineRule: LineRuleType.AUTO,
+                      ...relaxedBody,
                     },
                     alignment: descAlignment,
                   })
                 )
               }
             } else {
-              // No description or achievements
+              // No description or achievements. The spacer carries only the gap;
+              // the Preview draws no line there.
               children.push(
                 new Paragraph({
                   children: [],
-                  spacing: { after: isLastExp ? sectionEndSpacing : pxToTwips(SPACING.EXPERIENCE_ITEM_GAP) },
+                  spacing: { after: isLastExp ? sectionEndSpacing : pxToTwips(SPACING.EXPERIENCE_ITEM_GAP), ...NO_TEXT_LINE },
                 })
               )
             }
@@ -627,7 +658,7 @@ export async function generateMinimalDocx(
                     text: project.name || '',
                     bold: true,
                     size: scaledFontSizes.position, // text-xl = 20px
-                    color: SLATE[900],
+                    color: PALETTE['slate-900'],
                     font,
                   }),
                 ],
@@ -635,6 +666,7 @@ export async function generateMinimalDocx(
                   after: hasDescription || hasTechnologies
                     ? pxToTwips(SPACING.PROJECT_NAME_MB)
                     : (isLastProject ? sectionEndSpacing : pxToTwips(SPACING.PROJECT_ITEM_GAP)),
+                  ...exactLineSpacing([LINE_HEIGHT.textXl, scaledFontSizes.position]),
                 },
               })
             )
@@ -643,7 +675,7 @@ export async function generateMinimalDocx(
             if (hasDescription) {
               const projectDescRuns = parseHtmlToDocxRuns(project.description, {
                 size: scaledFontSizes.body,
-                color: SLATE[700],
+                color: PALETTE['slate-700'],
                 font,
               })
 
@@ -654,8 +686,7 @@ export async function generateMinimalDocx(
                     after: hasTechnologies
                       ? pxToTwips(SPACING.PROJECT_DESC_MB)
                       : (isLastProject ? sectionEndSpacing : pxToTwips(SPACING.PROJECT_ITEM_GAP)),
-                    line: Math.round(240 * LINE_HEIGHTS.BODY),
-                    lineRule: LineRuleType.AUTO,
+                    ...relaxedBody,
                   },
                 })
               )
@@ -670,13 +701,14 @@ export async function generateMinimalDocx(
                     new TextRun({
                       text: project.technologies.join('    '), // Wide spacing to simulate gap-3 flex
                       size: scaledFontSizes.tech, // text-xs = 12px
-                      color: SLATE[500],
+                      color: PALETTE['slate-500'],
                       font,
                       // font-light = non-bold (default)
                     }),
                   ],
                   spacing: {
                     after: isLastProject ? sectionEndSpacing : pxToTwips(SPACING.PROJECT_ITEM_GAP),
+                    ...exactLineSpacing([LINE_HEIGHT.textXs, scaledFontSizes.tech]),
                   },
                 })
               )
@@ -712,19 +744,19 @@ export async function generateMinimalDocx(
                     text: edu.degree || '',
                     bold: true,
                     size: scaledFontSizes.position, // text-xl = 20px
-                    color: SLATE[900],
+                    color: PALETTE['slate-900'],
                     font,
                   }),
                   ...(eduDateText ? [
                     new TextRun({
                       text: '\t' + eduDateText,
                       size: scaledFontSizes.date,
-                      color: SLATE[500],
+                      color: PALETTE['slate-500'],
                       font,
                     }),
                   ] : []),
                 ],
-                spacing: { after: pxToTwips(SPACING.EDU_LINE1_MB) },
+                spacing: { after: pxToTwips(SPACING.EDU_LINE1_MB), ...titleAndDateLine },
                 tabStops: [
                   {
                     type: TabStopType.RIGHT,
@@ -747,7 +779,7 @@ export async function generateMinimalDocx(
                   new TextRun({
                     text: schoolText,
                     size: scaledFontSizes.body,
-                    color: SLATE[600],
+                    color: PALETTE['slate-600'],
                     font,
                     // font-light = non-bold
                   }),
@@ -756,6 +788,7 @@ export async function generateMinimalDocx(
                   after: hasGpa
                     ? pxToTwips(4) // mt-1 before GPA
                     : (isLastEdu ? sectionEndSpacing : pxToTwips(SPACING.EDUCATION_ITEM_GAP)),
+                  ...inheritedBody,
                 },
               })
             )
@@ -768,12 +801,13 @@ export async function generateMinimalDocx(
                     new TextRun({
                       text: `GPA: ${edu.gpa}`,
                       size: scaledFontSizes.body,
-                      color: SLATE[500],
+                      color: PALETTE['slate-500'],
                       font,
                     }),
                   ],
                   spacing: {
                     after: isLastEdu ? sectionEndSpacing : pxToTwips(SPACING.EDUCATION_ITEM_GAP),
+                    ...inheritedBody,
                   },
                 })
               )
@@ -806,16 +840,19 @@ export async function generateMinimalDocx(
                     text: skillCat.category || '',
                     bold: true,
                     size: scaledFontSizes.body,
-                    color: SLATE[700],
+                    color: PALETTE['slate-700'],
                     font,
                   }),
                 ],
-                spacing: { after: pxToTwips(SPACING.SKILLS_ITEM_MB) },
+                spacing: { after: pxToTwips(SPACING.SKILLS_ITEM_MB), ...inheritedBody },
               })
             )
 
             // Skill items (slate-600, flex-wrapped with gap-x-4)
-            // Use skillsHtml if available, otherwise items array
+            // Use skillsHtml if available, otherwise items array.
+            // The Preview renders `items` only, never `skillsHtml`; that content
+            // divergence is Part 3 US-016's. Either way the paragraph takes the
+            // line height of the Preview's skill items, which inherit 1.5.
             let skillText = ''
             if (skillCat.skillsHtml) {
               skillText = stripHtml(skillCat.skillsHtml)
@@ -831,11 +868,11 @@ export async function generateMinimalDocx(
                     new TextRun({
                       text: skillText,
                       size: scaledFontSizes.body,
-                      color: SLATE[600],
+                      color: PALETTE['slate-600'],
                       font,
                     }),
                   ],
-                  spacing: { after: itemEndSpacing },
+                  spacing: { after: itemEndSpacing, ...inheritedBody },
                 })
               )
             }
@@ -870,19 +907,19 @@ export async function generateMinimalDocx(
                     new TextRun({
                       text: lang.language || '',
                       size: scaledFontSizes.body,
-                      color: SLATE[700],
+                      color: PALETTE['slate-700'],
                       font,
                       // Not bold — Minimal template uses non-bold for language names
                     }),
                     new TextRun({
                       text: '\t' + levelText,
                       size: scaledFontSizes.body,
-                      color: SLATE[500],
+                      color: PALETTE['slate-500'],
                       font,
                       // font-light = non-bold
                     }),
                   ],
-                  spacing: { after: isLast ? 0 : pxToTwips(SPACING.LANGUAGE_ITEM_GAP) },
+                  spacing: { after: isLast ? 0 : pxToTwips(SPACING.LANGUAGE_ITEM_GAP), ...inheritedBody },
                   tabStops: [
                     {
                       type: TabStopType.RIGHT,
@@ -915,11 +952,11 @@ export async function generateMinimalDocx(
                       text: cert.name || '',
                       bold: true,
                       size: scaledFontSizes.body,
-                      color: SLATE[700],
+                      color: PALETTE['slate-700'],
                       font,
                     }),
                   ],
-                  spacing: { after: cert.issuer || cert.date ? 0 : (isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP)) },
+                  spacing: { after: cert.issuer || cert.date ? 0 : (isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP)), ...inheritedBody },
                 })
               )
 
@@ -931,11 +968,11 @@ export async function generateMinimalDocx(
                       new TextRun({
                         text: cert.issuer,
                         size: scaledFontSizes.body,
-                        color: SLATE[500],
+                        color: PALETTE['slate-500'],
                         font,
                       }),
                     ],
-                    spacing: { after: cert.date ? 0 : (isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP)) },
+                    spacing: { after: cert.date ? 0 : (isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP)), ...inheritedBody },
                   })
                 )
               }
@@ -951,11 +988,11 @@ export async function generateMinimalDocx(
                           year: 'numeric',
                         }),
                         size: scaledFontSizes.body,
-                        color: SLATE[400],
+                        color: PALETTE['slate-400'],
                         font,
                       }),
                     ],
-                    spacing: { after: isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP) },
+                    spacing: { after: isLast ? 0 : pxToTwips(SPACING.CERT_ITEM_GAP), ...inheritedBody },
                   })
                 )
               }
@@ -969,21 +1006,22 @@ export async function generateMinimalDocx(
           if (languages.length > 0 && certifications.length > 0) {
             // Both columns: 3-column table (lang | gap | certs)
             const langCell = new TableCell({
-              children: langParagraphs.length > 0 ? langParagraphs : [new Paragraph({ children: [] })],
+              children: langParagraphs.length > 0 ? langParagraphs : [new Paragraph({ children: [], spacing: NO_TEXT_LINE })],
               verticalAlign: VerticalAlign.TOP,
               width: { size: halfColumnWidth, type: WidthType.DXA },
               margins: { top: 0, bottom: 0, left: 0, right: 0 },
             })
 
+            // The grid gap: a cell OOXML requires to hold one paragraph, drawing no text.
             const gapCell = new TableCell({
-              children: [new Paragraph({ children: [] })],
+              children: [new Paragraph({ children: [], spacing: NO_TEXT_LINE })],
               verticalAlign: VerticalAlign.TOP,
               width: { size: gapWidth, type: WidthType.DXA },
               margins: { top: 0, bottom: 0, left: 0, right: 0 },
             })
 
             const certCell = new TableCell({
-              children: certParagraphs.length > 0 ? certParagraphs : [new Paragraph({ children: [] })],
+              children: certParagraphs.length > 0 ? certParagraphs : [new Paragraph({ children: [], spacing: NO_TEXT_LINE })],
               verticalAlign: VerticalAlign.TOP,
               width: { size: halfColumnWidth, type: WidthType.DXA },
               margins: { top: 0, bottom: 0, left: 0, right: 0 },
@@ -1038,12 +1076,13 @@ export async function generateMinimalDocx(
             font,
             size: scaledFontSizes.body,
           },
+          // Every paragraph writes its own line spacing; the default is the
+          // inherited 1.5 at the body size, so nothing falls back to Word auto.
           paragraph: {
             spacing: {
               before: 0,
               after: 0,
-              line: 240,
-              lineRule: LineRuleType.AUTO,
+              ...inheritedBody,
             },
           },
         },
@@ -1066,7 +1105,13 @@ export async function generateMinimalDocx(
             },
           },
         },
-        children,
+        // OOXML ends a body with a paragraph. When the document ends with the
+        // languages and certifications table, write that paragraph explicitly
+        // with a 1-twip line: left to Word, it would take the document default's
+        // text line and could push an exactly full page onto a blank one.
+        children: children[children.length - 1] instanceof Table
+          ? [...children, new Paragraph({ children: [], spacing: { before: 0, after: 0, ...NO_TEXT_LINE } })]
+          : children,
       },
     ],
   })

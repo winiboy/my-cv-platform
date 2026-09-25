@@ -1,14 +1,17 @@
 import type { ResumeTemplate } from '../../src/types/database'
 import {
+  TEMPLATE_APPLIED_SIZE_KEYS,
+  templateOffersLayoutControl,
+  type PerPropertySizeKey,
+} from '../../src/lib/layout-settings'
+import {
   COLOUR_CHANNEL_TOLERANCE,
   compositeOver,
   coloursAgree,
-  convertCssColour,
   type ConvertedColour,
 } from './colour'
 import {
   PROFILES,
-  TEMPLATES,
   TEMPLATE_SPECS,
   describeNonDefault,
   fontChosen,
@@ -57,37 +60,48 @@ import {
  * US-009-order-<template>, P3-US003 to US-010-empty-main, P3-US004 to
  * US-011-font-size, P3-US005 to US-015-creative-sections. The `US-` form cannot
  * be mistaken for the old one.
+ *
+ * US-003-palette was closed by US-003 and removed with its signature and the
+ * two colour tables only that signature read. US-004-line-spacing was closed by
+ * US-004 and removed with its signature and the Word auto spacing table only
+ * that signature read. US-005-letter-spacing was closed by US-005 and removed
+ * with its signature and the stock tracking table only that signature read.
+ * US-006-translucent-text was closed by US-006 and removed with its signature
+ * and the translucent-white pattern only that signature read. US-008-page-width
+ * was closed by US-008 and removed with its signature and the two page-size
+ * constants only that signature read.
+ *
+ * US-012-font-family was closed by US-012 and removed with its signature, the
+ * declared-family table, the classic Times New Roman constant and the generic
+ * keyword set that only that signature read. The chosen/not-chosen rule the
+ * rows now compare against lives in the application, not here:
+ * `chosenFontFamily` in src/lib/layout-settings.ts, which `fontChosen` asks.
+ *
+ * US-014-sidebar-colour and US-014-per-property were resolved by US-014 and
+ * removed with their signatures. NOT by making the surfaces draw the values:
+ * both were dead controls, and US-014 answers a dead control by withdrawing it,
+ * not by inventing a rendering for it. The rows they covered are no longer
+ * reported, because the question each asked — "does the value this control
+ * writes reach the surfaces?" — has no subject once the control is not offered.
+ * What remains true of those stored values is recorded in `ANNOTATIONS` as two
+ * DECISIONs, with the evidence that nothing deletes them.
  */
 export type KnownId =
-  | 'US-003-palette'
-  | 'US-004-line-spacing'
-  | 'US-005-letter-spacing'
-  | 'US-006-translucent-text'
-  | 'US-008-page-width'
   | 'US-009-order-classic'
   | 'US-009-order-minimal'
   | 'US-010-empty-main'
   | 'US-011-font-size'
-  | 'US-012-font-family'
   | 'US-013-accent-hue'
-  | 'US-014-sidebar-colour'
-  | 'US-014-per-property'
+  | 'US-016-html-body-line-height'
   | 'US-015-creative-sections'
 
 export const KNOWN_IDS: readonly KnownId[] = [
-  'US-003-palette',
-  'US-004-line-spacing',
-  'US-005-letter-spacing',
-  'US-006-translucent-text',
-  'US-008-page-width',
   'US-009-order-classic',
   'US-009-order-minimal',
   'US-010-empty-main',
   'US-011-font-size',
-  'US-012-font-family',
   'US-013-accent-hue',
-  'US-014-sidebar-colour',
-  'US-014-per-property',
+  'US-016-html-body-line-height',
   'US-015-creative-sections',
 ]
 
@@ -126,27 +140,18 @@ function expectations(groups: readonly (readonly [KnownId, readonly string[]])[]
  * failure; it is a hole in Part 3's scope.
  */
 export const KNOWN_EXPECTATIONS: Readonly<Record<string, KnownId>> = expectations([
-  [
-    'US-003-palette',
-    [
-      ...rowIds('primary', ['professional', 'modern', 'classic', 'minimal'], ['colour:documentTitle']),
-      ...rowIds('primary', ['professional', 'classic', 'minimal', 'creative'], ['colour:sectionHeading']),
-      ...rowIds('primary', TEMPLATES, ['colour:bodyText']),
-    ],
-  ],
-  ['US-004-line-spacing', rowIds('primary', TEMPLATES, elementProperties('line-height'))],
-  [
-    'US-005-letter-spacing',
-    [
-      ...rowIds('primary', TEMPLATES, ['letter-spacing:documentTitle']),
-      ...rowIds('primary', ['professional', 'modern', 'minimal'], ['letter-spacing:sectionHeading']),
-    ],
-  ],
-  ['US-006-translucent-text', rowIds('primary', ['modern'], ['colour:sidebarLabel', 'colour:sidebarSecondary'])],
-  ['US-008-page-width', rowIds('primary', CLASSIC_MINIMAL_CREATIVE, ['page-width'])],
   ['US-009-order-classic', rowIds('primary', ['classic'], ['visibility:education', 'order:main', 'order:document'])],
   ['US-009-order-minimal', rowIds('primary', ['minimal'], ['visibility:education', 'order:main', 'order:document'])],
   ['US-010-empty-main', rowIds('modern-empty-main', ['modern'], ['visibility:summary', 'visibility:experience'])],
+  [
+    'US-016-html-body-line-height',
+    // US-016 made classic, minimal and creative render stored HTML as formatted
+    // text, which draws at .formatted-content's 1.4. Their generators still write
+    // the template's own body ratio for that text, as they did when those Previews
+    // rendered no formatted content at all. Professional and modern already follow
+    // the Preview here, through formattedTextLineHeight.
+    rowIds('html-body-and-skills', ['classic', 'minimal', 'creative'], ['line-height:bodyText']),
+  ],
   [
     'US-011-font-size',
     [
@@ -160,22 +165,7 @@ export const KNOWN_EXPECTATIONS: Readonly<Record<string, KnownId>> = expectation
       ...rowIds('primary', ['modern'], ['per-property:documentTitle', 'per-property:bodyText']),
     ],
   ],
-  [
-    'US-012-font-family',
-    [
-      ...rowIds('primary', CLASSIC_MINIMAL_CREATIVE, elementProperties('font-family')),
-      ...rowIds('font-not-chosen', CLASSIC_MINIMAL_CREATIVE, elementProperties('font-family')),
-    ],
-  ],
   ['US-013-accent-hue', rowIds('modern-non-integer-hue', ['modern'], ['colour:accent'])],
-  ['US-014-sidebar-colour', rowIds('primary', CLASSIC_MINIMAL_CREATIVE, ['colour:sidebar-background'])],
-  [
-    'US-014-per-property',
-    [
-      ...rowIds('primary', ['professional'], elementProperties('per-property')),
-      ...rowIds('primary', ['modern'], ['per-property:sectionHeading']),
-    ],
-  ],
   [
     'US-015-creative-sections',
     [
@@ -220,6 +210,17 @@ export interface RowDefinition {
 const COLUMNS: readonly Column[] = ['header', 'sidebar', 'main']
 
 /**
+ * The layout key behind each typography element's per-property size, which is
+ * the bridge between this check's vocabulary and the layout model's. The
+ * `per-property-control` profile resets exactly these three keys.
+ */
+const SIZE_KEY_BY_ELEMENT: Readonly<Record<TypographyElement, PerPropertySizeKey>> = {
+  documentTitle: 'titleFontSize',
+  sectionHeading: 'sectionTitleFontSize',
+  bodyText: 'sectionDescFontSize',
+}
+
+/**
  * Every row the check reports, derived from the profiles and the section
  * catalogue alone — never from what a run observed — so the set of rows, and
  * therefore the set of tests, is the same on every run.
@@ -234,6 +235,7 @@ export function rowDefinitions(): RowDefinition[] {
     for (const template of profile.templates) {
       const spec = TEMPLATE_SPECS[template]
       const reference = referenceFor(profile, template)
+      const appliedSizeKeys = TEMPLATE_APPLIED_SIZE_KEYS[template]
       const own: ObservationKey = { profile: profile.id, template }
       const add = (family: Family, property: string, subject: string, controls: readonly ProfileId[] = []) =>
         rows.push({
@@ -257,7 +259,16 @@ export function rowDefinitions(): RowDefinition[] {
         for (const element of TYPOGRAPHY_ELEMENTS) {
           add('font-size', `font-size:${element}`, element)
           add('font-scale', `font-scale:${element}`, element, ['scale-control'])
-          add('per-property', `per-property:${element}`, element, ['per-property-control'])
+          // Part 3 US-014: only where the template applies that element's size.
+          // A size no surface of the template reads has no control to offer it
+          // and no rendering to compare, so it is a recorded DECISION rather
+          // than a row — see `TEMPLATE_APPLIED_SIZE_KEYS` for the matrix and
+          // `ANNOTATIONS` for what is preserved. The sizes modern DOES apply
+          // stay rows: they respond in its Preview and not in its DOCX, which
+          // is US-011's divergence and not this one.
+          if (appliedSizeKeys.includes(SIZE_KEY_BY_ELEMENT[element])) {
+            add('per-property', `per-property:${element}`, element, ['per-property-control'])
+          }
           add('colour', `colour:${element}`, element)
           add('font-family', `font-family:${element}`, element)
           add('letter-spacing', `letter-spacing:${element}`, element)
@@ -268,11 +279,22 @@ export function rowDefinitions(): RowDefinition[] {
       if (profile.rowGroups.includes('font')) {
         for (const element of TYPOGRAPHY_ELEMENTS) add('font-family', `font-family:${element}`, element)
       }
+      if (profile.rowGroups.includes('body-line-height')) {
+        if (profile.rowGroups.includes('typography')) {
+          throw new Error(`${profile.id}: the body-line-height row group repeats a row the typography group already reports`)
+        }
+        add('line-height', 'line-height:bodyText', 'bodyText')
+      }
       if (profile.rowGroups.includes('colour')) {
-        // Every template, including those that draw no sidebar: the editor offers
-        // and stores the colour for all of them, so a template that renders it
-        // nowhere is a row with a verdict, not an omission.
-        add('colour', 'colour:sidebar-background', 'sidebarBackground')
+        // Only the templates the editor offers the sidebar colour for. It used
+        // to be every template — the editor offered and stored the colour for
+        // all of them, so one that rendered it nowhere was a row with a verdict
+        // rather than an omission. Part 3 US-014 withdrew the control where no
+        // surface draws it, which removes the row's subject; the stored colour
+        // is kept, and its preservation is a DECISION in `ANNOTATIONS`.
+        if (templateOffersLayoutControl(template, 'sidebarColour')) {
+          add('colour', 'colour:sidebar-background', 'sidebarBackground')
+        }
         if (spec.accentDepth !== null) add('colour', 'colour:accent', 'accent')
       }
       if (profile.rowGroups.includes('page')) {
@@ -300,20 +322,35 @@ type Value =
   /** A size ratio, with the quantisation slack of the sizes it was computed from. */
   | { kind: 'ratio'; ratio: number; slack: number }
   | { kind: 'responds'; responds: boolean }
-  | { kind: 'colour'; hex: string; css?: string; over?: string }
+  | { kind: 'colour'; hex: string; css?: string; over?: string; overNote?: string }
   /** More than one colour where one is drawn, in order of first appearance. Never equal to a single colour. */
   | { kind: 'colours'; hexes: readonly string[] }
   | { kind: 'not-rendered' }
   | { kind: 'family'; name: string }
-  | { kind: 'twips'; twips: number }
+  /** Letter spacing as a multiple of the run size, with the slack of the twip it was encoded in. */
+  | { kind: 'tracking'; em: number; slack: number }
   | { kind: 'line-height'; lineHeight: LineHeight }
   | { kind: 'length'; inches: number }
 
-/** Letter spacing is compared in twips; CSS px convert at 15 twips per px and round once. */
+/**
+ * Letter spacing is compared to one twip, as it always was, but per surface
+ * rather than between them: a surface's em is whatever its own encoding could
+ * express, so each side is allowed half of this in its own twips (see
+ * `trackingSlack`). Where two surfaces draw an element at the same size — which
+ * is what the font-size rows are for — that is the same single-twip tolerance.
+ */
 const TWIPS_TOLERANCE = 1
 
 /** Line-height ratios are declared to three decimals at most (1.625, 1.5, 1.2). */
 const LINE_HEIGHT_TOLERANCE = 0.01
+
+/**
+ * Page sizes agree to a quarter of a millimetre. Chromium writes a printed media
+ * box in whole points, so A4 prints as 595pt = 8.2633in against the 8.2708in the
+ * Preview computes and the 8.2694in the DOCX writes. Letter against A4 is 0.23in,
+ * a format apart, so this admits the rounding without admitting a defect.
+ */
+const PAGE_LENGTH_TOLERANCE_INCHES = 0.01
 
 const opaque = (hex: string): ConvertedColour => ({ hex, alpha: 255 })
 
@@ -341,22 +378,35 @@ function equal(a: Value, b: Value): boolean {
       )
     case 'not-rendered':
       return b.kind === 'not-rendered'
-    case 'twips':
-      return b.kind === 'twips' && Math.abs(a.twips - b.twips) <= TWIPS_TOLERANCE
+    case 'tracking':
+      return b.kind === 'tracking' && Math.abs(a.em - b.em) <= a.slack + b.slack
     case 'line-height': {
       if (b.kind !== 'line-height') return false
       const [x, y] = [a.lineHeight, b.lineHeight]
       // Different kinds never match. In particular a Word auto multiple scales
-      // the font's single-line height and a CSS ratio scales the font size, so
-      // equal numbers draw different leading: comparing only the encoding
-      // would be a MATCH over nothing.
+      // the font's single-line height and a CSS ratio scales the font size, and
+      // at-least spacing may be drawn taller than its number, so equal numbers
+      // can draw different leading: comparing only the encoding would be a
+      // MATCH over nothing. Only `ratio` is drawn leading.
       if (x.kind !== y.kind) return false
       if (x.kind === 'normal' || y.kind === 'normal') return true
       return Math.abs(x.ratio - y.ratio) <= LINE_HEIGHT_TOLERANCE
     }
     case 'length':
-      // Page sizes are declared to two decimals (8.5in, 8.27in); anything finer is rounding.
-      return b.kind === 'length' && a.inches.toFixed(2) === b.inches.toFixed(2)
+      // Page sizes are compared on the physical page, not on a decimal string.
+      //
+      // Rounding to two decimals worked only while the page was US Letter, where
+      // Chromium's 612pt media box is exactly 8.50in and every surface agreed on
+      // the digits. A4 has no such luck: the Preview computes 794 CSS px =
+      // 8.270833in, the DOCX writes 11908.8 twips = 8.269444in, and Chromium
+      // writes the printed media box in whole points, 595pt = 8.263333in. All
+      // three are A4 (210mm); they straddle the boundary the string comparison
+      // drew, so it reported three correct pages as three different sizes.
+      //
+      // The tolerance is 0.01in (0.254mm), which admits Chromium's whole-point
+      // rounding and nothing a reader could see. A real page-size defect is a
+      // format apart — Letter against A4 is 0.23in — so this does not hide one.
+      return b.kind === 'length' && Math.abs(a.inches - b.inches) <= PAGE_LENGTH_TOLERANCE_INCHES
   }
 }
 
@@ -386,15 +436,16 @@ function display(value: Value | null): string {
     case 'family':
       return value.name
     case 'colour': {
-      const source = value.css ? ` (${value.css}${value.over ? ` over ${value.over}` : ''})` : ''
+      const over = value.over ? ` over ${value.over}${value.overNote ? ` (${value.overNote})` : ''}` : ''
+      const source = value.css ? ` (${value.css}${over})` : ''
       return `${value.hex}${source}`
     }
     case 'colours':
       return value.hexes.join(' then ')
     case 'not-rendered':
       return 'not rendered'
-    case 'twips':
-      return `${value.twips}tw`
+    case 'tracking':
+      return `${value.em.toFixed(4)}em`
     case 'line-height':
       switch (value.lineHeight.kind) {
         case 'normal':
@@ -403,6 +454,8 @@ function display(value: Value | null): string {
           return `x${value.lineHeight.ratio.toFixed(3)} font size`
         case 'auto-multiple':
           return `auto x${value.lineHeight.ratio.toFixed(3)} single line`
+        case 'at-least':
+          return `at least x${value.lineHeight.ratio.toFixed(3)} font size`
       }
     case 'length':
       return `${value.inches.toFixed(2)}in`
@@ -410,19 +463,44 @@ function display(value: Value | null): string {
 }
 
 /**
- * The colour as seen: translucent text composited over the opaque backdrop the
- * surface measured behind it. Nothing translucent is ever compared raw, and
- * nothing translucent is excused.
+ * The colour as seen: translucent text composited over the opaque backdrop
+ * behind it. Nothing translucent is ever compared raw, and nothing translucent
+ * is excused.
+ *
+ * Two things make text see-through and the browser paints their product, so
+ * both are folded into one alpha before compositing: the alpha of the colour
+ * itself (`rgba()`, `text-white/90`) and the CSS `opacity` the element is drawn
+ * through (`opacity-80`), which `getComputedStyle` reports separately. The
+ * product is quantised to eight bits.
+ *
+ * The backdrop is what the surface measured behind the text, EXCEPT where the
+ * sample declares a substitute (`note`), which the row then prints beside it so
+ * a substituted backdrop cannot read as a measured one. Creative's two header
+ * rows are the only ones today: the Preview paints a gradient there, which has
+ * no single colour to measure and which the DOCX cannot draw, so both sides
+ * composite over the solid fill the DOCX does draw. See the creative header
+ * gradient LIMITATION for what that hides.
  */
-function seenColour(colour: ColourSample, backdrop: ColourSample | null, label: string): Value {
-  if (colour.alpha === 255) return { kind: 'colour', hex: colour.hex, ...(colour.css ? { css: colour.css } : {}) }
-  if (!backdrop) throw new Error(`${label}: translucent colour ${colour.hex} a=${colour.alpha} has no measured backdrop`)
-  const seen: ConvertedColour = compositeOver(colour, backdrop)
+function seenColour(
+  colour: ColourSample,
+  backdrop: ColourSample | null,
+  label: string,
+  opacity = 1,
+  note: string | null = null,
+): Value {
+  if (!(opacity >= 0 && opacity <= 1)) throw new Error(`${label}: an opacity of ${opacity} is not a fraction`)
+  const alpha = Math.round(colour.alpha * opacity)
+  const drawn = opacity === 1 ? '' : ` x opacity ${opacity}`
+  const source = colour.css ? { css: `${colour.css}${drawn}` } : {}
+  if (alpha === 255) return { kind: 'colour', hex: colour.hex, ...source }
+  if (!backdrop) throw new Error(`${label}: translucent colour ${colour.hex} a=${alpha} has no measured backdrop`)
+  const seen: ConvertedColour = compositeOver({ hex: colour.hex, alpha }, backdrop)
   return {
     kind: 'colour',
     hex: seen.hex,
-    ...(colour.css ? { css: colour.css } : {}),
+    ...source,
     over: backdrop.hex,
+    ...(note ? { overNote: note } : {}),
   }
 }
 
@@ -459,50 +537,6 @@ const PER_PROPERTY: Readonly<Record<TypographyElement, 'titleFontSize' | 'sectio
   bodyText: 'sectionDescFontSize',
 }
 
-/**
- * US-003: the text colour each DOCX generator hardcodes, for the elements where
- * it differs from the Preview. Stock Tailwind v3 and neutral hex:
- * `docx-helpers.ts` COLORS (DARK_HEADING, BODY_TEXT) for professional and
- * modern; the slate tables of `docx-classic.ts` and `docx-minimal.ts`;
- * `docx-creative.ts` PURPLE_600 and SLATE_700.
- */
-const STOCK_TEXT_COLOUR: Readonly<Record<ResumeTemplate, Partial<Record<TypographyElement, string>>>> = {
-  professional: { documentTitle: '#1A1A1A', sectionHeading: '#1A1A1A', bodyText: '#333333' },
-  modern: { documentTitle: '#1A1A1A', bodyText: '#333333' },
-  classic: { documentTitle: '#0F172A', sectionHeading: '#0F172A', bodyText: '#1E293B' },
-  minimal: { documentTitle: '#0F172A', sectionHeading: '#94A3B8', bodyText: '#334155' },
-  creative: { sectionHeading: '#9333EA', bodyText: '#334155' },
-}
-
-/**
- * US-003: the colour the Preview renders for the same elements, as the CSS its
- * source gives. Tailwind utilities resolve through the tokens `globals.css`
- * redefines in `@theme inline`: slate-900 oklch(0.08 0 0), slate-800
- * oklch(0.15 0 0), slate-700 oklch(0.25 0 0), slate-400 oklch(0.65 0 0),
- * purple-600 oklch(0.5 0.22 290). Inline styles: professional-template.tsx
- * title and main headings oklch(0.2 0 0), achievements oklch(0.3 0 0);
- * modern-template.tsx experience text '#374151', written here as the same
- * colour in rgb() because that is a form colour.ts converts. Converted without
- * the browser, so a Preview that renders any other colour is a different
- * divergence.
- */
-const PREVIEW_TEXT_COLOUR_CSS: Readonly<Record<ResumeTemplate, Partial<Record<TypographyElement, string>>>> = {
-  professional: { documentTitle: 'oklch(0.2 0 0)', sectionHeading: 'oklch(0.2 0 0)', bodyText: 'oklch(0.3 0 0)' },
-  modern: { documentTitle: 'oklch(0.08 0 0)', bodyText: 'rgb(55, 65, 81)' },
-  classic: { documentTitle: 'oklch(0.08 0 0)', sectionHeading: 'oklch(0.08 0 0)', bodyText: 'oklch(0.15 0 0)' },
-  minimal: { documentTitle: 'oklch(0.08 0 0)', sectionHeading: 'oklch(0.65 0 0)', bodyText: 'oklch(0.25 0 0)' },
-  creative: { sectionHeading: 'oklch(0.5 0.22 290)', bodyText: 'oklch(0.25 0 0)' },
-}
-
-/** The same table converted once, at load: an entry colour.ts cannot convert fails on import, not on a row. */
-const PREVIEW_TEXT_COLOUR: Readonly<Record<ResumeTemplate, Partial<Record<TypographyElement, ConvertedColour>>>> =
-  Object.fromEntries(
-    Object.entries(PREVIEW_TEXT_COLOUR_CSS).map(([template, elements]) => [
-      template,
-      Object.fromEntries(Object.entries(elements).map(([element, css]) => [element, convertCssColour(css)])),
-    ]),
-  ) as Record<ResumeTemplate, Partial<Record<TypographyElement, ConvertedColour>>>
-
 /** US-013: `DEFAULT_ACCENT_COLOR` in modern-template.tsx, the gold the accent falls back to. */
 const MODERN_ACCENT_FALLBACK = '#D4A843'
 
@@ -526,64 +560,19 @@ const STOCK_BASE_SIZE_PX: Readonly<Record<ResumeTemplate, Partial<Record<Typogra
 const toHalfPoints = (px: number) => Math.round(px * 1.5)
 
 /**
- * US-004: the Word auto spacing each generator writes for the sampled elements.
- * A number is `w:lineRule="auto"` at that multiple; `normal` is auto single
- * line, written or left to the default.
- */
-const STOCK_AUTO_SPACING: Readonly<Record<ResumeTemplate, Readonly<Record<TypographyElement, number | 'normal'>>>> = {
-  professional: { documentTitle: 1.2, sectionHeading: 'normal', bodyText: 1.35 },
-  modern: { documentTitle: 1.2, sectionHeading: 1.2, bodyText: 1.5 },
-  classic: { documentTitle: 1.2, sectionHeading: 'normal', bodyText: 1.625 },
-  minimal: { documentTitle: 1.2, sectionHeading: 'normal', bodyText: 1.625 },
-  creative: { documentTitle: 1.2, sectionHeading: 'normal', bodyText: 1.625 },
-}
-
-/**
- * US-005: the characterSpacing, in twips, each generator writes for the elements
- * where it differs from the Preview; 0 where it writes none. `docx-modern.ts`
- * 15 (title) and 8 (headings), `docx-classic.ts` 8, `docx-minimal.ts`
- * pxToTwips(1.6) on its headings.
- */
-const STOCK_TRACKING_TWIPS: Readonly<Record<ResumeTemplate, Partial<Record<TypographyElement, number>>>> = {
-  professional: { documentTitle: 0, sectionHeading: 0 },
-  modern: { documentTitle: 15, sectionHeading: 8 },
-  classic: { documentTitle: 8 },
-  minimal: { documentTitle: 0, sectionHeading: 24 },
-  creative: { documentTitle: 0 },
-}
-
-/**
- * US-012: the family each template declares for a sampled element in place of
- * the model's font. `classic-template.tsx` sets font-serif (ui-serif) on its
- * title and headings and leaves its body to the app's Inter (next/font in the
- * root layout); minimal and creative declare no family at all.
- */
-const TEMPLATE_DECLARED_FAMILY: Readonly<Partial<Record<ResumeTemplate, Readonly<Record<TypographyElement, string>>>>> = {
-  classic: { documentTitle: 'ui-serif', sectionHeading: 'ui-serif', bodyText: 'Inter' },
-  minimal: { documentTitle: 'Inter', sectionHeading: 'Inter', bodyText: 'Inter' },
-  creative: { documentTitle: 'Inter', sectionHeading: 'Inter', bodyText: 'Inter' },
-}
-
-/** `docx-classic.ts` writes this family whatever the model says. */
-const CLASSIC_DOCX_FAMILY = 'Times New Roman'
-
-/**
- * CSS generic family keywords. A generic is resolved by the platform to some
- * installed face (ui-serif to Georgia here), so the face drawn cannot be held
- * to its name; a named family can, and a different face means it did not load.
- */
-const GENERIC_FAMILIES: ReadonlySet<string> = new Set([
-  'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'math', 'emoji', 'fangsong',
-  'system-ui', 'ui-serif', 'ui-sans-serif', 'ui-monospace', 'ui-rounded',
-])
-
-/**
  * The family a font-family row compares against. A chosen font is the reference
  * on every template. For a font never chosen, the owner's decision of 2026-09-15
  * says a template keeps its own designed font: minimal and creative stay Inter.
  * Professional and modern are not named; they draw the stored default today,
  * and no unchosen font may change, so the stored font stays their reference.
- * Classic is open (see the DECISION), so its unchosen rows have none.
+ *
+ * Classic alone has NO single reference, because it draws TWO designed
+ * families: serif on its title and headings, the app's Inter on its body. A
+ * reference is per template, not per element, so naming one here would hold
+ * two thirds of classic's unchosen rows to the wrong family. They are compared
+ * surface against surface instead, which is the whole of what US-012 asks of
+ * them — that the DOCX draw what the Preview draws — and is why the DECISION
+ * below records the two families rather than one.
  */
 function fontFamilyReference(template: ResumeTemplate, model: Observation['model']): string | null {
   if (fontChosen(model)) return primaryFamily(model.fontFamily)
@@ -591,13 +580,6 @@ function fontFamilyReference(template: ResumeTemplate, model: Observation['model
   if (template === 'classic') return null
   return primaryFamily(model.fontFamily)
 }
-
-/** The Preview's page, and the DOCX page of classic, minimal and creative. */
-const LETTER_INCHES = '8.50'
-const A4_INCHES = '8.27'
-
-/** Translucent white, as modern-template.tsx writes its sidebar label and secondary text. */
-const TRANSLUCENT_WHITE = /^rgba\(255, 255, 255, 0?\.\d+\)$/
 
 /**
  * What each known defect looks like on a row. A divergence is attributed to a
@@ -607,92 +589,6 @@ const TRANSLUCENT_WHITE = /^rgba\(255, 255, 255, 0?\.\d+\)$/
  * may have two shapes: `evaluateRow` throws if signatures overlap.
  */
 const SIGNATURES: readonly Signature[] = [
-  {
-    id: 'US-003-palette',
-    defect:
-      'The DOCX writes the stock hex its generator hardcodes, where the Preview and print render the colour ' +
-      "globals.css's redefined tokens or the template's inline style give: a different sRGB colour.",
-    matches: ({ row, values }) => {
-      if (row.family !== 'colour' || !isTypographyElement(row.subject)) return false
-      const stock = STOCK_TEXT_COLOUR[row.template][row.subject]
-      const palette = PREVIEW_TEXT_COLOUR[row.template][row.subject]
-      return (
-        stock !== undefined &&
-        palette !== undefined &&
-        values.docx.kind === 'colour' &&
-        values.docx.hex === stock &&
-        values.preview.kind === 'colour' &&
-        values.preview.over === undefined &&
-        coloursAgree(opaque(values.preview.hex), palette) &&
-        equal(values.pdf, values.preview) &&
-        !equal(values.docx, values.preview)
-      )
-    },
-  },
-  {
-    id: 'US-004-line-spacing',
-    defect:
-      'The Preview and print give leading as a multiple of the font size; the DOCX writes Word auto spacing, ' +
-      "which multiplies the font's single-line height instead, so the drawn leading differs whatever the " +
-      'encoded numbers. See the FINDING.',
-    matches: ({ row, values }) => {
-      if (row.family !== 'line-height' || !isTypographyElement(row.subject)) return false
-      const stock = STOCK_AUTO_SPACING[row.template][row.subject]
-      if (values.preview.kind !== 'line-height' || values.docx.kind !== 'line-height') return false
-      const docx = values.docx.lineHeight
-      const docxIsStock =
-        stock === 'normal'
-          ? docx.kind === 'normal'
-          : docx.kind === 'auto-multiple' && Math.abs(docx.ratio - stock) <= LINE_HEIGHT_TOLERANCE
-      return values.preview.lineHeight.kind === 'ratio' && equal(values.pdf, values.preview) && docxIsStock
-    },
-  },
-  {
-    id: 'US-005-letter-spacing',
-    defect:
-      'The DOCX writes the fixed characterSpacing its generator hardcodes, or none, where the Preview and ' +
-      'print draw the CSS letter-spacing: em times the font size, in twips.',
-    matches: ({ row, values }) => {
-      if (row.family !== 'letter-spacing' || !isTypographyElement(row.subject)) return false
-      const stock = STOCK_TRACKING_TWIPS[row.template][row.subject]
-      return (
-        stock !== undefined &&
-        values.docx.kind === 'twips' &&
-        values.docx.twips === stock &&
-        equal(values.pdf, values.preview) &&
-        !equal(values.docx, values.preview)
-      )
-    },
-  },
-  {
-    id: 'US-006-translucent-text',
-    defect:
-      "Modern's Preview and print draw this sidebar text in translucent white, seen as a tint of the sidebar " +
-      'colour; the DOCX writes it opaque white.',
-    matches: ({ row, values }) =>
-      row.template === 'modern' &&
-      ['sidebarLabel', 'sidebarSecondary'].includes(row.subject) &&
-      values.preview.kind === 'colour' &&
-      values.preview.over !== undefined &&
-      TRANSLUCENT_WHITE.test(values.preview.css ?? '') &&
-      equal(values.pdf, values.preview) &&
-      values.docx.kind === 'colour' &&
-      values.docx.hex === '#FFFFFF',
-  },
-  {
-    id: 'US-008-page-width',
-    defect:
-      'The DOCX page is A4 (8.27in) while the Preview document and the print (@page size: letter) are US ' +
-      'Letter (8.50in). The owner decided every resume is A4.',
-    matches: ({ row, values }) =>
-      CLASSIC_MINIMAL_CREATIVE.includes(row.template) &&
-      row.family === 'page-width' &&
-      values.preview.kind === 'length' &&
-      values.preview.inches.toFixed(2) === LETTER_INCHES &&
-      equal(values.pdf, values.preview) &&
-      values.docx.kind === 'length' &&
-      values.docx.inches.toFixed(2) === A4_INCHES,
-  },
   ...(['classic', 'minimal'] as const).map(
     (template): Signature => ({
       id: `US-009-order-${template}`,
@@ -733,6 +629,31 @@ const SIGNATURES: readonly Signature[] = [
       !shown(values.preview) &&
       !shown(values.pdf) &&
       shown(values.docx),
+  },
+  {
+    id: 'US-016-html-body-line-height',
+    defect:
+      'Body text stored as HTML draws at the formatted-content line height in the Preview and print ' +
+      'on classic, minimal and creative, while their generators write the template own body ratio. ' +
+      'US-016 fixed the Preview side, which is what revealed this; the DOCX side is owed.',
+    matches: ({ row, values }) => {
+      if (!['classic', 'minimal', 'creative'].includes(row.template)) return false
+      if (row.family !== 'line-height' || row.subject !== 'bodyText') return false
+      // Pinned on both sides: the Preview and print draw the formatted-content
+      // height, and the DOCX draws a ratio that is not it. A generator that
+      // drifted to some third value is NEW, not this.
+      // The value is a line-height, whose own kind says how it is drawn; only
+      // `ratio` is drawn leading (US-004).
+      if (values.preview.kind !== 'line-height' || values.pdf.kind !== 'line-height') return false
+      if (values.docx.kind !== 'line-height') return false
+      const shown = values.preview.lineHeight
+      if (shown.kind !== 'ratio') return false
+      if (!equal(values.pdf, values.preview)) return false
+      // 1.4 is .formatted-content's line height in globals.css, the same number
+      // formattedTextLineHeight writes on the surfaces that already follow it.
+      if (Math.abs(shown.ratio - 1.4) > LINE_HEIGHT_TOLERANCE) return false
+      return !equal(values.docx, values.preview)
+    },
   },
   {
     id: 'US-011-font-size',
@@ -777,44 +698,6 @@ const SIGNATURES: readonly Signature[] = [
     },
   },
   {
-    id: 'US-012-font-family',
-    defect:
-      "The Preview and print draw the template's own font whatever the model's — classic's font-serif title " +
-      "and headings over the app's Inter body, minimal's and creative's Inter — while the DOCX applies the " +
-      "model's font, or Times New Roman on classic.",
-    matches: ({ row, observation, reference, values }) => {
-      if (row.family !== 'font-family' || !isTypographyElement(row.subject)) return false
-      const element = row.subject
-      const declared = TEMPLATE_DECLARED_FAMILY[row.template]?.[element]
-      if (!declared) return false
-      // The template's family is asked for AND drawn: a named family drawn as another
-      // face is a font that failed to load, which is a different defect.
-      const drawsDeclared = (surface: 'preview' | 'pdf') => {
-        const sample = observation.surfaces[surface].typography?.[element]
-        return (
-          sample !== undefined &&
-          sample.declaredFamily === declared &&
-          (GENERIC_FAMILIES.has(declared) || normaliseFamily(sample.fontFamily) === normaliseFamily(declared))
-        )
-      }
-      const docxFamily = row.template === 'classic' ? CLASSIC_DOCX_FAMILY : primaryFamily(observation.model.fontFamily)
-      return (
-        drawsDeclared('preview') &&
-        drawsDeclared('pdf') &&
-        equal(values.pdf, values.preview) &&
-        // A chosen font is the reference and the Preview ignores it. For an unchosen
-        // font the template's own font is the reference (none yet on classic), and
-        // the Preview draws it.
-        (fontChosen(observation.model)
-          ? reference !== null && !equal(values.preview, reference)
-          : reference === null || equal(values.preview, reference)) &&
-        values.docx.kind === 'family' &&
-        normaliseFamily(values.docx.name) === normaliseFamily(docxFamily) &&
-        !equal(values.docx, values.preview)
-      )
-    },
-  },
-  {
     id: 'US-013-accent-hue',
     defect:
       'Part 2 finding F-A: the sidebar colour reached the Preview, but modern-template.tsx deriveAccentColor ' +
@@ -839,32 +722,6 @@ const SIGNATURES: readonly Signature[] = [
         equal(values.docx, reference)
       )
     },
-  },
-  {
-    id: 'US-014-sidebar-colour',
-    defect:
-      'Dead control: the editor offers and persists the sidebar colour for every template, and no surface of ' +
-      'this template renders it.',
-    matches: ({ row, reference, values }) =>
-      CLASSIC_MINIMAL_CREATIVE.includes(row.template) &&
-      row.family === 'colour' &&
-      row.subject === 'sidebarBackground' &&
-      reference !== null &&
-      reference.kind === 'colour' &&
-      SURFACES.every((surface) => values[surface].kind === 'not-rendered'),
-  },
-  {
-    id: 'US-014-per-property',
-    defect:
-      'Inert stored size: the model carries it, no surface of this template applies it, and the editor ' +
-      'offers no control for it here (professional receives no size props; modern accepts the setter but ' +
-      'renders no slider for this element).',
-    matches: ({ row, reference, values }) =>
-      (row.template === 'professional' || row.template === 'modern') &&
-      row.family === 'per-property' &&
-      reference !== null &&
-      responds(reference) &&
-      SURFACES.every((surface) => values[surface].kind === 'responds' && !responds(values[surface])),
   },
   {
     id: 'US-015-creative-sections',
@@ -914,6 +771,19 @@ function typographyOf(observation: Observation, surface: SurfaceId, row: RowDefi
 /** Ratio slack from quantisation: CSS and PDF sizes are fractional; DOCX sizes are whole half-points. */
 function sizeSlack(surface: SurfaceId, sample: StyleSample): number {
   return surface === 'docx' ? 0.5 / sample.halfPoints : 0.001
+}
+
+/**
+ * Half of `TWIPS_TOLERANCE`, in em, at the size this surface draws the element:
+ * the DOCX encodes its character spacing in whole twips of a run measured in
+ * half-points (ten twips each), the Preview and print in CSS px (fifteen twips
+ * each). The PDF takes the em from the print rendering, so its slack is that of
+ * the size the PDF reports for the same text, within a fraction of a point of
+ * the print's.
+ */
+function trackingSlack(surface: SurfaceId, sample: StyleSample): number {
+  const twipsPerEm = surface === 'docx' ? sample.halfPoints * 10 : sample.px * 15
+  return TWIPS_TOLERANCE / 2 / twipsPerEm
 }
 
 export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): EvaluatedRow {
@@ -988,7 +858,10 @@ export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): E
       break
     }
     case 'letter-spacing': {
-      for (const s of SURFACES) values[s] = { kind: 'twips', twips: typographyOf(observation, s, row).letterSpacingTwips }
+      for (const s of SURFACES) {
+        const sample = typographyOf(observation, s, row)
+        values[s] = { kind: 'tracking', em: sample.letterSpacingEm, slack: trackingSlack(s, sample) }
+      }
       break
     }
     case 'line-height': {
@@ -999,7 +872,7 @@ export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): E
       if (isTypographyElement(row.subject)) {
         for (const s of SURFACES) {
           const sample = typographyOf(observation, s, row)
-          values[s] = seenColour(sample.colour, sample.backdrop, `${row.id} ${s}`)
+          values[s] = seenColour(sample.colour, sample.backdrop, `${row.id} ${s}`, sample.opacity)
         }
         break
       }
@@ -1007,7 +880,7 @@ export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): E
         for (const s of SURFACES) {
           const sample = surfaces[s].extraColours[row.subject]
           if (!sample) throw new Error(`${row.id}: ${s} has no ${row.subject} measurement`)
-          values[s] = seenColour(sample.colour, sample.backdrop, `${row.id} ${s}`)
+          values[s] = seenColour(sample.colour, sample.backdrop, `${row.id} ${s}`, sample.opacity, sample.backdropNote)
         }
         break
       }
@@ -1123,7 +996,10 @@ function newDivergenceNote({ row, values, reference }: SignatureContext): string
     case 'font-scale':
       return 'A surface does not scale this element by the model fontScale in the way US-011 describes.'
     case 'letter-spacing':
-      return 'Letter spacing differs; DOCX can express it (w:spacing w:val) and the generators set it for some runs.'
+      return (
+        'Letter spacing differs as a multiple of the size each surface draws the element at; DOCX can express ' +
+        'it (w:spacing w:val), and since Part 3 US-005 the generators write it from the Preview em at the run size.'
+      )
     case 'line-height': {
       const docx = values.docx.kind === 'line-height' ? values.docx.lineHeight : null
       const preview = values.preview.kind === 'line-height' ? values.preview.lineHeight : null
@@ -1133,7 +1009,14 @@ function newDivergenceNote({ row, values, reference }: SignatureContext): string
           (encodingMatches
             ? 'Encoded ratio matches, but Word auto scales single-line height, so drawn leading differs. '
             : 'The encoded ratios differ, and Word auto scales single-line height rather than font size. ') +
-          'The DOCX uses w:lineRule="auto" where the CSS means a multiple of the font size (see the FINDING).'
+          'The DOCX uses w:lineRule="auto" where the CSS means a multiple of the font size; since Part 3 ' +
+          'US-004 the generators write exact spacing.'
+        )
+      }
+      if (docx?.kind === 'at-least') {
+        return (
+          'The DOCX writes at-least spacing, drawn at its multiple of the font size only where the ' +
+          "font's single line is not taller; this check reads no font metrics, so it is not drawn leading."
         )
       }
       if (docx?.kind === 'normal' || preview?.kind === 'normal') {
@@ -1234,21 +1117,107 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
   annotation('LIMITATION', 'all', 'font weight', ['docx'],
     'A DOCX run carries bold on or off (w:b). CSS weights such as black (900), semibold (600), medium (500) ' +
       'and light (300) have no DOCX encoding and are not compared.'),
-  annotation('FINDING', 'all', 'line height, Word auto spacing', ['docx'],
-    'The generators write CSS line-height ratios as w:lineRule="auto" multiples (for example 1.5 as line=360). ' +
-      "A Word auto multiple scales the font's single-line height (ascent + descent + line gap, about 1.215 em " +
-      'for Verdana), where the CSS ratio scales the font size, so Word draws visibly more leading than the ' +
-      'Preview. DOCX can express the CSS intent exactly (w:lineRule="exact" in twips). Owned by US-004, whose ' +
-      'line-height rows are expected failures under US-004-line-spacing. This check reads no font metrics, so ' +
-      'it does not compute drawn leading, and it never lets a matching encoding stand as a MATCH.'),
+  annotation('DECISION', 'all', 'letter spacing: compared as a multiple of the run size', ['preview', 'pdf', 'docx'],
+    'Closed the letter-spacing divergence (Part 3 US-005). Every DOCX run is written with the character spacing ' +
+      'its Preview element draws — the em in src/lib/resume-letter-spacing.ts times the size of that run, in ' +
+      'twentieths of a point — where the generators previously wrote one fixed twip count, correct at one font ' +
+      'size only. The rows therefore compare the em, each surface dividing its own spacing by its own size, not ' +
+      'the absolute twips: on the four templates where the DOCX still draws a title at a different size from the ' +
+      "Preview's, absolute twips would report US-011's size divergence a second time under letter spacing, and " +
+      'would go on reporting it after this story had made the spacing right. The tolerance is unchanged — half of ' +
+      'the declared one twip per side, in that side\'s own twips, which is one twip between two surfaces drawing ' +
+      'at the same size. Sub-twip quantisation remains: 0.025em over a 13pt heading is 6.5 twips and is written ' +
+      'as 7.'),
+  annotation('DECISION', 'all', 'translucent text: composited against what the DOCX draws behind it', ['preview', 'pdf', 'docx'],
+    'Closed the translucent text divergence (Part 3 US-006). A DOCX run carries no alpha, so every run whose ' +
+      'Preview counterpart is see-through is written in the opaque colour that tint composites to over the ' +
+      'colour the DOCX itself draws behind it: the user\'s sidebar fill on professional and modern, the header ' +
+      'fill on creative. The alphas come from src/lib/resume-text-opacity.ts, which declares each one in the ' +
+      'form its template writes it — professional opacity-80, modern rgba(255,255,255,0.6/0.7/0.8), creative ' +
+      'text-white/90 and /80 — and which resume-palette.test.ts holds to the template sources in both ' +
+      'directions. Compositing is source-over in 8-bit sRGB as encoded, not in linear light, which is what the ' +
+      'browser draws; the alpha is quantised to eight bits on both sides so neither can round differently. ' +
+      'The Preview side of a row folds the element\'s CSS opacity into the alpha of its colour, because ' +
+      'getComputedStyle reports the two separately and the browser paints their product.'),
+  annotation('DECISION', 'all', 'sidebar colour: stored for every template, offered only where it is drawn', ['preview', 'pdf', 'docx'],
+    'Closed the dead sidebar-colour control (Part 3 US-014). Classic, minimal and creative paint no sidebar ' +
+      'fill on any surface — resume-editor.tsx passes them no sidebarColor, and docx-classic.ts, ' +
+      'docx-minimal.ts and docx-creative.ts write no sidebar shading — so the editor no longer offers the ' +
+      'colour while one of them is selected. The three stored components are NOT touched: ' +
+      'TEMPLATE_LAYOUT_CONTROLS in src/lib/layout-settings.ts gates only what is rendered, the editor derives ' +
+      'it per render and writes nothing back, and toStoredLayout still carries sidebarHue, sidebarSaturation ' +
+      'and sidebarBrightness for every template, so a resume moved to professional or modern draws the colour ' +
+      'its owner last chose. The rows that reported the dead control are therefore no longer generated for ' +
+      'those three templates rather than reported as matching, since there is nothing left to compare.'),
+  annotation('DECISION', 'all', 'per-property sizes: stored where no control offers them', ['preview', 'pdf', 'docx'],
+    'Closed the inert per-property sizes (Part 3 US-014). Professional reads no per-property size on any ' +
+      'surface and the editor passes it none. Modern applies two of them — titleFontSize on its document ' +
+      'title and sectionDescFontSize on its body text — and reads neither contactFontSize nor ' +
+      'sectionTitleFontSize, and it renders no input for any of the four; the editor now hands it those ' +
+      'sizes without the setters that would produce one. So professional\'s three sizes and modern\'s section ' +
+      'heading are stored state that no control adjusts and no surface draws, which is a decision about ' +
+      'where the controls live and not a divergence between surfaces: their rows are not generated. The ' +
+      'values survive untouched — nothing in the gating path writes the model — and apply again on classic, ' +
+      'minimal or creative, which offer the control and draw all four. The two sizes modern DOES apply keep ' +
+      'their rows, because they respond in its Preview and not in its DOCX, which is US-011.'),
+  annotation('DECISION', 'all', 'line height: Word exact spacing', ['docx'],
+    'Closed the Word auto line spacing finding (Part 3 US-004). Every DOCX paragraph, and the document default, ' +
+      'is written as w:lineRule="exact" at the Preview line height of its element times the size of its run, in ' +
+      'twips, taken from src/lib/resume-line-height.ts. Exact rather than at-least: exact is drawn at exactly ' +
+      "that pitch in every font, where at-least is drawn at the font's single line whenever that is taller — " +
+      'Verdana\'s 1.215 em against the 1.2 of the professional and modern titles. The line-height rows compare ' +
+      'the DOCX exact spacing divided by the run size, which is its drawn leading; at-least and auto spacing are ' +
+      'read as what they ask for and never match a CSS line height.'),
+  annotation('FINDING', 'all', 'line height: what exact spacing does not carry', ['docx'],
+    'Residual differences after Part 3 US-004, each measured on DOCX files the generators wrote, exported to PDF ' +
+      'by Word 16 and read back with pdf.js. (1) Baseline position: Word lays each line of an exact paragraph ' +
+      'at the written pitch (summary baselines 13.44/13.56pt apart for 13.5pt written, 20.28pt for 20.3pt; ' +
+      "Word places lines on a grid of about 0.12pt) but puts the baseline at 80% of the line's height, where " +
+      'CSS centres the font\'s ascent-plus-descent in the line box, so glyphs sit up to about 0.1em higher or ' +
+      'lower within the same line box (classic title: 3.7pt lower; professional title: 0.75pt higher). The ' +
+      "effect is largest on modern's job-title bar, whose paragraph stands for the bar's padded box: the fill is " +
+      'the Preview\'s height (27.75pt, its line plus 4px above and below), but Word draws the baseline 22.2pt ' +
+      'down it where the Preview draws it about 19.7pt down, so the title sits about 2.5pt low in the bar, ' +
+      '5.5pt from its bottom edge instead of 8pt; nothing of it is cut. OOXML has no property that places the ' +
+      'baseline within an exact line. Nothing clipped: the tallest accented capitals ' +
+      'and the descenders of g, j, p, q, y rendered whole in Verdana at 1.2, the tightest ratio any generator ' +
+      'writes, and in Times New Roman at 1.5. (2) One Word paragraph has one line height and one pair of gaps: ' +
+      'where the Preview draws two boxes side by side in a flex row and the text may wrap, the two cannot both ' +
+      'hold. A title and its date take the taller line box for every line, so a title that wraps is spaced at ' +
+      "that height rather than its own. A creative heading instead keeps its own leading and carries its bar's " +
+      'surplus height as fixed space above and below, so a heading that wraps is 2 lines plus that surplus ' +
+      '(2 x 360 + 120 twips for a main-column heading at the default size) where the Preview draws the taller ' +
+      'of the bar and the two lines, about 8px less. Halving the surplus rounds up, so the one-line row can be ' +
+      'a twip over the bar (361 against 360 for a sidebar heading at font scale 0.8; 481 against 480 for a main ' +
+      "one at 1.2). modern's bullet, a separate flex item at 1.5, can make a one-line HTML achievement 0.1em " +
+      'taller than its 1.4 text leading. (3) Paragraphs that draw no text (spacers, the paragraph a table cell requires, the ' +
+      'paragraph after a final table) take a 1-twip exact line, where the Preview draws none.'),
   annotation('LIMITATION', 'all', 'colour conversion', ['preview', 'pdf', 'docx'],
     `Compared as 8-bit sRGB with a tolerance of ${COLOUR_CHANNEL_TOLERANCE} level per channel. CSS colours are ` +
       'converted by the browser canvas and, independently, by the OKLab matrices in e2e/parity/colour.ts; a ' +
       'collect test fails if the two disagree. Translucent colours are composited over their measured ' +
       'backdrop before comparison. Colours outside sRGB are clipped.'),
   annotation('LIMITATION', 'creative', 'header gradient', ['docx'],
-    'The header is a three-stop CSS gradient. DOCX paragraph and table-cell shading is a single solid fill ' +
-      '(w:shd); the generator uses solid purple. Not compared.'),
+    'The header is a three-stop CSS gradient (from-purple-600 via-pink-500 to-orange-400). DOCX paragraph and ' +
+      'table-cell shading is a single solid fill (w:shd), so since Part 3 US-003 the generator fills the header ' +
+      "with the gradient's first stop, globals.css purple-600, taken from src/lib/resume-palette.ts. The other " +
+      'two stops are not drawn. The two bg-white/10 circles the Preview draws over the gradient inside the same ' +
+      'header ARE drawn, since Part 3 US-007, as floating rasters; they have their own DECISION row, and they ' +
+      "are not folded into the composite below. The fill is not compared. Part 3 US-006 composites the header's " +
+      'translucent text against that same first stop, on both sides: the colour:headerSummary and ' +
+      'colour:headerLinks rows print it as the "over" colour, read from the computed background-image of the ' +
+      'header the Preview actually rendered, never assumed, and marked as the DOCX fill rather than a measured ' +
+      'backdrop. WHAT THAT HIDES, measured on the painted pixels of the primary profile\'s creative Preview ' +
+      '(header 816x273): the gradient runs to-br, so the first stop is the top-left CORNER only — painted ' +
+      '#6A3AD4 at (1,1), against #F747A4, #F647A4 and #FF890B at the other three, and already #B047BA halfway ' +
+      'down the left edge. Both sampled texts also lie inside the bottom-left bg-white/10 disc (centre (56,217), ' +
+      'r=96; the summary 83 away, the links 18), and the right end of the summary lies inside the top-right disc ' +
+      '(centre (768,48), r=128; 74 away). So the backdrop actually painted behind them is pink, not the first ' +
+      'stop: #BC58BE level with the summary and #E750AC level with the links, reaching #FA6095 and #F84490 at ' +
+      'their right ends. The Preview therefore draws those two texts at about #F8EFF9 and #FADCEE where the DOCX ' +
+      'writes #F0ECFB and #E1D8F6 — a hue difference, pink against lavender, 25 levels of red apart on the links ' +
+      'row, not a uniform lightening. Nothing in DOCX shading can carry a gradient or a disc, so the rows match ' +
+      'on the fill the format can draw and this records what they cannot cover.'),
   annotation('LIMITATION', 'modern', 'colour:accent reference', ['preview', 'pdf', 'docx'],
     'The accent is not stored in the model. It is derived from the sidebar colour by the rule documented in ' +
       'modern-template.tsx and docx-modern.ts (saturation +20 capped at 100, lightness +25 capped at 65); ' +
@@ -1269,10 +1238,12 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
       'a template keeps its own designed font until one is: classic stays serif, minimal and creative stay ' +
       'Inter. So these rows reference Inter on minimal and creative, and the stored font on professional and ' +
       'modern, which the decision does not name and which draw it today. Classic has NO reference and is ' +
-      'compared surface against surface, because the decision is open there: classic draws its title and ' +
-      'headings in serif but its body text in Inter, so "classic stays serif" and "no unchosen font changes" ' +
-      'cannot both hold for classic body text. OPEN QUESTION for the owner, before Part 3 US-012: which ' +
-      'family classic body text uses when no font was chosen.'),
+      'compared surface against surface, because it draws TWO designed families and a reference is per ' +
+      'template: serif on its title and section headings, the app\'s Inter on its body. Part 3 US-012 settled ' +
+      'the question that was open here by keeping exactly what classic\'s Preview draws — "classic stays ' +
+      'serif" reads as its serif headings, not as a serif body it never had — and by making docx-classic.ts ' +
+      'follow that instead of the Times New Roman it chose privately. No unchosen font changes on any ' +
+      'surface, which is what the not-chosen visual baselines record.'),
   annotation('FINDING', 'professional', 'print page band colour', ['pdf'],
     'src/app/globals.css paints body:has(.professional-template) under print with a fixed ' +
       'oklch(0.25 0.05 240) band at 30% of 816px, independent of the model colour and width. Measured on a ' +
@@ -1284,17 +1255,68 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
       'show the band following the sidebar colour, cannot be exercised as written; the owner must revise it ' +
       'before US-013 starts, or that story meets the PRD BLOCKER "cannot exercise the divergence a story ' +
       'closes". Owned by US-013.'),
-  annotation('FINDING', 'modern', 'skill level bars', ['docx'],
-    'The Preview draws a level bar under every skill; the DOCX lists the skills as text. DOCX can approximate ' +
-      'a bar with a shaded cell or run; omitting it is a generator choice. Owned by US-007. Not measured by ' +
-      'this check.'),
-  annotation('FINDING', 'creative', 'language level bars', ['docx'],
-    'The Preview draws five-segment level bars; the DOCX writes "Fluent (4/5)" text. DOCX can approximate the ' +
-      'bars with shaded cells or runs; omitting them is a generator choice. Owned by US-007. Not measured by ' +
-      'this check.'),
-  annotation('FINDING', 'creative', 'technology pills', ['docx'],
-    'The Preview draws each technology as a filled pill; the DOCX writes bold purple text. DOCX can shade a ' +
-      'run; omitting it is a generator choice. Owned by US-007. Not measured by this check.'),
+  annotation('DECISION', 'modern', 'graphics: skill level bars and technology chips', ['docx'],
+    'Closed the modern half of the graphics divergence (Part 3 US-007). The skill level bars, which the DOCX ' +
+      'previously omitted, are drawn as a one-row two-cell table under each skill: the accent colour across the ' +
+      'level the Preview draws (src/lib/resume-graphics.ts MODERN_SKILL_BAR.levelPercent, a constant in the ' +
+      'Preview too) and the track across the rest, at the bar\'s own height as an exact row height. The track is ' +
+      'rgba(255,255,255,0.2) over the sidebar in the Preview and a cell fill carries no alpha, so it is written ' +
+      'as the composite US-006 writes for translucent text, over the same backdrop. The technology chips, ' +
+      'previously one line of bullet-separated text, are one shaded run each, slate-700 on slate-100. Not ' +
+      'drawn: the corner radius of either, which OOXML has for neither a cell nor a run, and the chips\' ' +
+      'vertical padding, because a run\'s shading is exactly as tall as its line. The bars appear under the ' +
+      'skills the Preview draws bars for — a category\'s `items`; a category carrying `skillsHtml` is the ' +
+      'content divergence US-016 owns and gets no bar. Not measured by this check: it samples text, and these ' +
+      'graphics carry none. Asserted on generated documents by docx-graphics.test.ts.'),
+  annotation('DECISION', 'creative', 'graphics: level bars, pills, timeline and project cards', ['docx'],
+    'Closed the creative half of the graphics divergence (Part 3 US-007). The five-segment language level bars, ' +
+      'for which the DOCX wrote "Fluent (4/5)", are drawn as a one-row table of five shaded cells and four ' +
+      'unshaded gaps, purple-500 for a filled segment and slate-200 for an empty one; the number filled is the ' +
+      'level, so the value is in the document, and the text that stood in for them is gone because the Preview ' +
+      'never showed it. A stored level the Preview does not recognise fills none, on both surfaces: the old ' +
+      'code echoed such a value verbatim, so an out-of-union level that ResumeLanguage forbids but a stored row ' +
+      'may still hold now reaches no surface at all — the Preview and the print never showed it either, and ' +
+      'closing the divergence on the Preview\'s side is FR-3. The ' +
+      'technology pills, which the DOCX wrote as one bold stock-purple line, are one shaded run each, white on ' +
+      'purple-500. The experience timeline is a left paragraph border on every paragraph of an entry, which ' +
+      'Word draws as one continuous rule. Its dot is NOT drawn: a "●" run at the head of the entry was built ' +
+      'and rendered, and the owner rejected it because the head of that entry is the job title and a run there ' +
+      'writes "●  " into the text an ATS reads as the title — and because standing text in for a shape is the ' +
+      'inverse of what this story does everywhere else. The rule already marks where each entry begins. The ' +
+      'project card is a single-cell table: ' +
+      'slate-50 fill, a 4px purple-500 left border and 16px cell margins. Every colour is now a ' +
+      'resume-palette.ts entry; the two stock hexes the generator kept for the level text and the pills are ' +
+      'gone. Also not drawn, each measured rather than assumed: corner radii, which OOXML has for neither a ' +
+      'cell nor a run; the timeline line\'s fade to transparent and the pills\' and bars\' later gradient stop, ' +
+      'both first-stop substitutions this report already records; and the pills\' vertical padding, because a ' +
+      'run\'s shading is exactly as tall as its line. Paragraph shading was tried for the card before the cell ' +
+      'was: Word paints it from the paragraph\'s left INDENT to the right text margin, so the card can have the ' +
+      'padding or the fill over it but not both. Not measured by this check: it samples text, and these ' +
+      'graphics carry none. Asserted on generated documents by docx-graphics.test.ts.'),
+  annotation('DECISION', 'creative', 'graphics: the header\'s decorative discs', ['docx'],
+    'Closed by Part 3 US-007, after a first attempt recorded it as a format limitation and the review found ' +
+      'that claim false. The Preview draws two `bg-white/10` discs, 256px and 192px, positioned outside the ' +
+      'header box and clipped by it. Each is now a floating `w:drawing` anchored inside the header cell — the ' +
+      'same mechanism docx-modern.ts already uses for the photo — holding a PNG whose alpha channel carries ' +
+      'the 10% white (src/app/api/resumes/[id]/download-docx/docx-disc.ts). MEASURED IN WORD 16 before it was ' +
+      'written: with behindDoc="1" the drawing is painted behind the cell\'s own w:shd fill and cannot be seen ' +
+      'at all; with behindDoc="0" it is painted over the fill, and Word clips it to the cell, which is exactly ' +
+      'the Preview\'s `overflow-hidden`, so the overhanging parts are cut where the Preview cuts them. A second ' +
+      'probe placed the bottom disc against summaries wrapping to one, two and four lines: anchored in a ' +
+      'zero-height paragraph after the header\'s last, it holds its distance from the header\'s bottom edge in ' +
+      'all three, so the content-dependent header height does not move it. TWO DIFFERENCES REMAIN, both ' +
+      'recorded rather than absorbed. The Preview stacks the discs UNDER the header text (`relative z-10` on ' +
+      'the content) and OOXML has no layer between a cell\'s fill and its text, so the DOCX draws them over it; ' +
+      'the text they reach is white or near-white, so the wash moves it by 0.1 x (255 - v) a channel: nothing ' +
+      'on the opaque white title, and at most 3.9 — four levels once rounded — on the darkest of them, the ' +
+      'green of the composited text-white/80 links row. That is ABOVE this check\'s one-level tolerance, and it ' +
+      'is not caught, because neither side of a colour row sees a disc at all: the Preview side reads the ' +
+      'computed style rather than the painted pixel, and the DOCX side reads the run colour. A row here can ' +
+      'therefore not confirm the discs; the assertions that do are in docx-graphics.test.ts, on the drawing and ' +
+      'its PNG. And the disc is a raster scaled to size where the Preview draws ' +
+      'a vector, because the docx package exposes no shape primitive. Not measured by this check: it samples ' +
+      'text colour, and composites the sampled header text against the header fill on both sides, so neither ' +
+      'side accounts for a disc that may lie over it.'),
   ...(['classic', 'minimal'] as const).map((template) =>
     annotation('FINDING', template, 'hiddenSidebarSections: skills', ['preview', 'pdf', 'docx'],
       'A dead control, and since Part 3 US-002 a user-visible one. The editor renders its sidebar panel for ' +
@@ -1309,18 +1331,19 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
         'selected template does not apply (FR-9) while keeping the stored value. The visibility rows here ' +
         'MATCH because no surface hides the section, which is what the model reference says for this template.'),
   ),
-  ...(['classic', 'minimal'] as const).map((template) =>
-    annotation('FINDING', template, 'rich text in skills and projects', ['preview', 'pdf', 'docx'],
-      'The Preview and the DOCX disagree about rich text in the two sections US-002 made live, and here the ' +
-        'DOCX is the one that is right. projects-section.tsx:175 stores the project description as HTML, ' +
-        `while ${template}-template.tsx renders {project.description} as a plain string, so the Preview and ` +
-        `the print show literal <p> markup where docx-${template}.ts runs parseHtmlToDocxRuns and draws ` +
-        'formatted text. The same shape in skills: a category can carry skillsHtml, which ' +
-        `professional-template.tsx renders and ${template}-template.tsx ignores in favour of items, while ` +
-        'the DOCX strips it into the run. Both are pre-existing — creative renders project descriptions the ' +
-        'same plain way — but they became visible on this template when its export gained the sections. It ' +
-        'must not be closed by degrading the DOCX. No Part 3 story owns Preview rich-text rendering today, so ' +
-        'the owner has to place it. Not measured: this check compares no body text.'),
+  ...(['classic', 'minimal', 'creative'] as const).map((template) =>
+    annotation('DECISION', template, 'rich text in skills and projects', ['preview', 'pdf', 'docx'],
+      'Closed by Part 3 US-016, on the Preview side, without touching a generator. projects-section.tsx ' +
+        `stores the project description as HTML and ${template}-template.tsx rendered {project.description} ` +
+        'as a plain string, so the Preview and the print showed literal <p> markup where ' +
+        `docx-${template}.ts already drew formatted text; the same shape in skills, where a category ` +
+        'carries skillsHtml and the template read items only, so an edited category showed a stale list. ' +
+        `US-016 routes both through renderFormattedText, as professional-template.tsx already did, so ` +
+        'every template sanitizes the stored HTML in the browser with the inert sanitiser and renders it ' +
+        'into .formatted-content, and reads skillsHtml first with items as the fallback when none is ' +
+        'stored. The DOCX is unchanged. Exercised by the html-body-and-skills profile, whose body ' +
+        'line-height rows now cover all five templates; the per-template rendering itself is asserted in ' +
+        'rich-text.test.ts. Not measured here: this check still compares no body text.'),
   ),
 ]
 

@@ -151,8 +151,10 @@
       "title": "DOCX text colour matches the palette the Preview renders",
       "description": "As a user, I want the text in my downloaded CV to be the colour I see, because the Preview is what I approved.",
       "acceptanceCriteria": [
-        "Every DOCX text colour for the title, section headings and body text equals the colour the Preview renders for that element, compared as sRGB with the parity check's declared per-channel tolerance, for all five templates.",
+        "Every DOCX text colour for the title, section headings and body text equals the colour the Preview renders for that element, compared as sRGB with the parity check's declared per-channel tolerance, for all five templates. Text the Preview draws translucent is US-006's.",
         "The DOCX values derive from the palette the Preview actually renders — `globals.css`'s redefined tokens and inline colours — rather than from a second hand-copied hex table that can drift from it again. How the generators obtain those values is a decision to record.",
+        "Borders and fills the Preview draws in a theme token or inline colour — classic's header border and heading rules, minimal's rules, creative's header and badge fills, professional's heading underline — derive from the same palette. A fill the Preview draws as a gradient takes the gradient's first stop, and the gradient is recorded as a format limitation.",
+        "A test fails when a template draws a text colour the palette does not hold, so a new or changed colour in a template cannot drift silently.",
         "Colours the user sets (sidebar, accent) are unchanged by this story.",
         "Preview rendering is unchanged; visual baselines do not move.",
         "The story's parity rows change to `MATCH`.",
@@ -213,7 +215,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -222,6 +224,8 @@
       "description": "As a user, I want the lines in my downloaded CV spaced as they are on screen, because a CV that runs longer in Word than in the Preview breaks differently.",
       "acceptanceCriteria": [
         "The generators express CSS line-height as spacing that scales the font size — for example `lineRule=\"exact\"` or `atLeast` computed from the run size — rather than as a Word `auto` multiple, which scales the font's own single-line height.",
+        "Every DOCX paragraph takes its spacing from the leading the Preview draws for its element, including paragraphs that today inherit the document default; no paragraph is left on a Word `auto` multiple.",
+        "Formatted (HTML) body text, which the Preview draws at `.formatted-content`'s line height, is written at that line height, per FR-3; the parity check exercises it with a profile whose body text is HTML.",
         "Line height is compared on drawn leading, not on the encoded value, for the title, headings and body text of all five templates.",
         "Spacing chosen to avoid clipping glyphs (Word's exact spacing can cut ascenders and descenders) is evidenced on a generated document, and any residual difference is recorded as a finding with the reason.",
         "Preview rendering is unchanged; visual baselines do not move.",
@@ -283,7 +287,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -352,16 +356,18 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Modern's translucent sidebar text keeps its tint in the DOCX",
-      "description": "As a user of the modern template, I want secondary sidebar text in my download to look as muted as it does on screen.",
+      "title": "Translucent text keeps its tint in the DOCX",
+      "description": "As a user of the modern, professional or creative template, I want secondary text in my download to look as muted as it does on screen.",
       "acceptanceCriteria": [
-        "Sidebar text drawn in the Preview as translucent white over the sidebar colour is written to the DOCX as the composited opaque colour, computed against the user's actual sidebar colour rather than a default.",
-        "Changing the sidebar colour changes the composited DOCX colour accordingly, evidenced at two different colours.",
+        "Text drawn in the Preview as translucent white — modern's secondary sidebar text, professional's `opacity-80` sidebar text, and creative's `text-white/90` and `text-white/80` header text — is written to the DOCX as the composited opaque colour, computed against the colour the DOCX actually draws behind it: the user's sidebar colour for modern and professional, the header fill for creative.",
+        "Changing the sidebar colour changes the composited DOCX colour accordingly on modern and professional, evidenced at two different colours.",
+        "The parity check samples professional's and creative's translucent text, so each is a named row rather than an unmeasured difference.",
+        "Creative's header gradient, which the DOCX cannot draw, is recorded as a format limitation with evidence, including the colour its translucent text is composited against.",
         "Preview rendering is unchanged; visual baselines do not move.",
         "The story's parity rows change to `MATCH`.",
         "FR-1: Preview, print/PDF and DOCX render the same sections, in the same order, with the same typography, colour and page geometry for the same resume, to the degree each format supports.",
@@ -421,19 +427,20 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-007",
       "title": "The DOCX draws the graphics the Preview draws",
-      "description": "As a user of the modern or creative template, I want the skill and language bars and technology pills I see to appear in my download.",
+      "description": "As a user of the modern or creative template, I want the bars, pills and other graphics I see to appear in my download.",
       "acceptanceCriteria": [
         "Modern's skill bars, creative's language bars and creative's technology pills appear in the DOCX, approximated with what the format supports — for example shaded table cells or shaded runs — and each approximation is recorded with its form.",
+        "Modern's technology chip fill and creative's timeline line and dots, project card rule and fill, and decorative header circles are each drawn in the DOCX with what the format supports, recorded as a format limitation with evidence, or — where the format can express it but the cost or the side effects are judged not worth it — recorded as an owner decision naming the route that was open and why it was not taken.",
         "Each drawn element carries the same value the Preview shows (a proficiency level, a pill's text), asserted on the unzipped document.",
         "Anything that proves genuinely inexpressible in DOCX is recorded as a format limitation with evidence, not silently omitted.",
         "Preview rendering is unchanged; visual baselines do not move.",
-        "The three graphics findings are closed, each as drawn or as an evidenced limitation.",
+        "The three graphics findings are closed, each as drawn or as an evidenced limitation, and no graphic is left on US-003's completeness check as unplaced.",
         "FR-1: Preview, print/PDF and DOCX render the same sections, in the same order, with the same typography, colour and page geometry for the same resume, to the degree each format supports.",
         "FR-2: No fix may reintroduce an independent authoritative copy of layout state. These stories change what surfaces do with the model, never where it lives.",
         "FR-3: Where surfaces disagree, the rendered Preview is the reference for exports. Any story that instead changes the Preview must say which surface was wrong and why.",
@@ -491,7 +498,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -564,7 +571,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -851,7 +858,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -993,7 +1000,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -1070,6 +1077,78 @@
       ],
       "priority": 15,
       "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "The Preview shows the content the user saved",
+      "description": "As a user, I want the Preview to show the skills and descriptions I typed, because they are what my downloaded CV contains.",
+      "acceptanceCriteria": [
+        "A skill category saved as `skillsHtml` renders in the Preview of every template, as professional's does; `items` is used only when no `skillsHtml` exists.",
+        "Rich-text fields stored as HTML — project and education descriptions and any other — render as formatted text in every template's Preview, never as literal markup.",
+        "All such rendering goes through the inert sanitiser; no path writes unsanitised HTML, on the server or the client.",
+        "The DOCX is unchanged, evidenced by artifact comparison across all five templates.",
+        "The parity check exercises it with a profile whose skills and descriptions are HTML, and the \"rich text in skills and projects\" findings are closed.",
+        "Rendered browser evidence and `ui-expert` validation show each template's Preview with rich-text skills and descriptions.",
+        "Any visual baseline that moves is approved with its cause understood.",
+        "FR-1: Preview, print/PDF and DOCX render the same sections, in the same order, with the same typography, colour and page geometry for the same resume, to the degree each format supports.",
+        "FR-2: No fix may reintroduce an independent authoritative copy of layout state. These stories change what surfaces do with the model, never where it lives.",
+        "FR-3: Where surfaces disagree, the rendered Preview is the reference for exports. Any story that instead changes the Preview must say which surface was wrong and why.",
+        "FR-4: A visual baseline may move only with an understood cause and an explicit approval decision.",
+        "FR-5: Template isolation holds — a fix for one template must not alter another through shared defaults or fallbacks, except where a story adopts a shared rule and evidences its effect on every template it touches.",
+        "FR-6: Client-supplied and stored layout state reaching document generation remains untrusted and bounded.",
+        "FR-7: Every resume is A4 on every surface.",
+        "FR-8: A template's designed font applies until the user chooses a font; a chosen font applies on every surface of every template. A stored font equal to today's default counts as not chosen.",
+        "FR-9: Every layout control the editor offers for a template takes effect on that template's Preview, print and DOCX, or is not offered while it is selected. Stored values for hidden controls are preserved.",
+        "FR-10: `pnpm test:parity` stays in step with the work: a story that closes a divergence changes its rows to `MATCH` and updates the known-divergence list in the same commit.",
+        "Regression constraint: The five template identifiers remain `modern`, `classic`, `minimal`, `creative`, `professional`.",
+        "Regression constraint: PDF continues to work via `window.print()`.",
+        "Regression constraint: The editor's save, draft-recovery and unsaved-changes behaviours are unchanged.",
+        "Regression constraint: The Preview's editing controls continue to function and remain excluded from visual captures.",
+        "Regression constraint: Existing saved resumes remain loadable and exportable; no resume becomes unopenable, and no stored layout value becomes unparseable or is deleted.",
+        "Regression constraint: No existing resume changes font unless its owner chose one.",
+        "Regression constraint: Cover letter rendering and export are unchanged.",
+        "Regression constraint: Locale routing and translated template labels are unchanged.",
+        "Regression constraint: `pnpm lint` does not exceed its 311-problem baseline.",
+        "Verification: `pnpm typecheck`, `pnpm test`, `pnpm test:integration`, `pnpm test:e2e`, `pnpm build` on every story.",
+        "Verification: `pnpm test:parity` on every story: the story's rows change to `MATCH`, no row becomes `NEW`, and nothing is unreconciled. A run that stalls on a DOCX request is re-run, never absorbed with a longer timeout or a retry — `playwright.parity.config.ts` records why.",
+        "Verification: `pnpm test:visual` — screen and print — on every story.",
+        "Verification: `export-validation` on every story that changes the DOCX: a generated document inspected for content and fidelity, never an HTTP 200.",
+        "Verification: `ui-expert` on US-008 through US-015, with rendered browser evidence. US-014 additionally at 768px and 375px widths.",
+        "Verification: `database-migration` on US-012 if it introduces a migration.",
+        "Verification: Artifact comparison across all five templates for any story claiming a template is unchanged.",
+        "Verification: Baseline movement follows `docs/engineering/visual-regression.md`, with the before/after and cause recorded per moved baseline.",
+        "Verification: `code-reviewer` on every story.",
+        "FAIL condition: A section the user has hidden appears on any surface.",
+        "FAIL condition: A section appears in a different position on one surface than on another.",
+        "FAIL condition: A story introduces a `NEW` row in `pnpm test:parity`, or closes a divergence without updating the known-divergence list in the same commit.",
+        "FAIL condition: A resume whose font was never chosen changes font.",
+        "FAIL condition: A control offered for a template has no effect on that template.",
+        "FAIL condition: A stored layout value is deleted or rewritten because its control is hidden.",
+        "FAIL condition: Any resume surface is not A4 after US-008.",
+        "FAIL condition: Two surfaces are made to agree by changing the Preview where the Preview was right, without a recorded reason.",
+        "FAIL condition: A visual baseline is updated to absorb a diff whose cause is not understood.",
+        "FAIL condition: A visual threshold, parity tolerance or request timeout is widened rather than the cause being found.",
+        "FAIL condition: A template's rendered output changes as a side effect of fixing another.",
+        "FAIL condition: A fidelity limitation is accepted as a match rather than recorded as a finding.",
+        "FAIL condition: A DOCX omission is fixed by hardcoding a section list in a generator, reintroducing per-generator layout logic Part 2 removed.",
+        "BLOCKER condition: `pnpm test:parity` cannot run, or cannot exercise the divergence a story closes.",
+        "BLOCKER condition: A story finds a divergence this document does not name. The document is revised before that story continues.",
+        "BLOCKER condition: A divergence needs a product decision about which behaviour is correct, and the decision has not been made.",
+        "BLOCKER condition: US-012 needs a schema migration and database-migration validation cannot run.",
+        "Out of scope: Changing which layout model surfaces read from. Part 2 settled that.",
+        "Out of scope: New user-facing layout capabilities, new templates, or removing templates. The font-choice record is internal state, not a new setting.",
+        "Out of scope: Cover letters, including their own 816×1056 page geometry (`cover-letter-card.tsx`, `cover-letter-preview.tsx`) — a separate template and export path the page-size decision does not cover.",
+        "Out of scope: Migrating PDF off `window.print()`.",
+        "Out of scope: Moving the photo out of localStorage.",
+        "Out of scope: Tightening the photo size bound (Part 2 US-001's informational SEC-001).",
+        "Out of scope: Adding `pnpm test:parity` to CI.",
+        "Out of scope: The intermittent DOCX request stall on the development machine, which is an environment cause (most likely antivirus HTTP inspection), not a product defect.",
+        "Out of scope: Rewriting the DOCX generators wholesale.",
+        "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
+      ],
+      "priority": 16,
+      "passes": true,
       "notes": ""
     }
   ]

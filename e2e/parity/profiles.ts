@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import {
+  chosenFontFamily,
   DEFAULT_RESUME_LAYOUT,
   mapEditorOrderToClassic,
   mapEditorOrderToMinimal,
@@ -15,7 +16,12 @@ import {
   FIXTURE_CERTIFICATIONS,
   FIXTURE_CONTACT,
   FIXTURE_EXPERIENCE,
+  FIXTURE_PROJECTS,
+  FIXTURE_SKILLS,
+  FIXTURE_SUMMARY,
   type FixtureExperience,
+  type FixtureProject,
+  type FixtureSkillCategory,
 } from '../fixtures/resume'
 
 /**
@@ -58,13 +64,17 @@ export type ProfileId =
   | 'modern-non-integer-hue'
   | 'font-not-chosen'
   | 'multi-page'
+  | 'formatted-body'
+  | 'html-body-and-skills'
 
 /**
  * Which row families a profile is run for. `font` is the font-family rows alone,
  * for a profile whose only difference is the font; `typography` already
- * includes them. `print` reads the sidebar column of every printed page.
+ * includes them. `body-line-height` is the body text's line-height row alone,
+ * for a profile whose only difference is how the body text is stored. `print`
+ * reads the sidebar column of every printed page.
  */
-export type RowFamilyGroup = 'structure' | 'typography' | 'font' | 'colour' | 'page' | 'print'
+export type RowFamilyGroup = 'structure' | 'typography' | 'font' | 'body-line-height' | 'colour' | 'page' | 'print'
 
 export interface ParityProfile {
   id: ProfileId
@@ -89,7 +99,13 @@ export interface ParityProfile {
    * Content seeded in place of the fixture's, and the fewest pages its print
    * must fill for the profile to measure what it exists for. Absent: the fixture.
    */
-  content?: { experience: readonly FixtureExperience[]; minimumPrintedPages: number }
+  content?: {
+    experience: readonly FixtureExperience[]
+    /** Absent: the fixture's own. Present: what this profile stores in place of it. */
+    skills?: readonly FixtureSkillCategory[]
+    projects?: readonly FixtureProject[]
+    minimumPrintedPages: number
+  }
 }
 
 /**
@@ -225,6 +241,33 @@ const EARLIER_ROLES: readonly FixtureExperience[] = [
   },
 ]
 
+/**
+ * The fixture's roles with the sampled achievement — the body marker — stored
+ * as an HTML paragraph. Only the markup changes: the marker's text, and so
+ * every locator, is the same.
+ */
+const FORMATTED_BODY_EXPERIENCE: readonly FixtureExperience[] = FIXTURE_EXPERIENCE.map((role, index) =>
+  index === 0 ? { ...role, achievements: role.achievements.map((a, i) => (i === 0 ? `<p>${a}</p>` : a)) } : role,
+)
+
+/**
+ * Part 3 US-016: the fixture's skill categories as the skills editor saves them.
+ * `skillsHtml` is what the editor writes on every save, converting the legacy
+ * `items` list as it goes (skills-section.tsx), and `items` is kept because a
+ * real stored row keeps it - that is exactly the pair whose precedence the
+ * Preview has to get right.
+ */
+const HTML_SKILLS: readonly FixtureSkillCategory[] = FIXTURE_SKILLS.map((category) => ({
+  ...category,
+  skillsHtml: `<p>${category.items.join(', ')}</p>`,
+}))
+
+/** The fixture's project with its description stored as HTML, as projects-section.tsx saves it. */
+const HTML_PROJECTS: readonly FixtureProject[] = FIXTURE_PROJECTS.map((project) => ({
+  ...project,
+  description: `<p>${project.description}</p>`,
+}))
+
 export const PROFILES: readonly ParityProfile[] = [
   {
     id: 'primary',
@@ -330,12 +373,61 @@ export const PROFILES: readonly ParityProfile[] = [
     layout: PRIMARY_LAYOUT,
     content: { experience: [...FIXTURE_EXPERIENCE, ...EARLIER_ROLES], minimumPrintedPages: 2 },
   },
+  {
+    id: 'formatted-body',
+    purpose:
+      "Part 3 US-004's formatted body text. Primary's layout over the fixture with the sampled achievement " +
+      'stored as HTML, as the rich-text editor saves it. Professional and modern render HTML through ' +
+      "renderFormattedText into .formatted-content, whose globals.css line height overrides the template's, " +
+      'so their body text draws at a different height than for plain text. Classic, minimal and creative ' +
+      'drew every text plainly (formatText) when this profile was written, so they are not run here; ' +
+      'US-016 changed that, and the html-body-and-skills profile below runs all five.',
+    templates: ['professional', 'modern'],
+    rowGroups: ['body-line-height'],
+    layout: PRIMARY_LAYOUT,
+    content: { experience: FORMATTED_BODY_EXPERIENCE, minimumPrintedPages: 1 },
+  },
+  {
+    id: 'html-body-and-skills',
+    purpose:
+      "Part 3 US-016's rich text, on all five templates: the sampled achievement and the project " +
+      'description stored as HTML, as the editors save them. Before US-016 only ' +
+      'professional read skillsHtml and only professional and modern rendered stored HTML as formatted ' +
+      'text, so classic, minimal and creative showed a stale items list and literal <p> markup while the ' +
+      'DOCX drew what was typed. Every template now routes the same stored HTML through the same inert ' +
+      'sanitiser into .formatted-content, so the body line height they draw it at is the one row that can ' +
+      'say so without reading body text.',
+    templates: TEMPLATES,
+    rowGroups: ['body-line-height'],
+    layout: PRIMARY_LAYOUT,
+    content: {
+      experience: FORMATTED_BODY_EXPERIENCE,
+      // Skills are deliberately left as the fixture's plain items here, though
+      // US-016 fixed them too. A category stored as `skillsHtml` draws in the
+      // DOCX as the parsed runs of that HTML, not as one run of joined items,
+      // and every sampler in `surfaces.ts` finds a run by its whole text — so a
+      // rich-text skills category makes the collect step fail to find its run
+      // rather than report a divergence. Teaching the samplers to read a run
+      // sequence is harness work this story did not take on.
+      //
+      // What covers it instead: `rich-text.test.ts` asserts, per template, that
+      // `skillsHtml` renders and that a stale `items` list does not, and the
+      // rendered evidence in `scratchpad/p3us016/` shows all five Previews.
+      projects: HTML_PROJECTS,
+      minimumPrintedPages: 1,
+    },
+  },
 ]
 
 /** Whether a profile's collect test samples title, heading and body typography. */
 export function samplesTypography(profile: ParityProfile): boolean {
   // Control profiles are sampled too: primary rows read them.
-  return profile.control === true || profile.rowGroups.includes('typography') || profile.rowGroups.includes('font')
+  return (
+    profile.control === true ||
+    profile.rowGroups.includes('typography') ||
+    profile.rowGroups.includes('font') ||
+    profile.rowGroups.includes('body-line-height')
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -377,11 +469,35 @@ export interface TemplateSpec {
   accentDepth: number | null
   /**
    * Further text colours to compare, located by their exact text on every
-   * surface. Modern's sidebar secondary text is translucent white in the
-   * Preview; it is composited over its backdrop and compared, never excused.
+   * surface. Text the Preview draws translucent is composited over its backdrop
+   * and compared, never excused.
    */
-  extraColourSamples: readonly { key: string; text: string }[]
+  extraColourSamples: readonly ExtraColourSpec[]
   reference(model: ResumeLayoutModel): TemplateReference
+}
+
+/**
+ * Where an extra colour sample's backdrop comes from.
+ *
+ * `nearest-opaque` is the ordinary case: the first opaque background at or
+ * above the element, which is what the browser draws the text on.
+ *
+ * `gradient-first-stop` is creative's header. Its background is a CSS gradient,
+ * which has no `background-color` at all, so walking up for an opaque one finds
+ * the page paper and would composite white over white. The DOCX cannot draw a
+ * gradient — it fills the header with the first stop (US-003) — so the Preview
+ * side is composited over that same first stop, read from the computed
+ * `background-image` rather than assumed. That the other two stops, and the
+ * `bg-white/10` circles the header draws over them, are not in the DOCX is
+ * recorded as the creative header limitation.
+ */
+export type BackdropSource = 'nearest-opaque' | 'gradient-first-stop'
+
+export interface ExtraColourSpec {
+  key: string
+  text: string
+  /** Default `nearest-opaque`. */
+  backdrop?: BackdropSource
 }
 
 interface CommonDictionary {
@@ -427,7 +543,12 @@ const PROFESSIONAL: TemplateSpec = {
   headingSampleKey: 'experience',
   sidebarBackgroundDepth: 1,
   accentDepth: null,
-  extraColourSamples: [],
+  // The skill items of the first category, drawn in an `opacity-80` div inside
+  // the `text-white` sidebar (professional-template.tsx); opaque white runs in
+  // docx-professional.ts before US-006. The same `opacity-80` carries the
+  // key-achievement descriptions and the language levels, which the primary
+  // profile hides.
+  extraColourSamples: [{ key: 'sidebarSecondary', text: FIXTURE_SKILLS[0].items.join(' • ') }],
   sections: [
     { key: 'keyAchievements', column: 'sidebar', locator: heading(T.keyAchievements) },
     { key: 'skills', column: 'sidebar', locator: heading(T.skills) },
@@ -466,7 +587,7 @@ const MODERN: TemplateSpec = {
   sidebarBackgroundDepth: 2,
   accentDepth: 1,
   // rgba(255,255,255,0.6) contact label and rgba(255,255,255,0.7) certificate issuer
-  // in modern-template.tsx; opaque white runs in docx-modern.ts.
+  // in modern-template.tsx; opaque white runs in docx-modern.ts before US-006.
   extraColourSamples: [
     { key: 'sidebarLabel', text: 'Email' },
     { key: 'sidebarSecondary', text: FIXTURE_CERTIFICATIONS[0].issuer },
@@ -570,7 +691,14 @@ const CREATIVE: TemplateSpec = {
   headingSampleKey: 'experience',
   sidebarBackgroundDepth: null,
   accentDepth: null,
-  extraColourSamples: [],
+  // The header summary (`text-white/90`) and the second contact row
+  // (`text-white/80`) in creative-template.tsx; opaque white runs in
+  // docx-creative.ts before US-006. Both are drawn on the header gradient, so
+  // both take their backdrop from its first stop — the fill the DOCX draws.
+  extraColourSamples: [
+    { key: 'headerSummary', text: FIXTURE_SUMMARY, backdrop: 'gradient-first-stop' },
+    { key: 'headerLinks', text: FIXTURE_CONTACT.linkedin, backdrop: 'gradient-first-stop' },
+  ],
   sections: [
     { key: 'summary', column: 'header', locator: { kind: 'marker', text: SUMMARY_MARKER } },
     { key: 'skills', column: 'sidebar', locator: heading(S.skills) },
@@ -641,12 +769,13 @@ export function primaryFamily(stack: string): string {
 }
 
 /**
- * Whether the model's font was chosen. The model cannot record that yet (US-012
- * adds it), so this applies the owner's decision of 2026-09-15 literally: a
- * stored font equal to today's default was never chosen.
+ * Whether the model's font was chosen, as the APPLICATION decides it. US-012
+ * made `chosenFontFamily` the one rule — a stored stack equal to today's
+ * default records no choice — and this check asks it rather than restating it,
+ * so the check cannot disagree with the surfaces it is checking.
  */
 export function fontChosen(model: ResumeLayoutModel): boolean {
-  return model.fontFamily !== DEFAULT_RESUME_LAYOUT.fontFamily
+  return chosenFontFamily(model.fontFamily) !== null
 }
 
 // ---------------------------------------------------------------------------

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { ResumeLayoutSettings } from '@/types/database'
 import {
+  chosenFontFamily,
   DEFAULT_MODERN_MAIN_ORDER,
   DEFAULT_MODERN_SIDEBAR_ORDER,
   DEFAULT_RESUME_LAYOUT,
   extractLayoutSettings,
+  LAYOUT_CONTROL_KEYS,
   LAYOUT_CONTROL_RANGES,
   mapEditorOrderToClassic,
   mapEditorOrderToMinimal,
@@ -16,6 +18,9 @@ import {
   resolveLayoutModel,
   resolveResumeLayout,
   serializeLayoutModel,
+  TEMPLATE_APPLIED_SIZE_KEYS,
+  TEMPLATE_LAYOUT_CONTROLS,
+  templateOffersLayoutControl,
   toStoredLayout,
   type EditorMainId,
   type ResumeLayoutModel,
@@ -1222,5 +1227,176 @@ describe('serializeLayoutModel', () => {
     const written = JSON.parse(serializeLayoutModel(model))
     hiddenMainSections.push('summary')
     expect(written.hiddenMainSections).toEqual(['education'])
+  })
+})
+
+describe('which layout controls a template offers (Part 3 US-014)', () => {
+  it('offers the sidebar colour only on the templates that paint a sidebar', () => {
+    expect(templateOffersLayoutControl('professional', 'sidebarColour')).toBe(true)
+    expect(templateOffersLayoutControl('modern', 'sidebarColour')).toBe(true)
+    for (const template of ['classic', 'minimal', 'creative'] as const) {
+      expect(templateOffersLayoutControl(template, 'sidebarColour')).toBe(false)
+    }
+  })
+
+  it('offers the per-property sizes only where an input is rendered for them', () => {
+    for (const template of ['classic', 'minimal', 'creative'] as const) {
+      expect(templateOffersLayoutControl(template, 'perPropertySize')).toBe(true)
+    }
+    expect(templateOffersLayoutControl('professional', 'perPropertySize')).toBe(false)
+    expect(templateOffersLayoutControl('modern', 'perPropertySize')).toBe(false)
+  })
+
+  it('offers the sidebar sections only where a sidebar is drawn, creative pending US-015', () => {
+    expect(templateOffersLayoutControl('professional', 'sidebarSections')).toBe(true)
+    expect(templateOffersLayoutControl('modern', 'sidebarSections')).toBe(true)
+    expect(templateOffersLayoutControl('creative', 'sidebarSections')).toBe(true)
+    expect(templateOffersLayoutControl('classic', 'sidebarSections')).toBe(false)
+    expect(templateOffersLayoutControl('minimal', 'sidebarSections')).toBe(false)
+  })
+
+  it('resolves a template identifier it does not know the way the editor does, as modern', () => {
+    // `resumes.template` is stored text; a row outside the five identifiers
+    // still renders, through the editor's default branch.
+    expect(templateOffersLayoutControl('brochure', 'sidebarColour')).toBe(true)
+    expect(templateOffersLayoutControl('brochure', 'perPropertySize')).toBe(false)
+  })
+
+  it('names a real model key for every control', () => {
+    for (const keys of Object.values(LAYOUT_CONTROL_KEYS)) {
+      for (const key of keys) expect(key in DEFAULT_RESUME_LAYOUT).toBe(true)
+    }
+  })
+
+  it('applies a per-property size only where the template reads it', () => {
+    // Modern is the one template that applies sizes it offers no control for.
+    expect(TEMPLATE_APPLIED_SIZE_KEYS.professional).toEqual([])
+    expect(TEMPLATE_APPLIED_SIZE_KEYS.modern).toEqual(['titleFontSize', 'sectionDescFontSize'])
+    for (const template of ['classic', 'minimal', 'creative'] as const) {
+      expect(TEMPLATE_APPLIED_SIZE_KEYS[template]).toEqual(LAYOUT_CONTROL_KEYS.perPropertySize)
+    }
+  })
+
+  it('covers every template exactly once', () => {
+    expect(Object.keys(TEMPLATE_LAYOUT_CONTROLS).sort()).toEqual(
+      Object.keys(TEMPLATE_APPLIED_SIZE_KEYS).sort(),
+    )
+  })
+})
+
+describe('a hidden control keeps its stored value (Part 3 US-014)', () => {
+  // The editor gates what it RENDERS and never writes the model back, so the
+  // value a hidden control wrote survives a template switch and applies again.
+  // Asserted on the model rather than on the editor because this suite runs in
+  // node with no renderer — see resume-layout-store.ts's docblock.
+  const chosen: ResumeLayoutModel = {
+    ...DEFAULT_RESUME_LAYOUT,
+    sidebarHue: 12,
+    sidebarSaturation: 34,
+    sidebarBrightness: 45,
+    titleFontSize: 31,
+    sectionTitleFontSize: 21,
+    sectionDescFontSize: 11,
+  }
+
+  it('persists and reloads the sidebar colour while a template that hides it is selected', () => {
+    expect(templateOffersLayoutControl('classic', 'sidebarColour')).toBe(false)
+
+    // What the editor writes while classic is selected.
+    const stored = toStoredLayout(chosen)
+    expect(stored.sidebarHue).toBe(12)
+    expect(stored.sidebarSaturation).toBe(34)
+    expect(stored.sidebarBrightness).toBe(45)
+
+    // What the next load resolves, on a template that offers the control again.
+    const reloaded = resolveResumeLayout({ layout_settings: stored, custom_sections: null }, null)
+    expect(templateOffersLayoutControl('professional', 'sidebarColour')).toBe(true)
+    expect(reloaded.sidebarHue).toBe(12)
+    expect(reloaded.sidebarSaturation).toBe(34)
+    expect(reloaded.sidebarBrightness).toBe(45)
+  })
+
+  it('persists and reloads the per-property sizes while modern hides their controls', () => {
+    expect(templateOffersLayoutControl('modern', 'perPropertySize')).toBe(false)
+
+    const stored = toStoredLayout(chosen)
+    const reloaded = resolveResumeLayout({ layout_settings: stored, custom_sections: null }, null)
+    expect(templateOffersLayoutControl('minimal', 'perPropertySize')).toBe(true)
+    for (const key of LAYOUT_CONTROL_KEYS.perPropertySize) {
+      expect(reloaded[key]).toBe(chosen[key])
+    }
+  })
+
+  it('serializes the hidden keys for every template, so nothing is dropped on the way out', () => {
+    const written = JSON.parse(serializeLayoutModel(chosen))
+    for (const keys of Object.values(LAYOUT_CONTROL_KEYS)) {
+      for (const key of keys) expect(key in written).toBe(true)
+    }
+  })
+})
+
+/**
+ * Part 3 US-012: whether a font was chosen.
+ *
+ * The saved layout records the answer in `fontFamily` itself — the stack equal
+ * to the documented default records "no choice" — so these pin the rule, the
+ * round trip that criterion 6 rests on, and the back-to-default case.
+ */
+describe('chosenFontFamily', () => {
+  const CHOSEN = 'Verdana, Geneva, sans-serif'
+
+  it("reads today's default as no font chosen", () => {
+    expect(DEFAULT_RESUME_LAYOUT.fontFamily).toBe('Arial, Helvetica, sans-serif')
+    expect(chosenFontFamily(DEFAULT_RESUME_LAYOUT.fontFamily)).toBeNull()
+  })
+
+  it('returns the stack a resume actually chose', () => {
+    expect(chosenFontFamily(CHOSEN)).toBe(CHOSEN)
+  })
+
+  it('reads a resume that never stored a font as no font chosen', () => {
+    // No blob at all: the resolved model carries the default, which is the
+    // state every resume written before US-012 is in.
+    const resolved = resolveResumeLayout({ layout_settings: null, custom_sections: null }, null)
+    expect(chosenFontFamily(resolved.fontFamily)).toBeNull()
+  })
+
+  it('does not change the answer across a load, save and reload', () => {
+    for (const stack of [DEFAULT_RESUME_LAYOUT.fontFamily, CHOSEN]) {
+      const loaded = resolveResumeLayout(
+        { layout_settings: { ...toStoredLayout(DEFAULT_RESUME_LAYOUT), fontFamily: stack }, custom_sections: null },
+        null,
+      )
+      const saved = toStoredLayout(loaded)
+      const reloaded = resolveResumeLayout({ layout_settings: saved, custom_sections: null }, null)
+      expect(saved.fontFamily).toBe(stack)
+      expect(reloaded.fontFamily).toBe(stack)
+      expect(chosenFontFamily(reloaded.fontFamily)).toBe(chosenFontFamily(stack))
+    }
+  })
+
+  it('reads choosing the default again as no font chosen, so a choice can be undone', () => {
+    const chosenModel: ResumeLayoutModel = { ...DEFAULT_RESUME_LAYOUT, fontFamily: CHOSEN }
+    expect(chosenFontFamily(chosenModel.fontFamily)).toBe(CHOSEN)
+
+    // The owner picks the template default again. Nothing else about the model
+    // moves, and the resume is back to drawing its template's own font.
+    const backToDefault: ResumeLayoutModel = {
+      ...chosenModel,
+      fontFamily: DEFAULT_RESUME_LAYOUT.fontFamily,
+    }
+    const reloaded = resolveResumeLayout(
+      { layout_settings: toStoredLayout(backToDefault), custom_sections: null },
+      null,
+    )
+    expect(reloaded.fontFamily).toBe(DEFAULT_RESUME_LAYOUT.fontFamily)
+    expect(chosenFontFamily(reloaded.fontFamily)).toBeNull()
+  })
+
+  it('stays within the stored blob the column accepts, since nothing was added to it', () => {
+    const stored = toStoredLayout({ ...DEFAULT_RESUME_LAYOUT, fontFamily: CHOSEN })
+    expect('fontChosen' in stored).toBe(false)
+    expect(Object.keys(stored)).toEqual(Object.keys(toStoredLayout(DEFAULT_RESUME_LAYOUT)))
+    expect(JSON.stringify(stored).length).toBeLessThanOrEqual(MAX_LAYOUT_BLOB_LENGTH)
   })
 })

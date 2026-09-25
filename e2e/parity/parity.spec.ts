@@ -225,7 +225,13 @@ for (const profile of PROFILES) {
       const resume = await seedFixtureResume(
         authedUser.id,
         template,
-        profile.content ? { experience: profile.content.experience } : {},
+        profile.content
+          ? {
+              experience: profile.content.experience,
+              skills: profile.content.skills,
+              projects: profile.content.projects,
+            }
+          : {},
       )
       await storeLayout(resume.id, profile.layout)
       const stored = await readStoredRow(resume.id)

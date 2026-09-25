@@ -164,6 +164,9 @@ export const FIXTURE_PROJECTS = [
 ]
 
 export type FixtureExperience = (typeof FIXTURE_EXPERIENCE)[number]
+export type FixtureSkillCategory = (typeof FIXTURE_SKILLS)[number] & { skillsHtml?: string }
+export type FixtureProject = (typeof FIXTURE_PROJECTS)[number]
+export type FixtureEducation = (typeof FIXTURE_EDUCATION)[number]
 
 /**
  * Content that replaces the fixture's own. Anything not named keeps the fixture
@@ -173,6 +176,9 @@ export type FixtureExperience = (typeof FIXTURE_EXPERIENCE)[number]
 export interface FixtureContentOverrides {
   experience?: readonly FixtureExperience[]
   summary?: string
+  skills?: readonly FixtureSkillCategory[]
+  projects?: readonly FixtureProject[]
+  education?: readonly FixtureEducation[]
 }
 
 export interface SeededResume {
@@ -202,11 +208,11 @@ export async function seedFixtureResume(
       contact: FIXTURE_CONTACT,
       summary: overrides.summary ?? FIXTURE_SUMMARY,
       experience: overrides.experience ?? FIXTURE_EXPERIENCE,
-      education: FIXTURE_EDUCATION,
-      skills: FIXTURE_SKILLS,
+      education: overrides.education ?? FIXTURE_EDUCATION,
+      skills: overrides.skills ?? FIXTURE_SKILLS,
       languages: FIXTURE_LANGUAGES,
       certifications: FIXTURE_CERTIFICATIONS,
-      projects: FIXTURE_PROJECTS,
+      projects: overrides.projects ?? FIXTURE_PROJECTS,
       custom_sections: {},
     })
     .select('id')

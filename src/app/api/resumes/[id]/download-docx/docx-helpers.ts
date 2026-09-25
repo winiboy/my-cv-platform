@@ -2,10 +2,13 @@ import {
   Paragraph,
   TextRun,
   AlignmentType,
+  LineRuleType,
+  type IBordersOptions,
   type IShadingAttributesProperties,
   type ISpacingProperties,
 } from 'docx'
 import type { Locale } from '@/lib/i18n'
+import { chosenFontFamily } from '@/lib/layout-settings'
 
 // ============================================================
 // SHARED TYPES FOR ALL DOCX GENERATORS
@@ -57,6 +60,74 @@ export function pxToTwips(px: number): number {
 }
 
 /**
+ * Convert twips to English Metric Units, which is what a floating drawing's
+ * position is given in (1 inch = 1440 twips = 914400 EMU, so 1 twip = 635 EMU).
+ */
+export function twipsToEmu(twips: number): number {
+  return Math.round(twips * 635)
+}
+
+/** A paragraph's line spacing, as every generator writes it. */
+export type LineSpacing = Required<Pick<ISpacingProperties, 'line' | 'lineRule'>>
+
+/**
+ * Word exact line spacing for the CSS line boxes a paragraph stands for
+ * (Part 3 US-004).
+ *
+ * Each box is a CSS `line-height` ratio and the size, in half-points, of the
+ * run written for that text. CSS multiplies the ratio by the font size; Word
+ * `exact` spacing is that product in twips (half-points × 10), and every line
+ * of the paragraph is laid at exactly that pitch whatever the font. A Word
+ * `auto` multiple would scale the font's own single-line height instead, so it
+ * is never written.
+ *
+ * Where one paragraph carries text the Preview draws as several elements side
+ * by side — a title and its date in one flex row — the row is as tall as its
+ * tallest line box, so the largest is written. An element whose own box is
+ * filled and padded (modern's job-title bar) adds its vertical padding, top
+ * plus bottom, so the DOCX shading covers what the Preview fills; height a
+ * SIBLING box contributes to the row is space before and after, not leading,
+ * or a paragraph that wraps would be spaced at the sibling's height.
+ */
+export type RowBox =
+  | readonly [lineHeight: number, halfPoints: number]
+  | { readonly lineHeight: number; readonly halfPoints: number; readonly paddingPx: number }
+
+function boxTwips(box: RowBox): number {
+  if ('paddingPx' in box) return box.lineHeight * box.halfPoints * 10 + box.paddingPx * 15
+  const [lineHeight, halfPoints] = box
+  return lineHeight * halfPoints * 10
+}
+
+export function exactLineSpacing(...boxes: readonly RowBox[]): LineSpacing {
+  if (boxes.length === 0) throw new Error('exactLineSpacing needs at least one line box')
+  return { line: Math.round(Math.max(...boxes.map(boxTwips))), lineRule: LineRuleType.EXACT }
+}
+
+/**
+ * The line of a paragraph that stands for no Preview text: a spacer carrying a
+ * gap as its space before or after, or the empty paragraph OOXML requires in a
+ * table cell or after a table. The Preview draws no line there, so the
+ * paragraph takes a 1-twip exact line rather than a line of text height.
+ */
+export const NO_TEXT_LINE: LineSpacing = { line: 1, lineRule: LineRuleType.EXACT }
+
+/**
+ * Word character spacing, in twips, for the letter spacing the Preview draws on
+ * a run (Part 3 US-005).
+ *
+ * CSS gives letter spacing in `em`, a multiple of the font size, from
+ * `resume-letter-spacing.ts`. A run's `characterSpacing` is twentieths of a
+ * point, so the same spacing is the em times the run's size: half-points are
+ * twentieths of a point times ten. It therefore follows the size the generator
+ * writes — font scale included — where a fixed twip count holds at one size
+ * only.
+ */
+export function trackingSpacing(em: number, halfPoints: number): number {
+  return Math.round(em * halfPoints * 10)
+}
+
+/**
  * Convert HSL color string to hex (without #)
  * Input: "hsl(240, 85%, 35%)" or computed from hue/brightness
  */
@@ -103,20 +174,6 @@ export function oklchToHex(lightness: number): string {
   return `${hex}${hex}${hex}`.toUpperCase()
 }
 
-// Pre-computed oklch colors matching the Preview
-export const COLORS = {
-  // oklch(0.2 0 0) - darkest (headings)
-  DARK_HEADING: '1A1A1A',
-  // oklch(0.3 0 0) - body text
-  BODY_TEXT: '333333',
-  // oklch(0.4 0 0) - meta text
-  META_TEXT: '525252',
-  // oklch(0.5 0 0) - dates
-  DATE_TEXT: '6B6B6B',
-  // White for sidebar text
-  WHITE: 'FFFFFF',
-}
-
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
@@ -131,6 +188,33 @@ export function extractPrimaryFont(fontFamily: string): string {
     return fonts[0].trim().replace(/['"]/g, '')
   }
   return 'Arial'
+}
+
+/**
+ * The app's body font: `next/font`'s Inter, set on `<body>` by the root
+ * layout. It is what a template that declares no family of its own draws on
+ * the Preview, and therefore what its DOCX must write when no font is chosen.
+ */
+export const APP_BODY_FONT = 'Inter'
+
+/**
+ * The family a generator writes for a run: the owner's chosen font, or the
+ * font the template's Preview draws when they chose none (Part 3 US-012).
+ *
+ * The choice is `chosenFontFamily`'s to make — one rule, shared with
+ * `resume-preview.tsx`, so an export cannot disagree with the Preview about
+ * whether a font was chosen. `designedFont` is what that template's Preview
+ * shows for the run in question, which is why classic passes two different
+ * ones: its headings are serif and its body is Inter.
+ *
+ * A chosen stack that yields no usable name falls back to the designed font
+ * rather than to a generator's private default, so an unusable choice degrades
+ * to what the Preview draws instead of to a third font nothing else uses.
+ */
+export function resolveDocxFont(fontFamily: string, designedFont: string): string {
+  const chosen = chosenFontFamily(fontFamily)
+  if (chosen === null) return designedFont
+  return extractPrimaryFont(chosen) || designedFont
 }
 
 /**
@@ -205,8 +289,14 @@ export function parseHtmlListToParagraphs(
   options: DocxTextRunOptions,
   spacingAfterItem: number,
   spacingAfterLast: number,
+  lineSpacing: LineSpacing,
   indent?: { right?: number; left?: number },
-  alignment?: typeof AlignmentType[keyof typeof AlignmentType]
+  alignment?: typeof AlignmentType[keyof typeof AlignmentType],
+  /**
+   * Paragraph borders every item takes, so a rule the Preview draws beside a
+   * whole block runs behind its list items too (US-007, creative's timeline).
+   */
+  border?: IBordersOptions
 ): Paragraph[] {
   const { size, color, font } = options
   const paragraphs: Paragraph[] = []
@@ -244,9 +334,10 @@ export function parseHtmlListToParagraphs(
           }),
           ...itemRuns,
         ],
-        spacing: { after: isLast ? spacingAfterLast : spacingAfterItem },
+        spacing: { after: isLast ? spacingAfterLast : spacingAfterItem, ...lineSpacing },
         indent: indent,
         alignment: alignment,
+        border: border,
       })
     )
   })
@@ -319,8 +410,13 @@ export interface PlainTextParagraphLayout {
   spacingAfterLast: number
   indent?: { right?: number; left?: number }
   alignment?: typeof AlignmentType[keyof typeof AlignmentType]
-  lineSpacing?: Pick<ISpacingProperties, 'line' | 'lineRule'>
+  lineSpacing: LineSpacing
   shading?: IShadingAttributesProperties
+  /**
+   * Paragraph borders every paragraph takes, so a rule the Preview draws beside
+   * a whole block runs behind its list items too (US-007, creative's timeline).
+   */
+  border?: IBordersOptions
 }
 
 /**
@@ -382,6 +478,7 @@ export function parsePlainTextListToParagraphs(
       indent: layout.indent,
       alignment: layout.alignment,
       shading: layout.shading,
+      border: layout.border,
     })
   )
 }

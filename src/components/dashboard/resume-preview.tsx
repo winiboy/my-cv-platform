@@ -8,6 +8,7 @@ import { MinimalTemplate } from './resume-templates/minimal-template'
 import { CreativeTemplate } from './resume-templates/creative-template'
 import { ProfessionalTemplate } from './resume-templates/professional-template'
 import {
+  chosenFontFamily,
   DEFAULT_RESUME_LAYOUT,
   type EditorMainId,
   type EditorSidebarId,
@@ -105,16 +106,31 @@ export function ResumePreview({
   photoUrl,
   onPhotoChange
 }: ResumePreviewProps) {
+  /**
+   * The font to impose on a template that has one of its own (Part 3 US-012).
+   *
+   * Classic, minimal and creative each draw a designed font — classic's serif
+   * title and headings, minimal's and creative's Inter — and keep it until the
+   * owner chooses a font, so they are passed the CHOSEN font or nothing at all.
+   * `undefined` is what "nothing was chosen" looks like to a template prop.
+   *
+   * Professional and modern are passed the stack itself, as they always were.
+   * They declare no font of their own, so the stored default IS what they draw;
+   * routing them through this would change nothing but would make the value
+   * they render depend on a rule that does not apply to them.
+   */
+  const chosenFont = chosenFontFamily(fontFamily) ?? undefined
+
   // Render the appropriate template based on the resume's template field
   switch (resume.template) {
     case 'modern':
       return <ModernTemplate resume={resume} locale={locale} dict={dict} sidebarColor={sidebarColor} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} sidebarOrder={modernSidebarOrder} mainContentOrder={modernMainContentOrder} hiddenSidebarSections={hiddenModernSidebarSections} hiddenMainSections={hiddenModernMainSections} sidebarWidth={sidebarWidth} setSidebarWidth={setSidebarWidth} sidebarTopMargin={sidebarTopMargin} setSidebarTopMargin={setSidebarTopMargin} mainContentTopMargin={mainContentTopMargin} setMainContentTopMargin={setMainContentTopMargin} fontScale={fontScale} fontFamily={fontFamily} photoUrl={photoUrl} onPhotoChange={onPhotoChange} />
     case 'classic':
-      return <ClassicTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} />
+      return <ClassicTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} fontFamily={chosenFont} />
     case 'minimal':
-      return <MinimalTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} />
+      return <MinimalTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} fontFamily={chosenFont} />
     case 'creative':
-      return <CreativeTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} />
+      return <CreativeTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} fontFamily={chosenFont} />
     case 'professional':
       return <ProfessionalTemplate resume={resume} locale={locale} dict={dict} sidebarColor={sidebarColor} fontScale={fontScale} fontFamily={fontFamily} sidebarOrder={sidebarOrder} mainContentOrder={mainContentOrder} sidebarTopMargin={sidebarTopMargin} setSidebarTopMargin={setSidebarTopMargin} mainContentTopMargin={mainContentTopMargin} setMainContentTopMargin={setMainContentTopMargin} sidebarWidth={sidebarWidth} setSidebarWidth={setSidebarWidth} hiddenSidebarSections={hiddenSidebarSections} hiddenMainSections={hiddenMainSections} />
     default:
