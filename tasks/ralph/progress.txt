@@ -732,3 +732,105 @@ Not done, deliberately, and recorded in docs/engineering/programme-closure.md:
   agreement. The gates above all ran on the final combined tree.
 
 FINAL: PASS
+
+## US-009, US-010, US-011, US-013, US-015 — the last five, 2026-09-26
+Status: PASS (all five). Part 3 complete: 16 of 16.
+Branch: ralph/milestone-c-part-3-parity-defects
+Baseline HEAD: 31d5a38
+
+Run the same way as the 2026-09-25 close-out: implementation and evidence per
+story, one verification pass across all five, no per-story review round.
+
+US-009 - The classic and minimal Previews honour section order and visibility:
+- Both Previews now consume the single-column mapping US-002 built for the
+  generators, so one rule drives both surfaces. A test compares the Preview's
+  section sequence against the generated DOCX directly rather than inspecting
+  each alone.
+- DECISION on the projects conflict: each template keeps its own slot for it,
+  fifth on classic and third on minimal. Collapsing the two into one order would
+  move a section on one template for every existing resume whose owner changed
+  nothing - template isolation (FR-5) for a placement that is template identity,
+  not layout state. Anchoring it to a neighbour was rejected: the model expresses
+  no such relation and it has no answer when the neighbour is hidden.
+
+US-010 - Preview and DOCX agree on the empty-main fallback:
+- DECISION: the generator was right. A stored main order that validates to empty
+  falls back to the default, which is what parseLayoutModel already decides for
+  the same question, and no editor action asks for a resume with neither summary
+  nor experience - removal is expressed through hiddenMainSections, applied after
+  the fallback.
+- The condition now lives once, in resolveModernMainOrder, called by the Preview,
+  the generator and the parity reference. Three sites had three conditions, which
+  is what let them disagree.
+
+US-011 - Font scale and size settings reach every template that offers them:
+- resume-preview.tsx passes fontScale to classic, minimal and creative, and each
+  applies it; the editor's own live preview was missing it too and now passes it.
+- The four per-property sizes reach the DOCX for exactly the templates whose
+  TEMPLATE_APPLIED_SIZE_KEYS entry claims them, populated from the resolved model
+  in the route - never from DEFAULT_RESUME_LAYOUT, which US-003's T-1 established
+  would resolve the reference to the default while the Preview keeps the user's.
+- No new single-source module: the map US-014 built is the contract, enforced by
+  a two-way drift test. A module here would have been a one-line base * scale.
+- Browser measurement at two scales, per template: 30 -> 45 and 11 -> 16.5.
+- Residual recorded, pre-existing: elements whose Preview size comes from a
+  Tailwind class rather than the model scale in the DOCX but not on screen
+  (classic's text-sm dates, minimal's text-xl positions, creative's header
+  summary). Parity samples none of them; closing it moves their line heights too.
+
+US-013 - The user's colour is drawn faithfully on every surface:
+- deriveAccentColor accepts non-integer hue, saturation and brightness, so a
+  stored hsl(150.5, ...) derives the user's accent rather than the gold fallback.
+  The fallback still applies when no usable colour is present, with a test.
+- The print band takes the user's colour through a CSS custom property the
+  template emits on body in the server render, since globals.css cannot read the
+  model and an effect would not have run when a print capture fires.
+- LIMITATION, measured page by page on a two-page print: no pixel of any printed
+  page shows the band. Where the sidebar reaches, the sidebar element covers it
+  exactly (178.6pt against 178.7pt); where it does not, the white main area
+  paints over it; below the content there is no band, because the gradient is on
+  body and html is white !important. The colour is now correct and nothing shows
+  it. Criterion 2 was amended (31d5a38) before the story ran, because it had
+  demanded evidence on a multi-page capture that cannot exist.
+
+US-015 - The creative section controls stop being a silent no-op:
+- A creative vocabulary now exists in the shared model, one per box because a
+  section cannot cross between creative's 1/3 and 2/3 columns without changing
+  width and heading size. Sequences are Records over the whole union, so a new
+  member fails to compile until its slot is stated.
+- DECISION: summary is FIXED in the header and carries visibility only. It is
+  drawn between the name and the contact line, in neither column; making it
+  orderable would mean moving it into a column - a redesign affecting every
+  existing creative resume - or inventing an order inside the header, which the
+  vocabulary does not name. The editor no longer offers to drag it.
+- certifications and projects have no editor id, so they keep their slots.
+  Appending them would push projects below education on every default resume.
+- The editor's panels filter what they list; the drag handlers still splice the
+  full stored order and parseLayoutModel is untouched, so nothing stored for
+  keyAchievements or training is deleted or rewritten (pinned by a test).
+- Criterion 8 proven on the artifact: creative at defaults is byte-identical
+  before and after, every zip part, docProps/core.xml aside (its timestamps
+  differ between two runs of the same code).
+
+Verification, once, across all five (logs in scratchpad/final2/):
+- pnpm typecheck: PASS
+- pnpm lint: PASS - 306 problems, the recorded baseline, under the 311 ceiling
+- pnpm test: PASS - 1303 passed, 5 skipped, 34 files
+- pnpm test:integration: PASS - 27/27
+- pnpm test:e2e: PASS - 120 passed
+- pnpm test:visual: PASS - 10 passed, no baseline moved by any of the five
+- pnpm build:verify: PASS - 108/108 static pages
+- pnpm test:parity: PASS - 249 passed, 0 NEW, 0 unreconciled;
+  MATCH 206, KNOWN 3, LIMITATION 11, FINDING 3, DECISION 16
+
+One e2e assertion was corrected, not silenced: layout-persistence.spec.ts's
+backfill test seeded a cache carrying titleFontSize 42 and fontScale 1.2 on
+classic and asserted the drawn title was 42, which held only while classic
+ignored the scale. The test's subject is value adoption, and its persisted
+assertion still pins 42; the drawn assertion now expects 42 x 1.2.
+
+The three KNOWN rows remaining are US-016-html-body-line-height, registered by
+the 2026-09-25 pass: classic, minimal and creative write their template's own
+body ratio where the Preview now draws formatted content at 1.4.
+
+FINAL: PASS - every Part 3 story passes.

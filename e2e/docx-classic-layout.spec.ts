@@ -84,10 +84,14 @@ const ACCOUNT_LAYOUT: {
   mainContentOrder: EditorMainId[]
   hiddenMainSections: EditorMainId[]
   fontScale: number
+  titleFontSize: number
 } = {
   mainContentOrder: ['education', 'experience', 'summary'],
   hiddenMainSections: ['education'],
   fontScale: 1.25,
+  // Non-default, so the title assertion below distinguishes the account's own
+  // size from the default one (Part 3 US-011).
+  titleFontSize: 30,
 }
 
 /**
@@ -113,15 +117,16 @@ const HIDDEN_EDUCATION_MARKER = FIXTURE_EDUCATION[0].school
 /**
  * The CV-title size in half-points, at the seeded scale and at the default.
  *
- * `docx-classic.ts` sizes the title at 36px and converts with `pxToHalfPoints`,
- * which is `Math.round(px * 1.5)`. At the seeded scale of 1.25 that is
- * round(36 * 1.25 * 1.5) = 68; at a scale of 1 it is round(36 * 1.5) = 54. The
+ * `docx-classic.ts` sizes the title at the account's own `titleFontSize`
+ * (Part 3 US-011) and converts with `pxToHalfPoints`, which is
+ * `Math.round(px * 1.5)`. At the seeded 30px and scale of 1.25 that is
+ * round(30 * 1.25 * 1.5) = 56; at a scale of 1 it is round(30 * 1.5) = 45. The
  * full set of font sizes this template emits at the seeded scale is
- * {68, 30, 26, 23}, so 54 cannot arise from any other size — its ABSENCE is
+ * {56, 30, 26, 23}, so 45 cannot arise from any other size — its ABSENCE is
  * what fails if scaling stops being read from the model.
  */
-const SCALED_TITLE_HALF_POINTS = 68
-const UNSCALED_TITLE_HALF_POINTS = 54
+const SCALED_TITLE_HALF_POINTS = 56
+const UNSCALED_TITLE_HALF_POINTS = 45
 
 /**
  * Matches a font-size element carrying `halfPoints`, and nothing else.
@@ -248,6 +253,7 @@ test('the seeded layout really is non-default, in every property this file asser
     ...DEFAULT_RESUME_LAYOUT.hiddenMainSections,
   ])
   expect(ACCOUNT_LAYOUT.fontScale).not.toEqual(DEFAULT_RESUME_LAYOUT.fontScale)
+  expect(ACCOUNT_LAYOUT.titleFontSize).not.toEqual(DEFAULT_RESUME_LAYOUT.titleFontSize)
 
   // The hidden section must really be in the mapped order, or the visibility
   // assertion would be satisfied by a section the template never renders.

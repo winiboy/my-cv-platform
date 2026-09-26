@@ -18,8 +18,8 @@ import { MODERN_LINE_HEIGHT, MODERN_TITLE_BAR_PADDING_Y_PX } from '@/lib/resume-
 import { PAGE_HEIGHT_CSS, PAGE_WIDTH_CSS } from '@/lib/resume-page-size'
 import {
   assertExhaustiveSection,
-  DEFAULT_MODERN_MAIN_ORDER,
   DEFAULT_MODERN_SIDEBAR_ORDER,
+  resolveModernMainOrder,
   type ModernMainId,
   type ModernSidebarId,
 } from '@/lib/layout-settings'
@@ -35,15 +35,35 @@ const DEFAULT_ACCENT_COLOR = '#D4A843'
 /** The letter spacing this template draws, in em; the DOCX generator writes the same values (US-005). */
 const TRACKING = PREVIEW_TRACKING.modern
 
+/**
+ * The shape `sidebarColorFrom` in src/lib/resume-layout-store.ts writes, which
+ * is the only writer of this prop in the application.
+ *
+ * Every component is a plain decimal, because the layout model accepts one:
+ * `sidebarHue` is ranged [0, 360] and the two percentages [0, 100], with no
+ * integer constraint anywhere (`NUMERIC_RANGES` in src/lib/layout-settings.ts),
+ * and the colour picker writes what the control gives it. The `\d+` this
+ * pattern replaced matched integers only, so a hue of 217.5 fell through to the
+ * gold fallback while `docx-modern.ts` derived the accent from the user's
+ * colour — Part 3 US-013.
+ *
+ * Unsigned on purpose: the model admits no negative component, so a signed
+ * value did not come from it and takes the fallback rather than a derivation
+ * the DOCX would not agree with.
+ */
+const SIDEBAR_HSL_PATTERN = /^\s*hsl\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)%\s*,\s*(\d+(?:\.\d+)?)%\s*\)\s*$/
+
 /** Derive a lighter, more saturated accent color from the sidebar HSL color.
- *  Falls back to the default gold when no sidebarColor is provided or it cannot be parsed. */
+ *  Falls back to the default gold when no sidebarColor is provided or it cannot be parsed.
+ *  The shifts mirror `deriveAccentColorHex` in docx-modern.ts, so both surfaces
+ *  derive the same accent from the same stored colour. */
 function deriveAccentColor(sidebarColor: string | undefined): string {
   if (!sidebarColor) return DEFAULT_ACCENT_COLOR
-  const match = sidebarColor.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/)
+  const match = SIDEBAR_HSL_PATTERN.exec(sidebarColor)
   if (!match) return DEFAULT_ACCENT_COLOR
-  const h = parseInt(match[1], 10)
-  const s = Math.min(parseInt(match[2], 10) + 20, 100)
-  const l = Math.min(parseInt(match[3], 10) + 25, 65)
+  const h = parseFloat(match[1])
+  const s = Math.min(parseFloat(match[2]) + 20, 100)
+  const l = Math.min(parseFloat(match[3]) + 25, 65)
   return `hsl(${h}, ${s}%, ${l}%)`
 }
 
@@ -207,7 +227,15 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
   const activeScale = fontScale ?? 1
 
   const activeSidebarOrder: readonly ModernSidebarId[] = sidebarOrder || DEFAULT_MODERN_SIDEBAR_ORDER
-  const activeMainOrder: readonly ModernMainId[] = mainContentOrder || DEFAULT_MODERN_MAIN_ORDER
+
+  /**
+   * `mainContentOrder || DEFAULT_MODERN_MAIN_ORDER` stood here, which an empty
+   * array does not trigger, so a stored order of `['education']` rendered a
+   * main column with nothing in it while the DOCX drew the default sections.
+   * The shared resolver settles it for both (Part 3 US-010); `hiddenMain` is
+   * applied below and still empties the column when the user hides everything.
+   */
+  const activeMainOrder: readonly ModernMainId[] = resolveModernMainOrder(mainContentOrder)
   const hiddenSidebar = new Set(hiddenSidebarSections || [])
   const hiddenMain = new Set(hiddenMainSections || [])
 

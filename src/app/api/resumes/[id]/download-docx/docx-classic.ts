@@ -66,12 +66,15 @@ const TRACKING = PREVIEW_TRACKING.classic
 // ============================================================
 // FONT SIZE CONSTANTS (matching classic-template.tsx defaults)
 // ============================================================
+/**
+ * The sizes no control writes. The title, contact, section-heading and body
+ * sizes used to be stated here too, as the defaults of the four per-property
+ * controls; they now come from the model, because a default is not the size
+ * the Preview draws once the owner has moved a slider (Part 3 US-011).
+ */
 const FONT_SIZES = {
-  TITLE: 36,              // h1 titleFontSize default
-  CONTACT: 12,            // contactFontSize default
-  SECTION_TITLE: 16,      // sectionTitleFontSize default
-  SECTION_DESC: 14,       // sectionDescFontSize default — body text, achievements, descriptions
   BODY_DEFAULT: 14,       // base body size for items without explicit sectionDescFontSize
+  TEXT_SM: 12,            // dates, company and location: `text-sm` in the Preview
 }
 
 /**
@@ -136,6 +139,10 @@ export async function generateClassicDocx(
   const {
     fontFamily,
     fontScale,
+    titleFontSize,
+    contactFontSize,
+    sectionTitleFontSize,
+    sectionDescFontSize,
     locale,
     mainContentOrder: mainContentOrderRaw,
     hiddenMainSections: hiddenMainRaw,
@@ -206,15 +213,28 @@ export async function generateClassicDocx(
     mapEditorOrderToClassic(mainContentOrderRaw)
   const hiddenMainSections = hiddenMainRaw
 
-  // Calculate scaled font sizes (half-points for docx)
+  /**
+   * The sizes this document draws, in half-points (Part 3 US-011).
+   *
+   * The four the owner can adjust come from the model, at the model's scale,
+   * because `classic-template.tsx` draws those same four elements from the
+   * same stored sizes at the same scale — the Preview being the contract an
+   * export answers to. They are NOT read from `DEFAULT_RESUME_LAYOUT`: that
+   * reference resolves to the default while the Preview keeps using the
+   * owner's value, which is the shape Part 2's US-003 T-1 rejected.
+   *
+   * `bodyDefault` and `textSm` stay stock: no control writes them, and the
+   * Preview draws those elements from Tailwind classes rather than from the
+   * model.
+   */
   const scaledFontSizes = {
-    title: pxToHalfPoints(FONT_SIZES.TITLE * fontScale),
-    contact: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale),
-    sectionTitle: pxToHalfPoints(FONT_SIZES.SECTION_TITLE * fontScale),
-    body: pxToHalfPoints(FONT_SIZES.SECTION_DESC * fontScale),
+    title: pxToHalfPoints(titleFontSize * fontScale),
+    contact: pxToHalfPoints(contactFontSize * fontScale),
+    sectionTitle: pxToHalfPoints(sectionTitleFontSize * fontScale),
+    body: pxToHalfPoints(sectionDescFontSize * fontScale),
     bodyDefault: pxToHalfPoints(FONT_SIZES.BODY_DEFAULT * fontScale),
     // Dates, company and location: `text-sm` in the Preview.
-    textSm: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale),
+    textSm: pxToHalfPoints(FONT_SIZES.TEXT_SM * fontScale),
   }
 
   // Line spacing shared by many paragraphs.
@@ -491,7 +511,7 @@ export async function generateClassicDocx(
                     new TextRun({
                       text: '\t' + dateText,
                       italics: true,
-                      size: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale), // text-sm
+                      size: scaledFontSizes.textSm,
                       color: PALETTE['slate-600'],
                       font: bodyFont,
                     }),
@@ -514,14 +534,14 @@ export async function generateClassicDocx(
                   new TextRun({
                     text: exp.company || '',
                     italics: true,
-                    size: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale), // text-sm
+                    size: scaledFontSizes.textSm,
                     color: PALETTE['slate-700'],
                     font: bodyFont,
                   }),
                   ...(exp.location ? [
                     new TextRun({
                       text: '\t' + exp.location,
-                      size: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale), // text-sm
+                      size: scaledFontSizes.textSm,
                       color: PALETTE['slate-600'],
                       font: bodyFont,
                     }),
@@ -687,7 +707,7 @@ export async function generateClassicDocx(
                     new TextRun({
                       text: '\t' + eduDateText,
                       italics: true,
-                      size: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale), // text-sm
+                      size: scaledFontSizes.textSm,
                       color: PALETTE['slate-600'],
                       font: bodyFont,
                     }),

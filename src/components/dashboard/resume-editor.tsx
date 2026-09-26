@@ -25,7 +25,11 @@ import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n'
 import type { Resume, ResumeSkillCategory } from '@/types/database'
 import type { EditorMainId, EditorSidebarId } from '@/lib/layout-settings'
-import { chosenFontFamily, templateOffersLayoutControl } from '@/lib/layout-settings'
+import {
+  chosenFontFamily,
+  templateEditorSections,
+  templateOffersLayoutControl,
+} from '@/lib/layout-settings'
 import { useResumeLayout } from '@/lib/hooks/use-resume-layout'
 import { PAGE_WIDTH_PX } from '@/lib/resume-page-size'
 import { ContactSection } from './resume-sections/contact-section'
@@ -144,6 +148,14 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   // unchanged. Nothing below may clear or rewrite a value because it is hidden.
   const offersSidebarColour = templateOffersLayoutControl(resume.template, 'sidebarColour')
   const offersSidebarSections = templateOffersLayoutControl(resume.template, 'sidebarSections')
+  /**
+   * Part 3 US-015 criterion 7: the rows each panel LISTS while this template
+   * is selected, and which of them can be dragged. A display filter only —
+   * the drag handlers below still splice the full stored order, so an id that
+   * is not listed keeps the position it already has and applies again the
+   * moment a template that renders it is selected (FR-6, FR-9).
+   */
+  const editorSections = templateEditorSections(resume.template)
 
   // The nav entries this template can act on. `editSidebar` reorders and hides
   // sidebar sections, which classic and minimal draw on no surface.
@@ -215,6 +227,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     setters: layoutSetters,
     sidebarColor,
     modern,
+    creative,
   } = useResumeLayout(initialResume.id, initialResume)
   const {
     titleFontSize,
@@ -253,6 +266,15 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     setHiddenMainSections,
   } = layoutSetters
   const { modernSidebarOrder, modernMainOrder, hiddenModernSidebar, hiddenModernMain } = modern
+  const {
+    creativeSidebarOrder,
+    creativeMainOrder,
+    hiddenCreativeSidebar,
+    hiddenCreativeMain,
+    summaryHidden,
+  } = creative
+  const listedSidebarSections = sidebarOrder.filter((id) => editorSections.sidebar.includes(id))
+  const listedMainSections = mainContentOrder.filter((id) => editorSections.main.includes(id))
 
   const [draggedSection, setDraggedSection] = useState<EditorSidebarId | null>(null)
   const [draggedMainSection, setDraggedMainSection] = useState<EditorMainId | null>(null)
@@ -1231,7 +1253,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                     </p>
                   </div>
                   <div className="space-y-2">
-                    {sidebarOrder.map((sectionId, index) => {
+                    {listedSidebarSections.map((sectionId, index) => {
                       const sectionLabels: Record<EditorSidebarId, string> = {
                         keyAchievements: dict.resumes?.template?.keyAchievements || 'Réalisations Clés',
                         skills: dict.resumes?.template?.skills || 'Compétences',
@@ -1239,15 +1261,19 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                         training: dict.resumes?.template?.training || 'Formation / Cours',
                       }
                       const isHidden = hiddenSidebarSections.includes(sectionId)
+                      // Part 3 US-015: a row the template draws in a fixed place keeps its
+                      // visibility toggle and loses its drag handle.
+                      const isFixed = editorSections.fixed.includes(sectionId)
+                      const isDraggable = !isHidden && !isFixed
                       return (
                         <div
                           key={sectionId}
-                          draggable={!isHidden}
-                          onDragStart={() => !isHidden && setDraggedSection(sectionId)}
+                          draggable={isDraggable}
+                          onDragStart={() => isDraggable && setDraggedSection(sectionId)}
                           onDragEnd={() => setDraggedSection(null)}
                           onDragOver={(e) => {
                             e.preventDefault()
-                            if (draggedSection && draggedSection !== sectionId && !isHidden) {
+                            if (draggedSection && draggedSection !== sectionId && isDraggable) {
                               const newOrder = [...sidebarOrder]
                               const draggedIndex = newOrder.indexOf(draggedSection)
                               const targetIndex = newOrder.indexOf(sectionId)
@@ -1261,10 +1287,12 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                               ? 'opacity-50 border-slate-200 bg-slate-50'
                               : draggedSection === sectionId
                                 ? 'opacity-50 border-teal-500 bg-teal-50 cursor-grab active:cursor-grabbing'
-                                : 'border-slate-200 hover:border-slate-300 hover:shadow-sm cursor-grab active:cursor-grabbing'
+                                : isFixed
+                                  ? 'border-slate-200 cursor-default'
+                                  : 'border-slate-200 hover:border-slate-300 hover:shadow-sm cursor-grab active:cursor-grabbing'
                           }`}
                         >
-                          <GripVertical className={`h-5 w-5 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
+                          <GripVertical className={`h-5 w-5 ${isHidden || isFixed ? 'text-slate-300' : 'text-slate-400'}`} />
                           <span className={`font-medium ${isHidden ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{sectionLabels[sectionId]}</span>
                           <span className="ml-auto flex items-center gap-2">
                             <span className={`text-xs ${isHidden ? 'text-slate-300' : 'text-slate-400'}`}>{index + 1}</span>
@@ -1301,22 +1329,27 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                     </p>
                   </div>
                   <div className="space-y-2">
-                    {mainContentOrder.map((sectionId, index) => {
+                    {listedMainSections.map((sectionId, index) => {
                       const sectionLabels: Record<EditorMainId, string> = {
                         summary: dict.resumes?.template?.summary || 'Résumé',
                         experience: dict.resumes?.template?.experience || 'Expérience',
                         education: dict.resumes?.template?.education || 'Formation',
                       }
                       const isHidden = hiddenMainSections.includes(sectionId)
+                      // Part 3 US-015: a row the template draws in a fixed place keeps its
+                      // visibility toggle and loses its drag handle. Creative draws the
+                      // summary in its gradient header, which is the one such row today.
+                      const isFixed = editorSections.fixed.includes(sectionId)
+                      const isDraggable = !isHidden && !isFixed
                       return (
                         <div
                           key={sectionId}
-                          draggable={!isHidden}
-                          onDragStart={() => !isHidden && setDraggedMainSection(sectionId)}
+                          draggable={isDraggable}
+                          onDragStart={() => isDraggable && setDraggedMainSection(sectionId)}
                           onDragEnd={() => setDraggedMainSection(null)}
                           onDragOver={(e) => {
                             e.preventDefault()
-                            if (draggedMainSection && draggedMainSection !== sectionId && !isHidden) {
+                            if (draggedMainSection && draggedMainSection !== sectionId && isDraggable) {
                               const newOrder = [...mainContentOrder]
                               const draggedIndex = newOrder.indexOf(draggedMainSection)
                               const targetIndex = newOrder.indexOf(sectionId)
@@ -1330,10 +1363,12 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                               ? 'opacity-50 border-slate-200 bg-slate-50'
                               : draggedMainSection === sectionId
                                 ? 'opacity-50 border-teal-500 bg-teal-50 cursor-grab active:cursor-grabbing'
-                                : 'border-slate-200 hover:border-slate-300 hover:shadow-sm cursor-grab active:cursor-grabbing'
+                                : isFixed
+                                  ? 'border-slate-200 cursor-default'
+                                  : 'border-slate-200 hover:border-slate-300 hover:shadow-sm cursor-grab active:cursor-grabbing'
                           }`}
                         >
-                          <GripVertical className={`h-5 w-5 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
+                          <GripVertical className={`h-5 w-5 ${isHidden || isFixed ? 'text-slate-300' : 'text-slate-400'}`} />
                           <span className={`font-medium ${isHidden ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{sectionLabels[sectionId]}</span>
                           <span className="ml-auto flex items-center gap-2">
                             <span className={`text-xs ${isHidden ? 'text-slate-300' : 'text-slate-400'}`}>{index + 1}</span>
@@ -1615,7 +1650,10 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                     case 'classic':
                       return (
                         <ClassicTemplate
+                          fontScale={fontScale}
                           fontFamily={chosenFontFamily(fontFamily) ?? undefined}
+                          mainContentOrder={mainContentOrder}
+                          hiddenMainSections={hiddenMainSections}
                           resume={resume}
                           locale={locale}
                           dict={dict}
@@ -1632,7 +1670,10 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                     case 'minimal':
                       return (
                         <MinimalTemplate
+                          fontScale={fontScale}
                           fontFamily={chosenFontFamily(fontFamily) ?? undefined}
+                          mainContentOrder={mainContentOrder}
+                          hiddenMainSections={hiddenMainSections}
                           resume={resume}
                           locale={locale}
                           dict={dict}
@@ -1649,6 +1690,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                     case 'creative':
                       return (
                         <CreativeTemplate
+                          fontScale={fontScale}
                           fontFamily={chosenFontFamily(fontFamily) ?? undefined}
                           resume={resume}
                           locale={locale}
@@ -1661,6 +1703,11 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                           setSectionTitleFontSize={setSectionTitleFontSize}
                           sectionDescFontSize={sectionDescFontSize}
                           setSectionDescFontSize={setSectionDescFontSize}
+                          sidebarOrder={creativeSidebarOrder}
+                          mainContentOrder={creativeMainOrder}
+                          hiddenSidebarSections={hiddenCreativeSidebar}
+                          hiddenMainSections={hiddenCreativeMain}
+                          summaryHidden={summaryHidden}
                         />
                       )
                     case 'professional':

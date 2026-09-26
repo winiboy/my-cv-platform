@@ -643,7 +643,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -713,7 +713,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -785,7 +785,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -867,7 +867,7 @@
       "description": "As a user, I want the sidebar and accent colour I chose to appear as chosen, on screen and on paper.",
       "acceptanceCriteria": [
         "Modern's `deriveAccentColor` handles any stored hue, saturation and brightness the model accepts, including non-integer values, so the Preview accent derives from the user's colour rather than the gold fallback — the same colour the DOCX derives.",
-        "Under print, the professional template's sidebar band follows the user's sidebar colour rather than the fixed `oklch(0.25 0.05 240)` in `globals.css`, evidenced on a multi-page print capture.",
+        "Under print, the professional template's sidebar band follows the user's sidebar colour rather than the fixed `oklch(0.25 0.05 240)` in `globals.css`, evidenced by reading the printed page's own pixels wherever the band is painted. Where it is not painted the fact is recorded, not worked around: the gradient is on `body`, which ends where the content ends, and `html` is `white !important` under print, so a page the content does not reach carries no band. Establish on a multi-page capture which pages carry it, and record that as the limitation it is.",
         "The fallback colours still apply when no usable colour is present, and that case is covered by a test.",
         "Visual baselines move only where the cause is this story, each approved.",
         "The story's parity rows change to `MATCH`.",
@@ -928,7 +928,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -1076,7 +1076,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

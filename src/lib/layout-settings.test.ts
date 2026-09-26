@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { ResumeLayoutSettings } from '@/types/database'
 import {
   chosenFontFamily,
+  DEFAULT_CREATIVE_MAIN_ORDER,
+  DEFAULT_CREATIVE_SIDEBAR_ORDER,
   DEFAULT_MODERN_MAIN_ORDER,
   DEFAULT_MODERN_SIDEBAR_ORDER,
   DEFAULT_RESUME_LAYOUT,
@@ -9,6 +11,7 @@ import {
   LAYOUT_CONTROL_KEYS,
   LAYOUT_CONTROL_RANGES,
   mapEditorOrderToClassic,
+  mapEditorOrderToCreative,
   mapEditorOrderToMinimal,
   mapEditorOrderToModern,
   MAX_LAYOUT_BLOB_LENGTH,
@@ -19,6 +22,8 @@ import {
   resolveResumeLayout,
   serializeLayoutModel,
   TEMPLATE_APPLIED_SIZE_KEYS,
+  TEMPLATE_EDITOR_SECTIONS,
+  templateEditorSections,
   TEMPLATE_LAYOUT_CONTROLS,
   templateOffersLayoutControl,
   toStoredLayout,
@@ -1398,5 +1403,130 @@ describe('chosenFontFamily', () => {
     expect('fontChosen' in stored).toBe(false)
     expect(Object.keys(stored)).toEqual(Object.keys(toStoredLayout(DEFAULT_RESUME_LAYOUT)))
     expect(JSON.stringify(stored).length).toBeLessThanOrEqual(MAX_LAYOUT_BLOB_LENGTH)
+  })
+})
+
+describe("Part 3 US-015: creative's section vocabulary", () => {
+  it("maps the shared default onto the sequence creative's two surfaces already drew", () => {
+    expect([...DEFAULT_CREATIVE_SIDEBAR_ORDER]).toEqual(['skills', 'languages', 'certifications'])
+    expect([...DEFAULT_CREATIVE_MAIN_ORDER]).toEqual(['experience', 'projects', 'education'])
+
+    const mapped = mapEditorOrderToCreative(
+      DEFAULT_RESUME_LAYOUT.sidebarOrder,
+      DEFAULT_RESUME_LAYOUT.mainContentOrder,
+      DEFAULT_RESUME_LAYOUT.hiddenSidebarSections,
+      DEFAULT_RESUME_LAYOUT.hiddenMainSections,
+    )
+    expect(mapped.hiddenCreativeSidebar).toEqual([])
+    expect(mapped.hiddenCreativeMain).toEqual([])
+    expect(mapped.summaryHidden).toBe(false)
+  })
+
+  it('permutes the sections the editor can position and leaves the others in their slots', () => {
+    const mapped = mapEditorOrderToCreative(
+      ['languages', 'skills', 'training', 'keyAchievements'],
+      ['education', 'experience', 'summary'],
+      [],
+      [],
+    )
+    // certifications keeps slot 3 of the left column, projects slot 2 of the right.
+    expect(mapped.creativeSidebarOrder).toEqual(['languages', 'skills', 'certifications'])
+    expect(mapped.creativeMainOrder).toEqual(['education', 'projects', 'experience'])
+  })
+
+  it('drops the ids creative does not render and keeps summary out of both columns', () => {
+    const mapped = mapEditorOrderToCreative(
+      ['keyAchievements', 'skills', 'languages', 'training'],
+      ['summary', 'experience', 'education'],
+      ['keyAchievements', 'training'],
+      [],
+    )
+    expect(mapped.creativeSidebarOrder).not.toContain('keyAchievements')
+    expect(mapped.creativeSidebarOrder).not.toContain('training')
+    expect(mapped.creativeMainOrder).not.toContain('summary')
+    // Hiding an id creative does not render hides nothing on creative.
+    expect(mapped.hiddenCreativeSidebar).toEqual([])
+  })
+
+  it('carries visibility for every id the editor can hide on creative', () => {
+    const mapped = mapEditorOrderToCreative(
+      DEFAULT_RESUME_LAYOUT.sidebarOrder,
+      DEFAULT_RESUME_LAYOUT.mainContentOrder,
+      ['languages'],
+      ['summary', 'education'],
+    )
+    expect(mapped.hiddenCreativeSidebar).toEqual(['languages'])
+    expect(mapped.hiddenCreativeMain).toEqual(['education'])
+    expect(mapped.summaryHidden).toBe(true)
+  })
+
+  it('round-trips through the store: what is written is what maps back', () => {
+    const model: ResumeLayoutModel = {
+      ...DEFAULT_RESUME_LAYOUT,
+      sidebarOrder: ['languages', 'skills', 'training', 'keyAchievements'],
+      mainContentOrder: ['education', 'experience', 'summary'],
+      hiddenSidebarSections: ['skills'],
+      hiddenMainSections: ['summary'],
+    }
+    const stored = toStoredLayout(model)
+    expect(JSON.stringify(stored).length).toBeLessThanOrEqual(MAX_LAYOUT_BLOB_LENGTH)
+
+    const reloaded = resolveResumeLayout({ layout_settings: stored, custom_sections: null }, null)
+    const before = mapEditorOrderToCreative(
+      model.sidebarOrder,
+      model.mainContentOrder,
+      model.hiddenSidebarSections,
+      model.hiddenMainSections,
+    )
+    const after = mapEditorOrderToCreative(
+      reloaded.sidebarOrder,
+      reloaded.mainContentOrder,
+      reloaded.hiddenSidebarSections,
+      reloaded.hiddenMainSections,
+    )
+    expect(after).toEqual(before)
+  })
+
+  it('renders a column rather than nothing when the stored order names none of its sections', () => {
+    const mapped = mapEditorOrderToCreative([], [], [], [])
+    // Only the sections the editor cannot position survive, which is what keeps
+    // an unusable stored order from producing an empty document.
+    expect(mapped.creativeSidebarOrder).toEqual(['certifications'])
+    expect(mapped.creativeMainOrder).toEqual(['projects'])
+  })
+
+  it('offers creative neither keyAchievements nor training, and does not let summary be dragged', () => {
+    const creative = templateEditorSections('creative')
+    expect([...creative.sidebar]).toEqual(['skills', 'languages'])
+    expect(creative.sidebar).not.toContain('keyAchievements')
+    expect(creative.sidebar).not.toContain('training')
+    expect([...creative.main]).toEqual([...DEFAULT_RESUME_LAYOUT.mainContentOrder])
+    expect([...creative.fixed]).toEqual(['summary'])
+  })
+
+  it('leaves every other template the whole vocabulary, so no other editor panel moves', () => {
+    for (const template of ['professional', 'modern', 'classic', 'minimal'] as const) {
+      const sections = TEMPLATE_EDITOR_SECTIONS[template]
+      expect([...sections.sidebar]).toEqual([...DEFAULT_RESUME_LAYOUT.sidebarOrder])
+      expect([...sections.main]).toEqual([...DEFAULT_RESUME_LAYOUT.mainContentOrder])
+      expect([...sections.fixed]).toEqual([])
+    }
+  })
+
+  it('resolves an unknown stored template the way the editor switch does', () => {
+    expect(templateEditorSections('something-else')).toBe(TEMPLATE_EDITOR_SECTIONS.modern)
+  })
+
+  it('does not narrow what may be stored: every editor id still parses', () => {
+    // The gate above is a DISPLAY filter. A creative resume must not lose the
+    // positions it already holds for the ids creative does not render.
+    const parsed = parseLayoutModel({
+      sidebarOrder: ['training', 'keyAchievements', 'skills', 'languages'],
+      hiddenSidebarSections: ['training'],
+      hiddenMainSections: ['summary'],
+    })
+    expect(parsed.sidebarOrder).toEqual(['training', 'keyAchievements', 'skills', 'languages'])
+    expect(parsed.hiddenSidebarSections).toEqual(['training'])
+    expect(parsed.hiddenMainSections).toEqual(['summary'])
   })
 })

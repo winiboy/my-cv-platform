@@ -66,6 +66,40 @@ const HEADER_GAP = 12
  */
 const SIDEBAR_COLOR = `hsl(${DEFAULT_RESUME_LAYOUT.sidebarHue}, ${DEFAULT_RESUME_LAYOUT.sidebarSaturation}%, ${DEFAULT_RESUME_LAYOUT.sidebarBrightness}%)`
 
+/**
+ * The custom property `globals.css` reads for the print page band, and the
+ * only element declaring it has any effect on.
+ *
+ * The band is painted by `body:has(.professional-template)`, and a custom
+ * property inherits downward only, so a declaration on this component cannot
+ * reach the rule — `body` is its ancestor, not its descendant. A style element
+ * declaring the property ON `body` does reach it, and reaches it in the server
+ * render the print capture screenshots, which an effect would not.
+ */
+const PRINT_BAND_COLOR_PROPERTY = '--professional-print-sidebar-color'
+
+/**
+ * Colour syntaxes this template will write into a stylesheet: the `hsl()` the
+ * layout store composes, and a hex literal.
+ *
+ * `sidebarColor` is user-controlled and a style element's text is not escaped
+ * the way React escapes a style object, so an unrecognised value must not be
+ * emitted at all — a `;` in it would end the declaration and open the next.
+ * This guard is the barrier, not a convenience.
+ */
+const EMITTABLE_COLOR_PATTERN =
+  /^\s*(?:#[0-9a-fA-F]{3,8}|hsl\(\s*\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?%\s*,\s*\d+(?:\.\d+)?%\s*\))\s*$/
+
+/**
+ * The declaration that carries the user's sidebar colour to the print band, or
+ * null when the colour is not one this module recognises — in which case the
+ * property stays unset and `globals.css` keeps its own fallback.
+ */
+function printBandStyle(sidebarColor: string): string | null {
+  if (!EMITTABLE_COLOR_PATTERN.test(sidebarColor)) return null
+  return `body:has(.professional-template){${PRINT_BAND_COLOR_PROPERTY}:${sidebarColor.trim()}}`
+}
+
 // Line heights, shared with the DOCX generator (Part 3 US-004)
 const BODY_LINE_HEIGHT = PROFESSIONAL_LINE_HEIGHT.body
 const HEADING_LINE_HEIGHT = PROFESSIONAL_LINE_HEIGHT.heading
@@ -125,6 +159,7 @@ export function ProfessionalTemplate({
 
   // Use prop or default sidebar color
   const activeSidebarColor = sidebarColorProp || SIDEBAR_COLOR
+  const printBandDeclaration = printBandStyle(activeSidebarColor)
 
   // Drag state for sidebar line
   const [isDraggingSidebar, setIsDraggingSidebar] = useState(false)
@@ -260,6 +295,9 @@ export function ProfessionalTemplate({
         fontFamily: fontFamily
       }}
     >
+      {/* Carries the user's sidebar colour to the print band in globals.css; see PRINT_BAND_COLOR_PROPERTY. */}
+      {printBandDeclaration && <style>{printBandDeclaration}</style>}
+
       {/* Sidebar - Full height from top to bottom */}
       <div
         ref={sidebarRef}

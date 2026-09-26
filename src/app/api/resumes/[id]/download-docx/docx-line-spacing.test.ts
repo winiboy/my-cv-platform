@@ -103,6 +103,10 @@ function settingsFor(row: ReturnType<typeof resumeRow>, fontScale: number): Docx
   return {
     fontFamily: layout.fontFamily,
     fontScale,
+    titleFontSize: layout.titleFontSize,
+    contactFontSize: layout.contactFontSize,
+    sectionTitleFontSize: layout.sectionTitleFontSize,
+    sectionDescFontSize: layout.sectionDescFontSize,
     locale: 'en',
     sidebarHue: layout.sidebarHue,
     sidebarSaturation: layout.sidebarSaturation,

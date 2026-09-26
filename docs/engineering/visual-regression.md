@@ -605,3 +605,72 @@ all, which is the control: neither template's rich-text path changed.
 highlighted region sits on a description line. `pnpm test:parity` was run on the
 same tree and reports 0 NEW rows, so no surface disagrees with another because
 of this.
+
+### Not moved, expected: classic and minimal, 2026-09-26 — section order
+
+**Cause.** Part 3 US-009, "The classic and minimal Previews honour section
+order and visibility". Both templates drew their sections in the order they
+were written in the JSX; each now renders `mapEditorOrderToClassic` /
+`mapEditorOrderToMinimal` over the stored `mainContentOrder`, minus
+`hiddenMainSections` — the rule `docx-classic.ts` and `docx-minimal.ts`
+already applied.
+
+**Why no baseline should move.** `e2e/fixtures/resume.ts` seeds no
+`layout_settings`, so every capture resolves to `DEFAULT_RESUME_LAYOUT`:
+`mainContentOrder` is the default three ids and `hiddenMainSections` is empty.
+For that model the mapping returns exactly each template's own sequence —
+`CLASSIC_SEQUENCE` and `MINIMAL_SEQUENCE`, which were read off these two
+templates — and the sections are now emitted through keyed `<Fragment>`s, which
+add no DOM, so `space-y-5` / `space-y-10` still sees the same children in the
+same order. The four captures for professional, modern and creative are
+untouched code.
+
+**If a capture does move.** That is a defect in this change, not a baseline to
+bless: read the diff before updating anything. A moved classic or minimal
+capture means the mapping and the JSX disagreed about the default order; a
+moved capture for any other template means the change leaked past the two
+single-column templates (US-009 criterion 6).
+
+**Evidence that the new path works, since the baselines cannot show it.** The
+default model is the one model under which nothing moves, so the ordering is
+evidenced elsewhere:
+`src/components/dashboard/resume-templates/single-column-section-order.test.ts`
+renders both Previews and both DOCX artifacts over a reordered and a partly
+hidden layout and compares the two sequences, and the preview route was
+captured in a browser under both layouts for the story record.
+
+### Not moved, expected: classic, minimal, creative and modern, 2026-09-26 — font scale and per-property sizes
+
+**Cause.** Part 3 US-011, "Font scale and size settings reach every template
+that offers them". `resume-preview.tsx` now passes `fontScale` to the classic,
+minimal and creative templates, each of which multiplies the four per-property
+sizes by it before drawing; and `docx-classic.ts`, `docx-minimal.ts`,
+`docx-creative.ts` and `docx-modern.ts` now write the stored per-property size
+for the elements their template applies, where each had copied the control
+default into its own `FONT_SIZES` and scaled that.
+
+**Why no baseline should move.** `e2e/fixtures/resume.ts` seeds no
+`layout_settings`, so every capture resolves to `DEFAULT_RESUME_LAYOUT`, whose
+`fontScale` is 1. Multiplying by 1 leaves every drawn size the number the
+template already wrote, and the per-property sizes the Previews read are the
+same stored values they read before. Nothing on the Preview or print side of
+this change can show at the default model: the whole of the DOCX half is
+invisible to these captures by construction, and the professional captures are
+untouched code.
+
+**If a capture does move.** That is a defect in this change, not a baseline to
+bless. A moved classic, minimal or creative capture means a size was scaled
+twice, or that an element which never took its size from the model now does. A
+moved modern or professional capture means the change leaked past the three
+templates the story is about (US-011 criterion 6, FR-5).
+
+**Evidence that the new path works, since the baselines cannot show it.** The
+default scale is the one scale under which nothing moves, so the scaling is
+evidenced elsewhere:
+`src/components/dashboard/resume-templates/per-property-font-size.test.ts`
+renders each Preview and generates each DOCX over two scales and over a
+changed value for each of the four sizes, and holds both surfaces to
+`TEMPLATE_APPLIED_SIZE_KEYS`; and `e2e/font-scale-rendered.spec.ts` reads
+`getComputedStyle().fontSize` off the rendered preview route at two stored
+scales and asserts the drawn size followed, with the captures in the story
+record.

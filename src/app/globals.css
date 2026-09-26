@@ -413,13 +413,18 @@
     background: white !important;
   }
 
-  /* Professional template blue sidebar gradient - only applies when professional-template class exists */
+  /* Professional template sidebar band - only applies when professional-template class exists.
+     The colour comes from --professional-print-sidebar-color, which
+     professional-template.tsx declares on this same element from the user's
+     stored sidebar colour (Part 3 US-013); this file cannot read the layout
+     model, so the fixed oklch stays as the fallback for when nothing declares
+     it. The band's geometry is still fixed and does not follow sidebarWidth. */
   body:has(.professional-template) {
     background: linear-gradient(
       to right,
       white calc(50% - 397px),
-      oklch(0.25 0.05 240) calc(50% - 397px),
-      oklch(0.25 0.05 240) calc(50% - 397px + 238.2px),
+      var(--professional-print-sidebar-color, oklch(0.25 0.05 240)) calc(50% - 397px),
+      var(--professional-print-sidebar-color, oklch(0.25 0.05 240)) calc(50% - 397px + 238.2px),
       white calc(50% - 397px + 238.2px)
     ) !important;
   }

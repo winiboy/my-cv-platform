@@ -91,10 +91,14 @@ const ACCOUNT_LAYOUT: {
   mainContentOrder: EditorMainId[]
   hiddenMainSections: EditorMainId[]
   fontScale: number
+  titleFontSize: number
 } = {
   mainContentOrder: ['education', 'experience', 'summary'],
   hiddenMainSections: ['education'],
   fontScale: 1.25,
+  // Non-default, so the title assertion below distinguishes the account's own
+  // size from the default one (Part 3 US-011).
+  titleFontSize: 30,
 }
 
 /**
@@ -121,19 +125,22 @@ const HIDDEN_EDUCATION_MARKER = FIXTURE_EDUCATION[0].school
 /**
  * The CV-title size in half-points, at the seeded scale and at the default.
  *
- * `docx-minimal.ts` sizes the title at 48px and converts with `pxToHalfPoints`,
- * which is `Math.round(px * 1.5)`. At the seeded scale of 1.25 that is
- * round(48 * 1.25 * 1.5) = 90; at a scale of 1 it is round(48 * 1.5) = 72. The
+ * `docx-minimal.ts` sizes the title at the account's own `titleFontSize`
+ * (Part 3 US-011) and converts with `pxToHalfPoints`, which is
+ * `Math.round(px * 1.5)`. At the seeded 30px and scale of 1.25 that is
+ * round(30 * 1.25 * 1.5) = 56; at a scale of 1 it is round(30 * 1.5) = 45. The
  * full set of `w:sz` values this template emits at the seeded scale is
- * {90, 38, 30, 26, 23}, so 72 cannot arise from any other size — its ABSENCE is
+ * {56, 38, 30, 26, 23}, so 45 cannot arise from any other size — its ABSENCE is
  * what fails if scaling stops being read from the model.
  *
- * Note the numbers differ from the Classic spec's 68/54. Minimal's title is
- * 48px where Classic's is 36px, which is one concrete reason a shared spec
- * could not stand in for this one.
+ * The numbers no longer differ from the Classic spec's, because since US-011
+ * both titles are the SAME stored size: the 48px against Classic's 36px was
+ * each generator's private copy of a control default. What still differs is
+ * the rest of the set, which is why a shared spec could not stand in for this
+ * one.
  */
-const SCALED_TITLE_HALF_POINTS = 90
-const UNSCALED_TITLE_HALF_POINTS = 72
+const SCALED_TITLE_HALF_POINTS = 56
+const UNSCALED_TITLE_HALF_POINTS = 45
 
 /**
  * Matches a font-size element carrying `halfPoints`, and nothing else.
@@ -262,6 +269,7 @@ test('the seeded layout really is non-default, in every property this file asser
     ...DEFAULT_RESUME_LAYOUT.hiddenMainSections,
   ])
   expect(ACCOUNT_LAYOUT.fontScale).not.toEqual(DEFAULT_RESUME_LAYOUT.fontScale)
+  expect(ACCOUNT_LAYOUT.titleFontSize).not.toEqual(DEFAULT_RESUME_LAYOUT.titleFontSize)
 
   // The hidden section must really be in the mapped order, or the visibility
   // assertion would be satisfied by a section the template never renders.

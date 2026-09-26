@@ -545,7 +545,10 @@ test('a backfilled resume adopts the properties the backfill could not carry', a
 
   await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
   await expect(page.getByTestId('resume-document')).toBeVisible()
-  expect(await titleFontSizePx(page)).toBe(TITLE_SIZE_CHOSEN)
+  // Drawn, not stored: this cache also carries fontScale 1.2, and since
+  // Part 3 US-011 classic applies it. The value adopted is still 42 — the
+  // persisted assertion below is the one about adoption.
+  expect(await titleFontSizePx(page)).toBe(TITLE_SIZE_CHOSEN * 1.2)
 
   await expect
     .poll(() => persistedTitleFontSize(resume.id), { timeout: 15_000 })
