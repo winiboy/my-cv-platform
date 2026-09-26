@@ -14,7 +14,7 @@ named with its owner.
 |---|---|---|
 | **A** — trustworthy build system | 06–09 | **Complete.** One package manager, one Node version, working CI |
 | **B** — automated quality foundation | 10–14 | **Complete.** Unit, integration, E2E and visual suites; evidence-based UI review |
-| **C** — resume rendering unification | 15–21 | **Substantially complete.** See below |
+| **C** — resume rendering unification | 15–21 | **Complete.** All 16 Part 3 stories pass |
 | **D** — development operating system | 22–24 | **Complete.** `prd-lifecycle.md`, `ralph-pass-criteria.md`, `progress-log-format.md` |
 | **E** — database / environment maturity | 25–29 | **Complete.** Local Supabase, RLS audit, staging database, protected `main`, preview validation on every PR |
 | **F** — production hardening | 30–32 | **30 and 31 complete. 32 deferred**, see below |
@@ -30,28 +30,31 @@ templates and compares every surface against the model and against the others.
 divergences nobody had named. Part 3 was rewritten from 5 stories to 16 to
 account for them.
 
-Eleven of the sixteen are done: the parity report moved from **MATCH 93 /
-KNOWN 110** at Part 3's start to **MATCH 159 / KNOWN 47**, with **0 NEW** rows
-throughout.
+All sixteen are done: the parity report moved from **MATCH 93 / KNOWN 110** at
+Part 3's start to **MATCH 206 / KNOWN 3**, with **0 NEW** rows throughout.
 
-### The five stories deliberately left open
+### All sixteen stories are done
 
-Each is measured, named in the report, and fails loudly if it changes shape.
-None is a surprise waiting to be found.
+The five that were left open on 2026-09-25 — US-009, US-010, US-011, US-013 and
+US-015 — were closed on 2026-09-26. The parity report now reads **MATCH 206,
+KNOWN 3, NEW 0**: every divergence this document named is closed, and the three
+that remain are the one this work registered itself, below.
 
-| Story | What still differs |
-|---|---|
-| **US-009** | The classic and minimal Previews render sections in a hardcoded order and ignore the stored order and visibility; their DOCX honours both |
-| **US-010** | Modern's empty-main-column fallback disagrees between surfaces |
-| **US-011** | Font scale does not reach the classic, minimal and creative Previews, and the per-property sizes reach the Preview but not the DOCX |
-| **US-013** | Modern's accent falls back to gold on a non-integer stored hue in the Preview while the DOCX uses the real colour; the professional print band ignores the user's sidebar colour |
-| **US-015** | Creative's section order and visibility controls do nothing on either surface — a dead control, not a divergence |
+Four product decisions were made and recorded in `tasks/ralph/progress.txt`:
+where `projects` sits when the section order is changed (each template keeps its
+own slot); which surface was right about an empty main column (the generator);
+whether creative's `summary` can be reordered (no — it is fixed in the header and
+carries visibility only); and how the print band reaches the user's colour.
 
-**US-013 also needs a contract change before it can start:** its second criterion
-expects a multi-page print capture to show a visible sidebar band, and that band
-is never visible in print — `html` and `body` are `white !important` and the
-gradient ends where `body` ends. The criterion has to be reworded or the story
-blocks on its own terms.
+**US-013's second criterion was amended before that story could run.** It
+required evidence, on a multi-page print capture, that the professional sidebar
+band follows the user's colour. Measured, no pixel of any printed page shows the
+band at all: where the sidebar reaches, the sidebar element covers it exactly;
+where it does not, the white main area paints over it; and below the content
+there is no band, because the gradient is on `body` and `html` is
+`white !important` under print. The colour is now correct and nothing displays
+it. That is recorded as a limitation, and the criterion now asks for the printed
+page's own pixels wherever the band is painted.
 
 ### One divergence this close-out created, and registered
 
@@ -110,16 +113,13 @@ disclosure had to go before production hardening, and it has.
 
 ## What the owner still decides
 
-1. **US-013's second criterion** must be reworded before that story can run.
-2. **The five open stories**: finish them, or accept them as measured
-   differences and close Part 3.
-3. **The security list above**, in the order the review suggested: SSRF and the
+1. **The security list above**, in the order the review suggested: SSRF and the
    AI endpoint bounds first, then the headers, then the production RLS
    reconciliation.
-4. **The PRD backlog**: `prd-lifecycle.md` records 116 files under `tasks/`, 14
+2. **The PRD backlog**: `prd-lifecycle.md` records 116 files under `tasks/`, 14
    slugs existing in two places at once, and three naming conventions. Nothing
    was moved or deleted; the rule is written and the cleanup is a decision.
-5. **Whether `Integration` and `E2E` are truly required checks** — both carry
+3. **Whether `Integration` and `E2E` are truly required checks** — both carry
    `(required)` in their job names, but the branch-protection table lists only
    `Verify`. One of the two records is wrong.
 

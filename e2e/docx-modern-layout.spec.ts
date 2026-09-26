@@ -80,12 +80,16 @@ const ACCOUNT_LAYOUT: {
   hiddenSidebarSections: EditorSidebarId[]
   hiddenMainSections: EditorMainId[]
   fontScale: number
+  titleFontSize: number
 } = {
   sidebarOrder: ['training', 'languages', 'skills', 'keyAchievements'],
   mainContentOrder: ['education', 'experience', 'summary'],
   hiddenSidebarSections: ['languages'],
   hiddenMainSections: [],
   fontScale: 1.25,
+  // Non-default, so the name assertion below distinguishes the account's own
+  // size from the default one (Part 3 US-011).
+  titleFontSize: 30,
 }
 
 /**
@@ -118,15 +122,17 @@ const HIDDEN_LANGUAGES_MARKER = FIXTURE_LANGUAGES[0].language
  * The candidate-name size in half-points, at the seeded scale and at the
  * default.
  *
- * `docx-modern.ts` sizes the name at 36px and converts with `pxToHalfPoints`,
- * which is `Math.round(px * 1.5)`. At the seeded scale of 1.25 that is
- * round(36 * 1.25 * 1.5) = 68; at the default scale of 1 it is
- * round(36 * 1.5) = 54. No other size in this template produces 54 at the
- * seeded scale — the full set is {68, 34, 30, 26, 24, 23, 21, 19} — so its
+ * `docx-modern.ts` sizes the name at the account's own `titleFontSize`
+ * (Part 3 US-011 — modern renders no input for it, but its Preview applies the
+ * stored value, so the export writes the same one) and converts with
+ * `pxToHalfPoints`, which is `Math.round(px * 1.5)`. At the seeded 30px and
+ * scale of 1.25 that is round(30 * 1.25 * 1.5) = 56; at the default scale of 1
+ * it is round(30 * 1.5) = 45. No other size in this template produces 45 at
+ * the seeded scale — the full set is {56, 34, 30, 26, 24, 23, 21, 19} — so its
  * ABSENCE is what fails if scaling stops being read from the model.
  */
-const SCALED_NAME_HALF_POINTS = 68
-const UNSCALED_NAME_HALF_POINTS = 54
+const SCALED_NAME_HALF_POINTS = 56
+const UNSCALED_NAME_HALF_POINTS = 45
 
 /**
  * Matches a font-size element carrying `halfPoints`, and nothing else.
@@ -270,6 +276,7 @@ test('the seeded layout really is non-default, in every property this file asser
   expect(seeded.modernMainOrder).not.toEqual(defaults.modernMainOrder)
   expect(seeded.hiddenModernSidebar).not.toEqual(defaults.hiddenModernSidebar)
   expect(ACCOUNT_LAYOUT.fontScale).not.toEqual(DEFAULT_RESUME_LAYOUT.fontScale)
+  expect(ACCOUNT_LAYOUT.titleFontSize).not.toEqual(DEFAULT_RESUME_LAYOUT.titleFontSize)
 
   // The main fallback inside `docx-modern.ts` must not be what produces the
   // asserted order: if the seeded main order mapped to nothing, the generator

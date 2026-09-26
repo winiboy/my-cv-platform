@@ -146,6 +146,10 @@ function settingsFor(row: ReturnType<typeof resumeRow>): DocxGeneratorSettings {
   return {
     fontFamily: layout.fontFamily,
     fontScale: layout.fontScale,
+    titleFontSize: layout.titleFontSize,
+    contactFontSize: layout.contactFontSize,
+    sectionTitleFontSize: layout.sectionTitleFontSize,
+    sectionDescFontSize: layout.sectionDescFontSize,
     locale: 'en',
     sidebarHue: layout.sidebarHue,
     sidebarSaturation: layout.sidebarSaturation,

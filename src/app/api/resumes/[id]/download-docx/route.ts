@@ -190,6 +190,10 @@ async function handleDocxGeneration(
   const settings: DocxGeneratorSettings = {
     fontFamily: layout.fontFamily,
     fontScale: layout.fontScale,
+    titleFontSize: layout.titleFontSize,
+    contactFontSize: layout.contactFontSize,
+    sectionTitleFontSize: layout.sectionTitleFontSize,
+    sectionDescFontSize: layout.sectionDescFontSize,
     locale,
     sidebarHue: layout.sidebarHue,
     sidebarSaturation: layout.sidebarSaturation,

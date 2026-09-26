@@ -21,6 +21,20 @@ import { chosenFontFamily } from '@/lib/layout-settings'
 export interface DocxGeneratorSettings {
   fontFamily: string
   fontScale: number
+  /**
+   * The per-property sizes the layout model stores, in CSS px BEFORE
+   * `fontScale` (Part 3 US-011).
+   *
+   * A generator applies the ones its template's `TEMPLATE_APPLIED_SIZE_KEYS`
+   * entry names — the same sizes that template's Preview draws — and its own
+   * stock constant everywhere else. They are required rather than optional so
+   * that a caller which forgets one fails to compile instead of silently
+   * exporting a document at a size the user never chose.
+   */
+  titleFontSize: number
+  contactFontSize: number
+  sectionTitleFontSize: number
+  sectionDescFontSize: number
   locale: string
   sidebarHue: number
   sidebarSaturation: number

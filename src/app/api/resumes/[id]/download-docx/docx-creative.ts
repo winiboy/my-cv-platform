@@ -60,6 +60,14 @@ import {
   TAILWIND_TEXT_LINE_HEIGHT,
   tailwindHeightPx,
 } from '@/lib/resume-line-height'
+import {
+  assertExhaustiveSection,
+  mapEditorOrderToCreative,
+  type CreativeMainId,
+  type CreativeSidebarId,
+  type EditorMainId,
+  type EditorSidebarId,
+} from '@/lib/layout-settings'
 
 // ============================================================
 // TRANSLATION DICTIONARY (matching creative-template.tsx section labels)
@@ -111,13 +119,15 @@ const HEADER_TRANSLUCENT = {
 // ============================================================
 // FONT SIZE CONSTANTS (matching creative-template.tsx defaults)
 // ============================================================
+/**
+ * The sizes no control writes. The name, contact, section-heading and body
+ * sizes used to be stated here too, as the defaults of the four per-property
+ * controls; they now come from the model, because a default is not the size
+ * the Preview draws once the owner has moved a slider (Part 3 US-011).
+ */
 const FONT_SIZES = {
-  NAME: 48,                // h1 titleFontSize default (font-black, uppercase)
   SUMMARY: 16,             // text-base (16px) — summary in header
-  CONTACT: 12,             // contactFontSize default
   CONTACT_LINKS: 12,       // text-xs for linkedin/github/website row
-  SECTION_TITLE: 16,       // sectionTitleFontSize default (font-black, uppercase)
-  BODY: 14,                // sectionDescFontSize default — used for most body text
 }
 
 /**
@@ -185,8 +195,38 @@ export async function generateCreativeDocx(
   const {
     fontFamily,
     fontScale,
+    titleFontSize,
+    contactFontSize,
+    sectionTitleFontSize,
+    sectionDescFontSize,
     locale,
+    sidebarOrder: sidebarOrderRaw,
+    mainContentOrder: mainContentOrderRaw,
+    hiddenSidebarSections: hiddenSidebarRaw,
+    hiddenMainSections: hiddenMainRaw,
   } = settings
+
+  // Creative's own section vocabulary (Part 3 US-015). The mapping lives in the
+  // shared model, not here: this generator states no section list of its own,
+  // and the Preview reads the same three results from the same function, which
+  // is what makes the two orders the same order rather than two that agree.
+  //
+  // The casts name the shared editor vocabulary instead of re-listing its
+  // members, exactly as `docx-modern.ts` does: `DocxGeneratorSettings` declares
+  // these four as `string[]`, so a cast is unavoidable, but one to
+  // `EditorSidebarId[]` follows the model when an id is added or renamed.
+  const {
+    creativeSidebarOrder,
+    creativeMainOrder,
+    hiddenCreativeSidebar,
+    hiddenCreativeMain,
+    summaryHidden,
+  } = mapEditorOrderToCreative(
+    sidebarOrderRaw as EditorSidebarId[],
+    mainContentOrderRaw as EditorMainId[],
+    hiddenSidebarRaw as EditorSidebarId[],
+    hiddenMainRaw as EditorMainId[],
+  )
 
   // Load translations
   const dict = getTranslations(locale as Locale, 'common')
@@ -207,14 +247,53 @@ export async function generateCreativeDocx(
   const projects = (resume.projects || []).filter((project: any) => project.visible !== false)
   const languages = (resume.languages || []).filter((lang: any) => lang.visible !== false)
 
-  // Calculate scaled font sizes (half-points for docx)
+  /**
+   * The sections each column draws, in the order the model asks for (US-015).
+   *
+   * A section is here when the model positions it, the model does not hide it,
+   * and it has a visible item — the same three conditions the Preview applies.
+   * Building the list first is what lets each section ask whether ANOTHER
+   * section follows it in this column, which is the gap it must leave after its
+   * last item. Before this story that question was answered by naming the
+   * sections that happen to come next in a fixed sequence.
+   */
+  const sidebarHasContent: Readonly<Record<CreativeSidebarId, boolean>> = {
+    skills: skills.length > 0,
+    languages: languages.length > 0,
+    certifications: certifications.length > 0,
+  }
+  const mainHasContent: Readonly<Record<CreativeMainId, boolean>> = {
+    experience: experiences.length > 0,
+    projects: projects.length > 0,
+    education: education.length > 0,
+  }
+  const visibleSidebarSections = creativeSidebarOrder.filter(
+    (id) => !hiddenCreativeSidebar.includes(id) && sidebarHasContent[id],
+  )
+  const visibleMainSections = creativeMainOrder.filter(
+    (id) => !hiddenCreativeMain.includes(id) && mainHasContent[id],
+  )
+
+  /**
+   * The sizes this document draws, in half-points (Part 3 US-011).
+   *
+   * The four the owner can adjust come from the model, at the model's scale,
+   * because `creative-template.tsx` draws those same four elements from the
+   * same stored sizes at the same scale — the Preview being the contract an
+   * export answers to. They are NOT read from `DEFAULT_RESUME_LAYOUT`: that
+   * reference resolves to the default while the Preview keeps using the
+   * owner's value, which is the shape Part 2's US-003 T-1 rejected.
+   *
+   * The header summary and the links row stay stock: the Preview draws them
+   * from Tailwind classes (`text-base`, `text-xs`), not from the model.
+   */
   const scaledFontSizes = {
-    name: pxToHalfPoints(FONT_SIZES.NAME * fontScale),
+    name: pxToHalfPoints(titleFontSize * fontScale),
     summary: pxToHalfPoints(FONT_SIZES.SUMMARY * fontScale),
-    contact: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale),
+    contact: pxToHalfPoints(contactFontSize * fontScale),
     contactLinks: pxToHalfPoints(FONT_SIZES.CONTACT_LINKS * fontScale),
-    sectionTitle: pxToHalfPoints(FONT_SIZES.SECTION_TITLE * fontScale),
-    body: pxToHalfPoints(FONT_SIZES.BODY * fontScale),
+    sectionTitle: pxToHalfPoints(sectionTitleFontSize * fontScale),
+    body: pxToHalfPoints(sectionDescFontSize * fontScale),
   }
 
   // Line spacing shared by many paragraphs.
@@ -457,8 +536,9 @@ export async function generateCreativeDocx(
     })
   )
 
-  // Summary (optional): White/90, base text, justified
-  if (resume.summary) {
+  // Summary (optional): White/90, base text, justified. FIXED in the header
+  // (US-015): the model can hide it, not move it — see `CreativeHeaderId`.
+  if (resume.summary && !summaryHidden) {
     const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.JUSTIFIED
     // The summary div is `text-base leading-relaxed`; leading-relaxed wins.
     const summaryLineSpacing = exactLineSpacing([LINE_HEIGHT.relaxed, scaledFontSizes.summary])
@@ -612,7 +692,7 @@ export async function generateCreativeDocx(
   const leftParagraphs: (Paragraph | Table)[] = []
 
   // --- SKILLS ---
-  if (skills.length > 0) {
+  function appendSkills(nextSectionExists: boolean) {
     leftParagraphs.push(
       createSectionHeader(
         (dict as any).resumes?.editor?.sections?.skills || creativeDict.skills,
@@ -623,7 +703,6 @@ export async function generateCreativeDocx(
 
     skills.forEach((skillCategory: any, i: number) => {
       const isLastCategory = i === skills.length - 1
-      const nextSectionExists = languages.length > 0 || certifications.length > 0
       const categoryEndSpacing = isLastCategory
         ? (nextSectionExists ? SPACING.LEFT_SECTION_GAP : 0)
         : SPACING.SKILLS_CATEGORY_GAP
@@ -723,7 +802,7 @@ export async function generateCreativeDocx(
   }
 
   // --- LANGUAGES ---
-  if (languages.length > 0) {
+  function appendLanguages(nextSectionExists: boolean) {
     leftParagraphs.push(
       createSectionHeader(
         (dict as any).resumes?.editor?.sections?.languages || creativeDict.languages,
@@ -734,7 +813,6 @@ export async function generateCreativeDocx(
 
     languages.forEach((lang: any, i: number) => {
       const isLast = i === languages.length - 1
-      const nextSectionExists = certifications.length > 0
       const itemEndSpacing = isLast
         ? (nextSectionExists ? SPACING.LEFT_SECTION_GAP : 0)
         : SPACING.LANGUAGE_ITEM_GAP
@@ -782,7 +860,7 @@ export async function generateCreativeDocx(
   }
 
   // --- CERTIFICATIONS ---
-  if (certifications.length > 0) {
+  function appendCertifications(nextSectionExists: boolean) {
     leftParagraphs.push(
       createSectionHeader(
         (dict as any).resumes?.editor?.sections?.certifications || creativeDict.certifications,
@@ -793,7 +871,10 @@ export async function generateCreativeDocx(
 
     certifications.forEach((cert: any, i: number) => {
       const isLast = i === certifications.length - 1
-      const itemEndSpacing = isLast ? 0 : SPACING.CERT_ITEM_GAP
+      // Last in its column before US-015; now it can be followed by another.
+      const itemEndSpacing = isLast
+        ? (nextSectionExists ? SPACING.LEFT_SECTION_GAP : 0)
+        : SPACING.CERT_ITEM_GAP
 
       // Cert name: bold, slate-800
       leftParagraphs.push(
@@ -850,6 +931,23 @@ export async function generateCreativeDocx(
     })
   }
 
+  visibleSidebarSections.forEach((sectionId, index) => {
+    const nextSectionExists = index < visibleSidebarSections.length - 1
+    switch (sectionId) {
+      case 'skills':
+        appendSkills(nextSectionExists)
+        break
+      case 'languages':
+        appendLanguages(nextSectionExists)
+        break
+      case 'certifications':
+        appendCertifications(nextSectionExists)
+        break
+      default:
+        assertExhaustiveSection(sectionId)
+    }
+  })
+
   // ============================================================
   // BUILD RIGHT COLUMN (2/3): Experience, Projects, Education
   // ============================================================
@@ -857,7 +955,7 @@ export async function generateCreativeDocx(
   const rightParagraphs: (Paragraph | Table)[] = []
 
   // --- EXPERIENCE ---
-  if (experiences.length > 0) {
+  function appendExperience(nextSectionExists: boolean) {
     rightParagraphs.push(
       createSectionHeader(
         (dict as any).resumes?.editor?.sections?.experience || creativeDict.experience,
@@ -868,7 +966,6 @@ export async function generateCreativeDocx(
 
     experiences.forEach((exp: any, i: number) => {
       const isLastExp = i === experiences.length - 1
-      const nextSectionExists = projects.length > 0 || education.length > 0
       const expEndSpacing = isLastExp
         ? (nextSectionExists ? SPACING.RIGHT_SECTION_GAP : 0)
         : SPACING.EXPERIENCE_ITEM_GAP
@@ -1071,7 +1168,7 @@ export async function generateCreativeDocx(
   }
 
   // --- PROJECTS ---
-  if (projects.length > 0) {
+  function appendProjects(nextSectionExists: boolean) {
     rightParagraphs.push(
       createSectionHeader(
         (dict as any).resumes?.editor?.sections?.projects || creativeDict.projects,
@@ -1082,7 +1179,6 @@ export async function generateCreativeDocx(
 
     projects.forEach((project: any, i: number) => {
       const isLastProject = i === projects.length - 1
-      const nextSectionExists = education.length > 0
       const projectEndSpacing = isLastProject
         ? (nextSectionExists ? SPACING.RIGHT_SECTION_GAP : 0)
         : SPACING.PROJECT_ITEM_GAP
@@ -1163,7 +1259,7 @@ export async function generateCreativeDocx(
   }
 
   // --- EDUCATION ---
-  if (education.length > 0) {
+  function appendEducation(nextSectionExists: boolean) {
     rightParagraphs.push(
       createSectionHeader(
         (dict as any).resumes?.editor?.sections?.education || creativeDict.education,
@@ -1174,7 +1270,10 @@ export async function generateCreativeDocx(
 
     education.forEach((edu: any, i: number) => {
       const isLastEdu = i === education.length - 1
-      const eduEndSpacing = isLastEdu ? 0 : SPACING.EDUCATION_ITEM_GAP
+      // Last in its column before US-015; now it can be followed by another.
+      const eduEndSpacing = isLastEdu
+        ? (nextSectionExists ? SPACING.RIGHT_SECTION_GAP : 0)
+        : SPACING.EDUCATION_ITEM_GAP
 
       // Degree: bold, slate-900
       rightParagraphs.push(
@@ -1255,6 +1354,23 @@ export async function generateCreativeDocx(
       }
     })
   }
+
+  visibleMainSections.forEach((sectionId, index) => {
+    const nextSectionExists = index < visibleMainSections.length - 1
+    switch (sectionId) {
+      case 'experience':
+        appendExperience(nextSectionExists)
+        break
+      case 'projects':
+        appendProjects(nextSectionExists)
+        break
+      case 'education':
+        appendEducation(nextSectionExists)
+        break
+      default:
+        assertExhaustiveSection(sectionId)
+    }
+  })
 
   // The bottom-left decorative disc (US-007). The Preview places it from the
   // header's BOTTOM edge, which depends on how the text above wrapped, so it is

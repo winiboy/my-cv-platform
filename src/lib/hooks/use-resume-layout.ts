@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   DEFAULT_RESUME_LAYOUT,
+  mapEditorOrderToCreative,
   mapEditorOrderToModern,
   resolveResumeLayout,
   type EditorMainId,
   type EditorSidebarId,
+  type CreativeMappedOrder,
   type ModernMappedOrder,
   type PersistedLayoutSource,
   type ResumeLayoutModel,
@@ -103,6 +105,8 @@ export interface ResumeLayoutController {
   sidebarColor: string
   /** `layout`'s editor-vocabulary section order translated to Modern's. */
   modern: ModernMappedOrder
+  /** `layout`'s editor-vocabulary section order translated to Creative's (Part 3 US-015). */
+  creative: CreativeMappedOrder
   /**
    * False until the stores have been read.
    *
@@ -230,5 +234,22 @@ export function useResumeLayout(
     ],
   )
 
-  return { layout, setters, sidebarColor, modern, isLoaded }
+  /** Memoized on the same four lists, and for the same reason, as `modern`. */
+  const creative = useMemo(
+    () =>
+      mapEditorOrderToCreative(
+        layout.sidebarOrder,
+        layout.mainContentOrder,
+        layout.hiddenSidebarSections,
+        layout.hiddenMainSections,
+      ),
+    [
+      layout.sidebarOrder,
+      layout.mainContentOrder,
+      layout.hiddenSidebarSections,
+      layout.hiddenMainSections,
+    ],
+  )
+
+  return { layout, setters, sidebarColor, modern, creative, isLoaded }
 }

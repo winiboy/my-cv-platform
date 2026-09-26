@@ -643,7 +643,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -713,7 +713,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -785,7 +785,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -928,7 +928,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -1076,7 +1076,7 @@
         "Out of scope: Consolidating shared vocabulary, helpers or mappings — Part 2's US-007 did that. US-015 adds a creative vocabulary, which is new definition."
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

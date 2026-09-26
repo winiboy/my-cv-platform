@@ -77,6 +77,28 @@ import {
  * rows now compare against lives in the application, not here:
  * `chosenFontFamily` in src/lib/layout-settings.ts, which `fontChosen` asks.
  *
+ * US-010-empty-main was closed by US-010 and removed with its signature:
+ * modern-template.tsx adopted the generator's condition, so an order that maps
+ * to nothing falls back to DEFAULT_MODERN_MAIN_ORDER on both surfaces.
+ * US-013-accent-hue was closed by US-013 and removed with its signature and
+ * the gold accent-fallback constant only that signature read; the Preview's
+ * deriveAccentColor now parses the decimal components the layout model admits.
+ *
+ * US-009-order-classic and US-009-order-minimal were closed by US-009 and
+ * removed with their shared signature and the sequence helper only that
+ * signature read. Both Previews now derive their section order from
+ * `mapEditorOrderToClassic` / `mapEditorOrderToMinimal` and filter
+ * `hiddenMainSections` from it, which is the rule their generators already
+ * applied, so the order and visibility rows compare two readings of one rule.
+ *
+ * US-015-creative-sections was closed by US-015 and removed with its signature.
+ * Creative now reads a section vocabulary of its own (`mapEditorOrderToCreative`
+ * in src/lib/layout-settings.ts), which both its Preview and docx-creative.ts
+ * consume, so the rows that reported 'both surfaces agree on ignoring the model'
+ * have no subject left. What the vocabulary cannot express is recorded in
+ * `ANNOTATIONS` as a DECISION: certifications and projects have no editor id and
+ * keep their slots, and summary is fixed in the header.
+ *
  * US-014-sidebar-colour and US-014-per-property were resolved by US-014 and
  * removed with their signatures. NOT by making the surfaces draw the values:
  * both were dead controls, and US-014 answers a dead control by withdrawing it,
@@ -85,35 +107,25 @@ import {
  * writes reach the surfaces?" — has no subject once the control is not offered.
  * What remains true of those stored values is recorded in `ANNOTATIONS` as two
  * DECISIONs, with the evidence that nothing deletes them.
+ *
+ * US-011-font-size was closed by US-011 and removed with its signature and the
+ * stock-size table only that signature read. Both halves of it went: the three
+ * Previews are now passed `fontScale` and draw every size they take from the
+ * model at that scale, and the generators write the stored per-property size
+ * instead of a default copied into their own FONT_SIZES — for exactly the
+ * elements `TEMPLATE_APPLIED_SIZE_KEYS` says the template applies, modern's
+ * two included.
  */
-export type KnownId =
-  | 'US-009-order-classic'
-  | 'US-009-order-minimal'
-  | 'US-010-empty-main'
-  | 'US-011-font-size'
-  | 'US-013-accent-hue'
-  | 'US-016-html-body-line-height'
-  | 'US-015-creative-sections'
+export type KnownId = 'US-016-html-body-line-height'
 
 export const KNOWN_IDS: readonly KnownId[] = [
-  'US-009-order-classic',
-  'US-009-order-minimal',
-  'US-010-empty-main',
-  'US-011-font-size',
-  'US-013-accent-hue',
   'US-016-html-body-line-height',
-  'US-015-creative-sections',
 ]
 
 export type Verdict = 'MATCH' | `KNOWN: ${KnownId}` | 'NEW'
 
 const rowIds = (profile: ProfileId, templates: readonly ResumeTemplate[], properties: readonly string[]) =>
   templates.flatMap((template) => properties.map((property) => `${profile} · ${template} · ${property}`))
-
-const elementProperties = (family: string) => TYPOGRAPHY_ELEMENTS.map((element) => `${family}:${element}`)
-
-/** The templates that receive neither fontScale nor fontFamily and draw no sidebar colour. */
-const CLASSIC_MINIMAL_CREATIVE: readonly ResumeTemplate[] = ['classic', 'minimal', 'creative']
 
 /** A row listed under two ids is a mistake in this file, not a verdict, so it throws. */
 function expectations(groups: readonly (readonly [KnownId, readonly string[]])[]): Readonly<Record<string, KnownId>> {
@@ -140,9 +152,6 @@ function expectations(groups: readonly (readonly [KnownId, readonly string[]])[]
  * failure; it is a hole in Part 3's scope.
  */
 export const KNOWN_EXPECTATIONS: Readonly<Record<string, KnownId>> = expectations([
-  ['US-009-order-classic', rowIds('primary', ['classic'], ['visibility:education', 'order:main', 'order:document'])],
-  ['US-009-order-minimal', rowIds('primary', ['minimal'], ['visibility:education', 'order:main', 'order:document'])],
-  ['US-010-empty-main', rowIds('modern-empty-main', ['modern'], ['visibility:summary', 'visibility:experience'])],
   [
     'US-016-html-body-line-height',
     // US-016 made classic, minimal and creative render stored HTML as formatted
@@ -151,27 +160,6 @@ export const KNOWN_EXPECTATIONS: Readonly<Record<string, KnownId>> = expectation
     // rendered no formatted content at all. Professional and modern already follow
     // the Preview here, through formattedTextLineHeight.
     rowIds('html-body-and-skills', ['classic', 'minimal', 'creative'], ['line-height:bodyText']),
-  ],
-  [
-    'US-011-font-size',
-    [
-      // Surface against surface: a per-property size reached the Preview, not the DOCX.
-      ...rowIds('primary', CLASSIC_MINIMAL_CREATIVE, elementProperties('font-size')),
-      ...rowIds('primary', ['modern'], ['font-size:documentTitle', 'font-size:bodyText']),
-      // Against the model: fontScale is not passed to these three Previews.
-      ...rowIds('primary', CLASSIC_MINIMAL_CREATIVE, elementProperties('font-scale')),
-      // Against the model: the per-property sizes respond in the Preview and not in the DOCX.
-      ...rowIds('primary', CLASSIC_MINIMAL_CREATIVE, elementProperties('per-property')),
-      ...rowIds('primary', ['modern'], ['per-property:documentTitle', 'per-property:bodyText']),
-    ],
-  ],
-  ['US-013-accent-hue', rowIds('modern-non-integer-hue', ['modern'], ['colour:accent'])],
-  [
-    'US-015-creative-sections',
-    [
-      ...rowIds('primary', ['creative'], ['visibility:education', 'visibility:languages']),
-      ...rowIds('creative-order', ['creative'], ['order:main', 'order:sidebar']),
-    ],
   ],
 ])
 
@@ -264,8 +252,8 @@ export function rowDefinitions(): RowDefinition[] {
           // and no rendering to compare, so it is a recorded DECISION rather
           // than a row — see `TEMPLATE_APPLIED_SIZE_KEYS` for the matrix and
           // `ANNOTATIONS` for what is preserved. The sizes modern DOES apply
-          // stay rows: they respond in its Preview and not in its DOCX, which
-          // is US-011's divergence and not this one.
+          // stay rows: they were US-011's divergence, not this one, and since
+          // that story they respond on both surfaces.
           if (appliedSizeKeys.includes(SIZE_KEY_BY_ELEMENT[element])) {
             add('per-property', `per-property:${element}`, element, ['per-property-control'])
           }
@@ -524,9 +512,6 @@ interface Signature {
 }
 
 const shown = (value: Value) => value.kind === 'visibility' && value.shown
-const responds = (value: Value) => value.kind === 'responds' && value.responds
-const isSequence = (value: Value | null, keys: readonly string[]) =>
-  value !== null && value.kind === 'sequence' && value.keys.join('>') === keys.join('>')
 const isTypographyElement = (subject: string): subject is TypographyElement =>
   (TYPOGRAPHY_ELEMENTS as readonly string[]).includes(subject)
 
@@ -536,28 +521,6 @@ const PER_PROPERTY: Readonly<Record<TypographyElement, 'titleFontSize' | 'sectio
   sectionHeading: 'sectionTitleFontSize',
   bodyText: 'sectionDescFontSize',
 }
-
-/** US-013: `DEFAULT_ACCENT_COLOR` in modern-template.tsx, the gold the accent falls back to. */
-const MODERN_ACCENT_FALLBACK = '#D4A843'
-
-/**
- * US-011: the size, in CSS px before fontScale, each generator writes for the
- * elements where the DOCX disagrees with the Preview. It then applies
- * `pxToHalfPoints(base * fontScale)`, whatever per-property size the model
- * carries. `docx-classic.ts` FONT_SIZES TITLE, SECTION_TITLE, SECTION_DESC;
- * `docx-minimal.ts` TITLE, SECTION_TITLE, BODY; `docx-creative.ts` NAME,
- * SECTION_TITLE, BODY; `docx-modern.ts` NAME and BODY.
- */
-const STOCK_BASE_SIZE_PX: Readonly<Record<ResumeTemplate, Partial<Record<TypographyElement, number>>>> = {
-  professional: {},
-  modern: { documentTitle: 36, bodyText: 14 },
-  classic: { documentTitle: 36, sectionHeading: 16, bodyText: 14 },
-  minimal: { documentTitle: 48, sectionHeading: 16, bodyText: 14 },
-  creative: { documentTitle: 48, sectionHeading: 16, bodyText: 14 },
-}
-
-/** `pxToHalfPoints` in docx-helpers.ts. */
-const toHalfPoints = (px: number) => Math.round(px * 1.5)
 
 /**
  * The family a font-family row compares against. A chosen font is the reference
@@ -589,47 +552,6 @@ function fontFamilyReference(template: ResumeTemplate, model: Observation['model
  * may have two shapes: `evaluateRow` throws if signatures overlap.
  */
 const SIGNATURES: readonly Signature[] = [
-  ...(['classic', 'minimal'] as const).map(
-    (template): Signature => ({
-      id: `US-009-order-${template}`,
-      defect:
-        `${template}-template.tsx renders its sections in a fixed order and ignores mainContentOrder and ` +
-        'hiddenMainSections, and its print follows it; the DOCX honours both.',
-      matches: ({ row, observation, profile, reference, values }) => {
-        if (row.template !== template || !equal(values.pdf, values.preview)) return false
-        if (row.family === 'visibility') {
-          return reference !== null && !shown(reference) && shown(values.preview) && !shown(values.docx)
-        }
-        if (row.family === 'order' && row.subject === 'main') {
-          return reference !== null && !equal(values.preview, reference) && equal(values.docx, reference)
-        }
-        if (row.family === 'order' && row.subject === 'document') {
-          const modelOrder = referenceFor(profile, template).order.main ?? []
-          const docx = values.docx.kind === 'sequence' ? values.docx.keys : []
-          return (
-            !equal(values.docx, values.preview) &&
-            isSequence(values.docx, modelOrder.filter((key) => docx.includes(key))) &&
-            observation.surfaces.docx.sequence.length > 0
-          )
-        }
-        return false
-      },
-    }),
-  ),
-  {
-    id: 'US-010-empty-main',
-    defect:
-      "Modern, with a stored main order that maps to nothing: the Preview's main column is empty, because " +
-      'modern-template.tsx falls back only on a missing order, while docx-modern.ts falls back on an empty one.',
-    matches: ({ row, values }) =>
-      row.profile === 'modern-empty-main' &&
-      row.template === 'modern' &&
-      row.family === 'visibility' &&
-      ['summary', 'experience'].includes(row.subject) &&
-      !shown(values.preview) &&
-      !shown(values.pdf) &&
-      shown(values.docx),
-  },
   {
     id: 'US-016-html-body-line-height',
     defect:
@@ -654,87 +576,6 @@ const SIGNATURES: readonly Signature[] = [
       if (Math.abs(shown.ratio - 1.4) > LINE_HEIGHT_TOLERANCE) return false
       return !equal(values.docx, values.preview)
     },
-  },
-  {
-    id: 'US-011-font-size',
-    defect:
-      'Font scale and per-property sizes do not reach every surface alike: resume-preview.tsx passes no ' +
-      'fontScale to classic, minimal and creative, whose generators apply it, and the per-property sizes ' +
-      'reach the Preview but not the DOCX.',
-    matches: ({ row, observation, reference, values }) => {
-      if (!['classic', 'minimal', 'creative', 'modern'].includes(row.template)) return false
-      if (!equal(values.pdf, values.preview) || equal(values.docx, values.preview)) return false
-
-      // Surface against surface: a per-property size reached the Preview —
-      // unscaled on classic, minimal and creative, scaled on modern — while the
-      // DOCX writes its generator's stock size scaled by fontScale.
-      if (row.family === 'font-size' && values.preview.kind === 'size' && isTypographyElement(row.subject)) {
-        const { model } = observation
-        const base = STOCK_BASE_SIZE_PX[row.template][row.subject]
-        if (base === undefined || values.docx.kind !== 'size') return false
-        const perProperty = model[PER_PROPERTY[row.subject]]
-        const expectedPreviewPx = row.template === 'modern' ? perProperty * model.fontScale : perProperty
-        return (
-          Math.abs(values.preview.px - expectedPreviewPx) < 0.01 &&
-          values.docx.halfPoints === toHalfPoints(base * model.fontScale)
-        )
-      }
-
-      // Against the model: fontScale is not passed to the classic, minimal and
-      // creative Previews (ratio 1), while their generators apply it.
-      if (row.family === 'font-scale' && reference !== null && values.preview.kind === 'ratio') {
-        return (
-          row.template !== 'modern' &&
-          Math.abs(values.preview.ratio - 1) <= values.preview.slack &&
-          equal(values.docx, reference)
-        )
-      }
-
-      // Against the model: the per-property sizes respond in the Preview and not in the DOCX.
-      if (row.family === 'per-property') {
-        return responds(values.preview) && responds(values.pdf) && !responds(values.docx)
-      }
-      return false
-    },
-  },
-  {
-    id: 'US-013-accent-hue',
-    defect:
-      'Part 2 finding F-A: the sidebar colour reached the Preview, but modern-template.tsx deriveAccentColor ' +
-      'matches integer HSL only and falls back to gold, while docx-modern.ts derives the accent from the ' +
-      'stored colour.',
-    // By structure, not by a colour literal: the model's sidebar colour reached
-    // the Preview intact, yet the accent derived from it disagrees with the
-    // model's derivation, while the DOCX accent agrees. The colour arrived; the
-    // derivation failed.
-    matches: ({ row, observation, reference, values }) => {
-      if (row.template !== 'modern' || row.subject !== 'accent' || reference === null) return false
-      const sidebar = observation.surfaces.preview.sidebarBackground
-      const sidebarReachedPreview =
-        sidebar !== null &&
-        equal(seenColour(sidebar, null, 'accent sidebar'), seenColour(observation.modelColours.sidebar, null, 'accent model'))
-      return (
-        sidebarReachedPreview &&
-        values.preview.kind === 'colour' &&
-        coloursAgree(opaque(values.preview.hex), opaque(MODERN_ACCENT_FALLBACK)) &&
-        !equal(values.preview, reference) &&
-        equal(values.pdf, values.preview) &&
-        equal(values.docx, reference)
-      )
-    },
-  },
-  {
-    id: 'US-015-creative-sections',
-    defect:
-      'Creative ignores section order and visibility on every surface: the Preview, print and DOCX agree ' +
-      'with each other and all disagree with the model.',
-    matches: ({ row, reference, values }) =>
-      row.template === 'creative' &&
-      (row.family === 'visibility' || (row.family === 'order' && row.subject !== 'document')) &&
-      reference !== null &&
-      equal(values.pdf, values.preview) &&
-      equal(values.docx, values.preview) &&
-      !equal(values.preview, reference),
   },
 ]
 
@@ -994,7 +835,10 @@ function newDivergenceNote({ row, values, reference }: SignatureContext): string
 
   switch (row.family) {
     case 'font-scale':
-      return 'A surface does not scale this element by the model fontScale in the way US-011 describes.'
+      return (
+        'A surface does not scale this element by the model fontScale. Since Part 3 US-011 every surface ' +
+        'draws it at the stored size times that scale.'
+      )
     case 'letter-spacing':
       return (
         'Letter spacing differs as a multiple of the size each surface draws the element at; DOCX can express ' +
@@ -1159,7 +1003,19 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
       'where the controls live and not a divergence between surfaces: their rows are not generated. The ' +
       'values survive untouched — nothing in the gating path writes the model — and apply again on classic, ' +
       'minimal or creative, which offer the control and draw all four. The two sizes modern DOES apply keep ' +
-      'their rows, because they respond in its Preview and not in its DOCX, which is US-011.'),
+      'their rows: Part 3 US-011 made its DOCX write them, so they now respond on every surface.'),
+  annotation('DECISION', 'all', 'font size: one stored size per property, drawn at the model scale', ['preview', 'pdf', 'docx'],
+    'Closed the font-size divergence (Part 3 US-011). Two halves. resume-preview.tsx now passes fontScale to ' +
+      'classic, minimal and creative, and each multiplies the four per-property sizes by it before drawing, ' +
+      'as modern and professional already did — the sliders keep showing and writing the STORED size, since ' +
+      'the scale is a second, document-wide control. And docx-classic.ts, docx-minimal.ts, docx-creative.ts ' +
+      'and docx-modern.ts now write the stored size for the elements their template applies, where each had ' +
+      'copied the control default into its own FONT_SIZES and scaled that. Which element takes which key is ' +
+      'TEMPLATE_APPLIED_SIZE_KEYS in src/lib/layout-settings.ts, unwidened: modern takes titleFontSize and ' +
+      'sectionDescFontSize only, professional none. The sizes are read from the model the route resolves, ' +
+      'never from DEFAULT_RESUME_LAYOUT, which resolves to the default while the Preview keeps the owner\'s ' +
+      'value. Elements the Preview draws from a Tailwind class rather than the model — classic\'s text-sm ' +
+      'dates, minimal\'s text-xl positions, creative\'s header summary — keep their generator constant.'),
   annotation('DECISION', 'all', 'line height: Word exact spacing', ['docx'],
     'Closed the Word auto line spacing finding (Part 3 US-004). Every DOCX paragraph, and the document default, ' +
       'is written as w:lineRule="exact" at the Preview line height of its element times the size of its run, in ' +
@@ -1222,14 +1078,33 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
     'The accent is not stored in the model. It is derived from the sidebar colour by the rule documented in ' +
       'modern-template.tsx and docx-modern.ts (saturation +20 capped at 100, lightness +25 capped at 65); ' +
       'the reference applies that rule to the model colour.'),
-  annotation('LIMITATION', 'creative', 'section reference', ['preview', 'pdf', 'docx'],
-    'Creative has no section vocabulary (Part 3 US-015). Its reference reads the editor ids creative renders: ' +
-      'summary in the header, shown or hidden but not positioned; skills and languages in the left column; ' +
-      'experience and education in the right. certifications and projects have no id and are expected shown; ' +
-      'training and keyAchievements are inert.'),
+  annotation('DECISION', 'creative', 'section vocabulary', ['preview', 'pdf', 'docx'],
+    'Part 3 US-015 gave creative a section vocabulary and put it where the modern and single-column ' +
+      'mappings live: mapEditorOrderToCreative in src/lib/layout-settings.ts, which creative-template.tsx ' +
+      'and docx-creative.ts both read, so neither states a section list of its own. The reference below is ' +
+      'no longer an interpretation of what the surfaces happen to draw; it is that mapping, and it is why ' +
+      'these rows stopped being KNOWN. What the vocabulary DOES NOT express, decided with the story: ' +
+      'summary is FIXED in the gradient header — it is not in either column, and the only layout the model ' +
+      'could express for it would be a redesign of the template, so it carries visibility only and the ' +
+      'editor no longer offers to drag it while creative is selected. certifications (left column) and ' +
+      'projects (right) have no editor id at all, so they keep their own slots and are always shown, ' +
+      'exactly as the single-column mapping keeps skills and projects in theirs; per-item visibility is ' +
+      'still the only hiding available for them. keyAchievements and training are not creative sections ' +
+      'and are no longer offered by the editor while creative is selected, though what is stored for them ' +
+      'is left untouched.'),
   annotation('DECISION', 'modern', 'modern-empty-main: summary and experience against the model', ['preview', 'pdf', 'docx'],
-    "What Modern's main column should show when the stored order maps to nothing is Part 3 US-010's " +
-      'decision, not yet made. Until it is, the surfaces are compared with each other.'),
+    "What Modern's main column shows when the stored order maps to nothing was settled by Part 3 US-010: " +
+      'the default sections, which is what docx-modern.ts already drew and what modern-template.tsx now ' +
+      'draws too, through one shared resolveModernMainOrder in src/lib/layout-settings.ts that this ' +
+      "reference asks as well. The generator's condition was adopted rather than the reverse because the " +
+      'model already ' +
+      'answers the question the same way — parseLayoutModel discards a main order that validates to empty ' +
+      'and falls through to the default — and because no editor action asks for a resume with neither ' +
+      'summary nor experience: the editor keeps every main section in the order and expresses removal ' +
+      'through hiddenMainSections, which still empties the column when the user hides everything. So these ' +
+      'rows compare the surfaces against each other AND against the model, and all three agree. Pinned by ' +
+      'modern-template.test.ts, which walks the reachable input — a stored mainContentOrder of ' +
+      "['education'] — through parseLayoutModel and mapEditorOrderToModern before rendering it."),
   annotation('DECISION', 'modern', 'photo', ['docx'],
     'The photo is browser-local by the owner\'s decision of 2026-09-07 and reaches the DOCX only in a POST ' +
       'body; this check requests the DOCX by GET and does not compare the photo.'),
@@ -1244,17 +1119,25 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
       'serif" reads as its serif headings, not as a serif body it never had — and by making docx-classic.ts ' +
       'follow that instead of the Times New Roman it chose privately. No unchosen font changes on any ' +
       'surface, which is what the not-chosen visual baselines record.'),
-  annotation('FINDING', 'professional', 'print page band colour', ['pdf'],
-    'src/app/globals.css paints body:has(.professional-template) under print with a fixed ' +
-      'oklch(0.25 0.05 240) band at 30% of 816px, independent of the model colour and width. Measured on a ' +
-      'print past one page by the multi-page profile (colour:print-sidebar-column): the sidebar element ' +
-      'covers the column on every page down to the end of the document, and the page below it is paper, so ' +
-      'the band is not seen and the row matches. It matches WHETHER OR NOT the band follows the model: the ' +
-      'body gradient ends where body ends, and html is white !important below it, so this row can never show ' +
-      "a US-013 band fix. Part 3 US-013's acceptance criterion 2, which expects a multi-page print capture to " +
-      'show the band following the sidebar colour, cannot be exercised as written; the owner must revise it ' +
-      'before US-013 starts, or that story meets the PRD BLOCKER "cannot exercise the divergence a story ' +
-      'closes". Owned by US-013.'),
+  annotation('LIMITATION', 'professional', 'print page band colour', ['pdf'],
+    'The band src/app/globals.css paints for body:has(.professional-template) under print now follows the ' +
+      "user's colour, and NO PIXEL OF ANY PRINTED PAGE SHOWS IT. Part 3 US-013 replaced the fixed " +
+      'oklch(0.25 0.05 240) with var(--professional-print-sidebar-color, oklch(0.25 0.05 240)), which ' +
+      'professional-template.tsx declares on body from the stored colour; the computed gradient on a print ' +
+      'render of hsl(150, 60%, 30%) reads rgb(31, 122, 77) at both stops, where it read the fixed oklch ' +
+      'before. The band stays invisible because the document occludes it completely, which was measured from ' +
+      'the printed pages themselves rather than reasoned: a two-page professional print, rasterised at 72 dpi ' +
+      'so one pixel is one point, scanned across every page at three heights and down one column, at the ' +
+      'stored sidebar width and at the control minimum. The band spans x 0..178.7pt, the same column the ' +
+      'document occupies. At 30% the sidebar element ends at 178.6pt: the colour runs x0-177 on both pages, ' +
+      'with page 1 filled top to bottom and page 2 filled to y747 and white below, which is where the ' +
+      "document ends. At 20% the sidebar element ends at 119.1pt and the band's exposed 119..178.7pt reads " +
+      'WHITE on both pages, because the main content area paints white over it. So the band is covered by the ' +
+      'sidebar element where the sidebar reaches and by the white main area where it does not, and below the ' +
+      'end of the document it is not painted at all: the gradient is on body, which ends with the content, ' +
+      'and html is white !important under it. This is a limitation of where the band can be seen, not a ' +
+      'disagreement between surfaces, so it is no longer a FINDING. The colour:print-sidebar-column row ' +
+      'matches, and would match whatever colour the band carried.'),
   annotation('DECISION', 'modern', 'graphics: skill level bars and technology chips', ['docx'],
     'Closed the modern half of the graphics divergence (Part 3 US-007). The skill level bars, which the DOCX ' +
       'previously omitted, are drawn as a one-row two-cell table under each skill: the accent colour across the ' +

@@ -4,9 +4,11 @@ import {
   chosenFontFamily,
   DEFAULT_RESUME_LAYOUT,
   mapEditorOrderToClassic,
+  mapEditorOrderToCreative,
   mapEditorOrderToMinimal,
   mapEditorOrderToModern,
   resolveLayoutModel,
+  resolveModernMainOrder,
   toStoredLayout,
   type ResumeLayoutModel,
   type StoredLayoutModel,
@@ -32,7 +34,7 @@ import {
  *
  * Two surfaces can agree on ignoring the user. Creative's Preview and DOCX both
  * hardcode the same section sequence, so a surface-against-surface comparison
- * calls creative a match while Part 3's US-015 says it is defective. Every
+ * calls creative a match while Part 3's US-015 said it was defective. Every
  * structural row is therefore compared against the order and visibility the
  * stored layout asks for, and the surfaces are also compared with each other.
  *
@@ -41,7 +43,8 @@ import {
  * Only from the shared layout model in `src/lib/layout-settings.ts`: the parse
  * (`resolveLayoutModel`) and the per-template vocabulary mappings
  * (`mapEditorOrderToModern`, `mapEditorOrderToClassic`,
- * `mapEditorOrderToMinimal`). Nothing here re-derives a template's rendering.
+ * `mapEditorOrderToMinimal`, `mapEditorOrderToCreative`). Nothing here
+ * re-derives a template's rendering.
  * Where the model defines no position for a section, the reference says so
  * (`positioned: false`) rather than inventing one; where Part 3 has not yet
  * decided what the model means, the reference is explicitly undecided.
@@ -326,7 +329,9 @@ export const PROFILES: readonly ParityProfile[] = [
     id: 'modern-empty-main',
     purpose:
       "US-010's input. A stored mainContentOrder of ['education'] parses as valid, " +
-      "then maps to an empty Modern main column; no ordinary order reaches it.",
+      "then maps to an empty Modern main column; no ordinary order reaches it. " +
+      'US-010 decided what the model asks for here — the default sections, which is ' +
+      'what resolveModernMainOrder returns — so these rows are compared against it.',
     templates: ['modern'],
     rowGroups: ['structure'],
     layout: {
@@ -334,14 +339,6 @@ export const PROFILES: readonly ParityProfile[] = [
       mainContentOrder: ['education'],
       hiddenSidebarSections: [],
       hiddenMainSections: [],
-    },
-    undecided: {
-      modern: {
-        keys: ['summary', 'experience'],
-        reason:
-          "What Modern's main column should show when the stored order maps to nothing is " +
-          "Part 3 US-010's decision; until it is made the model has no answer to compare against.",
-      },
     },
   },
   {
@@ -610,11 +607,15 @@ const MODERN: TemplateSpec = {
       model.hiddenSidebarSections,
       model.hiddenMainSections,
     )
+    // The order Modern DRAWS, asked of the application rather than restated:
+    // an order the mapping leaves empty falls back to the default on every
+    // surface (Part 3 US-010), so that is what the model asks for.
+    const mainOrder = resolveModernMainOrder(mapped.modernMainOrder)
     const sidebarShown = (id: string) =>
       (mapped.modernSidebarOrder as string[]).includes(id) &&
       !(mapped.hiddenModernSidebar as string[]).includes(id)
     const mainShown = (id: string) =>
-      (mapped.modernMainOrder as string[]).includes(id) &&
+      (mainOrder as string[]).includes(id) &&
       !(mapped.hiddenModernMain as string[]).includes(id)
     const sidebar = ['contact', 'education', 'skills', 'languages', 'training']
     const main = ['summary', 'experience']
@@ -626,7 +627,7 @@ const MODERN: TemplateSpec = {
       ]),
       order: {
         sidebar: orderedVisible(mapped.modernSidebarOrder, sidebar, sidebarShown),
-        main: orderedVisible(mapped.modernMainOrder, main, mainShown),
+        main: orderedVisible(mainOrder, main, mainShown),
       },
     }
   },
@@ -677,13 +678,13 @@ function singleColumn(
 }
 
 /**
- * Creative has no section vocabulary (Part 3 US-015). The reference is the
- * plain reading of the editor ids creative actually renders: `summary` in the
- * header (shown or hidden, never positioned), `skills` and `languages` in the
- * left column, `experience` and `education` in the right. `certifications`
- * and `projects` have no id and are expected shown; `training` and
- * `keyAchievements` mean nothing here. That reading is recorded as a
- * limitation in the report, because it is an interpretation.
+ * Creative reads the section vocabulary Part 3 US-015 added to the shared
+ * model: `summary` fixed in the gradient header (shown or hidden, never
+ * positioned), `skills` and `languages` in the left column, `experience` and
+ * `education` in the right. `certifications` and `projects` have no editor id,
+ * so they keep their own slots and are always shown; `training` and
+ * `keyAchievements` are not creative sections. What the vocabulary cannot
+ * express is recorded as a DECISION in the report.
  */
 const CREATIVE: TemplateSpec = {
   template: 'creative',
@@ -709,25 +710,43 @@ const CREATIVE: TemplateSpec = {
     { key: 'education', column: 'main', locator: heading(S.education) },
   ],
   reference(model) {
+    const creative = mapEditorOrderToCreative(
+      model.sidebarOrder,
+      model.mainContentOrder,
+      model.hiddenSidebarSections,
+      model.hiddenMainSections,
+    )
+    const hiddenSidebar = creative.hiddenCreativeSidebar as readonly string[]
+    const hiddenMain = creative.hiddenCreativeMain as readonly string[]
     const sidebarShown = (id: string) =>
-      (model.sidebarOrder as readonly string[]).includes(id) &&
-      !(model.hiddenSidebarSections as readonly string[]).includes(id)
+      (creative.creativeSidebarOrder as readonly string[]).includes(id) && !hiddenSidebar.includes(id)
     const mainShown = (id: string) =>
-      (model.mainContentOrder as readonly string[]).includes(id) &&
-      !(model.hiddenMainSections as readonly string[]).includes(id)
+      (creative.creativeMainOrder as readonly string[]).includes(id) && !hiddenMain.includes(id)
     return {
       visible: {
-        summary: mainShown('summary'),
+        // Fixed in the header: the model can hide it, not position it.
+        summary: !creative.summaryHidden,
         skills: sidebarShown('skills'),
         languages: sidebarShown('languages'),
-        certifications: true,
+        // No editor id, so nothing in the model can hide them; the mapping
+        // keeps each in its own slot, which is why they are compared for
+        // position below but never for visibility.
+        certifications: sidebarShown('certifications'),
         experience: mainShown('experience'),
-        projects: true,
+        projects: mainShown('projects'),
         education: mainShown('education'),
       },
       order: {
-        sidebar: orderedVisible(model.sidebarOrder, ['skills', 'languages'], sidebarShown),
-        main: orderedVisible(model.mainContentOrder, ['experience', 'education'], mainShown),
+        sidebar: orderedVisible(
+          creative.creativeSidebarOrder,
+          ['skills', 'languages', 'certifications'],
+          sidebarShown,
+        ),
+        main: orderedVisible(
+          creative.creativeMainOrder,
+          ['experience', 'projects', 'education'],
+          mainShown,
+        ),
       },
     }
   },

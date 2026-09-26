@@ -59,8 +59,8 @@ import {
 } from '@/lib/resume-line-height'
 import {
   assertExhaustiveSection,
-  DEFAULT_MODERN_MAIN_ORDER,
   mapEditorOrderToModern,
+  resolveModernMainOrder,
   type EditorMainId,
   type EditorSidebarId,
   type ModernMainId,
@@ -80,8 +80,13 @@ const TRACKING = PREVIEW_TRACKING.modern
 // ============================================================
 // FONT SIZE CONSTANTS (matching modern-template.tsx)
 // ============================================================
+/**
+ * The sizes no stored per-property value reaches. The name and the body and
+ * summary sizes used to be stated here too, as the defaults of the controls
+ * the Preview applies; they now come from the model, because a default is not
+ * the size the Preview draws once a stored value differs (Part 3 US-011).
+ */
 const FONT_SIZES = {
-  NAME: 36,                     // h1 titleFontSize default
   JOB_TITLE_BAR: 16,           // Job title on accent bar
   LOCATION: 11,                 // Address line below title
   MAIN_SECTION_TITLE: 16,      // MainSectionHeader h2
@@ -90,8 +95,6 @@ const FONT_SIZES = {
   EXPERIENCE_DATE: 12,         // exp date text
   EXPERIENCE_COMPANY: 12,      // exp.company bold
   EXPERIENCE_LOCATION: 11,     // exp.location
-  BODY: 14,                    // sectionDescFontSize default
-  SUMMARY: 14,                 // Summary text (sectionDescFontSize)
   CONTACT_LABEL: 10,           // Contact label uppercase
   CONTACT_VALUE: 11,           // Contact value
   EDUCATION_DEGREE: 12,        // edu.degree bold uppercase
@@ -295,6 +298,8 @@ export async function generateModernDocx(
   const {
     fontFamily,
     fontScale,
+    titleFontSize,
+    sectionDescFontSize,
     locale,
     sidebarHue,
     sidebarBrightness,
@@ -341,20 +346,16 @@ export async function generateModernDocx(
    *
    * The main result is a plain filter and CAN come back empty — a stored
    * `mainContentOrder` of `['education']` parses as valid, then loses its only
-   * member to the mapping because Modern renders education in the sidebar. The
-   * branch is reachable, so it stays, and the value it falls back to is
-   * `DEFAULT_MODERN_MAIN_ORDER` — the same shared default the Preview uses.
+   * member to the mapping because Modern renders education in the sidebar.
    *
-   * The CONDITION is NOT reconciled with the Preview, and that is a known
-   * divergence rather than an oversight. `modern-template.tsx` falls back with
-   * `mainContentOrder || DEFAULT_MODERN_MAIN_ORDER`, which an empty array does
-   * not trigger — so for that same stored value the Preview renders an empty
-   * main column while this generator renders summary and experience. Making
-   * them agree changes rendered output, which Part 2 forbids; it is recorded as
-   * a finding for the parity work.
+   * Part 3 US-010 moved the fallback this generator applied into
+   * `resolveModernMainOrder`, because `modern-template.tsx` applied a DIFFERENT
+   * condition — `mainContentOrder || DEFAULT_MODERN_MAIN_ORDER`, which an empty
+   * array does not trigger — and drew an empty main column for the value this
+   * generator drew the defaults for. One resolver, so they cannot disagree
+   * again; the behaviour here is unchanged.
    */
-  const mainContentOrder: readonly ModernMainId[] =
-    modernMainOrder.length > 0 ? modernMainOrder : DEFAULT_MODERN_MAIN_ORDER
+  const mainContentOrder: readonly ModernMainId[] = resolveModernMainOrder(modernMainOrder)
 
   // Load translations
   const dict = getTranslations(locale as Locale, 'common')
@@ -411,9 +412,24 @@ export async function generateModernDocx(
    */
   const skillBarTrackHex = modernSkillBarTrack(PALETTE.white, sidebarColorHex)
 
-  // Calculate scaled font sizes
+  /**
+   * The sizes this document draws, in half-points.
+   *
+   * Two come from the model (Part 3 US-011): `modern-template.tsx` draws its
+   * document title at the stored `titleFontSize` and its running text at the
+   * stored `sectionDescFontSize`, both at the model's scale, and those are the
+   * two keys `TEMPLATE_APPLIED_SIZE_KEYS.modern` names. The template renders
+   * no input for either — the editor withdrew them (US-014) — but it applies
+   * the stored value, so the export has to draw the same one. The other two
+   * per-property sizes are untouched here: modern reads neither on any
+   * surface, which is US-014's recorded decision and not a size to write.
+   *
+   * They are NOT read from `DEFAULT_RESUME_LAYOUT`: that reference resolves to
+   * the default while the Preview keeps using the owner's value, the shape
+   * Part 2's US-003 T-1 rejected.
+   */
   const scaledFontSizes = {
-    name: pxToHalfPoints(FONT_SIZES.NAME * fontScale),
+    name: pxToHalfPoints(titleFontSize * fontScale),
     jobTitleBar: pxToHalfPoints(FONT_SIZES.JOB_TITLE_BAR * fontScale),
     location: pxToHalfPoints(FONT_SIZES.LOCATION * fontScale),
     mainSectionTitle: pxToHalfPoints(FONT_SIZES.MAIN_SECTION_TITLE * fontScale),
@@ -422,8 +438,8 @@ export async function generateModernDocx(
     experienceDate: pxToHalfPoints(FONT_SIZES.EXPERIENCE_DATE * fontScale),
     experienceCompany: pxToHalfPoints(FONT_SIZES.EXPERIENCE_COMPANY * fontScale),
     experienceLocation: pxToHalfPoints(FONT_SIZES.EXPERIENCE_LOCATION * fontScale),
-    body: pxToHalfPoints(FONT_SIZES.BODY * fontScale),
-    summary: pxToHalfPoints(FONT_SIZES.SUMMARY * fontScale),
+    body: pxToHalfPoints(sectionDescFontSize * fontScale),
+    summary: pxToHalfPoints(sectionDescFontSize * fontScale),
     contactLabel: pxToHalfPoints(FONT_SIZES.CONTACT_LABEL * fontScale),
     contactValue: pxToHalfPoints(FONT_SIZES.CONTACT_VALUE * fontScale),
     educationDegree: pxToHalfPoints(FONT_SIZES.EDUCATION_DEGREE * fontScale),

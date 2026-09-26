@@ -94,6 +94,10 @@ function settingsFor(row: ReturnType<typeof resumeRow>, sidebar: SidebarName | n
   return {
     fontFamily: layout.fontFamily,
     fontScale: layout.fontScale,
+    titleFontSize: layout.titleFontSize,
+    contactFontSize: layout.contactFontSize,
+    sectionTitleFontSize: layout.sectionTitleFontSize,
+    sectionDescFontSize: layout.sectionDescFontSize,
     locale: 'en',
     sidebarHue: colour?.hue ?? layout.sidebarHue,
     sidebarSaturation: colour?.saturation ?? layout.sidebarSaturation,

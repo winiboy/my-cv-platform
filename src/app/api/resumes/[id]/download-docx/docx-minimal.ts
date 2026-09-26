@@ -66,11 +66,13 @@ const TRACKING = PREVIEW_TRACKING.minimal
 // ============================================================
 // FONT SIZE CONSTANTS (matching minimal-template.tsx defaults)
 // ============================================================
+/**
+ * The sizes no control writes. The title, contact, section-heading and body
+ * sizes used to be stated here too, as the defaults of the four per-property
+ * controls; they now come from the model, because a default is not the size
+ * the Preview draws once the owner has moved a slider (Part 3 US-011).
+ */
 const FONT_SIZES = {
-  TITLE: 48,         // h1 default (font-light)
-  CONTACT: 12,       // contact info
-  SECTION_TITLE: 16, // h2 section headers (uppercase, tracking-widest)
-  BODY: 14,          // sectionDescFontSize default
   POSITION: 20,      // text-xl for position/degree/project name
   COMPANY: 16,       // text-base for company line
   DATE: 14,          // text-sm for date ranges
@@ -140,6 +142,10 @@ export async function generateMinimalDocx(
   const {
     fontFamily,
     fontScale,
+    titleFontSize,
+    contactFontSize,
+    sectionTitleFontSize,
+    sectionDescFontSize,
     locale,
     mainContentOrder: mainContentOrderRaw,
     hiddenMainSections: hiddenMainRaw,
@@ -202,12 +208,24 @@ export async function generateMinimalDocx(
     mapEditorOrderToMinimal(mainContentOrderRaw)
   const hiddenMainSections = hiddenMainRaw
 
-  // Calculate scaled font sizes (half-points for docx)
+  /**
+   * The sizes this document draws, in half-points (Part 3 US-011).
+   *
+   * The four the owner can adjust come from the model, at the model's scale,
+   * because `minimal-template.tsx` draws those same four elements from the
+   * same stored sizes at the same scale — the Preview being the contract an
+   * export answers to. They are NOT read from `DEFAULT_RESUME_LAYOUT`: that
+   * reference resolves to the default while the Preview keeps using the
+   * owner's value, which is the shape Part 2's US-003 T-1 rejected.
+   *
+   * The rest stay stock: no control writes them, and the Preview draws those
+   * elements from Tailwind classes rather than from the model.
+   */
   const scaledFontSizes = {
-    title: pxToHalfPoints(FONT_SIZES.TITLE * fontScale),
-    contact: pxToHalfPoints(FONT_SIZES.CONTACT * fontScale),
-    sectionTitle: pxToHalfPoints(FONT_SIZES.SECTION_TITLE * fontScale),
-    body: pxToHalfPoints(FONT_SIZES.BODY * fontScale),
+    title: pxToHalfPoints(titleFontSize * fontScale),
+    contact: pxToHalfPoints(contactFontSize * fontScale),
+    sectionTitle: pxToHalfPoints(sectionTitleFontSize * fontScale),
+    body: pxToHalfPoints(sectionDescFontSize * fontScale),
     position: pxToHalfPoints(FONT_SIZES.POSITION * fontScale),
     company: pxToHalfPoints(FONT_SIZES.COMPANY * fontScale),
     date: pxToHalfPoints(FONT_SIZES.DATE * fontScale),
