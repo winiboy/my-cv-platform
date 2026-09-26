@@ -530,7 +530,12 @@ screen and on paper.
       same colour the DOCX derives.
 - [ ] Under print, the professional template's sidebar band follows the user's
       sidebar colour rather than the fixed `oklch(0.25 0.05 240)` in
-      `globals.css`, evidenced on a multi-page print capture.
+      `globals.css`, evidenced by reading the printed page's own pixels wherever
+      the band is painted. Where it is not painted the fact is recorded, not
+      worked around: the gradient is on `body`, which ends where the content
+      ends, and `html` is `white !important` under print, so a page the content
+      does not reach carries no band. Establish on a multi-page capture which
+      pages carry it, and record that as the limitation it is.
 - [ ] The fallback colours still apply when no usable colour is present, and
       that case is covered by a test.
 - [ ] Visual baselines move only where the cause is this story, each approved.
