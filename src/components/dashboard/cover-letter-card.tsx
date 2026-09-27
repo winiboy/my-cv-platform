@@ -1,16 +1,50 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import * as Sentry from '@sentry/nextjs'
 import { FileText, MoreVertical, Pencil, Trash2, Copy, Download, Loader2 } from 'lucide-react'
 import type { CoverLetter } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { sanitizeHtml } from '@/lib/html-utils'
 import { buildCoverLetterPdfHtml } from '@/lib/cover-letter-pdf-html'
+import { applyHtml2canvasColorFallback } from '@/lib/html2canvas-color-fallback'
 import { JobLinkBadge } from '@/components/dashboard/entity-link-badge'
 
 const HOVER_DISMISS_DELAY_MS = 200
+
+/**
+ * The one html2pdf internal this component reads, and why it has to.
+ *
+ * `html2pdf.js` mounts a `position: fixed`, full-viewport `.html2pdf__overlay`
+ * on `document.body` (`node_modules/html2pdf.js/src/worker.js:105-125`) and
+ * removes it in exactly one place - `toCanvas_post` at `:152` - which is never
+ * reached when `html2canvas()` rejects. `opacity: 0` hides the overlay but does
+ * not stop pointer events, so a failed export left the dashboard unclickable
+ * until a reload, with every retry stacking another copy. That is the same
+ * failure this change exists to handle, so the overlay has to come down on the
+ * failure path too.
+ *
+ * It must be identified by node, not by `.html2pdf__overlay`: each card owns its
+ * own `isExportingPdf`, so a second card can be mid-export on the same page, and
+ * removing its overlay would pull that render's subtree out from under
+ * html2canvas. Diffing the class before and after has the same defect - a
+ * concurrent export's overlay is "new" by that test as well. The worker hands
+ * over the node itself: `prop` is an own property of the promise chain's shared
+ * root object and every link resolves it through the prototype chain, so the
+ * `prop.overlay` read after `save()` settles is the very node `toContainer`
+ * created for this call.
+ *
+ * `prop` is absent from the package's `type.d.ts`, so this is a deliberate reach
+ * into an internal. A future html2pdf that renames it would make the read
+ * `undefined` and the cleanup would silently stop happening - which is why
+ * `e2e/cover-letter-pdf-export.spec.ts` drives a forced failure and asserts the
+ * overlay is gone, instead of trusting this.
+ */
+interface Html2PdfWorkerInternals {
+  readonly prop?: { readonly overlay?: unknown }
+}
 
 interface LinkedJobInfo {
   id: string
@@ -101,7 +135,15 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [showMenu])
 
-  const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
+  // Memoised because `handlePdfExport` depends on it: the bare cast produced a
+  // fresh object every render, which would rebuild the callback every render.
+  // `commonDict` is deliberately left bare rather than made to match - no
+  // dependency array reads it, so memoising it would buy nothing and only
+  // suggest that the cast itself is what needs wrapping.
+  const coverLettersDict = useMemo(
+    () => (dict.coverLetters || {}) as Record<string, unknown>,
+    [dict.coverLetters]
+  )
   const commonDict = (dict.common || {}) as Record<string, unknown>
 
   const handleDelete = async () => {
@@ -172,6 +214,11 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
     setIsExportingPdf(true)
     setShowMenu(false)
 
+    let container: HTMLDivElement | null = null
+    // See `Html2PdfWorkerInternals`: held across the `try` so the `finally` can
+    // take down the overlay html2pdf leaks when the render rejects.
+    let worker: Html2PdfWorkerInternals | null = null
+
     try {
       // Dynamically import html2pdf to avoid SSR issues
       const html2pdf = (await import('html2pdf.js')).default
@@ -189,7 +236,7 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
       })
 
       // Create a temporary container
-      const container = document.createElement('div')
+      container = document.createElement('div')
       container.innerHTML = htmlContent
       container.style.position = 'absolute'
       container.style.left = '-9999px'
@@ -203,26 +250,65 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
         throw new Error('Failed to create PDF content')
       }
 
-      await html2pdf()
+      const pdfWorker = html2pdf()
         .set({
           margin: 0,
           filename,
           image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true },
+          // `onclone` is what keeps the theme's oklch() palette from aborting
+          // the render; see src/lib/html2canvas-color-fallback.ts.
+          html2canvas: { scale: 2, useCORS: true, onclone: applyHtml2canvasColorFallback },
           jsPDF: { unit: 'px', format: [816, 1056], orientation: 'portrait' },
         })
         .from(element)
-        .save()
 
-      // Clean up
-      document.body.removeChild(container)
+      // The cast reaches past the package's `type.d.ts`, which does not declare
+      // `prop`; the read itself is guarded rather than trusted.
+      worker = pdfWorker as unknown as Html2PdfWorkerInternals
+
+      await pdfWorker.save()
     } catch (error) {
+      // This export is entirely client-side, so a failure leaves no server
+      // trace at all. It sat broken in production for weeks behind nothing but
+      // the alert below, because html2canvas could not parse the theme's
+      // oklch() colours and console.error is invisible from here. Capture
+      // first, for the same reason `src/lib/ai/client.ts` does.
+      //
+      // The letter's contents are deliberately absent: they are user career
+      // data, which .claude/rules/security.md forbids logging. Only the
+      // template and the letter id go out.
+      Sentry.captureException(error, {
+        tags: {
+          area: 'cover-letter-export',
+          export_format: 'pdf',
+          export_template: coverLetter.template ?? 'default',
+        },
+        extra: { coverLetterId: coverLetter.id },
+      })
+
       console.error('Error exporting PDF:', error)
-      alert('Failed to export PDF. Please try again.')
+      alert(
+        (coverLettersDict.downloadPDFError as string) ||
+          'The PDF could not be created. Please try again.'
+      )
     } finally {
+      // Removed here rather than after `save()`: on the failure path the old
+      // code left the off-screen container in the document for the lifetime of
+      // the page, so every retry appended another copy of the letter.
+      container?.remove()
+
+      // html2pdf's own overlay, for the reasons set out on
+      // `Html2PdfWorkerInternals`. On the success path html2pdf has already
+      // detached this node and `remove()` is a no-op, so the failure path needs
+      // no separate branch.
+      const overlay = worker?.prop?.overlay
+      if (overlay instanceof HTMLElement) {
+        overlay.remove()
+      }
+
       setIsExportingPdf(false)
     }
-  }, [coverLetter])
+  }, [coverLetter, coverLettersDict])
 
   return (
     <div className="relative bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6 hover:shadow-lg transition-shadow">

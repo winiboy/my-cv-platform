@@ -466,6 +466,7 @@
     "delete": "Supprimer",
     "duplicate": "Dupliquer",
     "downloadPDF": "Télécharger PDF",
+    "downloadPDFError": "Le PDF n'a pas pu être créé. Veuillez réessayer.",
     "confirmDelete": "Êtes-vous sûr de vouloir supprimer cette lettre de motivation ?",
     "jobAssociation": {
       "linkedJob": "Emploi lié",
