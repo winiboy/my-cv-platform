@@ -92,13 +92,10 @@
       "resumes": "Mes CV",
       "coverLetters": "Lettres de motivation",
       "applications": "Mes candidatures",
-      "jobs": "Recherche d'emploi",
-      "goals": "Objectifs",
-      "settings": "Paramètres"
+      "jobs": "Recherche d'emploi"
     },
     "welcome": "Bienvenue",
     "logout": "Déconnexion",
-    "account": "Mon compte",
     "overview": "Voici un aperçu de votre parcours professionnel",
     "viewAll": "Voir tout",
     "quickActions": "Actions rapides",

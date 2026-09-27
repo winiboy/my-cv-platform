@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { LogOut, Settings, User as UserIcon } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import type { User } from '@supabase/supabase-js'
 import type { Profile } from '@/types/database'
@@ -112,33 +112,8 @@ export function UserMenu({ user, profile, locale }: UserMenuProps) {
               <div className="text-xs text-slate-500">{user.email}</div>
             </div>
 
-            {/* Menu items */}
-            <div className="space-y-1 py-1">
-              <button
-                onClick={() => {
-                  setIsOpen(false)
-                  router.push(`/${locale}/dashboard/settings`)
-                }}
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
-              >
-                <Settings className="h-4 w-4" />
-                {t('dashboard.nav.settings')}
-              </button>
-
-              <button
-                onClick={() => {
-                  setIsOpen(false)
-                  router.push(`/${locale}/dashboard/settings`)
-                }}
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
-              >
-                <UserIcon className="h-4 w-4" />
-                {t('dashboard.account')}
-              </button>
-            </div>
-
             {/* Logout button */}
-            <div className="border-t border-slate-100 pt-1">
+            <div className="py-1">
               <button
                 onClick={handleLogout}
                 className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50"
