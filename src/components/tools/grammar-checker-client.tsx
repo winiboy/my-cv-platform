@@ -7,11 +7,9 @@ import React, {
   useRef,
   type KeyboardEvent,
 } from 'react'
-import { useSession } from 'next-auth/react'
 import {
   FileText,
   Upload,
-  FolderOpen,
   ClipboardPaste,
   Link,
   Loader2,
@@ -348,7 +346,6 @@ export interface GrammarCheckerTranslations {
   inputSection: string
   resultsSection: string
   tabLinkResume: string
-  tabMyResumes: string
   tabPasteText: string
   tabUploadFile: string
   checkButton: string
@@ -407,27 +404,24 @@ interface GrammarCheckerClientProps {
 }
 
 /**
- * Enum for the four resume input methods available in the tabbed interface.
- * Order: Link to Resume | Paste Text | Upload File | My Resumes
+ * Enum for the three resume input methods available in the tabbed interface.
+ * Order: Link to Resume | Paste Text | Upload File
  * 'link' allows users to link to a saved resume from their account.
- * 'my-resumes' is only shown to authenticated users.
  */
-type InputTab = 'link' | 'paste' | 'upload' | 'my-resumes'
+type InputTab = 'link' | 'paste' | 'upload'
 
 /**
  * GrammarCheckerClient is the main client component for the Grammar Checker feature.
  * It provides three input methods: select from saved resumes, paste text, or file upload.
  *
  * Layout:
- * - Left column: Input section with tabs (My Resumes / Paste Text / Upload File)
+ * - Left column: Input section with tabs (Link to Resume / Paste Text / Upload File)
  * - Right column: Results section (empty state until check complete)
  */
 export function GrammarCheckerClient({
   locale,
   translations,
 }: GrammarCheckerClientProps) {
-  const { status } = useSession()
-  const isAuthenticated = status === 'authenticated'
   const toast = useToast()
 
   // Tab state - starts on 'link' tab (first tab, visible to all users)
@@ -441,7 +435,7 @@ export function GrammarCheckerClient({
   // Resume text state - populated by any input method
   const [resumeText, setResumeText] = useState('')
 
-  // State for the linked resume in the 'my-resumes' tab
+  // State for the linked resume in the 'link' tab
   const [linkedResumeId, setLinkedResumeId] = useState<string | null>(null)
   const [isLoadingResume, setIsLoadingResume] = useState(false)
 
@@ -456,10 +450,10 @@ export function GrammarCheckerClient({
   const inputSectionRef = useRef<HTMLDivElement>(null)
 
   /**
-   * Get available tabs based on authentication status.
-   * Order: Link to Resume | Paste Text | Upload File | My Resumes
-   * The "Link to Resume" tab is always first and visible to all users.
-   * The "My Resumes" tab is only shown to authenticated users.
+   * Get the available resume input tabs.
+   * Order: Link to Resume | Paste Text | Upload File
+   * The "Link to Resume" tab is always first and visible to all users;
+   * ResumeLinker itself handles the signed-out case.
    */
   const availableTabs: Array<{
     id: InputTab
@@ -488,16 +482,8 @@ export function GrammarCheckerClient({
       },
     ]
 
-    if (isAuthenticated) {
-      tabs.push({
-        id: 'my-resumes',
-        label: translations.tabMyResumes || 'My Resumes',
-        icon: <FolderOpen className="h-4 w-4" aria-hidden="true" />,
-      })
-    }
-
     return tabs
-  }, [isAuthenticated, translations])
+  }, [translations])
 
   /**
    * Handles keyboard navigation for tabs.
@@ -549,10 +535,6 @@ export function GrammarCheckerClient({
           // Leaving link tab: clear linked resume selection
           setLinkedResumeId(null)
           break
-        case 'my-resumes':
-          // Leaving my-resumes tab: clear linked resume selection
-          setLinkedResumeId(null)
-          break
         // 'paste' and 'upload' tabs share resumeText
       }
 
@@ -564,7 +546,7 @@ export function GrammarCheckerClient({
   )
 
   /**
-   * Handles selection of a linked resume from the 'my-resumes' tab.
+   * Handles selection of a linked resume from the 'link' tab.
    * Fetches the full resume data and converts it to plain text.
    */
   const handleLinkedResumeSelect = useCallback(
@@ -888,53 +870,6 @@ export function GrammarCheckerClient({
               </div>
             )}
           </div>
-
-          {/* My Resumes Tab Panel - Only rendered when authenticated */}
-          {isAuthenticated && (
-            <div
-              role="tabpanel"
-              id="tabpanel-my-resumes"
-              aria-labelledby="tab-my-resumes"
-              hidden={activeTab !== 'my-resumes'}
-              tabIndex={0}
-            >
-              {activeTab === 'my-resumes' && (
-                <div className="space-y-4">
-                  <ResumeLinker
-                    onSelect={handleLinkedResumeSelect}
-                    onClear={handleLinkedResumeClear}
-                    selectedResumeId={linkedResumeId}
-                    locale={locale}
-                    translations={translations.resumeLinker}
-                  />
-                  {isLoadingResume && linkedResumeId && (
-                    <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {translations.loadingResumeContent || 'Loading resume content...'}
-                    </div>
-                  )}
-                  {/* Show loaded resume preview when a linked resume is selected */}
-                  {resumeText && linkedResumeId && !isLoadingResume && (
-                    <div className="mt-4">
-                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                        {translations.extractedContent || 'Extracted Content'}
-                      </p>
-                      <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 max-h-48 overflow-y-auto">
-                        <div className="text-sm text-slate-600 dark:text-slate-400 line-clamp-6">
-                          {formatPreviewText(resumeText.slice(0, 500))}
-                          {resumeText.length > 500 && '...'}
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        {new Intl.NumberFormat().format(resumeText.length)}{' '}
-                        {translations.charactersExtracted || 'characters'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Check Grammar Button */}

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "../globals.css";
-import NextAuthSessionProvider from "@/components/providers/session-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import { BranchIndicator } from "@/components/ui/branch-indicator";
 import { getTranslations, type Locale } from "@/lib/i18n";
@@ -44,9 +43,7 @@ export default function LocaleLayout({
     <html lang={params.locale}>
       <body className={inter.className}>
         <BranchIndicator />
-        <NextAuthSessionProvider>
-          <ToastProvider>{children}</ToastProvider>
-        </NextAuthSessionProvider>
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

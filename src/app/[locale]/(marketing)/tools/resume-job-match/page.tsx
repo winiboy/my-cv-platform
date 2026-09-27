@@ -30,7 +30,6 @@ interface ResumeJobMatchPageTranslations {
     tabLinkResume: string
     tabPasteText: string
     tabUploadFile: string
-    tabMyResumes: string
     // Resume input
     resumeLabel: string
     resumePlaceholder: string
@@ -194,7 +193,6 @@ export default async function ResumeJobMatchPage({
     tabLinkResume: t.resumeJobMatch.ui.tabLinkResume,
     tabPasteText: t.resumeJobMatch.ui.tabPasteText,
     tabUploadFile: t.resumeJobMatch.ui.tabUploadFile,
-    tabMyResumes: t.resumeJobMatch.ui.tabMyResumes,
 
     // Resume input translations
     resumeLabel: t.resumeJobMatch.ui.resumeLabel,
