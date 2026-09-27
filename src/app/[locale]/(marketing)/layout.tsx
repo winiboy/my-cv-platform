@@ -1,19 +1,24 @@
-import { type Locale } from "@/lib/i18n";
+import { toLocale } from "@/lib/i18n";
 import { Header } from "@/components/marketing/header";
 import { Footer } from "@/components/marketing/footer";
 
-export default function MarketingLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode;
-  params: { locale: Locale };
-}) {
+export default async function MarketingLayout(
+  props: {
+    children: React.ReactNode;
+    params: Promise<{ locale: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    children
+  } = props;
+
   return (
     <div className="min-h-screen">
       <Header />
       <main>{children}</main>
-      <Footer locale={params.locale} />
+      <Footer locale={toLocale(params.locale)} />
     </div>
   );
 }

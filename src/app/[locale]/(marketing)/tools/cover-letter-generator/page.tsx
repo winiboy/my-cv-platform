@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, LogIn } from "lucide-react";
 import type { Locale } from "@/lib/i18n";
-import { locales, getTranslations } from "@/lib/i18n";
+import { locales, getTranslations, toLocale } from "@/lib/i18n";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   CoverLetterGeneratorClient,
@@ -10,9 +10,9 @@ import {
 } from "@/components/tools/cover-letter-generator-client";
 
 interface CoverLetterGeneratorPageProps {
-  params: {
-    locale: Locale;
-  };
+  params: Promise<{
+    locale: string;
+  }>;
 }
 
 /**
@@ -321,10 +321,9 @@ function buildClientTranslations(
  * Generates dynamic metadata for the cover letter generator page.
  * Provides SEO-friendly title and description.
  */
-export async function generateMetadata({
-  params,
-}: CoverLetterGeneratorPageProps): Promise<Metadata> {
-  const t = getTranslations(params.locale, "tools") as ToolsTranslations;
+export async function generateMetadata(props: CoverLetterGeneratorPageProps): Promise<Metadata> {
+  const params = await props.params;
+  const t = getTranslations(toLocale(params.locale), "tools") as ToolsTranslations;
   const { metaTitle, metaDescription } = t.coverLetterGenerator;
 
   return {
@@ -343,10 +342,9 @@ export async function generateMetadata({
  * Shows login prompt for unauthenticated users, or the generator interface for authenticated users.
  * This is a Server Component.
  */
-export default async function CoverLetterGeneratorPage({
-  params,
-}: CoverLetterGeneratorPageProps) {
-  const { locale } = params;
+export default async function CoverLetterGeneratorPage(props: CoverLetterGeneratorPageProps) {
+  const params = await props.params;
+  const locale = toLocale(params.locale);
   const t = getTranslations(locale, "tools") as ToolsTranslations;
 
   // Check authentication status using Supabase server client

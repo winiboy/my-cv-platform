@@ -1,15 +1,16 @@
-import { getTranslations, type Locale } from "@/lib/i18n";
+import { getTranslations, toLocale } from "@/lib/i18n";
 import { TestimonialCarousel } from "@/components/marketing/testimonial-carousel";
 import { PricingTable } from "@/components/marketing/pricing-table";
 import { FAQAccordion } from "@/components/marketing/faq-accordion";
 import { HowItWorks } from "@/components/marketing/how-it-works";
 
-export default async function HomePage({
-  params,
-}: {
-  params: { locale: Locale };
-}) {
-  const marketing = getTranslations(params.locale, "marketing") as any;
+export default async function HomePage(
+  props: {
+    params: Promise<{ locale: string }>;
+  }
+) {
+  const params = await props.params;
+  const marketing = getTranslations(toLocale(params.locale), "marketing") as any;
 
   return (
     <div className="min-h-screen">

@@ -21,6 +21,24 @@ export type TranslationNamespace = 'common' | 'marketing' | 'jobs' | 'tools'
 export const locales: Locale[] = ['fr', 'de', 'en', 'it']
 export const defaultLocale: Locale = 'en'
 
+/**
+ * Narrows a route's `locale` segment to a supported locale.
+ *
+ * A `[locale]` path segment is an arbitrary string as far as the type system is
+ * concerned - `/xx/pricing` matches the route just as `/fr/pricing` does - so a
+ * page cannot honestly declare `params.locale` as `Locale`. Next 15's generated
+ * route validator enforces that: it types the segment as `string` and rejects a
+ * component that claims to accept only the union.
+ *
+ * Unrecognised input falls back to `defaultLocale`, which is what
+ * `src/middleware.ts` already does when it validates the segment before
+ * redirecting. Keeping the two consistent means an unexpected segment renders
+ * the default language rather than indexing `translations` with a missing key.
+ */
+export function toLocale(value: string): Locale {
+  return (locales as readonly string[]).includes(value) ? (value as Locale) : defaultLocale
+}
+
 const translations = {
   fr: {
     common: fr_common,

@@ -1,14 +1,15 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { LoginForm } from '@/components/auth/login-form'
-import { getTranslations, type Locale } from '@/lib/i18n'
+import { getTranslations, toLocale } from '@/lib/i18n'
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { locale: Locale }
-}): Promise<Metadata> {
-  const t = getTranslations(params.locale, 'common') as any
+export async function generateMetadata(
+  props: {
+    params: Promise<{ locale: string }>
+  }
+): Promise<Metadata> {
+  const params = await props.params;
+  const t = getTranslations(toLocale(params.locale), 'common') as any
 
   return {
     title: `${t.auth.login.title} - ${t.meta.title}`,
@@ -37,15 +38,16 @@ function LoginFormFallback() {
   )
 }
 
-export default async function LoginPage({
-  params,
-}: {
-  params: { locale: Locale }
-}) {
+export default async function LoginPage(
+  props: {
+    params: Promise<{ locale: string }>
+  }
+) {
+  const params = await props.params;
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-teal-50 via-slate-50 to-purple-50 px-4 py-12">
       <Suspense fallback={<LoginFormFallback />}>
-        <LoginForm locale={params.locale} />
+        <LoginForm locale={toLocale(params.locale)} />
       </Suspense>
     </div>
   )

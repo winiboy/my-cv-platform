@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import type { Locale } from "@/lib/i18n";
-import { getTranslations } from "@/lib/i18n";
+import { getTranslations, toLocale } from "@/lib/i18n";
 import { ToolCard } from "@/components/marketing/tool-card";
 import {
   FileCheck,
@@ -35,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 interface ToolsPageProps {
-  params: { locale: Locale };
+  params: Promise<{ locale: string }>;
 }
 
 /**
@@ -242,8 +241,9 @@ const tools: ToolDefinition[] = [
  * Tools landing page - showcases all available career tools.
  * This is a Server Component that renders a static marketing page.
  */
-export default async function ToolsPage({ params }: ToolsPageProps) {
-  const { locale } = params;
+export default async function ToolsPage(props: ToolsPageProps) {
+  const params = await props.params;
+  const locale = toLocale(params.locale);
   const t = getTranslations(locale, "tools") as ToolsTranslations;
 
   return (

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Clock } from "lucide-react";
 import type { Locale } from "@/lib/i18n";
-import { locales, getTranslations } from "@/lib/i18n";
+import { locales, getTranslations, toLocale } from "@/lib/i18n";
 
 /**
  * Valid tool slugs for the career tools section.
@@ -35,10 +35,10 @@ const VALID_TOOL_SLUGS = [
 type ToolSlug = (typeof VALID_TOOL_SLUGS)[number];
 
 interface ToolDetailPageProps {
-  params: {
-    locale: Locale;
+  params: Promise<{
+    locale: string;
     tool: string;
-  };
+  }>;
 }
 
 /**
@@ -96,11 +96,10 @@ interface ToolsTranslations {
  * Generates dynamic metadata based on the tool slug.
  * Provides SEO-friendly title and description for each tool page.
  */
-export async function generateMetadata({
-  params,
-}: ToolDetailPageProps): Promise<Metadata> {
+export async function generateMetadata(props: ToolDetailPageProps): Promise<Metadata> {
+  const params = await props.params;
   const toolName = formatToolName(params.tool);
-  const t = getTranslations(params.locale, "tools") as ToolsTranslations;
+  const t = getTranslations(toLocale(params.locale), "tools") as ToolsTranslations;
 
   const title = `${toolName} | ${t.detail.metaTitleSuffix}`;
   const description = t.detail.metaDescriptionPrefix.replace("{toolName}", toolName);
@@ -121,8 +120,10 @@ export async function generateMetadata({
  * Displays a "Coming Soon" message with consistent styling.
  * This is a Server Component.
  */
-export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
-  const { locale, tool } = params;
+export default async function ToolDetailPage(props: ToolDetailPageProps) {
+  const params = await props.params;
+  const { tool } = params;
+  const locale = toLocale(params.locale);
   const toolName = formatToolName(tool);
   const isValid = isValidToolSlug(tool);
   const t = getTranslations(locale, "tools") as ToolsTranslations;

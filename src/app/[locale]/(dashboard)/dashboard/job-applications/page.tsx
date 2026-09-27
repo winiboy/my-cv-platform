@@ -7,12 +7,11 @@ import { getTranslations, type Locale } from '@/lib/i18n'
 import type { JobApplicationWithRelations } from '@/types/database'
 
 interface JobApplicationsPageProps {
-  params: { locale: string }
+  params: Promise<{ locale: string }>
 }
 
-export default async function JobApplicationsPage({
-  params,
-}: JobApplicationsPageProps) {
+export default async function JobApplicationsPage(props: JobApplicationsPageProps) {
+  const params = await props.params;
   const { locale } = params
   const dict = getTranslations(locale as Locale, 'common') as Record<string, unknown>
   const jobsDict = getTranslations(locale as Locale, 'jobs') as Record<string, unknown>

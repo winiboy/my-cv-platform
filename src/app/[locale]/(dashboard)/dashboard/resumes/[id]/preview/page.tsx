@@ -1,19 +1,19 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import type { Locale } from '@/lib/i18n'
-import { getTranslations } from '@/lib/i18n'
+import { getTranslations, toLocale } from '@/lib/i18n'
 import { ResumePreviewPageClient } from '@/components/dashboard/resume-preview-page-client'
 import type { Resume } from '@/types/database'
 
 interface PageProps {
   params: Promise<{
-    locale: Locale
+    locale: string
     id: string
   }>
 }
 
 export default async function ResumePreviewPage({ params }: PageProps) {
-  const { locale, id } = await params
+  const { locale: routeLocale, id } = await params
+  const locale = toLocale(routeLocale)
   const supabase = await createServerSupabaseClient()
 
   // Check authentication

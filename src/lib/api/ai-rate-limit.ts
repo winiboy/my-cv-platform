@@ -113,13 +113,18 @@ const UNATTRIBUTED_IP = 'unattributed'
  * first entry is the original client as seen by the outermost trusted proxy.
  * Truncated because the header is caller-influenced in the general case and
  * must not be able to write an unbounded key into a database column.
+ *
+ * Next 15 removed `NextRequest.ip`, which used to sit behind these two headers
+ * as a third fallback. Nothing is lost in production: Vercel populates
+ * `x-forwarded-for` on every request, and `ip` was itself derived from it. A
+ * caller that reaches here with neither header now lands in UNATTRIBUTED_IP,
+ * which is a shared budget rather than an exemption.
  */
 export function resolveClientIp(request: NextRequest): string {
   const forwardedFor = request.headers.get('x-forwarded-for')
   const candidate =
     forwardedFor?.split(',')[0]?.trim() ||
     request.headers.get('x-real-ip')?.trim() ||
-    request.ip?.trim() ||
     ''
 
   return candidate ? candidate.slice(0, 64) : UNATTRIBUTED_IP

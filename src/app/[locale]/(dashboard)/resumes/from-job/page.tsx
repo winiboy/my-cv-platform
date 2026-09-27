@@ -2,13 +2,12 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getTranslations } from '@/lib/i18n'
-import type { Locale } from '@/lib/i18n'
+import { getTranslations, toLocale } from '@/lib/i18n'
 import { JobDescriptionForm } from '@/components/dashboard/job-description-form'
 
 interface FromJobPageProps {
   params: Promise<{
-    locale: Locale
+    locale: string
   }>
   searchParams: Promise<{
     jobData?: string
@@ -16,7 +15,7 @@ interface FromJobPageProps {
 }
 
 export default async function FromJobPage({ params, searchParams }: FromJobPageProps) {
-  const { locale } = await params
+  const locale = toLocale((await params).locale)
   const { jobData: jobDataParam } = await searchParams
   const dict = getTranslations(locale, 'common') as any
   const supabase = await createServerSupabaseClient()

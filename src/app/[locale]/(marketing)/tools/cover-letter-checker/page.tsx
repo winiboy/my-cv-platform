@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, LogIn } from "lucide-react";
 import type { Locale } from "@/lib/i18n";
-import { locales, getTranslations } from "@/lib/i18n";
+import { locales, getTranslations, toLocale } from "@/lib/i18n";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   CoverLetterCheckerClient,
@@ -10,9 +10,9 @@ import {
 } from "@/components/tools/cover-letter-checker-client";
 
 interface CoverLetterCheckerPageProps {
-  params: {
-    locale: Locale;
-  };
+  params: Promise<{
+    locale: string;
+  }>;
 }
 
 /**
@@ -160,10 +160,9 @@ export function generateStaticParams(): Array<{ locale: Locale }> {
  * Generates dynamic metadata for the cover letter checker page.
  * Provides SEO-friendly title and description.
  */
-export async function generateMetadata({
-  params,
-}: CoverLetterCheckerPageProps): Promise<Metadata> {
-  const t = getTranslations(params.locale, "tools") as ToolsTranslations;
+export async function generateMetadata(props: CoverLetterCheckerPageProps): Promise<Metadata> {
+  const params = await props.params;
+  const t = getTranslations(toLocale(params.locale), "tools") as ToolsTranslations;
   const { metaTitle, metaDescription } = t.coverLetterChecker;
 
   return {
@@ -182,10 +181,9 @@ export async function generateMetadata({
  * Shows login prompt for unauthenticated users, or the main UI for authenticated users.
  * This is a Server Component.
  */
-export default async function CoverLetterCheckerPage({
-  params,
-}: CoverLetterCheckerPageProps) {
-  const { locale } = params;
+export default async function CoverLetterCheckerPage(props: CoverLetterCheckerPageProps) {
+  const params = await props.params;
+  const locale = toLocale(params.locale);
   const t = getTranslations(locale, "tools") as ToolsTranslations;
 
   // Check authentication status using Supabase server client
