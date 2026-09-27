@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getGroqClient, MODELS } from '@/lib/ai/client'
+import { enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
+import {
+  AI_TEXT_LIMITS,
+  enforceJsonBodyLimit,
+  findOversizedField,
+  oversizedFieldResponse,
+} from '@/lib/api/ai-input-limits'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,9 +21,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // This request spends the project's AI provider account. The budget is
+    // keyed by the authenticated user, so it is counted once the identity is
+    // known and cannot be reset by changing address.
+    const throttled = await enforceAiRateLimit(request, { kind: 'user', userId: user.id })
+    if (throttled) {
+      return throttled
+    }
+
+    const oversizedBody = enforceJsonBodyLimit(request)
+    if (oversizedBody) {
+      return oversizedBody
+    }
+
     // Parse request body
     const body = await request.json()
     const { text, targetLanguage, sourceLanguage } = body
+
+    // Ceiling on the only field that reaches the prompt at length. The two
+    // language fields cannot: both are mapped through the fixed table below,
+    // never interpolated raw.
+    const oversized = findOversizedField(body, { text: AI_TEXT_LIMITS.TRANSLATABLE_TEXT })
+    if (oversized) {
+      return oversizedFieldResponse(oversized)
+    }
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json(

@@ -512,12 +512,53 @@ export type Database = {
           }
         ]
       }
+      /**
+       * Fixed-window counters for AI endpoint rate limiting
+       * (supabase/migrations/008_api_rate_limits.sql).
+       *
+       * Present for parity with the schema, not because the application reads
+       * it: RLS is enabled with no policy and table privileges are revoked from
+       * both client roles, so every query here fails by design. The only
+       * supported access is the consume_rate_limit function below.
+       */
+      api_rate_limits: {
+        Row: {
+          bucket: string
+          window_started_at: string
+          request_count: number
+        }
+        Insert: {
+          bucket: string
+          window_started_at?: string
+          request_count?: number
+        }
+        Update: {
+          bucket?: string
+          window_started_at?: string
+          request_count?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      /**
+       * Counts one request against a caller's fixed window and reports whether
+       * it is admitted. See supabase/migrations/008_api_rate_limits.sql.
+       */
+      consume_rate_limit: {
+        Args: {
+          p_bucket: string
+          p_limit: number
+          p_window_seconds: number
+        }
+        Returns: {
+          allowed: boolean
+          retry_after_seconds: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

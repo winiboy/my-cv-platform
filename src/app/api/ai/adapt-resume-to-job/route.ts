@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adaptResumeToJobDescription } from '@/lib/ai/transformations'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import type { CVAdaptationRequest, CVAdaptationResponse } from '@/types/cv-adaptation'
+import { enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
+import {
+  AI_TEXT_LIMITS,
+  enforceJsonBodyLimit,
+  findOversizedField,
+  oversizedFieldResponse,
+} from '@/lib/api/ai-input-limits'
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,9 +22,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // This request spends the project's AI provider account. The budget is
+    // keyed by the authenticated user, so it is counted once the identity is
+    // known and cannot be reset by changing address.
+    const throttled = await enforceAiRateLimit(request, { kind: 'user', userId: user.id })
+    if (throttled) {
+      return throttled
+    }
+
+    const oversizedBody = enforceJsonBodyLimit(request)
+    if (oversizedBody) {
+      return oversizedBody
+    }
+
     // Parse request body
     const body: CVAdaptationRequest = await request.json()
     const { resumeId, jobDescription, jobTitle, company, locale } = body
+
+    // Ceilings on everything the caller supplies. The annotation above is a
+    // compile-time claim about a parsed JSON body, not a runtime guarantee, so
+    // these are the only thing bounding what one request costs at the provider.
+    const oversized = findOversizedField(body, {
+      resumeId: AI_TEXT_LIMITS.IDENTIFIER,
+      jobDescription: AI_TEXT_LIMITS.JOB_DESCRIPTION,
+      jobTitle: AI_TEXT_LIMITS.SHORT_LABEL,
+      company: AI_TEXT_LIMITS.SHORT_LABEL,
+    })
+    if (oversized) {
+      return oversizedFieldResponse(oversized)
+    }
 
     // Validate inputs
     if (!resumeId || typeof resumeId !== 'string') {

@@ -5,27 +5,69 @@ import Groq from 'groq-sdk'
 
 import { getGroqClient, MODELS } from "@/lib/ai/client";
 
+import {
+  BlockedRequestError,
+  hostWithSubdomains,
+  isHostAllowed,
+  safeFetch,
+  type AllowedHost,
+} from '@/lib/security/safe-fetch'
+
+/** Total budget for one page fetch, including its redirect chain. */
+const FETCH_TIMEOUT_MS = 15_000
+
+/** Maximum transport-level redirect hops followed for one page fetch. */
+const MAX_REDIRECTS = 5
 
 /**
- * Allowed domains for fetching job descriptions
- * This prevents SSRF attacks by only allowing known job board domains
+ * Allowed hosts for fetching job descriptions.
+ *
+ * Every entry allows subdomains, which is the behaviour this endpoint has
+ * always had. For the multi-tenant ATS platforms that is knowingly wide: a
+ * tenant subdomain is available to anyone who signs up, so `*.workday.com` and
+ * friends let a third party serve arbitrary content — or an arbitrary redirect —
+ * from inside the allowlist. The redirect and private-address checks in
+ * `safeFetch` contain the consequences; narrowing these entries to `exactHost`
+ * would reject legitimate tenant URLs users paste and is a product decision,
+ * not a code cleanup.
  */
-const ALLOWED_DOMAINS = [
+const ALLOWED_HOSTS: readonly AllowedHost[] = [
   // Adzuna domains
-  'adzuna.ch', 'adzuna.com', 'adzuna.de', 'adzuna.fr', 'adzuna.co.uk',
+  hostWithSubdomains('adzuna.ch'),
+  hostWithSubdomains('adzuna.com'),
+  hostWithSubdomains('adzuna.de'),
+  hostWithSubdomains('adzuna.fr'),
+  hostWithSubdomains('adzuna.co.uk'),
   // Swiss job boards
-  'jobs.ch', 'jobcloud.ch', 'jobup.ch', 'jobscout24.ch',
+  hostWithSubdomains('jobs.ch'),
+  hostWithSubdomains('jobcloud.ch'),
+  hostWithSubdomains('jobup.ch'),
+  hostWithSubdomains('jobscout24.ch'),
   // International job boards
-  'indeed.com', 'indeed.ch', 'indeed.de', 'indeed.fr',
-  'linkedin.com',
-  'glassdoor.com', 'glassdoor.ch',
-  'monster.ch', 'monster.com',
-  'stepstone.ch', 'stepstone.de',
-  'xing.com',
-  'karriere.at',
-  // Swiss company career pages (common domains)
-  'join.com', 'greenhouse.io', 'lever.co', 'workday.com', 'smartrecruiters.com',
-  'breezy.hr', 'recruitee.com', 'teamtailor.com', 'personio.de', 'personio.ch',
+  hostWithSubdomains('indeed.com'),
+  hostWithSubdomains('indeed.ch'),
+  hostWithSubdomains('indeed.de'),
+  hostWithSubdomains('indeed.fr'),
+  hostWithSubdomains('linkedin.com'),
+  hostWithSubdomains('glassdoor.com'),
+  hostWithSubdomains('glassdoor.ch'),
+  hostWithSubdomains('monster.ch'),
+  hostWithSubdomains('monster.com'),
+  hostWithSubdomains('stepstone.ch'),
+  hostWithSubdomains('stepstone.de'),
+  hostWithSubdomains('xing.com'),
+  hostWithSubdomains('karriere.at'),
+  // Multi-tenant ATS / recruiting platforms — see the note above.
+  hostWithSubdomains('join.com'),
+  hostWithSubdomains('greenhouse.io'),
+  hostWithSubdomains('lever.co'),
+  hostWithSubdomains('workday.com'),
+  hostWithSubdomains('smartrecruiters.com'),
+  hostWithSubdomains('breezy.hr'),
+  hostWithSubdomains('recruitee.com'),
+  hostWithSubdomains('teamtailor.com'),
+  hostWithSubdomains('personio.de'),
+  hostWithSubdomains('personio.ch'),
 ]
 
 /**
@@ -33,13 +75,7 @@ const ALLOWED_DOMAINS = [
  */
 function isAllowedDomain(url: string): boolean {
   try {
-    const parsedUrl = new URL(url)
-    const hostname = parsedUrl.hostname.toLowerCase()
-
-    // Check if hostname matches or is a subdomain of an allowed domain
-    return ALLOWED_DOMAINS.some(domain =>
-      hostname === domain || hostname.endsWith('.' + domain)
-    )
+    return isHostAllowed(new URL(url).hostname, ALLOWED_HOSTS)
   } catch {
     return false
   }
@@ -159,6 +195,20 @@ export async function POST(request: NextRequest) {
     // Process and respond with the extracted data
     return processAndRespond(extractedData, targetLanguage, groq)
   } catch (error) {
+    // A refused destination is the caller's input problem, not a server fault,
+    // and its message must stay generic: this handler echoes `error.message`
+    // back to the client, so a resolved internal address must never reach it.
+    if (error instanceof BlockedRequestError) {
+      console.log('[fetch-external] Fetch refused:', error.reason)
+      return NextResponse.json(
+        {
+          error: 'Destination not allowed for job fetching',
+          message: error.message,
+        },
+        { status: 400 }
+      )
+    }
+
     console.error('Error fetching external job:', error)
     return NextResponse.json(
       {
@@ -171,16 +221,24 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Fetch URL with proper headers and redirect handling
+ * Fetch URL with proper headers and redirect handling.
+ *
+ * Redirects are followed one hop at a time by `safeFetch`, which re-checks each
+ * `Location` against ALLOWED_HOSTS and refuses any hop that resolves into
+ * private network space. That is separate from — and in addition to — the
+ * content-derived redirect following in `detectAndHandleRedirectPage`, which
+ * validates its own target before calling back into this function.
  */
 async function fetchWithRedirectHandling(url: string): Promise<string> {
-  const response = await fetch(url, {
+  const response = await safeFetch(url, {
+    allowlist: ALLOWED_HOSTS,
+    timeoutMs: FETCH_TIMEOUT_MS,
+    maxRedirects: MAX_REDIRECTS,
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.5,fr;q=0.3,de;q=0.2',
     },
-    redirect: 'follow',
   })
 
   if (!response.ok) {

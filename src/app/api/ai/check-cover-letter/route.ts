@@ -7,6 +7,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { generateCompletion, MODELS } from '@/lib/ai/client'
 import { buildCoverLetterCheckerPrompt } from '@/lib/ai/prompts'
+import { enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
+import {
+  AI_LIST_LIMITS,
+  AI_TEXT_LIMITS,
+  enforceJsonBodyLimit,
+  findOversizedField,
+  oversizedFieldResponse,
+} from '@/lib/api/ai-input-limits'
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,6 +27,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // This request spends the project's AI provider account. The budget is
+    // keyed by the authenticated user, so it is counted once the identity is
+    // known and cannot be reset by changing address.
+    const throttled = await enforceAiRateLimit(request, { kind: 'user', userId: user.id })
+    if (throttled) {
+      return throttled
+    }
+
+    const oversizedBody = enforceJsonBodyLimit(request)
+    if (oversizedBody) {
+      return oversizedBody
+    }
+
     const body = await request.json()
     const {
       openingParagraph,
@@ -29,6 +50,25 @@ export async function POST(request: NextRequest) {
       companyName,
       locale,
     } = body
+
+    // Ceilings on everything that reaches the prompt: without them the cost of
+    // a single request is whatever the caller chooses to upload. bodyParagraphs
+    // is bounded in item count as well as per-paragraph length, since the prompt
+    // carries every entry.
+    const oversized = findOversizedField(body, {
+      openingParagraph: AI_TEXT_LIMITS.COVER_LETTER_PARAGRAPH,
+      closingParagraph: AI_TEXT_LIMITS.COVER_LETTER_PARAGRAPH,
+      bodyParagraphs: {
+        maxCharacters: AI_TEXT_LIMITS.COVER_LETTER_PARAGRAPH,
+        maxItems: AI_LIST_LIMITS.COVER_LETTER_PARAGRAPHS,
+      },
+      jobDescription: AI_TEXT_LIMITS.JOB_DESCRIPTION,
+      jobTitle: AI_TEXT_LIMITS.SHORT_LABEL,
+      companyName: AI_TEXT_LIMITS.SHORT_LABEL,
+    })
+    if (oversized) {
+      return oversizedFieldResponse(oversized)
+    }
 
     if (!jobDescription || typeof jobDescription !== 'string') {
       return NextResponse.json(

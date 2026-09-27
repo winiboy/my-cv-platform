@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { generateCompletion, MODELS } from '@/lib/ai/client'
+import { ANONYMOUS_AI_CALLER, enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
+import {
+  AI_LIST_LIMITS,
+  AI_TEXT_LIMITS,
+  enforceJsonBodyLimit,
+} from '@/lib/api/ai-input-limits'
 
 /**
  * Minimum character count for resume text to ensure meaningful generation.
@@ -37,6 +43,11 @@ const TONE_DESCRIPTIONS = {
 
 /**
  * Zod schema for validating cover letter generation request body.
+ *
+ * Every free-text field carries a maximum as well as a minimum: this endpoint
+ * is anonymous and each request spends the project's AI provider account, so an
+ * unbounded field is an unbounded bill. The array fields are bounded in item
+ * count as well as per-item length, since both feed the prompt.
  */
 const GenerateCoverLetterRequestSchema = z.object({
   resumeText: z
@@ -44,20 +55,48 @@ const GenerateCoverLetterRequestSchema = z.object({
     .min(
       MIN_RESUME_CHARACTERS,
       `Resume text must be at least ${MIN_RESUME_CHARACTERS} characters`
+    )
+    .max(
+      AI_TEXT_LIMITS.RESUME_TEXT,
+      `Resume text must be at most ${AI_TEXT_LIMITS.RESUME_TEXT} characters`
     ),
   jobDescription: z
     .string()
     .min(
       MIN_JOB_DESCRIPTION_CHARACTERS,
       `Job description must be at least ${MIN_JOB_DESCRIPTION_CHARACTERS} characters`
+    )
+    .max(
+      AI_TEXT_LIMITS.JOB_DESCRIPTION,
+      `Job description must be at most ${AI_TEXT_LIMITS.JOB_DESCRIPTION} characters`
     ),
   length: z.enum(['short', 'medium', 'long']).optional().default('medium'),
   tone: z
     .enum(['professional', 'enthusiastic', 'confident', 'conversational'])
     .optional()
     .default('professional'),
-  selectedDetails: z.array(z.string()).optional().default([]),
-  customPrompt: z.string().optional(),
+  selectedDetails: z
+    .array(
+      z
+        .string()
+        .max(
+          AI_TEXT_LIMITS.BULLET,
+          `Each selected detail must be at most ${AI_TEXT_LIMITS.BULLET} characters`
+        )
+    )
+    .max(
+      AI_LIST_LIMITS.SELECTED_DETAILS,
+      `At most ${AI_LIST_LIMITS.SELECTED_DETAILS} selected details are allowed`
+    )
+    .optional()
+    .default([]),
+  customPrompt: z
+    .string()
+    .max(
+      AI_TEXT_LIMITS.CUSTOM_PROMPT,
+      `Custom instructions must be at most ${AI_TEXT_LIMITS.CUSTOM_PROMPT} characters`
+    )
+    .optional(),
   locale: z.enum(['en', 'fr', 'de', 'it']).optional().default('en'),
 })
 
@@ -85,6 +124,20 @@ const GenerateCoverLetterRequestSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
+    // This endpoint is anonymous and spends a paid provider account, so the
+    // request is bounded and counted before anything else happens: the body
+    // size from its declared length, then the caller's budget. Neither guard
+    // reads the body and neither can reach the provider.
+    const oversizedBody = enforceJsonBodyLimit(request)
+    if (oversizedBody) {
+      return oversizedBody
+    }
+
+    const throttled = await enforceAiRateLimit(request, ANONYMOUS_AI_CALLER)
+    if (throttled) {
+      return throttled
+    }
+
     // Parse request body
     let body: unknown
     try {

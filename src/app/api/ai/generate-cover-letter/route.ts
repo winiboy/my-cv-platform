@@ -7,6 +7,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { generateCompletion, MODELS } from '@/lib/ai/client'
 import { buildCoverLetterGenerationPrompt } from '@/lib/ai/prompts'
+import { enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
+import {
+  AI_TEXT_LIMITS,
+  enforceJsonBodyLimit,
+  findOversizedField,
+  oversizedFieldResponse,
+} from '@/lib/api/ai-input-limits'
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,6 +24,19 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // This request spends the project's AI provider account. The budget is
+    // keyed by the authenticated user, so it is counted once the identity is
+    // known and cannot be reset by changing address.
+    const throttled = await enforceAiRateLimit(request, { kind: 'user', userId: user.id })
+    if (throttled) {
+      return throttled
+    }
+
+    const oversizedBody = enforceJsonBodyLimit(request)
+    if (oversizedBody) {
+      return oversizedBody
     }
 
     const body = await request.json()
@@ -30,6 +50,22 @@ export async function POST(request: NextRequest) {
       jobApplicationId,
       locale,
     } = body
+
+    // Ceilings on everything the caller supplies. The resume content in the
+    // prompt is read from the caller's own stored resume; these fields are the
+    // caller-supplied part, and without them one request's cost is unbounded.
+    const oversized = findOversizedField(body, {
+      resumeId: AI_TEXT_LIMITS.IDENTIFIER,
+      jobApplicationId: AI_TEXT_LIMITS.IDENTIFIER,
+      jobDescription: AI_TEXT_LIMITS.JOB_DESCRIPTION,
+      jobTitle: AI_TEXT_LIMITS.SHORT_LABEL,
+      companyName: AI_TEXT_LIMITS.SHORT_LABEL,
+      recipientName: AI_TEXT_LIMITS.SHORT_LABEL,
+      recipientTitle: AI_TEXT_LIMITS.SHORT_LABEL,
+    })
+    if (oversized) {
+      return oversizedFieldResponse(oversized)
+    }
 
     if (!jobDescription || typeof jobDescription !== 'string') {
       return NextResponse.json(
