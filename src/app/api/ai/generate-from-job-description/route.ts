@@ -6,6 +6,13 @@ import { calculateRelevanceScore, type ResumeContent } from '@/lib/ai/relevance-
 import { QUALITY_THRESHOLD } from '@/lib/constants'
 import type { ResumeInsert } from '@/types/database'
 import type { QualityAnalysis } from '@/types/quality-analysis'
+import { enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
+import {
+  AI_TEXT_LIMITS,
+  enforceJsonBodyLimit,
+  findOversizedField,
+  oversizedFieldResponse,
+} from '@/lib/api/ai-input-limits'
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,9 +26,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // This request spends the project's AI provider account -- three times over,
+    // since it also extracts requirements and scores relevance. The budget is
+    // keyed by the authenticated user, so it is counted once the identity is
+    // known and cannot be reset by changing address.
+    const throttled = await enforceAiRateLimit(request, { kind: 'user', userId: user.id })
+    if (throttled) {
+      return throttled
+    }
+
+    const oversizedBody = enforceJsonBodyLimit(request)
+    if (oversizedBody) {
+      return oversizedBody
+    }
+
     // Parse request body
     const body = await request.json()
     const { jobDescription, title, template, locale } = body
+
+    // Ceilings on everything that reaches the prompt: without them the cost of
+    // a single request is whatever the caller chooses to upload.
+    const oversized = findOversizedField(body, {
+      jobDescription: AI_TEXT_LIMITS.JOB_DESCRIPTION,
+      title: AI_TEXT_LIMITS.SHORT_LABEL,
+    })
+    if (oversized) {
+      return oversizedFieldResponse(oversized)
+    }
 
     // Validate inputs
     if (!jobDescription || typeof jobDescription !== 'string') {

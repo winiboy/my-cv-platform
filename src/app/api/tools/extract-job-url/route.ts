@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import {
+  BlockedRequestError,
+  hostWithSubdomains,
+  isHostAllowed,
+  safeFetch,
+  type AllowedHost,
+} from '@/lib/security/safe-fetch'
 
 /**
  * Request timeout in milliseconds (15 seconds).
@@ -8,58 +15,69 @@ import { z } from 'zod'
 const FETCH_TIMEOUT_MS = 15_000
 
 /**
+ * Maximum number of redirect hops followed. Each hop is re-validated against
+ * the allowlist and the private-address check before it is requested.
+ */
+const MAX_REDIRECTS = 5
+
+/**
  * Maximum response body size in bytes (2MB).
  * Prevents memory issues from extremely large pages.
  */
 const MAX_RESPONSE_SIZE = 2 * 1024 * 1024
 
 /**
- * Allowed domains for fetching job descriptions.
- * Prevents SSRF attacks by restricting to known job board domains.
+ * Allowed hosts for fetching job descriptions.
+ *
+ * Every entry allows subdomains, which is the behaviour this endpoint has
+ * always had. For the multi-tenant ATS platforms that is knowingly wide: a
+ * tenant subdomain is available to anyone who signs up, so `*.workday.com` and
+ * friends let a third party serve arbitrary content — or an arbitrary redirect —
+ * from inside the allowlist. The redirect and private-address checks in
+ * `safeFetch` contain the consequences; narrowing these entries to `exactHost`
+ * would reject legitimate tenant URLs users paste and is a product decision,
+ * not a code cleanup.
  */
-const ALLOWED_DOMAINS = [
+const ALLOWED_HOSTS: readonly AllowedHost[] = [
   // LinkedIn
-  'linkedin.com',
-  'www.linkedin.com',
+  hostWithSubdomains('linkedin.com'),
   // Swiss job boards
-  'jobs.ch',
-  'jobcloud.ch',
-  'jobup.ch',
-  'jobscout24.ch',
+  hostWithSubdomains('jobs.ch'),
+  hostWithSubdomains('jobcloud.ch'),
+  hostWithSubdomains('jobup.ch'),
+  hostWithSubdomains('jobscout24.ch'),
   // International job boards
-  'indeed.com',
-  'indeed.ch',
-  'indeed.de',
-  'indeed.fr',
-  'glassdoor.com',
-  'glassdoor.ch',
-  'monster.ch',
-  'monster.com',
-  'stepstone.ch',
-  'stepstone.de',
-  'xing.com',
-  'karriere.at',
+  hostWithSubdomains('indeed.com'),
+  hostWithSubdomains('indeed.ch'),
+  hostWithSubdomains('indeed.de'),
+  hostWithSubdomains('indeed.fr'),
+  hostWithSubdomains('glassdoor.com'),
+  hostWithSubdomains('glassdoor.ch'),
+  hostWithSubdomains('monster.ch'),
+  hostWithSubdomains('monster.com'),
+  hostWithSubdomains('stepstone.ch'),
+  hostWithSubdomains('stepstone.de'),
+  hostWithSubdomains('xing.com'),
+  hostWithSubdomains('karriere.at'),
   // Adzuna
-  'adzuna.ch',
-  'adzuna.com',
-  'adzuna.de',
-  'adzuna.fr',
-  'adzuna.co.uk',
-  // ATS/Recruiting platforms
-  'join.com',
-  'greenhouse.io',
-  'lever.co',
-  'workday.com',
-  'smartrecruiters.com',
-  'breezy.hr',
-  'recruitee.com',
-  'teamtailor.com',
-  'personio.de',
-  'personio.ch',
-  'ashbyhq.com',
-  'jobs.lever.co',
-  'boards.greenhouse.io',
-] as const
+  hostWithSubdomains('adzuna.ch'),
+  hostWithSubdomains('adzuna.com'),
+  hostWithSubdomains('adzuna.de'),
+  hostWithSubdomains('adzuna.fr'),
+  hostWithSubdomains('adzuna.co.uk'),
+  // Multi-tenant ATS / recruiting platforms — see the note above.
+  hostWithSubdomains('join.com'),
+  hostWithSubdomains('greenhouse.io'),
+  hostWithSubdomains('lever.co'),
+  hostWithSubdomains('workday.com'),
+  hostWithSubdomains('smartrecruiters.com'),
+  hostWithSubdomains('breezy.hr'),
+  hostWithSubdomains('recruitee.com'),
+  hostWithSubdomains('teamtailor.com'),
+  hostWithSubdomains('personio.de'),
+  hostWithSubdomains('personio.ch'),
+  hostWithSubdomains('ashbyhq.com'),
+]
 
 /**
  * Zod schema for validating request body.
@@ -68,52 +86,24 @@ const ExtractJobUrlRequestSchema = z.object({
   url: z.string().url('Invalid URL format'),
 })
 
+const FETCH_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  Accept:
+    'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.5,fr;q=0.3,de;q=0.2',
+  'Cache-Control': 'no-cache',
+} as const
+
 /**
- * Check if a URL's hostname is from an allowed domain.
+ * Check if a URL's hostname is from an allowed host.
  * Supports exact match and subdomain match.
  */
 function isAllowedDomain(urlString: string): boolean {
   try {
-    const parsedUrl = new URL(urlString)
-    const hostname = parsedUrl.hostname.toLowerCase()
-
-    return ALLOWED_DOMAINS.some((domain) => {
-      const lowerDomain = domain.toLowerCase()
-      return hostname === lowerDomain || hostname.endsWith('.' + lowerDomain)
-    })
+    return isHostAllowed(new URL(urlString).hostname, ALLOWED_HOSTS)
   } catch {
     return false
-  }
-}
-
-/**
- * Fetch URL with timeout and proper headers.
- * Uses AbortController for timeout handling.
- */
-async function fetchWithTimeout(
-  url: string,
-  timeoutMs: number
-): Promise<Response> {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
-
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5,fr;q=0.3,de;q=0.2',
-        'Cache-Control': 'no-cache',
-      },
-      redirect: 'follow',
-    })
-
-    return response
-  } finally {
-    clearTimeout(timeoutId)
   }
 }
 
@@ -391,11 +381,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fetch the page
+    // Fetch the page. Redirects are followed one hop at a time and each hop is
+    // re-checked against the allowlist and refused if it resolves into private
+    // network space, so an open redirect on a job board cannot turn this
+    // endpoint into a reader of internal services.
     let response: Response
     try {
-      response = await fetchWithTimeout(url, FETCH_TIMEOUT_MS)
+      response = await safeFetch(url, {
+        allowlist: ALLOWED_HOSTS,
+        timeoutMs: FETCH_TIMEOUT_MS,
+        maxRedirects: MAX_REDIRECTS,
+        headers: FETCH_HEADERS,
+      })
     } catch (fetchError) {
+      if (fetchError instanceof BlockedRequestError) {
+        return NextResponse.json(
+          {
+            error: 'Destination not allowed',
+            message:
+              'This URL, or a page it redirects to, is not a supported job board. Please copy and paste the job description manually.',
+          },
+          { status: 400 }
+        )
+      }
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         return NextResponse.json(
           {

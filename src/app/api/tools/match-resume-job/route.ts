@@ -3,18 +3,31 @@ import { z } from 'zod'
 import { generateCompletion, MODELS } from '@/lib/ai/client'
 import { buildJobMatchAnalysisPrompt } from '@/lib/ai/prompts'
 import type { JobMatchAnalysis } from '@/types/job-match'
+import { ANONYMOUS_AI_CALLER, enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
+import { AI_TEXT_LIMITS, enforceJsonBodyLimit } from '@/lib/api/ai-input-limits'
 
 /**
  * Zod schema for validating job match analysis request body.
- * Enforces minimum content lengths to ensure meaningful analysis.
+ *
+ * Enforces minimum content lengths to ensure meaningful analysis, and maximums
+ * that bound what one anonymous request can cost at the AI provider. Both are
+ * checked before any provider call.
  */
 const JobMatchRequestSchema = z.object({
   resumeText: z
     .string()
-    .min(200, 'Resume text must be at least 200 characters for meaningful analysis'),
+    .min(200, 'Resume text must be at least 200 characters for meaningful analysis')
+    .max(
+      AI_TEXT_LIMITS.RESUME_TEXT,
+      `Resume text must be at most ${AI_TEXT_LIMITS.RESUME_TEXT} characters`
+    ),
   jobDescription: z
     .string()
-    .min(100, 'Job description must be at least 100 characters'),
+    .min(100, 'Job description must be at least 100 characters')
+    .max(
+      AI_TEXT_LIMITS.JOB_DESCRIPTION,
+      `Job description must be at most ${AI_TEXT_LIMITS.JOB_DESCRIPTION} characters`
+    ),
   locale: z
     .enum(['en', 'fr', 'de', 'it'])
     .optional()
@@ -31,6 +44,20 @@ const JobMatchRequestSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
+    // This endpoint is anonymous and spends a paid provider account, so the
+    // request is bounded and counted before anything else happens: the body
+    // size from its declared length, then the caller's budget. Neither guard
+    // reads the body and neither can reach the provider.
+    const oversizedBody = enforceJsonBodyLimit(request)
+    if (oversizedBody) {
+      return oversizedBody
+    }
+
+    const throttled = await enforceAiRateLimit(request, ANONYMOUS_AI_CALLER)
+    if (throttled) {
+      return throttled
+    }
+
     // Parse request body
     let body: unknown
     try {

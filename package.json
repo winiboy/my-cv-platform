@@ -10,6 +10,7 @@
     "dev": "next dev",
     "build": "next build",
     "build:verify": "node scripts/build-verify.mjs",
+    "db:backup": "node scripts/db-backup.mjs",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",

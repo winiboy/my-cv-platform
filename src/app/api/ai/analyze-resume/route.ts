@@ -9,6 +9,13 @@ import type {
   ResumeEducation,
   ResumeSkillCategory,
 } from '@/types/database'
+import { enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
+import {
+  AI_TEXT_LIMITS,
+  enforceJsonBodyLimit,
+  findOversizedField,
+  oversizedFieldResponse,
+} from '@/lib/api/ai-input-limits'
 
 /**
  * POST /api/ai/analyze-resume
@@ -28,9 +35,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // This request spends the project's AI provider account. The budget is
+    // keyed by the authenticated user, so it is counted once the identity is
+    // known and cannot be reset by changing address.
+    const throttled = await enforceAiRateLimit(request, { kind: 'user', userId: user.id })
+    if (throttled) {
+      return throttled
+    }
+
+    const oversizedBody = enforceJsonBodyLimit(request)
+    if (oversizedBody) {
+      return oversizedBody
+    }
+
     // Parse request body
     const body = await request.json()
     const { resumeId, locale } = body
+
+    // The analysed text comes from the caller's own stored resume, not from this
+    // body, so the identifier is the only caller-supplied length to bound.
+    const oversized = findOversizedField(body, { resumeId: AI_TEXT_LIMITS.IDENTIFIER })
+    if (oversized) {
+      return oversizedFieldResponse(oversized)
+    }
 
     // Validate resumeId
     if (!resumeId || typeof resumeId !== 'string') {

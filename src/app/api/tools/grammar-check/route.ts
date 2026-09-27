@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { generateCompletion, MODELS } from '@/lib/ai/client'
 import type { GrammarAnalysisResponse } from '@/types/grammar-check'
+import { ANONYMOUS_AI_CALLER, enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
+import { AI_TEXT_LIMITS, enforceJsonBodyLimit } from '@/lib/api/ai-input-limits'
 
 /**
  * Minimum character count for resume text to ensure meaningful analysis.
@@ -10,7 +12,10 @@ const MIN_RESUME_CHARACTERS = 100
 
 /**
  * Zod schema for validating grammar check request body.
- * Enforces minimum content length for meaningful analysis.
+ *
+ * Enforces a minimum content length for meaningful analysis and a maximum that
+ * bounds what one anonymous request can cost at the AI provider. Both are
+ * checked before any provider call.
  */
 const GrammarCheckRequestSchema = z.object({
   resumeText: z
@@ -18,6 +23,10 @@ const GrammarCheckRequestSchema = z.object({
     .min(
       MIN_RESUME_CHARACTERS,
       `Resume text must be at least ${MIN_RESUME_CHARACTERS} characters`
+    )
+    .max(
+      AI_TEXT_LIMITS.RESUME_TEXT,
+      `Resume text must be at most ${AI_TEXT_LIMITS.RESUME_TEXT} characters`
     ),
   locale: z.enum(['en', 'fr', 'de', 'it']).optional().default('en'),
 })
@@ -42,6 +51,20 @@ const GrammarCheckRequestSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
+    // This endpoint is anonymous and spends a paid provider account, so the
+    // request is bounded and counted before anything else happens: the body
+    // size from its declared length, then the caller's budget. Neither guard
+    // reads the body and neither can reach the provider.
+    const oversizedBody = enforceJsonBodyLimit(request)
+    if (oversizedBody) {
+      return oversizedBody
+    }
+
+    const throttled = await enforceAiRateLimit(request, ANONYMOUS_AI_CALLER)
+    if (throttled) {
+      return throttled
+    }
+
     // Parse request body
     let body: unknown
     try {

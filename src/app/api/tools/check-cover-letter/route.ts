@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { generateCompletion, MODELS } from '@/lib/ai/client'
+import { ANONYMOUS_AI_CALLER, enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
+import { AI_TEXT_LIMITS, enforceJsonBodyLimit } from '@/lib/api/ai-input-limits'
 
 /**
  * Minimum character count for cover letter text to ensure meaningful analysis.
@@ -9,7 +11,10 @@ const MIN_COVER_LETTER_CHARACTERS = 100
 
 /**
  * Zod schema for validating cover letter check request body.
- * Enforces minimum content length for meaningful analysis.
+ *
+ * Enforces a minimum content length for meaningful analysis and a maximum that
+ * bounds what one anonymous request can cost at the AI provider. Both are
+ * checked before any provider call.
  */
 const CheckCoverLetterRequestSchema = z.object({
   coverLetterText: z
@@ -17,8 +22,18 @@ const CheckCoverLetterRequestSchema = z.object({
     .min(
       MIN_COVER_LETTER_CHARACTERS,
       `Cover letter text must be at least ${MIN_COVER_LETTER_CHARACTERS} characters`
+    )
+    .max(
+      AI_TEXT_LIMITS.COVER_LETTER_TEXT,
+      `Cover letter text must be at most ${AI_TEXT_LIMITS.COVER_LETTER_TEXT} characters`
     ),
-  jobDescription: z.string().optional(),
+  jobDescription: z
+    .string()
+    .max(
+      AI_TEXT_LIMITS.JOB_DESCRIPTION,
+      `Job description must be at most ${AI_TEXT_LIMITS.JOB_DESCRIPTION} characters`
+    )
+    .optional(),
   locale: z.enum(['en', 'fr', 'de', 'it']).optional().default('en'),
 })
 
@@ -72,6 +87,20 @@ interface CoverLetterAnalysis {
  */
 export async function POST(request: NextRequest) {
   try {
+    // This endpoint is anonymous and spends a paid provider account, so the
+    // request is bounded and counted before anything else happens: the body
+    // size from its declared length, then the caller's budget. Neither guard
+    // reads the body and neither can reach the provider.
+    const oversizedBody = enforceJsonBodyLimit(request)
+    if (oversizedBody) {
+      return oversizedBody
+    }
+
+    const throttled = await enforceAiRateLimit(request, ANONYMOUS_AI_CALLER)
+    if (throttled) {
+      return throttled
+    }
+
     // Parse request body
     let body: unknown
     try {
