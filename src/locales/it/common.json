@@ -469,6 +469,7 @@
     "delete": "Elimina",
     "duplicate": "Duplica",
     "downloadPDF": "Scarica PDF",
+    "downloadPDFError": "Non è stato possibile creare il PDF. Riprova.",
     "confirmDelete": "Sei sicuro di voler eliminare questa lettera di presentazione?",
     "jobAssociation": {
       "linkedJob": "Lavoro collegato",

@@ -469,6 +469,7 @@
     "delete": "Löschen",
     "duplicate": "Duplizieren",
     "downloadPDF": "PDF herunterladen",
+    "downloadPDFError": "Das PDF konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
     "confirmDelete": "Möchten Sie dieses Anschreiben wirklich löschen?",
     "jobAssociation": {
       "linkedJob": "Verknüpfte Stelle",
