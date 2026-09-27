@@ -1,17 +1,16 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getTranslations } from '@/lib/i18n'
-import type { Locale } from '@/lib/i18n'
+import { getTranslations, toLocale } from '@/lib/i18n'
 import { ResumeCreationForm } from '@/components/dashboard/resume-creation-form'
 
 interface NewResumePageProps {
   params: Promise<{
-    locale: Locale
+    locale: string
   }>
 }
 
 export default async function NewResumePage({ params }: NewResumePageProps) {
-  const { locale } = await params
+  const locale = toLocale((await params).locale)
   const dict = getTranslations(locale, 'common') as any
   const supabase = await createServerSupabaseClient()
 

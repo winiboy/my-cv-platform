@@ -1,15 +1,16 @@
 import React from "react";
-import { getTranslations, type Locale } from "@/lib/i18n";
+import { getTranslations, toLocale } from "@/lib/i18n";
 import { PricingTable } from "@/components/marketing/pricing-table";
 import { FAQAccordion } from "@/components/marketing/faq-accordion";
 import { Check, X } from "lucide-react";
 
-export default async function PricingPage({
-  params,
-}: {
-  params: { locale: Locale };
-}) {
-  const marketing = getTranslations(params.locale, "marketing") as any;
+export default async function PricingPage(
+  props: {
+    params: Promise<{ locale: string }>;
+  }
+) {
+  const params = await props.params;
+  const marketing = getTranslations(toLocale(params.locale), "marketing") as any;
 
   // Feature comparison data built from translations
   const comparison = marketing.pricing?.comparison;

@@ -54,6 +54,39 @@ a plain `pnpm build` writes into the `.next` a dev server reads — see
 `docs/engineering/quality-contract.md` and `scripts/build-verify.mjs`. The two
 compile the same thing.
 
+### Re-measured on Next 15.5.26 / React 19.3.0 (2026-09-27)
+
+Phase 32 part two upgraded Next 14.2.33 → 15.5.26 and React 18.3.1 → 19.3.0.
+The two numbers on the watch list were re-taken on the same machine.
+
+| Measurement | Next 14.2.33 / React 18.3.1 | Next 15.5.26 / React 19.3.0 | Δ |
+|---|---|---|---|
+| First Load JS shared by all | 161 kB | **181 kB** | **+20 kB (+12%)** |
+| Static pages generated | 108 / 108 | 108 / 108 | — |
+| Middleware | 139 kB | **144 kB** | +5 kB |
+| `pnpm build:verify` wall clock | 92 s (warm) | *not cleanly measured* | — |
+
+**The shared-bundle increase is real and is the number to watch.** It is the
+whole app's floor, and its composition changed shape rather than merely growing:
+the baseline's two framework chunks were 103 kB + 54.1 kB, and they are now
+123 kB + 54.4 kB. React 19 ships a larger client runtime — `react-dom` absorbed
+the separate scheduler work and the new owner-stack machinery — which is the
+expected direction for this upgrade rather than a regression in app code. No
+application module moved into a shared chunk.
+
+At 181 kB this is **below the ~190 kB threshold** §*What to watch* sets, but the
+headroom is now 9 kB rather than 29 kB. The next dependency that lands in a
+universally-imported module will cross it. Treat 190 kB as close, not distant.
+
+**The build wall clock was not measured cleanly and no figure is claimed.** The
+successful run reported 134 s, but it shared the machine with a concurrent
+`pnpm lint` and Next retried a build worker once (`Retrying 1/3...`, which did
+not appear in either of the two preceding runs). Its compile phase alone was
+93 s, against 94 s for the immediately preceding run, so the compile step looks
+close to unchanged — but that is two contended samples, not a warm total
+comparable to the 92 s above. **Re-take this on a quiet box before drawing any
+conclusion**, per the ~20%-is-noise rule at the top of this file.
+
 **The 92 s is a warm-cache build.** `.next-verify/cache` held 1.7 GB of prior
 webpack packs when it ran. A first build on a clean checkout, or the build
 inside a Playwright `webServer`, is materially slower and is not measured here.

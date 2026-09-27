@@ -2,15 +2,20 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { Header } from '@/components/marketing/header'
-import type { Locale } from '@/lib/i18n'
+import { toLocale } from '@/lib/i18n'
 
-export default async function DashboardLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode
-  params: { locale: Locale }
-}) {
+export default async function DashboardLayout(
+  props: {
+    children: React.ReactNode
+    params: Promise<{ locale: string }>
+  }
+) {
+  const params = await props.params;
+
+  const {
+    children
+  } = props;
+
   const supabase = await createServerSupabaseClient()
 
   const {
@@ -32,7 +37,7 @@ export default async function DashboardLayout({
       <div className="flex h-[calc(100vh-64px)] overflow-hidden print:h-auto print:overflow-visible">
         {/* Sidebar - Hidden when printing */}
         <div className="h-full print:hidden">
-          <DashboardSidebar locale={params.locale} />
+          <DashboardSidebar locale={toLocale(params.locale)} />
         </div>
 
         {/* Main content */}

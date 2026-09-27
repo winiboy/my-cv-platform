@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, LogIn } from "lucide-react";
 import type { Locale } from "@/lib/i18n";
-import { locales, getTranslations } from "@/lib/i18n";
+import { locales, getTranslations, toLocale } from "@/lib/i18n";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   GrammarCheckerClient,
@@ -11,9 +11,9 @@ import {
 import type { ResumeLinkerTranslations } from "@/components/tools/resume-linker";
 
 interface ResumeGrammarCheckerPageProps {
-  params: {
-    locale: Locale;
-  };
+  params: Promise<{
+    locale: string;
+  }>;
 }
 
 /**
@@ -260,10 +260,9 @@ function buildClientTranslations(t: ToolsTranslations): GrammarCheckerTranslatio
  * Generates dynamic metadata for the resume grammar checker page.
  * Provides SEO-friendly title and description.
  */
-export async function generateMetadata({
-  params,
-}: ResumeGrammarCheckerPageProps): Promise<Metadata> {
-  const t = getTranslations(params.locale, "tools") as ToolsTranslations;
+export async function generateMetadata(props: ResumeGrammarCheckerPageProps): Promise<Metadata> {
+  const params = await props.params;
+  const t = getTranslations(toLocale(params.locale), "tools") as ToolsTranslations;
   const { metaTitle, metaDescription } = t.grammarChecker;
 
   return {
@@ -282,10 +281,9 @@ export async function generateMetadata({
  * Shows login prompt for unauthenticated users, or the main UI for authenticated users.
  * This is a Server Component.
  */
-export default async function ResumeGrammarCheckerPage({
-  params,
-}: ResumeGrammarCheckerPageProps) {
-  const { locale } = params;
+export default async function ResumeGrammarCheckerPage(props: ResumeGrammarCheckerPageProps) {
+  const params = await props.params;
+  const locale = toLocale(params.locale);
   const t = getTranslations(locale, "tools") as ToolsTranslations;
 
   // Check authentication status using Supabase server client

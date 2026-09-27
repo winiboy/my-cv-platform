@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import type { Locale } from '@/lib/i18n'
-import { locales, getTranslations } from '@/lib/i18n'
+import { locales, getTranslations, toLocale } from '@/lib/i18n'
 import {
   ResumeJobMatchClient,
   type ResumeJobMatchTranslations,
@@ -11,9 +11,9 @@ import type { ResumeLinkerTranslations } from '@/components/tools/resume-linker'
 import type { JobLinkerTranslations } from '@/components/tools/job-linker'
 
 interface ResumeJobMatchPageProps {
-  params: {
-    locale: Locale
-  }
+  params: Promise<{
+    locale: string
+  }>
 }
 
 /**
@@ -148,10 +148,9 @@ export function generateStaticParams(): Array<{ locale: Locale }> {
  * Generates dynamic metadata for the resume job match page.
  * Provides SEO-friendly title and description.
  */
-export async function generateMetadata({
-  params,
-}: ResumeJobMatchPageProps): Promise<Metadata> {
-  const t = getTranslations(params.locale, 'tools') as ToolsTranslations
+export async function generateMetadata(props: ResumeJobMatchPageProps): Promise<Metadata> {
+  const params = await props.params;
+  const t = getTranslations(toLocale(params.locale), 'tools') as ToolsTranslations
   const { metaTitle, metaDescription } = t.resumeJobMatch
 
   return {
@@ -170,10 +169,9 @@ export async function generateMetadata({
  * Users can compare their resume text against job descriptions to find skill gaps.
  * This is a Server Component.
  */
-export default async function ResumeJobMatchPage({
-  params,
-}: ResumeJobMatchPageProps) {
-  const { locale } = params
+export default async function ResumeJobMatchPage(props: ResumeJobMatchPageProps) {
+  const params = await props.params;
+  const locale = toLocale(params.locale)
   const t = getTranslations(locale, 'tools') as ToolsTranslations
 
   // Get resume checker translations for shared components (resume selector)

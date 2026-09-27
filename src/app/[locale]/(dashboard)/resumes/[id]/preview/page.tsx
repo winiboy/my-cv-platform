@@ -2,21 +2,21 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getTranslations } from '@/lib/i18n'
-import type { Locale } from '@/lib/i18n'
+import { getTranslations, toLocale } from '@/lib/i18n'
 import type { Resume } from '@/types/database'
 import { ResumePreviewWrapper } from '@/components/dashboard/resume-preview-wrapper'
 import { DownloadResumeButtons } from '@/components/dashboard/download-resume-buttons'
 
 interface ResumePreviewPageProps {
   params: Promise<{
-    locale: Locale
+    locale: string
     id: string
   }>
 }
 
 export default async function ResumePreviewPage({ params }: ResumePreviewPageProps) {
-  const { locale, id } = await params
+  const { locale: routeLocale, id } = await params
+  const locale = toLocale(routeLocale)
   const dict = getTranslations(locale, 'common') as any
   const supabase = await createServerSupabaseClient()
 

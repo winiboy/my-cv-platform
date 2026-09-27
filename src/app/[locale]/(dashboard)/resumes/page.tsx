@@ -2,18 +2,18 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { FileText, Plus, Calendar, Download, Eye, Pencil, Sparkles } from 'lucide-react'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getTranslations } from '@/lib/i18n'
+import { getTranslations, toLocale } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n'
 import type { Resume } from '@/types/database'
 
 interface ResumesPageProps {
   params: Promise<{
-    locale: Locale
+    locale: string
   }>
 }
 
 export default async function ResumesPage({ params }: ResumesPageProps) {
-  const { locale } = await params
+  const locale = toLocale((await params).locale)
   const dict = getTranslations(locale, 'common') as any
   const supabase = await createServerSupabaseClient()
 

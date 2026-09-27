@@ -3,19 +3,20 @@ import { Inter } from "next/font/google";
 import "../globals.css";
 import { ToastProvider } from "@/components/ui/toast";
 import { BranchIndicator } from "@/components/ui/branch-indicator";
-import { getTranslations, type Locale } from "@/lib/i18n";
+import { getTranslations, toLocale } from "@/lib/i18n";
 
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
 });
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { locale: Locale };
-}): Promise<Metadata> {
-  const t = getTranslations(params.locale, "common") as any;
+export async function generateMetadata(
+  props: {
+    params: Promise<{ locale: string }>;
+  }
+): Promise<Metadata> {
+  const params = await props.params;
+  const t = getTranslations(toLocale(params.locale), "common") as any;
 
   return {
     title: t.meta.title,
@@ -32,13 +33,18 @@ export async function generateStaticParams() {
   return [{ locale: "fr" }, { locale: "de" }, { locale: "en" }, { locale: "it" }];
 }
 
-export default function LocaleLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode;
-  params: { locale: Locale };
-}) {
+export default async function LocaleLayout(
+  props: {
+    children: React.ReactNode;
+    params: Promise<{ locale: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    children
+  } = props;
+
   return (
     <html lang={params.locale}>
       <body className={inter.className}>

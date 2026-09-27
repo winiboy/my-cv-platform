@@ -20,12 +20,11 @@ import { JOB_STATUS_CONFIG } from '@/lib/constants/job-statuses'
 import { cn } from '@/lib/utils'
 
 interface JobApplicationDetailPageProps {
-  params: { locale: string; id: string }
+  params: Promise<{ locale: string; id: string }>
 }
 
-export default async function JobApplicationDetailPage({
-  params,
-}: JobApplicationDetailPageProps) {
+export default async function JobApplicationDetailPage(props: JobApplicationDetailPageProps) {
+  const params = await props.params;
   const { locale, id } = params
   const dict = getTranslations(locale as Locale, 'common') as Record<string, unknown>
   const jobsDict = getTranslations(locale as Locale, 'jobs') as Record<string, unknown>

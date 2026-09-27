@@ -2,17 +2,17 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { FileText, Briefcase, TrendingUp, Mail } from 'lucide-react'
 import Link from 'next/link'
-import type { Locale } from '@/lib/i18n'
-import { getTranslations } from '@/lib/i18n'
+import { getTranslations, toLocale } from '@/lib/i18n'
 import type { Profile } from '@/types/database'
 
-export default async function DashboardPage({
-  params,
-}: {
-  params: { locale: Locale }
-}) {
+export default async function DashboardPage(
+  props: {
+    params: Promise<{ locale: string }>
+  }
+) {
+  const params = await props.params;
   const supabase = await createServerSupabaseClient()
-  const t = getTranslations(params.locale, 'common') as any
+  const t = getTranslations(toLocale(params.locale), 'common') as any
 
   const {
     data: { user },
