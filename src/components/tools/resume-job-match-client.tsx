@@ -7,8 +7,7 @@ import {
   useRef,
   type KeyboardEvent,
 } from 'react'
-import { useSession } from 'next-auth/react'
-import { Loader2, BarChart3, FileText, Upload, FolderOpen, Link, Briefcase, X, CheckCircle2, Globe } from 'lucide-react'
+import { Loader2, BarChart3, FileText, Upload, Link, Briefcase, X, CheckCircle2, Globe } from 'lucide-react'
 import {
   ResumeTextInput,
   type ResumeTextInputTranslations,
@@ -22,10 +21,6 @@ import {
   type JobDescriptionInputTranslations,
 } from './job-description-input'
 import { MatchResults, type MatchResultsTranslations } from './match-results'
-import {
-  ResumeSelector,
-  type ResumeSelectorTranslations,
-} from './resume-selector'
 import {
   ResumeLinker,
   type ResumeLinkerTranslations,
@@ -53,7 +48,7 @@ import type {
  * Enum for the four resume input methods available in the tabbed interface.
  * 'link' allows users to link to a saved resume from their account.
  */
-type ResumeInputTab = 'link' | 'paste' | 'upload' | 'saved'
+type ResumeInputTab = 'link' | 'paste' | 'upload'
 
 /**
  * Enum for the two job description input methods available in the tabbed interface.
@@ -81,7 +76,6 @@ export interface ResumeJobMatchTranslations {
   tabLinkResume: string
   tabPasteText: string
   tabUploadFile: string
-  tabMyResumes: string
 
   // Resume input translations
   resumeLabel: string
@@ -372,16 +366,12 @@ export function ResumeJobMatchClient({
   locale,
   translations,
 }: ResumeJobMatchClientProps) {
-  const { data: session, status } = useSession()
-  const isAuthenticated = status === 'authenticated' && !!session?.user
-
   // Unified resume text state - populated by any input method
   const [resumeText, setResumeText] = useState('')
   const [jobDescription, setJobDescription] = useState('')
   const [analysis, setAnalysis] = useState<JobMatchAnalysis | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null)
   const [isLoadingResume, setIsLoadingResume] = useState(false)
 
   // State for the linked resume in the 'link' tab
@@ -411,17 +401,13 @@ export function ResumeJobMatchClient({
   const toast = useToast()
 
   /**
-   * Get available tabs based on authentication status.
-   * The "Link to Resume" tab is always first and visible to all users.
-   * The "My Resumes" tab is only shown to authenticated users.
+   * Get the available resume input tabs.
+   * The "Link to Resume" tab is always first and visible to all users;
+   * ResumeLinker itself handles the signed-out case.
    */
   const availableTabs = useMemo((): ResumeInputTab[] => {
-    const tabs: ResumeInputTab[] = ['link', 'paste', 'upload']
-    if (isAuthenticated) {
-      tabs.push('saved')
-    }
-    return tabs
-  }, [isAuthenticated])
+    return ['link', 'paste', 'upload']
+  }, [])
 
   /**
    * Handles keyboard navigation for tabs.
@@ -589,9 +575,8 @@ export function ResumeJobMatchClient({
    * Ensures only one input method is active at a time by clearing
    * conflicting state when switching between tabs.
    *
-   * - When switching TO 'link' or 'saved' tabs: clears resumeText (pasted/uploaded content)
-   * - When switching FROM 'link' tab: clears linkedResumeId
-   * - When switching FROM 'saved' tab: clears selectedResumeId
+   * - When switching TO the 'link' tab: clears resumeText (pasted/uploaded content)
+   * - When switching FROM the 'link' tab: clears linkedResumeId
    */
   const handleResumeTabChange = useCallback(
     (newTab: ResumeInputTab) => {
@@ -607,10 +592,6 @@ export function ResumeJobMatchClient({
         case 'link':
           // Leaving link tab: clear linked resume selection
           setLinkedResumeId(null)
-          break
-        case 'saved':
-          // Leaving saved tab: clear saved resume selection
-          setSelectedResumeId(null)
           break
         // 'paste' and 'upload' tabs share resumeText, handled below
       }
@@ -651,11 +632,6 @@ export function ResumeJobMatchClient({
           return {
             label: translations.tabUploadFile,
             icon: Upload,
-          }
-        case 'saved':
-          return {
-            label: translations.tabMyResumes,
-            icon: FolderOpen,
           }
       }
     },
@@ -714,20 +690,6 @@ export function ResumeJobMatchClient({
     [translations]
   )
 
-  const resumeSelectorTranslations: ResumeSelectorTranslations = useMemo(
-    () => ({
-      loadingResumes: translations.loadingResumes,
-      tryAgain: translations.tryAgain,
-      noResumesFound: translations.noResumesFound,
-      noResumesDescription: translations.noResumesDescription,
-      createResume: translations.createResume,
-      updated: translations.updated,
-      loginRequired: translations.loginRequired,
-      loadError: translations.loadError,
-    }),
-    [translations]
-  )
-
   /**
    * Handles text extracted from file upload.
    * Sets the resume text directly from the extracted content.
@@ -735,52 +697,6 @@ export function ResumeJobMatchClient({
   const handleFileTextExtracted = useCallback((text: string) => {
     setResumeText(text)
   }, [])
-
-  /**
-   * Handles selection of a saved resume.
-   * Fetches the full resume data and converts it to plain text.
-   */
-  const handleResumeSelect = useCallback(
-    async (resumeId: string) => {
-      setSelectedResumeId(resumeId)
-      setIsLoadingResume(true)
-      setError(null)
-
-      try {
-        const supabase = createClient()
-
-        // Fetch the full resume data
-        const { data: resume, error: fetchError } = await supabase
-          .from('resumes')
-          .select('*')
-          .eq('id', resumeId)
-          .single()
-
-        if (fetchError) {
-          throw fetchError
-        }
-
-        if (!resume) {
-          throw new Error(translations.resumeLoadError)
-        }
-
-        // Convert resume to plain text and set it
-        const plainText = convertResumeToText(resume as Resume)
-        setResumeText(plainText)
-      } catch (err) {
-        console.error('Error loading resume:', err)
-        const errorMessage =
-          err instanceof Error ? err.message : translations.resumeLoadError
-        setError(errorMessage)
-        toast.error(errorMessage)
-        // Reset selection on error
-        setSelectedResumeId(null)
-      } finally {
-        setIsLoadingResume(false)
-      }
-    },
-    [toast, translations.resumeLoadError]
-  )
 
   /**
    * Handles selection of a linked resume from the 'link' tab.
@@ -1210,52 +1126,6 @@ export function ResumeJobMatchClient({
                     </div>
                   )}
                 </div>
-
-                {/* My Resumes Tab Panel - Only rendered when authenticated */}
-                {isAuthenticated && (
-                  <div
-                    role="tabpanel"
-                    id="tabpanel-saved"
-                    aria-labelledby="tab-saved"
-                    hidden={activeTab !== 'saved'}
-                    tabIndex={0}
-                  >
-                    {activeTab === 'saved' && (
-                      <div className="space-y-4">
-                        <ResumeSelector
-                          onSelect={handleResumeSelect}
-                          selectedId={selectedResumeId}
-                          locale={locale}
-                          translations={resumeSelectorTranslations}
-                        />
-                        {isLoadingResume && (
-                          <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            {translations.loadingResumeContent}
-                          </div>
-                        )}
-                        {/* Show loaded resume preview */}
-                        {resumeText && !isLoadingResume && (
-                          <div className="mt-4">
-                            <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                              {translations.resumeLabel}
-                            </p>
-                            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 max-h-48 overflow-y-auto">
-                              <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap line-clamp-6">
-                                {resumeText.slice(0, 500)}
-                                {resumeText.length > 500 && '...'}
-                              </p>
-                            </div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                              {new Intl.NumberFormat().format(resumeText.length)}{' '}
-                              characters
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
 

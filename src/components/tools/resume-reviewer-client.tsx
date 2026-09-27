@@ -10,18 +10,14 @@ import {
   type ChangeEvent,
   type KeyboardEvent,
 } from 'react'
-import { useSession } from 'next-auth/react'
-import Link from 'next/link'
 import {
   FileText,
   Upload,
-  FolderOpen,
   ClipboardPaste,
   File,
   X,
   Loader2,
   AlertCircle,
-  Plus,
   ChevronDown,
   ChevronRight,
   Briefcase,
@@ -125,12 +121,6 @@ const ACCEPTED_MIME_TYPES = [
  * Minimum character count required for paste text analysis.
  */
 const MIN_PASTE_CHARACTERS = 100
-
-/**
- * Minimal resume data needed for the selector display.
- * Only fetches fields required for listing and selection.
- */
-type ResumeSummary = Pick<Resume, 'id' | 'title' | 'updated_at' | 'created_at' | 'template'>
 
 /**
  * Strips HTML tags from a string, converting it to plain text.
@@ -300,7 +290,6 @@ export interface ResumeReviewerTranslations {
   tabLinkResume: string
   tabUploadFile: string
   tabPaste: string
-  tabMyResumes: string
   uploadLabel: string
   dragDropText: string
   browseText: string
@@ -422,10 +411,10 @@ interface ResumeReviewerClientProps {
 }
 
 /**
- * Enum for the four resume input methods available in the tabbed interface.
- * Order: link | paste | upload | my-resumes
+ * Enum for the three resume input methods available in the tabbed interface.
+ * Order: link | paste | upload
  */
-type InputTab = 'link' | 'paste' | 'upload' | 'my-resumes'
+type InputTab = 'link' | 'paste' | 'upload'
 
 /**
  * Enum for the two job description input methods available in the tabbed interface.
@@ -458,9 +447,6 @@ export function ResumeReviewerClient({
   locale,
   translations,
 }: ResumeReviewerClientProps) {
-  const { status } = useSession()
-  const isAuthenticated = status === 'authenticated'
-
   // Tab state - starts on 'link' tab (the first tab)
   const [activeTab, setActiveTab] = useState<InputTab>('link')
 
@@ -504,9 +490,10 @@ export function ResumeReviewerClient({
   const inputSectionRef = useRef<HTMLDivElement>(null)
 
   /**
-   * Get available tabs based on authentication status.
-   * Order: Link to Resume | Paste Text | Upload File | My Resumes
-   * My Resumes tab is only shown to authenticated users.
+   * Get the available resume input tabs.
+   * Order: Link to Resume | Paste Text | Upload File
+   * The "Link to Resume" tab is always first and visible to all users;
+   * ResumeLinker itself handles the signed-out case.
    */
   const availableTabs: Array<{
     id: InputTab
@@ -535,16 +522,8 @@ export function ResumeReviewerClient({
       },
     ]
 
-    if (isAuthenticated) {
-      tabs.push({
-        id: 'my-resumes',
-        label: translations.tabMyResumes,
-        icon: <FolderOpen className="h-4 w-4" aria-hidden="true" />,
-      })
-    }
-
     return tabs
-  }, [isAuthenticated, translations])
+  }, [translations])
 
   /**
    * Available tabs for job description input.
@@ -617,7 +596,7 @@ export function ResumeReviewerClient({
           // Leaving link tab: clear linked resume selection
           setLinkedResumeId(null)
           break
-        // 'paste', 'upload', and 'my-resumes' tabs share resumeText
+        // 'paste' and 'upload' tabs share resumeText
       }
 
       // Clear resume text and file state when switching tabs
@@ -1660,25 +1639,6 @@ export function ResumeReviewerClient({
               />
             )}
           </div>
-
-          {/* My Resumes Tab Panel */}
-          {isAuthenticated && (
-            <div
-              role="tabpanel"
-              id="tabpanel-my-resumes"
-              aria-labelledby="tab-my-resumes"
-              hidden={activeTab !== 'my-resumes'}
-              tabIndex={0}
-            >
-              {activeTab === 'my-resumes' && (
-                <MyResumesTabContent
-                  translations={translations}
-                  locale={locale}
-                  onResumeTextChange={setResumeText}
-                />
-              )}
-            </div>
-          )}
         </div>
 
         {/* Job Description Section - Tabbed Interface */}
@@ -2192,356 +2152,6 @@ function PasteTabContent({
             : `${new Intl.NumberFormat().format(characterCount)} characters`}
         </p>
       </div>
-    </div>
-  )
-}
-
-/**
- * My Resumes tab content - displays user's saved resumes for selection.
- * Fetches resumes from Supabase, allows selection, and extracts text
- * from the selected resume's JSONB content.
- */
-function MyResumesTabContent({
-  translations,
-  locale,
-  onResumeTextChange,
-}: {
-  translations: ResumeReviewerTranslations
-  locale: string
-  onResumeTextChange: (text: string) => void
-}) {
-  const [resumes, setResumes] = useState<ResumeSummary[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null)
-  const [isLoadingContent, setIsLoadingContent] = useState(false)
-  const [extractedText, setExtractedText] = useState<string | null>(null)
-
-  /**
-   * Fetches user's resumes from Supabase.
-   */
-  const fetchResumes = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const supabase = createClient()
-
-      // Verify user is authenticated before querying
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setError(translations.loginRequired || 'Please sign in to access your resumes')
-        setIsLoading(false)
-        return
-      }
-
-      // RLS ensures we only get the current user's resumes
-      const { data, error: fetchError } = await supabase
-        .from('resumes')
-        .select('id, title, updated_at, created_at, template')
-        .order('updated_at', { ascending: false })
-
-      if (fetchError) {
-        throw fetchError
-      }
-
-      setResumes(data || [])
-    } catch (err) {
-      console.error('Error fetching resumes:', err)
-      setError(translations.loadError || 'Failed to load resumes')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [translations.loginRequired, translations.loadError])
-
-  // Fetch resumes on mount
-  useEffect(() => {
-    fetchResumes()
-  }, [fetchResumes])
-
-  /**
-   * Handles resume selection - fetches full content and extracts text.
-   */
-  const handleResumeSelect = useCallback(
-    async (resumeId: string) => {
-      // If clicking the same resume, deselect it
-      if (selectedResumeId === resumeId) {
-        setSelectedResumeId(null)
-        setExtractedText(null)
-        onResumeTextChange('')
-        return
-      }
-
-      setSelectedResumeId(resumeId)
-      setIsLoadingContent(true)
-      setError(null)
-
-      try {
-        const supabase = createClient()
-
-        // Fetch the full resume data
-        const { data: resume, error: fetchError } = await supabase
-          .from('resumes')
-          .select('*')
-          .eq('id', resumeId)
-          .single()
-
-        if (fetchError) {
-          throw fetchError
-        }
-
-        if (!resume) {
-          throw new Error(translations.resumeLoadError || 'Resume not found')
-        }
-
-        // Convert resume to plain text
-        const plainText = convertResumeToText(resume as Resume)
-        setExtractedText(plainText)
-        onResumeTextChange(plainText)
-      } catch (err) {
-        console.error('Error loading resume content:', err)
-        const errorMessage =
-          err instanceof Error
-            ? err.message
-            : translations.resumeLoadError || 'Failed to load resume content'
-        setError(errorMessage)
-        // Reset selection on error
-        setSelectedResumeId(null)
-        setExtractedText(null)
-        onResumeTextChange('')
-      } finally {
-        setIsLoadingContent(false)
-      }
-    },
-    [selectedResumeId, onResumeTextChange, translations.resumeLoadError]
-  )
-
-  /**
-   * Format date to a human-readable string based on locale.
-   */
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString)
-    return new Intl.DateTimeFormat(locale, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }).format(date)
-  }
-
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-8 sm:py-12 space-y-3 sm:space-y-4">
-        <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 text-teal-600 animate-spin" aria-hidden="true" />
-        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-          {translations.loadingResumes || 'Loading your resumes...'}
-        </p>
-      </div>
-    )
-  }
-
-  // Error state (including login required)
-  if (error && resumes.length === 0) {
-    return (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 sm:p-6 text-center">
-        <AlertCircle className="h-6 w-6 sm:h-8 sm:w-8 text-red-500 dark:text-red-400 mx-auto mb-2 sm:mb-3" aria-hidden="true" />
-        <p className="text-xs sm:text-sm text-red-800 dark:text-red-200">{error}</p>
-        <button
-          type="button"
-          onClick={fetchResumes}
-          className="mt-3 sm:mt-4 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 rounded min-h-[44px] px-4 py-2"
-        >
-          {translations.tryAgain || 'Try again'}
-        </button>
-      </div>
-    )
-  }
-
-  // Empty state - user has no resumes
-  if (resumes.length === 0) {
-    return (
-      <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg p-6 sm:p-8 text-center">
-        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-          <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-slate-400 dark:text-slate-500" aria-hidden="true" />
-        </div>
-        <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
-          {translations.noResumesFound || 'No resumes found'}
-        </h3>
-        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-4 sm:mb-6">
-          {translations.noResumesDescription || 'Create a resume to get started with the review.'}
-        </p>
-        <Link
-          href={`/${locale}/dashboard/resumes`}
-          className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 min-h-[48px] sm:min-h-[44px]"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          {translations.createResume || 'Create Resume'}
-        </Link>
-      </div>
-    )
-  }
-
-  // Resumes list
-  return (
-    <div className="space-y-3 sm:space-y-4">
-      {/* Label */}
-      <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
-        {translations.selectResumeLabel}
-      </label>
-
-      {/* Resumes grid */}
-      <div className="grid grid-cols-1 gap-2 sm:gap-3 max-h-[250px] sm:max-h-[300px] overflow-y-auto pr-1 -mr-1">
-        {resumes.map((resume) => {
-          const isSelected = selectedResumeId === resume.id
-          const lastModified = resume.updated_at || resume.created_at
-
-          return (
-            <button
-              key={resume.id}
-              type="button"
-              onClick={() => handleResumeSelect(resume.id)}
-              disabled={isLoadingContent && selectedResumeId === resume.id}
-              aria-pressed={isSelected}
-              aria-label={`Select resume: ${resume.title}`}
-              className={cn(
-                'relative flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg border-2 text-left transition-all',
-                'hover:shadow-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2',
-                'disabled:cursor-wait min-h-[56px]',
-                isSelected
-                  ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20 dark:border-teal-400'
-                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600'
-              )}
-            >
-              {/* Resume icon */}
-              <div
-                className={cn(
-                  'w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0',
-                  isSelected
-                    ? 'bg-teal-100 dark:bg-teal-800/50'
-                    : 'bg-slate-100 dark:bg-slate-700'
-                )}
-              >
-                {isLoadingContent && selectedResumeId === resume.id ? (
-                  <Loader2
-                    className="h-5 w-5 text-teal-600 dark:text-teal-400 animate-spin"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <FileText
-                    className={cn(
-                      'h-5 w-5',
-                      isSelected
-                        ? 'text-teal-600 dark:text-teal-400'
-                        : 'text-slate-500 dark:text-slate-400'
-                    )}
-                    aria-hidden="true"
-                  />
-                )}
-              </div>
-
-              {/* Resume info */}
-              <div className="flex-1 min-w-0 pr-5 sm:pr-6">
-                <h3
-                  className={cn(
-                    'font-medium truncate text-xs sm:text-sm',
-                    isSelected
-                      ? 'text-teal-900 dark:text-teal-100'
-                      : 'text-slate-900 dark:text-slate-100'
-                  )}
-                >
-                  {resume.title}
-                </h3>
-                <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 flex-wrap">
-                  <span
-                    className={cn(
-                      'text-[11px] sm:text-xs',
-                      isSelected
-                        ? 'text-teal-700 dark:text-teal-300'
-                        : 'text-slate-500 dark:text-slate-400'
-                    )}
-                  >
-                    {translations.updated || 'Updated'} {formatDate(lastModified)}
-                  </span>
-                  {resume.template && (
-                    <>
-                      <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">|</span>
-                      <span
-                        className={cn(
-                          'text-[11px] sm:text-xs capitalize',
-                          isSelected
-                            ? 'text-teal-600 dark:text-teal-400'
-                            : 'text-slate-400 dark:text-slate-500'
-                        )}
-                      >
-                        {resume.template}
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Selection indicator */}
-              {isSelected && !isLoadingContent && (
-                <div className="absolute top-2 right-2 w-5 h-5 bg-teal-500 rounded-full flex items-center justify-center">
-                  <svg
-                    className="w-3 h-3 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={3}
-                    aria-hidden="true"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                </div>
-              )}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Loading content indicator */}
-      {isLoadingContent && (
-        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          {translations.loadingResumeContent || 'Loading resume content...'}
-        </div>
-      )}
-
-      {/* Extracted text preview */}
-      {extractedText && !isLoadingContent && (
-        <div className="mt-3 sm:mt-4">
-          <p className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-            {translations.extractedContent || 'Extracted Content'}
-          </p>
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 sm:p-4 max-h-36 sm:max-h-48 overflow-y-auto">
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap line-clamp-6">
-              {extractedText.slice(0, 500)}
-              {extractedText.length > 500 && '...'}
-            </p>
-          </div>
-          <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {translations.charactersExtracted
-              ? translations.charactersExtracted.replace(
-                  '{count}',
-                  new Intl.NumberFormat().format(extractedText.length)
-                )
-              : `${new Intl.NumberFormat().format(extractedText.length)} characters extracted`}
-          </p>
-        </div>
-      )}
-
-      {/* Inline error for content loading */}
-      {error && selectedResumeId && (
-        <div className="flex items-start gap-2 text-sm text-red-600 dark:text-red-400" role="alert">
-          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
-          <p>{error}</p>
-        </div>
-      )}
     </div>
   )
 }

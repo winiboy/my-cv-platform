@@ -90,7 +90,6 @@ interface GrammarCheckerUITranslations {
   inputSection: string;
   resultsSection: string;
   tabLinkResume: string;
-  tabMyResumes: string;
   tabPasteText: string;
   tabUploadFile: string;
   checkButton: string;
@@ -179,7 +178,6 @@ function buildClientTranslations(t: ToolsTranslations): GrammarCheckerTranslatio
     inputSection: ui?.inputSection || "Your Resume",
     resultsSection: ui?.resultsSection || "Grammar Check Results",
     tabLinkResume: ui?.tabLinkResume || "Link to Resume",
-    tabMyResumes: ui?.tabMyResumes || "My Resumes",
     tabPasteText: ui?.tabPasteText || "Paste Text",
     tabUploadFile: ui?.tabUploadFile || "Upload File",
     checkButton: ui?.checkButton || "Check Grammar",
