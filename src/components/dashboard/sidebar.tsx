@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, FileText, Mail, ClipboardList, Briefcase, Target, Settings } from 'lucide-react'
+import { Home, FileText, Mail, ClipboardList, Briefcase } from 'lucide-react'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import type { Locale } from '@/lib/i18n'
 import { useMemo } from 'react'
@@ -40,16 +40,6 @@ export function DashboardSidebar({ locale }: DashboardSidebarProps) {
       name: t('dashboard.nav.jobs'),
       href: `/${locale}/dashboard/jobs`,
       icon: Briefcase,
-    },
-    {
-      name: t('dashboard.nav.goals'),
-      href: `/${locale}/dashboard/goals`,
-      icon: Target,
-    },
-    {
-      name: t('dashboard.nav.settings'),
-      href: `/${locale}/dashboard/settings`,
-      icon: Settings,
     },
   ], [locale, t])
 

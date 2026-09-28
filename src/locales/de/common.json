@@ -92,13 +92,10 @@
       "resumes": "Meine Lebensläufe",
       "coverLetters": "Anschreiben",
       "applications": "Meine Bewerbungen",
-      "jobs": "Stellensuche",
-      "goals": "Ziele",
-      "settings": "Einstellungen"
+      "jobs": "Stellensuche"
     },
     "welcome": "Willkommen",
     "logout": "Abmelden",
-    "account": "Mein Konto",
     "overview": "Hier ist eine Übersicht über Ihren beruflichen Werdegang",
     "viewAll": "Alle anzeigen",
     "quickActions": "Schnellaktionen",

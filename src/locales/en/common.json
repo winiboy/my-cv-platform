@@ -92,13 +92,10 @@
       "resumes": "My Resumes",
       "coverLetters": "Cover Letters",
       "applications": "My Applications",
-      "jobs": "Job Search",
-      "goals": "Goals",
-      "settings": "Settings"
+      "jobs": "Job Search"
     },
     "welcome": "Welcome",
     "logout": "Logout",
-    "account": "My Account",
     "overview": "Here's an overview of your career journey",
     "viewAll": "View all",
     "quickActions": "Quick Actions",
