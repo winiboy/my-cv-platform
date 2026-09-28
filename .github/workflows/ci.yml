@@ -164,8 +164,13 @@ jobs:
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
+      # `mailpit` is NOT excluded here, unlike the other jobs. The password
+      # recovery suite reads the actual delivered email out of it — request the
+      # reset, open the message, follow its link — because a test that stops at
+      # "a confirmation appeared" proves the button works and not that anyone
+      # can recover their account. e2e/fixtures/mail.ts talks to it on 54324.
       - name: Start Supabase
-        run: pnpm supabase start -x studio,imgproxy,mailpit,realtime,vector,edge-runtime,logflare,supavisor,postgres-meta
+        run: pnpm supabase start -x studio,imgproxy,realtime,vector,edge-runtime,logflare,supavisor,postgres-meta
 
       # playwright.config.ts builds the app and starts it itself, pinned to the
       # local stack. It refuses to run against a non-local Supabase host.
