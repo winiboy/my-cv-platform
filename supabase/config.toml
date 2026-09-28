@@ -159,7 +159,40 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+#
+# Password recovery depends on this list. `resetPasswordForEmail` sends a
+# `redirectTo` of `<base>/<locale>/reset-password`, and GoTrue silently replaces
+# anything not matched here with `site_url` — so a link that is not covered
+# lands on the home page with the recovery tokens attached and the reset page
+# never sees them. That failure looks exactly like a product bug.
+#
+# The original single entry was `https://127.0.0.1:3000` — the wrong scheme
+# (this app is served over http locally) and a port nothing uses. It is kept so
+# this change is purely additive, per the regression constraints.
+#
+# The rest are the origins the app and the test suites actually run on:
+#   3000  `pnpm dev` default
+#   3100  the E2E suite (`playwright.config.ts`)
+#   3110  the visual suite
+#   3120  the parity suite
+# and both spellings of the loopback host, because the E2E suite uses
+# 127.0.0.1 while a developer's browser usually says localhost, and GoTrue
+# matches this list literally rather than resolving names.
+#
+# `/**` is a glob that matches any path below the origin. It has to be a glob:
+# the locale is part of the path, so an exact list would need one entry per
+# locale per port, and a locale added later would be broken in recovery only.
+additional_redirect_urls = [
+  "https://127.0.0.1:3000",
+  "http://127.0.0.1:3000/**",
+  "http://127.0.0.1:3100/**",
+  "http://127.0.0.1:3110/**",
+  "http://127.0.0.1:3120/**",
+  "http://localhost:3000/**",
+  "http://localhost:3100/**",
+  "http://localhost:3110/**",
+  "http://localhost:3120/**",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -195,7 +228,48 @@ password_requirements = ""
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+#
+# TEST-INFRASTRUCTURE CHANGE, raised from 2. Called out explicitly because
+# `[auth.rate_limit]` values govern behaviour and are otherwise off limits here.
+#
+# WHY IT HAD TO CHANGE
+# This is a global hourly counter, not a per-address or per-IP one. The E2E
+# suite's recovery coverage sends one email per scenario — the end-to-end reset,
+# the unknown-address comparison, the consumed-token case — so at 2 the third
+# scenario in any hour was refused by GoTrue. The suite would then report a
+# product failure for a limit that belongs to Supabase, and re-running it inside
+# the same hour would fail differently. A required check that depends on what
+# time it is run is not a check.
+#
+# WHY RAISING IT IS SAFE FOR EVERY COMMAND THIS REPO RUNS
+# Locally, mail goes to the mail catcher on port 54324 and reaches no recipient
+# and no sending reputation. The value 2 protects a real SMTP quota, and the
+# local stack has none. Nothing in `pnpm supabase start`, the test suites or CI
+# applies this file to anything but the local containers.
+#
+# BUT THIS FILE IS NOT INHERENTLY LOCAL-ONLY, and an earlier version of this
+# comment said it was. The project is linked to a hosted Supabase project, and
+# the pinned CLI supports `supabase config push`, which applies this `[auth]`
+# block — `email_sent = 100`, the redirect allow-list above, all of it — to the
+# HOSTED project. Nothing in this repository runs that command today, and
+# nothing should run it without the owner deciding to; but the protection is
+# "no one runs it", not "this file cannot reach production". Anyone adding a
+# config-push step must review this value first: 100 emails per hour against a
+# real sender is a different proposition entirely.
+#
+# WHAT THE HEADROOM ACTUALLY BUYS
+# One full verification round — `pnpm test:e2e` plus the screenshot capture —
+# sends roughly 15 messages. At 100 per hour that is about six rounds in an
+# hour, which covers an ordinary debugging session without anyone having to
+# wait for a counter to roll over. Below about 20 the suite starts failing on
+# the second consecutive run, and it fails as "no email was delivered", which
+# reads as a product bug rather than as a quota. That failure mode is the whole
+# reason this value is not simply "a bit above what one run needs".
+#
+# The product's own limit on the recovery request is unaffected and is not this
+# number: see `src/lib/api/password-reset-rate-limit.ts`. The E2E test for that
+# limit deliberately does not rely on this counter to produce its failure.
+email_sent = 100
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.

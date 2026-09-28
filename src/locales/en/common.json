@@ -74,6 +74,33 @@
       "noAccount": "Don't have an account?",
       "signupLink": "Create account"
     },
+    "forgotPassword": {
+      "title": "Reset your password",
+      "subtitle": "Enter the email address for your account and we'll send you a link to choose a new password.",
+      "email": "Email address",
+      "submit": "Send reset link",
+      "submitting": "Sending...",
+      "sentTitle": "Check your inbox",
+      "sentBody": "If an account exists for that address, a link to choose a new password is on its way. The link expires after one hour.",
+      "sentHint": "Nothing arrived? Check your spam folder before asking for another link.",
+      "backToLogin": "Back to sign in"
+    },
+    "resetPassword": {
+      "title": "Choose a new password",
+      "subtitle": "Enter a new password for your account.",
+      "checking": "Checking your link...",
+      "password": "New password",
+      "passwordHint": "At least 8 characters",
+      "confirmPassword": "Confirm new password",
+      "submit": "Update password",
+      "submitting": "Updating...",
+      "doneTitle": "Password updated",
+      "doneBody": "Your password has been changed. You can now sign in with it.",
+      "goToLogin": "Go to sign in",
+      "invalidTitle": "This link cannot be used",
+      "invalidBody": "Password reset links work only once and expire after a while. Ask for a new one to continue.",
+      "requestNewLink": "Request a new link"
+    },
     "errors": {
       "invalidEmail": "Invalid email address",
       "passwordTooShort": "Password must be at least 8 characters",
@@ -83,7 +110,12 @@
       "signupFailed": "Failed to create account",
       "loginFailed": "Failed to sign in",
       "userExists": "An account with this email already exists",
-      "invalidCredentials": "Invalid email or password"
+      "invalidCredentials": "Invalid email or password",
+      "passwordsDoNotMatch": "The two passwords do not match",
+      "resetRequestFailed": "Something went wrong. Please try again.",
+      "resetRequestThrottled": "Too many reset requests from this connection. Please wait a few minutes and try again.",
+      "resetFailed": "The password could not be updated. Request a new link and try again.",
+      "passwordRejected": "This password was rejected as too weak. Choose a longer or less common one."
     }
   },
   "dashboard": {

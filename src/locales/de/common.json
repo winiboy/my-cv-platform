@@ -74,6 +74,33 @@
       "noAccount": "Sie haben noch kein Konto?",
       "signupLink": "Konto erstellen"
     },
+    "forgotPassword": {
+      "title": "Passwort zurücksetzen",
+      "subtitle": "Geben Sie die E-Mail-Adresse Ihres Kontos ein, und wir senden Ihnen einen Link, um ein neues Passwort zu wählen.",
+      "email": "E-Mail-Adresse",
+      "submit": "Link senden",
+      "submitting": "Senden...",
+      "sentTitle": "Prüfen Sie Ihren Posteingang",
+      "sentBody": "Wenn für diese Adresse ein Konto besteht, ist ein Link zum Wählen eines neuen Passworts unterwegs. Der Link verfällt nach einer Stunde.",
+      "sentHint": "Nichts angekommen? Prüfen Sie Ihren Spam-Ordner, bevor Sie einen weiteren Link anfordern.",
+      "backToLogin": "Zurück zur Anmeldung"
+    },
+    "resetPassword": {
+      "title": "Neues Passwort wählen",
+      "subtitle": "Geben Sie ein neues Passwort für Ihr Konto ein.",
+      "checking": "Ihr Link wird geprüft...",
+      "password": "Neues Passwort",
+      "passwordHint": "Mindestens 8 Zeichen",
+      "confirmPassword": "Neues Passwort bestätigen",
+      "submit": "Passwort aktualisieren",
+      "submitting": "Wird aktualisiert...",
+      "doneTitle": "Passwort aktualisiert",
+      "doneBody": "Ihr Passwort wurde geändert. Sie können sich jetzt damit anmelden.",
+      "goToLogin": "Zur Anmeldung",
+      "invalidTitle": "Dieser Link kann nicht verwendet werden",
+      "invalidBody": "Links zum Zurücksetzen des Passworts funktionieren nur einmal und verfallen nach einer Weile. Fordern Sie einen neuen an, um fortzufahren.",
+      "requestNewLink": "Neuen Link anfordern"
+    },
     "errors": {
       "invalidEmail": "Ungültige E-Mail-Adresse",
       "passwordTooShort": "Das Passwort muss mindestens 8 Zeichen enthalten",
@@ -83,7 +110,12 @@
       "signupFailed": "Kontoerstellung fehlgeschlagen",
       "loginFailed": "Anmeldung fehlgeschlagen",
       "userExists": "Ein Konto mit dieser E-Mail existiert bereits",
-      "invalidCredentials": "E-Mail oder Passwort falsch"
+      "invalidCredentials": "E-Mail oder Passwort falsch",
+      "passwordsDoNotMatch": "Die beiden Passwörter stimmen nicht überein",
+      "resetRequestFailed": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+      "resetRequestThrottled": "Zu viele Anfragen von dieser Verbindung. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
+      "resetFailed": "Das Passwort konnte nicht aktualisiert werden. Fordern Sie einen neuen Link an und versuchen Sie es erneut.",
+      "passwordRejected": "Dieses Passwort wurde als zu schwach abgelehnt. Wählen Sie ein längeres oder weniger gebräuchliches."
     }
   },
   "dashboard": {

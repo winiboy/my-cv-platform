@@ -74,6 +74,33 @@
       "noAccount": "Vous n'avez pas de compte ?",
       "signupLink": "Créer un compte"
     },
+    "forgotPassword": {
+      "title": "Réinitialiser votre mot de passe",
+      "subtitle": "Saisissez l'adresse e-mail de votre compte et nous vous enverrons un lien pour choisir un nouveau mot de passe.",
+      "email": "Adresse e-mail",
+      "submit": "Envoyer le lien",
+      "submitting": "Envoi...",
+      "sentTitle": "Consultez votre boîte de réception",
+      "sentBody": "Si un compte existe pour cette adresse, un lien pour choisir un nouveau mot de passe est en route. Le lien expire au bout d'une heure.",
+      "sentHint": "Rien reçu ? Vérifiez votre dossier de courrier indésirable avant de demander un autre lien.",
+      "backToLogin": "Retour à la connexion"
+    },
+    "resetPassword": {
+      "title": "Choisissez un nouveau mot de passe",
+      "subtitle": "Saisissez un nouveau mot de passe pour votre compte.",
+      "checking": "Vérification de votre lien...",
+      "password": "Nouveau mot de passe",
+      "passwordHint": "Au moins 8 caractères",
+      "confirmPassword": "Confirmez le nouveau mot de passe",
+      "submit": "Mettre à jour le mot de passe",
+      "submitting": "Mise à jour...",
+      "doneTitle": "Mot de passe mis à jour",
+      "doneBody": "Votre mot de passe a été modifié. Vous pouvez maintenant vous connecter avec celui-ci.",
+      "goToLogin": "Aller à la connexion",
+      "invalidTitle": "Ce lien ne peut pas être utilisé",
+      "invalidBody": "Les liens de réinitialisation ne fonctionnent qu'une seule fois et expirent au bout d'un certain temps. Demandez-en un nouveau pour continuer.",
+      "requestNewLink": "Demander un nouveau lien"
+    },
     "errors": {
       "invalidEmail": "Adresse e-mail invalide",
       "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères",
@@ -83,7 +110,12 @@
       "signupFailed": "Échec de la création du compte",
       "loginFailed": "Échec de la connexion",
       "userExists": "Un compte avec cet e-mail existe déjà",
-      "invalidCredentials": "E-mail ou mot de passe incorrect"
+      "invalidCredentials": "E-mail ou mot de passe incorrect",
+      "passwordsDoNotMatch": "Les deux mots de passe ne correspondent pas",
+      "resetRequestFailed": "Une erreur s'est produite. Veuillez réessayer.",
+      "resetRequestThrottled": "Trop de demandes depuis cette connexion. Veuillez attendre quelques minutes et réessayer.",
+      "resetFailed": "Le mot de passe n'a pas pu être mis à jour. Demandez un nouveau lien et réessayez.",
+      "passwordRejected": "Ce mot de passe a été refusé car trop faible. Choisissez-en un plus long ou moins courant."
     }
   },
   "dashboard": {

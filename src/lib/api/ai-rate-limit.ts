@@ -48,15 +48,13 @@
  *   set.
  */
 
-import * as Sentry from '@sentry/nextjs'
 import { NextResponse, type NextRequest } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
 import {
   createInMemoryRateLimitStore,
   enforceRateLimit,
   type RateLimitPolicy,
-  type RateLimitStore,
 } from './rate-limit'
+import { createSupabaseRateLimitStore, resolveClientIp } from './rate-limit-shared-store'
 
 /**
  * Who is making the request.
@@ -97,40 +95,6 @@ export const ANONYMOUS_AI_POLICY: RateLimitPolicy = { limit: 20, windowSeconds: 
 export const AUTHENTICATED_AI_POLICY: RateLimitPolicy = { limit: 60, windowSeconds: 600 }
 
 /**
- * Bucket used when no client address can be determined.
- *
- * On Vercel the platform always supplies one, so this is effectively the local
- * development case. Everything unattributed shares one budget: a degradation,
- * not an exemption. Granting unattributed callers a free pass would make the
- * guard trivially bypassable by stripping a header.
- */
-const UNATTRIBUTED_IP = 'unattributed'
-
-/**
- * Reads the client address from the platform's forwarding headers.
- *
- * `x-forwarded-for` is a comma-separated chain appended to by each hop; the
- * first entry is the original client as seen by the outermost trusted proxy.
- * Truncated because the header is caller-influenced in the general case and
- * must not be able to write an unbounded key into a database column.
- *
- * Next 15 removed `NextRequest.ip`, which used to sit behind these two headers
- * as a third fallback. Nothing is lost in production: Vercel populates
- * `x-forwarded-for` on every request, and `ip` was itself derived from it. A
- * caller that reaches here with neither header now lands in UNATTRIBUTED_IP,
- * which is a shared budget rather than an exemption.
- */
-export function resolveClientIp(request: NextRequest): string {
-  const forwardedFor = request.headers.get('x-forwarded-for')
-  const candidate =
-    forwardedFor?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip')?.trim() ||
-    ''
-
-  return candidate ? candidate.slice(0, 64) : UNATTRIBUTED_IP
-}
-
-/**
  * The counter key for a caller.
  *
  * One bucket per caller across all AI routes, not one per route: per-route
@@ -152,73 +116,16 @@ export function aiRateLimitPolicy(caller: AiCaller): RateLimitPolicy {
  */
 const localStore = createInMemoryRateLimitStore()
 
-/** Minimum gap between shared-store failure reports, per process. */
-const DEGRADATION_REPORT_INTERVAL_MS = 60_000
-let lastDegradationReportAt = 0
-
 /**
- * Reports that the shared tier could not answer.
- *
- * Throttled: a database outage would otherwise emit one Sentry event per
- * request and bury the signal in its own volume.
+ * Cross-instance tier. The store itself lives in `rate-limit-shared-store.ts`
+ * because the password-reset guard needs the same one; the tag and the note
+ * below are what make a degradation report say which limit stopped holding.
  */
-function reportDegradation(error: unknown): void {
-  const now = Date.now()
-  if (now - lastDegradationReportAt < DEGRADATION_REPORT_INTERVAL_MS) {
-    return
-  }
-  lastDegradationReportAt = now
-
-  Sentry.captureException(error instanceof Error ? error : new Error('Rate limit store unavailable'), {
-    level: 'warning',
-    tags: { area: 'rate-limit', rate_limit_tier: 'shared' },
-    extra: {
-      note: 'AI rate limiting degraded to the per-instance tier; the cross-instance limit is not in force.',
-    },
-  })
-}
-
-/**
- * Cross-instance tier, backed by `public.consume_rate_limit`.
- *
- * The increment and the limit comparison happen inside one statement in the
- * database, so two concurrent requests cannot both read the same count and
- * both conclude they are under the limit.
- *
- * The anon key is enough: the function is SECURITY DEFINER and the table it
- * writes denies direct access, so no privileged credential is involved and no
- * caller can read or edit another caller's counter.
- */
-function createSupabaseRateLimitStore(): RateLimitStore {
-  return {
-    async consume(bucket, policy) {
-      try {
-        const supabase = await createServerSupabaseClient()
-        const { data, error } = await supabase.rpc('consume_rate_limit', {
-          p_bucket: bucket,
-          p_limit: policy.limit,
-          p_window_seconds: policy.windowSeconds,
-        })
-
-        if (error || !data || data.length === 0) {
-          reportDegradation(error ?? new Error('consume_rate_limit returned no row'))
-          return null
-        }
-
-        const [row] = data
-        return {
-          allowed: row.allowed,
-          retryAfterSeconds: row.allowed ? 0 : Math.max(1, row.retry_after_seconds),
-        }
-      } catch (error) {
-        reportDegradation(error)
-        return null
-      }
-    },
-  }
-}
-
-const sharedStore = createSupabaseRateLimitStore()
+const sharedStore = createSupabaseRateLimitStore({
+  area: 'rate-limit',
+  degradationNote:
+    'AI rate limiting degraded to the per-instance tier; the cross-instance limit is not in force.',
+})
 
 /**
  * Builds the refusal. `Retry-After` is the standard header for a 429 and is
