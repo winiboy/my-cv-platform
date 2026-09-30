@@ -84,6 +84,21 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0'])
 /** A Postgres identifier we are willing to interpolate into SQL. */
 const SAFE_IDENTIFIER = /^[a-z_][a-z0-9_]*$/
 
+/**
+ * An extension name we are willing to interpolate into SQL. Wider than
+ * SAFE_IDENTIFIER because real extension names contain hyphens ("uuid-ossp")
+ * and so are always double-quoted; the quote character itself is what must not
+ * get through.
+ */
+const SAFE_EXTENSION = /^[A-Za-z0-9_-]+$/
+
+/**
+ * Schemas that exist in every database and can host an extension but can never
+ * be created by us. `plpgsql` lives in `pg_catalog` and is already present in
+ * any database cloned from template0.
+ */
+const BUILTIN_SCHEMAS = new Set(['pg_catalog', 'information_schema'])
+
 const log = (msg) => console.log(`[db-backup] ${msg}`)
 const warn = (msg) => console.warn(`[db-backup] WARNING: ${msg}`)
 
@@ -235,11 +250,17 @@ function runPg(target, image, binary, args, mountDir = null) {
   return { status: result.status ?? 1, stdout: result.stdout ?? '', stderr: result.stderr ?? '' }
 }
 
-/** Runs a command in the already-running local database container. */
-function runInVerifyContainer(container, args) {
+/**
+ * Runs a command in the already-running local database container.
+ *
+ * @param {string|undefined} [input] written to the command's stdin, for
+ *   getting a file into the container without leaving one on the host.
+ */
+function runInVerifyContainer(container, args, input) {
   const result = spawnSync('docker', ['exec', '-i', container, ...args], {
     shell: false,
     encoding: 'utf8',
+    input,
     maxBuffer: 32 * 1024 * 1024,
   })
   if (result.error) fail(EXIT.CONFIG, `could not start docker: ${result.error.message}`)
@@ -286,6 +307,54 @@ function tableCounts(runner, schemas) {
     counts.set(rel, Number(n))
   }
   return counts
+}
+
+/**
+ * Which extensions the source has, and which schema each one was installed
+ * into.
+ *
+ * The placement is not a detail: `pg_dump --schema public` does not emit
+ * `CREATE EXTENSION` at all, but it does emit column defaults that call the
+ * extension's functions schema-qualified — `DEFAULT public.uuid_generate_v4()`
+ * on a database whose `uuid-ossp` sits in `public`, `extensions.uuid_...` on
+ * one provisioned by Supabase's current template. The restore target must
+ * therefore mirror wherever the source actually put them. Assuming either
+ * convention breaks against the other.
+ *
+ * @returns {Array<{name: string, schema: string}>} extensions the scratch
+ *   database has to reproduce, in a stable order. Built-in schemas are
+ *   filtered out: an extension already present in every database (`plpgsql`)
+ *   needs nothing done.
+ */
+function sourceExtensions(runner) {
+  const sql = `
+    SELECT e.extname, n.nspname
+      FROM pg_extension e
+      JOIN pg_namespace n ON n.oid = e.extnamespace
+     ORDER BY 1;`
+
+  const { status, stdout, stderr } = runner(['-X', '-w', '-A', '-t', '-F', '|', '-v', 'ON_ERROR_STOP=1', '-c', sql])
+  if (status !== 0) {
+    fail(EXIT.DUMP_FAILED, 'could not read the extension list from the database.', [
+      stderr.trim() || 'psql produced no diagnostic output.',
+      'Without it the restore target cannot be built to match the source.',
+    ])
+  }
+
+  const extensions = []
+  for (const line of stdout.split(/\r?\n/)) {
+    if (!line.trim()) continue
+    const [name, schema] = line.split('|')
+    if (BUILTIN_SCHEMAS.has(schema)) continue
+    // Both are interpolated into SQL below. The source is the database being
+    // backed up rather than an operator, but a backup script is exactly the
+    // wrong place to extend trust on that basis.
+    if (!SAFE_EXTENSION.test(name) || !SAFE_IDENTIFIER.test(schema)) {
+      fail(EXIT.DUMP_FAILED, `refusing to recreate extension "${name}" in schema "${schema}": unexpected characters in the name.`)
+    }
+    extensions.push({ name, schema })
+  }
+  return extensions
 }
 
 /**
@@ -367,6 +436,51 @@ function applyRetention(dir, retain) {
 }
 
 /**
+ * A `SCHEMA` entry in `pg_restore -l` output, e.g.
+ * `6; 2615 2200 SCHEMA - public pg_database_owner`. Matched against the
+ * archive's own machine-readable table of contents rather than against an
+ * error message, which would be localised by the server's `lc_messages`.
+ */
+const TOC_SCHEMA_ENTRY = /^\d+;\s+\d+\s+\d+\s+SCHEMA\s+-\s+(\S+)(?:\s|$)/
+
+/**
+ * Builds the `-L` arguments that suppress the dump's `CREATE SCHEMA` for
+ * schemas the caller has already created.
+ *
+ * Returns an empty array when nothing needs suppressing, so the ordinary case
+ * — every extension living outside the dumped schemas — runs exactly the
+ * restore it ran before, with no list file involved.
+ *
+ * @param {Set<string>} preCreated schemas that already exist in the target
+ * @returns {string[]} arguments to splice into the pg_restore argv
+ */
+function buildRestoreList(container, inContainerDump, scratch, preCreated) {
+  if (preCreated.size === 0) return []
+
+  const toc = runInVerifyContainer(container, ['pg_restore', '-l', inContainerDump])
+  if (toc.status !== 0) {
+    fail(EXIT.VERIFY_FAILED, `could not read the dump's table of contents: ${toc.stderr.trim()}`)
+  }
+
+  const dropped = []
+  const kept = toc.stdout.split(/\r?\n/).filter((line) => {
+    const match = TOC_SCHEMA_ENTRY.exec(line)
+    if (!match || !preCreated.has(match[1])) return true
+    dropped.push(match[1])
+    return false
+  })
+  if (dropped.length === 0) return []
+
+  const listPath = `/tmp/${scratch}.list`
+  const write = runInVerifyContainer(container, ['sh', '-c', `cat > "${listPath}"`], kept.join('\n'))
+  if (write.status !== 0) {
+    fail(EXIT.VERIFY_FAILED, `could not write the restore list into ${container}: ${write.stderr.trim()}`)
+  }
+  log(`verify: schema(s) ${dropped.join(', ')} already created for an extension — restoring without the dump's CREATE SCHEMA for them`)
+  return ['-L', listPath]
+}
+
+/**
  * Restores the dump into a throwaway database and compares row counts.
  *
  * The scratch database is created in the local Supabase container, never on
@@ -374,11 +488,12 @@ function applyRetention(dir, retain) {
  * reaches that container's Postgres over its local socket, so verification
  * needs no credentials of its own.
  *
- * The scratch database is pre-loaded with `uuid-ossp` in an `extensions`
- * schema because `public.resumes.id` and friends default to
- * `extensions.uuid_generate_v4()`. A fresh Supabase project has that
- * extension; a bare database does not, and without it the restore would fail
- * for a reason that says nothing about the dump.
+ * The scratch database is pre-loaded with the source's own extensions, in the
+ * source's own schemas, because `pg_dump --schema` omits `CREATE EXTENSION`
+ * while still emitting the schema-qualified defaults that depend on it. A bare
+ * database has none of them, and without them the restore fails for a reason
+ * that says nothing about the dump. See `sourceExtensions()` for why the
+ * placement is read rather than assumed.
  *
  * Comparing against a single source count would be unsound on a live
  * database. `pg_dump` is internally consistent — it dumps from one repeatable
@@ -394,9 +509,10 @@ function applyRetention(dir, retain) {
  * A missing table, an extra table, or any pg_restore error is a FAIL
  * unconditionally.
  *
+ * @param {Array<{name: string, schema: string}>} extensions from sourceExtensions()
  * @returns {{ok: boolean, scratch: string, mismatches: string[], drift: string[], sourceTables: number, restoredTables: number}}
  */
-function verifyByRestore(dumpPath, container, countsBefore, countsAfter, schemas) {
+function verifyByRestore(dumpPath, container, countsBefore, countsAfter, schemas, extensions) {
   const probe = spawnSync('docker', ['inspect', '-f', '{{.State.Running}}', container], {
     shell: false,
     encoding: 'utf8',
@@ -418,7 +534,7 @@ function verifyByRestore(dumpPath, container, countsBefore, countsAfter, schemas
 
   /** Best-effort teardown; a leaked scratch database is a real cost. */
   const cleanup = () => {
-    runInVerifyContainer(container, ['rm', '-f', inContainerDump])
+    runInVerifyContainer(container, ['rm', '-f', inContainerDump, `/tmp/${scratch}.list`])
     psql('postgres', `DROP DATABASE IF EXISTS "${scratch}" WITH (FORCE)`)
   }
 
@@ -432,20 +548,69 @@ function verifyByRestore(dumpPath, container, countsBefore, countsAfter, schemas
     // with the one every new database is born with. Dropping it first is what
     // makes a clean restore possible — and it is the same step the documented
     // restore into a fresh Supabase project takes, for the same reason.
-    r = psql(
-      scratch,
-      'DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA IF NOT EXISTS extensions; CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;',
-    )
+    //
+    // The drop must come before the extensions, not after: an extension whose
+    // home is `public` — which is where a dashboard-built project puts
+    // `uuid-ossp` — would otherwise be dropped along with the schema. So the
+    // order is drop first, then rebuild only what the source actually needs.
+    // Where nothing needs `public`, it stays dropped and the dump creates it,
+    // exactly as before.
+    r = psql(scratch, 'DROP SCHEMA IF EXISTS public CASCADE')
     if (r.status !== 0) {
       cleanup()
       fail(EXIT.VERIFY_FAILED, `could not prepare scratch database: ${r.stderr.trim()}`)
     }
+
+    /**
+     * Schemas this function created to host an extension. For anything the
+     * dump also creates — in practice only `public` — the dump's own
+     * `CREATE SCHEMA` is dropped from the restore below, because it would
+     * now collide.
+     */
+    const preCreated = new Set()
+    for (const { name, schema } of extensions) {
+      if (!preCreated.has(schema)) {
+        r = psql(scratch, `CREATE SCHEMA IF NOT EXISTS "${schema}"`)
+        if (r.status !== 0) {
+          cleanup()
+          fail(EXIT.VERIFY_FAILED, `could not create schema "${schema}" in the scratch database: ${r.stderr.trim()}`)
+        }
+        preCreated.add(schema)
+      }
+      r = psql(scratch, `CREATE EXTENSION IF NOT EXISTS "${name}" WITH SCHEMA "${schema}"`)
+      if (r.status !== 0) {
+        // Not fatal by itself. Some platform extensions of a hosted project
+        // have no counterpart in this image, and the dump may not need them.
+        // If it does need this one, the restore below fails on the objects
+        // that reference it and this warning explains why — which is a better
+        // diagnosis than refusing to verify any dump from a project that
+        // happens to have an extension the local stack lacks.
+        warn(`verify: could not install extension "${name}" into "${schema}": ${r.stderr.trim().split('\n')[0]}`)
+      }
+    }
+    log(`verify: scratch prepared with ${extensions.length} source extension(s): ${
+      extensions.map((e) => `${e.schema}.${e.name}`).join(', ') || 'none'
+    }`)
 
     const cp = spawnSync('docker', ['cp', dumpPath, `${container}:${inContainerDump}`], { shell: false, encoding: 'utf8' })
     if ((cp.status ?? 1) !== 0) {
       cleanup()
       fail(EXIT.VERIFY_FAILED, `could not copy the dump into ${container}: ${(cp.stderr ?? '').trim()}`)
     }
+
+    // If an extension forced a schema into existence that the dump also
+    // creates, that one `CREATE SCHEMA` is removed from the restore.
+    //
+    // The alternative — letting it run and forgiving the "already exists"
+    // error — was rejected: this script's whole purpose is that a pg_restore
+    // error is never waved through, and a rule that forgives one error
+    // message is a rule that can forgive the wrong one. Removing a statement
+    // we have already executed ourselves keeps the error handling absolute.
+    // The cost is that the dump's own `CREATE SCHEMA public` goes unexercised
+    // in this one case, which is the lesser loss: the verification exists to
+    // prove the *data* restores, and every object inside the schema is still
+    // created by the dump.
+    const restoreListArgs = buildRestoreList(container, inContainerDump, scratch, preCreated)
 
     log('verify: restoring the dump')
     const restore = runInVerifyContainer(container, [
@@ -454,6 +619,7 @@ function verifyByRestore(dumpPath, container, countsBefore, countsAfter, schemas
       // cluster, but re-asserting them proves nothing about the data and
       // makes the check brittle. Structure, policies and rows are what matter.
       '--no-owner', '--no-privileges',
+      ...restoreListArgs,
       inContainerDump,
     ])
     // pg_restore without --exit-on-error reports errors on stderr and still
@@ -553,6 +719,13 @@ function main() {
   log(`schemas:    ${schemas.join(', ')}`)
 
   const psqlOnSource = (args) => runPg(target, image, 'psql', args)
+
+  // Read before the dump: the restore target has to be built to match this
+  // database's extension layout, not to a convention. Cheap, and the log line
+  // is what an operator restoring by hand needs to reproduce too.
+  const extensions = sourceExtensions(psqlOnSource)
+  log(`extensions: ${extensions.map((e) => `${e.schema}.${e.name}`).join(', ') || 'none'}`)
+
   log('reading source row counts')
   const countsBefore = tableCounts(psqlOnSource, schemas)
   const sourceCounts = countsBefore
@@ -603,7 +776,7 @@ function main() {
   if (shouldVerify) {
     // Second reading: bounds the window the dump was taken in. See verifyByRestore.
     const countsAfter = tableCounts(psqlOnSource, schemas)
-    verification = verifyByRestore(finalPath, container, countsBefore, countsAfter, schemas)
+    verification = verifyByRestore(finalPath, container, countsBefore, countsAfter, schemas, extensions)
   } else {
     warn('BACKUP_VERIFY=0 — this dump has NOT been restored. It is a hope, not a backup.')
   }
@@ -617,6 +790,11 @@ function main() {
         // Host and database only. No user, no password, by construction.
         source: { host: target.host, port: target.port, database: target.database },
         schemas,
+        // Recorded because the dump does not carry it: `pg_dump --schema`
+        // omits CREATE EXTENSION but still emits defaults that call into one.
+        // A human restoring this file needs to know where they went, and the
+        // manifest is what survives next to the dump. See sourceExtensions().
+        extensions,
         bytes,
         tables: sourceCounts.size,
         rows: totalRows,

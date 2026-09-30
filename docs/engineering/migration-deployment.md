@@ -29,7 +29,43 @@ the branches that only fire on real data had never been evaluated at all.
 |---|---|---|
 | **Local** | `pnpm supabase start` — the development stack | Working; empty by construction |
 | **Staging** | A hosted project with production-shaped data | **Does not exist yet** |
-| **Production** | The live database | Exists; at `007` as of 2026-09-10 |
+| **Production** | The live database | Exists; at **`009` as of 2026-09-30** |
+
+## Connecting to production — read before you try
+
+**`db.<ref>.supabase.co` is IPv6-only for this project.** It has one AAAA
+record and no A record, because Supabase deprecated direct IPv4 connections
+without the paid add-on. Docker Desktop containers are IPv4-only by default, so
+anything running `psql` or `pg_dump` in a container — which includes
+`pnpm db:backup`, since this machine has no native client — cannot resolve it
+at all. The failure looks like a DNS error, not a network one:
+
+```
+could not translate host name "db.<ref>.supabase.co" to address: Name or service not known
+```
+
+**Use the session-mode pooler instead**, which is IPv4:
+
+```
+postgresql://postgres.<ref>:<password>@aws-1-<region>.pooler.supabase.com:5432/postgres
+```
+
+Three things that are easy to get wrong, each producing a different error:
+
+- **The username is `postgres.<ref>`, not `postgres`.** The pooler routes by
+  tenant, and a wrong prefix gives
+  `FATAL: (ENOTFOUND) tenant/user … not found` — before authentication, so it
+  says nothing about your password.
+- **The cluster number is part of the hostname** and is not derivable from the
+  region. This project is on `aws-1`; `aws-0` also exists for the same region
+  and rejects the tenant. Take the exact host from the dashboard's **Connect →
+  Session pooler**, which reads the real tenant registry.
+- **Port 5432, not 6543.** The transaction pooler cannot serve `pg_dump`.
+
+An earlier version of this document said to use "the direct connection or the
+session-mode pooler". The first half stopped being true when IPv4 was
+deprecated, and it cost an hour of debugging what looked like a password
+problem and never was.
 
 Staging is the missing piece. Creating it needs a Supabase account action and
 cannot be automated from this repository:
