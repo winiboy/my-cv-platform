@@ -18,8 +18,8 @@ import type { ResumeTemplate } from '../../src/types/database'
  *
  * PDF in this product is `window.print()` over these same React templates -
  * there is no PDF rendering library in the resume path. The print stylesheet
- * therefore IS the PDF: `print:p-8`, `print:p-6`, `print:shadow-none`,
- * `print:bg-white` and the rest decide what a user's downloaded document
+ * therefore IS the PDF: `print:hidden`, `print:shadow-none`, the
+ * `@media print` block in globals.css and the rest decide what a user's downloaded document
  * looks like. A screen-only baseline cannot see any of it, so a regression
  * confined to a `print:` utility would ship green.
  *
@@ -239,8 +239,8 @@ async function openPreviewDocument(
  * than being added after a second cropped baseline.
  *
  * This MUST be called after the medium is set, never before. The print
- * stylesheet changes padding, so the print document is not the height of the
- * screen document; checking a screen measurement and then capturing in print
+ * stylesheet used to change padding, so the print document was not the height
+ * of the screen document, and a future print rule could do so again; checking a screen measurement and then capturing in print
  * would be checking the wrong number, and a print-only overflow would be
  * truncated exactly as the original bug was.
  */

@@ -437,7 +437,7 @@ export function ClassicTemplate({
    */
   return (
     <div data-testid="resume-document" className="mx-auto bg-white shadow-lg print:shadow-none" style={{ width: PAGE_WIDTH_CSS, fontFamily: fontFamily }}>
-      <div className="space-y-5 p-12 print:p-8">
+      <div className="space-y-5 p-12">
         {/* Header: CV Title */}
         <div className="border-b-2 border-slate-900 pb-4 text-center" style={{ position: 'relative' }}>
           <h1 className={`mb-3 ${fontFamily ? '' : 'font-serif'} font-bold uppercase tracking-wide text-slate-900`} style={{ fontSize: `${drawnTitleSize}px` }}>

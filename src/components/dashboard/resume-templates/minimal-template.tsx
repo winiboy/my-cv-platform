@@ -436,7 +436,7 @@ export function MinimalTemplate({
 
   return (
     <div data-testid="resume-document" className="mx-auto bg-white shadow-lg print:shadow-none" style={{ width: PAGE_WIDTH_CSS, fontFamily: fontFamily }}>
-      <div className="space-y-10 p-16 print:p-10">
+      <div className="space-y-10 p-16">
         {/* Header: CV Title and Contact */}
         <div className="space-y-4 pb-6 border-b border-slate-300" style={{ position: 'relative' }}>
           <h1 className="font-light tracking-tight text-slate-900 text-center" style={{ fontSize: `${drawnTitleSize}px` }}>

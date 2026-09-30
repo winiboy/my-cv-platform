@@ -1004,7 +1004,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         </div>
 
         {/* Sidebar content with padding */}
-        <div className="p-8 print:p-6" style={{ paddingTop: activeSidebarTopMargin > 0 ? `${activeSidebarTopMargin}px` : undefined }}>
+        <div className="p-8" style={{ paddingTop: activeSidebarTopMargin > 0 ? `${activeSidebarTopMargin}px` : undefined }}>
         {/* Sidebar sections rendered in dynamic order */}
         {activeSidebarOrder.filter(id => !hiddenSidebar.has(id)).map(id => (
           <React.Fragment key={id}>{renderSidebarSection(id)}</React.Fragment>
@@ -1013,7 +1013,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
       </div>
 
       {/* Right Content Area */}
-      <div className="p-8 print:p-6" style={{ marginLeft: `${activeWidth}%`, backgroundColor: 'white', paddingTop: activeMainContentTopMargin > 0 ? `${activeMainContentTopMargin}px` : undefined }}>
+      <div className="p-8" style={{ marginLeft: `${activeWidth}%`, backgroundColor: 'white', paddingTop: activeMainContentTopMargin > 0 ? `${activeMainContentTopMargin}px` : undefined }}>
         {/* Header: Name, Job Title, Address */}
         <div className="mb-6" style={{ position: 'relative' }}>
           {/* Full name — large bold uppercase with letter-spacing */}
