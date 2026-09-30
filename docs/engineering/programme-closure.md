@@ -1,6 +1,13 @@
 # Programme closure — phases 06 to 32
 
-**Date:** 2026-09-25. **Branch:** `ralph/milestone-c-part-3-parity-defects`.
+**Written:** 2026-09-25 on `ralph/milestone-c-part-3-parity-defects`.
+**Reconciled against git:** 2026-09-30, after phases 6–32 were all complete.
+
+Every claim below was re-checked against `origin/main` on the reconciliation
+date, not against memory of what was intended. Where the original text had gone
+stale it is corrected in place and the correction is labelled, so the drift
+itself stays visible — a record that quietly rewrites itself teaches nobody
+anything.
 
 The 32-phase clean-up began on 2026-08-28 with a repository that could not be
 installed deterministically, had no tests, and had CI that did not run. This
@@ -17,7 +24,7 @@ named with its owner.
 | **C** — resume rendering unification | 15–21 | **Complete.** All 16 Part 3 stories pass |
 | **D** — development operating system | 22–24 | **Complete.** `prd-lifecycle.md`, `ralph-pass-criteria.md`, `progress-log-format.md` |
 | **E** — database / environment maturity | 25–29 | **Complete.** Local Supabase, RLS audit, staging database, protected `main`, preview validation on every PR |
-| **F** — production hardening | 30–32 | **30 and 31 complete. 32 deferred**, see below |
+| **F** — production hardening | 30–32 | **Complete.** Security findings closed in #79, framework upgrade in #80 and #81 |
 
 ## Milestone C, in detail
 
@@ -65,18 +72,28 @@ Professional and modern already follow the Preview. The Preview is right; the
 DOCX side is owed. The signature pins both sides, so a generator drifting to
 some third value reports as NEW rather than being absorbed.
 
-## Phase 32 — deferred, with its prerequisites met
+## Phase 32 — complete
 
-Phase 32 is the controlled framework and toolchain upgrade. Its own definition
-gates it on CI being green, unit, integration, E2E and visual suites existing,
-and a performance baseline. **All of those now exist**, which is precisely why
-it should be its own piece of work rather than the tail of this one: a framework
-upgrade changes every surface at once, and the value of the safety net built
-here is that such a change can now be measured instead of hoped about.
+**This section previously read "deferred, with its prerequisites met". It was
+written on 2026-09-25 and was accurate for about two days.** Phase 32 shipped
+on 2026-09-27, in two deliberately separated passes:
 
-`docs/engineering/performance-baseline.md` records the numbers to compare
-against: build 92 s, shared First Load JS 161 kB, DOCX generation 6–10 ms per
-template.
+- **#80** — the safe sweep, and `next-auth` removed. Splitting it this way meant
+  a failure in the routine part could not be confused with a failure in the
+  framework jump.
+- **#81** — Next 15 and React 19. Its own title records the outcome: *closes the
+  roadmap*.
+
+`docs/engineering/performance-baseline.md` holds the numbers the upgrade was
+measured against: build 92 s, shared First Load JS 161 kB, DOCX generation
+6–10 ms per template.
+
+The reasoning for deferring was right at the time — a framework upgrade changes
+every surface at once, and the safety net built across phases 10–14 is what let
+it be measured rather than hoped about. It was deferred, then done, and this
+record simply failed to keep up. That is the specific failure mode this
+reconciliation exists to correct: **a closure document that stops being true
+is worse than none, because it is trusted.**
 
 ## Phase 30 — security findings
 
@@ -92,19 +109,33 @@ Two were fixed in this pass:
   false, sampling is 10 % in production, and a `beforeSend` strips the request
   payload, cookies, headers and user object.
 
-The rest are recorded for the owner and are **not** fixed here:
+**Four more were closed in #79 on 2026-09-27**, each verified present on `main`
+at the time of this reconciliation:
+
+| Finding | Closed by |
+|---|---|
+| SSRF — the allowlist was validated once and redirects then followed blindly | `src/lib/security/safe-fetch.ts`, which revalidates every hop |
+| The five public AI endpoints had no rate limit and no bound on any input field | `src/lib/api/ai-rate-limit.ts` and `ai-input-limits.ts`, backed by migration `008_api_rate_limits.sql` |
+| No security response headers at all | `headers()` in `next.config.js` — CSP (report-only), HSTS and the rest |
+| No verified backup path | `scripts/db-backup.mjs` and `docs/engineering/database-backup.md` |
+
+**Still open, and still the owner's to sequence:**
 
 | Severity | Finding |
 |---|---|
-| High | SSRF: the URL allowlist is validated once and redirects are then followed blindly, in `extract-job-url` and `fetch-external`. The allowlists also match multi-tenant ATS domains by suffix |
-| High | The five public AI endpoints have no authentication, no rate limit and no `.max()` on any input field, against the owner's own provider account |
 | Medium | A CSS-injection escape in the sanitiser through the deprecated `font face` attribute — a beacon or overlay, not script execution |
 | Medium | The upload path trusts the client-supplied MIME type and returns parser errors; `pdf-parse` is unmaintained since 2018 |
-| Medium | No security response headers at all: no CSP, HSTS, `frame-ancestors` or `X-Content-Type-Options` |
 | Medium | The `resumes` SELECT policy grants anonymous read of whole rows where `is_public`, which the app never sets but PostgREST would honour |
 | Medium | No server-side validation or size bound on resume content: all writes go browser → PostgREST, and only `layout_settings` has a CHECK |
-| Medium | The resume title is interpolated unescaped into `Content-Disposition` |
+| Medium | The resume title is still interpolated unescaped into `Content-Disposition` — `download-docx/route.ts:259` at the time of writing |
 | Medium | **Production carries at least one RLS-enabled table and one policy that no migration in this repository creates and no audit has inspected** — the counts in `rls-audit.md` and `migration-deployment.md` disagree, and GRANTs were never compared |
+
+**Migration `008_api_rate_limits.sql` exists in this repository and has not been
+deployed.** Until it is, the shared rate-limit tier cannot answer in production
+and every limit built on it — the AI endpoints and password recovery alike —
+degrades to per-instance. On a serverless deployment that multiplies the
+effective ceiling by the instance count. The code says so where it matters; this
+is the record saying so too.
 
 The verdict was *conditional*: the authentication and authorization model is
 sound — every one of the 22 user-data routes establishes identity server-side
@@ -113,15 +144,36 @@ disclosure had to go before production hardening, and it has.
 
 ## What the owner still decides
 
-1. **The security list above**, in the order the review suggested: SSRF and the
-   AI endpoint bounds first, then the headers, then the production RLS
-   reconciliation.
-2. **The PRD backlog**: `prd-lifecycle.md` records 116 files under `tasks/`, 14
+1. **The remaining security list above.** The review's suggested order has been
+   worked through: SSRF and the AI bounds first, then the headers. What is left
+   begins with the production RLS reconciliation, which cannot be settled from
+   this repository at all.
+2. **Deploying migration `008`**, which is what turns the rate limits from
+   per-instance into real ones.
+3. **The PRD backlog**: `prd-lifecycle.md` records 116 files under `tasks/`, 14
    slugs existing in two places at once, and three naming conventions. Nothing
    was moved or deleted; the rule is written and the cleanup is a decision.
-3. **Whether `Integration` and `E2E` are truly required checks** — both carry
+4. **Whether `Integration` and `E2E` are truly required checks** — both carry
    `(required)` in their job names, but the branch-protection table lists only
    `Verify`. One of the two records is wrong.
+
+## After the roadmap — what shipped on top, 2026-09-27 to 2026-09-28
+
+Recorded here because each one was found while doing something else, and
+together they say something about what the clean-up did and did not catch.
+
+| | |
+|---|---|
+| **#82** | `html2pdf.js` pinned `jspdf ^3.0.0` and resolved a nested 3.0.4 — the copy the cover-letter export actually ran. The earlier bump of the top-level `jspdf` made the tree *look* patched. `html2pdf.js` 0.14.0 declares `jspdf ^4.0.0`, so upstream had already done the migration |
+| **#83** | **Cover-letter PDF export produced no file at all, for every user, in every browser.** `html2canvas` 1.4.1 cannot parse `oklch()`, which Tailwind v4 put on every element. It threw, an `alert` swallowed it, and an invisible full-viewport overlay then blocked the dashboard until reload |
+| **#84** | The dashboard offered Goals and Settings. Neither route existed; their prefetches 404'd on every visit |
+| **#85** | **The product had no account recovery.** The login page linked to a route that had never existed in any commit |
+
+Three of those four were invisible failures: no error surfaced to a server, no
+test failed, and the one user-visible symptom — an alert — was auto-dismissed by
+the test runner that should have caught it. The suites built in phases 10–14
+were what made each one *findable* once suspected, and none of them was enough
+to raise the suspicion. That gap is worth naming rather than filing away.
 
 ## The governance change made on 2026-09-25
 
