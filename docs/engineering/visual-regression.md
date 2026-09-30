@@ -54,7 +54,7 @@ it to a gate requires Linux baselines generated in CI itself.
 
 PDF in this product is `window.print()` over the same five React templates —
 there is no PDF rendering library anywhere in the resume path. So the print
-stylesheet *is* the PDF: `print:p-8`, `print:p-5`, `print:shadow-none`,
+stylesheet *is* the PDF: `print:p-8`, `print:p-6`, `print:shadow-none`,
 `print:bg-white` and the rest decide what the user's downloaded document looks
 like, and none of them apply under screen media. Before print capture existed,
 every PDF this product shipped had no automated coverage at all: a regression
@@ -220,11 +220,11 @@ a green run has the same status as widening a threshold to obtain one.
 
 ### What else differentiates the two captures
 
-The padding and background rules: `print:p-8`, `print:p-6`, `print:p-5`,
+The padding and background rules: `print:p-8`, `print:p-6`,
 `print:p-10`, `print:py-0`, `print:bg-white`, `print:bg-transparent`. Classic,
-minimal and creative come out measurably shorter in print; professional and
-modern keep their height because both pin `minHeight: 1056px`, and their
-padding moves inside that fixed box.
+minimal and creative come out measurably shorter in print; modern keeps its
+height because it pins `minHeight: 1056px`, and its padding moves inside that
+fixed box. Professional has no print padding and prints identically to screen.
 
 `print:shadow-none` is real but invisible here, because an element screenshot
 clips to the element's own box and a `box-shadow` falls outside it.
@@ -409,14 +409,14 @@ suite returned to 10 green.
 
 ### Screen versus print, per template
 
-Each committed print baseline already differs from its screen counterpart by
-tens of thousands of pixels. Measured with **exact RGBA equality** — any
+Every committed print baseline except `professional`'s differs from its screen
+counterpart by tens of thousands of pixels. Measured with **exact RGBA equality** — any
 channel differing counts the pixel — over the **overlapping region only**, on
 the committed baselines:
 
 | Template | Screen | Print | Differing pixels (exact) | Rows touched | Differing pixels at `threshold: 0.2` |
 |---|---|---|---|---|---|
-| professional | 816×1056 | 816×1056 | 88,602 | 608 | 48,656 |
+| professional | 816×1056 | 816×1056 | none — byte-identical | none | none |
 | modern | 816×1056 | 816×1056 | 105,405 | 761 | 40,572 |
 | classic | 816×1395 | 816×1340 | 146,738 (+44,880 outside the overlap) | 897 | 67,441 |
 | minimal | 816×1711 | 816×1663 | 136,210 (+39,168 outside the overlap) | 967 | 49,003 |
@@ -432,13 +432,22 @@ always the smaller of the two.
 distance between two pixels in **YIQ** colour space, not per channel. `0.2` is
 therefore a single normalised perceptual distance below which a pixel counts as
 unchanged — not a ±20% allowance on R, G and B independently, and not a claim
-that the pixels are identical. Either way the smallest number in either column
-is 338× `maxDiffPixels: 120`.
+that the pixels are identical. Either way the smallest non-zero number in
+either column is 338× `maxDiffPixels: 120`.
 
-**`professional` and `modern` are 816×1056 in both media** because both pin
-`minHeight: '1056px'`; their print padding moves inside that fixed box.
-Identical dimensions do not mean identical content, and for those two templates
-these deltas are the evidence that print media is genuinely in effect at all.
+**`professional` prints exactly what its Preview shows, on purpose.** Its
+print-only padding (`print:p-5` on the sidebar, `print:p-6` on the main column)
+made the PDF wrap and align differently from the Preview, and was removed; the
+Preview is the PDF's contract (`.claude/rules/exports.md`). Its print baseline is
+therefore byte-identical to its screen baseline, and on its own no longer shows
+that print media took effect — Mutation 1 still shows that for the suite. What
+guards the equality is `e2e/professional-print-geometry.spec.ts`, which compares
+the laid-out geometry under both media.
+
+**`modern` is 816×1056 in both media** because it pins `minHeight: '1056px'`;
+its print padding moves inside that fixed box. Identical dimensions do not mean
+identical content, and for `modern` this delta is the evidence that print media
+is genuinely in effect at all.
 
 ## Running it from an agent worktree
 

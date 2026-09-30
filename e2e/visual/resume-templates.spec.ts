@@ -18,7 +18,7 @@ import type { ResumeTemplate } from '../../src/types/database'
  *
  * PDF in this product is `window.print()` over these same React templates -
  * there is no PDF rendering library in the resume path. The print stylesheet
- * therefore IS the PDF: `print:p-8`, `print:p-5`, `print:shadow-none`,
+ * therefore IS the PDF: `print:p-8`, `print:p-6`, `print:shadow-none`,
  * `print:bg-white` and the rest decide what a user's downloaded document
  * looks like. A screen-only baseline cannot see any of it, so a regression
  * confined to a `print:` utility would ship green.
