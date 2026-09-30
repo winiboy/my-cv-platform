@@ -144,8 +144,16 @@ So every run, by default:
 2. Takes the dump.
 3. Counts the source again.
 4. Creates a throwaway database in the **local** container, drops its stock
-   `public` schema, installs `uuid-ossp` into an `extensions` schema (because
-   `public.resumes.id` and friends default to `extensions.uuid_generate_v4()`).
+   `public` schema, then reinstalls **the source's own extensions into the
+   source's own schemas** — read from `pg_extension`, not assumed. `pg_dump
+   --schema` omits `CREATE EXTENSION` but still emits column defaults that
+   call into one, so the target has to match: a project built through the
+   dashboard has `uuid-ossp` in `public` and defaults reading
+   `public.uuid_generate_v4()`, while one on Supabase's current template has
+   it in `extensions`. Hardcoding either breaks against the other. Where an
+   extension forces `public` back into existence, the dump's own
+   `CREATE SCHEMA public` is dropped from the restore list, since that
+   statement has already been executed.
 5. Restores the dump into it.
 6. Compares every table's restored row count against the source.
 7. Drops the throwaway database.
@@ -279,12 +287,27 @@ Create the new Supabase project. It arrives with `public`, `auth`, `storage`,
 depend on: **`pg_restore -n <schema>` does not emit `CREATE SCHEMA`**, so the
 target schemas must already exist.
 
-Confirm `uuid-ossp` is available, since `public` defaults call
-`extensions.uuid_generate_v4()`:
+Recreate the extensions **in the schemas the dump's source had them in**, not
+in the schemas this new project came with. `pg_dump` did not put
+`CREATE EXTENSION` in the dump, but it did emit schema-qualified defaults such
+as `public.uuid_generate_v4()`, and those resolve against a literal schema
+name. Get the list from the backup's manifest — the `.json` beside the
+`.dump` records it:
+
+```json
+"extensions": [{ "name": "uuid-ossp", "schema": "public" }]
+```
+
+Then, for each entry (creating the schema first if it does not exist):
 
 ```sql
-create extension if not exists "uuid-ossp" with schema extensions;
+create extension if not exists "uuid-ossp" with schema public;
 ```
+
+Using `extensions` here because a new project happens to have that schema is
+the mistake that broke the first verified backup run: every `create table`
+with a `public.uuid_generate_v4()` default fails, and every `copy` after it
+fails too.
 
 Do **not** apply the migrations if you are restoring `public` structure from the
 dump in step 2 — you would collide with yourself. Either restore the structure
@@ -381,7 +404,10 @@ scratch database in the local container:
 ```powershell
 docker cp $Dump supabase_db_my-cv-platform:/tmp/r.dump
 docker exec -i supabase_db_my-cv-platform psql -U postgres -d postgres -c 'create database scratch template template0'
-docker exec -i supabase_db_my-cv-platform psql -U postgres -d scratch -c 'drop schema if exists public cascade; create schema extensions; create extension "uuid-ossp" with schema extensions;'
+docker exec -i supabase_db_my-cv-platform psql -U postgres -d scratch -c 'drop schema if exists public cascade'
+# Then, per the manifest's "extensions" list, recreating each schema first.
+# For a dashboard-built source that means public, not extensions:
+docker exec -i supabase_db_my-cv-platform psql -U postgres -d scratch -c 'create schema if not exists public; create extension "uuid-ossp" with schema public;'
 docker exec supabase_db_my-cv-platform pg_restore -U postgres -d scratch --no-owner --no-privileges /tmp/r.dump
 # ... inspect ...
 docker exec -i supabase_db_my-cv-platform psql -U postgres -d postgres -c 'drop database scratch with (force)'
@@ -391,6 +417,15 @@ docker exec supabase_db_my-cv-platform rm -f /tmp/r.dump
 Here the stock `public` schema must be dropped first, because with no `-n`
 filter the dump carries its own `CREATE SCHEMA public`. This is exactly what the
 script's automatic verification does.
+
+If an extension has to go back into `public`, that `CREATE SCHEMA public` will
+now collide with the schema you just recreated for it. Drop that one statement
+from the restore rather than ignoring the error — again, what the script does:
+
+```powershell
+docker exec supabase_db_my-cv-platform sh -c "pg_restore -l /tmp/r.dump | grep -v 'SCHEMA - public ' > /tmp/r.list"
+docker exec supabase_db_my-cv-platform pg_restore -U postgres -d scratch --no-owner --no-privileges -L /tmp/r.list /tmp/r.dump
+```
 
 ---
 
