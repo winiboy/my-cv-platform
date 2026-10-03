@@ -124,7 +124,9 @@
       "resumes": "My Resumes",
       "coverLetters": "Cover Letters",
       "applications": "My Applications",
-      "jobs": "Job Search"
+      "jobs": "Job Search",
+      "menu": "Dashboard menu",
+      "closeMenu": "Close dashboard menu"
     },
     "welcome": "Welcome",
     "logout": "Logout",

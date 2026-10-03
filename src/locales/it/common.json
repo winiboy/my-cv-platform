@@ -124,7 +124,9 @@
       "resumes": "I miei CV",
       "coverLetters": "Lettere di presentazione",
       "applications": "Le mie candidature",
-      "jobs": "Ricerca lavoro"
+      "jobs": "Ricerca lavoro",
+      "menu": "Menu della dashboard",
+      "closeMenu": "Chiudi il menu della dashboard"
     },
     "welcome": "Benvenuto",
     "logout": "Esci",

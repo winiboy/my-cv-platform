@@ -498,7 +498,13 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   const [splitPosition, setSplitPosition] = useState(50) // Percentage
   const [isDragging, setIsDragging] = useState(false)
   const [previewScale, setPreviewScale] = useState(0.85)
+  // Unscaled height of the previewed document. A CSS transform does not change
+  // the layout box, so the wrapper is sized from this to drop the blank space
+  // the unscaled height would otherwise leave below the scaled page.
+  const [previewDocHeight, setPreviewDocHeight] = useState<number | null>(null)
   const previewContainerRef = useRef<HTMLDivElement>(null)
+  const previewDocumentRef = useRef<HTMLDivElement>(null)
+  const sectionNavRef = useRef<HTMLElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const handleSave = async () => {
@@ -891,7 +897,10 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
     if (!previewContainerRef.current) return
 
     const container = previewContainerRef.current
-    const containerWidth = container.clientWidth - 64 // Subtract padding (p-8 = 32px each side)
+    // The container's padding is responsive, so read it rather than assume it.
+    const { paddingLeft, paddingRight } = window.getComputedStyle(container)
+    const containerWidth =
+      container.clientWidth - parseFloat(paddingLeft) - parseFloat(paddingRight)
 
     // The page the templates draw on; see src/lib/resume-page-size.ts.
     const cvWidth = PAGE_WIDTH_PX
@@ -933,6 +942,41 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       resizeObserver.disconnect()
     }
   }, [splitPosition, calculatePreviewScale])
+
+  // Track the document's unscaled height so the preview wrapper follows the
+  // content as it grows or shrinks. offsetHeight ignores the transform.
+  useEffect(() => {
+    const element = previewDocumentRef.current
+    if (!element) return
+
+    const measure = () => setPreviewDocHeight(element.offsetHeight)
+    measure()
+
+    const resizeObserver = new ResizeObserver(measure)
+    resizeObserver.observe(element)
+    return () => resizeObserver.disconnect()
+  }, [])
+
+  // Keep the active tab visible in the horizontally scrolling section strip.
+  // Only the strip itself is scrolled: scrollIntoView would also scroll the
+  // page, and on the vertical (xl) list there is nothing to scroll at all.
+  useEffect(() => {
+    const nav = sectionNavRef.current
+    if (!nav || nav.scrollWidth <= nav.clientWidth) return
+    const active = nav.querySelector<HTMLElement>('[aria-current="true"]')
+    if (!active) return
+
+    const navRect = nav.getBoundingClientRect()
+    const activeRect = active.getBoundingClientRect()
+    // The strip's end padding is covered by the fade, so keep the tab clear of it.
+    const visibleRight = navRect.right - parseFloat(window.getComputedStyle(nav).paddingRight)
+
+    if (activeRect.left < navRect.left) {
+      nav.scrollLeft -= navRect.left - activeRect.left
+    } else if (activeRect.right > visibleRight) {
+      nav.scrollLeft += activeRect.right - visibleRight
+    }
+  }, [shownSection])
 
   // Load draft from localStorage on mount
   useEffect(() => {
@@ -1045,10 +1089,12 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
   }, [hasUnsavedChanges])
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">
+    // Below xl the panels stack and the page scrolls; from xl up the editor
+    // fills the viewport and each pane scrolls on its own.
+    <div className="flex flex-col xl:h-[calc(100vh-4rem)]">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
+        <div className="flex min-w-0 flex-wrap items-center gap-4">
           <button
             onClick={() => router.push(`/${locale}/dashboard/resumes`)}
             className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
@@ -1056,9 +1102,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
             <ArrowLeft className="h-4 w-4" />
             {dict.common?.back || 'Back'}
           </button>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold text-slate-900">{resume.title}</h1>
+              <h1 className="break-words text-xl font-bold text-slate-900">{resume.title}</h1>
               <QualityScoreBadge
                 score={qualityAnalysis?.score ?? 0}
                 isVisible={Boolean(currentJobApplicationId) && qualityAnalysis !== null}
@@ -1080,7 +1126,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
             ) : null}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => router.push(`/${locale}/dashboard/resumes/${resume.id}/preview`)}
             className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
@@ -1160,10 +1206,20 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
       />
 
       {/* Editor Layout */}
-      <div ref={containerRef} className="flex flex-1 overflow-hidden">
-        {/* Sidebar Navigation */}
-        <div className="w-64 border-r border-slate-200 bg-slate-50">
-          <nav className="space-y-1 p-4">
+      <div ref={containerRef} className="flex flex-1 flex-col xl:flex-row xl:overflow-hidden">
+        {/* Sidebar Navigation - a horizontally scrolling strip below xl */}
+        <div
+          data-testid="resume-editor-section-nav"
+          className="border-b border-slate-200 bg-slate-50 xl:w-64 xl:border-b-0 xl:border-r"
+        >
+          {/*
+            Below xl the strip scrolls sideways without a scrollbar; the right-edge
+            fade signals more tabs, and the end padding lets the last tab clear it.
+          */}
+          <nav
+            ref={sectionNavRef}
+            className="flex gap-1 overflow-x-auto p-2 pr-8 [mask-image:linear-gradient(to_left,transparent,black_2rem)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:block xl:space-y-1 xl:overflow-visible xl:p-4 xl:[mask-image:none]"
+          >
             {visibleSections.map((section) => {
               const Icon = section.icon
               const isActive = shownSection === section.id
@@ -1173,7 +1229,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
                 <button
                   key={section.id}
                   onClick={() => setActiveSection(section.id)}
-                  className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  aria-current={isActive ? 'true' : undefined}
+                  className={`relative flex min-h-11 shrink-0 items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors xl:min-h-0 xl:w-full xl:whitespace-normal ${
                     isActive
                       ? 'bg-teal-100 text-teal-900'
                       : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
@@ -1191,11 +1248,20 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
         </div>
 
         {/* Split Content Area: Editor (Left) + Live Preview (Right) */}
-        <div className="flex flex-1 overflow-hidden relative">
+        {/* Below xl the editor stacks above the preview and the split widths do not apply. */}
+        <div
+          className="relative flex flex-1 flex-col xl:flex-row xl:overflow-hidden"
+          style={
+            {
+              '--editor-pane-width': `${splitPosition}%`,
+              '--preview-pane-width': `${100 - splitPosition}%`,
+            } as React.CSSProperties
+          }
+        >
           {/* Left: Editor */}
           <div
-            className="overflow-y-auto bg-white p-8"
-            style={{ width: `${splitPosition}%` }}
+            data-testid="resume-editor-panel"
+            className="w-full bg-white p-4 sm:p-6 xl:w-[var(--editor-pane-width)] xl:overflow-y-auto xl:p-8"
           >
             <div className="mx-auto max-w-xl">
               {shownSection === 'contact' && (
@@ -1400,7 +1466,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
           {/* Draggable Divider */}
           <div
             onMouseDown={handleMouseDown}
-            className={`w-1 bg-slate-300 hover:bg-teal-500 cursor-col-resize transition-colors ${
+            className={`hidden w-1 bg-slate-300 hover:bg-teal-500 cursor-col-resize transition-colors xl:block ${
               isDragging ? 'bg-teal-500' : ''
             }`}
             style={{ flexShrink: 0 }}
@@ -1409,8 +1475,12 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
           {/* Right: Live Preview */}
           <div
             ref={previewContainerRef}
-            className="overflow-y-auto bg-slate-100 p-8"
-            style={{ width: `${100 - splitPosition}%` }}
+            data-testid="resume-editor-preview"
+            // The always-on vertical scrollbar keeps the pane's width independent
+            // of whether it overflows. Otherwise the scale (derived from that
+            // width) and the frame height (derived from the scale) can toggle
+            // the scrollbar on and off indefinitely at the overflow edge.
+            className="w-full overflow-x-hidden bg-slate-100 p-4 sm:p-6 xl:w-[var(--preview-pane-width)] xl:overflow-x-auto xl:overflow-y-scroll xl:p-8"
           >
             {/* Sliders Container - NOT scaled, fixed 15px gaps */}
             <div className="flex justify-center" style={{ marginBottom: '15px' }}>
@@ -1601,10 +1671,20 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
               </div>
             </div>
 
-            <div className="flex items-start justify-center min-h-full">
+            <div
+              data-testid="resume-editor-preview-frame"
+              className="flex items-start justify-center"
+              style={
+                previewDocHeight === null
+                  ? undefined
+                  : { height: `${previewDocHeight * previewScale}px` }
+              }
+            >
               <div
+                ref={previewDocumentRef}
                 style={{
                   width: `${PAGE_WIDTH_PX}px`,
+                  flexShrink: 0,
                   transformOrigin: 'top center',
                   transform: `scale(${previewScale})`,
                   transition: isDragging ? 'none' : 'transform 0.1s ease-out',

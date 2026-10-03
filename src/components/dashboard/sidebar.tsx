@@ -9,9 +9,12 @@ import { useMemo } from 'react'
 
 interface DashboardSidebarProps {
   locale: Locale
+  /** `drawer` enlarges the links to touch-target height for the mobile drawer. */
+  variant?: 'sidebar' | 'drawer'
 }
 
-export function DashboardSidebar({ locale }: DashboardSidebarProps) {
+export function DashboardSidebar({ locale, variant = 'sidebar' }: DashboardSidebarProps) {
+  const linkPadding = variant === 'drawer' ? 'py-3' : 'py-2'
   const { t } = useTranslation('common')
   const pathname = usePathname()
 
@@ -64,7 +67,7 @@ export function DashboardSidebar({ locale }: DashboardSidebarProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 rounded-lg px-3 ${linkPadding} text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
