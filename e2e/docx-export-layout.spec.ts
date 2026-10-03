@@ -12,6 +12,7 @@ import {
   LOCAL_SERVICE_KEY,
   assertLocalSupabase,
 } from '../src/test/local-stack'
+import { solidColourPng } from '../src/app/api/resumes/[id]/download-docx/docx-disc'
 
 /**
  * The DOCX is generated from the ACCOUNT'S layout, not from the browser's.
@@ -118,7 +119,38 @@ async function seedPersistedLayout(resumeId: string, value: unknown): Promise<vo
  * newlines rather than concatenated so that two adjacent runs cannot
  * accidentally spell a word neither of them contains.
  */
-async function openDocx(buffer: Buffer): Promise<{ xml: string; text: string; media: string[] }> {
+interface OpenedDocx {
+  xml: string
+  text: string
+  /** Every embedded image part, `word/media/…` (the folder entry itself excluded). */
+  media: string[]
+  /** Image parts the document body references — where a photo is drawn. */
+  bodyImages: string[]
+  /** Image parts a page header references, with their bytes. */
+  headerImages: Array<{ part: string; bytes: Buffer }>
+}
+
+/**
+ * The image parts one part's relationships point at, as zip paths.
+ *
+ * Read off `word/_rels/<part>.rels` rather than off `word/media/`, because the
+ * folder only says an image is stored, not who draws it. Targets are resolved
+ * against `word/`, where every source part read here lives.
+ */
+async function imageTargets(zip: JSZip, relsPath: string): Promise<string[]> {
+  const rels = zip.file(relsPath)
+  if (rels === null) return []
+  const xml = await rels.async('string')
+  return (xml.match(/<Relationship\b[^>]*>/g) ?? [])
+    .filter((relationship) => /\bType="[^"]*\/image"/.test(relationship))
+    .map((relationship) => {
+      const target = /\bTarget="([^"]+)"/.exec(relationship)?.[1]
+      if (target === undefined) throw new Error(`An image relationship without a target: ${relationship}`)
+      return `word/${target.replace(/^\.?\//, '')}`
+    })
+}
+
+async function openDocx(buffer: Buffer): Promise<OpenedDocx> {
   const zip = await JSZip.loadAsync(buffer)
 
   const documentPart = zip.file('word/document.xml')
@@ -134,11 +166,28 @@ async function openDocx(buffer: Buffer): Promise<{ xml: string; text: string; me
     .map((run) => run.replace(/<[^>]+>/g, ''))
     .join('\n')
 
-  // Embedded images live here. An empty list means the document carries no
-  // picture at all, which is what a rejected photo must produce.
-  const media = Object.keys(zip.files).filter((name) => name.startsWith('word/media/'))
+  // Embedded images live here. JSZip lists the folder as an entry of its own,
+  // which is not an image.
+  const media = Object.values(zip.files)
+    .filter((entry) => !entry.dir && entry.name.startsWith('word/media/'))
+    .map((entry) => entry.name)
 
-  return { xml, text, media }
+  const bodyImages = await imageTargets(zip, 'word/_rels/document.xml.rels')
+
+  const headerRels = Object.keys(zip.files).filter((name) =>
+    /^word\/_rels\/header\d*\.xml\.rels$/.test(name),
+  )
+  const headerImages = await Promise.all(
+    [...new Set((await Promise.all(headerRels.map((rels) => imageTargets(zip, rels)))).flat())].map(
+      async (part) => {
+        const file = zip.file(part)
+        if (file === null) throw new Error(`A header references ${part}, which the package lacks`)
+        return { part, bytes: await file.async('nodebuffer') }
+      },
+    ),
+  )
+
+  return { xml, text, media, bodyImages, headerImages }
 }
 
 /** The request the download button now makes: the resume, and a language. */
@@ -373,11 +422,33 @@ for (const photoCase of PHOTO_CASES) {
     // into a failed export would be a regression in its own right.
     expect(response.ok()).toBe(true)
 
-    const { xml, text, media } = await openDocx(await response.body())
+    const { xml, text, media, bodyImages, headerImages } = await openDocx(await response.body())
     expect(text).toContain(FIXTURE_EXPERIENCE[0].company)
 
+    /**
+     * Which image is the photo, decided by who draws it rather than by whether
+     * `word/media/` is empty.
+     *
+     * Modern also stores one image that is not a photo: its sidebar fill, drawn
+     * in the page header so it reaches the foot of every page. So "no photo"
+     * cannot mean "no media" for this template — but it must not be loosened to
+     * "any media is fine" either. Every stored image has to be accounted for:
+     * either the body draws it (the photo), or a header draws it AND it is
+     * byte-for-byte the solid sidebar-colour fill. Anything else stored fails.
+     * A template that draws no header fill has no header images, so for it the
+     * dropped case below still demands an empty `word/media/`.
+     */
+    expect([...media].sort()).toEqual(
+      [...new Set([...bodyImages, ...headerImages.map((image) => image.part)])].sort(),
+    )
+    const sidebarFillPng = solidColourPng(MODERN_SIDEBAR_FILL)
+    for (const image of headerImages) {
+      expect(image.bytes.equals(sidebarFillPng), `${image.part} is the sidebar fill`).toBe(true)
+    }
+
     if (photoCase.embedded) {
-      expect(media.length).toBeGreaterThan(0)
+      expect(bodyImages).toHaveLength(1)
+      expect(xml).toContain('<w:drawing>')
 
       /**
        * The one OUTPUT this story changed, read off the artifact.
@@ -398,7 +469,9 @@ for (const photoCase of PHOTO_CASES) {
       expect(xml).not.toContain(`w:fill="${MODERN_UNCUSTOMIZED_SIDEBAR_FILL}"`)
       expect(xml).not.toContain(MODERN_UNCUSTOMIZED_ACCENT)
     } else {
-      expect(media).toEqual([])
+      // No photo: the body references no image and draws nothing.
+      expect(bodyImages).toEqual([])
+      expect(xml).not.toContain('<w:drawing>')
     }
   })
 }
