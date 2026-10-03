@@ -200,6 +200,14 @@ interface Case {
    * paragraph keeps the text's leading and carries the rest as space above and below.
    */
   rowMinimumPx?: number
+  /**
+   * The element's Preview font size at scale 1, in CSS px, for a generator that
+   * spaces lines from the Preview's size rather than its rounded run size.
+   * Professional and Modern do: a run must be whole half-points, but 11px body
+   * text is 16.5 half-points, and spacing it from the rounded 17 drew every line
+   * 0.5px taller than the Preview in Word's render.
+   */
+  previewPx?: number
 }
 
 /** Twips the paragraph must write for a case, at the size of its run. */
@@ -212,7 +220,7 @@ function expectedRowPadding(c: Case, halfPoints: number): number {
   return Math.round(Math.max(0, (c.rowMinimumPx ?? 0) * 15 - expectedLine(c, halfPoints)) / 2)
 }
 
-const containing = (label: string, text: string, lineHeight: number, box: Pick<Case, 'paddingPx'> = {}): Case => ({
+const containing = (label: string, text: string, lineHeight: number, box: Pick<Case, 'paddingPx' | 'previewPx'> = {}): Case => ({
   label,
   matches: (p) => lower(p.text).includes(lower(text)),
   run: (run) => lower(run).includes(lower(text)),
@@ -247,30 +255,40 @@ const FORMATTED = FORMATTED_CONTENT_LINE_HEIGHT
  * `.formatted-content`'s height on the two templates that render it there.
  */
 const CASES: Readonly<Record<ResumeTemplate, readonly Case[]>> = {
+  // Sizes from `professional-template.tsx`: name and title 22px, the summary
+  // heading 14px, every other heading 14.5px, body text 11px.
   professional: [
-    containing('title', MARK.title, PROFESSIONAL_LINE_HEIGHT.heading),
-    containing('name', MARK.name, PROFESSIONAL_LINE_HEIGHT.heading),
+    containing('title', MARK.title, PROFESSIONAL_LINE_HEIGHT.heading, { previewPx: 22 }),
+    containing('name', MARK.name, PROFESSIONAL_LINE_HEIGHT.heading, { previewPx: 22 }),
+    { ...heading(MAIN.summary, PROFESSIONAL_LINE_HEIGHT.heading), previewPx: 14 },
     ...headings(
-      [MAIN.summary, MAIN.experience, MAIN.education, MAIN.keyAchievements, MAIN.skills, MAIN.languages, MAIN.training],
+      [MAIN.experience, MAIN.education, MAIN.keyAchievements, MAIN.skills, MAIN.languages, MAIN.training],
       PROFESSIONAL_LINE_HEIGHT.heading,
-    ),
-    containing('plain achievement', MARK.achievement, PROFESSIONAL_LINE_HEIGHT.body),
-    containing('formatted achievement', MARK.htmlAchievement, FORMATTED),
-    containing('formatted summary', MARK.summary, FORMATTED),
-    containing('formatted description', MARK.description, FORMATTED),
+    ).map((c) => ({ ...c, previewPx: 14.5 })),
+    containing('plain achievement', MARK.achievement, PROFESSIONAL_LINE_HEIGHT.body, { previewPx: 11 }),
+    containing('formatted achievement', MARK.htmlAchievement, FORMATTED, { previewPx: 11 }),
+    containing('formatted summary', MARK.summary, FORMATTED, { previewPx: 11 }),
+    containing('formatted description', MARK.description, FORMATTED, { previewPx: 11 }),
   ],
+  // Sizes from `modern-template.tsx` at the default layout: the name at
+  // `titleFontSize` (24px), the title bar and main headings 16px, sidebar
+  // headings 13px, running text at `sectionDescFontSize` (14px).
   modern: [
-    containing('name (the document title)', MARK.name, MODERN_LINE_HEIGHT.title),
+    containing('name (the document title)', MARK.name, MODERN_LINE_HEIGHT.title, { previewPx: 24 }),
     // The accent bar: its inherited 1.5 line plus `padding: 4px 12px` above and below.
-    containing('job title bar', MARK.title, PREFLIGHT_LINE_HEIGHT, { paddingPx: 8 }),
-    ...headings(
-      [SECTIONS.summary, SECTIONS.experience, SECTIONS.projects, SECTIONS.education, SECTIONS.skills, SECTIONS.languages],
-      MODERN_LINE_HEIGHT.compact,
-    ),
-    containing('plain achievement', MARK.achievement, MODERN_LINE_HEIGHT.text),
-    containing('formatted achievement', MARK.htmlAchievement, FORMATTED),
-    containing('formatted summary', MARK.summary, FORMATTED),
-    containing('formatted description', MARK.description, FORMATTED),
+    containing('job title bar', MARK.title, PREFLIGHT_LINE_HEIGHT, { paddingPx: 8, previewPx: 16 }),
+    ...headings([SECTIONS.summary, SECTIONS.experience, SECTIONS.projects], MODERN_LINE_HEIGHT.compact).map((c) => ({
+      ...c,
+      previewPx: 16,
+    })),
+    ...headings([SECTIONS.education, SECTIONS.skills, SECTIONS.languages], MODERN_LINE_HEIGHT.compact).map((c) => ({
+      ...c,
+      previewPx: 13,
+    })),
+    containing('plain achievement', MARK.achievement, MODERN_LINE_HEIGHT.text, { previewPx: 14 }),
+    containing('formatted achievement', MARK.htmlAchievement, FORMATTED, { previewPx: 14 }),
+    containing('formatted summary', MARK.summary, FORMATTED, { previewPx: 14 }),
+    containing('formatted description', MARK.description, FORMATTED, { previewPx: 14 }),
   ],
   classic: [
     containing('title', MARK.title, PREFLIGHT_LINE_HEIGHT),
@@ -314,12 +332,13 @@ describe.each(TEMPLATES)('%s DOCX line spacing', (template) => {
       const [paragraph] = paragraphs
       const run = paragraph.runSizes.find((r) => c.run(r.text))
       expect(run?.halfPoints, `${c.label}: the run carries an explicit size`).toEqual(expect.any(Number))
+      const lineSize = c.previewPx !== undefined ? c.previewPx * fontScale * 1.5 : (run?.halfPoints ?? 0)
       expect({ line: paragraph.line, lineRule: paragraph.lineRule }).toEqual({
-        line: expectedLine(c, run?.halfPoints ?? 0),
+        line: expectedLine(c, lineSize),
         lineRule: 'exact',
       })
       if (c.rowMinimumPx !== undefined) {
-        const padding = expectedRowPadding(c, run?.halfPoints ?? 0)
+        const padding = expectedRowPadding(c, lineSize)
         expect({ before: paragraph.before ?? 0, after: paragraph.after }).toEqual({
           before: padding,
           // Whatever gap the section keeps below the heading, plus the row's own padding.

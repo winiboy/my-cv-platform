@@ -447,7 +447,7 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
   },
   creative: {
     // The header, whose text is white; the header fill is the gradient below.
-    'text-white @ bg-gradient-to-br from-purple-600 overflow-hidden p-10 print:p-8 relative text-white to-orange-400 via-pink-500':
+    'text-white @ bg-gradient-to-br from-purple-600 overflow-hidden p-10 relative text-white to-orange-400 via-pink-500':
       { count: 1, palette: 'white' },
     // A technology pill: the DOCX shades one run per pill, in the gradient's first stop.
     'text-white @ bg-gradient-to-r font-semibold from-purple-500 px-3 py-1 rounded-full text-white to-pink-500':

@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
+import { DashboardMobileSidebar } from '@/components/dashboard/mobile-sidebar'
 import { Header } from '@/components/marketing/header'
 import { toLocale } from '@/lib/i18n'
 
@@ -35,15 +36,23 @@ export default async function DashboardLayout(
 
       {/* Dashboard content area - fills remaining viewport height below sticky header */}
       <div className="flex h-[calc(100vh-64px)] overflow-hidden print:h-auto print:overflow-visible">
-        {/* Sidebar - Hidden when printing */}
-        <div className="h-full print:hidden">
+        {/* Sidebar - below md it moves into DashboardMobileSidebar's drawer; hidden when printing */}
+        <div data-testid="dashboard-sidebar" className="hidden h-full md:block print:hidden">
           <DashboardSidebar locale={toLocale(params.locale)} />
         </div>
 
         {/* Main content */}
-        <div className="flex h-full flex-1 flex-col overflow-hidden print:overflow-visible">
+        <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden print:overflow-visible">
+          <DashboardMobileSidebar locale={toLocale(params.locale)} />
+
           {/* Page content */}
-          <main className="flex-1 overflow-y-auto p-6 print:overflow-visible print:p-0">{children}</main>
+          {/* Below xl the stable gutter keeps the content width independent of the
+              scrollbar, so width-derived layout (the stacked resume preview's
+              scale) cannot toggle it. From xl up that preview scrolls in its own
+              pane, and the gutter is left as it was. */}
+          <main className="flex-1 overflow-y-auto p-4 [scrollbar-gutter:stable] sm:p-6 xl:[scrollbar-gutter:auto] print:overflow-visible print:p-0">
+            {children}
+          </main>
         </div>
       </div>
     </div>
