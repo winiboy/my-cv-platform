@@ -23,6 +23,8 @@
  * The inch values are the two decimals the DOCX sections already declared, and
  * the px values are whole CSS px at 96 dpi. Both are rounded: the test bounds
  * each against the millimetre definition, within half a px and 0.005 in.
+ * The twips height is the exact A4 page Word itself declares, rounded to the
+ * whole twip and bounded within half a twip.
  */
 
 /** A4 in millimetres — the definition the other units are written from. */
@@ -36,6 +38,15 @@ export const PAGE_HEIGHT_PX = 1123
 /** A4 in inches: the unit a DOCX section size is declared in. */
 export const PAGE_WIDTH_INCHES = 8.27
 export const PAGE_HEIGHT_INCHES = 11.69
+
+/**
+ * A4's height in twips, unrounded to inches: 297 mm is 16838 twips, Word's own
+ * A4. The two-decimal inches give 16833, 0.3px shorter than the page the PDF
+ * is printed on — enough to move a line that ends within that 0.3px of the
+ * PDF's page bottom to the next page. A DOCX that paginates against the PDF
+ * declares this height rather than `PAGE_HEIGHT_INCHES`.
+ */
+export const PAGE_HEIGHT_TWIPS = 16838
 
 /** The page width as a CSS length, for the `width` a template pins. */
 export const PAGE_WIDTH_CSS = `${PAGE_WIDTH_PX}px`

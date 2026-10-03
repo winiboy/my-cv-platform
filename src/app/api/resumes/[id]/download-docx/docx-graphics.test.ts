@@ -1,3 +1,4 @@
+import { inflateSync } from 'node:zlib'
 import JSZip from 'jszip'
 import { describe, expect, it } from 'vitest'
 import { resolveResumeLayout } from '@/lib/layout-settings'
@@ -10,7 +11,7 @@ import {
   type DocxGraphicForm,
 } from '@/lib/resume-graphics'
 import { generateCreativeDocx } from './docx-creative'
-import { translucentDiscPng } from './docx-disc'
+import { solidColourPng, translucentDiscPng } from './docx-disc'
 import type { DocxGeneratorSettings } from './docx-helpers'
 import { hslToHex } from './docx-helpers'
 import { generateModernDocx } from './docx-modern'
@@ -320,13 +321,15 @@ describe('modern: the skill bars', () => {
 })
 
 describe('modern: the technology chips', () => {
-  it('shades one run per technology, slate-700 on slate-100', async () => {
+  it('shades each technology and its px-2 padding, slate-700 on slate-100', async () => {
     const xml = await documentXml('modern-green', generateModernDocx, 'green')
     const chips = paragraphs(xml)
       .flatMap((paragraph) => paragraph.runs)
       .filter((run) => run.shading === DOCX_PALETTE.modern['slate-100'])
-    expect(chips.map((run) => run.text), 'one shaded run per chip, carrying its own label').toEqual(
-      MARK.technologies.map((technology) => ` ${technology} `),
+    // Per chip: a padding no-break space, the label, a padding no-break space
+    // (each space widened to the chip's 8px by character spacing).
+    expect(chips.map((run) => run.text), 'each label between two shaded padding runs').toEqual(
+      MARK.technologies.flatMap((technology) => ['\u00A0', technology, '\u00A0']),
     )
     for (const chip of chips) expect(chip.colour, 'chip text').toBe(DOCX_PALETTE.modern['slate-700'])
   })
@@ -446,9 +449,26 @@ describe('creative: the header’s decorative discs', () => {
     expect(once.length).toBeGreaterThan(80)
   })
 
+  it('draws a solid fill as an opaque PNG of exactly that colour, the same bytes every time', () => {
+    const png = solidColourPng('#0D0DA4')
+    expect(png.equals(solidColourPng('0d0da4'))).toBe(true)
+    expect(png.subarray(1, 4).toString('ascii')).toBe('PNG')
+    // Larger than 1 × 1, which Word does not draw at all (measured).
+    const [width, height] = [png.readUInt32BE(16), png.readUInt32BE(20)]
+    expect(width).toBeGreaterThan(1)
+    // IDAT is the chunk after IHDR (8 signature + 25 IHDR bytes): every pixel 0D0DA4, alpha 255.
+    const raw = inflateSync(png.subarray(33 + 8, 33 + 8 + png.readUInt32BE(33)))
+    expect(raw.length).toBe((width * 4 + 1) * height)
+    for (let y = 0; y < height; y += 1) {
+      const line = raw.subarray(y * (width * 4 + 1) + 1, (y + 1) * (width * 4 + 1))
+      for (let x = 0; x < width; x += 1) expect([...line.subarray(x * 4, x * 4 + 4)]).toEqual([0x0d, 0x0d, 0xa4, 255])
+    }
+  })
+
   it('draws no floating raster in a template whose Preview has no such shape', async () => {
     const xml = await documentXml('modern-green', generateModernDocx, 'green')
-    // Modern's only drawing is the photo, and this fixture carries none.
+    // Modern's document body draws only the photo, and this fixture carries
+    // none; its sidebar fill is a drawing in the header part.
     expect(elements(xml, 'w:drawing')).toEqual([])
   })
 })
