@@ -23,6 +23,11 @@ import { generateProfessionalDocx } from './docx-professional'
  * at the default font scale and at two others, where the size and the spacing
  * must move together.
  *
+ * A case may instead name the element's Preview size (`previewPx`): Professional
+ * writes whole half-points but scales each run's width back to the Preview's px
+ * size, and Word adds character spacing after that scaling, so its tracking is
+ * the em times the Preview's size, not the rounded run size.
+ *
  * The check is exhaustive in both directions: a run a case claims must carry
  * exactly that spacing, and a run no case claims must carry none, so a
  * generator can neither drop a spacing the Preview draws nor invent one it does
@@ -177,6 +182,8 @@ interface Case {
   em: number
   /** Every run the element is drawn with. */
   matches: (text: string) => boolean
+  /** The element's Preview font size at scale 1, in CSS px, when the spacing follows it rather than the run size. */
+  previewPx?: number
 }
 
 const fold = (text: string) => text.replace(/\s+/g, ' ').trim().toLowerCase()
@@ -194,9 +201,19 @@ const headings = (em: number): Case => ({ label: 'section headings', em, matches
  * others. An element absent here draws none on both surfaces.
  */
 const CASES: Readonly<Record<ResumeTemplate, readonly Case[]>> = {
+  // Sizes from `professional-template.tsx`: the title 22px, the summary heading 14px, every other heading 14.5px.
   professional: [
-    exactly('professional title', MARK.title, PREVIEW_TRACKING.professional.title),
-    headings(PREVIEW_TRACKING.professional.heading),
+    { ...exactly('professional title', MARK.title, PREVIEW_TRACKING.professional.title), previewPx: 22 },
+    {
+      ...exactly('summary heading', en.resumes.template.summary, PREVIEW_TRACKING.professional.heading),
+      previewPx: 14,
+    },
+    {
+      label: 'section headings',
+      em: PREVIEW_TRACKING.professional.heading,
+      matches: (run) => SECTION_TITLES.has(fold(run)) && fold(run) !== fold(en.resumes.template.summary),
+      previewPx: 14.5,
+    },
   ],
   modern: [
     exactly('name', MARK.name, PREVIEW_TRACKING.modern.name),
@@ -237,9 +254,9 @@ describe.each(TEMPLATES)('%s DOCX letter spacing', (template) => {
           continue
         }
         seen.add(claims[0].label)
-        expect(run.spacing, `${claims[0].label}: "${run.text}" at ${run.halfPoints} half-points`).toBe(
-          expectedSpacing(claims[0].em, run.halfPoints),
-        )
+        const { em, previewPx } = claims[0]
+        const halfPoints = previewPx === undefined ? run.halfPoints : previewPx * fontScale * 1.5
+        expect(run.spacing, `${claims[0].label}: "${run.text}" at ${halfPoints} half-points`).toBe(expectedSpacing(em, halfPoints))
       }
       expect([...seen].sort(), 'every element this template spaces was found in the document').toEqual(
         CASES[template].map((c) => c.label).sort(),

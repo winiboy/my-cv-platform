@@ -1,4 +1,4 @@
-import { AlignmentType, Document, Packer } from 'docx'
+import { AlignmentType, Document, Packer, Paragraph } from 'docx'
 import JSZip from 'jszip'
 import { isValidElement, type ReactElement, type ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
@@ -16,6 +16,7 @@ import {
   isHtmlList,
   isPlainTextList,
   oklchToHex,
+  parseHtmlToDocxRuns,
   parsePlainTextBlocks,
   parsePlainTextListToParagraphs,
   type PlainTextBlock,
@@ -23,6 +24,7 @@ import {
   pxToTwips,
   renderInlineBullets,
   stripHtml,
+  type DocxTextRunOptions,
 } from './docx-helpers'
 
 /**
@@ -359,6 +361,74 @@ describe('plain-text list parity with the Preview (formatText)', () => {
   })
 })
 
+describe('parseHtmlToDocxRuns inline formatting', () => {
+  interface RunFormat {
+    text: string
+    bold: boolean
+    italic: boolean
+    underline: boolean
+    strike: boolean
+  }
+
+  /** Pack the runs into a real document and read back each text run's formatting. */
+  async function renderRuns(html: string): Promise<RunFormat[]> {
+    const runs = parseHtmlToDocxRuns(html, { size: 20, color: '333333', font: 'Arial' })
+    const doc = new Document({ sections: [{ children: [new Paragraph({ children: runs })] }] })
+    const zip = await JSZip.loadAsync(await Packer.toBuffer(doc))
+    const body = await zip.file('word/document.xml')!.async('string')
+    return (body.match(/<w:r>[\s\S]*?<\/w:r>/g) ?? [])
+      .filter(run => run.includes('<w:t'))
+      .map(run => ({
+        text: (run.match(/<w:t[^>]*>([^<]*)<\/w:t>/) ?? [])[1] ?? '',
+        bold: /<w:b\/>/.test(run),
+        italic: /<w:i\/>/.test(run),
+        underline: /<w:u /.test(run),
+        strike: /<w:strike\/>/.test(run),
+      }))
+  }
+
+  it('matches tag names exactly, so <strong> is bold like the Preview draws it, not stripped as strikethrough', async () => {
+    const runs = await renderRuns(
+      '<p>a <strong>bold</strong> <b>b</b> <s>struck</s> <strike>x</strike> <del>y</del> <em>i</em> <u>u</u></p>'
+    )
+    const format = (text: string) => runs.find(run => run.text === text)
+    expect(format('bold')).toMatchObject({ bold: true, italic: false, underline: false, strike: false })
+    expect(format('b')).toMatchObject({ bold: true, italic: false, underline: false, strike: false })
+    expect(format('i')).toMatchObject({ bold: false, italic: true, underline: false, strike: false })
+    expect(format('u')).toMatchObject({ bold: false, italic: false, underline: true, strike: false })
+    // The Preview's sanitizer unwraps <s>/<strike>/<del> to plain text, so their text survives unformatted
+    for (const run of runs.filter(r => !['bold', 'b', 'i', 'u'].includes(r.text))) {
+      expect(run).toMatchObject({ bold: false, italic: false, underline: false, strike: false })
+    }
+    expect(runs.map(run => run.text).join('')).toBe('a bold b struck x y i u')
+  })
+
+  /** Each run's text, with a line break written as "\n". */
+  async function renderText(html: string): Promise<string> {
+    const runs = parseHtmlToDocxRuns(html, { size: 20, color: '333333', font: 'Arial' })
+    const doc = new Document({ sections: [{ children: [new Paragraph({ children: runs })] }] })
+    const zip = await JSZip.loadAsync(await Packer.toBuffer(doc))
+    const body = await zip.file('word/document.xml')!.async('string')
+    return (body.match(/<w:t[^>]*>[^<]*<\/w:t>|<w:br\/>/g) ?? [])
+      .map(token => (token === '<w:br/>' ? '\n' : token.replace(/<[^>]+>/g, '')))
+      .join('')
+  }
+
+  it('keeps a space that sits alone between two formatted words', async () => {
+    expect(await renderText('<p><b>A</b> <em>B</em></p>')).toBe('A B')
+    expect(await renderText('<p><strong>A</strong> <u>B</u></p>')).toBe('A B')
+  })
+
+  it('keeps the break between two paragraphs that are wholly formatted', async () => {
+    expect(await renderText('<p><strong>Title</strong></p><p><strong>Next</strong></p>')).toBe('Title\nNext')
+    expect(await renderText('<p>x <em>A</em></p><p>y</p>')).toBe('x A\ny')
+  })
+
+  it('writes no break or space after the last line', async () => {
+    expect(await renderText('<p><b>A</b></p><p> </p><p></p>')).toBe('A')
+  })
+})
+
 describe('parsePlainTextListToParagraphs', () => {
   const runOptions = { size: 20, color: '333333', font: 'Arial' }
   const layout = { spacingAfterItem: 60, spacingAfterLast: 480, lineSpacing: exactLineSpacing([1.5, 20]) }
@@ -389,6 +459,26 @@ describe('parsePlainTextListToParagraphs', () => {
 
   it('skips blank paragraphs that the Preview renders with no height', () => {
     expect(parsePlainTextListToParagraphs('\n\n- a\n\n\n', runOptions, layout)).toHaveLength(1)
+  })
+
+  it('gives every run — text, list prefix and line break — the width scale and raise it is given, and none otherwise', async () => {
+    const runsOf = async (options: DocxTextRunOptions) => {
+      const doc = new Document({
+        sections: [{ children: parsePlainTextListToParagraphs('Intro\nline two\n\n- a\n- b\n\n1. c', options, layout) }],
+      })
+      const body = await (await JSZip.loadAsync(await Packer.toBuffer(doc))).file('word/document.xml')!.async('string')
+      return [...body.matchAll(/<w:r>([\s\S]*?)<\/w:r>/g)].map(([, run]) => /<w:rPr>([\s\S]*?)<\/w:rPr>/.exec(run)?.[1] ?? '')
+    }
+    const scaled = await runsOf({ ...runOptions, scale: 97, position: '1.5pt' })
+    // Intro, break, line two; then a prefix and its text for each of the three items.
+    expect(scaled).toHaveLength(9)
+    for (const properties of scaled) {
+      expect(properties).toContain('<w:w w:val="97"/>')
+      expect(properties).toContain('<w:position w:val="1.5pt"/>')
+    }
+    for (const properties of await runsOf(runOptions)) {
+      expect(properties).not.toMatch(/<w:w |<w:position /)
+    }
   })
 
   it('prefixes items like parseHtmlListToParagraphs and restarts numbering per list', async () => {

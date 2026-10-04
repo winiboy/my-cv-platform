@@ -1,6 +1,7 @@
 import { getTranslations, type Locale } from '@/lib/i18n'
 import {
   Document,
+  Header,
   Packer,
   Paragraph,
   TextRun,
@@ -14,7 +15,6 @@ import {
   VerticalAlign,
   convertInchesToTwip,
   TabStopType,
-  TabStopPosition,
   HeightRule,
   LineRuleType,
   TableLayoutType,
@@ -24,38 +24,47 @@ import {
   VerticalPositionRelativeFrom,
   TextWrappingType,
   DocumentGridType,
+  NoBreakHyphen,
+  type UniversalMeasure,
 } from 'docx'
 import JSZip from 'jszip'
 import {
   pxToHalfPoints,
   pxToTwips,
   hslToHex,
-  extractPrimaryFont,
   extractAlignment,
-  isHtmlList,
-  parseHtmlListToParagraphs,
   isPlainTextList,
   parsePlainTextListToParagraphs,
   parseHtmlToDocxRuns,
-  formatDateRange,
   exactLineSpacing,
   trackingSpacing,
   NO_TEXT_LINE,
   type DocxGeneratorSettings,
 } from './docx-helpers'
+import {
+  FORMATTED_LIST_INDENT_PX,
+  FORMATTED_LIST_MARKER_EM,
+  PREVIEW_FONT_METRICS,
+  bareInlineFormatTags,
+  baselineRaise,
+  formattedBlocks,
+  resolvePreviewFont,
+} from './docx-preview-metrics'
 import { DOCX_PALETTE } from './docx-palette'
 import { docxTranslucentText } from './docx-text-opacity'
-import { graphicHeightTwips, pillRuns, proportionalBar, shadedCellBar } from './docx-graphics'
-import { PAGE_HEIGHT_INCHES, PAGE_WIDTH_INCHES } from '@/lib/resume-page-size'
+import { graphicHeightTwips, proportionalBar, shadedCellBar } from './docx-graphics'
+import { solidColourPng } from './docx-disc'
+import { PAGE_HEIGHT_TWIPS, PAGE_WIDTH_INCHES } from '@/lib/resume-page-size'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import { MODERN_SKILL_BAR, modernSkillBarTrack } from '@/lib/resume-graphics'
 import {
+  FORMATTED_CONTENT_LINE_HEIGHT,
   MODERN_LINE_HEIGHT,
   MODERN_TITLE_BAR_PADDING_Y_PX,
   PREFLIGHT_LINE_HEIGHT,
   TAILWIND_LEADING,
   TAILWIND_TEXT_LINE_HEIGHT,
-  formattedTextLineHeight,
+  rendersAsFormattedContent,
 } from '@/lib/resume-line-height'
 import {
   assertExhaustiveSection,
@@ -86,7 +95,7 @@ const TRACKING = PREVIEW_TRACKING.modern
  * the Preview applies; they now come from the model, because a default is not
  * the size the Preview draws once a stored value differs (Part 3 US-011).
  */
-const FONT_SIZES = {
+export const FONT_SIZES = {
   JOB_TITLE_BAR: 16,           // Job title on accent bar
   LOCATION: 11,                 // Address line below title
   MAIN_SECTION_TITLE: 16,      // MainSectionHeader h2
@@ -109,6 +118,16 @@ const FONT_SIZES = {
 }
 
 /**
+ * The project name (`text-lg`) and technology chips (`text-xs`) are Tailwind
+ * size classes with no inline size, so the Preview draws them at these px
+ * whatever the font scale (measured: 28px lines for the name at scale 1.1).
+ */
+export const UNSCALED_FONT_SIZES = {
+  PROJECT_NAME: 18,            // text-lg
+  TECHNOLOGY: 12,              // text-xs
+}
+
+/**
  * The Preview's line heights (US-004), from the module `modern-template.tsx`
  * imports them from: `title` for the name; `compact` for headings, labels and
  * entry lines; `text` for running text and secondary lines. Elements that set
@@ -122,6 +141,29 @@ const LINE_HEIGHT = MODERN_LINE_HEIGHT
 // Spacing constants in px (matching modern-template.tsx)
 const SPACING = {
   SECTION_MARGIN_BOTTOM_SIDEBAR: 32,  // mb-8 on sidebar sections
+  LANGUAGES_MARGIN_BOTTOM: 24,        // the languages section's own marginBottom
+  SIDEBAR_PADDING: 32,                // p-8 on the sidebar content
+  MAIN_PADDING: 32,                   // p-8 on the main column
+  PHOTO_ZONE_HEIGHT: 220,             // the photo zone above the sidebar content
+  SIDEBAR_HEADER_PADDING_Y: 6,        // SidebarSectionHeader padding: 6px 12px
+  SIDEBAR_HEADER_PADDING_X: 12,
+  MAIN_HEADER_PADDING_BOTTOM: 6,      // MainSectionHeader h2 paddingBottom
+  MAIN_HEADER_RULE: 2,                // MainSectionHeader rule height
+  CONTACT_ICON: 32,                   // ContactItem icon badge, width and height
+  CONTACT_ICON_GAP: 10,               // ContactItem gap between text and badge
+  LOCATION_NO_TITLE_MT: 4,            // the address line's marginTop with no job title
+  EXPERIENCE_LEFT_SHARE: 0.4,         // the entry's left column: width 40%
+  EXPERIENCE_COLUMN_GAP: 16,          // the entry row's gap
+  EXPERIENCE_DATE_MT: 2,
+  EXPERIENCE_COMPANY_MT: 8,
+  EXPERIENCE_LOCATION_MT: 2,
+  ACHIEVEMENTS_MT: 6,                 // the achievement list's marginTop after a description
+  ACHIEVEMENT_BULLET_GAP: 6,          // the achievement li's gap after its bullet
+  PROJECT_INDENT: 16,                 // pl-4 on a project
+  PROJECT_GAP: 16,                    // space-y-4 between projects
+  PROJECT_DESCRIPTION_MT: 4,          // mt-1
+  PROJECT_TECHNOLOGIES_MT: 8,         // mt-2
+  TECHNOLOGY_PADDING_Y: 4,            // py-1 on a chip
   SECTION_MARGIN_BOTTOM_MAIN: 24,     // mb-6 on main sections
   SIDEBAR_SECTION_HEADER_MB: 12,      // marginBottom on SidebarSectionHeader
   MAIN_SECTION_HEADER_MB: 12,         // marginBottom on MainSectionHeader
@@ -135,6 +177,9 @@ const SPACING = {
   EXPERIENCE_ITEM_GAP: 16,           // gap between experience entries
   NAME_MB: 8,                        // marginBottom on name
   TITLE_BAR_MB: 8,                   // marginBottom on title bar
+  TITLE_BAR_PADDING_X: 12,           // the title bar's horizontal padding
+  TECHNOLOGY_PADDING_X: 8,           // px-2 on a chip
+  TECHNOLOGY_GAP: 8,                 // gap-2 between chips
   ACHIEVEMENT_GAP: 2,                // gap between achievement items
 }
 
@@ -427,48 +472,231 @@ export async function generateModernDocx(
    * They are NOT read from `DEFAULT_RESUME_LAYOUT`: that reference resolves to
    * the default while the Preview keeps using the owner's value, the shape
    * Part 2's US-003 T-1 rejected.
+   *
+   * Each entry is a text box the Preview draws: its px size and its CSS line
+   * height. A Word run's size is whole half-points, but the Preview's line box
+   * is its px size times the line height, so line heights, the width scale and
+   * the baseline raise below all use the exact px.
    */
-  const scaledFontSizes = {
-    name: pxToHalfPoints(titleFontSize * fontScale),
-    jobTitleBar: pxToHalfPoints(FONT_SIZES.JOB_TITLE_BAR * fontScale),
-    location: pxToHalfPoints(FONT_SIZES.LOCATION * fontScale),
-    mainSectionTitle: pxToHalfPoints(FONT_SIZES.MAIN_SECTION_TITLE * fontScale),
-    sidebarSectionTitle: pxToHalfPoints(FONT_SIZES.SIDEBAR_SECTION_TITLE * fontScale),
-    experiencePosition: pxToHalfPoints(FONT_SIZES.EXPERIENCE_POSITION * fontScale),
-    experienceDate: pxToHalfPoints(FONT_SIZES.EXPERIENCE_DATE * fontScale),
-    experienceCompany: pxToHalfPoints(FONT_SIZES.EXPERIENCE_COMPANY * fontScale),
-    experienceLocation: pxToHalfPoints(FONT_SIZES.EXPERIENCE_LOCATION * fontScale),
-    body: pxToHalfPoints(sectionDescFontSize * fontScale),
-    summary: pxToHalfPoints(sectionDescFontSize * fontScale),
-    contactLabel: pxToHalfPoints(FONT_SIZES.CONTACT_LABEL * fontScale),
-    contactValue: pxToHalfPoints(FONT_SIZES.CONTACT_VALUE * fontScale),
-    educationDegree: pxToHalfPoints(FONT_SIZES.EDUCATION_DEGREE * fontScale),
-    educationSchool: pxToHalfPoints(FONT_SIZES.EDUCATION_SCHOOL * fontScale),
-    skillCategory: pxToHalfPoints(FONT_SIZES.SKILL_CATEGORY * fontScale),
-    skillItem: pxToHalfPoints(FONT_SIZES.SKILL_ITEM * fontScale),
-    languageName: pxToHalfPoints(FONT_SIZES.LANGUAGE_NAME * fontScale),
-    languageLevel: pxToHalfPoints(FONT_SIZES.LANGUAGE_LEVEL * fontScale),
-    certName: pxToHalfPoints(FONT_SIZES.CERT_NAME * fontScale),
-    certIssuer: pxToHalfPoints(FONT_SIZES.CERT_ISSUER * fontScale),
-    certDate: pxToHalfPoints(FONT_SIZES.CERT_DATE * fontScale),
-  }
+  const boxes = {
+    name: { px: titleFontSize * fontScale, lineHeight: LINE_HEIGHT.title },
+    jobTitleBar: { px: FONT_SIZES.JOB_TITLE_BAR * fontScale, lineHeight: PREFLIGHT_LINE_HEIGHT },
+    location: { px: FONT_SIZES.LOCATION * fontScale, lineHeight: PREFLIGHT_LINE_HEIGHT },
+    mainSectionTitle: { px: FONT_SIZES.MAIN_SECTION_TITLE * fontScale, lineHeight: LINE_HEIGHT.compact },
+    sidebarSectionTitle: { px: FONT_SIZES.SIDEBAR_SECTION_TITLE * fontScale, lineHeight: LINE_HEIGHT.compact },
+    experiencePosition: { px: FONT_SIZES.EXPERIENCE_POSITION * fontScale, lineHeight: LINE_HEIGHT.compact },
+    experienceDate: { px: FONT_SIZES.EXPERIENCE_DATE * fontScale, lineHeight: LINE_HEIGHT.compact },
+    experienceCompany: { px: FONT_SIZES.EXPERIENCE_COMPANY * fontScale, lineHeight: LINE_HEIGHT.compact },
+    experienceLocation: { px: FONT_SIZES.EXPERIENCE_LOCATION * fontScale, lineHeight: LINE_HEIGHT.compact },
+    // Running text: the summary, an experience description and its achievements.
+    body: { px: sectionDescFontSize * fontScale, lineHeight: LINE_HEIGHT.text },
+    // Running text given as HTML, at `.formatted-content`'s line height.
+    formatted: { px: sectionDescFontSize * fontScale, lineHeight: FORMATTED_CONTENT_LINE_HEIGHT },
+    contactLabel: { px: FONT_SIZES.CONTACT_LABEL * fontScale, lineHeight: LINE_HEIGHT.compact },
+    contactValue: { px: FONT_SIZES.CONTACT_VALUE * fontScale, lineHeight: LINE_HEIGHT.compact },
+    educationDegree: { px: FONT_SIZES.EDUCATION_DEGREE * fontScale, lineHeight: LINE_HEIGHT.compact },
+    educationSchool: { px: FONT_SIZES.EDUCATION_SCHOOL * fontScale, lineHeight: LINE_HEIGHT.text },
+    skillCategory: { px: FONT_SIZES.SKILL_CATEGORY * fontScale, lineHeight: LINE_HEIGHT.compact },
+    skillItem: { px: FONT_SIZES.SKILL_ITEM * fontScale, lineHeight: LINE_HEIGHT.compact },
+    skillsFormatted: { px: FONT_SIZES.SKILL_ITEM * fontScale, lineHeight: FORMATTED_CONTENT_LINE_HEIGHT },
+    languageName: { px: FONT_SIZES.LANGUAGE_NAME * fontScale, lineHeight: LINE_HEIGHT.compact },
+    languageLevel: { px: FONT_SIZES.LANGUAGE_LEVEL * fontScale, lineHeight: LINE_HEIGHT.compact },
+    certName: { px: FONT_SIZES.CERT_NAME * fontScale, lineHeight: LINE_HEIGHT.compact },
+    certIssuer: { px: FONT_SIZES.CERT_ISSUER * fontScale, lineHeight: LINE_HEIGHT.text },
+    certDate: { px: FONT_SIZES.CERT_DATE * fontScale, lineHeight: LINE_HEIGHT.text },
+    projectName: { px: UNSCALED_FONT_SIZES.PROJECT_NAME, lineHeight: TAILWIND_TEXT_LINE_HEIGHT['text-lg'] },
+    projectDescription: { px: sectionDescFontSize * fontScale, lineHeight: TAILWIND_LEADING['leading-relaxed'] },
+    technology: { px: UNSCALED_FONT_SIZES.TECHNOLOGY, lineHeight: TAILWIND_TEXT_LINE_HEIGHT['text-xs'] },
+  } satisfies Record<string, { px: number; lineHeight: number }>
+  type BoxKey = keyof typeof boxes
 
-  // Extract primary font name from font family stack
-  const primaryFont = extractPrimaryFont(fontFamily)
+  /** The size each box is written at, in whole half-points. */
+  const scaledFontSizes = Object.fromEntries(
+    (Object.keys(boxes) as BoxKey[]).map((key) => [key, pxToHalfPoints(boxes[key].px)])
+  ) as Record<BoxKey, number>
+
+  /**
+   * A box's exact line (`w:line`, EXACT), from its unrounded size; `paddingPx`
+   * adds a box's vertical padding to the line, for a box that is drawn as one
+   * line of its own background.
+   */
+  const lineOf = (key: BoxKey, paddingPx = 0) =>
+    paddingPx > 0
+      ? exactLineSpacing({ lineHeight: boxes[key].lineHeight, halfPoints: boxes[key].px * 1.5, paddingPx })
+      : exactLineSpacing([boxes[key].lineHeight, boxes[key].px * 1.5])
+
+  // The family every run is written in, and the metrics its raise is computed
+  // from: one resolution for both, so Word draws the face the raise is for.
+  // A family the table has not measured is laid out with Arial's metrics
+  // throughout — raises, padding spaces and bullet advances alike — because
+  // the advances need some value, and two assumptions about one face (Arial's
+  // widths, no raise) would describe a font that does not exist.
+  const previewFont = resolvePreviewFont(fontFamily)
+  const primaryFont = previewFont.name
+  const layoutMetrics = previewFont.metrics ?? PREVIEW_FONT_METRICS.arial
+
+  // A run rounded to whole half-points draws every glyph that much wider or
+  // narrower than the Preview's px size (11px written as 17 half-points is 3%
+  // wide), and Word then breaks lines at different words. Each run is scaled
+  // horizontally (w:w, whole percent) back to the Preview's advance widths.
+  const widthScale = (key: BoxKey) => Math.round((100 * boxes[key].px * 1.5) / scaledFontSizes[key])
+
+  /**
+   * The raise that puts a box's baseline where the Preview draws it, in the
+   * Word line it is drawn in (its own, unless a row shares one) and
+   * `offsetPx` below that line's top (padding, or flex centring).
+   */
+  const raiseOf = (key: BoxKey, wordLineTwips: number = lineOf(key).line, offsetPx = 0): UniversalMeasure =>
+    baselineRaise(layoutMetrics, boxes[key].px, boxes[key].lineHeight, wordLineTwips, offsetPx)
+
+  /** The run options every run of a box carries: size, width scale, raise and font. */
+  const runBase = (key: BoxKey, wordLineTwips?: number, offsetPx?: number) => ({
+    size: scaledFontSizes[key],
+    scale: widthScale(key),
+    position: raiseOf(key, wordLineTwips, offsetPx),
+    font: primaryFont,
+  })
+
+  /**
+   * Character spacing that widens one space of a box to `px`: horizontal
+   * padding and gaps the Preview draws as box geometry, written as a space
+   * (no-break inside a box) whose advance is the font's space plus this.
+   */
+  const paddingSpacing = (key: BoxKey, px: number) =>
+    pxToTwips(px - layoutMetrics.space * boxes[key].px)
 
   // Calculate page dimensions for layout
   const pageWidthTwips = convertInchesToTwip(PAGE_WIDTH_INCHES)
   const sidebarWidthTwips = Math.round(pageWidthTwips * (sidebarWidthPercent / 100))
   const mainContentWidthTwips = pageWidthTwips - sidebarWidthTwips
 
-  // Right indent for main content to prevent text touching the edge
-  const mainContentRightIndent = convertInchesToTwip(0.15)
+  // The main column's p-8, exactly 32px each side (0.33" was 475 twips), and no
+  // right indent beyond it: the Preview's text runs the full width inside p-8,
+  // and an extra 0.15" made Word wrap at different words.
+  const mainCellMargin = pxToTwips(SPACING.MAIN_PADDING)
+  const mainContentTextWidth = mainContentWidthTwips - mainCellMargin * 2
 
-  // Sidebar text indentation — replaces cell margins (which are 0 for edge-to-edge photo).
-  // All non-photo sidebar paragraphs use this left/right indent.
+  // Sidebar text indentation: the sidebar content's p-8. The cell has no
+  // margins, so the photo and the section banners can span it edge to edge.
   const sidebarTextIndent = {
-    left: convertInchesToTwip(0.33),
-    right: convertInchesToTwip(0.33),
+    left: pxToTwips(SPACING.SIDEBAR_PADDING),
+    right: pxToTwips(SPACING.SIDEBAR_PADDING),
+  }
+
+  /**
+   * A gap the Preview draws between two blocks, as a paragraph of its own whose
+   * 1-twip line is part of the gap. The gap is its space *before*: where a page
+   * breaks between the two blocks, the product PDF (Chromium's print of the
+   * Preview) truncates the margin at the break, keeping the block above on the
+   * page if its own box fits and starting the block below at the next page's
+   * top. Word only places a paragraph whose spacing fits too, so a gap carried
+   * as the block's space after moved a block whose box fits to the next page;
+   * carried before the next block, it leaves that block where the PDF does.
+   * Both orders put the next block at the same place otherwise.
+   *
+   * Word keeps a space before at the top of a page inside a table row that
+   * spans pages (measured: empty and text paragraphs, compatibility modes 14
+   * and 15), so the block after the break starts one gap lower than the PDF's.
+   *
+   * Word collapses a space after and the next paragraph's space before into
+   * the larger of the two (measured), so a gap carried before must follow a
+   * table or a paragraph with no space after; `'after'` keeps one that
+   * follows spaced text whole.
+   */
+  const gapParagraph = (px: number, carriedAs: 'before' | 'after' = 'before') =>
+    gapParagraphTwips(pxToTwips(px), carriedAs)
+  const gapParagraphTwips = (twips: number, carriedAs: 'before' | 'after' = 'before') => {
+    const gap = Math.max(0, twips - NO_TEXT_LINE.line)
+    return new Paragraph({
+      children: [],
+      spacing: { before: carriedAs === 'before' ? gap : 0, after: carriedAs === 'after' ? gap : 0, ...NO_TEXT_LINE },
+    })
+  }
+
+  /**
+   * The paragraphs of a formatted (HTML) text block as `.formatted-content`
+   * draws it: one per block `formattedBlocks` finds, stacked with no gap at the
+   * box's line height, the last one carrying the space after the whole element;
+   * a list item's marker hangs outside its text, which starts — and wraps — at
+   * the list's indent. An element with no text still keeps that space.
+   *
+   * `prefix` is a run drawn before the first block's text and hung outside it
+   * like a marker (an achievement's bullet): every block then starts at
+   * `prefix.hangTwips`.
+   */
+  const formattedParagraphs = (
+    html: string,
+    options: {
+      box: 'formatted' | 'skillsFormatted'
+      color: string
+      alignment: (typeof AlignmentType)[keyof typeof AlignmentType]
+      spacingAfter: number
+      indent?: { left: number; right: number }
+      prefix?: { runs: TextRun[]; hangTwips: number }
+    }
+  ): Paragraph[] => {
+    const { box, color, alignment, spacingAfter, prefix } = options
+    const indent = options.indent ?? { left: 0, right: 0 }
+    const blocks = formattedBlocks(html)
+    if (blocks.length === 0) return [new Paragraph({ spacing: { after: spacingAfter, ...NO_TEXT_LINE }, indent })]
+    const run = { ...runBase(box), color }
+    const markerHang = pxToTwips(FORMATTED_LIST_MARKER_EM * boxes[box].px)
+    const textStart = indent.left + (prefix?.hangTwips ?? 0)
+    return blocks.map((block, i) => {
+      const left = textStart + pxToTwips(FORMATTED_LIST_INDENT_PX * block.depth)
+      const marker = block.marker === null ? [] : [new TextRun({ ...run, text: `${block.marker}\t` })]
+      const first = i === 0 && prefix !== undefined
+      return new Paragraph({
+        children: [...(first ? prefix.runs : []), ...marker, ...parseHtmlToDocxRuns(bareInlineFormatTags(block.html), run)],
+        spacing: { after: i === blocks.length - 1 ? spacingAfter : 0, ...lineOf(box) },
+        indent: {
+          left,
+          right: indent.right,
+          hanging: first ? left - indent.left : block.marker === null ? 0 : markerHang,
+        },
+        alignment: block.alignment ?? alignment,
+      })
+    })
+  }
+
+  /**
+   * Running text in the main column as `renderFormattedText` draws it inside a
+   * justified container: HTML through `.formatted-content` (its own line
+   * height, the container's alignment unless a block sets one); plain text
+   * through `formatText`'s justified div at the element's line height
+   * (`plainBox`). A plain-text bulleted list keeps the shared list helper.
+   */
+  const runningText = (
+    text: string,
+    options: {
+      plainBox: 'body' | 'projectDescription'
+      color: string
+      spacingAfter: number
+      indent?: { left: number; right: number }
+    }
+  ): Paragraph[] => {
+    const { plainBox, color, spacingAfter } = options
+    const indent = options.indent ?? { left: 0, right: 0 }
+    if (rendersAsFormattedContent(text)) {
+      return formattedParagraphs(text, { box: 'formatted', color, alignment: AlignmentType.JUSTIFIED, spacingAfter, indent })
+    }
+    if (isPlainTextList(text)) {
+      return parsePlainTextListToParagraphs(text, { ...runBase(plainBox), color }, {
+        spacingAfterItem: pxToTwips(4),
+        spacingAfterLast: spacingAfter,
+        indent,
+        alignment: extractAlignment(text) || AlignmentType.JUSTIFIED,
+        lineSpacing: lineOf(plainBox),
+      })
+    }
+    return [
+      new Paragraph({
+        children: parseHtmlToDocxRuns(text, { ...runBase(plainBox), color }),
+        alignment: AlignmentType.JUSTIFIED,
+        indent,
+        spacing: { after: spacingAfter, ...lineOf(plainBox) },
+      }),
+    ]
   }
 
   // A sidebar skill bar is `width: 100%` of the same column that indent defines.
@@ -485,62 +713,89 @@ export async function generateModernDocx(
   } as const
 
   // ============================================================
-  // HELPER: Create a sidebar section header paragraph
-  // Mimics the SidebarSectionHeader component: accent-colored background,
-  // white uppercase text, full-width banner
+  // HELPER: Create a sidebar section header
+  // Mimics the SidebarSectionHeader component: an accent banner across the
+  // whole sidebar (its -32px side margins cancel the sidebar's p-8), padded
+  // 6px 12px, with white uppercase text. A one-cell table draws that box
+  // exactly: cell margins are the padding, cell shading the background. Its
+  // 12px margin below is the gap paragraph after it.
   // ============================================================
-  function createSidebarSectionHeader(title: string): Paragraph {
-    return new Paragraph({
-      children: [
-        new TextRun({
-          text: title.toUpperCase(),
-          bold: true,
-          size: scaledFontSizes.sidebarSectionTitle,
-          color: PALETTE.white,
-          font: primaryFont,
-          characterSpacing: trackingSpacing(TRACKING.sectionHeading, scaledFontSizes.sidebarSectionTitle),
+  function createSidebarSectionHeader(title: string): (Paragraph | Table)[] {
+    const banner = new Table({
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      ...runBase('sidebarSectionTitle'),
+                      text: title.toUpperCase(),
+                      bold: true,
+                      color: PALETTE.white,
+                      characterSpacing: trackingSpacing(TRACKING.sectionHeading, scaledFontSizes.sidebarSectionTitle),
+                    }),
+                  ],
+                  spacing: { before: 0, after: 0, ...lineOf('sidebarSectionTitle') },
+                }),
+              ],
+              width: { size: sidebarWidthTwips, type: WidthType.DXA },
+              margins: {
+                top: pxToTwips(SPACING.SIDEBAR_HEADER_PADDING_Y),
+                bottom: pxToTwips(SPACING.SIDEBAR_HEADER_PADDING_Y),
+                left: pxToTwips(SPACING.SIDEBAR_HEADER_PADDING_X),
+                right: pxToTwips(SPACING.SIDEBAR_HEADER_PADDING_X),
+              },
+              shading: { type: ShadingType.CLEAR, fill: accentColorHex, color: 'auto' },
+              verticalAlign: VerticalAlign.TOP,
+              borders: noBorders,
+            }),
+          ],
         }),
       ],
-      indent: sidebarTextIndent,
-      spacing: {
-        after: pxToTwips(SPACING.SIDEBAR_SECTION_HEADER_MB),
-        ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.sidebarSectionTitle]),
-      },
-      shading: {
-        type: ShadingType.SOLID,
-        fill: accentColorHex,
-        color: accentColorHex,
-      },
+      width: { size: sidebarWidthTwips, type: WidthType.DXA },
+      columnWidths: [sidebarWidthTwips],
+      layout: TableLayoutType.FIXED,
+      borders: noBorders,
     })
+    return [banner, gapParagraph(SPACING.SIDEBAR_SECTION_HEADER_MB)]
   }
 
   // ============================================================
   // HELPER: Create a main section header paragraph
-  // Mimics the MainSectionHeader component: uppercase dark text
-  // with accent-colored bottom border
+  // Mimics the MainSectionHeader component: uppercase dark text, 6px of
+  // padding, a 2px accent rule, then 12px. Word takes a bottom border's space
+  // in whole points only, so the rule sits 4pt below the line and the rest of
+  // the 6px + 2px goes into the space after.
   // ============================================================
+  const MAIN_HEADER_BORDER_SPACE_PT = 4
+  const MAIN_HEADER_BORDER_SIZE = 12 // eighths of a point: 1.5pt = 2px
+  const mainHeaderSpacingAfter =
+    pxToTwips(SPACING.MAIN_HEADER_PADDING_BOTTOM + SPACING.MAIN_HEADER_RULE + SPACING.MAIN_SECTION_HEADER_MB) -
+    MAIN_HEADER_BORDER_SPACE_PT * 20 -
+    (MAIN_HEADER_BORDER_SIZE / 8) * 20
   function createMainSectionHeader(title: string): Paragraph {
     return new Paragraph({
       children: [
         new TextRun({
+          ...runBase('mainSectionTitle'),
           text: title.toUpperCase(),
           bold: true,
-          size: scaledFontSizes.mainSectionTitle,
           color: PALETTE.heading,
-          font: primaryFont,
           characterSpacing: trackingSpacing(TRACKING.sectionHeading, scaledFontSizes.mainSectionTitle),
         }),
       ],
       spacing: {
-        after: pxToTwips(SPACING.MAIN_SECTION_HEADER_MB),
-        ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.mainSectionTitle]),
+        after: mainHeaderSpacingAfter,
+        ...lineOf('mainSectionTitle'),
       },
       border: {
         bottom: {
           color: accentColorHex,
-          space: 1,
+          space: MAIN_HEADER_BORDER_SPACE_PT,
           style: BorderStyle.SINGLE,
-          size: 6, // 2px line
+          size: MAIN_HEADER_BORDER_SIZE,
         },
       },
     })
@@ -562,9 +817,10 @@ export async function generateModernDocx(
         const rawBase64 = extractBase64Data(photoBase64)
         const imageBuffer = Buffer.from(rawBase64, 'base64')
 
-        const sidebarInches = (sidebarWidthPercent / 100) * 8.5
+        // The zone is the sidebar's full width on the document's own page.
+        const sidebarInches = (sidebarWidthPercent / 100) * PAGE_WIDTH_INCHES
         const zoneWidthPx = Math.round(sidebarInches * 96)
-        const zoneHeightPx = 220
+        const zoneHeightPx = SPACING.PHOTO_ZONE_HEIGHT
 
         // Parse original dimensions to calculate object-fit: cover crop
         const origDims = parseImageDimensions(imageBuffer, imageType)
@@ -585,13 +841,11 @@ export async function generateModernDocx(
         // post-processing) ensures the source is cropped to matching aspect
         // ratio before being stretched to fill, preventing distortion.
         //
-        // Word adds internal rendering spacing inside table cells that cannot
-        // be eliminated via cell margins or paragraph spacing alone. We use a
-        // negative vertical offset (~32px = 304800 EMU) to push the image UP
-        // to compensate for this gap. The anchor is PARAGRAPH-relative with
-        // layoutInCell: true so Word positions relative to the cell content
-        // then the negative offset pulls the photo flush to the cell top.
-        const photoNegativeOffsetEmu = -304800 // -32px in EMU (32 * 9525)
+        // The anchor is PARAGRAPH-relative with layoutInCell: true, in the
+        // sidebar cell's first paragraph, which starts at the cell's top: both
+        // cells of the row have a top margin of 0 (below). A -32px offset stood
+        // here to undo the main cell's 0.33" top margin, which Word applied to
+        // the sidebar cell too.
         photoImageRun = new ImageRun({
           type: imageType,
           data: imageBuffer,
@@ -606,7 +860,7 @@ export async function generateModernDocx(
             },
             verticalPosition: {
               relative: VerticalPositionRelativeFrom.PARAGRAPH,
-              offset: photoNegativeOffsetEmu,
+              offset: 0,
             },
             wrap: {
               type: TextWrappingType.NONE,
@@ -628,52 +882,21 @@ export async function generateModernDocx(
   // Tables as well as paragraphs: a skill's proficiency bar is a table (US-007).
   const sidebarParagraphs: (Paragraph | Table)[] = []
 
-  // Photo anchor paragraph — placed inside the sidebar cell so it does not
-  // create an extra page before the table. The floating image uses
-  // layoutInCell: true with PARAGRAPH-relative vertical positioning and a
-  // negative offset to compensate for Word's internal cell rendering gap.
-  // line: 1 (EXACT) makes the anchor take near-zero vertical space.
-  if (photoImageRun) {
-    sidebarParagraphs.push(
-      new Paragraph({
-        children: [photoImageRun],
-        spacing: { before: 0, after: 0, line: 1, lineRule: LineRuleType.EXACT },
-      })
-    )
-  }
-
-  // Cell margins are 0, so recreate vertical padding via paragraph spacing.
-  // With "In Front of Text" wrapping, the floating photo does NOT push text down,
-  // so we must manually offset sidebar text below the 220px photo zone + 32px gap.
-  // The anchor paragraph is now outside the table, so the full offset applies here.
-  // When no photo: use the original 0.25" top padding.
-  const topPaddingBeforeText = convertInchesToTwip(0.25)
-  const photoZoneOffset = photoImageRun
-    ? pxToTwips(220) + pxToTwips(32)  // 3780 twips = 252px (220px photo + 32px gap)
-    : topPaddingBeforeText
-
-  if (sidebarTopMargin > 0) {
-    sidebarParagraphs.push(
-      new Paragraph({
-        spacing: {
-          before: photoZoneOffset,
-          after: pxToTwips(sidebarTopMargin),
-          ...NO_TEXT_LINE,
-        },
-        indent: sidebarTextIndent,
-        children: [],
-      })
-    )
-  } else {
-    // Always add the top padding spacer paragraph before first text content
-    sidebarParagraphs.push(
-      new Paragraph({
-        spacing: { before: photoZoneOffset, after: 0, ...NO_TEXT_LINE },
-        indent: sidebarTextIndent,
-        children: [],
-      })
-    )
-  }
+  // The sidebar content starts below the photo zone, which the Preview always
+  // draws (a placeholder when there is no photo), plus the content's top
+  // padding: the stored sidebarTopMargin when it is positive, p-8 otherwise.
+  // With "In Front of Text" wrapping the floating photo does not push text
+  // down, so one paragraph carries the whole offset; it is also the photo's
+  // anchor. Its 1-twip line is part of the offset.
+  const sidebarContentTop =
+    pxToTwips(SPACING.PHOTO_ZONE_HEIGHT) +
+    pxToTwips(sidebarTopMargin > 0 ? sidebarTopMargin : SPACING.SIDEBAR_PADDING)
+  sidebarParagraphs.push(
+    new Paragraph({
+      children: photoImageRun ? [photoImageRun] : [],
+      spacing: { before: 0, after: sidebarContentTop - NO_TEXT_LINE.line, ...NO_TEXT_LINE },
+    })
+  )
 
   // Render sidebar sections in order, respecting visibility
   const visibleSidebarSections: readonly ModernSidebarId[] = sidebarOrder.filter(
@@ -682,7 +905,10 @@ export async function generateModernDocx(
 
   visibleSidebarSections.forEach((sectionId, index) => {
     const isLastSection = index === visibleSidebarSections.length - 1
-    const sectionSpacingAfter = isLastSection ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_SIDEBAR)
+    // Every sidebar section is mb-8 except languages, which sets its own 24px.
+    const sectionMarginPx =
+      sectionId === 'languages' ? SPACING.LANGUAGES_MARGIN_BOTTOM : SPACING.SECTION_MARGIN_BOTTOM_SIDEBAR
+    const sectionSpacingAfter = isLastSection ? 0 : pxToTwips(sectionMarginPx)
 
     switch (sectionId) {
       // --- CONTACT ---
@@ -697,12 +923,12 @@ export async function generateModernDocx(
         if (!hasContactData) return
 
         sidebarParagraphs.push(
-          createSidebarSectionHeader(
+          ...createSidebarSectionHeader(
             (dict as any).resumes?.editor?.sections?.contact || 'Contact'
           )
         )
 
-        // Contact items: emoji icon + label (uppercase, dimmed) + value (white) per line
+        // Contact items: emoji icon + label (uppercase, dimmed) + value (white)
         const contactEntries: { label: string; value: string; icon: string }[] = []
         if (contact.phone) contactEntries.push({ label: 'Phone', value: contact.phone, icon: '\u{1F4DE}' })
         if (contact.email) contactEntries.push({ label: 'Email', value: contact.email, icon: '\u{2709}\uFE0F' })
@@ -711,50 +937,110 @@ export async function generateModernDocx(
         if (contact.github) contactEntries.push({ label: 'GitHub', value: contact.github, icon: '\u{1F4BB}' })
         if (contact.location) contactEntries.push({ label: 'Location', value: contact.location, icon: '\u{1F4CD}' })
 
+        // One table, as the Preview's ContactItem rows: the label and value
+        // right-aligned in the space left of the 32px icon badge, and the two
+        // vertically centred against it (`align-items: center`), so an item is
+        // at least 32px tall. The 10px between items are rows of their own.
+        const iconCellWidth = pxToTwips(SPACING.CONTACT_ICON) + sidebarTextIndent.right
+        const textCellWidth = sidebarWidthTwips - iconCellWidth
+        const gapRow = () =>
+          new TableRow({
+            height: { value: pxToTwips(SPACING.CONTACT_ITEM_GAP), rule: HeightRule.EXACT },
+            children: [textCellWidth, iconCellWidth].map(
+              (width) =>
+                new TableCell({
+                  children: [new Paragraph({ children: [], spacing: NO_TEXT_LINE })],
+                  width: { size: width, type: WidthType.DXA },
+                  margins: { top: 0, bottom: 0, left: 0, right: 0 },
+                  borders: noBorders,
+                })
+            ),
+          })
+        const contactRows: TableRow[] = []
         contactEntries.forEach((entry, i) => {
-          const isLast = i === contactEntries.length - 1
-
-          // Label line (uppercase, dimmed white)
-          sidebarParagraphs.push(
-            new Paragraph({
+          if (i > 0) contactRows.push(gapRow())
+          contactRows.push(
+            new TableRow({
+              height: { value: pxToTwips(SPACING.CONTACT_ICON), rule: HeightRule.ATLEAST },
               children: [
-                new TextRun({
-                  text: entry.label.toUpperCase(),
-                  bold: true,
-                  size: scaledFontSizes.contactLabel,
-                  color: translucent.contactLabel,
-                  font: primaryFont,
-                  characterSpacing: trackingSpacing(TRACKING.contactLabel, scaledFontSizes.contactLabel),
+                new TableCell({
+                  children: [
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          ...runBase('contactLabel'),
+                          text: entry.label.toUpperCase(),
+                          bold: true,
+                          color: translucent.contactLabel,
+                          characterSpacing: trackingSpacing(TRACKING.contactLabel, scaledFontSizes.contactLabel),
+                        }),
+                      ],
+                      alignment: AlignmentType.RIGHT,
+                      spacing: { before: 0, after: 0, ...lineOf('contactLabel') },
+                    }),
+                    new Paragraph({
+                      // `word-break: break-all`: the browser breaks a value that
+                      // does not fit anywhere, filling the line, never after a
+                      // hyphen it could break at. Word char-wraps a word that is
+                      // wider than the line the same way, so hyphens are written
+                      // as non-breaking ones to keep the value one word.
+                      children: [
+                        new TextRun({
+                          ...runBase('contactValue'),
+                          color: PALETTE.white,
+                          children: entry.value
+                            .split('-')
+                            .flatMap((part, j) => (j === 0 ? [part] : [new NoBreakHyphen(), part])),
+                        }),
+                      ],
+                      alignment: AlignmentType.RIGHT,
+                      spacing: { before: 0, after: 0, ...lineOf('contactValue') },
+                    }),
+                  ],
+                  width: { size: textCellWidth, type: WidthType.DXA },
+                  margins: {
+                    top: 0,
+                    bottom: 0,
+                    left: sidebarTextIndent.left,
+                    right: pxToTwips(SPACING.CONTACT_ICON_GAP),
+                  },
+                  verticalAlign: VerticalAlign.CENTER,
+                  borders: noBorders,
+                }),
+                new TableCell({
+                  children: [
+                    new Paragraph({
+                      children: [
+                        new TextRun({
+                          text: entry.icon,
+                          size: pxToHalfPoints(16),
+                          color: PALETTE.white,
+                          font: primaryFont,
+                        }),
+                      ],
+                      alignment: AlignmentType.CENTER,
+                      spacing: { before: 0, after: 0, line: pxToTwips(SPACING.CONTACT_ICON), lineRule: LineRuleType.EXACT },
+                    }),
+                  ],
+                  width: { size: iconCellWidth, type: WidthType.DXA },
+                  margins: { top: 0, bottom: 0, left: 0, right: sidebarTextIndent.right },
+                  verticalAlign: VerticalAlign.CENTER,
+                  borders: noBorders,
                 }),
               ],
-              indent: sidebarTextIndent,
-              spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.contactLabel]) },
-            })
-          )
-
-          // Value line (with emoji icon prefix)
-          const itemEndSpacing = isLast ? sectionSpacingAfter : pxToTwips(SPACING.CONTACT_ITEM_GAP)
-          sidebarParagraphs.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: `${entry.icon} `,
-                  size: scaledFontSizes.contactValue,
-                  color: PALETTE.white,
-                  font: primaryFont,
-                }),
-                new TextRun({
-                  text: entry.value,
-                  size: scaledFontSizes.contactValue,
-                  color: PALETTE.white,
-                  font: primaryFont,
-                }),
-              ],
-              indent: sidebarTextIndent,
-              spacing: { after: itemEndSpacing, ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.contactValue]) },
             })
           )
         })
+        sidebarParagraphs.push(
+          new Table({
+            rows: contactRows,
+            width: { size: sidebarWidthTwips, type: WidthType.DXA },
+            columnWidths: [textCellWidth, iconCellWidth],
+            layout: TableLayoutType.FIXED,
+            borders: noBorders,
+          }),
+          gapParagraph(isLastSection ? 0 : sectionMarginPx)
+        )
         break
       }
 
@@ -762,7 +1048,7 @@ export async function generateModernDocx(
       case 'education': {
         if (education.length > 0) {
           sidebarParagraphs.push(
-            createSidebarSectionHeader(
+            ...createSidebarSectionHeader(
               (dict as any).resumes?.editor?.sections?.education || 'Education'
             )
           )
@@ -777,15 +1063,14 @@ export async function generateModernDocx(
               new Paragraph({
                 children: [
                   new TextRun({
+                    ...runBase('educationDegree'),
                     text: degreeText.toUpperCase(),
                     bold: true,
-                    size: scaledFontSizes.educationDegree,
                     color: PALETTE.white,
-                    font: primaryFont,
                   }),
                 ],
                 indent: sidebarTextIndent,
-                spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.educationDegree]) },
+                spacing: { after: 0, ...lineOf('educationDegree') },
               })
             )
 
@@ -801,15 +1086,15 @@ export async function generateModernDocx(
               new Paragraph({
                 children: [
                   new TextRun({
+                    ...runBase('educationSchool'),
                     text: schoolLine,
-                    size: scaledFontSizes.educationSchool,
                     color: translucent.educationSchool,
-                    font: primaryFont,
                   }),
                 ],
                 indent: sidebarTextIndent,
-                spacing: { after: itemEndSpacing, ...exactLineSpacing([LINE_HEIGHT.text, scaledFontSizes.educationSchool]) },
-              })
+                spacing: { after: 0, ...lineOf('educationSchool') },
+              }),
+              gapParagraphTwips(itemEndSpacing)
             )
           })
         }
@@ -820,7 +1105,7 @@ export async function generateModernDocx(
       case 'skills': {
         if (skills.length > 0) {
           sidebarParagraphs.push(
-            createSidebarSectionHeader(
+            ...createSidebarSectionHeader(
               (dict as any).resumes?.editor?.sections?.skills || 'Technical Skills'
             )
           )
@@ -835,62 +1120,46 @@ export async function generateModernDocx(
                 new Paragraph({
                   children: [
                     new TextRun({
+                      ...runBase('skillCategory'),
                       text: skillCategory.category.toUpperCase(),
                       bold: true,
-                      size: scaledFontSizes.skillCategory,
                       color: PALETTE.white,
-                      font: primaryFont,
                       characterSpacing: trackingSpacing(TRACKING.skillCategory, scaledFontSizes.skillCategory),
                     }),
                   ],
                   indent: sidebarTextIndent,
-                  // margin 0 0 8px 0
-                  spacing: { after: pxToTwips(8), ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.skillCategory]) },
-                })
+                  spacing: { after: 0, ...lineOf('skillCategory') },
+                }),
+                // margin 0 0 8px 0
+                gapParagraph(8)
               )
             }
 
-            // Every skill line takes the Preview skill item's line height.
-            const skillLineSpacing = exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.skillItem])
-
-            // Use skillsHtml if available, otherwise fall back to items array.
-            // The Preview renders `items` only, never `skillsHtml`; that content
-            // divergence is Part 3 US-016's. Until then these paragraphs take the
-            // line height of the element they stand in for, the skill item.
+            // A category saved as rich text renders as that text, in an 11px
+            // div at the compact height whose `.formatted-content` draws at its
+            // own line height.
             if (skillCategory.skillsHtml) {
-              const skillsAlignment = extractAlignment(skillCategory.skillsHtml) || AlignmentType.LEFT
-
-              if (isHtmlList(skillCategory.skillsHtml)) {
-                const listParagraphs = parseHtmlListToParagraphs(
-                  skillCategory.skillsHtml,
-                  {
-                    size: scaledFontSizes.skillItem,
+              if (rendersAsFormattedContent(skillCategory.skillsHtml)) {
+                sidebarParagraphs.push(
+                  ...formattedParagraphs(skillCategory.skillsHtml, {
+                    box: 'skillsFormatted',
                     color: PALETTE.white,
-                    font: primaryFont,
-                  },
-                  pxToTwips(4),
-                  categoryEndSpacing,
-                  skillLineSpacing,
-                  sidebarTextIndent,
-                  skillsAlignment
+                    alignment: AlignmentType.LEFT,
+                    spacingAfter: 0,
+                    indent: sidebarTextIndent,
+                  })
                 )
-                sidebarParagraphs.push(...listParagraphs)
               } else {
-                const skillsRuns = parseHtmlToDocxRuns(skillCategory.skillsHtml, {
-                  size: scaledFontSizes.skillItem,
-                  color: PALETTE.white,
-                  font: primaryFont,
-                })
-
                 sidebarParagraphs.push(
                   new Paragraph({
-                    children: skillsRuns,
+                    children: parseHtmlToDocxRuns(skillCategory.skillsHtml, { ...runBase('skillItem'), color: PALETTE.white }),
                     indent: sidebarTextIndent,
-                    spacing: { after: categoryEndSpacing, ...skillLineSpacing },
-                    alignment: skillsAlignment,
+                    spacing: { after: 0, ...lineOf('skillItem') },
+                    alignment: AlignmentType.JUSTIFIED,
                   })
                 )
               }
+              sidebarParagraphs.push(gapParagraphTwips(categoryEndSpacing))
             } else if (skillCategory.items && skillCategory.items.length > 0) {
               // Render each skill item as a separate line (matching Preview layout),
               // each followed by the proficiency bar the Preview draws under it
@@ -907,15 +1176,15 @@ export async function generateModernDocx(
                   new Paragraph({
                     children: [
                       new TextRun({
+                        ...runBase('skillItem'),
                         text: skillName,
-                        size: scaledFontSizes.skillItem,
                         color: PALETTE.white,
-                        font: primaryFont,
                       }),
                     ],
                     indent: sidebarTextIndent,
-                    spacing: { after: pxToTwips(SPACING.SKILL_NAME_MB), ...skillLineSpacing },
-                  })
+                    spacing: { after: 0, ...lineOf('skillItem') },
+                  }),
+                  gapParagraph(SPACING.SKILL_NAME_MB)
                 )
                 sidebarParagraphs.push(
                   shadedCellBar(
@@ -929,9 +1198,7 @@ export async function generateModernDocx(
                     sidebarTextIndent.left,
                   )
                 )
-                sidebarParagraphs.push(
-                  new Paragraph({ children: [], spacing: { after: itemSpacing, ...NO_TEXT_LINE } })
-                )
+                sidebarParagraphs.push(gapParagraphTwips(itemSpacing))
               })
             }
           })
@@ -943,10 +1210,20 @@ export async function generateModernDocx(
       case 'languages': {
         if (languages.length > 0) {
           sidebarParagraphs.push(
-            createSidebarSectionHeader(
+            ...createSidebarSectionHeader(
               (dict as any).resumes?.editor?.sections?.languages || 'Languages'
             )
           )
+
+          // One flex row in the Preview (`align-items: center`): the name and
+          // the level each at the compact height, the shorter one centred in
+          // the row, which is the taller one's line. One Word line holds both,
+          // each run raised to its own box's baseline in it.
+          const languageRow = exactLineSpacing(
+            [boxes.languageName.lineHeight, boxes.languageName.px * 1.5],
+            [boxes.languageLevel.lineHeight, boxes.languageLevel.px * 1.5],
+          )
+          const centredOffset = (key: BoxKey) => (languageRow.line - lineOf(key).line) / 2 / 15
 
           languages.forEach((lang: any, i: number) => {
             const isLast = i === languages.length - 1
@@ -958,35 +1235,30 @@ export async function generateModernDocx(
               new Paragraph({
                 children: [
                   new TextRun({
+                    ...runBase('languageName', languageRow.line, centredOffset('languageName')),
                     text: lang.language,
                     bold: true,
-                    size: scaledFontSizes.languageName,
                     color: PALETTE.white,
-                    font: primaryFont,
                   }),
                   new TextRun({
+                    ...runBase('languageLevel', languageRow.line, centredOffset('languageLevel')),
                     text: '\t' + levelText,
-                    size: scaledFontSizes.languageLevel,
                     color: translucent.languageLevel,
-                    font: primaryFont,
                   }),
                 ],
                 indent: sidebarTextIndent,
-                // One flex row in the Preview: the name and the level, each at the compact height.
-                spacing: {
-                  after: itemEndSpacing,
-                  ...exactLineSpacing(
-                    [LINE_HEIGHT.compact, scaledFontSizes.languageName],
-                    [LINE_HEIGHT.compact, scaledFontSizes.languageLevel],
-                  ),
-                },
+                spacing: { after: 0, ...languageRow },
+                // `justify-between`: the level ends on the sidebar's right
+                // padding. A tab at TabStopPosition.MAX is not clamped to the
+                // cell in Word 2010 layout (below): it would draw in the main column.
                 tabStops: [
                   {
                     type: TabStopType.RIGHT,
-                    position: TabStopPosition.MAX,
+                    position: sidebarWidthTwips - sidebarTextIndent.right,
                   },
                 ],
-              })
+              }),
+              gapParagraphTwips(itemEndSpacing)
             )
           })
         }
@@ -997,7 +1269,7 @@ export async function generateModernDocx(
       case 'training': {
         if (certifications.length > 0) {
           sidebarParagraphs.push(
-            createSidebarSectionHeader(
+            ...createSidebarSectionHeader(
               (dict as any).resumes?.editor?.sections?.certifications || 'Training'
             )
           )
@@ -1011,18 +1283,14 @@ export async function generateModernDocx(
               new Paragraph({
                 children: [
                   new TextRun({
+                    ...runBase('certName'),
                     text: cert.name,
                     bold: true,
-                    size: scaledFontSizes.certName,
                     color: PALETTE.white,
-                    font: primaryFont,
                   }),
                 ],
                 indent: sidebarTextIndent,
-                spacing: {
-                  after: cert.issuer || cert.date ? 0 : itemEndSpacing,
-                  ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.certName]),
-                },
+                spacing: { after: 0, ...lineOf('certName') },
               })
             )
 
@@ -1032,17 +1300,13 @@ export async function generateModernDocx(
                 new Paragraph({
                   children: [
                     new TextRun({
+                      ...runBase('certIssuer'),
                       text: cert.issuer,
-                      size: scaledFontSizes.certIssuer,
                       color: translucent.certIssuer,
-                      font: primaryFont,
                     }),
                   ],
                   indent: sidebarTextIndent,
-                  spacing: {
-                    after: cert.date ? 0 : itemEndSpacing,
-                    ...exactLineSpacing([LINE_HEIGHT.text, scaledFontSizes.certIssuer]),
-                  },
+                  spacing: { after: 0, ...lineOf('certIssuer') },
                 })
               )
             }
@@ -1053,20 +1317,20 @@ export async function generateModernDocx(
                 new Paragraph({
                   children: [
                     new TextRun({
+                      ...runBase('certDate'),
                       text: new Date(cert.date + '-01').toLocaleDateString(locale as Locale, {
                         month: 'short',
                         year: 'numeric',
                       }),
-                      size: scaledFontSizes.certDate,
                       color: translucent.certDate,
-                      font: primaryFont,
                     }),
                   ],
                   indent: sidebarTextIndent,
-                  spacing: { after: itemEndSpacing, ...exactLineSpacing([LINE_HEIGHT.text, scaledFontSizes.certDate]) },
+                  spacing: { after: 0, ...lineOf('certDate') },
                 })
               )
             }
+            sidebarParagraphs.push(gapParagraphTwips(itemEndSpacing))
           })
         }
         break
@@ -1082,59 +1346,67 @@ export async function generateModernDocx(
   // ============================================================
   const mainContentParagraphs: Paragraph[] = []
 
-  // Apply main content top margin as initial spacing
-  const initialMainSpacing = mainContentTopMargin > 0 ? pxToTwips(mainContentTopMargin) : 0
+  // The main column's top padding: the stored mainContentTopMargin when it is
+  // positive, p-8 otherwise. The cell's own top margin is 0, like the sidebar
+  // cell's: Word does not keep two different cell top margins in one row (it
+  // applied the main cell's 0.33" to the sidebar too), so the padding is the
+  // name's space before.
+  const mainContentTop = pxToTwips(mainContentTopMargin > 0 ? mainContentTopMargin : SPACING.MAIN_PADDING)
 
   // --- HEADER: Name ---
   mainContentParagraphs.push(
     new Paragraph({
       children: [
         new TextRun({
+          ...runBase('name'),
           text: (contact.name || 'Your Name').toUpperCase(),
           bold: true,
-          size: scaledFontSizes.name,
           color: PALETTE['slate-900'],
-          font: primaryFont,
           characterSpacing: trackingSpacing(TRACKING.name, scaledFontSizes.name),
         }),
       ],
       spacing: {
-        before: initialMainSpacing,
+        before: mainContentTop,
         after: pxToTwips(SPACING.NAME_MB),
-        ...exactLineSpacing([LINE_HEIGHT.title, scaledFontSizes.name]),
+        ...lineOf('name'),
       },
     })
   )
 
   // --- HEADER: Job Title on accent bar ---
   if (resume.title) {
+    // The bar is an inline-block: as wide as its text plus 12px of padding
+    // each side, as tall as its text line, which inherits preflight's height,
+    // plus 4px above and below. The paragraph's line is that box, with the
+    // text the top padding below its top; the fill is run shading, so it
+    // spans the text and the two padding runs only.
+    const titleBarLine = lineOf('jobTitleBar', 2 * MODERN_TITLE_BAR_PADDING_Y_PX)
+    const titleBarRun = {
+      ...runBase('jobTitleBar', titleBarLine.line, MODERN_TITLE_BAR_PADDING_Y_PX),
+      bold: true,
+      color: PALETTE.white,
+      shading: { type: ShadingType.CLEAR, fill: accentColorHex, color: 'auto' },
+    }
+    const titleBarPadding = () =>
+      new TextRun({
+        ...titleBarRun,
+        text: ' ',
+        characterSpacing: paddingSpacing('jobTitleBar', SPACING.TITLE_BAR_PADDING_X),
+      })
     mainContentParagraphs.push(
       new Paragraph({
         children: [
+          titleBarPadding(),
           new TextRun({
+            ...titleBarRun,
             text: resume.title.toUpperCase(),
-            bold: true,
-            size: scaledFontSizes.jobTitleBar,
-            color: PALETTE.white,
-            font: primaryFont,
             characterSpacing: trackingSpacing(TRACKING.jobTitleBar, scaledFontSizes.jobTitleBar),
           }),
+          titleBarPadding(),
         ],
-        // The paragraph stands for the accent bar's box: its text line, which
-        // inherits preflight's height, plus the bar's padding above and below, so
-        // the shading covers what the Preview fills.
         spacing: {
           after: pxToTwips(SPACING.TITLE_BAR_MB),
-          ...exactLineSpacing({
-            lineHeight: PREFLIGHT_LINE_HEIGHT,
-            halfPoints: scaledFontSizes.jobTitleBar,
-            paddingPx: 2 * MODERN_TITLE_BAR_PADDING_Y_PX,
-          }),
-        },
-        shading: {
-          type: ShadingType.SOLID,
-          fill: accentColorHex,
-          color: accentColorHex,
+          ...titleBarLine,
         },
       })
     )
@@ -1146,27 +1418,24 @@ export async function generateModernDocx(
       new Paragraph({
         children: [
           new TextRun({
+            ...runBase('location'),
             text: contact.location,
-            size: scaledFontSizes.location,
             color: PALETTE.meta, // #6b7280
-            font: primaryFont,
           }),
         ],
-        // The address line sets no line height, so it inherits preflight's.
+        // The address line sets no line height, so it inherits preflight's;
+        // with no job title above it, it has a 4px top margin.
         spacing: {
+          before: resume.title ? 0 : pxToTwips(SPACING.LOCATION_NO_TITLE_MT),
           after: pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN),
-          ...exactLineSpacing([PREFLIGHT_LINE_HEIGHT, scaledFontSizes.location]),
+          ...lineOf('location'),
         },
       })
     )
   } else {
-    // Gap after title bar if no location
-    mainContentParagraphs.push(
-      new Paragraph({
-        spacing: { after: pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN), ...NO_TEXT_LINE },
-        children: [],
-      })
-    )
+    // The header's mb-6 when no address line carries it, after the name or
+    // title bar's own space after.
+    mainContentParagraphs.push(gapParagraph(SPACING.SECTION_MARGIN_BOTTOM_MAIN, 'after'))
   }
 
   // Render main content sections in order, respecting visibility
@@ -1189,65 +1458,10 @@ export async function generateModernDocx(
 
           const sectionEndSpacing = isLastSection ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN)
 
-          const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.LEFT
           // The summary div's inline `text` height overrides its leading-relaxed class.
-          const summaryLineSpacing = exactLineSpacing([
-            formattedTextLineHeight(resume.summary, LINE_HEIGHT.text),
-            scaledFontSizes.summary,
-          ])
-
-          if (isHtmlList(resume.summary)) {
-            const listParagraphs = parseHtmlListToParagraphs(
-              resume.summary,
-              {
-                size: scaledFontSizes.summary,
-                color: PALETTE['slate-700'],
-                font: primaryFont,
-              },
-              pxToTwips(4),
-              sectionEndSpacing,
-              summaryLineSpacing,
-              { right: mainContentRightIndent },
-              summaryAlignment
-            )
-            mainContentParagraphs.push(...listParagraphs)
-          } else if (isPlainTextList(resume.summary)) {
-            mainContentParagraphs.push(
-              ...parsePlainTextListToParagraphs(
-                resume.summary,
-                {
-                  size: scaledFontSizes.summary,
-                  color: PALETTE['slate-700'],
-                  font: primaryFont,
-                },
-                {
-                  spacingAfterItem: pxToTwips(4),
-                  spacingAfterLast: sectionEndSpacing,
-                  indent: { right: mainContentRightIndent },
-                  alignment: summaryAlignment,
-                  lineSpacing: summaryLineSpacing,
-                }
-              )
-            )
-          } else {
-            const summaryRuns = parseHtmlToDocxRuns(resume.summary, {
-              size: scaledFontSizes.summary,
-              color: PALETTE['slate-700'],
-              font: primaryFont,
-            })
-
-            mainContentParagraphs.push(
-              new Paragraph({
-                children: summaryRuns,
-                alignment: summaryAlignment,
-                indent: { right: mainContentRightIndent },
-                spacing: {
-                  after: sectionEndSpacing,
-                  ...summaryLineSpacing,
-                },
-              })
-            )
-          }
+          mainContentParagraphs.push(
+            ...runningText(resume.summary, { plainBox: 'body', color: PALETTE['slate-700'], spacingAfter: sectionEndSpacing })
+          )
         }
         break
       }
@@ -1277,34 +1491,37 @@ export async function generateModernDocx(
               new Paragraph({
                 children: [
                   new TextRun({
+                    ...runBase('experiencePosition'),
                     text: (exp.position || '').toUpperCase(),
                     bold: true,
-                    size: scaledFontSizes.experiencePosition,
                     color: PALETTE.heading,
-                    font: primaryFont,
                   }),
                 ],
-                spacing: { after: pxToTwips(2), ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.experiencePosition]) },
+                spacing: { after: pxToTwips(SPACING.EXPERIENCE_DATE_MT), ...lineOf('experiencePosition') },
               })
             )
 
-            // Date range
-            const dateText = formatDateRange(exp.startDate, exp.endDate, exp.current, locale as Locale, dict)
-            if (dateText) {
-              leftParagraphs.push(
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: dateText,
-                      size: scaledFontSizes.experienceDate,
-                      color: PALETTE.meta, // #6b7280
-                      font: primaryFont,
-                    }),
-                  ],
-                  spacing: { after: pxToTwips(8), ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.experienceDate]) },
-                })
-              )
-            }
+            // Date range: years only, as the Preview writes it \u2014 the start
+            // year (if any), " - ", then "Present" for a current or open entry,
+            // else the end year.
+            const yearOf = (date: string) =>
+              new Date(date + '-01').toLocaleDateString(locale as Locale, { year: 'numeric' })
+            const present = (dict as { resumes?: { editor?: { present?: string } } }).resumes?.editor?.present || 'Present'
+            const dateText = `${exp.startDate ? yearOf(exp.startDate) : ''} - ${
+              exp.current ? present : exp.endDate ? yearOf(exp.endDate) : present
+            }`
+            leftParagraphs.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    ...runBase('experienceDate'),
+                    text: dateText,
+                    color: PALETTE.meta, // #6b7280
+                  }),
+                ],
+                spacing: { after: pxToTwips(SPACING.EXPERIENCE_COMPANY_MT), ...lineOf('experienceDate') },
+              })
+            )
 
             // Company (bold)
             if (exp.company) {
@@ -1312,16 +1529,15 @@ export async function generateModernDocx(
                 new Paragraph({
                   children: [
                     new TextRun({
+                      ...runBase('experienceCompany'),
                       text: exp.company,
                       bold: true,
-                      size: scaledFontSizes.experienceCompany,
                       color: PALETTE.heading,
-                      font: primaryFont,
                     }),
                   ],
                   spacing: {
-                    after: exp.location ? pxToTwips(2) : 0,
-                    ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.experienceCompany]),
+                    after: exp.location ? pxToTwips(SPACING.EXPERIENCE_LOCATION_MT) : 0,
+                    ...lineOf('experienceCompany'),
                   },
                 })
               )
@@ -1333,123 +1549,75 @@ export async function generateModernDocx(
                 new Paragraph({
                   children: [
                     new TextRun({
+                      ...runBase('experienceLocation'),
                       text: exp.location,
-                      size: scaledFontSizes.experienceLocation,
                       color: PALETTE.meta, // #6b7280
-                      font: primaryFont,
                     }),
                   ],
-                  spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.compact, scaledFontSizes.experienceLocation]) },
+                  spacing: { after: 0, ...lineOf('experienceLocation') },
                 })
               )
             }
 
-            // Ensure at least one paragraph in left column
-            if (leftParagraphs.length === 0) {
-              leftParagraphs.push(new Paragraph({ children: [], spacing: NO_TEXT_LINE }))
-            }
-
             // --- Build RIGHT column paragraphs (60%) ---
             const rightParagraphs: Paragraph[] = []
+            const hasAchievements = exp.achievements && exp.achievements.length > 0
 
-            // Description
+            // Description: a justified div at the running text's height.
             if (exp.description) {
-              const descAlignment = extractAlignment(exp.description) || AlignmentType.LEFT
-              const descLineSpacing = exactLineSpacing([
-                formattedTextLineHeight(exp.description, LINE_HEIGHT.text),
-                scaledFontSizes.body,
-              ])
-
-              if (isHtmlList(exp.description)) {
-                const listParagraphs = parseHtmlListToParagraphs(
-                  exp.description,
-                  {
-                    size: scaledFontSizes.body,
-                    color: PALETTE.experienceBody,
-                    font: primaryFont,
-                  },
-                  pxToTwips(4),
-                  exp.achievements && exp.achievements.length > 0 ? pxToTwips(6) : 0,
-                  descLineSpacing,
-                  undefined,
-                  descAlignment
-                )
-                rightParagraphs.push(...listParagraphs)
-              } else if (isPlainTextList(exp.description)) {
-                rightParagraphs.push(
-                  ...parsePlainTextListToParagraphs(
-                    exp.description,
-                    {
-                      size: scaledFontSizes.body,
-                      color: PALETTE.experienceBody,
-                      font: primaryFont,
-                    },
-                    {
-                      spacingAfterItem: pxToTwips(4),
-                      spacingAfterLast: exp.achievements && exp.achievements.length > 0 ? pxToTwips(6) : 0,
-                      alignment: descAlignment,
-                      lineSpacing: descLineSpacing,
-                    }
-                  )
-                )
-              } else {
-                const descRuns = parseHtmlToDocxRuns(exp.description, {
-                  size: scaledFontSizes.body,
+              rightParagraphs.push(
+                ...runningText(exp.description, {
+                  plainBox: 'body',
                   color: PALETTE.experienceBody,
-                  font: primaryFont,
+                  spacingAfter: hasAchievements ? pxToTwips(SPACING.ACHIEVEMENTS_MT) : 0,
                 })
-
-                rightParagraphs.push(
-                  new Paragraph({
-                    children: descRuns,
-                    spacing: {
-                      after: exp.achievements && exp.achievements.length > 0 ? pxToTwips(6) : 0,
-                      ...descLineSpacing,
-                    },
-                    alignment: descAlignment,
-                  })
-                )
-              }
+              )
             }
 
-            // Achievements (italic with accent-colored bullets)
-            if (exp.achievements && exp.achievements.length > 0) {
+            // Achievements: each li is `flex gap-6px`, italic: the accent "\u2022",
+            // then the text, so every line of the text starts \u2014 and wraps \u2014
+            // after the bullet's advance plus 6px. Plain text draws through
+            // formatText's justified div at the li's height; HTML through
+            // `.formatted-content`, left-aligned, at its own height.
+            if (hasAchievements) {
+              const bulletAdvanceEm = layoutMetrics.bullet
+              const achievementHang = pxToTwips(bulletAdvanceEm * boxes.body.px + SPACING.ACHIEVEMENT_BULLET_GAP)
               exp.achievements.forEach((achievement: string, j: number) => {
-                const isLastAchievement = j === exp.achievements.length - 1
-
-                // Strip any existing <em>/<i> tags to prevent nested italic toggling,
-                // then wrap in <em> to match preview italic baseline
-                const cleanAchievement = achievement.replace(/<\/?(?:em|i)>/gi, '')
-                const achievementRuns = parseHtmlToDocxRuns(`<em>${cleanAchievement}</em>`, {
-                  size: scaledFontSizes.body,
-                  color: PALETTE.experienceBody,
-                  font: primaryFont,
+                const spacingAfter = j === exp.achievements.length - 1 ? 0 : pxToTwips(SPACING.ACHIEVEMENT_GAP)
+                // Strip any existing <em>/<i> tags to prevent nested italic
+                // toggling, then wrap the whole text in <i>: the li is italic.
+                const italic = `<i>${achievement.replace(/<\/?(?:em|i)\b[^>]*>/gi, '')}</i>`
+                const isHtml = rendersAsFormattedContent(achievement)
+                const textBox: BoxKey = isHtml ? 'formatted' : 'body'
+                const bullet = new TextRun({
+                  ...runBase('body', lineOf(textBox).line),
+                  text: '\u2022\t',
+                  color: accentColorHex,
+                  italics: true,
                 })
-
-                rightParagraphs.push(
-                  new Paragraph({
-                    children: [
-                      new TextRun({
-                        text: '\u2022 ',
-                        size: scaledFontSizes.body,
-                        color: accentColorHex,
-                        font: primaryFont,
-                        italics: true,
-                      }),
-                      ...achievementRuns,
-                    ],
-                    // The achievement's lines are spaced at its text's height: the li's
-                    // `text`, or the formatted-content height when it is HTML. The bullet
-                    // is a separate flex item at the li's `text` height; it can make a
-                    // one-line HTML item 0.1em taller in the Preview than its leading,
-                    // which one Word paragraph cannot also express (recorded as a
-                    // FINDING in the parity report).
-                    spacing: {
-                      after: isLastAchievement ? 0 : pxToTwips(SPACING.ACHIEVEMENT_GAP),
-                      ...exactLineSpacing([formattedTextLineHeight(achievement, LINE_HEIGHT.text), scaledFontSizes.body]),
-                    },
-                  })
-                )
+                if (isHtml) {
+                  rightParagraphs.push(
+                    ...formattedParagraphs(italic, {
+                      box: 'formatted',
+                      color: PALETTE.experienceBody,
+                      alignment: AlignmentType.LEFT,
+                      spacingAfter,
+                      prefix: { runs: [bullet], hangTwips: achievementHang },
+                    })
+                  )
+                } else {
+                  rightParagraphs.push(
+                    new Paragraph({
+                      children: [
+                        bullet,
+                        ...parseHtmlToDocxRuns(italic, { ...runBase('body'), color: PALETTE.experienceBody }),
+                      ],
+                      alignment: AlignmentType.JUSTIFIED,
+                      indent: { left: achievementHang, hanging: achievementHang },
+                      spacing: { after: spacingAfter, ...lineOf('body') },
+                    })
+                  )
+                }
               })
             }
 
@@ -1459,10 +1627,12 @@ export async function generateModernDocx(
             }
 
             // --- Create 2-column nested table for this experience entry ---
-            // Calculate column widths: 40% left, 60% right of available main content width
-            // Subtract cell margins from available width for inner table
-            const innerTableWidth = mainContentWidthTwips - convertInchesToTwip(0.66)
-            const leftColumnWidth = Math.round(innerTableWidth * 0.4)
+            // The entry row spans the main column's text width: its left
+            // column is 40% of it, then the row's 16px gap (the left cell's
+            // right margin), and the right column takes the rest.
+            const innerTableWidth = mainContentTextWidth
+            const leftColumnWidth =
+              Math.round(innerTableWidth * SPACING.EXPERIENCE_LEFT_SHARE) + pxToTwips(SPACING.EXPERIENCE_COLUMN_GAP)
             const rightColumnWidth = innerTableWidth - leftColumnWidth
 
             const experienceTable = new Table({
@@ -1477,7 +1647,7 @@ export async function generateModernDocx(
                         top: 0,
                         bottom: 0,
                         left: 0,
-                        right: pxToTwips(16), // gap: 16px between columns
+                        right: pxToTwips(SPACING.EXPERIENCE_COLUMN_GAP),
                       },
                       borders: noBorders,
                     }),
@@ -1506,17 +1676,12 @@ export async function generateModernDocx(
             mainContentParagraphs.push(experienceTable as unknown as Paragraph)
 
             // Add spacing after this experience entry
-            const expEndSpacing = isLastExp
-              ? (isLastSection && !hasProjectsAfter ? 0 : pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN))
-              : pxToTwips(SPACING.EXPERIENCE_ITEM_GAP)
+            const expEndSpacingPx = isLastExp
+              ? (isLastSection && !hasProjectsAfter ? 0 : SPACING.SECTION_MARGIN_BOTTOM_MAIN)
+              : SPACING.EXPERIENCE_ITEM_GAP
 
-            if (expEndSpacing > 0) {
-              mainContentParagraphs.push(
-                new Paragraph({
-                  spacing: { after: expEndSpacing, ...NO_TEXT_LINE },
-                  children: [],
-                })
-              )
+            if (expEndSpacingPx > 0) {
+              mainContentParagraphs.push(gapParagraph(expEndSpacingPx))
             }
           })
         }
@@ -1536,117 +1701,88 @@ export async function generateModernDocx(
       )
     )
 
+    // Every project is `relative pl-4`: its text starts 16px in, where the
+    // drawn accent dot sits in the Preview; the DOCX hangs a "\u2022" there.
+    const projectIndent = { left: pxToTwips(SPACING.PROJECT_INDENT), right: 0 }
+
     projects.forEach((project: any, i: number) => {
       const isLast = i === projects.length - 1
-      const itemEndSpacing = isLast ? 0 : pxToTwips(16)
-      const projectNameSize = pxToHalfPoints(18 * fontScale) // text-lg
-      // The description div's leading-relaxed, or the formatted-content height for HTML.
-      const projectDescLineSpacing = exactLineSpacing([
-        formattedTextLineHeight(project.description, TAILWIND_LEADING['leading-relaxed']),
-        scaledFontSizes.body,
-      ])
+      const itemEndSpacing = isLast ? 0 : pxToTwips(SPACING.PROJECT_GAP)
+      const hasTechnologies = project.technologies && project.technologies.length > 0
 
-      // Project name (bold)
+      // Project name (bold): the h3 draws at text-lg's line height. The
+      // Preview's dot is a drawn circle beside it, not text, so the bullet run
+      // adds no line box.
       mainContentParagraphs.push(
         new Paragraph({
           children: [
             new TextRun({
-              text: '\u2022 ',
-              size: scaledFontSizes.body,
+              ...runBase('body', lineOf('projectName').line),
+              text: '\u2022\t',
               color: accentColorHex,
-              font: primaryFont,
             }),
             new TextRun({
+              ...runBase('projectName'),
               text: project.name || '',
               bold: true,
-              size: projectNameSize,
               color: PALETTE['slate-900'],
-              font: primaryFont,
             }),
           ],
-          // The h3 draws at text-lg's line height. The Preview's dot is a drawn
-          // circle beside it, not text, so the bullet run adds no line box.
           spacing: {
-            after: project.description || (project.technologies && project.technologies.length > 0) ? pxToTwips(4) : itemEndSpacing,
-            ...exactLineSpacing([TAILWIND_TEXT_LINE_HEIGHT['text-lg'], projectNameSize]),
+            after: project.description || hasTechnologies ? pxToTwips(SPACING.PROJECT_DESCRIPTION_MT) : itemEndSpacing,
+            ...lineOf('projectName'),
           },
-          indent: { right: mainContentRightIndent },
+          indent: { ...projectIndent, hanging: projectIndent.left },
         })
       )
 
-      // Project description (Defect 4: use HTML parsing instead of raw text)
+      // Project description: a leading-relaxed div (mt-1), or `.formatted-content` for HTML.
       if (project.description) {
-        if (isHtmlList(project.description)) {
-          const listParagraphs = parseHtmlListToParagraphs(
-            project.description,
-            {
-              size: scaledFontSizes.body,
-              color: PALETTE['slate-700'],
-              font: primaryFont,
-            },
-            pxToTwips(4),
-            project.technologies && project.technologies.length > 0 ? pxToTwips(8) : itemEndSpacing,
-            projectDescLineSpacing,
-            { left: pxToTwips(16), right: mainContentRightIndent }
-          )
-          mainContentParagraphs.push(...listParagraphs)
-        } else if (isPlainTextList(project.description)) {
-          mainContentParagraphs.push(
-            ...parsePlainTextListToParagraphs(
-              project.description,
-              {
-                size: scaledFontSizes.body,
-                color: PALETTE['slate-700'],
-                font: primaryFont,
-              },
-              {
-                spacingAfterItem: pxToTwips(4),
-                spacingAfterLast: project.technologies && project.technologies.length > 0 ? pxToTwips(8) : itemEndSpacing,
-                indent: { left: pxToTwips(16), right: mainContentRightIndent },
-                lineSpacing: projectDescLineSpacing,
-              }
-            )
-          )
-        } else {
-          const descRuns = parseHtmlToDocxRuns(project.description, {
-            size: scaledFontSizes.body,
+        mainContentParagraphs.push(
+          ...runningText(project.description, {
+            plainBox: 'projectDescription',
             color: PALETTE['slate-700'],
-            font: primaryFont,
+            spacingAfter: hasTechnologies ? pxToTwips(SPACING.PROJECT_TECHNOLOGIES_MT) : itemEndSpacing,
+            indent: projectIndent,
           })
-
-          mainContentParagraphs.push(
-            new Paragraph({
-              children: descRuns,
-              spacing: {
-                after: project.technologies && project.technologies.length > 0 ? pxToTwips(8) : itemEndSpacing,
-                ...projectDescLineSpacing,
-              },
-              indent: { left: pxToTwips(16), right: mainContentRightIndent },
-            })
-          )
-        }
+        )
       }
 
-      // Technologies: one shaded run per chip (US-007), slate-700 on slate-100.
-      if (project.technologies && project.technologies.length > 0) {
+      // Technologies: shaded runs per chip (US-007), slate-700 on slate-100.
+      if (hasTechnologies) {
+        // A chip is text-xs's line plus py-1 above and below; the paragraph's
+        // line is that box, with the text the top padding below its top.
+        // Horizontally it is px-2 (8px) of shaded padding each side of its
+        // text, and chips are gap-2 (8px) apart: a breakable, unshaded space,
+        // so chips wrap between each other only, as the flex row does.
+        const chipLine = lineOf('technology', 2 * SPACING.TECHNOLOGY_PADDING_Y)
+        const chipRun = {
+          ...runBase('technology', chipLine.line, SPACING.TECHNOLOGY_PADDING_Y),
+          color: PALETTE['slate-700'],
+        }
+        const chipShading = { type: ShadingType.CLEAR, fill: PALETTE['slate-100'], color: 'auto' }
+        const chipPadding = () =>
+          new TextRun({
+            ...chipRun,
+            text: ' ',
+            shading: chipShading,
+            characterSpacing: paddingSpacing('technology', SPACING.TECHNOLOGY_PADDING_X),
+          })
         mainContentParagraphs.push(
           new Paragraph({
-            children: pillRuns(
-              project.technologies.map((technology: unknown) => String(technology)),
-              {
-                size: pxToHalfPoints(12 * fontScale), // text-xs
-                color: PALETTE['slate-700'],
-                fill: PALETTE['slate-100'],
-                font: primaryFont,
-              },
-            ),
-            // Each chip's text draws at text-xs's line height; the chip's vertical
-            // padding is not leading and a run's shading cannot carry it.
+            children: project.technologies.flatMap((technology: unknown, t: number) => [
+              ...(t === 0
+                ? []
+                : [new TextRun({ ...chipRun, text: ' ', characterSpacing: paddingSpacing('technology', SPACING.TECHNOLOGY_GAP) })]),
+              chipPadding(),
+              new TextRun({ ...chipRun, text: String(technology), shading: chipShading }),
+              chipPadding(),
+            ]),
             spacing: {
               after: itemEndSpacing,
-              ...exactLineSpacing([TAILWIND_TEXT_LINE_HEIGHT['text-xs'], pxToHalfPoints(12 * fontScale)]),
+              ...chipLine,
             },
-            indent: { left: pxToTwips(16), right: mainContentRightIndent },
+            indent: projectIndent,
           })
         )
       }
@@ -1689,11 +1825,16 @@ export async function generateModernDocx(
     children: mainContentChildren.length > 0
       ? mainContentChildren
       : [new Paragraph({ children: [], spacing: NO_TEXT_LINE })],
+    // p-8 at the sides. The top padding is the name's space before, because
+    // both cells of the row must share one top margin (above). There is no
+    // bottom margin: Word reserves a cell's bottom margin at the foot of every
+    // page the row spans, which ended page 1 32px early (measured), and the
+    // Preview's bottom padding only follows the end of the main column.
     margins: {
-      top: convertInchesToTwip(0.33),
-      bottom: convertInchesToTwip(0.33),
-      left: convertInchesToTwip(0.33),
-      right: convertInchesToTwip(0.33),
+      top: 0,
+      bottom: 0,
+      left: mainCellMargin,
+      right: mainCellMargin,
     },
     verticalAlign: VerticalAlign.TOP,
     width: {
@@ -1702,8 +1843,38 @@ export async function generateModernDocx(
     },
   })
 
-  // Page height: A4, from the one declaration every surface reads.
-  const pageHeightTwips = convertInchesToTwip(PAGE_HEIGHT_INCHES)
+  // Page height: exact A4 in twips, not the two-decimal inches, which moved a
+  // sidebar line ending within 0.3px of the PDF's page bottom to the next page
+  // (measured; see PAGE_HEIGHT_TWIPS).
+  const pageHeightTwips = PAGE_HEIGHT_TWIPS
+
+  // The sidebar's fill on every page, top to foot. The cell's fill ends where
+  // the row's part on that page ends — at the last line Word set there, not
+  // at the page's foot (measured: page 1 of A filled to 1105px of 1123), and
+  // after the row it stops altogether. So the fill is also a drawing in the
+  // header, which repeats on every page: the sidebar's width, the page's
+  // height, behind the text, where Word draws it under the cell's own fill.
+  const sidebarFillHeader = new Header({
+    children: [
+      new Paragraph({
+        children: [
+          new ImageRun({
+            type: 'png',
+            data: solidColourPng(sidebarColorHex),
+            transformation: { width: sidebarWidthTwips / 15, height: pageHeightTwips / 15 },
+            floating: {
+              horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: 0 },
+              verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: 0 },
+              wrap: { type: TextWrappingType.NONE },
+              behindDocument: true,
+              allowOverlap: true,
+            },
+          }),
+        ],
+        spacing: NO_TEXT_LINE,
+      }),
+    ],
+  })
 
   // Row minimum height = full page minus trailing paragraph buffer.
   // AT_LEAST allows the row to grow when content exceeds one page.
@@ -1748,6 +1919,11 @@ export async function generateModernDocx(
 
   // Create document
   const doc = new Document({
+    // Word 2013+ layout (compatibility mode 15) shrinks the spaces of a
+    // justified line to fit one more word, which the browser never does, so
+    // justified text broke one word later than the Preview (measured on the
+    // Professional DOCX). Word 2010 layout only stretches them.
+    compatibility: { version: 14 },
     styles: {
       default: {
         document: {
@@ -1794,6 +1970,7 @@ export async function generateModernDocx(
             type: DocumentGridType.DEFAULT,
           },
         },
+        headers: { default: sidebarFillHeader },
         children: [
           mainTable,
           // Trailing paragraph required by OOXML after table

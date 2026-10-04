@@ -124,7 +124,9 @@
       "resumes": "Meine Lebensläufe",
       "coverLetters": "Anschreiben",
       "applications": "Meine Bewerbungen",
-      "jobs": "Stellensuche"
+      "jobs": "Stellensuche",
+      "menu": "Dashboard-Menü",
+      "closeMenu": "Dashboard-Menü schließen"
     },
     "welcome": "Willkommen",
     "logout": "Abmelden",

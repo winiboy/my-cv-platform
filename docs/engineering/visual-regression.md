@@ -54,9 +54,9 @@ it to a gate requires Linux baselines generated in CI itself.
 
 PDF in this product is `window.print()` over the same five React templates —
 there is no PDF rendering library anywhere in the resume path. So the print
-stylesheet *is* the PDF: `print:p-8`, `print:p-5`, `print:shadow-none`,
-`print:bg-white` and the rest decide what the user's downloaded document looks
-like, and none of them apply under screen media. Before print capture existed,
+stylesheet *is* the PDF: `print:hidden`, `print:shadow-none`, the `@media print`
+block in `globals.css` and the rest decide what the user's downloaded document
+looks like, and none of them apply under screen media. Before print capture existed,
 every PDF this product shipped had no automated coverage at all: a regression
 confined to a `print:` utility would pass the whole suite green.
 
@@ -220,11 +220,17 @@ a green run has the same status as widening a threshold to obtain one.
 
 ### What else differentiates the two captures
 
-The padding and background rules: `print:p-8`, `print:p-6`, `print:p-5`,
-`print:p-10`, `print:py-0`, `print:bg-white`, `print:bg-transparent`. Classic,
-minimal and creative come out measurably shorter in print; professional and
-modern keep their height because both pin `minHeight: 1056px`, and their
-padding moves inside that fixed box.
+Not layout. No template carries a print-only padding any more: each one had a
+`print:p-*` smaller than its screen padding, which made the PDF wrap and align
+differently from the Preview, and all were removed because the Preview is the
+PDF's contract (`.claude/rules/exports.md`). `e2e/resume-print-geometry.spec.ts`
+guards that: it compares the box of every heading, paragraph and list item under
+both media, for all five templates.
+
+What still differs is paint: `globals.css` sets `border-radius: 0` on everything
+in print (so pills, dots and rounded cards print square), `print:bg-transparent`
+and the `.mx-auto` rule clear backgrounds, and professional's sidebar band is
+painted on `body`.
 
 `print:shadow-none` is real but invisible here, because an element screenshot
 clips to the element's own box and a `box-shadow` falls outside it.
@@ -294,8 +300,8 @@ caused the original truncation, and was only found because the guard reported
 the effective height as 720 while the config said 2600.
 
 **The guard runs once per capture, after the medium is set.** The print
-stylesheet changes padding, so the print document is not the height of the
-screen document. Measuring under screen media and then capturing under print
+stylesheet used to change padding, so the print document was not the height of
+the screen document — and nothing stops a future print rule from doing so again. Measuring under screen media and then capturing under print
 would be checking a number that no longer describes the thing being captured,
 and a print-only overflow would be stitched and cropped exactly as the original
 bug was. `expectFitsWithoutStitching` therefore takes the medium as an argument
@@ -327,6 +333,10 @@ Mutation 3 when the observability guard was.
 
 ### Mutation 1 — `print:p-8`, proving print media is in effect
 
+*Historical record: this ran while templates still carried print-only padding,
+which no longer exists; see the 2026-10-01 re-run at the end of this section
+for the current recipe.*
+
 `print:p-8` on the classic template's content wrapper was changed to
 `print:p-6` — a print-only utility, already emitted by Tailwind for another
 template, so JIT class generation could not confound the result — and the two
@@ -344,6 +354,13 @@ reverted and both tests returned to green.
 That asymmetry — screen green, print red, from one changed utility — is what
 the print baselines exist to produce. Reproduce it if you ever suspect the
 print captures have stopped discriminating.
+
+**Re-run on 2026-10-01, after the print-only padding was removed.** The mutated
+utility no longer exists, so the mutation became its reintroduction: `print:p-8`
+put back on classic's content wrapper. Screen **passed**; print **failed**
+(expected 794×1395, received 794×1363 — the two 16px edges `p-12` → `p-8`
+removes); and `e2e/resume-print-geometry.spec.ts` for classic **failed**. The
+mutation was reverted.
 
 ### Mutation 2 — `print:hidden`, and what it revealed
 
@@ -409,36 +426,30 @@ suite returned to 10 green.
 
 ### Screen versus print, per template
 
-Each committed print baseline already differs from its screen counterpart by
-tens of thousands of pixels. Measured with **exact RGBA equality** — any
-channel differing counts the pixel — over the **overlapping region only**, on
-the committed baselines:
+Since the print-only padding was removed (2026-10-01), every template's print
+baseline has the same dimensions as its screen baseline, on purpose: the Preview
+is the PDF's contract, and `e2e/resume-print-geometry.spec.ts` guards the
+layout. What is left between the two images is paint only (see *What else
+differentiates the two captures*):
 
-| Template | Screen | Print | Differing pixels (exact) | Rows touched | Differing pixels at `threshold: 0.2` |
-|---|---|---|---|---|---|
-| professional | 816×1056 | 816×1056 | 88,602 | 608 | 48,656 |
-| modern | 816×1056 | 816×1056 | 105,405 | 761 | 40,572 |
-| classic | 816×1395 | 816×1340 | 146,738 (+44,880 outside the overlap) | 897 | 67,441 |
-| minimal | 816×1711 | 816×1663 | 136,210 (+39,168 outside the overlap) | 967 | 49,003 |
-| creative | 816×1154 | 816×1080 | 388,932 (+60,384 outside the overlap) | 1,044 | 92,697 |
+- **professional** — byte-identical.
+- **modern**, **minimal**, **creative** — differ only where rounded corners print
+  square (checked by eye on creative, whose corners are the most visible).
+- **classic** — differs only in its bottom pixel row: the document is a
+  fractional number of px tall, and the print rule clearing its
+  background most likely changes how that last partial row blends. Every box
+  measures the same in both media, so it is not a layout difference.
 
-Both columns count *differing* pixels; they differ only in how strictly
-"differing" is defined. Exact equality is the honest measure of "these are two
-different images", while `threshold: 0.2` is the suite's own tolerance and is
-what a real comparison is judged against — which is why the second column is
-always the smaller of the two.
+A consequence to keep in mind: a print baseline that is nearly identical to its
+screen baseline no longer shows, on its own, that print media took effect —
+minimal's difference is inside the 120-pixel tolerance. The suite still shows
+it through creative, whose two sliders (asserted present by
+`expectPrintHiddenStaysObserved`) would be drawn into its print capture if
+`print:hidden` did not apply, and through Mutation 1.
 
-`threshold` is pixelmatch's matching threshold, and pixelmatch measures the
-distance between two pixels in **YIQ** colour space, not per channel. `0.2` is
-therefore a single normalised perceptual distance below which a pixel counts as
-unchanged — not a ±20% allowance on R, G and B independently, and not a claim
-that the pixels are identical. Either way the smallest number in either column
-is 338× `maxDiffPixels: 120`.
-
-**`professional` and `modern` are 816×1056 in both media** because both pin
-`minHeight: '1056px'`; their print padding moves inside that fixed box.
-Identical dimensions do not mean identical content, and for those two templates
-these deltas are the evidence that print media is genuinely in effect at all.
+Pixel counts are deliberately not recorded here: they describe one set of
+baselines and go stale with the next update. Measure the current pair if you
+need a number.
 
 ## Running it from an agent worktree
 

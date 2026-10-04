@@ -722,20 +722,21 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
       className="mx-auto shadow-lg print:shadow-none"
       style={{
         position: 'relative',
+        display: 'flex',
         width: PAGE_WIDTH_CSS,
         minHeight: PAGE_HEIGHT_CSS,
         backgroundColor: 'white',
         fontFamily: fontFamily,
       }}
     >
-      {/* Left Sidebar - Dark accent, absolute full height */}
+      {/* Left Sidebar - Dark accent. In flow, not absolute: the row stretches both
+          columns to the taller one, so the background covers all sidebar content on
+          screen and on every printed page. `relative` anchors the photo zone controls. */}
       <div
         className="text-white"
         style={{
-          position: 'absolute',
-          top: 0,
-          bottom: 0,
-          left: 0,
+          position: 'relative',
+          flexShrink: 0,
           width: `${activeWidth}%`,
           backgroundColor: activeSidebarColor,
         }}
@@ -1004,7 +1005,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         </div>
 
         {/* Sidebar content with padding */}
-        <div className="p-8 print:p-6" style={{ paddingTop: activeSidebarTopMargin > 0 ? `${activeSidebarTopMargin}px` : undefined }}>
+        <div className="p-8" style={{ paddingTop: activeSidebarTopMargin > 0 ? `${activeSidebarTopMargin}px` : undefined }}>
         {/* Sidebar sections rendered in dynamic order */}
         {activeSidebarOrder.filter(id => !hiddenSidebar.has(id)).map(id => (
           <React.Fragment key={id}>{renderSidebarSection(id)}</React.Fragment>
@@ -1013,7 +1014,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
       </div>
 
       {/* Right Content Area */}
-      <div className="p-8 print:p-6" style={{ marginLeft: `${activeWidth}%`, backgroundColor: 'white', paddingTop: activeMainContentTopMargin > 0 ? `${activeMainContentTopMargin}px` : undefined }}>
+      <div className="p-8" style={{ flex: '1 1 0%', minWidth: 0, backgroundColor: 'white', paddingTop: activeMainContentTopMargin > 0 ? `${activeMainContentTopMargin}px` : undefined }}>
         {/* Header: Name, Job Title, Address */}
         <div className="mb-6" style={{ position: 'relative' }}>
           {/* Full name — large bold uppercase with letter-spacing */}

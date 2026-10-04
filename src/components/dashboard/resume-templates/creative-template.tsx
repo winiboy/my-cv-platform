@@ -424,7 +424,7 @@ export function CreativeTemplate({
   return (
     <div data-testid="resume-document" className="mx-auto bg-white shadow-lg print:shadow-none" style={{ width: PAGE_WIDTH_CSS, fontFamily: fontFamily }}>
       {/* Header with gradient background */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 p-10 text-white print:p-8" style={{ position: 'relative' }}>
+      <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 p-10 text-white" style={{ position: 'relative' }}>
         <div className="relative z-10">
           <h1 className="mb-3 font-black uppercase tracking-tight" style={{ fontSize: `${drawnTitleSize}px` }}>
             {resume.title || contact.name || 'Your Name'}
@@ -527,7 +527,7 @@ export function CreativeTemplate({
         <div className="absolute -bottom-10 -left-10 h-48 w-48 rounded-full bg-white/10"></div>
       </div>
 
-      <div className="p-10 print:p-8">
+      <div className="p-10">
         {/* Two-column layout */}
         <div className="grid grid-cols-3 gap-8">
           {/* Left column - 1/3 */}

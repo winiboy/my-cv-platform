@@ -301,7 +301,7 @@ export function ProfessionalTemplate({
       {/* Sidebar - Full height from top to bottom */}
       <div
         ref={sidebarRef}
-        className="p-6 text-white print:p-5"
+        className="p-6 text-white"
         style={{
           position: 'absolute',
           top: 0,
@@ -526,7 +526,7 @@ export function ProfessionalTemplate({
 
       {/* Main Content - Positioned to the right of sidebar */}
       <div
-        className="p-8 print:p-6"
+        className="p-8"
         style={{
           marginLeft: `${sidebarWidth}%`,
           position: 'relative',

@@ -124,7 +124,9 @@
       "resumes": "Mes CV",
       "coverLetters": "Lettres de motivation",
       "applications": "Mes candidatures",
-      "jobs": "Recherche d'emploi"
+      "jobs": "Recherche d'emploi",
+      "menu": "Menu du tableau de bord",
+      "closeMenu": "Fermer le menu du tableau de bord"
     },
     "welcome": "Bienvenue",
     "logout": "Déconnexion",

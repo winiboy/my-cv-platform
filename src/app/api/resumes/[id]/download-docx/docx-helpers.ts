@@ -6,6 +6,7 @@ import {
   type IBordersOptions,
   type IShadingAttributesProperties,
   type ISpacingProperties,
+  type UniversalMeasure,
 } from 'docx'
 import type { Locale } from '@/lib/i18n'
 import { chosenFontFamily } from '@/lib/layout-settings'
@@ -279,6 +280,18 @@ export interface DocxTextRunOptions {
   size: number
   color: string
   font: string
+  /**
+   * A baseline raise (`w:position`) for every run `parseHtmlToDocxRuns` or
+   * `parsePlainTextListToParagraphs` builds. Omitted, the runs write none and
+   * inherit the document default's.
+   */
+  position?: UniversalMeasure
+  /**
+   * A horizontal glyph scale (`w:w`, whole percent) for every run
+   * `parseHtmlToDocxRuns` or `parsePlainTextListToParagraphs` builds. Omitted,
+   * the runs write none and inherit the document default's.
+   */
+  scale?: number
 }
 
 export interface ParsedDocxContent {
@@ -444,7 +457,8 @@ export function parsePlainTextListToParagraphs(
   options: DocxTextRunOptions,
   layout: PlainTextParagraphLayout
 ): Paragraph[] {
-  const { size, color, font } = options
+  const { size, color, font, position, scale } = options
+  const run = { size, color, font, position, scale }
   const paragraphChildren: TextRun[][] = []
 
   for (const block of parsePlainTextBlocks(text)) {
@@ -460,10 +474,10 @@ export function parsePlainTextListToParagraphs(
       const runs: TextRun[] = []
       lines.forEach((line, index) => {
         if (index > 0) {
-          runs.push(new TextRun({ break: 1, size, color, font }))
+          runs.push(new TextRun({ break: 1, ...run }))
         }
         if (line) {
-          runs.push(new TextRun({ text: line, size, color, font }))
+          runs.push(new TextRun({ text: line, ...run }))
         }
       })
       paragraphChildren.push(runs)
@@ -472,9 +486,9 @@ export function parsePlainTextListToParagraphs(
 
     block.items.forEach((item, index) => {
       const prefix = block.type === 'numbered' ? `${index + 1}. ` : '• '
-      const runs = [new TextRun({ text: prefix, size, color, font })]
+      const runs = [new TextRun({ text: prefix, ...run })]
       if (item) {
-        runs.push(new TextRun({ text: item, size, color, font }))
+        runs.push(new TextRun({ text: item, ...run }))
       }
       paragraphChildren.push(runs)
     })
@@ -503,7 +517,7 @@ export function parseHtmlToDocxRuns(
 ): (typeof TextRun.prototype)[] {
   if (!html) return []
 
-  const { size, color, font } = options
+  const { size, color, font, position, scale } = options
 
   // Decode HTML entities first so encoded tags become real tags
   const decoded = html
@@ -526,6 +540,8 @@ export function parseHtmlToDocxRuns(
         size,
         color,
         font,
+        position,
+        scale,
       }),
     ]
   }
@@ -544,8 +560,9 @@ export function parseHtmlToDocxRuns(
     .replace(/<\/div>/gi, '\n')
     .replace(/<p[^>]*>/gi, '')
     .replace(/<div[^>]*>/gi, '')
-    // Strip strikethrough tags but keep their text content (preview does not show strikethrough)
-    .replace(/<\/?(s|strike|del)[^>]*>/gi, '')
+    // Strip strikethrough tags but keep their text content (preview does not show strikethrough).
+    // The \b keeps tags that merely start with "s", such as <strong>, out of the match.
+    .replace(/<\/?(?:s|strike|del)\b[^>]*>/gi, '')
 
   // Handle lists - differentiate between ordered (ol) and unordered (ul) lists
   // Process ordered lists first - replace <li> with numbered items
@@ -691,49 +708,60 @@ export function parseHtmlToDocxRuns(
     }
   }
 
-  // Convert segments to TextRuns
+  // Split into lines across the whole text, not per segment: a space or a line
+  // break that falls between two formatted segments is a segment of its own, and
+  // judged alone it would look like an empty trailing line and be dropped
+  interface LinePiece {
+    text: string
+    segment: TextSegment
+  }
+  const lines: LinePiece[][] = [[]]
   for (const segment of segments) {
     // Clean up the text - remove any remaining HTML tags
-    let cleanText = segment.text.replace(/<[^>]+>/g, '')
-
-    // Handle line breaks within segment
-    // Filter out empty trailing lines to prevent extra gaps
-    let lines = cleanText.split('\n')
-    while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
-      lines.pop()
-    }
-
-    for (let i = 0; i < lines.length; i++) {
-      const lineText = lines[i]
-
-      if (lineText) {
-        runs.push(
-          new TextRun({
-            text: lineText,
-            size,
-            color,
-            font,
-            bold: segment.bold,
-            italics: segment.italic,
-            underline: segment.underline ? {} : undefined,
-          })
-        )
-      }
-
-      // Add line break between lines (but not after last line)
-      // Only add break if there's actual content in the next line
-      if (i < lines.length - 1 && lines[i + 1].trim() !== '') {
-        runs.push(
-          new TextRun({
-            break: 1,
-            size,
-            color,
-            font,
-          })
-        )
-      }
-    }
+    segment.text.replace(/<[^>]+>/g, '').split('\n').forEach((text, index) => {
+      if (index > 0) lines.push([])
+      if (text) lines[lines.length - 1].push({ text, segment })
+    })
   }
+  const hasContent = (line: LinePiece[]): boolean => line.some(piece => piece.text.trim() !== '')
+
+  // Filter out empty trailing lines to prevent extra gaps
+  while (lines.length > 0 && !hasContent(lines[lines.length - 1])) {
+    lines.pop()
+  }
+
+  lines.forEach((line, i) => {
+    for (const { text, segment } of line) {
+      runs.push(
+        new TextRun({
+          text,
+          size,
+          color,
+          font,
+          position,
+          scale,
+          bold: segment.bold,
+          italics: segment.italic,
+          underline: segment.underline ? {} : undefined,
+        })
+      )
+    }
+
+    // Add line break between lines (but not after last line)
+    // Only add break if there's actual content in the next line
+    if (i < lines.length - 1 && hasContent(lines[i + 1])) {
+      runs.push(
+        new TextRun({
+          break: 1,
+          size,
+          color,
+          font,
+          position,
+          scale,
+        })
+      )
+    }
+  })
 
   return runs
 }

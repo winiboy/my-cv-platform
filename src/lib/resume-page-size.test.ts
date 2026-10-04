@@ -7,6 +7,7 @@ import {
   PAGE_HEIGHT_INCHES,
   PAGE_HEIGHT_MM,
   PAGE_HEIGHT_PX,
+  PAGE_HEIGHT_TWIPS,
   PAGE_WIDTH_CSS,
   PAGE_WIDTH_INCHES,
   PAGE_WIDTH_MM,
@@ -32,8 +33,9 @@ const read = (relative: string) => readFileSync(path.join(ROOT, relative), 'utf-
 const globals = read('src/app/globals.css')
 const MM_PER_INCH = 25.4
 const CSS_PX_PER_INCH = 96
+const TWIPS_PER_INCH = 1440
 
-describe('the units are one page written three ways', () => {
+describe('the units are one page written four ways', () => {
   it('A4 is 210 × 297 mm', () => {
     expect([PAGE_WIDTH_MM, PAGE_HEIGHT_MM]).toEqual([210, 297])
   })
@@ -47,6 +49,12 @@ describe('the units are one page written three ways', () => {
     const px = (mm: number) => (mm / MM_PER_INCH) * CSS_PX_PER_INCH
     expect(Math.abs(PAGE_WIDTH_PX - px(PAGE_WIDTH_MM))).toBeLessThanOrEqual(0.5)
     expect(Math.abs(PAGE_HEIGHT_PX - px(PAGE_HEIGHT_MM))).toBeLessThanOrEqual(0.5)
+  })
+
+  it('the twips height is the millimetres, to the whole twip', () => {
+    const twips = (PAGE_HEIGHT_MM / MM_PER_INCH) * TWIPS_PER_INCH
+    expect(Number.isInteger(PAGE_HEIGHT_TWIPS)).toBe(true)
+    expect(Math.abs(PAGE_HEIGHT_TWIPS - twips)).toBeLessThanOrEqual(0.5)
   })
 
   it('the CSS lengths are those px', () => {
@@ -91,11 +99,40 @@ describe('no surface keeps a page of its own', () => {
     expect(source).not.toMatch(/816px|8\.5in|1056px/)
   })
 
+  // The only ways a DOCX section may write each dimension: a value this module
+  // exports, used as-is or through one local const.
+  const SHARED_PAGE_SIZE = {
+    width: ['convertInchesToTwip(PAGE_WIDTH_INCHES)'],
+    height: ['convertInchesToTwip(PAGE_HEIGHT_INCHES)', 'PAGE_HEIGHT_TWIPS'],
+  }
+
+  /** Each `size: { width, height }` a section declares, local consts resolved. */
+  const declaredPageSizes = (source: string) =>
+    [...source.matchAll(/size:\s*\{\s*width:\s*([^,\n]+),\s*height:\s*([^,\n]+),/g)].map((m) => {
+      const resolve = (expression: string) => {
+        const trimmed = expression.trim()
+        const local = new RegExp(`const ${trimmed} = ([^\\n]+)`).exec(source)
+        return /^\w+$/.test(trimmed) && local ? local[1].trim() : trimmed
+      }
+      return { width: resolve(m[1]), height: resolve(m[2]) }
+    })
+
   it.each(TEMPLATES)('docx-%s.ts declares the shared page size', (name) => {
     const source = read(`src/app/api/resumes/[id]/download-docx/docx-${name}.ts`)
-    expect(source).toMatch(/convertInchesToTwip\(PAGE_WIDTH_INCHES\)/)
-    expect(source).toMatch(/convertInchesToTwip\(PAGE_HEIGHT_INCHES\)/)
+    const sizes = declaredPageSizes(source)
+    expect(sizes.length).toBeGreaterThan(0)
+    for (const { width, height } of sizes) {
+      expect(SHARED_PAGE_SIZE.width).toContain(width)
+      expect(SHARED_PAGE_SIZE.height).toContain(height)
+    }
+    // The names it declares with are this module's, not local look-alikes.
+    const imported = /import \{([^}]*)\} from '@\/lib\/resume-page-size'/.exec(source)?.[1] ?? ''
+    for (const used of new Set(sizes.flatMap((s) => [s.width, s.height]).map((e) => /PAGE_\w+/.exec(e)?.[0]))) {
+      expect(imported.split(',').map((n) => n.trim())).toContain(used)
+    }
+    expect(source).not.toMatch(/const PAGE_\w+\s*=/)
     expect(source).not.toMatch(/convertInchesToTwip\((?:8\.5|11|8\.27|11\.69)\)/)
+    expect(source).not.toMatch(/\b(?:11906|11908|12240|15840|16833|16838)\b/)
   })
 
   it('the editor scales the preview against the shared width', () => {
