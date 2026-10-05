@@ -126,16 +126,7 @@
       "mcp__playwright__browser_snapshot",
       "mcp__playwright__browser_take_screenshot",
       "mcp__playwright__browser_wait_for",
-      "Bash(git --no-pager diff -- src/middleware.ts)",
-      "Read(//e/website/cv-website/my-cv-platform-part3/**)",
-      "Write(//e/website/cv-website/my-cv-platform-part3/**)",
-      "Edit(//e/website/cv-website/my-cv-platform-part3/**)",
-      "Read(E:\\website\\cv-website\\my-cv-platform-part3\\**)",
-      "Write(E:\\website\\cv-website\\my-cv-platform-part3\\**)",
-      "Edit(E:\\website\\cv-website\\my-cv-platform-part3\\**)"
-    ],
-    "additionalDirectories": [
-      "E:\\website\\cv-website\\my-cv-platform-part3"
+      "Bash(git --no-pager diff -- src/middleware.ts)"
     ],
     "deny": [
       "Bash(bun:*)",
@@ -159,7 +150,21 @@
       "Read(.env.sentry-build-plugin)",
       "mcp__playwright__browser_run_code_unsafe"
     ],
-    "ask": [],
+    "ask": [
+      "Bash(gh pr close:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr edit:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr ready:*)",
+      "Bash(gh pr reopen:*)",
+      "Bash(gh pr review:*)",
+      "Bash(git merge:*)",
+      "Bash(git push --force-if-includes:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push:*)"
+    ],
     "defaultMode": "default",
     "disableBypassPermissionsMode": "disable",
     "disableAutoMode": "disable"
