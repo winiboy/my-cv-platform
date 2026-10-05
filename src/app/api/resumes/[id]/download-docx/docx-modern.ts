@@ -817,9 +817,9 @@ export async function generateModernDocx(
         const rawBase64 = extractBase64Data(photoBase64)
         const imageBuffer = Buffer.from(rawBase64, 'base64')
 
-        // The zone is the sidebar's full width on the document's own page.
-        const sidebarInches = (sidebarWidthPercent / 100) * PAGE_WIDTH_INCHES
-        const zoneWidthPx = Math.round(sidebarInches * 96)
+        // The zone is the sidebar cell's exact width, not rounded to a whole
+        // px: rounded up, the photo ran past the cell. `docx` takes fractional px.
+        const zoneWidthPx = sidebarWidthTwips / 15
         const zoneHeightPx = SPACING.PHOTO_ZONE_HEIGHT
 
         // Parse original dimensions to calculate object-fit: cover crop

@@ -84,6 +84,14 @@ italic) in every field that accepts it. A change is judged on all of them, and
 the other templates' DOCX must stay identical part for part (`docProps/core.xml`
 compared with its timestamps masked).
 
+Modern's photo is compared on its own fixture, the shared resume with a photo
+(`e2e/fixtures/photo-portrait.jpg`, 3:4, so the cover crop trims top and
+bottom), and with real photographs of other shapes. Word's PDF is read for the
+image's placement, and the photo zone is compared pixel for pixel with a
+screenshot of the Preview's. `e2e/docx-modern-photo.spec.ts` compares the
+Preview's photo box and crop with the route's DOCX on every run; only the Word
+render shows that Word draws the anchor there.
+
 ## What Word does, as measured
 
 ### The baseline: 0.8 of an exact line
@@ -211,6 +219,10 @@ These are explicit findings, not passes:
   Preview render.
 - **Modern's page width** is 11908 twips (the two-decimal inches); Word's A4 is
   11906.
+- **Photo orientation.** Word ignores a JPEG's EXIF orientation; the browser
+  applies it. A phone photo stored sideways with an orientation tag shows
+  upright in the Preview and sideways in Word, and its cover crop, computed on
+  the stored size, trims the other axis.
 
 ## Re-measuring
 
