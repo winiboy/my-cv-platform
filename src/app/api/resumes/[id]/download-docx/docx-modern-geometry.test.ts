@@ -65,6 +65,7 @@ interface Options {
   sidebarTopMargin?: number
   mainContentTopMargin?: number
   photoBase64?: string
+  sidebarWidth?: number
   /** `false` drops the contact's address line. */
   location?: false
   /** Replaces the formatted summary. */
@@ -85,7 +86,7 @@ function settingsFor(row: ReturnType<typeof resumeRow>, options: Options): DocxG
     sidebarHue: layout.sidebarHue,
     sidebarSaturation: layout.sidebarSaturation,
     sidebarBrightness: layout.sidebarBrightness,
-    sidebarWidth: layout.sidebarWidth,
+    sidebarWidth: options.sidebarWidth ?? layout.sidebarWidth,
     sidebarTopMargin: options.sidebarTopMargin ?? layout.sidebarTopMargin,
     mainContentTopMargin: options.mainContentTopMargin ?? layout.mainContentTopMargin,
     sidebarOrder: [...layout.sidebarOrder],
@@ -241,8 +242,32 @@ describe('modern DOCX geometry', () => {
       'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
     const { document } = await artifact({ photoBase64: png })
     expect(document).toContain('<wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV>')
-    // 30% of 8.27in at 96dpi is 238px; EMU are 9525 per px.
-    expect(document).toContain(`<wp:extent cx="${238 * 9525}" cy="${220 * 9525}"/>`)
+    // The sidebar cell's 3572 twips (238.13px), 635 EMU each; 220px at 9525 EMU each.
+    expect(document).toContain(`<wp:extent cx="${SIDEBAR_TWIPS * 635}" cy="${220 * 9525}"/>`)
+  })
+
+  it('draws a real photo as wide as the sidebar cell at any sidebar width, cover-cropped to the zone', async () => {
+    // 300 × 400 (3:4): the zone is wider than the photo, so cover keeps the full
+    // width and trims top and bottom. Before PR #88 the zone was sized on an
+    // 8.5in page, and Word drew the photo 7px past the sidebar's edge on A4.
+    const photo = readFileSync(path.join(process.cwd(), 'e2e/fixtures/photo-portrait.jpg'))
+    const photoBase64 = `data:image/jpeg;base64,${photo.toString('base64')}`
+    for (const sidebarWidth of [25, 30, 40]) {
+      const { document } = await artifact({ photoBase64, sidebarWidth })
+      const cellTwips = Math.round(PAGE_TWIPS * (sidebarWidth / 100))
+      expect(document).toContain(`<w:tcW w:type="dxa" w:w="${cellTwips}"/>`)
+      const anchor = /<wp:anchor\b[\s\S]*?<\/wp:anchor>/.exec(document)?.[0] ?? ''
+      expect(anchor).toContain('<wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV>')
+      const cx = Number(attribute(anchor, 'wp:extent', 'cx'))
+      const cy = Number(attribute(anchor, 'wp:extent', 'cy'))
+      // Exactly the cell: a width rounded up to whole px ran past it.
+      expect(cx, `${sidebarWidth}%`).toBe(cellTwips * 635)
+      expect(cy).toBe(220 * 9525)
+      // Cover: scaled to the zone's width, 220px of the scaled height kept, centred.
+      const keptRows = (220 * 300) / (cellTwips / 15)
+      const trim = Math.round(((400 - keptRows) / 2 / 400) * 100_000)
+      expect(anchor, `${sidebarWidth}%`).toContain(`<a:srcRect l="0" t="${trim}" r="0" b="${trim}"/>`)
+    }
   })
 
   it('draws a sidebar heading as a full-width shaded cell padded 6px 12px, then a 12px gap', async () => {
