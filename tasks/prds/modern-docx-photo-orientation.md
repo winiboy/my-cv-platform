@@ -1,6 +1,6 @@
 # PRD: Modern Word export draws the photo the right way up
 
-**Status:** DRAFT
+Status: APPROVED 2026-10-05
 
 ## Objective
 
