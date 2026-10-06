@@ -148,3 +148,98 @@ test('the Modern DOCX photo is the Preview photo: same box, same cover crop', as
   expect(Math.abs(1 - t - b - keptHeight)).toBeLessThanOrEqual(0.005)
   expect(t, 'a 3:4 photo is trimmed top and bottom').toBeGreaterThan(0)
 })
+
+/**
+ * The fixture with an Exif APP1 segment after SOI whose IFD0 holds one
+ * orientation entry (little-endian TIFF), as a phone camera writes it.
+ */
+function withExifOrientation(jpeg: Buffer, orientation: number): Buffer {
+  const tiff = Buffer.alloc(26)
+  tiff.write('II', 0, 'latin1')
+  tiff.writeUInt16LE(0x2a, 2)
+  tiff.writeUInt32LE(8, 4)
+  tiff.writeUInt16LE(1, 8)
+  tiff.writeUInt16LE(0x0112, 10)
+  tiff.writeUInt16LE(3, 12)
+  tiff.writeUInt32LE(1, 14)
+  tiff.writeUInt16LE(orientation, 18)
+  const payload = Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), tiff])
+  const head = Buffer.from([0xff, 0xe1, 0, 0])
+  head.writeUInt16BE(payload.length + 2, 2)
+  return Buffer.concat([jpeg.subarray(0, 2), head, payload, jpeg.subarray(2)])
+}
+
+/**
+ * A phone photo carries its orientation as an EXIF tag. Chromium applies it
+ * before `object-fit: cover`, so the Preview shows the 300 × 400 fixture
+ * tagged 6 (turned 90°) or 5 (mirrored and turned) as a 400 × 300 image,
+ * trimmed at its sides. The DOCX must turn the picture the same way and crop
+ * the displayed size, while its turned box stays exactly the photo zone. That
+ * Word draws this transform as the Preview does was measured in Word's own
+ * render (`docs/engineering/docx-word-parity.md`).
+ */
+for (const { orientation, rotation, flipH } of [
+  { orientation: 6, rotation: 90, flipH: false },
+  { orientation: 5, rotation: 270, flipH: true },
+]) {
+  test(`an EXIF orientation ${orientation} photo is turned in the DOCX as the Preview shows it`, async ({ page, authedUser }) => {
+    const resume = await seedFixtureResume(authedUser.id, 'modern')
+    const photoDataUrl = `data:image/jpeg;base64,${withExifOrientation(PHOTO, orientation).toString('base64')}`
+
+    await page.addInitScript(
+      ([key, value]) => window.localStorage.setItem(key, value),
+      [`resume_photo_${resume.id}`, photoDataUrl] as const,
+    )
+    await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
+    const preview = await measurePreviewPhoto(page)
+
+    // The Preview applies the tag: the natural size is the oriented one, and
+    // the box is still the zone.
+    expect(preview.objectFit).toBe('cover')
+    expect([preview.naturalWidth, preview.naturalHeight]).toEqual([400, 300])
+    expect(preview.left).toBeCloseTo(0, 1)
+    expect(preview.top).toBeCloseTo(0, 1)
+    expect(preview.width).toBeCloseTo(preview.sidebarWidth, 1)
+
+    const response = await page.request.post(`/api/resumes/${resume.id}/download-docx?locale=en`, {
+      data: { photoBase64: photoDataUrl },
+      headers: { 'Content-Type': 'application/json' },
+    })
+    expect(response.ok()).toBe(true)
+    const zip = await JSZip.loadAsync(await response.body())
+    const xml = await zip.file('word/document.xml')!.async('string')
+    const anchors = xml.match(/<wp:anchor\b[\s\S]*?<\/wp:anchor>/g) ?? []
+    expect(anchors).toHaveLength(1)
+    const anchor = anchors[0] ?? ''
+
+    // The picture's own transform: Word flips, then turns.
+    const xfrm = /<pic:spPr\b[^>]*><a:xfrm\b[^>]*>/.exec(anchor)?.[0] ?? ''
+    expect(number(xfrm, /\srot="(\d+)"/, 'rotation') / 60_000).toBe(rotation)
+    expect(/\sflipH="(true|1)"/.test(xfrm)).toBe(flipH)
+    expect(/\sflipV="(true|1)"/.test(xfrm)).toBe(false)
+
+    // The extent is the unturned picture (zone height × zone width); turned
+    // about its centre, its box is the Preview's photo box.
+    const cx = number(anchor, /<wp:extent cx="(\d+)"/, 'extent cx') / EMU_PER_PX
+    const cy = number(anchor, /<wp:extent cx="\d+" cy="(\d+)"/, 'extent cy') / EMU_PER_PX
+    const offsetX = number(anchor, /<wp:positionH\b[^>]*><wp:posOffset>(-?\d+)</, 'horizontal offset') / EMU_PER_PX
+    const offsetY = number(anchor, /<wp:positionV\b[^>]*><wp:posOffset>(-?\d+)</, 'vertical offset') / EMU_PER_PX
+    const box = { left: offsetX + cx / 2 - cy / 2, top: offsetY + cy / 2 - cx / 2, width: cy, height: cx }
+    expect(Math.abs(box.left - preview.left)).toBeLessThanOrEqual(0.5)
+    expect(Math.abs(box.top - preview.top)).toBeLessThanOrEqual(0.5)
+    expect(Math.abs(box.width - preview.width), `DOCX ${box.width}px vs Preview ${preview.width}px`).toBeLessThanOrEqual(1)
+    expect(Math.abs(box.height - preview.height)).toBeLessThanOrEqual(1)
+
+    // Cover on the displayed size. srcRect is in the stored image's axes, which
+    // the turn swaps: its top and bottom are the displayed left and right.
+    const scale = Math.max(preview.width / preview.naturalWidth, preview.height / preview.naturalHeight)
+    const keptWidth = preview.width / scale / preview.naturalWidth
+    const keptHeight = preview.height / scale / preview.naturalHeight
+    const crop = /<a:srcRect l="(\d+)" t="(\d+)" r="(\d+)" b="(\d+)"\/>/.exec(anchor)
+    expect(crop, 'a cover crop on the photo').not.toBeNull()
+    const [l, t, r, b] = crop!.slice(1).map((v) => Number(v) / 100_000)
+    expect(Math.abs(1 - t - b - keptWidth)).toBeLessThanOrEqual(0.005)
+    expect(Math.abs(1 - l - r - keptHeight)).toBeLessThanOrEqual(0.005)
+    expect(t, 'a 4:3 displayed photo is trimmed at its sides').toBeGreaterThan(0)
+  })
+}

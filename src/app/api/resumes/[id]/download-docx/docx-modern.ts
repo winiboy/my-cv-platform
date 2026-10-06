@@ -25,6 +25,7 @@ import {
   TextWrappingType,
   DocumentGridType,
   NoBreakHyphen,
+  type IMediaTransformation,
   type UniversalMeasure,
 } from 'docx'
 import JSZip from 'jszip'
@@ -325,6 +326,113 @@ function calculateCoverCropPercents(
 
   return { l: 0, t: 0, r: 0, b: 0 }
 }
+
+/** EXIF orientation 1: the stored pixels are already upright. */
+const EXIF_ORIENTATION_NONE = 1
+const EXIF_ORIENTATION_TAG = 0x0112
+const TIFF_TYPE_SHORT = 3
+const TIFF_IFD_ENTRY_BYTES = 12
+/** Real JPEGs carry a handful of segments before SOS; past this the file is not one we trust. */
+const MAX_JPEG_HEADER_SEGMENTS = 64
+
+/**
+ * The orientation in the EXIF block of an APP1 segment spanning
+ * `[start, end)`, or 1. Every read is checked against `end`, the segment's
+ * own end, so a lying offset or count can never reach past it.
+ */
+function exifSegmentOrientation(buffer: Buffer, start: number, end: number): number {
+  const tiff = start + 6 // after "Exif\0\0"
+  if (tiff + 8 > end) return EXIF_ORIENTATION_NONE
+
+  const byteOrder = buffer.readUInt16BE(tiff)
+  if (byteOrder !== 0x4949 && byteOrder !== 0x4d4d) return EXIF_ORIENTATION_NONE
+  const littleEndian = byteOrder === 0x4949
+  const u16 = (at: number) => (littleEndian ? buffer.readUInt16LE(at) : buffer.readUInt16BE(at))
+  const u32 = (at: number) => (littleEndian ? buffer.readUInt32LE(at) : buffer.readUInt32BE(at))
+  if (u16(tiff + 2) !== 0x002a) return EXIF_ORIENTATION_NONE
+
+  const ifd = tiff + u32(tiff + 4)
+  if (ifd + 2 > end) return EXIF_ORIENTATION_NONE
+  const entryCount = u16(ifd)
+  // A count claiming more entries than the segment holds is malformed.
+  if (ifd + 2 + entryCount * TIFF_IFD_ENTRY_BYTES > end) return EXIF_ORIENTATION_NONE
+
+  for (let i = 0; i < entryCount; i++) {
+    const entry = ifd + 2 + i * TIFF_IFD_ENTRY_BYTES
+    if (u16(entry) !== EXIF_ORIENTATION_TAG) continue
+    if (u16(entry + 2) !== TIFF_TYPE_SHORT || u32(entry + 4) !== 1) return EXIF_ORIENTATION_NONE
+    // A single SHORT sits in the first two bytes of the entry's value field.
+    const value = u16(entry + 8)
+    return value >= 1 && value <= 8 ? value : EXIF_ORIENTATION_NONE
+  }
+  return EXIF_ORIENTATION_NONE
+}
+
+/**
+ * The EXIF orientation (1–8) of a JPEG, read from its first Exif APP1
+ * segment; 1 when there is none or anything about the file is unexpected.
+ *
+ * The photo is untrusted input, so the marker walk is bounded by the buffer
+ * and by a segment cap, the EXIF read by the APP1 segment's own length, and no
+ * exception escapes.
+ */
+export function readJpegOrientation(buffer: Buffer): number {
+  try {
+    if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8) return EXIF_ORIENTATION_NONE
+
+    let offset = 2
+    for (let segments = 0; segments < MAX_JPEG_HEADER_SEGMENTS; segments++) {
+      // Fill bytes: any number of 0xFF may precede a marker.
+      while (offset + 1 < buffer.length && buffer[offset] === 0xff && buffer[offset + 1] === 0xff) offset++
+      if (offset + 4 > buffer.length || buffer[offset] !== 0xff) return EXIF_ORIENTATION_NONE
+
+      const marker = buffer[offset + 1]
+      // SOS or EOI: the header, where EXIF lives, is over.
+      if (marker === 0xda || marker === 0xd9) return EXIF_ORIENTATION_NONE
+
+      const length = buffer.readUInt16BE(offset + 2)
+      const segmentStart = offset + 4
+      const segmentEnd = offset + 2 + length
+      if (length < 2 || segmentEnd > buffer.length) return EXIF_ORIENTATION_NONE
+
+      if (
+        marker === 0xe1 &&
+        segmentEnd - segmentStart >= 6 &&
+        buffer.toString('latin1', segmentStart, segmentStart + 6) === 'Exif\0\0'
+      ) {
+        return exifSegmentOrientation(buffer, segmentStart, segmentEnd)
+      }
+      offset = segmentEnd
+    }
+    return EXIF_ORIENTATION_NONE
+  } catch {
+    return EXIF_ORIENTATION_NONE
+  }
+}
+
+interface PhotoOrientationTransform {
+  /** Written on the picture's `a:xfrm`; Word applies the flip before the rotation. */
+  readonly picture: Pick<IMediaTransformation, 'rotation' | 'flip'>
+  /** Orientations 5–8 display the stored image with width and height swapped. */
+  readonly swapsAxes: boolean
+}
+
+/**
+ * The picture transform that makes Word draw an EXIF-oriented JPEG the way
+ * the Preview does: Chromium applies EXIF orientation before
+ * `object-fit: cover`. Measured in Word's own render for every orientation.
+ */
+const EXIF_PHOTO_TRANSFORMS: Readonly<Record<number, PhotoOrientationTransform>> = {
+  2: { picture: { flip: { horizontal: true } }, swapsAxes: false },
+  3: { picture: { rotation: 180 }, swapsAxes: false },
+  4: { picture: { flip: { vertical: true } }, swapsAxes: false },
+  5: { picture: { flip: { horizontal: true }, rotation: 270 }, swapsAxes: true },
+  6: { picture: { rotation: 90 }, swapsAxes: true },
+  7: { picture: { flip: { horizontal: true }, rotation: 90 }, swapsAxes: true },
+  8: { picture: { rotation: 270 }, swapsAxes: true },
+}
+
+const EMU_PER_PX = 9525
 
 // ============================================================
 // MODERN TEMPLATE DOCX GENERATOR
@@ -822,19 +930,47 @@ export async function generateModernDocx(
         const zoneWidthPx = sidebarWidthTwips / 15
         const zoneHeightPx = SPACING.PHOTO_ZONE_HEIGHT
 
+        // The Preview draws a JPEG upright per its EXIF orientation; Word
+        // draws the stored pixels, so the orientation becomes the picture's
+        // transform. Orientation 1 keeps the untransformed path below exactly.
+        const orientation = imageType === 'jpg' ? readJpegOrientation(imageBuffer) : EXIF_ORIENTATION_NONE
+        const orientationTransform = EXIF_PHOTO_TRANSFORMS[orientation] ?? null
+        const swapsAxes = orientationTransform?.swapsAxes === true
+
         // Parse original dimensions to calculate object-fit: cover crop
         const origDims = parseImageDimensions(imageBuffer, imageType)
         if (origDims) {
-          photoCropValues = calculateCoverCropPercents(
-            origDims.width, origDims.height,
+          // Cover is computed on the displayed size, as the Preview does.
+          const displayed = swapsAxes
+            ? { width: origDims.height, height: origDims.width }
+            : origDims
+          const displayedCrop = calculateCoverCropPercents(
+            displayed.width, displayed.height,
             zoneWidthPx, zoneHeightPx
           )
+          // srcRect is in the stored image's axes, which a 90° turn swaps.
+          // Mapping display l→t, r→b, t→l, b→r holds only because the cover
+          // crop is centred (l = r, t = b); an off-centre crop would need the
+          // per-orientation mapping (for 90° clockwise, display left is the
+          // stored bottom, and so on).
+          photoCropValues = swapsAxes
+            ? { l: displayedCrop.t, r: displayedCrop.b, t: displayedCrop.l, b: displayedCrop.r }
+            : displayedCrop
           // Skip no-op crop (all zeros)
           if (photoCropValues.l === 0 && photoCropValues.t === 0 &&
               photoCropValues.r === 0 && photoCropValues.b === 0) {
             photoCropValues = null
           }
         }
+
+        // A picture turned 90° is laid out unrotated (zone height × zone
+        // width) and turned about its centre, so it is offset by half the
+        // difference to land its turned box exactly on the zone. EMU, as Word
+        // reads wp:posOffset.
+        const pictureWidthPx = swapsAxes ? zoneHeightPx : zoneWidthPx
+        const pictureHeightPx = swapsAxes ? zoneWidthPx : zoneHeightPx
+        const offsetLeftEmu = swapsAxes ? Math.round(((zoneWidthPx - zoneHeightPx) / 2) * EMU_PER_PX) : 0
+        const offsetTopEmu = swapsAxes ? Math.round(((zoneHeightPx - zoneWidthPx) / 2) * EMU_PER_PX) : 0
 
         // "In Front of Text" = floating with wrap NONE and behindDocument false.
         // Transformation uses zone dimensions; srcRect cropping (applied in
@@ -850,17 +986,18 @@ export async function generateModernDocx(
           type: imageType,
           data: imageBuffer,
           transformation: {
-            width: zoneWidthPx,
-            height: zoneHeightPx,
+            width: pictureWidthPx,
+            height: pictureHeightPx,
+            ...orientationTransform?.picture,
           },
           floating: {
             horizontalPosition: {
               relative: HorizontalPositionRelativeFrom.COLUMN,
-              offset: 0,
+              offset: offsetLeftEmu,
             },
             verticalPosition: {
               relative: VerticalPositionRelativeFrom.PARAGRAPH,
-              offset: 0,
+              offset: offsetTopEmu,
             },
             wrap: {
               type: TextWrappingType.NONE,

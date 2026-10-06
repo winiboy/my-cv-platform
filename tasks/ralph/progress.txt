@@ -1,0 +1,96 @@
+# Ralph progress — Modern Word export draws the photo the right way up
+# Contract: tasks/ralph/prd.json (branch ralph/modern-docx-photo-orientation)
+# PRD: tasks/prds/modern-docx-photo-orientation.md (APPROVED 2026-10-05)
+
+## US-001: A phone photo shows upright in Word, as in the Preview
+Status: PASS
+Priority: 1
+Branch: ralph/modern-docx-photo-orientation
+Baseline HEAD: 8354bc4 (origin/main 4b87be5 + the PRD draft, the owner's approval commit 05497dc, 4f128ce, and the contract commit)
+Worktree: E:/website/cv-website/my-cv-platform/.claude/worktrees/fix-professional-print-padding (the main checkout runs the owner's dev server on :3000)
+
+Scope:
+- Scope check: PASS
+- Changed paths:
+  - src/app/api/resumes/[id]/download-docx/docx-modern.ts
+  - src/app/api/resumes/[id]/download-docx/docx-modern-orientation.test.ts (new)
+  - e2e/docx-modern-photo.spec.ts
+  - docs/engineering/docx-word-parity.md
+  - tasks/ralph/prd.json, tasks/ralph/progress.txt (Ralph metadata)
+- Negatives: `git diff 8354bc4 -- src` touches only the two download-docx files above; route.ts, docx-helpers.ts, the
+  other four generators, the client and package.json unchanged; no new dependency (package.json/pnpm-lock.yaml not in
+  the diff); no version change; no push or merge.
+
+Checks (all on the final diff):
+- pnpm typecheck: PASS — exit 0
+- pnpm lint: PASS — 303 problems (233 errors, 70 warnings), under the tracked baseline of 306 (memory/CLAUDE.md §14); the
+  changed files add none (docx-modern.ts 23, all pre-existing no-explicit-any, same count as at 8354bc4; new test 0)
+- pnpm test: PASS — 1551 passed, 5 skipped (1556); download-docx folder 652, of which docx-modern-orientation.test.ts 24
+- pnpm test:integration: PASS — 50/50
+- pnpm build: PASS — 117/117 static pages
+- pnpm test:e2e: PASS — 165 passed, including the 3 docx-modern-photo.spec.ts tests (untagged, orientation 6, orientation 5)
+- pnpm test:visual / test:parity: NOT_APPLICABLE — the Preview and print rendering are unchanged; only the DOCX drawing changes
+
+Specialized validation:
+- Browser: PASS — e2e reads the real Preview's <img> (box, naturalWidth/Height after EXIF) for orientations 6 and 5
+- Visual: NOT_APPLICABLE — no Preview/UI change
+- Export: PASS — Word render evidence below; route-built DOCX inspected as unzipped word/document.xml, not an HTTP 200
+- Database: NOT_APPLICABLE — the photo is not stored server-side
+- Security: PASS — security-review: 1 trust boundary (photo bytes in the DOCX route body, authenticated, ≤ 8 MB base64);
+  0 CRITICAL/HIGH/MEDIUM/LOW, 1 INFO (pre-existing parseImageDimensions, unchanged, inside the photo block's try/catch).
+  Fuzz: 20 000 mutated/truncated tagged JPEGs → never throws, always 1..8; 8 MB of 0xFF after SOI → 1 in 9.8 ms;
+  70-segment chain stops at the 64 cap → 1.
+
+Export evidence (Word = Microsoft Word on Windows via COM, docx → PDF; method docs/engineering/docx-word-parity.md):
+- Fixture: one 400×300 JPEG (four coloured quadrants, two off-centre marks) re-tagged EXIF orientation 1..8,
+  sha256 prefixes o1..o8: 01aac5003a32 ba2528332c75 37fe2d1dbf4a 46d7f5a8b791 ee24189fe211 1379ba6279b8 a4b39f65ba4b d8f1c966f9de
+- Production build, real route, real Preview, sidebar 30%: Preview <img> 0, 0, 238.19 × 220 for all 8.
+- Word, transformed bounding box of the picture: x 0.0, top 0.1, 238.1 × 220.0 for all 8 (cell 238.13px).
+- Photo zone mean |Δ| per channel (0–255), Word render vs Preview screenshot:
+  fixed   o1..o8: 2.78 2.88 2.43 2.33 2.78 2.80 2.64 2.62
+  unfixed o1..o8: 2.78 128.03 72.88 110.48 46.08 119.07 42.26 119.18
+  8px strip right of the zone: ≤ 0.35 for all 8 (nothing past the sidebar).
+- Byte identity vs the pre-change generator (senior-coder, 12 cases, every zip part diffed except docProps/core.xml,
+  repeat run of the old code first to show determinism): no photo, untagged JPEG, 1×1 PNG, tag 1, malformed EXIF →
+  identical; tags 2–8 differ in word/document.xml only.
+
+Decision (AC-01, FR-5): the orientation is written as the picture's OOXML transform (a:xfrm rot + flipH/flipV via the
+docx library's ImageRun transformation), not by rotating pixels. Measured first on hand-edited XML in Word for all 8
+orientations (zone |Δ| 0.98–1.75 vs the EXIF-applied expected image), which disproved the PRD's BLOCKER condition.
+Rejected: pixel rotation — needs an image dependency (owner decision per the PRD) and re-encodes the photo.
+Word applies the flip before the rotation; 5 = flipH + 270°, 7 = flipH + 90°. Orientations 5–8 lay the picture out as
+220 × zone width and offset it by ±(W − H)/2 so the turned box is the zone. The swapped-axes srcRect mapping relies on
+the centred cover crop; docx-modern.ts says so.
+
+Agents:
+- senior-coder: implementation; then review minors (crop-symmetry comment, test comment, 3 parser tests)
+- ui-expert: NOT_APPLICABLE — no UI change
+- code-reviewer: PASS (33 criteria checked) with 4 minor items; 1, 2, 4 applied, 3 answered by recording the
+  byte-identity evidence here; delta re-reviewed: PASS
+
+Acceptance criteria:
+- AC-01 (Word zone matches the Preview for o1..o8, ≤ 4, far below unfixed): PASS — 2.33–2.88 vs 42–128 (above)
+- AC-02 (placement unchanged): PASS — Word bbox 0.0, 0.1, 238.1 × 220.0 for all 8
+- AC-03 (crop on the displayed size): PASS — unit tests per orientation; e2e o6/o5 crop vs the Preview's oriented natural size
+- AC-04 (no tag / tag 1 byte-identical): PASS — byte-identity evidence above; unit test tag 1 ≡ untagged
+- AC-05 (malformed EXIF still embeds, 200): PASS — unit tests (3 malformed variants ≡ untagged); fuzz never throws
+- FR-1..FR-5: PASS — bounded parser with fallback 1; all 8 values; displayed-size crop; only docx-modern.ts changed; no dependency
+- Regression constraints: PASS — untagged geometry tests and e2e unchanged and green; photo bounds e2e green; other
+  generators untouched (git diff); text layout code untouched
+- Verification items: PASS — unit, e2e (o6, o5), Word render o1..o8 with unfixed contrast, byte identity, §14 suite, security review
+- FAIL conditions: none triggered. BLOCKER conditions: none hold (OOXML works; Word available)
+- Out of scope respected: PNG eXIf untouched (documented limitation); upload/storage/route unchanged
+
+Open owner decisions recorded by this story:
+- None blocking. PNG eXIf orientation stays unhandled (PRD out of scope; docx-word-parity.md limitation).
+
+Environment notes:
+- Word renders and pixel comparisons ran from scratch scripts (docx2pdf.py, pdf2png.cjs, imgbox.cjs, zonecmp.cjs) in the
+  session scratchpad; they are not committed. Word on Windows only, as for all Modern DOCX parity evidence.
+- No stalls; every suite ran once on the final diff.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 the Modern Word photo follows its EXIF orientation
+
+FINAL: PASS

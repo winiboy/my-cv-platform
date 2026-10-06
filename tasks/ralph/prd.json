@@ -43,7 +43,7 @@
         "Out of scope: Other applications (LibreOffice, Google Docs, Pages). Parity is measured in Microsoft Word on Windows, as for the rest of the Modern DOCX."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]
