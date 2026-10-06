@@ -79,3 +79,73 @@ Commit:
 - Commit message: ralph: US-001 shared template picker with live thumbnails on new-CV form
 
 FINAL: PASS
+
+## US-002: Choose the template of a CV created from a job offer
+Status: PASS
+Priority: 2
+Branch: ralph/job-cv-template-picker
+Baseline HEAD: 5a7c1d7 (US-001 story commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths:
+  - src/components/dashboard/cv-adaptation-modal.tsx (picker in create-new-CV mode; posts the selected template; props typed so isCreateNewCV: true requires templatePicker)
+  - src/app/[locale]/(dashboard)/dashboard/jobs/page.tsx (loads `common` on the server, trims it to the picker subset)
+  - src/components/jobs/job-search-layout.tsx, src/components/jobs/job-detail-panel.tsx (pass the subset down)
+  - src/lib/template-picker-strings.ts + .test.ts (new: server-side subset of `common` and its equivalence test)
+  - e2e/job-cv-template-picker.spec.ts (new)
+  - tasks/ralph/prd.json (US-002 passes: true), tasks/ralph/progress.txt (this entry)
+- Not touched: `git diff` over src/components/dashboard/resume-templates, resume-preview.tsx, template-picker.tsx, src/lib/layout-settings.ts, src/app/api, job-description-form.tsx, resume-creation-form.tsx, resume-editor.tsx, src/locales, e2e/visual, e2e/parity, package.json = 0 lines. The group label reuses common.json resumes.new.templateLabel, so no locale file changed. Version unchanged (0.54.3). No push, no merge.
+
+Checks (one run, on the final diff):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 51 files, 1648 passed, 5 skipped
+- pnpm test:integration: PASS — 4 files, 50 passed
+- pnpm lint: PASS — 303 problems (233 errors, 70 warnings), not above the tracked baseline (306) and equal to the US-001 entry
+- pnpm build:verify: PASS — 117/117 static pages
+- pnpm test:e2e: PASS — 176 passed (6 of them in e2e/job-cv-template-picker.spec.ts)
+- pnpm test:visual: PASS — 10 passed, no baseline updated
+- pnpm test:parity: PASS by comparison — 182 passed / 67 failed. Sorted failing-name list sha256 4686c0a4b0953a29…, identical to the clean origin/main f07574d run recorded in the US-001 entry.
+
+Specialized validation:
+- Browser: PASS — Playwright, production build, real signed-in test user, /api/jobs, /api/jobs/fetch-external and /api/ai/generate-from-job-description stubbed with page.route (no real AI call). HTTP 200 on /fr and /en dashboard/jobs. Console gate empty. The posted body is checked with toEqual against the pre-story fields plus `template`, for all 5 ids (click and keyboard). Redirect to a real resume row's editor.
+- Visual: PASS — pnpm test:visual 10/10 unchanged; modal thumbnails compared with the US-001 thumbnails and Preview captures by ui-expert.
+- Export: NOT_APPLICABLE — no export code changed.
+- Database: NOT_APPLICABLE — no migration; the existing API stores the posted template (route unchanged).
+- Security: NOT_APPLICABLE — the server-side template whitelist in the route is unchanged. Thumbnails are inert/aria-hidden as in US-001.
+- Performance (US-001 code-reviewer LOW-3): modal open to 5 drawn thumbnails = 264 ms in the evidence session; the implementer measured 209 and 243 ms. The e2e logs it and asserts < 10 s.
+
+Agents:
+- senior-coder: implemented in one round. It flagged both limits below.
+- ui-expert: PASS (11/11). Round 1 BLOCKED on the 375 px criterion: no 375 px capture, and the modal is unreachable on phones (see the owner decision). Round 2 PASS on the 375 px captures with the panel forced visible, plus a capture of the real page without forcing.
+- code-reviewer: PASS, on the condition that the 375 px reachability limit is recorded here (done, below). LOW-1: the equivalence test only covers the sections the sample fills; a code search found no `resumes` read outside the subset. NIT-1: the `levels` key comment is imprecise (the levels in use come through `editor`). NIT-2: `disabled={isLoading}` never takes effect because the stage switch removes the form. NIT-3: the label is a span, which is correct for a radiogroup label. Not fixed, all non-blocking.
+
+Acceptance criteria:
+- AC-01 (shared picker from both entry points, same options/order/names/thumbnails, between company and submit): PASS — e2e for "Créer un CV" and "Adapter mon CV" → "Nouveau CV", plus DOM-order check; ui-expert captures at 1440/768/375.
+- AC-02 (Professional default on open): PASS — e2e; reset on every open (CREATE_NEW_CV_DEFAULT_TEMPLATE).
+- AC-03 (posted template = selected id, other fields unchanged): PASS — e2e whole-body toEqual for all 5 ids.
+- AC-04 (redirect to editor): PASS — e2e waitForURL /fr/dashboard/resumes/<id>/edit on a real row.
+- AC-05 (selection unchangeable in flight): PASS — on submit the modal's existing stage switch replaces the form, picker included, with the processing view; the e2e holds the stubbed response and asserts no radiogroup exists.
+- AC-06 (localized fr/en/de/it): PASS — unit test for the label in 4 locales and byte equivalence of picker and thumbnails (subset vs full dict, 5 × 4); e2e fr and en.
+- AC-07 (no picker in adapt mode, adapt unchanged): PASS — e2e; ui-expert capture (purple, analyze button, no picker); resume-editor.tsx (adapt caller) unchanged and type-checks against the false branch.
+- AC-08 (HTTP 200, clean console): PASS — e2e on every navigation.
+- AC-09 (375 px): PASS under the owner decision below. Modal body and document overflow are 0 and every option fits inside the modal body (e2e + 6 captures), measured with the job-detail wrapper forced visible after checking that it has no transform, filter or contain.
+- FR-1 to FR-7: PASS (one picker, no surface-local list; strings from `common` via the server; no new colour, font or dependency).
+- Regression constraints / FAIL conditions: PASS — negative diff 0 lines.
+
+Decision (AC-06, FR-5): the Job Search page receives only `resumes.{templates,editor,template,levels}` of `common`: 5,592 characters for fr, against 25,063 for the whole dictionary. src/lib/template-picker-strings.test.ts proves rendering is byte-identical with the subset and the full dictionary, with a control test. Rejected: passing the whole `common` (payload) and adding the strings to `jobs.json` (a second source for template names, against FR-5).
+
+Open owner decisions recorded by this story:
+- DECIDED by the owner on 2026-10-06 ("Accepter + backlog"): the 375 px criterion is accepted as the modal layout verified with the job-detail panel forced visible. Phone access is still open. Below 768 px, Job Search shows only the job list (`hidden md:block` in job-search-layout.tsx, pre-existing), so neither "Créer un CV" nor "Adapter mon CV" can be reached on a phone. This needs its own PRD.
+- Still open from US-001: parity red on origin/main (67 DOCX-side), English words drawn by templates, page and modal length (about 1,650 px of cards in the modal at 1440 px), and the unlinked /resumes/new and /resumes/from-job routes.
+- Pre-existing English in the fr modal: "Entreprise (optional)", "(n/100 characters minimum)", and the "Job title is required." error in cv-adaptation-modal.tsx. Out of scope here.
+
+Environment notes:
+- Same environment as US-001: local Supabase stack; the owner's dev server on :3000 left running; Playwright production builds on :3100 (suites) and :3130 (evidence).
+- Evidence capture specs ran from gitignored playwright-report/uiexp2/ and were removed afterwards. The screenshots are in the session scratchpad.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 template picker in the Create-CV-from-job modal
+
+FINAL: PASS

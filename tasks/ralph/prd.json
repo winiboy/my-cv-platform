@@ -118,7 +118,7 @@
         "Out of scope: Remembering the last-chosen template."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

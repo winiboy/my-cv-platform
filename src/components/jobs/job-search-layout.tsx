@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import type { JobListing, JobSearchFilters } from '@/types/jobs'
 import type { Locale } from '@/lib/i18n'
+import type { TemplatePickerStrings } from '@/lib/template-picker-strings'
 import { JobFilters } from './job-filters'
 import { JobList } from './job-list'
 import { JobDetailPanel } from './job-detail-panel'
@@ -12,9 +13,10 @@ interface JobSearchLayoutProps {
   initialJobs: JobListing[]
   dict: any
   locale: Locale
+  templatePicker: TemplatePickerStrings
 }
 
-export function JobSearchLayout({ initialJobs, dict, locale }: JobSearchLayoutProps) {
+export function JobSearchLayout({ initialJobs, dict, locale, templatePicker }: JobSearchLayoutProps) {
   const [jobs, setJobs] = useState<JobListing[]>(initialJobs)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -222,7 +224,7 @@ export function JobSearchLayout({ initialJobs, dict, locale }: JobSearchLayoutPr
           {/* Right: Job Detail */}
           <div className="hidden md:block md:w-1/2 lg:w-3/5">
             {selectedJob ? (
-              <JobDetailPanel job={selectedJob} dict={dict} locale={locale} />
+              <JobDetailPanel job={selectedJob} dict={dict} locale={locale} templatePicker={templatePicker} />
             ) : (
               <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50">
                 <p className="text-slate-500">{dict?.emptyState || 'No jobs found'}</p>
