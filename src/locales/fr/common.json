@@ -187,6 +187,8 @@
       "classicDesc": "Format traditionnel privilégié par les secteurs conservateurs",
       "minimal": "Minimaliste",
       "minimalDesc": "Simple et élégant avec un accent sur le contenu",
+      "professional": "Professionnel",
+      "professionalDesc": "Modèle pour cadres avec barre latérale et section des réalisations clés",
       "creative": "Créatif",
       "creativeDesc": "Design audacieux pour les professionnels créatifs"
     },

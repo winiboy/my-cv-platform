@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { FileText, Sparkles, Layout, PenTool, Briefcase } from 'lucide-react'
-import type { ResumeInsert, JobApplication } from '@/types/database'
+import { TemplatePicker } from '@/components/dashboard/template-picker'
+import { toLocale } from '@/lib/i18n'
+import type { ResumeInsert, ResumeTemplate, JobApplication } from '@/types/database'
 
 interface CreateResumeFormProps {
   locale: string
@@ -14,48 +15,16 @@ interface CreateResumeFormProps {
 
 export function CreateResumeForm({ locale, dict, jobApplication }: CreateResumeFormProps) {
   const resumesDict = (dict.resumes || {}) as Record<string, unknown>
-  const templatesDict = (resumesDict.templates || {}) as Record<string, unknown>
   const newDict = (resumesDict.new || {}) as Record<string, unknown>
   const errorsDict = (dict.errors || {}) as Record<string, unknown>
   const validationDict = (errorsDict.validation || {}) as Record<string, unknown>
   const apiDict = (errorsDict.api || {}) as Record<string, unknown>
   const commonDict = (dict.common || {}) as Record<string, unknown>
 
-  const templates = [
-    {
-      id: 'modern',
-      name: (templatesDict.modern as string) || 'Modern',
-      description: (templatesDict.modernDesc as string) || 'Clean and professional with a contemporary design',
-      icon: Sparkles,
-    },
-    {
-      id: 'classic',
-      name: (templatesDict.classic as string) || 'Classic',
-      description: (templatesDict.classicDesc as string) || 'Traditional format preferred by conservative industries',
-      icon: FileText,
-    },
-    {
-      id: 'minimal',
-      name: (templatesDict.minimal as string) || 'Minimal',
-      description: (templatesDict.minimalDesc as string) || 'Simple and elegant with focus on content',
-      icon: Layout,
-    },
-    {
-      id: 'creative',
-      name: (templatesDict.creative as string) || 'Creative',
-      description: (templatesDict.creativeDesc as string) || 'Bold design for creative professionals',
-      icon: PenTool,
-    },
-    {
-      id: 'professional',
-      name: (templatesDict.professional as string) || 'Professional',
-      description: (templatesDict.professionalDesc as string) || 'Executive template with sidebar and key achievements section',
-      icon: Briefcase,
-    },
-  ] as const
   const router = useRouter()
   const [title, setTitle] = useState('')
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('modern')
+  const [selectedTemplate, setSelectedTemplate] = useState<ResumeTemplate>('modern')
+  const templateLabelId = useId()
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState('')
 
@@ -88,7 +57,7 @@ export function CreateResumeForm({ locale, dict, jobApplication }: CreateResumeF
       const newResume: ResumeInsert = {
         user_id: user.id,
         title: title.trim(),
-        template: selectedTemplate as 'modern' | 'classic' | 'minimal' | 'creative' | 'professional',
+        template: selectedTemplate,
         contact: {},
         summary: '',
         experience: [],
@@ -163,7 +132,7 @@ export function CreateResumeForm({ locale, dict, jobApplication }: CreateResumeF
       {/* Template Selection */}
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-2">
+          <label id={templateLabelId} className="block text-sm font-medium mb-2">
             {(newDict.templateLabel as string) || 'Choose Template'}
           </label>
           <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
@@ -171,44 +140,14 @@ export function CreateResumeForm({ locale, dict, jobApplication }: CreateResumeF
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {templates.map((template) => {
-            const Icon = template.icon
-            const isSelected = selectedTemplate === template.id
-
-            return (
-              <button
-                key={template.id}
-                type="button"
-                onClick={() => setSelectedTemplate(template.id)}
-                disabled={isCreating}
-                className={`p-4 border-2 rounded-lg text-left transition-all ${
-                  isSelected
-                    ? 'border-teal-600 bg-teal-50 dark:bg-teal-900/20'
-                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      isSelected
-                        ? 'bg-teal-600 text-white'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                    }`}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold mb-1">{template.name}</h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
-                      {template.description}
-                    </p>
-                  </div>
-                </div>
-              </button>
-            )
-          })}
-        </div>
+        <TemplatePicker
+          value={selectedTemplate}
+          onChange={setSelectedTemplate}
+          disabled={isCreating}
+          labelledBy={templateLabelId}
+          locale={toLocale(locale)}
+          dict={dict}
+        />
       </div>
 
       {/* Error message */}

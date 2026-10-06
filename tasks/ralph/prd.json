@@ -60,7 +60,7 @@
         "Out of scope: Remembering the last-chosen template."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
