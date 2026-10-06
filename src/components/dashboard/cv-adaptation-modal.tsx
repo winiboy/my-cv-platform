@@ -1,12 +1,19 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
 import { X, Loader2, CheckCircle, AlertCircle, Sparkles, Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { DiffViewer } from './diff-viewer'
+import { TemplatePicker } from './template-picker'
+import { toLocale } from '@/lib/i18n'
+import type { TemplatePickerStrings } from '@/lib/template-picker-strings'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
+import type { ResumeTemplate } from '@/types/database'
 
-interface CVAdaptationModalProps {
+/** The template a CV created from a job offer gets unless the user picks another. */
+const CREATE_NEW_CV_DEFAULT_TEMPLATE: ResumeTemplate = 'professional'
+
+interface CVAdaptationModalBaseProps {
   isOpen: boolean
   onClose: () => void
   resumeId?: string | null
@@ -16,7 +23,6 @@ interface CVAdaptationModalProps {
   locale: string
   onApplyChanges?: (patch: CVAdaptationPatch, selectedPatches: string[]) => void
   isCreateMode?: boolean
-  isCreateNewCV?: boolean
   createModeTitle?: string
   dict?: {
     title?: string
@@ -48,6 +54,16 @@ interface CVAdaptationModalProps {
   }
 }
 
+/**
+ * Creating a new CV needs the template picker's strings; adapting an existing
+ * CV shows no picker and so takes none.
+ */
+type CVAdaptationModalProps = CVAdaptationModalBaseProps &
+  (
+    | { isCreateNewCV: true; templatePicker: TemplatePickerStrings }
+    | { isCreateNewCV?: false; templatePicker?: undefined }
+  )
+
 type Stage = 'input' | 'processing' | 'preview'
 
 export function CVAdaptationModal({
@@ -61,6 +77,7 @@ export function CVAdaptationModal({
   onApplyChanges,
   isCreateMode = false,
   isCreateNewCV = false,
+  templatePicker,
   createModeTitle = 'Create CV from Job',
   dict = {},
 }: CVAdaptationModalProps) {
@@ -74,6 +91,8 @@ export function CVAdaptationModal({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string>('')
   const [progressMessage, setProgressMessage] = useState('')
+  const [template, setTemplate] = useState<ResumeTemplate>(CREATE_NEW_CV_DEFAULT_TEMPLATE)
+  const templateLabelId = useId()
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -81,6 +100,7 @@ export function CVAdaptationModal({
       setJobDescription(initialJobDescription)
       setJobTitle(initialJobTitle)
       setCompany(initialCompany)
+      setTemplate(CREATE_NEW_CV_DEFAULT_TEMPLATE)
       setStage('input')
       setPatch(null)
       setSelectedPatches(new Set())
@@ -141,7 +161,7 @@ export function CVAdaptationModal({
           body: JSON.stringify({
             jobDescription: jobDescription.trim(),
             title: company.trim() ? `CV - ${company.trim()}` : jobTitle.trim(),
-            template: 'professional',
+            template,
             locale,
           }),
         })
@@ -338,6 +358,23 @@ export function CVAdaptationModal({
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
+
+                {/* Template - only when creating a new CV */}
+                {isCreateNewCV && templatePicker && (
+                  <div className="space-y-2">
+                    <span id={templateLabelId} className="block text-sm font-medium text-gray-700">
+                      {templatePicker.label}
+                    </span>
+                    <TemplatePicker
+                      value={template}
+                      onChange={setTemplate}
+                      disabled={isLoading}
+                      labelledBy={templateLabelId}
+                      locale={toLocale(locale)}
+                      dict={templatePicker.dict}
+                    />
+                  </div>
+                )}
 
                 {/* Submit button */}
                 <button

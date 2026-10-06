@@ -189,6 +189,8 @@
       "classicDesc": "Traditional format preferred by conservative industries",
       "minimal": "Minimal",
       "minimalDesc": "Simple and elegant with focus on content",
+      "professional": "Professional",
+      "professionalDesc": "Executive template with sidebar and key achievements section",
       "creative": "Creative",
       "creativeDesc": "Bold design for creative professionals"
     },

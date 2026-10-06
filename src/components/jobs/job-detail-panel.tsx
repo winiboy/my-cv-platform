@@ -3,6 +3,7 @@
 import { MapPin, Briefcase, DollarSign, Calendar, Bookmark, ExternalLink, Sparkles, FilePlus, Loader2, Eye } from 'lucide-react'
 import type { JobListing } from '@/types/jobs'
 import type { Locale } from '@/lib/i18n'
+import type { TemplatePickerStrings } from '@/lib/template-picker-strings'
 import { useState, useCallback } from 'react'
 import { isRedirectContent } from '@/lib/adzuna-client'
 import { Button } from '@/components/ui/button'
@@ -70,6 +71,8 @@ interface JobDetailPanelProps {
   job: JobListing
   dict: JobDetailPanelDict
   locale: Locale
+  /** Label and `common` strings for the template picker of the create-new-CV modal. */
+  templatePicker: TemplatePickerStrings
 }
 
 /**
@@ -82,7 +85,7 @@ function getValidDescription(description: string | undefined): string | null {
   return description
 }
 
-export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
+export function JobDetailPanel({ job, dict, locale, templatePicker }: JobDetailPanelProps) {
   const router = useRouter()
   const toast = useToast()
   const [isSaved, setIsSaved] = useState(job.is_saved || false)
@@ -751,6 +754,7 @@ export function JobDetailPanel({ job, dict, locale }: JobDetailPanelProps) {
         }}
         isCreateMode={true}
         isCreateNewCV={true}
+        templatePicker={templatePicker}
         createModeTitle={dict?.createCV?.modalTitle || 'Create CV from Job'}
       />
     </div>
