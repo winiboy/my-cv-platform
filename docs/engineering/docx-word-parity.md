@@ -181,6 +181,17 @@ foot to the next page. Modern declares `PAGE_HEIGHT_TWIPS`; the other templates
 still declare the inch value, and adopting the exact height there is a separate
 decision.
 
+### The photo's orientation
+
+Word ignores a JPEG's EXIF orientation; Chromium applies it before
+`object-fit: cover`. So Modern reads the orientation (`readJpegOrientation`)
+and writes it as the picture's transform: a flip and a rotation on its
+`a:xfrm`, which Word applies flip first. Orientations 5 to 8 swap the axes:
+the picture is laid out as zone height × zone width, turned about its centre,
+and offset by half the difference, so its turned box is the zone. The cover
+crop is computed on the displayed size and written in the stored image's axes.
+Measured for all eight orientations in Word's render against the Preview.
+
 ### Inline boxes
 
 Word's run shading fills the whole exact line, so an inline box with padding
@@ -219,10 +230,11 @@ These are explicit findings, not passes:
   Preview render.
 - **Modern's page width** is 11908 twips (the two-decimal inches); Word's A4 is
   11906.
-- **Photo orientation.** Word ignores a JPEG's EXIF orientation; the browser
-  applies it. A phone photo stored sideways with an orientation tag shows
-  upright in the Preview and sideways in Word, and its cover crop, computed on
-  the stored size, trims the other axis.
+- **Photo orientation outside JPEG.** Only a JPEG's EXIF orientation is
+  applied (above). A PNG `eXIf` orientation is not read, so such a photo
+  would show unturned in Word. An application that applies a JPEG's EXIF
+  orientation itself and also honours the picture transform would turn the
+  photo twice; that is unmeasured, like every application other than Word.
 
 ## Re-measuring
 
