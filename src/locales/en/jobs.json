@@ -86,7 +86,22 @@
     "selectCV": "Select CV",
     "orDivider": "OR",
     "browseJobListings": "Browse Job Listings",
-    "browseJobListingsHint": "Don't have a job description yet? Browse our job listings to find opportunities and adapt your CV directly."
+    "browseJobListingsHint": "Don't have a job description yet? Browse our job listings to find opportunities and adapt your CV directly.",
+    "jobDescriptionCharacterCount": "({count}/100 characters minimum)",
+    "jobTitlePlaceholder": "e.g., Senior Software Engineer",
+    "jobTitleRequired": "Job title is required.",
+    "companyPlaceholder": "e.g., Google",
+    "optional": "(optional)",
+    "adaptationFailed": "Failed to generate adaptation",
+    "createFailed": "Failed to create CV",
+    "summaryTitle": "Professional Summary",
+    "experienceTitle": "Experience Description",
+    "addSkills": "Add Skills",
+    "enhanceSkills": "Enhance",
+    "noContent": "No content",
+    "noChangesTitle": "Great News!",
+    "noChangesMessage": "Your CV already aligns well with this job description. We don't recommend any changes at this time.",
+    "close": "Close"
   },
   "createCV": {
     "button": "Create CV",

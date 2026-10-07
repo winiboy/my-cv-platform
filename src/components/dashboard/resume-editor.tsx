@@ -48,6 +48,7 @@ import { ClassicTemplate } from './resume-templates/classic-template'
 import { MinimalTemplate } from './resume-templates/minimal-template'
 import { CreativeTemplate } from './resume-templates/creative-template'
 import { CVAdaptationModal } from './cv-adaptation-modal'
+import type { CVAdaptationStrings } from '@/lib/cv-adaptation-strings'
 import { QualityWarningBanner } from './quality-warning-banner'
 import { QualityScoreBadge } from './quality-score-badge'
 import { GapAnalysisPanel } from './gap-analysis-panel'
@@ -69,6 +70,12 @@ interface ResumeEditorProps {
   resume: Resume
   locale: Locale
   dict: any
+  /**
+   * The adaptation modal's strings and the editor's own "Adapt to Job" button
+   * and success alert. They live in `jobs.json`, which `dict` (`common.json`)
+   * does not carry, so the page selects them with `cvAdaptationStrings`.
+   */
+  cvAdaptation: CVAdaptationStrings
   linkedCoverLetters?: { id: string; title: string; company_name: string | null; job_title: string | null }[]
   unlinkedCoverLetters?: { id: string; title: string; company_name: string | null }[]
   currentJobApplicationId?: string | null
@@ -130,7 +137,7 @@ const SWATCH_BASE_STYLE: React.CSSProperties = {
   transition: 'transform 0.2s, box-shadow 0.2s',
 }
 
-export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverLetters, unlinkedCoverLetters: initialUnlinkedCoverLetters, currentJobApplicationId: initialJobAppId, currentJobApplication: initialJobApp, jobApplications: initialJobApps, qualityAnalysis: initialQualityAnalysis }: ResumeEditorProps) {
+export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation, linkedCoverLetters, unlinkedCoverLetters: initialUnlinkedCoverLetters, currentJobApplicationId: initialJobAppId, currentJobApplication: initialJobApp, jobApplications: initialJobApps, qualityAnalysis: initialQualityAnalysis }: ResumeEditorProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [resume, setResume] = useState(initialResume)
@@ -809,14 +816,14 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
 
       // Show success message
       setTimeout(() => {
-        alert(dict?.cvAdaptation?.successMessage || 'CV adapted successfully. Review and save when ready.')
+        alert(cvAdaptation.successMessage)
       }, 100)
     } else {
       console.log('No updates to apply') // Debug log
     }
 
     setShowAdaptationModal(false)
-  }, [updateResume, dict])
+  }, [updateResume, cvAdaptation])
 
   // Track if adaptation has been applied to prevent re-runs
   const adaptationAppliedRef = useRef(false)
@@ -1139,7 +1146,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
             className="flex items-center gap-2 rounded-lg border border-purple-600 bg-white px-4 py-2 text-sm font-medium text-purple-600 transition-colors hover:bg-purple-50"
           >
             <Sparkles className="h-4 w-4" />
-            {dict?.cvAdaptation?.adaptToJob || 'Adapt to Job'}
+            {cvAdaptation.adaptToJob}
           </button>
           <button
             onClick={handleSave}
@@ -1870,7 +1877,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, linkedCoverL
         initialCompany={adaptationCompany}
         locale={locale}
         onApplyChanges={handleApplyChanges}
-        dict={dict?.cvAdaptation}
+        dict={cvAdaptation}
       />
     </div>
   )

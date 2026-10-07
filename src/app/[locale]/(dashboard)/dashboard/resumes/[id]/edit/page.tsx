@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { ResumeEditor } from '@/components/dashboard/resume-editor'
 import { getTranslations, type Locale } from '@/lib/i18n'
+import { cvAdaptationStrings } from '@/lib/cv-adaptation-strings'
 import type { Resume } from '@/types/database'
 
 export default async function EditResumePage({
@@ -71,12 +72,14 @@ export default async function EditResumePage({
 
   // Get translations
   const dict = getTranslations(locale as Locale, 'common')
+  const cvAdaptation = cvAdaptationStrings(getTranslations(locale as Locale, 'jobs'))
 
   return (
     <ResumeEditor
       resume={resume as Resume}
       locale={locale as Locale}
       dict={dict}
+      cvAdaptation={cvAdaptation}
       linkedCoverLetters={linkedCoverLetters || []}
       unlinkedCoverLetters={unlinkedCoverLetters || []}
       currentJobApplicationId={resume.job_application_id || null}

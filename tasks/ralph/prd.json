@@ -40,7 +40,7 @@
         "Out of scope: Any layout or styling change in templates or Word. Date formats other than the \"Present\" word."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

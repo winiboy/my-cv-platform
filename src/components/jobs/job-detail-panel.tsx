@@ -4,6 +4,7 @@ import { MapPin, Briefcase, DollarSign, Calendar, Bookmark, ExternalLink, Sparkl
 import type { JobListing } from '@/types/jobs'
 import type { Locale } from '@/lib/i18n'
 import type { TemplatePickerStrings } from '@/lib/template-picker-strings'
+import type { CVAdaptationStrings } from '@/lib/cv-adaptation-strings'
 import { useState, useCallback } from 'react'
 import { isRedirectContent } from '@/lib/adzuna-client'
 import { Button } from '@/components/ui/button'
@@ -73,6 +74,8 @@ interface JobDetailPanelProps {
   locale: Locale
   /** Label and `common` strings for the template picker of the create-new-CV modal. */
   templatePicker: TemplatePickerStrings
+  /** Strings of the adaptation and create-from-job modals, selected on the server by `cvAdaptationStrings`. */
+  cvAdaptation: CVAdaptationStrings
 }
 
 /**
@@ -85,7 +88,7 @@ function getValidDescription(description: string | undefined): string | null {
   return description
 }
 
-export function JobDetailPanel({ job, dict, locale, templatePicker }: JobDetailPanelProps) {
+export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation }: JobDetailPanelProps) {
   const router = useRouter()
   const toast = useToast()
   const [isSaved, setIsSaved] = useState(job.is_saved || false)
@@ -731,9 +734,8 @@ export function JobDetailPanel({ job, dict, locale, templatePicker }: JobDetailP
           initialCompany={fetchedJobData ? fetchedJobData.company : job.company}
           locale={locale}
           onApplyChanges={handleApplyChanges}
-          dict={dict?.cvAdaptation}
+          dict={cvAdaptation}
           isCreateMode={isCreateCVMode}
-          createModeTitle={dict?.createCV?.modalTitle || 'Create CV from Job'}
         />
       )}
 
@@ -746,16 +748,10 @@ export function JobDetailPanel({ job, dict, locale, templatePicker }: JobDetailP
         initialJobTitle={fetchedJobData?.title || job.title}
         initialCompany={fetchedJobData?.company || job.company}
         locale={locale}
-        dict={{
-          ...dict?.cvAdaptation,
-          createCVButton: dict?.createCV?.createButton,
-          creatingCV: dict?.createCV?.creating,
-          createCVHelpText: dict?.createCV?.helpText,
-        }}
+        dict={cvAdaptation}
         isCreateMode={true}
         isCreateNewCV={true}
         templatePicker={templatePicker}
-        createModeTitle={dict?.createCV?.modalTitle || 'Create CV from Job'}
       />
     </div>
   )

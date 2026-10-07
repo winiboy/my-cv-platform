@@ -86,7 +86,22 @@
     "selectCV": "Sélectionner le CV",
     "orDivider": "OU",
     "browseJobListings": "Parcourir les offres d'emploi",
-    "browseJobListingsHint": "Vous n'avez pas encore de description de poste ? Parcourez nos offres d'emploi pour trouver des opportunités et adapter votre CV directement."
+    "browseJobListingsHint": "Vous n'avez pas encore de description de poste ? Parcourez nos offres d'emploi pour trouver des opportunités et adapter votre CV directement.",
+    "jobDescriptionCharacterCount": "({count}/100 caractères minimum)",
+    "jobTitlePlaceholder": "ex. : Ingénieur logiciel senior",
+    "jobTitleRequired": "Le titre du poste est obligatoire.",
+    "companyPlaceholder": "ex. : Google",
+    "optional": "(optionnel)",
+    "adaptationFailed": "Impossible de générer l'adaptation",
+    "createFailed": "Impossible de créer le CV",
+    "summaryTitle": "Résumé professionnel",
+    "experienceTitle": "Description de l'expérience",
+    "addSkills": "Ajouter des compétences",
+    "enhanceSkills": "Enrichir",
+    "noContent": "Aucun contenu",
+    "noChangesTitle": "Bonne nouvelle !",
+    "noChangesMessage": "Votre CV correspond déjà bien à cette description de poste. Nous ne recommandons aucune modification pour le moment.",
+    "close": "Fermer"
   },
   "createCV": {
     "button": "Créer un CV",

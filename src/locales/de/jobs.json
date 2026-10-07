@@ -86,7 +86,22 @@
     "selectCV": "Lebenslauf auswählen",
     "orDivider": "ODER",
     "browseJobListings": "Stellenangebote durchsuchen",
-    "browseJobListingsHint": "Haben Sie noch keine Stellenbeschreibung? Durchsuchen Sie unsere Stellenangebote, um Möglichkeiten zu finden und Ihren Lebenslauf direkt anzupassen."
+    "browseJobListingsHint": "Haben Sie noch keine Stellenbeschreibung? Durchsuchen Sie unsere Stellenangebote, um Möglichkeiten zu finden und Ihren Lebenslauf direkt anzupassen.",
+    "jobDescriptionCharacterCount": "({count}/100 Zeichen Minimum)",
+    "jobTitlePlaceholder": "z. B. Senior-Softwareentwickler",
+    "jobTitleRequired": "Der Stellentitel ist erforderlich.",
+    "companyPlaceholder": "z. B. Google",
+    "optional": "(optional)",
+    "adaptationFailed": "Die Anpassung konnte nicht erstellt werden",
+    "createFailed": "Der Lebenslauf konnte nicht erstellt werden",
+    "summaryTitle": "Berufliche Zusammenfassung",
+    "experienceTitle": "Beschreibung der Erfahrung",
+    "addSkills": "Kompetenzen hinzufügen",
+    "enhanceSkills": "Ergänzen",
+    "noContent": "Kein Inhalt",
+    "noChangesTitle": "Gute Nachrichten!",
+    "noChangesMessage": "Ihr Lebenslauf passt bereits gut zu dieser Stellenbeschreibung. Wir empfehlen derzeit keine Änderungen.",
+    "close": "Schließen"
   },
   "createCV": {
     "button": "Lebenslauf erstellen",

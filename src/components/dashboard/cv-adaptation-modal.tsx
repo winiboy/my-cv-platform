@@ -7,6 +7,7 @@ import { DiffViewer } from './diff-viewer'
 import { TemplatePicker } from './template-picker'
 import { toLocale } from '@/lib/i18n'
 import type { TemplatePickerStrings } from '@/lib/template-picker-strings'
+import type { CVAdaptationStrings } from '@/lib/cv-adaptation-strings'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
 import type { ResumeTemplate } from '@/types/database'
 
@@ -23,35 +24,8 @@ interface CVAdaptationModalBaseProps {
   locale: string
   onApplyChanges?: (patch: CVAdaptationPatch, selectedPatches: string[]) => void
   isCreateMode?: boolean
-  createModeTitle?: string
-  dict?: {
-    title?: string
-    jobDescriptionLabel?: string
-    jobDescriptionPlaceholder?: string
-    jobDescriptionHint?: string
-    jobDescriptionTooShort?: string
-    jobTitleLabel?: string
-    companyLabel?: string
-    analyzeButton?: string
-    analyzing?: string
-    generating?: string
-    matchScore?: string
-    keyGaps?: string
-    strengths?: string
-    selectAll?: string
-    deselectAll?: string
-    applySelected?: string
-    cancel?: string
-    helpText?: string
-    antiCopyDisclaimer?: string
-    orDivider?: string
-    browseJobListings?: string
-    browseJobListingsHint?: string
-    createCVButton?: string
-    creatingCV?: string
-    createCVHelpText?: string
-    [key: string]: string | undefined
-  }
+  /** Built on the server by `cvAdaptationStrings` from the locale's `jobs` dictionary. */
+  dict: CVAdaptationStrings
 }
 
 /**
@@ -78,8 +52,7 @@ export function CVAdaptationModal({
   isCreateMode = false,
   isCreateNewCV = false,
   templatePicker,
-  createModeTitle = 'Create CV from Job',
-  dict = {},
+  dict,
 }: CVAdaptationModalProps) {
   const router = useRouter()
   const [stage, setStage] = useState<Stage>('input')
@@ -137,12 +110,12 @@ export function CVAdaptationModal({
   const handleSubmit = async () => {
     // Validation
     if (jobDescription.trim().length < 100) {
-      setError(dict.jobDescriptionTooShort || 'Job description must be at least 100 characters.')
+      setError(dict.jobDescriptionTooShort)
       return
     }
 
     if (!jobTitle.trim()) {
-      setError('Job title is required.')
+      setError(dict.jobTitleRequired)
       return
     }
 
@@ -153,7 +126,7 @@ export function CVAdaptationModal({
     try {
       // Handle "Create New CV" mode
       if (isCreateNewCV) {
-        setProgressMessage(dict.creatingCV || 'Creating your CV...')
+        setProgressMessage(dict.creatingCV)
 
         const response = await fetch('/api/ai/generate-from-job-description', {
           method: 'POST',
@@ -169,7 +142,7 @@ export function CVAdaptationModal({
         const data = await response.json()
 
         if (!response.ok || !data.success) {
-          throw new Error(data.error || data.message || 'Failed to create CV')
+          throw new Error(data.error || data.message || dict.createFailed)
         }
 
         // Redirect to the new CV's edit page
@@ -179,7 +152,7 @@ export function CVAdaptationModal({
       }
 
       // Standard adapt CV flow
-      setProgressMessage(dict.analyzing || 'Analyzing job requirements...')
+      setProgressMessage(dict.analyzing)
 
       // Call API
       const response = await fetch('/api/ai/adapt-resume-to-job', {
@@ -197,17 +170,17 @@ export function CVAdaptationModal({
       const data = await response.json()
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || data.message || 'Failed to generate adaptation')
+        throw new Error(data.error || data.message || dict.adaptationFailed)
       }
 
-      setProgressMessage(dict.generating || 'Preparing preview...')
+      setProgressMessage(dict.generating)
 
       // Set patch and move to preview stage
       setPatch(data.patch)
       setStage('preview')
     } catch (err) {
       console.error('Error generating adaptation:', err)
-      setError(err instanceof Error ? err.message : 'Failed to generate adaptation')
+      setError(err instanceof Error ? err.message : dict.adaptationFailed)
       setStage('input')
     } finally {
       setIsLoading(false)
@@ -276,14 +249,16 @@ export function CVAdaptationModal({
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-600" />
               <h2 className="text-xl font-semibold text-gray-900">
-                {isCreateMode ? createModeTitle : (dict.title || 'Adapt CV to Job')}
+                {isCreateMode ? dict.createModeTitle : dict.title}
               </h2>
             </div>
             <button
+              type="button"
               onClick={onClose}
+              aria-label={dict.close}
               className="text-gray-400 hover:text-gray-600 transition-colors"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
 
@@ -296,8 +271,8 @@ export function CVAdaptationModal({
                 <div className={`border rounded-lg p-4 ${isCreateNewCV ? 'bg-teal-50 border-teal-200' : 'bg-purple-50 border-purple-200'}`}>
                   <p className={`text-sm ${isCreateNewCV ? 'text-teal-900' : 'text-purple-900'}`}>
                     {isCreateNewCV
-                      ? (dict.createCVHelpText || 'The job description has been pre-filled. Review the details and click "Create CV" to generate a new CV tailored to this job.')
-                      : (dict.helpText || 'Paste the complete job description, and our AI will suggest targeted updates to your CV. You\'re always in control - review and select which changes to apply.')}
+                      ? dict.createCVHelpText
+                      : dict.helpText}
                   </p>
                 </div>
 
@@ -312,35 +287,32 @@ export function CVAdaptationModal({
                 {/* Job Description */}
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    {dict.jobDescriptionLabel || 'Job Description'} *
+                    {dict.jobDescriptionLabel} *
                   </label>
                   <textarea
                     value={jobDescription}
                     onChange={(e) => setJobDescription(e.target.value)}
-                    placeholder={
-                      dict.jobDescriptionPlaceholder || 'Paste the full job description here...'
-                    }
+                    placeholder={dict.jobDescriptionPlaceholder}
                     rows={10}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                   <p className="text-xs text-gray-500">
-                    {dict.jobDescriptionHint ||
-                      'Include requirements, responsibilities, and qualifications for best results.'}
+                    {dict.jobDescriptionHint}
                     {' '}
-                    ({jobDescription.length}/100 characters minimum)
+                    {dict.jobDescriptionCharacterCount.replace('{count}', String(jobDescription.length))}
                   </p>
                 </div>
 
                 {/* Job Title */}
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    {dict.jobTitleLabel || 'Job Title'} *
+                    {dict.jobTitleLabel} *
                   </label>
                   <input
                     type="text"
                     value={jobTitle}
                     onChange={(e) => setJobTitle(e.target.value)}
-                    placeholder="e.g., Senior Software Engineer"
+                    placeholder={dict.jobTitlePlaceholder}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
@@ -348,13 +320,13 @@ export function CVAdaptationModal({
                 {/* Company */}
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    {dict.companyLabel || 'Company'} (optional)
+                    {dict.companyLabel} {dict.optional}
                   </label>
                   <input
                     type="text"
                     value={company}
                     onChange={(e) => setCompany(e.target.value)}
-                    placeholder="e.g., Google"
+                    placeholder={dict.companyPlaceholder}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                 </div>
@@ -387,15 +359,14 @@ export function CVAdaptationModal({
                   }`}
                 >
                   {isCreateNewCV
-                    ? (dict.createCVButton || 'Create CV')
-                    : (dict.analyzeButton || 'Analyze & Generate Adaptation')}
+                    ? dict.createCVButton
+                    : dict.analyzeButton}
                 </button>
 
                 {/* Anti-copy disclaimer */}
                 <div className="border-t border-gray-200 pt-4">
                   <p className="text-xs text-gray-600 italic">
-                    {dict.antiCopyDisclaimer ||
-                      'All suggestions are original and written in professional CV language. We never copy text from job descriptions.'}
+                    {dict.antiCopyDisclaimer}
                   </p>
                 </div>
 
@@ -407,7 +378,7 @@ export function CVAdaptationModal({
                     </div>
                     <div className="relative flex justify-center text-sm">
                       <span className="bg-white px-4 text-gray-500 font-medium">
-                        {dict.orDivider || 'OR'}
+                        {dict.orDivider}
                       </span>
                     </div>
                   </div>
@@ -420,8 +391,7 @@ export function CVAdaptationModal({
                       <Search className="h-5 w-5 text-teal-600 mt-0.5 flex-shrink-0" />
                       <div className="flex-1">
                         <p className="text-sm text-teal-900 mb-3">
-                          {dict.browseJobListingsHint ||
-                            "Don't have a job description yet? Browse our job listings to find opportunities and adapt your CV directly."}
+                          {dict.browseJobListingsHint}
                         </p>
                         <button
                           onClick={() => {
@@ -431,7 +401,7 @@ export function CVAdaptationModal({
                           className="inline-flex items-center gap-2 bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 transition-colors text-sm font-medium"
                         >
                           <Search className="h-4 w-4" />
-                          {dict.browseJobListings || 'Browse Job Listings'}
+                          {dict.browseJobListings}
                         </button>
                       </div>
                     </div>
@@ -455,7 +425,7 @@ export function CVAdaptationModal({
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-700">
-                      {dict.matchScore || 'Match Score'}:
+                      {dict.matchScore}:
                     </span>
                     <span
                       className={`text-2xl font-bold ${getMatchScoreColor(patch.analysis.matchScore)}`}
@@ -467,7 +437,7 @@ export function CVAdaptationModal({
                   {patch.analysis.keyGaps.length > 0 && (
                     <div>
                       <p className="text-sm font-medium text-gray-700 mb-1">
-                        {dict.keyGaps || 'Key Gaps'}:
+                        {dict.keyGaps}:
                       </p>
                       <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
                         {patch.analysis.keyGaps.map((gap, index) => (
@@ -480,7 +450,7 @@ export function CVAdaptationModal({
                   {patch.analysis.strengths.length > 0 && (
                     <div>
                       <p className="text-sm font-medium text-gray-700 mb-1">
-                        {dict.strengths || 'Strengths'}:
+                        {dict.strengths}:
                       </p>
                       <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
                         {patch.analysis.strengths.map((strength, index) => (
@@ -496,44 +466,28 @@ export function CVAdaptationModal({
                   {/* Summary patch */}
                   {patch.patches.summary && (
                     <DiffViewer
-                      title="Professional Summary"
+                      title={dict.summaryTitle}
                       original={patch.patches.summary.original}
                       proposed={patch.patches.summary.proposed}
                       confidence={patch.patches.summary.confidence}
                       reasoning={patch.patches.summary.reasoning}
                       isChecked={selectedPatches.has('summary')}
                       onCheckChange={() => togglePatch('summary')}
-                      dict={{
-                        currentVersion: dict?.currentVersion,
-                        proposedVersion: dict?.proposedVersion,
-                        reasoning: dict?.reasoning,
-                        applyChange: dict?.applyChange,
-                        confidenceHigh: dict?.confidenceHigh,
-                        confidenceMedium: dict?.confidenceMedium,
-                        confidenceLow: dict?.confidenceLow,
-                      }}
+                      dict={dict}
                     />
                   )}
 
                   {/* Experience description patch */}
                   {patch.patches.experienceDescription && (
                     <DiffViewer
-                      title="Experience Description"
+                      title={dict.experienceTitle}
                       original={patch.patches.experienceDescription.original}
                       proposed={patch.patches.experienceDescription.proposed}
                       confidence={patch.patches.experienceDescription.confidence}
                       reasoning={patch.patches.experienceDescription.reasoning}
                       isChecked={selectedPatches.has('experienceDescription')}
                       onCheckChange={() => togglePatch('experienceDescription')}
-                      dict={{
-                        currentVersion: dict?.currentVersion,
-                        proposedVersion: dict?.proposedVersion,
-                        reasoning: dict?.reasoning,
-                        applyChange: dict?.applyChange,
-                        confidenceHigh: dict?.confidenceHigh,
-                        confidenceMedium: dict?.confidenceMedium,
-                        confidenceLow: dict?.confidenceLow,
-                      }}
+                      dict={dict}
                     />
                   )}
 
@@ -542,7 +496,7 @@ export function CVAdaptationModal({
                     <div key={`add-${index}`} className="border border-gray-200 rounded-lg p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="font-semibold text-gray-900">
-                          Add Skills: {skillPatch.category}
+                          {dict.addSkills}: {skillPatch.category}
                         </h4>
                         <span className={`px-2 py-1 text-xs font-medium rounded-full border ${
                           skillPatch.confidence === 'high' ? 'bg-green-100 text-green-800 border-green-300' :
@@ -566,7 +520,7 @@ export function CVAdaptationModal({
                       </div>
                       <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                         <p className="text-xs font-medium text-blue-900 mb-1">
-                          {dict.reasoning || 'Reasoning'}:
+                          {dict.reasoning}:
                         </p>
                         <p className="text-sm text-blue-800">{skillPatch.reasoning}</p>
                       </div>
@@ -578,7 +532,7 @@ export function CVAdaptationModal({
                           className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
                         />
                         <span className="text-sm font-medium text-gray-700">
-                          {dict.applyChange || 'Apply this change'}
+                          {dict.applyChange}
                         </span>
                       </label>
                     </div>
@@ -589,7 +543,7 @@ export function CVAdaptationModal({
                     <div key={`enhance-${index}`} className="border border-gray-200 rounded-lg p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="font-semibold text-gray-900">
-                          Enhance: {skillPatch.category}
+                          {dict.enhanceSkills}: {skillPatch.category}
                         </h4>
                         <span className={`px-2 py-1 text-xs font-medium rounded-full border ${
                           skillPatch.confidence === 'high' ? 'bg-green-100 text-green-800 border-green-300' :
@@ -613,7 +567,7 @@ export function CVAdaptationModal({
                       </div>
                       <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                         <p className="text-xs font-medium text-blue-900 mb-1">
-                          {dict.reasoning || 'Reasoning'}:
+                          {dict.reasoning}:
                         </p>
                         <p className="text-sm text-blue-800">{skillPatch.reasoning}</p>
                       </div>
@@ -625,7 +579,7 @@ export function CVAdaptationModal({
                           className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
                         />
                         <span className="text-sm font-medium text-gray-700">
-                          {dict.applyChange || 'Apply this change'}
+                          {dict.applyChange}
                         </span>
                       </label>
                     </div>
@@ -638,10 +592,8 @@ export function CVAdaptationModal({
                    (!patch.patches.skillsToEnhance || patch.patches.skillsToEnhance.length === 0) && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
                       <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-3" />
-                      <h3 className="text-lg font-semibold text-green-900 mb-2">Great News!</h3>
-                      <p className="text-sm text-green-800">
-                        Your CV already aligns well with this job description. We don't recommend any changes at this time.
-                      </p>
+                      <h3 className="text-lg font-semibold text-green-900 mb-2">{dict.noChangesTitle}</h3>
+                      <p className="text-sm text-green-800">{dict.noChangesMessage}</p>
                     </div>
                   )}
                 </div>
@@ -656,13 +608,13 @@ export function CVAdaptationModal({
                       onClick={handleSelectAll}
                       className="px-4 py-2 text-sm font-medium text-purple-700 hover:text-purple-800 hover:bg-purple-50 rounded-md transition-colors"
                     >
-                      {dict.selectAll || 'Select All'}
+                      {dict.selectAll}
                     </button>
                     <button
                       onClick={handleDeselectAll}
                       className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
                     >
-                      {dict.deselectAll || 'Deselect All'}
+                      {dict.deselectAll}
                     </button>
                   </div>
                 )}
@@ -677,14 +629,14 @@ export function CVAdaptationModal({
                 onClick={onClose}
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 hover:bg-gray-200 rounded-md transition-colors"
               >
-                {dict.cancel || 'Cancel'}
+                {dict.cancel}
               </button>
               <button
                 onClick={handleApply}
                 disabled={selectedPatches.size === 0}
                 className="px-6 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {dict.applySelected || 'Apply Selected Changes'} ({selectedPatches.size})
+                {dict.applySelected} ({selectedPatches.size})
               </button>
             </div>
           )}
