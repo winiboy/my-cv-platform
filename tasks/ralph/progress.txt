@@ -1,0 +1,90 @@
+# Ralph progress — parity-reader-docx-layout
+
+Contract: tasks/ralph/prd.json (branch ralph/parity-reader-docx-layout)
+PRD: tasks/prds/parity-reader-docx-layout.md
+Format: docs/engineering/progress-log-format.md
+
+PRD approval trail:
+- 3255a3a: PRD as first approved by the owner, `Status: APPROVED 2026-10-06`.
+- Implementing US-001 surfaced a requirement gap. The stale line-height rule also
+  hits Modern and an unlisted Professional profile. The agent wrote an amendment
+  and set the Status line back to `DRAFT`, uncommitted.
+- The owner then put `Status: APPROVED 2026-10-06` back in the working copy. The
+  agent observed the change on disk before the owner's "go" of 2026-10-07.
+- e216afb committed the amended, re-approved PRD and the regenerated contract.
+- The amendment's heading still reads "(awaiting owner re-approval)". That wording
+  is stale and is left for the owner to edit: agents do not write approval text
+  (.claude/rules/prd.md).
+
+## US-001: The parity check reads the Modern accent and sidebar from the Word layout #88 ships
+Status: PASS
+Priority: 1
+Branch: ralph/parity-reader-docx-layout
+Baseline HEAD: e216afb (PRD amendment + contract; parent 3255a3a; branched from origin/main e0e511c)
+
+Scope:
+- Scope check: PASS
+- Changed paths:
+  - e2e/parity/surfaces.ts: cellShadingAt replaced by enclosingCellShadings; new exported readDocxSidebarColours; readParagraphs and DocxParagraph exported for the tests.
+  - e2e/parity/docx-sidebar-colours.spec.ts: new, 6 pure-function tests.
+  - tasks/ralph/prd.json (US-001 passes: true), tasks/ralph/progress.txt (this file).
+- Not touched: `git diff -- src` = 0 lines (FR-1). `git diff -- e2e/parity/profiles.ts e2e/parity/verdicts.ts` = 0 lines, so no tolerance, KNOWN entry or profile changed (FR-2). Version unchanged. No push, no merge.
+
+Checks (one run on the final diff; parity run twice):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 51 files, 1648 passed, 5 skipped
+- pnpm test:integration: PASS — 4 files, 50 passed
+- pnpm lint: PASS — 303 problems (233 errors, 70 warnings), not above the tracked baseline (306); eslint e2e/parity 0
+- pnpm build:verify: PASS — 117/117 static pages
+- pnpm test:e2e: PASS — 176 passed
+- pnpm test:visual: PASS — 10 passed, no baseline updated
+- pnpm test:parity: PASS for US-001 scope, exit 1 by design until US-002. Each of two runs: 250 passed / 5 failed. parity-report.json was byte-identical across the runs, sha256 0a47fbcf6e27ac6a6f52709b8add58a9e0135c92cebbbfd157184ae0940bc32d. Verdicts: MATCH 201, KNOWN 3 (all US-016-html-body-line-height, still reproducing), NEW 5; annotations LIMITATION 11, FINDING 3, DECISION 16. Before this story, on origin/main: 182 passed / 67 failed.
+  - The 5 NEW rows are exactly the line-height rows the amended PRD assigns to US-002:
+    - primary·professional·documentTitle
+    - primary·professional·bodyText
+    - primary·modern·sectionHeading
+    - formatted-body·professional·bodyText
+    - html-body-and-skills·professional·bodyText
+  - The PRD's verification line "exit 0, 0 NEW" applies once US-002 lands. It is not met at this commit, and that is recorded here on purpose.
+  - The new unit tests run inside `pnpm test:parity` (playwright.parity.config.ts), not vitest: 6 collected and passed.
+
+Specialized validation:
+- Browser: NOT_APPLICABLE — no UI change.
+- Visual: PASS — test:visual unchanged (10/10).
+- Export: NOT_APPLICABLE — exports are read, not changed (`git diff -- src` = 0). The DOCX accent read from the generated files is #30E88C (#30E88E for modern-non-integer-hue), equal to the model, the Preview and the PDF.
+- Database: NOT_APPLICABLE.
+- Security: NOT_APPLICABLE.
+
+Agents:
+- senior-coder: one round. It stopped with a BLOCKER: once the accent was fixed, `primary·modern·line-height:sectionHeading` became NEW, from the same stale line-height rule. The owner resolved it with the PRD amendment.
+- ui-expert: NOT_APPLICABLE — no UI.
+- code-reviewer: PASS on two governance conditions. G1: the stale "(awaiting owner re-approval)" wording; the trail is recorded above and the wording is left to the owner. G2: the non-zero parity exit, recorded above. Minor items:
+  - The readDocxSidebarColours doc-comment says the depth is "the same count … the Preview walks", but the Preview counts only opaque ancestors. To be reworded in US-002, which edits surfaces.ts.
+  - The profiles.ts depth field docs still say "opaque ancestors". Flag only; FR-2 freezes profiles.
+
+Acceptance criteria:
+- AC-01 (8 Modern collect tests complete): PASS — all 8 test-results-parity/observations/*__modern.json files written. No collect test fails; the 255 tests are the 249 from before plus the 6 new ones.
+- AC-02 (DOCX accent = generator fill, incl. modern-non-integer-hue): PASS — #30E88E for non-integer hue and #30E88C for the other 7 profiles; colour:accent rows MATCH.
+- AC-03 (sidebar from the sidebar cell, distinct from the accent): PASS — sidebar #1F7A4D against accent #30E88C/#30E88E in every Modern profile. Unit test at docx-sidebar-colours.spec.ts:49: reverting to "innermost cell" fails it.
+- AC-04 (no Modern row NEW except US-002's line-height rows): PASS — 1 Modern NEW (primary·modern·line-height:sectionHeading), owned by US-002 under the amendment.
+- AC-05 (unit tests):
+  - An unshaded banner still raises "The DOCX accent has no shading": spec :58-62.
+  - The pre-#88 paragraph-shading shape is REJECTED, documented in the spec (:64-71) and in the surfaces.ts doc-comment.
+  - Controls: Professional at depth 1, accent depth null, no sidebar heading.
+- FR-1..FR-3, regression constraints: PASS — negative diffs above. FR-3 is met by the doc-comment naming w:tcPr/w:shd, createSidebarSectionHeader and #88.
+
+Decision (AC-05): reject the pre-#88 shape rather than read it. No generator writes it, so reading it could only let a regression measure as parity. The check only applies when accentDepth is not null, so Professional is unaffected.
+Decision (AC-03): count every enclosing cell, shaded or not. Skipping unshaded cells would let a banner that lost its accent fall through to the sidebar cell and report the sidebar colour as the accent.
+
+Open owner decisions recorded by this story:
+- Edit the stale "(awaiting owner re-approval)" wording in the PRD amendment heading (owner only).
+- `test:parity` runs in no CI job, which is how #88 merged with the suite red. Whether to add it to CI is out of scope here.
+
+Environment notes:
+- Local Supabase stack running; the owner's dev server on :3000 left running. The parity suite builds its own server into .next-parity, with reuseExistingServer false.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 parity reads the Modern accent and sidebar from the post-#88 Word layout
+
+FINAL: PASS

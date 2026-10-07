@@ -990,7 +990,7 @@ interface DocxRun {
   letterSpacingTwips: number | null
 }
 
-interface DocxParagraph {
+export interface DocxParagraph {
   index: number
   /** Offset of the paragraph in `word/document.xml`, for finding its table cell. */
   offset: number
@@ -1050,7 +1050,7 @@ function readRun(content: string): DocxRun {
   }
 }
 
-function readParagraphs(xml: string): DocxParagraph[] {
+export function readParagraphs(xml: string): DocxParagraph[] {
   const paragraphs: DocxParagraph[] = []
   for (const match of xml.matchAll(/<w:p(?:\s[^>]*)?>([\s\S]*?)<\/w:p>/g)) {
     const content = match[1]
@@ -1073,18 +1073,81 @@ function readParagraphs(xml: string): DocxParagraph[] {
   return paragraphs
 }
 
-/** The shading of the innermost table cell enclosing `offset`. */
-function cellShadingAt(xml: string, offset: number): string | null {
+/**
+ * The shading of every table cell enclosing `offset`, innermost first; `null`
+ * for a cell whose `w:tcPr` declares no `w:shd`.
+ */
+function enclosingCellShadings(xml: string, offset: number): (string | null)[] {
   const stack: number[] = []
   for (const token of xml.matchAll(/<w:tc>|<w:tc\s[^>]*>|<\/w:tc>/g)) {
     if ((token.index ?? 0) >= offset) break
     if (token[0].startsWith('</')) stack.pop()
     else stack.push(token.index ?? 0)
   }
-  const start = stack[stack.length - 1]
-  if (start === undefined) return null
-  const cellProperties = /^<w:tc(?:\s[^>]*)?>\s*<w:tcPr>([\s\S]*?)<\/w:tcPr>/.exec(xml.slice(start))
-  return cellProperties ? shadingColour(cellProperties[1]) : null
+  return stack.reverse().map((start) => {
+    const cellProperties = /^<w:tc(?:\s[^>]*)?>\s*<w:tcPr>([\s\S]*?)<\/w:tcPr>/.exec(xml.slice(start))
+    return cellProperties ? shadingColour(cellProperties[1]) : null
+  })
+}
+
+export interface SidebarColourDepths {
+  sidebarBackgroundDepth: number | null
+  accentDepth: number | null
+}
+
+/**
+ * The sidebar background and accent of a DOCX, read from the table cells around
+ * the first sidebar heading (`anchor`).
+ *
+ * Both are the shading (`w:tcPr/w:shd`) of the cell `depth` levels out from the
+ * heading, innermost = 1, with the template's own depths — the same count of
+ * backgrounds between the heading and the sidebar that the Preview walks. Since
+ * PR #88 the Modern sidebar heading is a one-cell table (`docx-modern.ts`
+ * `createSidebarSectionHeader`) whose cell carries the accent, nested in the
+ * sidebar column's cell, which carries the sidebar colour: accent at depth 1,
+ * sidebar at depth 2. Professional writes its headings straight into the
+ * sidebar cell: sidebar at depth 1. Taking the innermost cell for the sidebar,
+ * as this did before #88, would now read the accent banner.
+ *
+ * Every enclosing cell counts, shaded or not. A DOCX cell without shading is
+ * transparent, so skipping unshaded cells (as the Preview skips transparent
+ * ancestors) would let a heading cell that lost its accent fall through to the
+ * sidebar cell and report the sidebar colour as the accent. Here it raises
+ * "has no shading" instead.
+ *
+ * The pre-#88 shape — the heading paragraph shaded itself (`w:pPr/w:shd`) and
+ * sat directly in the sidebar cell — is rejected, not read: no generator writes
+ * it any more, and accepting it would let a return to it measure as parity.
+ */
+export function readDocxSidebarColours(
+  xml: string,
+  anchor: Pick<DocxParagraph, 'offset' | 'shading'> | undefined,
+  depths: SidebarColourDepths,
+): { sidebarBackground: ColourSample | null; accent: ColourSample | null } {
+  const cellColour = (depth: number | null, label: string): ColourSample | null => {
+    if (depth === null) return null
+    if (!anchor) throw new Error(`No sidebar section in the DOCX to read the ${label} from`)
+    const cells = enclosingCellShadings(xml, anchor.offset)
+    if (cells.length < depth) {
+      throw new Error(
+        `The DOCX ${label} is the table cell ${depth} level(s) out from the sidebar heading, ` +
+          `but the heading sits in ${cells.length} cell(s)`,
+      )
+    }
+    const hex = cells[depth - 1]
+    if (hex === null) throw new Error(`The DOCX ${label} has no shading`)
+    return { hex, alpha: 255 }
+  }
+  if (depths.accentDepth !== null && anchor?.shading) {
+    throw new Error(
+      `The DOCX sidebar heading paragraph carries its own shading (${anchor.shading}), the layout ` +
+        'before PR #88; the accent is read from the shading of the heading cell',
+    )
+  }
+  return {
+    sidebarBackground: cellColour(depths.sidebarBackgroundDepth, 'sidebar background'),
+    accent: cellColour(depths.accentDepth, 'accent'),
+  }
 }
 
 export async function measureDocx(buffer: Buffer, probe: SurfaceProbe): Promise<DocxMeasurement> {
@@ -1190,13 +1253,6 @@ export async function measureDocx(buffer: Buffer, probe: SurfaceProbe): Promise<
 
   const headingParagraphs = paragraphs.filter((p) => headingText(p) === normalise(probe.headingText))
   const sidebarAnchor = anchors.find((anchor) => probe.sidebarKeys.includes(anchor.key))
-  const sidebarColour = (depth: number | null, read: (paragraph: DocxParagraph) => string | null, label: string) => {
-    if (depth === null) return null
-    if (!sidebarAnchor) throw new Error(`No sidebar section in the DOCX to read the ${label} from`)
-    const hex = read(sidebarAnchor.paragraph)
-    if (hex === null) throw new Error(`The DOCX ${label} has no shading`)
-    return { hex, alpha: 255 }
-  }
 
   const extraColours: Record<string, ExtraColourSample> = {}
   for (const extra of probe.extraColourSamples) {
@@ -1221,11 +1277,6 @@ export async function measureDocx(buffer: Buffer, probe: SurfaceProbe): Promise<
         }
       : null,
     extraColours,
-    sidebarBackground: sidebarColour(
-      probe.sidebarBackgroundDepth,
-      (paragraph) => cellShadingAt(xml, paragraph.offset),
-      'sidebar background',
-    ),
-    accent: sidebarColour(probe.accentDepth, (paragraph) => paragraph.shading, 'accent'),
+    ...readDocxSidebarColours(xml, sidebarAnchor?.paragraph, probe),
   }
 }

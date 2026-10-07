@@ -36,7 +36,7 @@
         "Out of scope: Any parity profile other than what the two failure families require."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
