@@ -2,6 +2,23 @@
 
 **Status:** APPROVED 2026-10-06
 
+> **Amendment 2026-10-06 (awaiting owner re-approval).** Approved as written on
+> 2026-10-06. Implementing US-001 showed that the stale line-height rule is not
+> specific to Professional.
+>
+> - **Shared cause.** #88 writes the exact spacing from the unrounded Preview
+>   size in every generator whose run size is not a whole half-point. The reader
+>   divides by the rounded run size.
+> - **Example.** `primary · modern · line-height:sectionHeading` reads ×1.390
+>   against ×1.400 (19.2 px → 28.8 half-points, written as 29). The same row at
+>   fontScale 1 (`scale-control`) is MATCH.
+> - **Unlisted rows.** It also hits `formatted-body · professional ·
+>   line-height:bodyText`, which the original list did not name.
+>
+> What changes: US-002 now covers every line-height row affected by this rule,
+> for any template and profile. US-001's "no NEW" criterion excludes the
+> line-height rows that US-002 owns. Nothing else changes.
+
 ## Objective
 
 `pnpm test:parity` is green again on `main`: 0 NEW divergences, with no failing
@@ -109,32 +126,41 @@ again instead of crashing.
       shading, not the heading cell's. A profile where the accent and sidebar
       colours differ shows two different values.
 - [ ] Every Modern row is MATCH, KNOWN (unchanged list) or an annotated
-      LIMITATION/FINDING/DECISION. None is NEW.
+      LIMITATION/FINDING/DECISION. None is NEW, except `line-height:*` rows
+      whose DOCX side is the exact spacing written from an unrounded size. Those
+      rows are owned by US-002.
 - [ ] A unit test on the reader proves that a sidebar heading whose cell carries
       no shading still raises "The DOCX accent has no shading", and that a
       paragraph-level-only shading (the pre-#88 shape) is still accepted or is
       explicitly rejected, with the choice documented in the test.
 
-### US-002: The parity check compares Professional Word line height on the pitch Word draws
+### US-002: The parity check compares Word line height on the pitch Word draws
 
 **Description:**
-As the owner, I want Professional line-height rows to compare the line pitch
-Word actually draws with the Preview's line box, so that a correct export is not
-reported as a NEW divergence.
+As the owner, I want line-height rows to compare the line pitch Word actually
+draws with the Preview's line box, for every template, so that a correct export
+is not reported as a NEW divergence.
 
 **Acceptance Criteria:**
 
-- [ ] For profiles `primary` and `html-body-and-skills`, the Professional
-      `line-height:documentTitle` and `line-height:bodyText` rows are MATCH.
+- [ ] These rows are MATCH:
+      - `primary · professional · line-height:documentTitle`
+      - `primary · professional · line-height:bodyText`
+      - `html-body-and-skills · professional · line-height:bodyText`
+      - `formatted-body · professional · line-height:bodyText`
+      - `primary · modern · line-height:sectionHeading`
+
+      No other `line-height:*` row of any template and profile is NEW.
 - [ ] The comparison stays at the existing tolerance (`verdicts.ts:333`). The
       fix is in the quantity compared, not in a wider tolerance.
 - [ ] The DECISION "line height: Word exact spacing" text describes the new
       method and names #88 as the reason for it.
 - [ ] A unit test on the reader proves that an exact line spacing 5% off the
       Preview line box is still reported as a divergence.
-- [ ] Line-height rows for the other templates keep their current verdicts. The
-      three KNOWN `US-016-html-body-line-height` rows still reproduce, as
-      "expected to fail".
+- [ ] Line-height rows that are MATCH today, at whole half-point sizes (for
+      example every `scale-control` row), stay MATCH. The three KNOWN
+      `US-016-html-body-line-height` rows still reproduce, as "expected to
+      fail".
 
 ## Functional Requirements
 
