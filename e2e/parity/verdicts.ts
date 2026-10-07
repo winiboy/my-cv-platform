@@ -25,8 +25,9 @@ import {
 import {
   SURFACES,
   TYPOGRAPHY_ELEMENTS,
+  comparedLineHeight,
   type ColourSample,
-  type LineHeight,
+  type ComparedLineHeight,
   type Observation,
   type StyleSample,
   type SurfaceId,
@@ -317,7 +318,7 @@ type Value =
   | { kind: 'family'; name: string }
   /** Letter spacing as a multiple of the run size, with the slack of the twip it was encoded in. */
   | { kind: 'tracking'; em: number; slack: number }
-  | { kind: 'line-height'; lineHeight: LineHeight }
+  | { kind: 'line-height'; lineHeight: ComparedLineHeight }
   | { kind: 'length'; inches: number }
 
 /**
@@ -706,7 +707,12 @@ export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): E
       break
     }
     case 'line-height': {
-      for (const s of SURFACES) values[s] = { kind: 'line-height', lineHeight: typographyOf(observation, s, row).lineHeight }
+      // Every surface's leading against the size the Preview draws the element at: a DOCX
+      // exact pitch is written from that unrounded size since PR #88 (see comparedLineHeight).
+      const previewPx = typographyOf(observation, 'preview', row).px
+      for (const s of SURFACES) {
+        values[s] = { kind: 'line-height', lineHeight: comparedLineHeight(typographyOf(observation, s, row).lineHeight, previewPx) }
+      }
       break
     }
     case 'colour': {
@@ -1018,12 +1024,17 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
       'dates, minimal\'s text-xl positions, creative\'s header summary — keep their generator constant.'),
   annotation('DECISION', 'all', 'line height: Word exact spacing', ['docx'],
     'Closed the Word auto line spacing finding (Part 3 US-004). Every DOCX paragraph, and the document default, ' +
-      'is written as w:lineRule="exact" at the Preview line height of its element times the size of its run, in ' +
-      'twips, taken from src/lib/resume-line-height.ts. Exact rather than at-least: exact is drawn at exactly ' +
-      "that pitch in every font, where at-least is drawn at the font's single line whenever that is taller — " +
-      'Verdana\'s 1.215 em against the 1.2 of the professional and modern titles. The line-height rows compare ' +
-      'the DOCX exact spacing divided by the run size, which is its drawn leading; at-least and auto spacing are ' +
-      'read as what they ask for and never match a CSS line height.'),
+      'is written as w:lineRule="exact" at the Preview line height of its element times its size, in twips, ' +
+      'taken from src/lib/resume-line-height.ts. Exact rather than at-least: exact is drawn at exactly that ' +
+      "pitch in every font, where at-least is drawn at the font's single line whenever that is taller — " +
+      'Verdana\'s 1.215 em against the 1.2 of the professional and modern titles. Since PR #88 the professional ' +
+      'and modern generators multiply by the unrounded Preview size (lineFontSizes), while the run keeps its size ' +
+      'rounded to whole half-points (w:sz, with a w:w width scale back to the Preview advance), so that Word ' +
+      'draws each line at the height of the Preview line box. The line-height rows therefore compare the DOCX ' +
+      'exact pitch divided by the size the Preview draws the element at, not by the run size: pitch over a ' +
+      'rounded w:sz read x1.188 for a title Word draws at exactly the x1.200 Preview line box. At a whole ' +
+      'half-point size the two divisors are equal. Whether the run size is right is the font-size row. ' +
+      'At-least and auto spacing are read as what they ask for and never match a CSS line height.'),
   annotation('FINDING', 'all', 'line height: what exact spacing does not carry', ['docx'],
     'Residual differences after Part 3 US-004, each measured on DOCX files the generators wrote, exported to PDF ' +
       'by Word 16 and read back with pdf.js. (1) Baseline position: Word lays each line of an exact paragraph ' +

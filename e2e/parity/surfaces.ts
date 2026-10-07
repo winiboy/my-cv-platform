@@ -49,25 +49,59 @@ export interface ColourSample {
 }
 
 /**
- * A line's leading: the distance from one baseline to the next.
+ * A line's leading as the line-height rows compare it: the distance from one
+ * baseline to the next.
  *
- * `ratio` is DRAWN leading as a multiple of the FONT SIZE: a CSS line-height
- * (the height of the element's line boxes), or a DOCX exact spacing divided by
- * the run size — Word lays every line of an exact paragraph at exactly that
- * pitch, whatever the font. The other kinds are what a surface ASKED for, whose
- * drawn leading depends on font metrics this check does not read, so none of
- * them ever equals a `ratio`:
+ * `ratio` is DRAWN leading as a multiple of the FONT SIZE the Preview draws the
+ * element at: a CSS line-height (the height of the element's line boxes), or a
+ * DOCX exact pitch divided by that Preview size (`comparedLineHeight`). The
+ * other kinds are what a surface ASKED for, whose drawn leading depends on font
+ * metrics this check does not read, so none of them ever equals a `ratio`:
  * - `auto-multiple`: Word auto spacing, a multiple of the font's SINGLE-LINE
  *   HEIGHT (ascent + descent + line gap), not of its size;
  * - `at-least`: Word at-least spacing, drawn at this multiple of the run size
  *   or at the font's single line, whichever is taller;
  * - `normal`: the font's own single line, on either surface.
  */
-export type LineHeight =
+export type ComparedLineHeight =
   | { kind: 'normal' }
   | { kind: 'ratio'; ratio: number }
   | { kind: 'auto-multiple'; ratio: number }
   | { kind: 'at-least'; ratio: number }
+
+/**
+ * A line's leading as a surface records it. Everything but `exact-pitch` is
+ * already a `ComparedLineHeight`.
+ *
+ * `exact-pitch` is a DOCX exact spacing (`w:spacing w:lineRule="exact"`), kept
+ * as the absolute pitch Word lays every line of the paragraph at, whatever the
+ * font, in CSS px. It is not divided by the run size here: since PR #88 the
+ * professional and modern generators write it from the UNROUNDED Preview size
+ * (`lineFontSizes`, `exactLineSpacing` in `docx-helpers.ts`) while the run keeps
+ * a size rounded to whole half-points (`w:sz`, plus a `w:w` width scale), so
+ * pitch over `w:sz` reads x1.188 for a title drawn at exactly the Preview's
+ * x1.200 line box.
+ */
+export type LineHeight = ComparedLineHeight | { kind: 'exact-pitch'; px: number }
+
+/**
+ * The leading a line-height row compares, given the size in CSS px the Preview
+ * draws the same element at.
+ *
+ * A DOCX exact pitch becomes a multiple of that Preview size: the question the
+ * row asks is whether Word draws each line at the height of the Preview's line
+ * box, which is the Preview's ratio times the Preview's size. Dividing by the
+ * Preview's size rather than the run's keeps the quotient in the units of the
+ * Preview's ratio without crediting the DOCX with a size it does not draw;
+ * whether the DOCX run size is right is the font-size row's question, not this
+ * one's. At a whole half-point size the two divisors are equal, so those rows
+ * read exactly as they did before PR #88.
+ */
+export function comparedLineHeight(lineHeight: LineHeight, previewPx: number): ComparedLineHeight {
+  if (lineHeight.kind !== 'exact-pitch') return lineHeight
+  if (!(previewPx > 0)) throw new Error(`Cannot compare a line pitch against a Preview size of ${previewPx}px`)
+  return { kind: 'ratio', ratio: Math.round((lineHeight.px / previewPx) * 1000) / 1000 }
+}
 
 export interface StyleSample {
   /** The text the sample was taken from, for the log. */
@@ -1100,8 +1134,10 @@ export interface SidebarColourDepths {
  * the first sidebar heading (`anchor`).
  *
  * Both are the shading (`w:tcPr/w:shd`) of the cell `depth` levels out from the
- * heading, innermost = 1, with the template's own depths — the same count of
- * backgrounds between the heading and the sidebar that the Preview walks. Since
+ * heading, innermost = 1, with the template's own depths. The Preview counts
+ * those depths in opaque ancestor backgrounds; this counts every enclosing
+ * cell (see below), and in the layouts the generators write the two counts
+ * reach the same backgrounds. Since
  * PR #88 the Modern sidebar heading is a one-cell table (`docx-modern.ts`
  * `createSidebarSectionHeader`) whose cell carries the accent, nested in the
  * sidebar column's cell, which carries the sidebar colour: accent at depth 1,
@@ -1216,20 +1252,21 @@ export async function measureDocx(buffer: Buffer, probe: SurfaceProbe): Promise<
     // OOXML: an omitted w:lineRule means auto.
     const lineRule = paragraph.line === null ? (defaultLineRule ?? 'auto') : (paragraph.lineRule ?? 'auto')
     // Auto spacing is in 240ths of the font's single line. Exact and at-least spacing are
-    // twips (1/20 pt) and the run size is in half-points, so their quotient is a multiple
-    // of the font size like CSS. Only exact spacing is drawn at that multiple for every
-    // font; at-least is drawn at it only where the font's single line is not taller.
-    const perFontSize = Math.round((line / 20 / (halfPoints / 2)) * 1000) / 1000
+    // twips (1/20 pt). At-least spacing is what it asks for, a multiple of the run size
+    // (half-points), drawn at it only where the font's single line is not taller.
     let lineHeight: LineHeight
     switch (lineRule) {
       case 'auto':
         lineHeight = line === 240 ? { kind: 'normal' } : { kind: 'auto-multiple', ratio: Math.round((line / 240) * 1000) / 1000 }
         break
       case 'exact':
-        lineHeight = { kind: 'ratio', ratio: perFontSize }
+        // The pitch itself, in CSS px (15 twips each): since PR #88 it is written from the
+        // unrounded Preview size, not from this run's w:sz, so it is divided by the
+        // Preview's size when a row compares it (`comparedLineHeight`).
+        lineHeight = { kind: 'exact-pitch', px: line / 15 }
         break
       case 'atLeast':
-        lineHeight = { kind: 'at-least', ratio: perFontSize }
+        lineHeight = { kind: 'at-least', ratio: Math.round((line / 20 / (halfPoints / 2)) * 1000) / 1000 }
         break
       default:
         throw new Error(`DOCX run "${run.text}" has a line rule this check does not read: ${lineRule}`)

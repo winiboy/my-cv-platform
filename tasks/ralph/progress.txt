@@ -88,3 +88,80 @@ Commit:
 - Commit message: ralph: US-001 parity reads the Modern accent and sidebar from the post-#88 Word layout
 
 FINAL: PASS
+
+## US-002: The parity check compares Word line height on the pitch Word draws
+Status: PASS
+Priority: 2
+Branch: ralph/parity-reader-docx-layout
+Baseline HEAD: 611f95e (owner's correction of the amendment heading; resolves US-001 code-review condition G1). US-001 is in f6a7f25.
+
+Scope:
+- Scope check: PASS
+- Changed paths:
+  - e2e/parity/surfaces.ts: an exact Word line spacing is kept as an absolute pitch in px (w:line / 15, kind `exact-pitch`), and the new pure function comparedLineHeight(lineHeight, previewPx) divides it by the Preview's measured size for the same element; the LineHeight and ComparedLineHeight types are split; the US-001 Minor on the readDocxSidebarColours doc-comment is reworded.
+  - e2e/parity/verdicts.ts: line-height rows go through comparedLineHeight; the DECISION "line height: Word exact spacing" is rewritten to name #88.
+  - e2e/parity/docx-line-height.spec.ts: new, 6 tests.
+  - tasks/ralph/prd.json (US-002 passes: true), tasks/ralph/progress.txt (this entry).
+- Not touched: `git diff -- src` = 0 lines; `git diff -- e2e/parity/profiles.ts` = 0 lines. LINE_HEIGHT_TOLERANCE is still 0.01 (verdicts.ts:334), and the KNOWN list is unchanged. Version unchanged. No push, no merge.
+
+Checks (one run on the final diff; parity run twice):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 51 files, 1648 passed, 5 skipped
+- pnpm test:integration: PASS — 4 files, 50 passed
+- pnpm lint: PASS — 303 problems (233 errors, 70 warnings), not above the tracked baseline (306)
+- pnpm build:verify: PASS — 117/117 static pages
+- pnpm test:e2e: PASS — 176 passed
+- pnpm test:visual: PASS — 10 passed, no baseline updated
+- pnpm test:parity: PASS — exit 0 on both runs, 261 passed each (255 + 6 new). parity-report.json was byte-identical across the runs, sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2. Verdicts MATCH 206, KNOWN 3, NEW 0 (newRows []); annotations 30 (LIMITATION 11, FINDING 3, DECISION 16). These are the totals of the last green run (tasks/ralph/archive/2026-09-26-milestone-c-part-3/progress.txt:823-824). The PRD's "exit 0, 0 NEW" verification is now met for the initiative.
+- Row diff against the US-001 report (sha 0a47fbcf…, both reports kept in the session scratchpad): of 209 rows, exactly 6 changed. Five went from NEW to MATCH: primary·professional documentTitle and bodyText, primary·modern sectionHeading, formatted-body·professional bodyText and html-body-and-skills·professional bodyText. The sixth, primary·professional·sectionHeading, stayed MATCH; its DOCX value moved from x1.204 to x1.199.
+
+Specialized validation:
+- Browser: NOT_APPLICABLE — no UI change.
+- Visual: PASS — test:visual unchanged (10/10).
+- Export: NOT_APPLICABLE — exports are read, not changed (`git diff -- src` = 0).
+- Database: NOT_APPLICABLE.
+- Security: NOT_APPLICABLE.
+
+Agents:
+- senior-coder: one round, no BLOCKER.
+- ui-expert: NOT_APPLICABLE — no UI.
+- code-reviewer: PASS. Major finding 1 is recorded below as a FINDING candidate (owner decision). Minor items, not fixed:
+  - the first sentence of the DECISION text ("times its size") could state outright that classic, minimal and creative multiply by the run size;
+  - the "whole half-point size" unit test checks arithmetic only.
+
+Acceptance criteria:
+- AC-01 (the 5 rows MATCH, no other line-height NEW): PASS — newRows [].
+  - DOCX against Preview: x1.199 / x1.200, x1.348 / x1.350, x1.399 / x1.400 (modern sectionHeading), and x1.399 / x1.400 for both formatted-body and html-body-and-skills professional bodyText.
+- AC-02 (same tolerance, the fix is in the quantity): PASS — LINE_HEIGHT_TOLERANCE 0.01 unchanged. The DOCX value is the absolute pitch w:line / 15 px, divided by the Preview's measured size.
+- AC-03 (DECISION describes the method and names #88): PASS — verdicts.ts ANNOTATIONS.
+- AC-04 (5% off is still a divergence): PASS — docx-line-height.spec.ts runs the real measureDocx and evaluateRow on a synthetic DOCX.
+  - The control at 267 twips reads x1.348, MATCH; the old quantity there was x1.335.
+  - +5% reads x1.419, NEW; -5% reads x1.283, NEW.
+- AC-05 (whole half-point rows unchanged; KNOWN still reproduce): PASS.
+  - Algebraically, (line/15) / (hp/1.5) = line / (10·hp), the old divisor, whenever hp = 1.5·px. code-reviewer recomputed old and new values for every observation sample and found them identical. The row diff above shows only rows at fractional sizes moved.
+  - The 3 KNOWN US-016 rows are still expected-to-fail.
+  - Named limit: the criterion's example, "every scale-control row", has nothing to check, because that profile has rowGroups: [] and so no line-height rows. All 22 line-height rows belong to primary, formatted-body and html-body-and-skills.
+- FR-1..FR-3: PASS — negative diffs above. The FR-3 comments name w:lineRule="exact", w:sz / w:w, lineFontSizes / exactLineSpacing and #88.
+
+Decision (AC-02): divide the absolute pitch by the Preview's measured size for the same element. Rejected: rebuilding the size from w:sz × w:w. w:w is a whole-percent horizontal scale, so it carries up to 0.5% error, which eats into a 0.01 tolerance; it would infer a vertical size from a horizontal property; and it would mark a correct pitch NEW wherever a generator omits w:w. The run size itself is still checked by the separate font-size rows (verdicts.ts:663-668), which compare half-points.
+
+Open owner decisions recorded by this story:
+- FINDING candidate: classic, minimal and creative Word line height is wrong at fractional font sizes. Those generators still write the exact spacing from the rounded run size (docx-classic.ts:241-372 uses scaledFontSizes). At a fractional size, Word's drawn leading therefore departs from the Preview. Observations from profiles that have no line-height rows:
+
+  | Profile | Template | DOCX | Preview |
+  |---|---|---|---|
+  | scale-control | minimal bodyText | x1.662 | x1.625 |
+  | scale-control | classic and creative bodyText | x1.533 | x1.500 |
+  | per-property-control | classic bodyText | x1.488 | x1.500 |
+
+  This is a real product divergence in Word exports at non-default font scales, not caused by this story. The suite does not see it because no line-height row samples those templates at fractional sizes. Fixing it (generators, like #88 did for professional and modern) and adding line-height rows to those profiles both need their own PRD.
+- `test:parity` runs in no CI job. Whether to add it is still open (from US-001).
+
+Environment notes:
+- Same environment as US-001. The parity server is built into .next-parity (the implementer's run used port 3120); the owner's dev server on :3000 was not touched.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 parity compares Word line height on the pitch Word draws
+
+FINAL: PASS
