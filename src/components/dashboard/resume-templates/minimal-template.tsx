@@ -10,6 +10,7 @@ import type {
 } from '@/types/database'
 import { Fragment, type ReactNode } from 'react'
 import type { Locale } from '@/lib/i18n'
+import { presentLabel } from '@/lib/resume-template-strings'
 import { renderFormattedText } from '@/lib/format-text'
 import { PAGE_WIDTH_CSS } from '@/lib/resume-page-size'
 import {
@@ -182,13 +183,13 @@ export function MinimalTemplate({
                         })}
                       {' — '}
                       {exp.current
-                        ? 'Present'
+                        ? presentLabel(dict)
                         : exp.endDate
                           ? new Date(exp.endDate + '-01').toLocaleDateString(locale, {
                               month: 'short',
                               year: 'numeric',
                             })
-                          : 'Present'}
+                          : presentLabel(dict)}
                     </span>
                   </div>
                   <p className="mb-3 text-base font-light text-slate-600">
@@ -328,7 +329,7 @@ export function MinimalTemplate({
                             month: 'short',
                             year: 'numeric',
                           })
-                        : 'Present'}
+                        : presentLabel(dict)}
                     </span>
                   </div>
                   <p className="font-light text-slate-600" style={{ fontSize: `${drawnSectionDescSize}px` }}>

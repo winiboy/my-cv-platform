@@ -95,3 +95,90 @@ Commit:
 - Commit message: ralph: US-001 the adaptation modal is localized wherever it opens
 
 FINAL: PASS
+
+## US-002: Templates and Word draw localized contact labels, "Present" and language levels
+Status: PASS
+Priority: 2
+Branch: ralph/localize-adaptation-modal-and-templates
+Baseline HEAD: ac15984 (US-001 story commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths:
+  - src/lib/resume-template-strings.ts (new): presentLabel(dict) and contactLabel(dict, key); both throw on a missing key. Templates and generators both read through it.
+  - src/lib/resume-template-strings.test.ts (new): every key in 4 locales, the en wording pinned, and a missing key throws.
+  - src/components/dashboard/resume-templates/{modern,classic,creative,minimal,professional}-template.tsx:
+    - Modern contact labels from resumes.editor.{phone,email,website,linkedin,github,location};
+    - "Present" from resumes.template.present in all five (the literal and the missing editor.present key are gone);
+    - Professional levels via resumes.editor.levels[level.toLowerCase()].
+  - src/app/api/resumes/[id]/download-docx/docx-{modern,classic,creative,minimal,professional}.ts: the same keys. Only the `present` entries of the docx-classic, -creative and -minimal tables are removed; their section-heading entries are kept. de Word now says "Heute" instead of "Gegenwart".
+  - src/app/api/resumes/[id]/download-docx/docx-localized-words.test.ts (new): for 5 templates × fr/de/it/en, renders the real ResumePreview with react-dom/server and generates the DOCX route.ts would.
+    - It counts each localized word in word/document.xml and requires the same count as in the Preview.
+    - English words are absent in fr/de/it, en is unchanged, and de has no "Gegenwart".
+    - Per the implementer, the pre-story code fails 39 cases.
+  - src/app/api/resumes/[id]/download-docx/docx-creative-sections.test.ts: now renders with the en common dict instead of `{}`, which now throws. Its section-order assertions are unchanged; code-reviewer judged the edit legitimate.
+  - src/lib/template-picker-strings.ts: the dead 'levels' key is removed from PICKER_RESUME_KEYS. resumes.levels exists in no locale, and Professional, its last reader, stops reading it here.
+  - src/lib/template-sample-resume.ts: a comment corrected.
+  - tasks/ralph/prd.json (US-002 passes: true), tasks/ralph/progress.txt (this entry).
+- Not touched: `git diff` over e2e/visual (baselines), package.json and supabase = 0 lines. docx-letter-spacing.test.ts and docx-modern-geometry.test.ts are unmodified and pass; the geometry source scans target expressions this story did not change. Stored levels are still the English enum. Version unchanged. No push, no merge.
+
+Checks (on the final diff):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 54 files, 1768 passed, 5 skipped (110 new)
+- pnpm test:integration: PASS — 4 files, 50 passed
+- pnpm lint: PASS — 302 problems (232 errors, 70 warnings), unchanged from US-001 and not above the tracked baseline (306)
+- pnpm build:verify: PASS — 117/117 static pages
+- pnpm test:visual: PASS — 10 passed, no re-baseline, so en is pixel-identical for the 5 templates in screen and print. ui-expert re-ran it independently: 10/10.
+- pnpm test:parity: PASS — exit 0, 261 passed. parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2 is unchanged, so en words are unchanged on Preview, PDF and DOCX.
+- pnpm test:e2e: PASS on the final diff, on the third run, alone: 181 passed, 0 failed. Earlier runs on the same diff:
+  - Run 1, in the sequential suite: 180 passed / 1 failed. e2e/template-picker.spec.ts:162 failed in the auth fixture: loginAs → page.fill('#email') timed out on /en/login, and the server logged "AuthApiError: Invalid Refresh Token". This is not a code path the story touches. That spec ×3 then passed 15/15.
+  - Run 2: 179 passed / 2 failed, while ui-expert was running `pnpm test:visual` on the same test-results/ folder.
+    - font-scale-rendered classic failed with `browserContext.close: ENOENT` on a trace artifact.
+    - layout-state-owner AC-3 timed out on persisting the editor autosave.
+  - Run 3, alone: 181/181. The two run-2 failures are attributed to the concurrent run.
+  - Named limit: run 1's login timeout has no confirmed cause.
+
+Specialized validation:
+- Browser: PASS — e2e 181/181. The /fr and /de preview pages for all 5 templates return HTTP 200 (evidence captures).
+- Visual: PASS — en baselines unchanged (10/10, no re-baseline).
+- Export: PASS — word/document.xml is inspected by docx-localized-words.test.ts for all 5 templates in fr/de/it/en and compared word by word with the Preview DOM. The en DOCX is also unchanged (parity hash identical).
+- Database: NOT_APPLICABLE — no schema or data change.
+- Security: NOT_APPLICABLE — static dictionary strings; no new sanitizeHtml or document access in templates (SSR-safe; the new test renders all 5 server-side).
+
+Agents:
+- senior-coder: one round, no BLOCKER (all 5 generators already load `common`).
+- ui-expert: PASS (7/7) on 10 fr/de preview captures, its own test:visual run and the unit tests.
+  - fr: Modern TÉLÉPHONE / E-MAIL / SITE WEB / LINKEDIN / GITHUB / LOCALISATION; "Présent" in all five; Professional "Langue maternelle / Courant / Professionnel".
+  - de: TELEFON / E-MAIL / WEBSITE / LINKEDIN / GITHUB / STANDORT; "Heute" in all five; "Muttersprache / Fließend / Professionell".
+  - No truncation.
+- code-reviewer: PASS, on the condition of a green full e2e run on the final diff (met: run 3, 181/181). It reproduced 7 affected test files, 292/292.
+
+Acceptance criteria:
+- AC-01 (fr/de/it: Modern labels, Present in all 5, Professional levels, in Preview and Word): PASS — docx-localized-words.test.ts; ui-expert captures.
+- AC-02 (Word words = Preview words per template × locale): PASS — automated word-count equality per template and locale.
+- AC-03 (en unchanged; visual without re-baseline; parity no new failure; docx-letter-spacing unmodified): PASS — 10/10, sha unchanged, test passes unmodified.
+- AC-04 (per-generator present tables gone; one source): PASS — removed from docx-classic, -creative and -minimal.
+- AC-05 (no layout or styling change): PASS — text-only diff; en visual pixels unchanged.
+- FR-1..FR-4: PASS — one key per word; levels displayed through a lookup with the enum unchanged; no dependency, API contract or DB change.
+
+Decision (FR-1): one throwing accessor for "Present" and the contact labels, shared by templates and generators, instead of reading keys inline. A missing key fails loudly rather than drawing English, and the unit test guards all four locales.
+
+Named limit (FR-1): docx-helpers.ts formatDateRange (Professional Word dates) reads resumes.template.present but keeps its `|| 'Present'` fallback, because docx-helpers.test.ts:605-610 asserts that fallback. It reads the same key and adds no second source, and the fallback is unreachable in production. Both reviewers accepted it; it is recorded as a follow-up.
+
+Open owner decisions recorded by this story:
+- Follow-up: move formatDateRange onto presentLabel and update its two assertions.
+- Follow-up: make the level lookup null-safe (`lang.level?.toLowerCase()`) in the 4 Preview templates. A legacy row with a null level would throw in Preview. This is the existing pattern, not new here.
+- Follow-up: give levels a throwing helper `levelLabel` like the others; they still fall back to the stored English value.
+- Pre-existing defect (D1, ui-expert): in the Classic template each experience bullet renders on its own line with the text below it. The committed en baseline classic.png shows the same, so this story did not cause it. It needs its own ticket.
+- Wording (owner): fr "Présent" against the more usual "aujourd'hui"; de level "Professionell" against "Verhandlungssicher".
+- Still open from US-001: modal polish (fr colon spacing, wording, the help text naming a missing button, contrast, focus).
+
+Environment notes:
+- Never run two Playwright suites at once in this checkout: they share test-results/, which one clears while the other writes. That is what caused e2e run 2's ENOENT. Recorded so the evidence of runs 1 and 2 is read correctly.
+- Evidence capture spec ran from the gitignored playwright-report/uiexp6/ and was removed afterwards. ui-expert's extra captures are in .playwright-mcp/ (untracked) and the scratchpad.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 templates and Word draw localized contact labels, Present and levels
+
+FINAL: PASS

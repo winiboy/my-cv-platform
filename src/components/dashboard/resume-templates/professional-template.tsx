@@ -12,6 +12,7 @@ import type {
   ResumeLanguage,
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
+import { presentLabel } from '@/lib/resume-template-strings'
 import { renderFormattedText } from '@/lib/format-text'
 import { PROFESSIONAL_LINE_HEIGHT } from '@/lib/resume-line-height'
 import { PAGE_HEIGHT_CSS, PAGE_WIDTH_CSS, PAGE_WIDTH_PX } from '@/lib/resume-page-size'
@@ -467,7 +468,7 @@ export function ProfessionalTemplate({
                           {lang.language}
                         </span>
                         <span className="opacity-80" style={{ fontSize: `${scaledBodyFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}>
-                          {dict.resumes?.levels?.[lang.level] || lang.level}
+                          {dict.resumes?.editor?.levels?.[lang.level.toLowerCase()] || lang.level}
                         </span>
                       </div>
                     ))}
@@ -880,13 +881,13 @@ function formatDateRange(exp: ResumeExperience, locale: Locale, dict: any): stri
     : ''
 
   const endDate = exp.current
-    ? dict.resumes.template.present
+    ? presentLabel(dict)
     : exp.endDate
       ? new Date(exp.endDate + '-01').toLocaleDateString(locale, {
           month: '2-digit',
           year: 'numeric',
         })
-      : dict.resumes.template.present
+      : presentLabel(dict)
 
   return `${startDate} - ${endDate}`
 }
@@ -944,7 +945,7 @@ function formatEducationDates(edu: ResumeEducation, locale: Locale, dict: any): 
         month: '2-digit',
         year: 'numeric',
       })
-    : dict.resumes.template.present
+    : presentLabel(dict)
 
   return `${startDate} - ${endDate}`
 }

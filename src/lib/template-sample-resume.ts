@@ -20,9 +20,8 @@ import type {
  * LANGUAGE-NEUTRAL: names, job titles, companies and skills read the same in
  * every locale. Section headings come from the page's own dictionary, so the
  * thumbnail is localized without per-locale content here. Language levels are
- * stored values: templates that translate them show the dictionary label, and
- * Professional draws the stored value (`Native`, `Fluent`, ...) as it does for
- * any resume.
+ * stored values (`Native`, `Fluent`, ...); a template that writes the level as a
+ * word shows its dictionary label.
  *
  * `title` is a job title, not the person's name: every template draws it as
  * the headline, and some also draw `contact.name`.

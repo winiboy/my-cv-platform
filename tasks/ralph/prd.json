@@ -78,7 +78,7 @@
         "Out of scope: Any layout or styling change in templates or Word. Date formats other than the \"Present\" word."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

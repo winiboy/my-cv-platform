@@ -12,6 +12,7 @@ import type {
   ResumeProject,
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
+import { contactLabel, presentLabel } from '@/lib/resume-template-strings'
 import { renderFormattedText } from '@/lib/format-text'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import { MODERN_LINE_HEIGHT, MODERN_TITLE_BAR_PADDING_Y_PX } from '@/lib/resume-line-height'
@@ -274,7 +275,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {contact.phone && (
                 <ContactItem
-                  label="Phone"
+                  label={contactLabel(dict, 'phone')}
                   value={contact.phone}
                   accentColor={accentColor}
                   fontScale={activeScale}
@@ -287,7 +288,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
               )}
               {contact.email && (
                 <ContactItem
-                  label="Email"
+                  label={contactLabel(dict, 'email')}
                   value={contact.email}
                   accentColor={accentColor}
                   fontScale={activeScale}
@@ -301,7 +302,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
               )}
               {contact.website && (
                 <ContactItem
-                  label="Website"
+                  label={contactLabel(dict, 'website')}
                   value={contact.website}
                   accentColor={accentColor}
                   fontScale={activeScale}
@@ -316,7 +317,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
               )}
               {contact.linkedin && (
                 <ContactItem
-                  label="LinkedIn"
+                  label={contactLabel(dict, 'linkedin')}
                   value={contact.linkedin}
                   accentColor={accentColor}
                   fontScale={activeScale}
@@ -331,7 +332,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
               )}
               {contact.github && (
                 <ContactItem
-                  label="GitHub"
+                  label={contactLabel(dict, 'github')}
                   value={contact.github}
                   accentColor={accentColor}
                   fontScale={activeScale}
@@ -344,7 +345,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
               )}
               {contact.location && (
                 <ContactItem
-                  label="Location"
+                  label={contactLabel(dict, 'location')}
                   value={contact.location}
                   accentColor={accentColor}
                   fontScale={activeScale}
@@ -627,12 +628,12 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                         })}
                       {' - '}
                       {exp.current
-                        ? (dict.resumes?.editor?.present || 'Present')
+                        ? presentLabel(dict)
                         : exp.endDate
                           ? new Date(exp.endDate + '-01').toLocaleDateString(locale, {
                               year: 'numeric',
                             })
-                          : (dict.resumes?.editor?.present || 'Present')}
+                          : presentLabel(dict)}
                     </p>
                     <p
                       style={{
