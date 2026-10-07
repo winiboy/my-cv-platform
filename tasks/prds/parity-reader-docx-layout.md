@@ -2,7 +2,7 @@
 
 **Status:** APPROVED 2026-10-06
 
-> **Amendment 2026-10-06 (awaiting owner re-approval).** Approved as written on
+> **Amendment 2026-10-06 (re-approved by the owner 2026-10-07).** Approved as written on
 > 2026-10-06. Implementing US-001 showed that the stale line-height rule is not
 > specific to Professional.
 >
