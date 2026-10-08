@@ -306,25 +306,31 @@ for (const locale of LOCALES) {
     expect(response?.status()).toBe(200)
     await expect(page.getByRole('heading', { level: 3, name: JOB.title, exact: true })).toBeVisible()
 
-    // Below md the job detail panel, and with it the "Create CV" button and the
-    // modal it owns, is hidden (`hidden md:block`). Its wrapper is revealed, as
-    // in job-cv-template-picker.spec.ts, after checking that it would not become
-    // the containing block of the fixed modal: the geometry measured is then
-    // the viewport's alone, which is what a phone would show.
+    // Below md the list comes first and the job detail panel, with the "Create
+    // CV" button and the modal it owns, is hidden until a job is tapped
+    // (job-search-mobile-detail). No ancestor of the button may become the
+    // containing block of the fixed modal: the geometry measured is then the
+    // viewport's alone, which is what a phone shows.
     // A CSS locator, because role locators leave out elements that are not displayed.
     const label = CREATE_CV_BUTTON[locale]
     const createButton = page.locator('button', { hasText: new RegExp(`^\\s*${label}\\s*$`) })
     await expect(createButton).toHaveCount(1)
     await expect(createButton).toBeHidden()
-    await createButton.evaluate((button) => {
-      const wrapper = button.closest('.hidden')
-      if (!(wrapper instanceof HTMLElement)) throw new Error('The job detail wrapper was not found')
-      const style = getComputedStyle(wrapper)
-      if (style.transform !== 'none' || style.filter !== 'none' || style.contain !== 'none') {
-        throw new Error('The wrapper would become the containing block of the fixed modal')
+
+    await page.getByRole('heading', { level: 3, name: JOB.title, exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2, name: JOB.title, exact: true })).toBeVisible()
+    await expect(createButton).toBeVisible()
+    const containingBlockAncestors = await createButton.evaluate((button) => {
+      const found: string[] = []
+      for (let element = button.parentElement; element; element = element.parentElement) {
+        const style = getComputedStyle(element)
+        if (style.transform !== 'none' || style.filter !== 'none' || style.contain !== 'none') {
+          found.push(`${element.tagName.toLowerCase()}.${element.className}`)
+        }
       }
-      wrapper.style.display = 'block'
+      return found
     })
+    expect(containingBlockAncestors).toEqual([])
 
     await createButton.click()
     await expect(group(page)).toBeVisible()

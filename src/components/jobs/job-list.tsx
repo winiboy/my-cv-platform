@@ -10,6 +10,10 @@ interface JobListProps {
   onSelectJob: (jobId: string) => void
   dict: any
   observerTarget?: React.RefObject<HTMLDivElement | null>
+  /** The list's own scroll container, for callers that save and restore its offset. */
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>
+  /** Makes the scroll container a programmatic focus target (`-1`) for callers that move focus to it. */
+  scrollContainerTabIndex?: number
   isLoadingMore?: boolean
   hasMore?: boolean
   totalJobs?: number
@@ -21,6 +25,8 @@ export function JobList({
   onSelectJob,
   dict,
   observerTarget,
+  scrollContainerRef,
+  scrollContainerTabIndex,
   isLoadingMore = false,
   hasMore = true,
   totalJobs = 0,
@@ -41,7 +47,7 @@ export function JobList({
   }
 
   return (
-    <div className="h-full overflow-y-auto rounded-lg border border-slate-200 bg-white">
+    <div ref={scrollContainerRef} tabIndex={scrollContainerTabIndex} className="h-full overflow-y-auto rounded-lg border border-slate-200 bg-white">
       <div className="divide-y divide-slate-200">
         {jobs.map((job) => (
           <JobCard

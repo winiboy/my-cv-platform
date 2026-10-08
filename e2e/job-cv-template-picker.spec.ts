@@ -443,25 +443,31 @@ test('at 375px the modal does not overflow and every option can be scrolled full
   expect(response?.status()).toBe(200)
   await expect(page.getByRole('heading', { level: 3, name: JOB.title, exact: true })).toBeVisible()
 
-  // Below md the existing layout hides the job detail panel, and with it the
-  // "Créer un CV" button and the modal it owns (`hidden md:block`, unchanged
-  // by this story). The panel's wrapper is revealed so the modal can be opened
-  // at this width. The modal is `position: fixed` and its wrapper has no
-  // transform, filter or containment, so its geometry depends on the viewport
-  // alone: what is measured here is what a phone would show.
+  // Below md the list comes first and the job detail panel, with the
+  // "Créer un CV" button and the modal it owns, is hidden until a job is
+  // tapped (job-search-mobile-detail). The modal is `position: fixed` and no
+  // ancestor of the button has a transform, filter or containment, so its
+  // geometry depends on the viewport alone: what is measured here is what a
+  // phone shows.
   // A CSS locator, because role locators leave out elements that are not displayed.
   const createButton = page.locator('button', { hasText: new RegExp(`^\\s*${STRINGS.fr.createCV}\\s*$`) })
   await expect(createButton).toHaveCount(1)
   await expect(createButton).toBeHidden()
-  await createButton.evaluate((button) => {
-    const wrapper = button.closest('.hidden')
-    if (!(wrapper instanceof HTMLElement)) throw new Error('The job detail wrapper was not found')
-    const style = getComputedStyle(wrapper)
-    if (style.transform !== 'none' || style.filter !== 'none' || style.contain !== 'none') {
-      throw new Error('The wrapper would become the containing block of the fixed modal')
+
+  await page.getByRole('heading', { level: 3, name: JOB.title, exact: true }).click()
+  await expect(page.getByRole('heading', { level: 2, name: JOB.title, exact: true })).toBeVisible()
+  await expect(createButton).toBeVisible()
+  const containingBlockAncestors = await createButton.evaluate((button) => {
+    const found: string[] = []
+    for (let element = button.parentElement; element; element = element.parentElement) {
+      const style = getComputedStyle(element)
+      if (style.transform !== 'none' || style.filter !== 'none' || style.contain !== 'none') {
+        found.push(`${element.tagName.toLowerCase()}.${element.className}`)
+      }
     }
-    wrapper.style.display = 'block'
+    return found
   })
+  expect(containingBlockAncestors).toEqual([])
 
   await openFromCreateCV(page, 'fr')
   await expectModalFits(page)

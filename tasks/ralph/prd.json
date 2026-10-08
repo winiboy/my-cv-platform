@@ -45,7 +45,7 @@
         "Out of scope: Any change to the actions themselves or to the modals' content."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

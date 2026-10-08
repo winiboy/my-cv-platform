@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { useState, useMemo, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import type { JobListing, JobSearchFilters } from '@/types/jobs'
 import type { Locale } from '@/lib/i18n'
 import type { TemplatePickerStrings } from '@/lib/template-picker-strings'
@@ -9,6 +9,20 @@ import { JobFilters } from './job-filters'
 import { JobList } from './job-list'
 import { JobDetailPanel } from './job-detail-panel'
 import { AlertCircle, Loader2 } from 'lucide-react'
+import { useIsMobile } from '@/lib/hooks/use-media-query'
+import { cn } from '@/lib/utils'
+
+/**
+ * Key of the history entry pushed when a job's detail is opened below the md
+ * breakpoint. Its value is the id of the job the entry shows.
+ */
+const DETAIL_HISTORY_KEY = 'jobSearchDetailJobId'
+
+function detailJobIdFromHistory(state: unknown): string | null {
+  if (typeof state !== 'object' || state === null) return null
+  const jobId = (state as Record<string, unknown>)[DETAIL_HISTORY_KEY]
+  return typeof jobId === 'string' ? jobId : null
+}
 
 interface JobSearchLayoutProps {
   initialJobs: JobListing[]
@@ -36,6 +50,54 @@ export function JobSearchLayout({ initialJobs, dict, locale, templatePicker, cvA
     location_canton: undefined,
     employment_type: undefined,
   })
+
+  const isMobile = useIsMobile()
+  // Below md the detail replaces the list instead of sitting beside it. The
+  // list stays mounted (hidden by CSS), so its loaded pages survive and its
+  // infinite-scroll sentinel cannot intersect while hidden.
+  const [isMobileDetailOpen, setIsMobileDetailOpen] = useState(false)
+  const listScrollRef = useRef<HTMLDivElement | null>(null)
+  // Browsers do not reliably keep a scroll offset across `display: none`
+  // (Chromium came back hundreds of pixels off), so the list's offset is saved
+  // when the detail replaces it and written back when the list returns.
+  const listScrollTopToRestore = useRef<number | null>(null)
+
+  const showMobileDetail = useCallback(() => {
+    // Already open (a forward step onto another detail entry): the list is
+    // hidden and its offset reads 0, so keep the one saved when it was visible.
+    if (listScrollTopToRestore.current === null) {
+      listScrollTopToRestore.current = listScrollRef.current?.scrollTop ?? 0
+    }
+    setIsMobileDetailOpen(true)
+  }, [])
+
+  useLayoutEffect(() => {
+    if (isMobileDetailOpen) return
+    const scrollTop = listScrollTopToRestore.current
+    if (scrollTop === null) return
+    listScrollTopToRestore.current = null
+    const list = listScrollRef.current
+    if (!list) return
+    list.scrollTop = scrollTop
+    // The back control that had focus is now hidden; without this, keyboard and
+    // screen-reader focus would fall to <body> instead of the results.
+    list.focus({ preventScroll: true })
+  }, [isMobileDetailOpen])
+
+  const handleSelectJob = useCallback((jobId: string) => {
+    setSelectedJobId(jobId)
+    if (!isMobile) return
+    showMobileDetail()
+    // One entry per opened detail, so the system back gesture closes it exactly
+    // like the on-screen control. No URL is passed: the App Router copies its
+    // own state onto the entry and does not navigate, and on popstate it
+    // restores the same page without remounting it.
+    window.history.pushState({ [DETAIL_HISTORY_KEY]: jobId }, '')
+  }, [isMobile, showMobileDetail])
+
+  const handleBackToResults = useCallback(() => {
+    window.history.back()
+  }, [])
 
   // Fetch jobs from API (reset on filter change)
   const fetchJobs = useCallback(async (page: number = 1, append: boolean = false) => {
@@ -150,10 +212,26 @@ export function JobSearchLayout({ initialJobs, dict, locale, templatePicker, cvA
     setSelectedJobId(selectedJob?.id || null)
   }
 
+  // Back closes the detail; forward onto an entry pushed by `handleSelectJob`
+  // reopens it, but only for a job that is still loaded.
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      const jobId = detailJobIdFromHistory(event.state)
+      if (jobId !== null && jobs.some((job) => job.id === jobId)) {
+        setSelectedJobId(jobId)
+        showMobileDetail()
+      } else {
+        setIsMobileDetailOpen(false)
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [jobs, showMobileDetail])
+
   return (
     <div className="flex h-full flex-col">
       {/* Page Header */}
-      <div className="mb-6">
+      <div className={cn('mb-6', isMobileDetailOpen && 'hidden md:block')}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">
@@ -185,8 +263,8 @@ export function JobSearchLayout({ initialJobs, dict, locale, templatePicker, cvA
         )}
       </div>
 
-      {/* Filters */}
-      <div className="mb-6">
+      {/* Filters: part of the results view, so hidden with the list on a phone */}
+      <div className={cn('mb-6', isMobileDetailOpen && 'hidden md:block')}>
         <JobFilters
           filters={filters}
           onFiltersChange={setFilters}
@@ -210,13 +288,15 @@ export function JobSearchLayout({ initialJobs, dict, locale, templatePicker, cvA
       {!isLoading && (
         <div className="flex flex-1 gap-6 overflow-hidden">
           {/* Left: Job List */}
-          <div className="w-full md:w-1/2 lg:w-2/5">
+          <div className={cn(isMobileDetailOpen ? 'hidden md:block' : 'w-full', 'md:w-1/2 lg:w-2/5')}>
             <JobList
               jobs={filteredJobs}
               selectedJobId={selectedJobId}
-              onSelectJob={setSelectedJobId}
+              onSelectJob={handleSelectJob}
               dict={dict}
               observerTarget={observerTarget}
+              scrollContainerRef={listScrollRef}
+              scrollContainerTabIndex={isMobile ? -1 : undefined}
               isLoadingMore={isLoadingMore}
               hasMore={hasMore}
               totalJobs={totalJobs}
@@ -224,7 +304,7 @@ export function JobSearchLayout({ initialJobs, dict, locale, templatePicker, cvA
           </div>
 
           {/* Right: Job Detail */}
-          <div className="hidden md:block md:w-1/2 lg:w-3/5">
+          <div className={cn(isMobileDetailOpen ? 'w-full' : 'hidden md:block', 'md:w-1/2 lg:w-3/5')}>
             {selectedJob ? (
               <JobDetailPanel
                 job={selectedJob}
@@ -232,6 +312,7 @@ export function JobSearchLayout({ initialJobs, dict, locale, templatePicker, cvA
                 locale={locale}
                 templatePicker={templatePicker}
                 cvAdaptation={cvAdaptation}
+                onBackToResults={isMobileDetailOpen ? handleBackToResults : undefined}
               />
             ) : (
               <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50">

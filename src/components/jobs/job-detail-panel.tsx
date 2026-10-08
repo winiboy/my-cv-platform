@@ -1,13 +1,14 @@
 'use client'
 
-import { MapPin, Briefcase, DollarSign, Calendar, Bookmark, ExternalLink, Sparkles, FilePlus, Loader2, Eye } from 'lucide-react'
+import { ArrowLeft, MapPin, Briefcase, DollarSign, Calendar, Bookmark, ExternalLink, Sparkles, FilePlus, Loader2, Eye } from 'lucide-react'
 import type { JobListing } from '@/types/jobs'
 import type { Locale } from '@/lib/i18n'
 import type { TemplatePickerStrings } from '@/lib/template-picker-strings'
 import type { CVAdaptationStrings } from '@/lib/cv-adaptation-strings'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { isRedirectContent } from '@/lib/adzuna-client'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { useToast } from '@/components/ui/toast'
 import { CVAdaptationModal } from '@/components/dashboard/cv-adaptation-modal'
 import { ResumeSelectorModal } from './resume-selector-modal'
@@ -46,6 +47,7 @@ interface JobDetailPanelDict {
   requirements?: string
   locationNote?: string
   viewInApplications?: string
+  backToResults?: string
   employmentTypes?: Record<string, string>
   createCV?: {
     noUrlError?: string
@@ -76,6 +78,11 @@ interface JobDetailPanelProps {
   templatePicker: TemplatePickerStrings
   /** Strings of the adaptation and create-from-job modals, selected on the server by `cvAdaptationStrings`. */
   cvAdaptation: CVAdaptationStrings
+  /**
+   * Set only while the panel replaces the job list below the md breakpoint:
+   * a "back to results" control is then rendered at the top and calls it.
+   */
+  onBackToResults?: () => void
 }
 
 /**
@@ -88,7 +95,7 @@ function getValidDescription(description: string | undefined): string | null {
   return description
 }
 
-export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation }: JobDetailPanelProps) {
+export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation, onBackToResults }: JobDetailPanelProps) {
   const router = useRouter()
   const toast = useToast()
   const [isSaved, setIsSaved] = useState(job.is_saved || false)
@@ -108,6 +115,26 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
     company: string
   } | null>(null)
   const [showCreateNewCVModal, setShowCreateNewCVModal] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const backButtonRef = useRef<HTMLButtonElement>(null)
+  const hasBackControl = onBackToResults !== undefined
+  // On a phone the two long actions take a full row each, so their labels are
+  // never cut; from sm up they sit in the flex row and truncate as before.
+  // Keyed on the phone-only back control, so the markup at md and above (and
+  // the server render) is exactly what it was.
+  const longActionClassName = hasBackControl ? 'col-span-2 sm:col-span-1' : undefined
+  const longActionLabelClassName = hasBackControl ? 'sm:truncate' : 'truncate'
+
+  // On a phone the panel stays mounted while the list is shown, so each opening
+  // (or a forward step onto another job while open) would otherwise start at
+  // the previous job's scroll offset. Focus moves to the back control because
+  // the card that opened the panel is now hidden, which would leave keyboard
+  // and screen-reader focus nowhere.
+  useEffect(() => {
+    if (!hasBackControl) return
+    rootRef.current?.scrollTo({ top: 0 })
+    backButtonRef.current?.focus({ preventScroll: true })
+  }, [hasBackControl, job.id])
 
   /**
    * Saves a job to the user's job applications
@@ -544,7 +571,22 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
   const descriptionParagraphs = job.description.split('\n\n')
 
   return (
-    <div className="h-full overflow-y-auto rounded-lg border border-slate-200 bg-white">
+    <div ref={rootRef} className="h-full overflow-y-auto rounded-lg border border-slate-200 bg-white">
+      {onBackToResults && (
+        <div className="border-b border-slate-200 px-2 py-1 md:hidden">
+          <Button
+            ref={backButtonRef}
+            type="button"
+            variant="ghost"
+            onClick={onBackToResults}
+            className="min-h-11 min-w-11 px-3 text-slate-700 hover:text-slate-900"
+          >
+            <ArrowLeft aria-hidden="true" />
+            {dict.backToResults}
+          </Button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="border-b border-slate-200 bg-slate-50 p-6">
         <h2 className="text-2xl font-bold text-slate-900">{job.title}</h2>
@@ -606,14 +648,14 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
             onClick={handleAdaptCV}
             disabled={isFetchingJob}
             variant="outline"
-            className="flex items-center justify-center gap-2 border-purple-600 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
+            className={cn('flex items-center justify-center gap-2 border-purple-600 text-purple-600 hover:bg-purple-50 hover:text-purple-700', longActionClassName)}
           >
             {isFetchingJob ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Sparkles className="h-4 w-4 flex-shrink-0" />
             )}
-            <span className="truncate">
+            <span className={longActionLabelClassName}>
               {isFetchingJob
                 ? (dict?.cvAdaptation?.fetching || 'Loading...')
                 : (dict?.cvAdaptation?.adaptCV || 'Adapt CV')}
@@ -625,14 +667,14 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
             onClick={handleCreateCV}
             disabled={isFetchingJob}
             variant="outline"
-            className="flex items-center justify-center gap-2 border-teal-600 text-teal-600 hover:bg-teal-50 hover:text-teal-700"
+            className={cn('flex items-center justify-center gap-2 border-teal-600 text-teal-600 hover:bg-teal-50 hover:text-teal-700', longActionClassName)}
           >
             {isFetchingJob ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <FilePlus className="h-4 w-4 flex-shrink-0" />
             )}
-            <span className="truncate">
+            <span className={longActionLabelClassName}>
               {isFetchingJob
                 ? (dict?.createCV?.fetching || 'Loading...')
                 : (dict?.createCV?.button || 'Create CV')}
