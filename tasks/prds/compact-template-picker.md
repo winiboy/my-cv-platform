@@ -2,6 +2,23 @@
 
 **Status:** APPROVED 2026-10-08
 
+> **Amendment 2026-10-08 (re-approved by the owner 2026-10-08).** Approved as written on
+> 2026-10-08. Implementing US-001 showed that two approved requirements conflict
+> on `/dashboard/resumes/new` between `md` (768 px) and about 930 px.
+>
+> - **Why they conflict.** The 256 px sidebar plus the two-column grid leaves
+>   cards about 217 px wide. With a 96–128 px thumbnail beside the text, the text
+>   column is about 80 px, narrower than words like "Professionnel".
+> - **What went wrong.** Thumbnail beside the text, two columns from `md`, and no
+>   clipped or broken text cannot all hold there. ui-expert saw names break
+>   mid-word.
+> - **Owner decision (2026-10-08, "Empiler dans ce cas").** The thumbnail sits
+>   beside the text when the card's content box is at least 16rem. Otherwise it
+>   sits above the text, still leading.
+>
+> AC-1 and Scope are reworded accordingly, and one AC is added for the stacked
+> case. Nothing else changes.
+
 ## Objective
 
 The shared template picker becomes about three times shorter. Each card puts a
@@ -43,9 +60,11 @@ five templates and the submit button fit in far less scrolling on
 
 ## Scope
 
-- Card layout: the thumbnail beside the text instead of below it. The thumbnail
-  window gets a fixed width between 96 and 128 px at every breakpoint and keeps
-  the A4 proportion.
+- Card layout: the thumbnail beside the text instead of below it, whenever the
+  card's content box is at least 16rem wide. A narrower card (for example
+  `/dashboard/resumes/new` between `md` and about 930 px) shows the thumbnail
+  above the text. The thumbnail window gets a fixed width between 96 and 128 px
+  at every breakpoint and keeps the A4 proportion.
 - The grid stays one column below `md` and two columns from `md`.
 - Both surfaces get the change automatically, through the shared component.
 - New e2e assertions on card and picker height.
@@ -81,10 +100,16 @@ compare the templates and reach the create button quickly.
 
 **Acceptance Criteria:**
 
-- [ ] Each card shows its thumbnail beside the name and description (thumbnail
-      on the leading side). The thumbnail window is 96–128 px wide, has a
-      297:210 ratio within 0.01, is still drawn by `ResumePreview`, and is
-      `inert` and `aria-hidden`.
+- [ ] When the card's content box is at least 16rem wide, the card shows its
+      thumbnail beside the name and description, with the thumbnail on the
+      leading side. On the create page at 375 and 1440 px, and in the modal at
+      375 and 1440 px, every card uses this layout. In every layout, the
+      thumbnail window is 96–128 px wide, has a 297:210 ratio within 0.01, is
+      still drawn by `ResumePreview`, and is `inert` and `aria-hidden`.
+- [ ] When the card's content box is narrower than 16rem (for example
+      `/dashboard/resumes/new` at 768×1024), the thumbnail sits above the name
+      and description, at the top-left. No name or description word is split
+      across lines, and every card is at most 340 px tall, in fr, en, de and it.
 - [ ] At 375×812 and at 1440×900, every card is at most 200 px tall, in fr, en,
       de and it.
 - [ ] On `/fr/dashboard/resumes/new` at 375 px, the radiogroup is at most
@@ -124,7 +149,9 @@ compare the templates and reach the create button quickly.
 
 ## FAIL Conditions
 
-- Any card over 200 px tall, or a radiogroup over the ceilings above.
+- Any card over 200 px tall at 375 or 1440 px, any stacked card over 340 px,
+  or a radiogroup over the ceilings above.
+- A name or description word split across lines.
 - A thumbnail not drawn by `ResumePreview`, or not inert.
 - Horizontal overflow, or clipped text in any locale.
 - An existing assertion edited to pass.
