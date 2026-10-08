@@ -1,0 +1,52 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "ralph/job-search-mobile-detail",
+  "description": "Below 768 px, a user on Job Search can open a job's details, use all of its actions (\"Postuler\", \"Enregistrer\", \"Adapter mon CV\", \"Créer un CV\") and return to the same results. Tapping a job shows its details in place of the list, and both a \"back to results\" control and the phone's back gesture return to the list with its filters, loaded results and scroll position intact.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Open a job's details on a phone and come back to the same results",
+      "description": "As a job seeker on a phone, I want to tap a job to read it and act on it, then go back to my results where I left them.",
+      "acceptanceCriteria": [
+        "At 375×812, the list is shown first and no detail panel is visible.",
+        "Tapping a job card shows that job's detail (title as the panel heading) full-width in place of the list. The list is not visible, and there is no horizontal overflow.",
+        "A \"back to results\" control is visible at the top of the detail. It is localized in fr/en/de/it, has a touch target of at least 44×44 px, and is reachable and operable by keyboard.",
+        "Activating that control returns to the list. The filters, every loaded result (including pages added by infinite scroll), the highlighted job and the list scroll position are as they were before the tap.",
+        "Using the browser back action from the detail returns to the list in the same state, and does not leave `/[locale]/dashboard/jobs`. A second back action leaves the page as it does today.",
+        "From the detail at 375 px, \"Postuler\", \"Enregistrer\", \"Adapter mon CV\" and \"Créer un CV\" are visible and work. The \"Créer un CV\" and \"Adapter mon CV\" modals open, fit the viewport (no horizontal overflow, every template option reachable by scrolling) and close back to the detail.",
+        "Tapping a different job after coming back shows that job's detail.",
+        "At 768 px and 1440 px, the page behaves and looks as before: side by side, first job auto-selected, and no back control rendered.",
+        "`/[locale]/dashboard/jobs` returns HTTP 200 at every width, and the console shows no hydration mismatch or React error.",
+        "FR-1: The narrow-screen behaviour is driven by the existing `md` breakpoint (768 px), the same one that hides the panel today.",
+        "FR-2: Back navigation from the detail uses the browser history (one entry per opened detail), so the system back gesture and the on-screen control behave the same.",
+        "FR-3: No ancestor of the detail panel introduces `transform`, `filter` or `contain`, so the panel's fixed-position modals keep the viewport as their containing block.",
+        "FR-4: New user-facing strings come from `jobs.json` (or an existing `common` key) in all four locales. No hard-coded English.",
+        "FR-5: No new dependency. Reuse existing tokens and the 44 px touch-target convention.",
+        "Regression constraint: Desktop and tablet (≥ 768 px): DOM structure, auto-selection and styling are unchanged.",
+        "Regression constraint: The job detail actions, the save flow and both modals behave as before.",
+        "Regression constraint: Every existing e2e keeps its assertions, except the 375 px test in `e2e/job-cv-template-picker.spec.ts`. That test is rewritten to tap the card and keeps all of its assertions about the modal.",
+        "Verification: The `CLAUDE.md` §14 baseline.",
+        "Verification: A Playwright e2e at 375×812, with `/api/jobs` stubbed to return enough results for a second page and the external fetch and AI endpoints stubbed. It covers: - the list first; - tap → detail; - the back control → list in the same state (filters, result count, highlight, `scrollTop` within 1 px); - `page.goBack()` → list in the same state; - each action reachable; - both modals open and fit.",
+        "Verification: The 768 px and 1440 px no-change checks.",
+        "Verification: `ui-expert` validation at 375 px (list, detail, back, modal) and 768 px, in fr and one other locale.",
+        "Verification: `code-reviewer` validation.",
+        "FAIL condition: Any detail action is unreachable at 375 px.",
+        "FAIL condition: Back (the control or browser history) loses the filters, the loaded results or the scroll position, or leaves the page.",
+        "FAIL condition: The layout at ≥ 768 px changes.",
+        "FAIL condition: A modal is clipped or trapped by an ancestor at 375 px.",
+        "FAIL condition: Any English fallback for the new string in fr/de/it.",
+        "BLOCKER condition: History-based back conflicts with Next.js App Router navigation in a way that breaks other dashboard routes. Report it with evidence. Switching to a non-history approach needs an owner decision.",
+        "BLOCKER condition: `/api/jobs` cannot be stubbed for multiple pages.",
+        "Out of scope: The layout at 768 px and above: unchanged, side by side, with the first job auto-selected.",
+        "Out of scope: Deep links or a `/dashboard/jobs/[id]` route, and restoring a detail view after a page reload.",
+        "Out of scope: Keyboard operability of job cards (they are click-only `div`s today, on every width). That is a separate accessibility item.",
+        "Out of scope: The panel's state leaking between jobs (`isSaved`, fetched data: the panel has no `key`).",
+        "Out of scope: Other English strings on the page (\"Live Data\", \"Notice\", the date formatted as `en-GB`, missing `jobs.json` keys). Those are covered by the localization PRD or a later one.",
+        "Out of scope: Any change to the actions themselves or to the modals' content."
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
