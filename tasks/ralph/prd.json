@@ -35,7 +35,7 @@
         "Out of scope: Removing translation keys that the live pages still use (`resumes.new.*`, `resumes.errors.*`, …)."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

@@ -205,23 +205,6 @@
       "create": "Create Resume",
       "creating": "Creating..."
     },
-    "fromJob": {
-      "title": "Create CV from Job Description",
-      "subtitle": "Paste a job description and let AI create a tailored CV for you",
-      "jobDescriptionLabel": "Job Description",
-      "jobDescriptionPlaceholder": "Paste the full job description here...\n\nExample:\nSoftware Engineer\nWe're looking for an experienced Software Engineer with 5+ years of experience in React, Node.js, and cloud technologies...",
-      "jobDescriptionHint": "Paste the complete job description including requirements, responsibilities, and qualifications.",
-      "analyzing": "Analyzing job description...",
-      "generating": "Generating your CV...",
-      "create": "Generate CV",
-      "createButton": "Create CV",
-      "creating": "Creating your CV...",
-      "helpTextEmpty": "Paste a job description below and our AI will create a professional CV tailored to this position.",
-      "titleLabel": "CV Title",
-      "titlePlaceholder": "e.g., Software Engineer CV for TechCorp",
-      "templateLabel": "Choose Template",
-      "backToResumes": "Back to My Resumes"
-    },
     "errors": {
       "titleRequired": "Resume title is required",
       "createFailed": "Failed to create resume",

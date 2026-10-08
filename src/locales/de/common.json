@@ -205,23 +205,6 @@
       "create": "Lebenslauf erstellen",
       "creating": "Wird erstellt..."
     },
-    "fromJob": {
-      "title": "Lebenslauf aus Stellenbeschreibung erstellen",
-      "subtitle": "Fügen Sie eine Stellenbeschreibung ein und lassen Sie KI einen maßgeschneiderten Lebenslauf erstellen",
-      "jobDescriptionLabel": "Stellenbeschreibung",
-      "jobDescriptionPlaceholder": "Fügen Sie die vollständige Stellenbeschreibung hier ein...\n\nBeispiel:\nSoftware-Ingenieur\nWir suchen einen erfahrenen Software-Ingenieur mit 5+ Jahren Erfahrung in React, Node.js und Cloud-Technologien...",
-      "jobDescriptionHint": "Fügen Sie die vollständige Stellenbeschreibung einschließlich Anforderungen, Verantwortlichkeiten und Qualifikationen ein.",
-      "analyzing": "Stellenbeschreibung wird analysiert...",
-      "generating": "Ihr Lebenslauf wird erstellt...",
-      "create": "Lebenslauf generieren",
-      "createButton": "Lebenslauf erstellen",
-      "creating": "Ihr Lebenslauf wird erstellt...",
-      "helpTextEmpty": "Fügen Sie unten eine Stellenbeschreibung ein und unsere KI erstellt einen professionellen Lebenslauf, der auf diese Position zugeschnitten ist.",
-      "titleLabel": "Lebenslauf-Titel",
-      "titlePlaceholder": "z.B. Software-Ingenieur Lebenslauf für TechCorp",
-      "templateLabel": "Vorlage wählen",
-      "backToResumes": "Zurück zu meinen Lebensläufen"
-    },
     "errors": {
       "titleRequired": "Lebenslauf-Titel ist erforderlich",
       "createFailed": "Lebenslauf konnte nicht erstellt werden",

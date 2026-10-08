@@ -1,0 +1,97 @@
+# Ralph progress — remove-legacy-resume-routes
+
+Contract: tasks/ralph/prd.json (branch ralph/remove-legacy-resume-routes)
+PRD: tasks/prds/remove-legacy-resume-routes.md (Status: APPROVED 2026-10-08, written by the owner)
+Format: docs/engineering/progress-log-format.md
+Branch setup: from origin/main 5c1ea08. 12947a4 archives the merged localize-adaptation-modal-and-templates contract (#95). 366fdd6 adds this PRD and its contract.
+
+## US-001: Old resume URLs land on the live pages
+Status: PASS
+Priority: 1
+Branch: ralph/remove-legacy-resume-routes
+Baseline HEAD: 366fdd6
+
+Scope:
+- Scope check: PASS
+- Changed paths:
+  - Deleted, 5 legacy pages: src/app/[locale]/(dashboard)/resumes/{page.tsx, new/page.tsx, from-job/page.tsx, [id]/edit/page.tsx, [id]/preview/page.tsx}. Their folders are gone; only dashboard/ and layout.tsx remain under (dashboard).
+  - Deleted, 3 components used only by those pages: src/components/dashboard/{resume-creation-form, job-description-form, download-resume-buttons}.tsx.
+  - next.config.js: new `async redirects()` next to headers(). It has 5 rules, all permanent (308), with the locale limited to (fr|en|de|it):
+    - /:locale/resumes → /:locale/dashboard/resumes
+    - /:locale/resumes/new → /:locale/dashboard/resumes/new
+    - /:locale/resumes/from-job → /:locale/dashboard/jobs
+    - /:locale/resumes/:id/edit → /:locale/dashboard/resumes/:id/edit
+    - /:locale/resumes/:id/preview → /:locale/dashboard/resumes/:id/preview
+  - src/locales/{fr,en,de,it}/common.json: resumes.fromJob removed. `git diff --numstat` shows 0 added / 17 deleted per file. After the change all four locales still have identical resumes.* keys.
+  - e2e/security-headers.spec.ts: lines 194 and 197 now visit /en/dashboard/resumes/${id}/edit and /preview. Every header assertion is unchanged.
+  - e2e/legacy-resume-redirects.spec.ts (new, 27 tests).
+  - tasks/ralph/prd.json (US-001 passes: true), tasks/ralph/progress.txt (this file).
+- Not touched: live pages and their components, live translation keys (resumes.createFromJob and resumes.new.templateLabel are still present in all 4 locales), src/middleware.ts. Version unchanged. No push, no merge.
+
+FR-3 greps (src/ and e2e/):
+- Before deletion:
+  - The 3 components were imported only by the legacy pages: from-job/page.tsx:6 (JobDescriptionForm), new/page.tsx:4 (ResumeCreationForm), [id]/preview/page.tsx:8 (DownloadResumeButtons). The other hits were the components' own declarations.
+  - `fromJob` was read only by from-job/page.tsx (56, 62, 65) and job-description-form.tsx (67-214), and defined only in the 4 common.json files.
+  - The only non-dashboard /[locale]/resumes references were e2e/security-headers.spec.ts:194 and :197.
+  - The same search across the rest of the repo, excluding node_modules, build folders, worktrees and tasks/, found nothing.
+- After deletion:
+  - Component and import names: 0 hits.
+  - `fromJob` in src: 0 hits.
+  - Non-dashboard /<locale>/resumes, excluding the new redirect spec: 2 hits, both in e2e/auth.spec.ts:41-42. They are comments describing an old test, not links.
+
+Checks (one sequential run on the final diff, nothing concurrent):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 54 files, 1768 passed, 5 skipped, including the per-feature locale-parity tests
+- pnpm test:integration: PASS — 4 files, 50 passed
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings). That is 12 below the 302 of #95, because the deleted files carried lint debt, and under the tracked baseline (306).
+- pnpm build:verify: PASS — 105/105 static pages, down from 117 with the legacy pages gone. The build route list shows no /[locale]/resumes route outside /[locale]/dashboard/resumes.
+- pnpm test:e2e: PASS — 208 passed (181 + 27 new)
+- pnpm test:visual: PASS — 10 passed, no re-baseline
+- pnpm test:parity: PASS — exit 0, 261 passed; parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2, unchanged
+
+Specialized validation:
+- Browser: PASS — e2e/legacy-resume-redirects.spec.ts:
+  - Anonymous requests with maxRedirects 0: each of 4 locales × 5 paths answers 308 with the exact Location. Next sends it as a relative path, for example /fr/dashboard/resumes/<id>/edit.
+  - /xx/resumes is not caught by the rules; middleware answers 307 to /en/xx/resumes.
+  - Signed out: 308, then the middleware's 307 to /en/login with callbackUrl set to the live path.
+  - Signed in, with a resume seeded through the service-role client: all 5 legacy paths end on the live page with HTTP 200.
+- Visual: PASS — 10/10 unchanged.
+- Export: NOT_APPLICABLE — the live preview and downloads are unchanged.
+- Database: NOT_APPLICABLE.
+- Security: PASS, by review. The 5 deleted pages sat outside the middleware's /dashboard gate and relied only on their own getUser checks; every redirect destination is inside the gate. No open redirect is possible, because every destination is an absolute path with a locale from the fixed set. The security headers still apply to the 308 responses (headers() uses /:path*). The CSP check now covers the pages users actually see.
+
+Agents:
+- senior-coder: one round, no BLOCKER.
+  - First e2e run: 6 failures, all because the spec assumed the middleware's login Location would be an absolute URL; it is relative. The fix resolves it against the base URL, and no assertion changed. Every status assertion passed in that first run.
+  - Removed stale gitignored generated types (types/validator.ts in .next, .next-e2e, .next-visual, .next-parity and .next-uiexp; types/app/[locale]/(dashboard)/resumes/ in some of them). tsconfig.json includes those folders, and they still referenced the deleted pages, which gave 70 typecheck errors locally. A clean checkout or CI has none of these folders.
+- ui-expert: NOT_APPLICABLE — no live page changes.
+- code-reviewer: PASS. Required changes: record the FR-3 greps here (done above) and stage explicit paths only (done). Minor items, not fixed:
+  - the redirect locale list duplicates src/lib/i18n.ts locales (a test could keep them in step);
+  - query-string passthrough is not asserted (Next carries the query by default);
+  - an upper-case locale (/EN/resumes) ends on a 404, as it did before.
+
+Acceptance criteria:
+- AC-01 (4 locales × 5 paths answer 308 with the exact Location, :id kept, from-job → /dashboard/jobs): PASS — redirect spec, 20 cases with maxRedirects 0.
+- AC-02 (signed in → live page 200; signed out → the existing login redirect): PASS — redirect spec.
+- AC-03 (pages and components gone, no importer): PASS — git status shows 8 deletions; the greps above find 0 importers.
+- AC-04 (resumes.fromJob absent in 4 locales, parity tests pass, no reader): PASS — numstat 0/17 per file; `fromJob` greps to 0; pnpm test passes.
+- AC-05 (security-headers visits the dashboard edit and preview pages, header assertions unchanged): PASS — 2-line URL diff, and the e2e passes.
+- AC-06 (build lists no /[locale]/resumes outside /dashboard): PASS — build:verify route list.
+- FR-1..FR-3, regression constraints: PASS (see above).
+
+Decision (FR-1): permanent redirects declared once in next.config.js, not one-line redirect() stubs left in each legacy page.tsx. The legacy tree disappears entirely, the redirects run before middleware, and the destinations are all inside the /dashboard auth gate. The locale list is written out in next.config.js because a CommonJS config cannot import src/lib/i18n.ts; the reason is recorded in a comment there.
+
+Open owner decisions recorded by this story:
+- Optional: a unit test keeping the next.config.js redirect locales in step with src/lib/i18n.ts.
+- Out of scope, pre-existing: fr/common.json lacks 31 coverLetters.editor.* keys that en has (recipient, opening, body, closing, signature…). The same count exists at HEAD; found by senior-coder.
+- Pre-existing local hazard: tsconfig.json includes several .next*/types folders, so stale build output can break `pnpm typecheck` after a route is deleted.
+
+Environment notes:
+- Stale generated types were deleted in local build folders, including the owner's dev-server .next. Next regenerates them; restart the :3000 dev server if it shows a stale-route error.
+- Suites ran alone, sequentially (see memory: no concurrent Playwright).
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 retire the legacy /resumes routes behind permanent redirects
+
+FINAL: PASS
