@@ -2,6 +2,17 @@
 
 **Status:** APPROVED 2026-10-08
 
+> **Amendment 2026-10-08 (re-approved by the owner 2026-10-08).** Approved as written on
+> 2026-10-08.
+>
+> - **Why.** Implementing US-001 showed that tapping a job necessarily selects
+>   it, so after coming back the highlighted card is the job just viewed rather
+>   than the one highlighted before the tap.
+> - **Owner decision (2026-10-08, "L'offre consultée").** Keep the job just
+>   viewed highlighted, so the user sees where they were.
+>
+> Only that acceptance criterion is reworded. Nothing else changes.
+
 ## Objective
 
 Below 768 px, a user on Job Search can open a job's details, use all of its
@@ -103,8 +114,9 @@ back to my results where I left them.
       localized in fr/en/de/it, has a touch target of at least 44×44 px, and is
       reachable and operable by keyboard.
 - [ ] Activating that control returns to the list. The filters, every loaded
-      result (including pages added by infinite scroll), the highlighted job and
-      the list scroll position are as they were before the tap.
+      result (including pages added by infinite scroll) and the list scroll
+      position are as they were before the tap. The highlighted job is the one
+      just viewed.
 - [ ] Using the browser back action from the detail returns to the list in the
       same state, and does not leave `/[locale]/dashboard/jobs`. A second back
       action leaves the page as it does today.

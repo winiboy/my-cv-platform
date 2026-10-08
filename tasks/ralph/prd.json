@@ -11,7 +11,7 @@
         "At 375×812, the list is shown first and no detail panel is visible.",
         "Tapping a job card shows that job's detail (title as the panel heading) full-width in place of the list. The list is not visible, and there is no horizontal overflow.",
         "A \"back to results\" control is visible at the top of the detail. It is localized in fr/en/de/it, has a touch target of at least 44×44 px, and is reachable and operable by keyboard.",
-        "Activating that control returns to the list. The filters, every loaded result (including pages added by infinite scroll), the highlighted job and the list scroll position are as they were before the tap.",
+        "Activating that control returns to the list. The filters, every loaded result (including pages added by infinite scroll) and the list scroll position are as they were before the tap. The highlighted job is the one just viewed.",
         "Using the browser back action from the detail returns to the list in the same state, and does not leave `/[locale]/dashboard/jobs`. A second back action leaves the page as it does today.",
         "From the detail at 375 px, \"Postuler\", \"Enregistrer\", \"Adapter mon CV\" and \"Créer un CV\" are visible and work. The \"Créer un CV\" and \"Adapter mon CV\" modals open, fit the viewport (no horizontal overflow, every template option reachable by scrolling) and close back to the detail.",
         "Tapping a different job after coming back shows that job's detail.",
