@@ -1,4 +1,5 @@
 import { getTranslations, type Locale } from '@/lib/i18n'
+import { contactLabel, presentLabel } from '@/lib/resume-template-strings'
 import {
   Document,
   Header,
@@ -1067,12 +1068,12 @@ export async function generateModernDocx(
 
         // Contact items: emoji icon + label (uppercase, dimmed) + value (white)
         const contactEntries: { label: string; value: string; icon: string }[] = []
-        if (contact.phone) contactEntries.push({ label: 'Phone', value: contact.phone, icon: '\u{1F4DE}' })
-        if (contact.email) contactEntries.push({ label: 'Email', value: contact.email, icon: '\u{2709}\uFE0F' })
-        if (contact.website) contactEntries.push({ label: 'Website', value: contact.website, icon: '\u{1F310}' })
-        if (contact.linkedin) contactEntries.push({ label: 'LinkedIn', value: contact.linkedin, icon: '\u{1F517}' })
-        if (contact.github) contactEntries.push({ label: 'GitHub', value: contact.github, icon: '\u{1F4BB}' })
-        if (contact.location) contactEntries.push({ label: 'Location', value: contact.location, icon: '\u{1F4CD}' })
+        if (contact.phone) contactEntries.push({ label: contactLabel(dict, 'phone'), value: contact.phone, icon: '\u{1F4DE}' })
+        if (contact.email) contactEntries.push({ label: contactLabel(dict, 'email'), value: contact.email, icon: '\u{2709}\uFE0F' })
+        if (contact.website) contactEntries.push({ label: contactLabel(dict, 'website'), value: contact.website, icon: '\u{1F310}' })
+        if (contact.linkedin) contactEntries.push({ label: contactLabel(dict, 'linkedin'), value: contact.linkedin, icon: '\u{1F517}' })
+        if (contact.github) contactEntries.push({ label: contactLabel(dict, 'github'), value: contact.github, icon: '\u{1F4BB}' })
+        if (contact.location) contactEntries.push({ label: contactLabel(dict, 'location'), value: contact.location, icon: '\u{1F4CD}' })
 
         // One table, as the Preview's ContactItem rows: the label and value
         // right-aligned in the space left of the 32px icon badge, and the two
@@ -1643,7 +1644,7 @@ export async function generateModernDocx(
             // else the end year.
             const yearOf = (date: string) =>
               new Date(date + '-01').toLocaleDateString(locale as Locale, { year: 'numeric' })
-            const present = (dict as { resumes?: { editor?: { present?: string } } }).resumes?.editor?.present || 'Present'
+            const present = presentLabel(dict)
             const dateText = `${exp.startDate ? yearOf(exp.startDate) : ''} - ${
               exp.current ? present : exp.endDate ? yearOf(exp.endDate) : present
             }`

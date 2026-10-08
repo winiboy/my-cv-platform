@@ -1,6 +1,7 @@
 'use client'
 
 import type { ConfidenceLevel } from '@/types/cv-adaptation'
+import type { CVAdaptationStrings } from '@/lib/cv-adaptation-strings'
 
 interface DiffViewerProps {
   title: string
@@ -10,15 +11,17 @@ interface DiffViewerProps {
   reasoning: string
   isChecked: boolean
   onCheckChange: (checked: boolean) => void
-  dict?: {
-    currentVersion?: string
-    proposedVersion?: string
-    reasoning?: string
-    applyChange?: string
-    confidenceHigh?: string
-    confidenceMedium?: string
-    confidenceLow?: string
-  }
+  dict: Pick<
+    CVAdaptationStrings,
+    | 'currentVersion'
+    | 'proposedVersion'
+    | 'noContent'
+    | 'reasoning'
+    | 'applyChange'
+    | 'confidenceHigh'
+    | 'confidenceMedium'
+    | 'confidenceLow'
+  >
 }
 
 export function DiffViewer({
@@ -29,7 +32,7 @@ export function DiffViewer({
   reasoning,
   isChecked,
   onCheckChange,
-  dict = {},
+  dict,
 }: DiffViewerProps) {
   // Confidence badge styling
   const confidenceBadge = {
@@ -37,19 +40,19 @@ export function DiffViewer({
       bg: 'bg-green-100',
       text: 'text-green-800',
       border: 'border-green-300',
-      label: dict.confidenceHigh || 'High Confidence',
+      label: dict.confidenceHigh,
     },
     medium: {
       bg: 'bg-yellow-100',
       text: 'text-yellow-800',
       border: 'border-yellow-300',
-      label: dict.confidenceMedium || 'Medium Confidence',
+      label: dict.confidenceMedium,
     },
     low: {
       bg: 'bg-red-100',
       text: 'text-red-800',
       border: 'border-red-300',
-      label: dict.confidenceLow || 'Low Confidence',
+      label: dict.confidenceLow,
     },
   }
 
@@ -72,17 +75,17 @@ export function DiffViewer({
         {/* Current version */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
-            {dict.currentVersion || 'Current'}
+            {dict.currentVersion}
           </label>
           <div className="p-3 bg-gray-50 border border-gray-200 rounded-md min-h-[100px] text-sm text-gray-700 whitespace-pre-wrap">
-            {original || <span className="italic text-gray-400">No content</span>}
+            {original || <span className="italic text-gray-400">{dict.noContent}</span>}
           </div>
         </div>
 
         {/* Proposed version */}
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
-            {dict.proposedVersion || 'Proposed'}
+            {dict.proposedVersion}
           </label>
           <div className="p-3 bg-purple-50 border border-purple-200 rounded-md min-h-[100px] text-sm text-gray-900 whitespace-pre-wrap">
             {proposed}
@@ -93,7 +96,7 @@ export function DiffViewer({
       {/* Reasoning */}
       <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
         <p className="text-xs font-medium text-blue-900 mb-1">
-          {dict.reasoning || 'Reasoning'}:
+          {dict.reasoning}:
         </p>
         <p className="text-sm text-blue-800">{reasoning}</p>
       </div>
@@ -107,7 +110,7 @@ export function DiffViewer({
           className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
         />
         <span className="text-sm font-medium text-gray-700">
-          {dict.applyChange || 'Apply this change'}
+          {dict.applyChange}
         </span>
       </label>
     </div>

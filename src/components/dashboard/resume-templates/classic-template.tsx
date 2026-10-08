@@ -10,6 +10,7 @@ import type {
 } from '@/types/database'
 import { Fragment, type ReactNode } from 'react'
 import type { Locale } from '@/lib/i18n'
+import { presentLabel } from '@/lib/resume-template-strings'
 import { renderFormattedText } from '@/lib/format-text'
 import { PAGE_WIDTH_CSS } from '@/lib/resume-page-size'
 import {
@@ -180,13 +181,13 @@ export function ClassicTemplate({
                         })}
                       {' - '}
                       {exp.current
-                        ? 'Present'
+                        ? presentLabel(dict)
                         : exp.endDate
                           ? new Date(exp.endDate + '-01').toLocaleDateString(locale, {
                               month: 'short',
                               year: 'numeric',
                             })
-                          : 'Present'}
+                          : presentLabel(dict)}
                     </span>
                   </div>
                   <div className="flex items-baseline justify-between">
@@ -290,7 +291,7 @@ export function ClassicTemplate({
                             month: 'short',
                             year: 'numeric',
                           })
-                        : 'Present'}
+                        : presentLabel(dict)}
                     </span>
                   </div>
                   <p className="italic text-slate-700" style={{ fontSize: `${drawnSectionDescSize}px` }}>

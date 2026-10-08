@@ -12,16 +12,16 @@ export interface TemplatePickerStrings {
 
 /**
  * The `common.json -> resumes` entries the picker and the thumbnails read:
- * `templates` for the option names and descriptions, and `editor`, `template`
- * and `levels` for what the five templates draw (section headings, "present"
- * in date ranges, language levels).
+ * `templates` for the option names and descriptions, and `editor` and
+ * `template` for what the five templates draw (section headings, contact
+ * labels, "present" in date ranges, language levels).
  *
  * A template that starts reading another `resumes` key must have it added
  * here; the equivalence test beside this module renders every template in
  * every locale with this subset and with the whole dictionary, and fails when
  * the two differ.
  */
-const PICKER_RESUME_KEYS = ['templates', 'editor', 'template', 'levels'] as const
+const PICKER_RESUME_KEYS = ['templates', 'editor', 'template'] as const
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : undefined

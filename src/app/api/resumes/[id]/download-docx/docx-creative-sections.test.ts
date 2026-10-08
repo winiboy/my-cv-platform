@@ -4,6 +4,7 @@ import JSZip from 'jszip'
 import { describe, expect, it } from 'vitest'
 import { CreativeTemplate } from '@/components/dashboard/resume-templates/creative-template'
 import { mapEditorOrderToCreative, resolveResumeLayout } from '@/lib/layout-settings'
+import en from '@/locales/en/common.json'
 import type { Resume } from '@/types/database'
 import { generateCreativeDocx } from './docx-creative'
 import type { DocxGeneratorSettings } from './docx-helpers'
@@ -128,7 +129,9 @@ function previewMarkup(row: ResumeRow): string {
     createElement(CreativeTemplate, {
       resume: row as unknown as Resume,
       locale: 'en',
-      dict: {},
+      // The dictionary every Preview surface hands the template; the Word side
+      // reads the same one through `settingsFor`'s locale.
+      dict: en,
       sidebarOrder: creative.creativeSidebarOrder,
       mainContentOrder: creative.creativeMainOrder,
       hiddenSidebarSections: creative.hiddenCreativeSidebar,

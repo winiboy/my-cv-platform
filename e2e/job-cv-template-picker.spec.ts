@@ -253,7 +253,7 @@ test('fr "Créer un CV": the picker defaults to Professional, is frozen while cr
   // The picker sits between the company field and the submit button.
   const order = await page.evaluate((submitLabel) => {
     const group = document.querySelector('[role="radiogroup"]')
-    const company = document.querySelector('input[placeholder="e.g., Google"]')
+    const company = document.querySelector('input[placeholder="ex. : Google"]')
     const submit = Array.from(document.querySelectorAll('button')).find((button) => button.textContent?.trim() === submitLabel)
     if (!group || !company || !submit) return null
     return {

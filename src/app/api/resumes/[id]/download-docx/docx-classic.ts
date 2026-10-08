@@ -1,4 +1,5 @@
 import { getTranslations, type Locale } from '@/lib/i18n'
+import { presentLabel } from '@/lib/resume-template-strings'
 import {
   Document,
   Packer,
@@ -48,10 +49,10 @@ import {
 // TRANSLATION DICTIONARY (matching classic-template.tsx section labels)
 // ============================================================
 const CLASSIC_DICT: Record<string, Record<string, string>> = {
-  fr: { summary: 'Résumé', experience: 'Expérience', education: 'Formation', skills: 'Compétences', languages: 'Langues', certifications: 'Certifications', projects: 'Projets', present: 'Présent' },
-  en: { summary: 'Summary', experience: 'Experience', education: 'Education', skills: 'Skills', languages: 'Languages', certifications: 'Certifications', projects: 'Projects', present: 'Present' },
-  de: { summary: 'Zusammenfassung', experience: 'Erfahrung', education: 'Ausbildung', skills: 'Fähigkeiten', languages: 'Sprachen', certifications: 'Zertifizierungen', projects: 'Projekte', present: 'Gegenwart' },
-  it: { summary: 'Riepilogo', experience: 'Esperienza', education: 'Formazione', skills: 'Competenze', languages: 'Lingue', certifications: 'Certificazioni', projects: 'Progetti', present: 'Presente' },
+  fr: { summary: 'Résumé', experience: 'Expérience', education: 'Formation', skills: 'Compétences', languages: 'Langues', certifications: 'Certifications', projects: 'Projets' },
+  en: { summary: 'Summary', experience: 'Experience', education: 'Education', skills: 'Skills', languages: 'Languages', certifications: 'Certifications', projects: 'Projects' },
+  de: { summary: 'Zusammenfassung', experience: 'Erfahrung', education: 'Ausbildung', skills: 'Fähigkeiten', languages: 'Sprachen', certifications: 'Zertifizierungen', projects: 'Projekte' },
+  it: { summary: 'Riepilogo', experience: 'Esperienza', education: 'Formazione', skills: 'Competenze', languages: 'Lingue', certifications: 'Certificazioni', projects: 'Progetti' },
 }
 
 // ============================================================
@@ -490,10 +491,10 @@ export async function generateClassicDocx(
             const dateText = exp.startDate
               ? `${new Date(exp.startDate + '-01').toLocaleDateString(locale as Locale, { month: 'short', year: 'numeric' })} - ${
                   exp.current
-                    ? classicDict.present
+                    ? presentLabel(dict)
                     : exp.endDate
                       ? new Date(exp.endDate + '-01').toLocaleDateString(locale as Locale, { month: 'short', year: 'numeric' })
-                      : classicDict.present
+                      : presentLabel(dict)
                 }`
               : ''
 
@@ -689,7 +690,7 @@ export async function generateClassicDocx(
               ? `${new Date(edu.startDate + '-01').toLocaleDateString(locale as Locale, { month: 'short', year: 'numeric' })} - ${
                   edu.endDate
                     ? new Date(edu.endDate + '-01').toLocaleDateString(locale as Locale, { month: 'short', year: 'numeric' })
-                    : classicDict.present
+                    : presentLabel(dict)
                 }`
               : ''
 

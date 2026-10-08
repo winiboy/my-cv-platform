@@ -708,7 +708,7 @@ export async function generateProfessionalDocx(
               ? (isLastSection ? 0 : sectionSpacingAfter)
               : pxToTwips(8)
 
-            const levelText = (dict as any).resumes?.levels?.[lang.level] || lang.level
+            const levelText = (dict as any).resumes?.editor?.levels?.[lang.level?.toLowerCase()] || lang.level
             sidebarParagraphs.push(
               new Paragraph({
                 children: [

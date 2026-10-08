@@ -10,6 +10,7 @@ import type {
   ResumeProject,
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
+import { presentLabel } from '@/lib/resume-template-strings'
 import { renderFormattedText } from '@/lib/format-text'
 import { PAGE_WIDTH_CSS } from '@/lib/resume-page-size'
 import {
@@ -301,13 +302,13 @@ export function CreativeTemplate({
                         })}
                       {' - '}
                       {exp.current
-                        ? 'Present'
+                        ? presentLabel(dict)
                         : exp.endDate
                           ? new Date(exp.endDate + '-01').toLocaleDateString(locale, {
                               month: 'short',
                               year: 'numeric',
                             })
-                          : 'Present'}
+                          : presentLabel(dict)}
                     </div>
                   </div>
 
@@ -407,7 +408,7 @@ export function CreativeTemplate({
                           month: 'short',
                           year: 'numeric',
                         })
-                      : 'Present'}
+                      : presentLabel(dict)}
                   </div>
                 </div>
               ))}
