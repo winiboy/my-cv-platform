@@ -1,0 +1,42 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "ralph/remove-legacy-resume-routes",
+  "description": "The unlinked legacy resume routes under `/[locale]/resumes/*` are removed. Each old URL permanently redirects to its live `/[locale]/dashboard/...` equivalent, and the code and translation keys only those routes used are deleted.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Old resume URLs land on the live pages",
+      "description": "As anyone holding an old `/[locale]/resumes/...` URL, I want to land on the live dashboard page, so that bookmarks keep working while the duplicate code is gone.",
+      "acceptanceCriteria": [
+        "For each of fr, en, de and it, requesting each of the five legacy paths answers 308 with a `Location` header equal to the live equivalent in the table above. `:id` is preserved. `from-job` goes to `/:locale/dashboard/jobs`.",
+        "Following each redirect while signed in reaches the live page with HTTP 200. While signed out, the middleware's existing login redirect applies.",
+        "The five legacy `page.tsx` files and the three legacy-only components no longer exist. A grep of `src/` and `e2e/` finds no import of them.",
+        "`resumes.fromJob` is absent from all four `common.json` files. The locale-parity tests pass, and a grep finds no code reading `fromJob`.",
+        "`e2e/security-headers.spec.ts` visits `/en/dashboard/resumes/:id/edit` and `/preview`, with every header assertion unchanged, and passes.",
+        "`pnpm build` lists no `/[locale]/resumes` route outside `/dashboard`.",
+        "FR-1: All redirects are permanent (308) and declared once in `next.config.js`. The locale segment is limited to `fr|en|de|it`.",
+        "FR-2: No live page, component or translation key that a live page uses is modified.",
+        "FR-3: Deletion is preceded by a recorded grep proving there is no other importer or reader.",
+        "Regression constraint: `/[locale]/dashboard/resumes`, `/new`, `/[id]/edit` and `/[id]/preview`, and `/dashboard/jobs`, behave exactly as before.",
+        "Regression constraint: All existing e2e, visual and unit assertions pass. The only spec edited is `security-headers.spec.ts`, and only its two URLs change.",
+        "Verification: The `CLAUDE.md` §14 baseline (`pnpm build` route list recorded).",
+        "Verification: A redirect e2e over 4 locales × 5 paths, checking status and `Location`.",
+        "Verification: The retargeted security-headers e2e.",
+        "Verification: The greps (imports, `fromJob`) recorded in `progress.txt`.",
+        "Verification: `code-reviewer`. `ui-expert` is NOT_APPLICABLE unless a live page changes.",
+        "FAIL condition: Any legacy URL returning 404, 200 or a non-permanent redirect.",
+        "FAIL condition: Any live page or live translation key changed.",
+        "FAIL condition: A header assertion removed or weakened.",
+        "BLOCKER condition: A remaining importer or reader of a component or key planned for deletion turns up.",
+        "BLOCKER condition: Next.js `redirects()` cannot express the locale constraint. Report it before choosing another mechanism.",
+        "Out of scope: The live `/dashboard/resumes/*` pages, their components, and any behaviour change on them.",
+        "Out of scope: Middleware changes. Redirects go in `next.config.js`.",
+        "Out of scope: Any other route clean-up (cover letters, tools…).",
+        "Out of scope: Removing translation keys that the live pages still use (`resumes.new.*`, `resumes.errors.*`, …)."
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}
