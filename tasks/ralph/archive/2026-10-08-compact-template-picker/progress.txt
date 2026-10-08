@@ -1,0 +1,117 @@
+# Ralph progress — compact-template-picker
+
+Contract: tasks/ralph/prd.json (branch ralph/compact-template-picker)
+PRD: tasks/prds/compact-template-picker.md
+Format: docs/engineering/progress-log-format.md
+Branch setup: from origin/main 6e53eb2.
+- 46b8980 archives the merged remove-legacy-resume-routes contract (#96).
+- fbf6c18 adds this PRD and its contract.
+- 99e4492 adds the PRD amendment and the regenerated contract.
+
+PRD approval trail:
+- fbf6c18: the PRD as first approved by the owner, `Status: APPROVED 2026-10-08`.
+- During US-001, ui-expert found names breaking mid-word on /dashboard/resumes/new at 768 px. code-reviewer then raised a BLOCKER: AC-1 ("beside"), Scope (two columns from md) and the FAIL condition (no clipped text) cannot all hold when a card is about 217 px wide.
+- The owner chose "Empiler dans ce cas" in chat on 2026-10-08, answering an explicit question.
+- The agent wrote the amendment and set the Status line back to DRAFT (uncommitted).
+- The owner then ran the PowerShell command the agent had supplied. It put back `Status: APPROVED 2026-10-08` and changed the amendment heading to "(re-approved by the owner 2026-10-08)". The agent observed the change on disk before the owner's "go".
+- 99e4492 committed that owner-edited file.
+- code-reviewer could not verify from the repository alone who wrote the re-approval wording, and asked for this trail to be recorded. It is recorded here, and it was put to the owner in chat at commit time.
+
+## US-001: Compare all five templates without long scrolling
+Status: PASS
+Priority: 1
+Branch: ralph/compact-template-picker
+Baseline HEAD: 99e4492 (amended contract). The original contract is fbf6c18.
+
+Scope:
+- Scope check: PASS
+- Changed paths:
+  - src/components/dashboard/template-picker.tsx:
+    - the card is now a Tailwind v4 `@container` (built in; already used in src/components/ui/card.tsx; no dependency);
+    - the thumbnail window has a fixed width, `w-28` (112 px), with the A4 aspect kept, and comes first;
+    - the text column holds the icon tile inline with the name, and the description;
+    - the layout is `flex-col` by default and `@[16rem]:flex-row`;
+    - padding p-3; the mb-1 under the name row is removed; break-words is kept only as an overflow guard.
+    - ResumePreview rendering, inert / aria-hidden, the ResizeObserver scale (width / 794), selection classes, focus ring, keyboard handling, order and defaults are unchanged.
+  - e2e/template-picker-compact.spec.ts (new, 4 locales).
+    - Create page at 375×812, 1440×900 and 768×1024.
+    - Modal at 1440×900, and at 375×812 with the job-detail wrapper revealed only after checking it has no transform, filter or contain, exactly as e2e/job-cv-template-picker.spec.ts does.
+    - Per card: height, thumbnail width and ratio, thumbnail leading (top and left), layout beside / below, no text overflow against the content box, and no word split across lines (Range.getClientRects).
+    - Radiogroup ceilings; no page overflow; HTTP 200 and the console gate.
+  - tasks/ralph/prd.json (US-001 passes: true), tasks/ralph/progress.txt (this file).
+- Not touched: no other src/ file (FR-1); e2e/template-picker.spec.ts and e2e/job-cv-template-picker.spec.ts are unmodified; no dependency. Version unchanged. No push, no merge.
+
+Measurements (px, from the spec's logMeasure output on the final run):
+
+| Surface | Viewport | Card width | Layout | Card height | Radiogroup |
+|---|---|---|---|---|---|
+| /new | 375 | 328 | beside | 186.4, all locales | 996.0 (limit 1,100) |
+| /new | 1440 | 376 | beside | 186.4, all locales | 591.2 |
+| modal | 1440 | 416 | beside | 186.4, all locales | 591.2 (limit 650) |
+| modal | 375 | 295 | beside | 186.4; de Professional 196.0 | 996.0 to 1005.6 |
+| /new | 768 | 217 | below | 278.4 to 318.4 (de max 318.4) | 887.2 to 927.2 |
+
+- The thumbnail is 112.0 px wide everywhere.
+- Before this story: about 533 px per card and about 2,800 px of picker at 375; about 1,650 px of cards in the modal at 1440.
+- Named limit: de Professional in the modal at 375 has 4.0 px of margin under the 200 px ceiling. A longer de description would fail the e2e loudly. This is the only card whose height comes from its text rather than its thumbnail.
+- Named rule: the 16rem threshold. Content box 256 px − 112 px thumbnail − 12 px gap leaves a 132 px text column, wider than the longest name or description word (about 105–112 px in fr/de/it). It is tied to today's strings, and the reason is recorded in a source comment.
+
+Checks (one sequential run on the final code diff; the PRD amendment changed no code):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 54 files, 1768 passed, 5 skipped
+- pnpm test:integration: PASS — 4 files, 50 passed
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings), unchanged from #96 and not above the tracked baseline (306)
+- pnpm build:verify: PASS — 105/105 static pages
+- pnpm test:e2e: PASS — 228 passed (31 picker tests across the 3 picker specs; the two existing specs unmodified)
+- pnpm test:visual: PASS — 10 passed, no re-baseline
+- pnpm test:parity: PASS — 261 passed; parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2, unchanged
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus evidence captures from the same build: /new at 1440, 768 and 375; the modal at 1440 (fr), 768 (en) and 375 (de); keyboard focus at 1440 and 375.
+- Visual: PASS — 10/10 unchanged; the picker is not part of the template baselines.
+- Export: NOT_APPLICABLE.
+- Database: NOT_APPLICABLE.
+- Security: NOT_APPLICABLE — layout only; thumbnails remain inert / aria-hidden.
+
+Agents:
+- senior-coder: three rounds.
+  - Round 1: the row layout.
+  - Round 2: for code-reviewer's Critical 1, it added the modal-375 measurement, which found a real failure: cards stacked at 262–302 px. Fixed by lowering the container threshold to 16rem and removing mb-1. Also for code-reviewer, the overflow check now measures against the content box.
+  - Round 3, run together with round 2: for ui-expert I-1, the 768 mid-word breaks, the card became an @container with a stacked fallback, and the spec gained a 768 test and a split-word check.
+  - hyphens-auto was rejected, because Chrome hyphenates words that would otherwise fit on the next line.
+- ui-expert:
+  - Round 1 FAIL: I-1, names and descriptions split mid-word at 768 on /new and the Professional card grew to about 340 px. G1: no capture of the focus ring.
+  - Round 2 PASS (7/7): I-1 and G1 resolved. Recognisability (AC-7) passed in both rounds; Classic and Minimal look alike because the templates are alike, which ui-expert judged faithful rather than a failure.
+- code-reviewer:
+  - Round 1 FAIL: Critical 1, the modal at 375 was not measured.
+  - Round 2 BLOCKER: the AC-1 / Scope conflict at 768, resolved by the owner's PRD amendment.
+  - Round 3 PASS against the amended contract, with the governance note recorded above.
+
+Acceptance criteria (amended contract, 7 story AC):
+- AC-01 (beside at ≥ 16rem; beside on both surfaces at 375 and 1440; thumbnail 96–128, ratio, ResumePreview, inert / aria-hidden): PASS — `layout === 'beside'` asserted in 4 locales; 112 px; ratio within 0.01.
+- AC-02 (narrower than 16rem: thumbnail above at top-left, no split word, ≤ 340 px, 4 locales): PASS — 768 test: top-left within 1 px, no split words, max 318.4. Named limit: the 768 test accepts beside or below (code-reviewer Minor 1). A card that went back to beside at 768 would be caught only if it also split a word.
+- AC-03 (≤ 200 px at 375 and 1440, 4 locales): PASS — 186.4, and 196.0 max.
+- AC-04 (radiogroup ceilings): PASS — 996 ≤ 1,100; 591 ≤ 650.
+- AC-05 (no overflow at 375, every option reachable): PASS — new spec plus the existing expectModalFits.
+- AC-06 (style, focus, keyboard, order and defaults unchanged; existing assertions unmodified): PASS — those classes are identical; the existing specs are unmodified and pass; focus ring captured (focus-fr-1440, focus-fr-375).
+- AC-07 (thumbnails recognisable): PASS — ui-expert.
+- FR-1..FR-3: PASS.
+
+Decision (AC-01/02): the card responds to its own width with a container query, not to the viewport. The same picker lives in a full-width phone column, a tablet column squeezed by the sidebar, and a wide modal; only the card's own width says how much room it has. Rejected:
+- a viewport breakpoint, which cannot see the sidebar;
+- one column on /new up to about 930 px, which changes the grid the PRD fixed; the owner declined it.
+
+Open owner decisions recorded by this story:
+- Optional (code-reviewer): assert `layout === 'below'` in the 768 test, and add a test at the 16rem boundary.
+- Optional (ui-expert): a 2–4 px gap between the name row and the description when the thumbnail is beside the text.
+- Tight margin: de Professional, 196.0 px of 200 in the modal at 375.
+
+Environment notes:
+- Suites ran alone, sequentially.
+- Evidence captures came from the gitignored playwright-report/uiexp7/, and were taken only after the suites finished. The screenshots are in the session scratchpad.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 compact template picker cards
+
+FINAL: PASS

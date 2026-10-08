@@ -1,117 +1,121 @@
-# Ralph progress — compact-template-picker
+# Ralph progress — job-search-mobile-detail
 
-Contract: tasks/ralph/prd.json (branch ralph/compact-template-picker)
-PRD: tasks/prds/compact-template-picker.md
+Contract: tasks/ralph/prd.json (branch ralph/job-search-mobile-detail)
+PRD: tasks/prds/job-search-mobile-detail.md
 Format: docs/engineering/progress-log-format.md
-Branch setup: from origin/main 6e53eb2.
-- 46b8980 archives the merged remove-legacy-resume-routes contract (#96).
-- fbf6c18 adds this PRD and its contract.
-- 99e4492 adds the PRD amendment and the regenerated contract.
+Branch setup: from origin/main 7017f15.
+- 3526217 archives the merged compact-template-picker contract (#97).
+- 5b22094 adds this PRD and its contract.
+- a1f3431 adds the PRD amendment and the regenerated contract.
 
 PRD approval trail:
-- fbf6c18: the PRD as first approved by the owner, `Status: APPROVED 2026-10-08`.
-- During US-001, ui-expert found names breaking mid-word on /dashboard/resumes/new at 768 px. code-reviewer then raised a BLOCKER: AC-1 ("beside"), Scope (two columns from md) and the FAIL condition (no clipped text) cannot all hold when a card is about 217 px wide.
-- The owner chose "Empiler dans ce cas" in chat on 2026-10-08, answering an explicit question.
-- The agent wrote the amendment and set the Status line back to DRAFT (uncommitted).
+- 5b22094: the PRD as first approved by the owner, `Status: APPROVED 2026-10-08`.
+- Implementing US-001 showed that tapping a job necessarily selects it, so after coming back the highlighted card is the job just viewed, not the one highlighted before the tap. The AC said "as they were before the tap".
+- The owner chose "L'offre consultée" in chat on 2026-10-08, answering an explicit question.
+- The agent amended that one AC and set the Status line back to DRAFT (uncommitted).
 - The owner then ran the PowerShell command the agent had supplied. It put back `Status: APPROVED 2026-10-08` and changed the amendment heading to "(re-approved by the owner 2026-10-08)". The agent observed the change on disk before the owner's "go".
-- 99e4492 committed that owner-edited file.
-- code-reviewer could not verify from the repository alone who wrote the re-approval wording, and asked for this trail to be recorded. It is recorded here, and it was put to the owner in chat at commit time.
+- a1f3431 committed that owner-edited file.
 
-## US-001: Compare all five templates without long scrolling
+## US-001: Open a job's details on a phone and come back to the same results
 Status: PASS
 Priority: 1
-Branch: ralph/compact-template-picker
-Baseline HEAD: 99e4492 (amended contract). The original contract is fbf6c18.
+Branch: ralph/job-search-mobile-detail
+Baseline HEAD: a1f3431
 
 Scope:
 - Scope check: PASS
 - Changed paths:
-  - src/components/dashboard/template-picker.tsx:
-    - the card is now a Tailwind v4 `@container` (built in; already used in src/components/ui/card.tsx; no dependency);
-    - the thumbnail window has a fixed width, `w-28` (112 px), with the A4 aspect kept, and comes first;
-    - the text column holds the icon tile inline with the name, and the description;
-    - the layout is `flex-col` by default and `@[16rem]:flex-row`;
-    - padding p-3; the mb-1 under the name row is removed; break-words is kept only as an overflow guard.
-    - ResumePreview rendering, inert / aria-hidden, the ResizeObserver scale (width / 794), selection classes, focus ring, keyboard handling, order and defaults are unchanged.
-  - e2e/template-picker-compact.spec.ts (new, 4 locales).
-    - Create page at 375×812, 1440×900 and 768×1024.
-    - Modal at 1440×900, and at 375×812 with the job-detail wrapper revealed only after checking it has no transform, filter or contain, exactly as e2e/job-cv-template-picker.spec.ts does.
-    - Per card: height, thumbnail width and ratio, thumbnail leading (top and left), layout beside / below, no text overflow against the content box, and no word split across lines (Range.getClientRects).
-    - Radiogroup ceilings; no page overflow; HTTP 200 and the console gate.
+  - src/components/jobs/job-search-layout.tsx:
+    - Phone-only open state (useIsMobile, max-width 767px = the md breakpoint, FR-1).
+    - One history.pushState({ jobSearchDetailJobId }) with no URL per opened detail. A popstate listener closes the detail; a forward step reopens it only if that job is still loaded.
+    - Header, filters and list stay mounted and are hidden with CSS while a detail is open. The list's scrollTop is saved on open and restored in a layout effect.
+    - On close, focus moves to the list scroll container. Its tabIndex -1 is set on phone only.
+  - src/components/jobs/job-detail-panel.tsx:
+    - New optional onBackToResults prop. When set, it renders a md:hidden back control, min-h-11 min-w-11, focused on open, and the detail scrolls to the top. That effect's deps are [hasBackControl, job.id].
+    - Phone-mode-only classes on the two CV actions: col-span-2 sm:col-span-1, with label truncation from sm only (sm:truncate).
+  - src/components/jobs/job-list.tsx: new optional scrollContainerRef and scrollContainerTabIndex props.
+  - src/locales/{fr,en,de,it}/jobs.json: +backToResults, 1 line added per file ("Retour aux résultats" / "Back to results" / "Zurück zu den Ergebnissen" / "Torna ai risultati").
+  - e2e/job-search-mobile.spec.ts: new, 7 tests.
+  - e2e/job-cv-template-picker.spec.ts: the 375 px test now taps the card instead of force-unhiding the panel. This is the exception the PRD names. All modal assertions are kept; the containing-block guard now walks every ancestor, which is stronger.
+  - e2e/template-picker-compact.spec.ts (added by #97): its modal-375 tests got the same change, tap instead of force-unhide. Every assertion is kept, including toBeHidden() before the tap, and the guard is strengthened the same way.
+    - Scope note: the PRD's regression constraint names only job-cv-template-picker.spec.ts as an exception.
+    - code-reviewer confirmed this edit is within "every existing e2e keeps its assertions": only the way the modal is reached changed. The force-unhide existed solely to reach a panel phones could not open, and this story removes that limit.
   - tasks/ralph/prd.json (US-001 passes: true), tasks/ralph/progress.txt (this file).
-- Not touched: no other src/ file (FR-1); e2e/template-picker.spec.ts and e2e/job-cv-template-picker.spec.ts are unmodified; no dependency. Version unchanged. No push, no merge.
+- At 768 px and up, with the detail closed, DOM and classes are unchanged, per code-reviewer's per-class check:
+  - cn(base, undefined) returns the original class strings;
+  - no back control, no col-span-2, labels keep `truncate`, no list tabindex, no history entry on select.
+  - The 768 and 1440 e2e tests assert these.
+- Not touched: actions logic, modals, card markup, other pages. No dependency (FR-5). Version unchanged. No push, no merge.
 
-Measurements (px, from the spec's logMeasure output on the final run):
-
-| Surface | Viewport | Card width | Layout | Card height | Radiogroup |
-|---|---|---|---|---|---|
-| /new | 375 | 328 | beside | 186.4, all locales | 996.0 (limit 1,100) |
-| /new | 1440 | 376 | beside | 186.4, all locales | 591.2 |
-| modal | 1440 | 416 | beside | 186.4, all locales | 591.2 (limit 650) |
-| modal | 375 | 295 | beside | 186.4; de Professional 196.0 | 996.0 to 1005.6 |
-| /new | 768 | 217 | below | 278.4 to 318.4 (de max 318.4) | 887.2 to 927.2 |
-
-- The thumbnail is 112.0 px wide everywhere.
-- Before this story: about 533 px per card and about 2,800 px of picker at 375; about 1,650 px of cards in the modal at 1440.
-- Named limit: de Professional in the modal at 375 has 4.0 px of margin under the 200 px ceiling. A longer de description would fail the e2e loudly. This is the only card whose height comes from its text rather than its thumbnail.
-- Named rule: the 16rem threshold. Content box 256 px − 112 px thumbnail − 12 px gap leaves a 132 px text column, wider than the longest name or description word (about 105–112 px in fr/de/it). It is tied to today's strings, and the reason is recorded in a source comment.
-
-Checks (one sequential run on the final code diff; the PRD amendment changed no code):
+Checks (one sequential run on the final diff):
 - pnpm typecheck: PASS — exit 0
 - pnpm test: PASS — 54 files, 1768 passed, 5 skipped
 - pnpm test:integration: PASS — 4 files, 50 passed
-- pnpm lint: PASS — 290 problems (221 errors, 69 warnings), unchanged from #96 and not above the tracked baseline (306)
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); per-file counts equal to HEAD (layout 4, panel 5, list 1, new spec 0); not above the tracked baseline (306)
 - pnpm build:verify: PASS — 105/105 static pages
-- pnpm test:e2e: PASS — 228 passed (31 picker tests across the 3 picker specs; the two existing specs unmodified)
+- pnpm test:e2e: PASS — 235 passed
 - pnpm test:visual: PASS — 10 passed, no re-baseline
 - pnpm test:parity: PASS — 261 passed; parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2, unchanged
 
 Specialized validation:
-- Browser: PASS — the e2e above, plus evidence captures from the same build: /new at 1440, 768 and 375; the modal at 1440 (fr), 768 (en) and 375 (de); keyboard focus at 1440 and 375.
-- Visual: PASS — 10/10 unchanged; the picker is not part of the template baselines.
-- Export: NOT_APPLICABLE.
-- Database: NOT_APPLICABLE.
-- Security: NOT_APPLICABLE — layout only; thumbnails remain inert / aria-hidden.
+- Browser: PASS — e2e/job-search-mobile.spec.ts at 375×812 (fr, plus en for the label). /api/jobs is stubbed with enough results for a second page; the external fetch is stubbed; AI routes are recorded and aborted, and every test asserts none was called.
+  - List first; tap shows the detail in place of the list, filling main's content box within 1 px, with the list and search hidden and no overflow.
+  - The back control sits above the title, is localized, at least 44 px, focused on open, and works with Enter. Afterwards focus is on the list container.
+  - The list returns in the same state: query, type, 40 cards (second page loaded), highlight = the job just viewed, and scrollTop within 1 px. Opening and closing sends no extra /api/jobs request.
+  - page.goBack() returns to the same state on the same URL. A second goBack leaves to /fr/dashboard. History length grows by exactly 1 per opening.
+  - The four actions work: the apply popup URL, save → "Enregistré", and both modals open, fit (all five template options reachable) and close back to the detail. The labels are not truncated in fr and de.
+  - Tapping another job (27 after 29) shows that job.
+  - At 768 and 1440: side by side, first job auto-selected, no back control, no history entry.
+  - HTTP 200 and the console gate in every test.
+- Visual: PASS — test:visual 10/10 unchanged.
+- Export, Database, Security: NOT_APPLICABLE.
 
 Agents:
-- senior-coder: three rounds.
-  - Round 1: the row layout.
-  - Round 2: for code-reviewer's Critical 1, it added the modal-375 measurement, which found a real failure: cards stacked at 262–302 px. Fixed by lowering the container threshold to 16rem and removing mb-1. Also for code-reviewer, the overflow check now measures against the content box.
-  - Round 3, run together with round 2: for ui-expert I-1, the 768 mid-word breaks, the card became an @container with a stacked fallback, and the spec gained a 768 test and a split-word check.
-  - hyphens-auto was rejected, because Chrome hyphenates words that would otherwise fit on the next line.
+- senior-coder: two rounds.
+  - Round 1: the implementation. Chromium did not keep the hidden list's scroll position, so an explicit save and restore was added.
+  - Round 2: ui-expert I-1, plus code-reviewer Minors 1, 4 and 5.
 - ui-expert:
-  - Round 1 FAIL: I-1, names and descriptions split mid-word at 768 on /new and the Professional card grew to about 340 px. G1: no capture of the focus ring.
-  - Round 2 PASS (7/7): I-1 and G1 resolved. Recognisability (AC-7) passed in both rounds; Classic and Minimal look alike because the templates are alike, which ui-expert judged faithful rather than a failure.
-- code-reviewer:
-  - Round 1 FAIL: Critical 1, the modal at 375 was not measured.
-  - Round 2 BLOCKER: the AC-1 / Scope conflict at 768, resolved by the owner's PRD amendment.
-  - Round 3 PASS against the amended contract, with the governance note recorded above.
+  - Round 1 FAIL, I-1: at 375 the CV action labels were truncated ("Adapter m…"; de "Meinen Le…" and "Lebenslau…", which cannot be told apart). The markup predates this story, but the story is what made the panel visible on phones.
+  - Round 2 PASS (7/7).
+- code-reviewer: PASS in both rounds.
+  - Minors 1, 4 and 5 were fixed in round 2. The fixes moved focus to the list on close, made the scroll reset follow job.id, and turned the AI-route guard into a recorded, asserted check.
+  - Minors 2, 3 and 6 are recorded below as known limits.
+  - Final note: half of the 375 label check (scrollWidth versus clientWidth on an inline span) is vacuous for the two CV labels. The insideButton half still guards against overflow.
 
-Acceptance criteria (amended contract, 7 story AC):
-- AC-01 (beside at ≥ 16rem; beside on both surfaces at 375 and 1440; thumbnail 96–128, ratio, ResumePreview, inert / aria-hidden): PASS — `layout === 'beside'` asserted in 4 locales; 112 px; ratio within 0.01.
-- AC-02 (narrower than 16rem: thumbnail above at top-left, no split word, ≤ 340 px, 4 locales): PASS — 768 test: top-left within 1 px, no split words, max 318.4. Named limit: the 768 test accepts beside or below (code-reviewer Minor 1). A card that went back to beside at 768 would be caught only if it also split a word.
-- AC-03 (≤ 200 px at 375 and 1440, 4 locales): PASS — 186.4, and 196.0 max.
-- AC-04 (radiogroup ceilings): PASS — 996 ≤ 1,100; 591 ≤ 650.
-- AC-05 (no overflow at 375, every option reachable): PASS — new spec plus the existing expectModalFits.
-- AC-06 (style, focus, keyboard, order and defaults unchanged; existing assertions unmodified): PASS — those classes are identical; the existing specs are unmodified and pass; focus ring captured (focus-fr-1440, focus-fr-375).
-- AC-07 (thumbnails recognisable): PASS — ui-expert.
-- FR-1..FR-3: PASS.
+Acceptance criteria (amended contract, 9 story AC):
+- AC-01 (375: list first, no detail): PASS — e2e; captures fr/de-375-list.
+- AC-02 (tap → detail full-width in place of the list, no overflow): PASS — e2e geometry checks; captures fr/de-375-detail.
+- AC-03 (back control at top, localized ×4, ≥ 44×44, keyboard): PASS — e2e; jobs.json ×4.
+- AC-04 (back restores filters, loaded results and scroll; highlight = the job just viewed): PASS — e2e, with the second page loaded and scrollTop within 1 px.
+- AC-05 (browser back keeps state and stays on the page; a second back leaves): PASS — e2e.
+- AC-06 (four actions visible and working at 375; both modals open, fit and close back to the detail): PASS — e2e, with full labels in fr and de; ui-expert captures.
+- AC-07 (another job after coming back): PASS — e2e.
+- AC-08 (768 and 1440 unchanged, no back control): PASS — e2e assertions plus the per-class check.
+- AC-09 (HTTP 200, no hydration or React error): PASS — e2e.
+- FR-1..FR-5: PASS.
 
-Decision (AC-01/02): the card responds to its own width with a container query, not to the viewport. The same picker lives in a full-width phone column, a tablet column squeezed by the sidebar, and a wide modal; only the card's own width says how much room it has. Rejected:
-- a viewport breakpoint, which cannot see the sidebar;
-- one column on /new up to about 930 px, which changes the grid the PRD fixed; the owner declined it.
+Decision (FR-2): history.pushState with no URL, so the on-screen control calls history.back() and a popstate listener closes the detail. Before relying on it, Next 15.5.26 app-router.js was read:
+- its patched pushState only copies __NA and the route tree when no URL is given;
+- on popstate it restores the same href and tree, so nothing remounts.
+Rejected: a `?job=` query or a /dashboard/jobs/[id] route. Deep links are out of scope, and a route change would remount the page and lose the in-memory results.
+
+Decision (layout): keep the list mounted and hide it with CSS while the detail is open. Unmounting would lose the loaded pages, and the hidden IntersectionObserver sentinel cannot fire. The header and filters are hidden too, so a filter change cannot reload results under an open detail.
+
+Known limits recorded by this story (code-reviewer Minors 2, 3, 6; not blocking):
+- Opening a detail at 375 and resizing past 768 leaves a stale open state: one back press does nothing visible. Opening a detail, following a sidebar link, then pressing back lands on a detail entry with the layout remounted closed.
+- Ghost tap: on a fast double tap, the second tap can land on the detail content that just appeared under the finger.
+- The FR-3 ancestor guard in the specs checks transform, filter and contain, but not will-change, perspective or backdrop-filter.
 
 Open owner decisions recorded by this story:
-- Optional (code-reviewer): assert `layout === 'below'` in the 768 test, and add a test at the 16rem boundary.
-- Optional (ui-expert): a 2–4 px gap between the name row and the description when the thumbnail is beside the text.
-- Tight margin: de Professional, 196.0 px of 200 in the modal at 375.
+- Optional polish (ui-expert): an on-brand focus ring on the list container after a keyboard close, instead of the UA outline.
+- Pre-existing English on Job Search ("All Cantons", "Live Data", "All N jobs loaded", "Preview", "View Full Job Details", the help card), and the detail panel's clipped right edge at 768. Out of scope here.
+- Cards are still not keyboard-operable on any width. This was out of scope.
 
 Environment notes:
-- Suites ran alone, sequentially.
-- Evidence captures came from the gitignored playwright-report/uiexp7/, and were taken only after the suites finished. The screenshots are in the session scratchpad.
+- Suites ran alone, sequentially. Evidence captures ran afterwards from the gitignored playwright-report/uiexp8/ and were removed after.
 
 Commit:
 - Story commit: THIS_COMMIT
-- Commit message: ralph: US-001 compact template picker cards
+- Commit message: ralph: US-001 job details and actions reachable on phones
 
 FINAL: PASS

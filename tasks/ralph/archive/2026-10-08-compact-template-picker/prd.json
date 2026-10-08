@@ -1,0 +1,43 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "ralph/compact-template-picker",
+  "description": "The shared template picker becomes about three times shorter. Each card puts a small live thumbnail beside the template's name and description, so that all five templates and the submit button fit in far less scrolling on `/dashboard/resumes/new` and in the \"Create CV from Job\" modal.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Compare all five templates without long scrolling",
+      "description": "As a user creating a CV, I want compact template cards, so that I can see and compare the templates and reach the create button quickly.",
+      "acceptanceCriteria": [
+        "When the card's content box is at least 16rem wide, the card shows its thumbnail beside the name and description, with the thumbnail on the leading side. On the create page at 375 and 1440 px, and in the modal at 375 and 1440 px, every card uses this layout. In every layout, the thumbnail window is 96–128 px wide, has a 297:210 ratio within 0.01, is still drawn by `ResumePreview`, and is `inert` and `aria-hidden`.",
+        "When the card's content box is narrower than 16rem (for example `/dashboard/resumes/new` at 768×1024), the thumbnail sits above the name and description, at the top-left. No name or description word is split across lines, and every card is at most 340 px tall, in fr, en, de and it.",
+        "At 375×812 and at 1440×900, every card is at most 200 px tall, in fr, en, de and it.",
+        "On `/fr/dashboard/resumes/new` at 375 px, the radiogroup is at most 1,100 px tall. In the \"Create CV from Job\" modal at 1440×900, the radiogroup is at most 650 px tall.",
+        "No horizontal overflow at 375 px on either surface. Every option is fully visible by scrolling (page, or modal body).",
+        "Selection style (teal border, background and icon tile), focus ring, keyboard behaviour, order and defaults are unchanged. The existing e2e and unit assertions pass unmodified.",
+        "Each thumbnail still shows its own template recognisably. `ui-expert` confirms that the five layouts can be told apart at the new size.",
+        "FR-1: Only `template-picker.tsx` changes in `src/`. Its callers and props are unchanged.",
+        "FR-2: The scale is still derived from the measured window width. No new rendering path.",
+        "FR-3: Only existing Tailwind tokens. No new colour or font.",
+        "Regression constraint: All assertions in `e2e/template-picker.spec.ts`, `e2e/job-cv-template-picker.spec.ts` and `template-picker.test.ts` pass without edits.",
+        "Regression constraint: `pnpm test:visual` and `pnpm test:parity` results are unchanged. Parity is compared against `main`'s failing-name set if the parity PRD has not landed yet.",
+        "Verification: The `CLAUDE.md` §14 baseline.",
+        "Verification: An e2e measuring card heights and radiogroup height on both surfaces at 375 and 1440 px, in fr and de (longest descriptions).",
+        "Verification: `ui-expert` with captures of both surfaces at 375, 768 and 1440 px.",
+        "Verification: `code-reviewer`.",
+        "FAIL condition: Any card over 200 px tall at 375 or 1440 px, any stacked card over 340 px, or a radiogroup over the ceilings above.",
+        "FAIL condition: A name or description word split across lines.",
+        "FAIL condition: A thumbnail not drawn by `ResumePreview`, or not inert.",
+        "FAIL condition: Horizontal overflow, or clipped text in any locale.",
+        "FAIL condition: An existing assertion edited to pass.",
+        "BLOCKER condition: At 96–128 px, the five thumbnails cannot be told apart (`ui-expert` FAIL on recognisability). The width range or the approach needs an owner decision.",
+        "Out of scope: What a thumbnail renders: still `ResumePreview` with the sample. No static images.",
+        "Out of scope: Option order, defaults, labels, translations, radio semantics and keyboard behaviour.",
+        "Out of scope: A thumbnail enlargement or hover preview.",
+        "Out of scope: The modal's other fields and its overall width."
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}
