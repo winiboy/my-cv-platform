@@ -315,6 +315,47 @@ const nextConfig = {
       },
     ];
   },
+
+  // The /:locale/resumes/* tree was a leftover duplicate of the dashboard
+  // pages and has been deleted. These keep old bookmarks and emailed links
+  // working. They run before middleware, so the dashboard's login gate still
+  // applies to the destination.
+  //
+  // The locale list mirrors `locales` in src/lib/i18n.ts, which this CommonJS
+  // file cannot import. Without the constraint, `/:locale/resumes` would also
+  // match unprefixed paths such as /xx/resumes and send them to a dashboard
+  // URL with a bogus locale instead of letting middleware handle them.
+  async redirects() {
+    const locale = ":locale(fr|en|de|it)";
+    return [
+      {
+        source: `/${locale}/resumes`,
+        destination: "/:locale/dashboard/resumes",
+        permanent: true,
+      },
+      {
+        source: `/${locale}/resumes/new`,
+        destination: "/:locale/dashboard/resumes/new",
+        permanent: true,
+      },
+      {
+        // The job-to-CV flow now lives in the jobs page modal.
+        source: `/${locale}/resumes/from-job`,
+        destination: "/:locale/dashboard/jobs",
+        permanent: true,
+      },
+      {
+        source: `/${locale}/resumes/:id/edit`,
+        destination: "/:locale/dashboard/resumes/:id/edit",
+        permanent: true,
+      },
+      {
+        source: `/${locale}/resumes/:id/preview`,
+        destination: "/:locale/dashboard/resumes/:id/preview",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

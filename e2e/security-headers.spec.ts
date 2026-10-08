@@ -191,10 +191,10 @@ test.describe('the report-only CSP does not fire on the resume path', () => {
     const violations = await collectCspViolations(page)
     await loginAs(page, user)
 
-    await page.goto(`/en/resumes/${resumeId}/edit`)
+    await page.goto(`/en/dashboard/resumes/${resumeId}/edit`)
     await expect(page.getByText(/Jean|Experience|Skills/i).first()).toBeVisible()
 
-    await page.goto(`/en/resumes/${resumeId}/preview`)
+    await page.goto(`/en/dashboard/resumes/${resumeId}/preview`)
     await expect(page.getByText(/Jean|Experience|Skills/i).first()).toBeVisible()
 
     // The download button calls window.print(); print media re-resolves the

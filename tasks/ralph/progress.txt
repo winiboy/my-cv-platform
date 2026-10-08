@@ -1,184 +1,97 @@
-# Ralph progress — localize-adaptation-modal-and-templates
+# Ralph progress — remove-legacy-resume-routes
 
-Contract: tasks/ralph/prd.json (branch ralph/localize-adaptation-modal-and-templates)
-PRD: tasks/prds/localize-adaptation-modal-and-templates.md (Status: APPROVED 2026-10-07, written by the owner)
+Contract: tasks/ralph/prd.json (branch ralph/remove-legacy-resume-routes)
+PRD: tasks/prds/remove-legacy-resume-routes.md (Status: APPROVED 2026-10-08, written by the owner)
 Format: docs/engineering/progress-log-format.md
-Branch setup: from origin/main 49ba105. The first commit, 4cb7782, archives the merged parity-reader-docx-layout contract into tasks/ralph/archive/2026-10-07-parity-reader-docx-layout/. Its tree is identical to a local chore branch that was never pushed and has since been deleted.
+Branch setup: from origin/main 5c1ea08. 12947a4 archives the merged localize-adaptation-modal-and-templates contract (#95). 366fdd6 adds this PRD and its contract.
 
-## US-001: The adaptation modal speaks the user's language wherever it opens
+## US-001: Old resume URLs land on the live pages
 Status: PASS
 Priority: 1
-Branch: ralph/localize-adaptation-modal-and-templates
-Baseline HEAD: 4f3c5b4 (PRD + contract)
+Branch: ralph/remove-legacy-resume-routes
+Baseline HEAD: 366fdd6
 
 Scope:
 - Scope check: PASS
 - Changed paths:
-  - src/lib/cv-adaptation-strings.ts (new): server-side selector over jobs.json → cvAdaptation + createCV; returns a typed CVAdaptationStrings and throws on a missing or empty key.
-  - src/lib/cv-adaptation-strings.test.ts (new, 10 tests).
-  - src/components/dashboard/cv-adaptation-modal.tsx and diff-viewer.tsx: take the typed strings; every English `||` fallback and hard-coded string removed; the close button gets an aria-label and type="button".
-  - src/components/dashboard/resume-editor.tsx: new required `cvAdaptation` prop, which feeds the modal, the "Adapt to Job" button and the success alert.
-  - src/components/jobs/job-search-layout.tsx and job-detail-panel.tsx: pass the same object through to both modals.
-  - src/app/[locale]/(dashboard)/dashboard/jobs/page.tsx, dashboard/resumes/[id]/edit/page.tsx, and the legacy resumes/[id]/edit/page.tsx: build the object on the server. The legacy page had to follow because the prop is required; its removal is another PRD (remove-legacy-resume-routes).
-  - src/locales/{fr,en,de,it}/jobs.json: 15 keys added under cvAdaptation in all four locales.
-  - e2e/adaptation-modal-i18n.spec.ts (new, 5 tests).
-  - e2e/job-cv-template-picker.spec.ts: one CSS locator changed at :256, from the placeholder "e.g., Google" to "ex. : Google". The assertion itself (the picker sits between company and submit) is unchanged. code-reviewer judged the edit legitimate: the locator targeted the hard-coded English this story must remove.
+  - Deleted, 5 legacy pages: src/app/[locale]/(dashboard)/resumes/{page.tsx, new/page.tsx, from-job/page.tsx, [id]/edit/page.tsx, [id]/preview/page.tsx}. Their folders are gone; only dashboard/ and layout.tsx remain under (dashboard).
+  - Deleted, 3 components used only by those pages: src/components/dashboard/{resume-creation-form, job-description-form, download-resume-buttons}.tsx.
+  - next.config.js: new `async redirects()` next to headers(). It has 5 rules, all permanent (308), with the locale limited to (fr|en|de|it):
+    - /:locale/resumes → /:locale/dashboard/resumes
+    - /:locale/resumes/new → /:locale/dashboard/resumes/new
+    - /:locale/resumes/from-job → /:locale/dashboard/jobs
+    - /:locale/resumes/:id/edit → /:locale/dashboard/resumes/:id/edit
+    - /:locale/resumes/:id/preview → /:locale/dashboard/resumes/:id/preview
+  - src/locales/{fr,en,de,it}/common.json: resumes.fromJob removed. `git diff --numstat` shows 0 added / 17 deleted per file. After the change all four locales still have identical resumes.* keys.
+  - e2e/security-headers.spec.ts: lines 194 and 197 now visit /en/dashboard/resumes/${id}/edit and /preview. Every header assertion is unchanged.
+  - e2e/legacy-resume-redirects.spec.ts (new, 27 tests).
   - tasks/ralph/prd.json (US-001 passes: true), tasks/ralph/progress.txt (this file).
-- Not touched: `git diff` over src/components/dashboard/resume-templates, src/app/api, src/locales/*/common.json, package.json and supabase = 0 lines (no US-002 files, FR-4). Version unchanged. No push, no merge.
-- Not staged:
-  - tasks/ralph/archive/2026-10-07-parity-reader-docx-layout/prd.json shows as modified because of the eol setting only; `git hash-object` equals the committed blob 14e2fcf8.
-  - .claude/settings.local.json and next-env.d.ts are pre-existing local noise.
+- Not touched: live pages and their components, live translation keys (resumes.createFromJob and resumes.new.templateLabel are still present in all 4 locales), src/middleware.ts. Version unchanged. No push, no merge.
 
-Checks (one run on the final diff):
+FR-3 greps (src/ and e2e/):
+- Before deletion:
+  - The 3 components were imported only by the legacy pages: from-job/page.tsx:6 (JobDescriptionForm), new/page.tsx:4 (ResumeCreationForm), [id]/preview/page.tsx:8 (DownloadResumeButtons). The other hits were the components' own declarations.
+  - `fromJob` was read only by from-job/page.tsx (56, 62, 65) and job-description-form.tsx (67-214), and defined only in the 4 common.json files.
+  - The only non-dashboard /[locale]/resumes references were e2e/security-headers.spec.ts:194 and :197.
+  - The same search across the rest of the repo, excluding node_modules, build folders, worktrees and tasks/, found nothing.
+- After deletion:
+  - Component and import names: 0 hits.
+  - `fromJob` in src: 0 hits.
+  - Non-dashboard /<locale>/resumes, excluding the new redirect spec: 2 hits, both in e2e/auth.spec.ts:41-42. They are comments describing an old test, not links.
+
+Checks (one sequential run on the final diff, nothing concurrent):
 - pnpm typecheck: PASS — exit 0
-- pnpm test: PASS — 52 files, 1658 passed, 5 skipped (10 new)
+- pnpm test: PASS — 54 files, 1768 passed, 5 skipped, including the per-feature locale-parity tests
 - pnpm test:integration: PASS — 4 files, 50 passed
-- pnpm lint: PASS — 302 problems (232 errors, 70 warnings), one fewer than before and not above the tracked baseline (306)
-- pnpm build:verify: PASS — 117/117 static pages
-- pnpm test:e2e: PASS — 181 passed (5 new)
-- pnpm test:visual: PASS — 10 passed, no re-baseline (en output unchanged)
-- pnpm test:parity: PASS — exit 0, 261 passed. parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2, identical to the report of the merged parity initiative.
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings). That is 12 below the 302 of #95, because the deleted files carried lint debt, and under the tracked baseline (306).
+- pnpm build:verify: PASS — 105/105 static pages, down from 117 with the legacy pages gone. The build route list shows no /[locale]/resumes route outside /[locale]/dashboard/resumes.
+- pnpm test:e2e: PASS — 208 passed (181 + 27 new)
+- pnpm test:visual: PASS — 10 passed, no re-baseline
+- pnpm test:parity: PASS — exit 0, 261 passed; parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2, unchanged
 
 Specialized validation:
-- Browser: PASS — Playwright e2e on a production build with a signed-in test user. /api/jobs, fetch-external, adapt-resume-to-job and generate-from-job-description are stubbed, so no real AI call is made.
-  - fr and de, from the resume editor: input stage, both validation messages, preview with one change of every kind and confidence, "No content", the no-changes case, the success alert and the close button's accessible name.
-  - fr and de, from Job Search: "Adapter mon CV" and "Créer un CV".
-  - en: wording unchanged.
-  - Every navigation returns HTTP 200 and the console gate is empty.
-- Visual: PASS — test:visual 10/10 unchanged.
-- Export: NOT_APPLICABLE — no template or export change in US-001.
+- Browser: PASS — e2e/legacy-resume-redirects.spec.ts:
+  - Anonymous requests with maxRedirects 0: each of 4 locales × 5 paths answers 308 with the exact Location. Next sends it as a relative path, for example /fr/dashboard/resumes/<id>/edit.
+  - /xx/resumes is not caught by the rules; middleware answers 307 to /en/xx/resumes.
+  - Signed out: 308, then the middleware's 307 to /en/login with callbackUrl set to the live path.
+  - Signed in, with a resume seeded through the service-role client: all 5 legacy paths end on the live page with HTTP 200.
+- Visual: PASS — 10/10 unchanged.
+- Export: NOT_APPLICABLE — the live preview and downloads are unchanged.
 - Database: NOT_APPLICABLE.
-- Security: NOT_APPLICABLE — static strings rendered as React text or attributes; no dangerouslySetInnerHTML; no privileged data sent to the client.
+- Security: PASS, by review. The 5 deleted pages sat outside the middleware's /dashboard gate and relied only on their own getUser checks; every redirect destination is inside the gate. No open redirect is possible, because every destination is an absolute path with a locale from the fixed set. The security headers still apply to the 308 responses (headers() uses /:path*). The CSP check now covers the pages users actually see.
 
 Agents:
-- senior-coder: one round, no BLOCKER. Its first e2e run failed on de: German writes "(optional)" exactly as English does. The spec now exempts that one pattern for de, and the unit test carries the same exemption.
-- ui-expert: PASS (7/7). It validated fr and de from my captures plus its own trace snapshots, and it from a live render of the same build. No English found in text, placeholders or aria-labels. No overflow at 1440, 768 or 375. Keyboard: the close button "Chiudi" is reachable and Enter closes. AA contrast holds for the new strings. Note: my two *-preview-bottom.png captures duplicated the -top ones; ui-expert covered the lower part from its trace snapshots.
-- code-reviewer: PASS. It reproduced typecheck and the 10 unit tests. It checked every en value against the old fallback or literal. Minor items recorded below.
+- senior-coder: one round, no BLOCKER.
+  - First e2e run: 6 failures, all because the spec assumed the middleware's login Location would be an absolute URL; it is relative. The fix resolves it against the base URL, and no assertion changed. Every status assertion passed in that first run.
+  - Removed stale gitignored generated types (types/validator.ts in .next, .next-e2e, .next-visual, .next-parity and .next-uiexp; types/app/[locale]/(dashboard)/resumes/ in some of them). tsconfig.json includes those folders, and they still referenced the deleted pages, which gave 70 typecheck errors locally. A clean checkout or CI has none of these folders.
+- ui-expert: NOT_APPLICABLE — no live page changes.
+- code-reviewer: PASS. Required changes: record the FR-3 greps here (done above) and stage explicit paths only (done). Minor items, not fixed:
+  - the redirect locale list duplicates src/lib/i18n.ts locales (a test could keep them in step);
+  - query-string passthrough is not asserted (Next carries the query by default);
+  - an upper-case locale (/EN/resumes) ends on a 404, as it did before.
 
 Acceptance criteria:
-- AC-01 (editor, input stage, fr/de/it, no English fallback): PASS — e2e fr/de; it by live render (ui-expert) and the unit test.
-- AC-02 (Job Search, "Adapter mon CV" and "Créer un CV", fr/de/it): PASS — e2e fr/de; it by live render.
-- AC-03 (missing-title and too-short messages): PASS — e2e; for example "Der Stellentitel ist erforderlich." and "Il titolo del lavoro è obbligatorio.".
-- AC-04 (preview stage): PASS — e2e counts each element: diff titles, add/enhance prefixes, confidence badges, "No content", the no-changes message and the buttons.
-- AC-05 (editor button and success alert): PASS — e2e reads the alert text from the dialog event.
-- AC-06 (close button accessible name): PASS — aria-label Fermer / Schließen / Chiudi / Close; the e2e finds the button by role and name.
-- AC-07 (en unchanged): PASS — the en e2e test, plus EN_WORDING pinned in the unit test.
-  - Two internal en differences, both accepted by code-reviewer:
-    - The editor's "generating" message is now "Adapting your CV..." instead of "Preparing preview...". It is set in the same React batch as the switch to preview, so it is never painted.
-    - The close button now announces "Close" (required by AC-06).
-  - One bug fixed on the way: from the editor, the skill confidence badges used to be blank and now show text.
-- FR-1 (one source): PASS — jobs.json → cvAdaptation via one selector, used by both callers.
-- FR-2: PASS — 15 keys added in 4 locales; en reproduces the old English.
-- FR-4: PASS — no dependency, API or DB change.
-- Regression: PASS — the 100-character threshold, validation order, request bodies, stages and apply flow are unchanged (code-reviewer).
+- AC-01 (4 locales × 5 paths answer 308 with the exact Location, :id kept, from-job → /dashboard/jobs): PASS — redirect spec, 20 cases with maxRedirects 0.
+- AC-02 (signed in → live page 200; signed out → the existing login redirect): PASS — redirect spec.
+- AC-03 (pages and components gone, no importer): PASS — git status shows 8 deletions; the greps above find 0 importers.
+- AC-04 (resumes.fromJob absent in 4 locales, parity tests pass, no reader): PASS — numstat 0/17 per file; `fromJob` greps to 0; pnpm test passes.
+- AC-05 (security-headers visits the dashboard edit and preview pages, header assertions unchanged): PASS — 2-line URL diff, and the e2e passes.
+- AC-06 (build lists no /[locale]/resumes outside /dashboard): PASS — build:verify route list.
+- FR-1..FR-3, regression constraints: PASS (see above).
 
-Decision (FR-1): keep every modal string in jobs.json and build a typed object on the server for each caller. Rejected:
-- moving cvAdaptation into common.json, which would mean a second namespace or a large move;
-- loading all of `jobs` on the editor page, which ships an untyped, larger payload with no missing-key check.
-The cost of the chosen approach: a missing key makes the page return 500 instead of showing English. That is accepted: the PRD forbids English fallbacks, the dictionaries are static JSON, and the unit test checks every locale.
-
-Open owner decisions recorded by this story (candidates for a follow-up "adaptation modal polish" PRD; none blocks this initiative):
-- W1, French typography: the label colon is appended in JSX ("Ajouter des compétences: Design", "Justification:", "Score de correspondance:"), so there is no space before it. The fix is to move the separator into the translations.
-- W2: de enhanceSkills "Ergänzen" would read better as "Erweitern". de jobDescriptionCharacterCount wording is mechanical.
-- W3: it "confidenza" (pre-existing) should be "affidabilità"; "(facoltativo)" is more idiomatic than "(opzionale)".
-- D1 (pre-existing, all four locales): the create-modal help text tells the user to click "Créer le CV", but the button reads "Analyser et générer un nouveau CV".
-- D3 (pre-existing): contrast of "No content" is 2.49:1 (gray-400 on gray-50) and of the close icon 2.6:1.
-- D4 (pre-existing): opening the modal does not move focus into it, there is no focus trap, and Escape does not close it.
-- job-detail-panel.tsx toasts and labels outside the modal still use English fallbacks. They are listed out of scope in this PRD.
-
-Environment notes:
-- Local Supabase stack running; the owner's dev server on :3000 left running. Playwright builds its own servers (:3100 for the suites, :3130 for the evidence captures).
-- ui-expert wrote extra captures to .playwright-mcp/ (untracked) and to the session scratchpad. My capture spec ran from the gitignored playwright-report/uiexp3/ and was removed afterwards.
-
-Commit:
-- Story commit: THIS_COMMIT
-- Commit message: ralph: US-001 the adaptation modal is localized wherever it opens
-
-FINAL: PASS
-
-## US-002: Templates and Word draw localized contact labels, "Present" and language levels
-Status: PASS
-Priority: 2
-Branch: ralph/localize-adaptation-modal-and-templates
-Baseline HEAD: ac15984 (US-001 story commit)
-
-Scope:
-- Scope check: PASS
-- Changed paths:
-  - src/lib/resume-template-strings.ts (new): presentLabel(dict) and contactLabel(dict, key); both throw on a missing key. Templates and generators both read through it.
-  - src/lib/resume-template-strings.test.ts (new): every key in 4 locales, the en wording pinned, and a missing key throws.
-  - src/components/dashboard/resume-templates/{modern,classic,creative,minimal,professional}-template.tsx:
-    - Modern contact labels from resumes.editor.{phone,email,website,linkedin,github,location};
-    - "Present" from resumes.template.present in all five (the literal and the missing editor.present key are gone);
-    - Professional levels via resumes.editor.levels[level.toLowerCase()].
-  - src/app/api/resumes/[id]/download-docx/docx-{modern,classic,creative,minimal,professional}.ts: the same keys. Only the `present` entries of the docx-classic, -creative and -minimal tables are removed; their section-heading entries are kept. de Word now says "Heute" instead of "Gegenwart".
-  - src/app/api/resumes/[id]/download-docx/docx-localized-words.test.ts (new): for 5 templates × fr/de/it/en, renders the real ResumePreview with react-dom/server and generates the DOCX route.ts would.
-    - It counts each localized word in word/document.xml and requires the same count as in the Preview.
-    - English words are absent in fr/de/it, en is unchanged, and de has no "Gegenwart".
-    - Per the implementer, the pre-story code fails 39 cases.
-  - src/app/api/resumes/[id]/download-docx/docx-creative-sections.test.ts: now renders with the en common dict instead of `{}`, which now throws. Its section-order assertions are unchanged; code-reviewer judged the edit legitimate.
-  - src/lib/template-picker-strings.ts: the dead 'levels' key is removed from PICKER_RESUME_KEYS. resumes.levels exists in no locale, and Professional, its last reader, stops reading it here.
-  - src/lib/template-sample-resume.ts: a comment corrected.
-  - tasks/ralph/prd.json (US-002 passes: true), tasks/ralph/progress.txt (this entry).
-- Not touched: `git diff` over e2e/visual (baselines), package.json and supabase = 0 lines. docx-letter-spacing.test.ts and docx-modern-geometry.test.ts are unmodified and pass; the geometry source scans target expressions this story did not change. Stored levels are still the English enum. Version unchanged. No push, no merge.
-
-Checks (on the final diff):
-- pnpm typecheck: PASS — exit 0
-- pnpm test: PASS — 54 files, 1768 passed, 5 skipped (110 new)
-- pnpm test:integration: PASS — 4 files, 50 passed
-- pnpm lint: PASS — 302 problems (232 errors, 70 warnings), unchanged from US-001 and not above the tracked baseline (306)
-- pnpm build:verify: PASS — 117/117 static pages
-- pnpm test:visual: PASS — 10 passed, no re-baseline, so en is pixel-identical for the 5 templates in screen and print. ui-expert re-ran it independently: 10/10.
-- pnpm test:parity: PASS — exit 0, 261 passed. parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2 is unchanged, so en words are unchanged on Preview, PDF and DOCX.
-- pnpm test:e2e: PASS on the final diff, on the third run, alone: 181 passed, 0 failed. Earlier runs on the same diff:
-  - Run 1, in the sequential suite: 180 passed / 1 failed. e2e/template-picker.spec.ts:162 failed in the auth fixture: loginAs → page.fill('#email') timed out on /en/login, and the server logged "AuthApiError: Invalid Refresh Token". This is not a code path the story touches. That spec ×3 then passed 15/15.
-  - Run 2: 179 passed / 2 failed, while ui-expert was running `pnpm test:visual` on the same test-results/ folder.
-    - font-scale-rendered classic failed with `browserContext.close: ENOENT` on a trace artifact.
-    - layout-state-owner AC-3 timed out on persisting the editor autosave.
-  - Run 3, alone: 181/181. The two run-2 failures are attributed to the concurrent run.
-  - Named limit: run 1's login timeout has no confirmed cause.
-
-Specialized validation:
-- Browser: PASS — e2e 181/181. The /fr and /de preview pages for all 5 templates return HTTP 200 (evidence captures).
-- Visual: PASS — en baselines unchanged (10/10, no re-baseline).
-- Export: PASS — word/document.xml is inspected by docx-localized-words.test.ts for all 5 templates in fr/de/it/en and compared word by word with the Preview DOM. The en DOCX is also unchanged (parity hash identical).
-- Database: NOT_APPLICABLE — no schema or data change.
-- Security: NOT_APPLICABLE — static dictionary strings; no new sanitizeHtml or document access in templates (SSR-safe; the new test renders all 5 server-side).
-
-Agents:
-- senior-coder: one round, no BLOCKER (all 5 generators already load `common`).
-- ui-expert: PASS (7/7) on 10 fr/de preview captures, its own test:visual run and the unit tests.
-  - fr: Modern TÉLÉPHONE / E-MAIL / SITE WEB / LINKEDIN / GITHUB / LOCALISATION; "Présent" in all five; Professional "Langue maternelle / Courant / Professionnel".
-  - de: TELEFON / E-MAIL / WEBSITE / LINKEDIN / GITHUB / STANDORT; "Heute" in all five; "Muttersprache / Fließend / Professionell".
-  - No truncation.
-- code-reviewer: PASS, on the condition of a green full e2e run on the final diff (met: run 3, 181/181). It reproduced 7 affected test files, 292/292.
-
-Acceptance criteria:
-- AC-01 (fr/de/it: Modern labels, Present in all 5, Professional levels, in Preview and Word): PASS — docx-localized-words.test.ts; ui-expert captures.
-- AC-02 (Word words = Preview words per template × locale): PASS — automated word-count equality per template and locale.
-- AC-03 (en unchanged; visual without re-baseline; parity no new failure; docx-letter-spacing unmodified): PASS — 10/10, sha unchanged, test passes unmodified.
-- AC-04 (per-generator present tables gone; one source): PASS — removed from docx-classic, -creative and -minimal.
-- AC-05 (no layout or styling change): PASS — text-only diff; en visual pixels unchanged.
-- FR-1..FR-4: PASS — one key per word; levels displayed through a lookup with the enum unchanged; no dependency, API contract or DB change.
-
-Decision (FR-1): one throwing accessor for "Present" and the contact labels, shared by templates and generators, instead of reading keys inline. A missing key fails loudly rather than drawing English, and the unit test guards all four locales.
-
-Named limit (FR-1): docx-helpers.ts formatDateRange (Professional Word dates) reads resumes.template.present but keeps its `|| 'Present'` fallback, because docx-helpers.test.ts:605-610 asserts that fallback. It reads the same key and adds no second source, and the fallback is unreachable in production. Both reviewers accepted it; it is recorded as a follow-up.
+Decision (FR-1): permanent redirects declared once in next.config.js, not one-line redirect() stubs left in each legacy page.tsx. The legacy tree disappears entirely, the redirects run before middleware, and the destinations are all inside the /dashboard auth gate. The locale list is written out in next.config.js because a CommonJS config cannot import src/lib/i18n.ts; the reason is recorded in a comment there.
 
 Open owner decisions recorded by this story:
-- Follow-up: move formatDateRange onto presentLabel and update its two assertions.
-- Follow-up: make the level lookup null-safe (`lang.level?.toLowerCase()`) in the 4 Preview templates. A legacy row with a null level would throw in Preview. This is the existing pattern, not new here.
-- Follow-up: give levels a throwing helper `levelLabel` like the others; they still fall back to the stored English value.
-- Pre-existing defect (D1, ui-expert): in the Classic template each experience bullet renders on its own line with the text below it. The committed en baseline classic.png shows the same, so this story did not cause it. It needs its own ticket.
-- Wording (owner): fr "Présent" against the more usual "aujourd'hui"; de level "Professionell" against "Verhandlungssicher".
-- Still open from US-001: modal polish (fr colon spacing, wording, the help text naming a missing button, contrast, focus).
+- Optional: a unit test keeping the next.config.js redirect locales in step with src/lib/i18n.ts.
+- Out of scope, pre-existing: fr/common.json lacks 31 coverLetters.editor.* keys that en has (recipient, opening, body, closing, signature…). The same count exists at HEAD; found by senior-coder.
+- Pre-existing local hazard: tsconfig.json includes several .next*/types folders, so stale build output can break `pnpm typecheck` after a route is deleted.
 
 Environment notes:
-- Never run two Playwright suites at once in this checkout: they share test-results/, which one clears while the other writes. That is what caused e2e run 2's ENOENT. Recorded so the evidence of runs 1 and 2 is read correctly.
-- Evidence capture spec ran from the gitignored playwright-report/uiexp6/ and was removed afterwards. ui-expert's extra captures are in .playwright-mcp/ (untracked) and the scratchpad.
+- Stale generated types were deleted in local build folders, including the owner's dev-server .next. Next regenerates them; restart the :3000 dev server if it shows a stale-route error.
+- Suites ran alone, sequentially (see memory: no concurrent Playwright).
 
 Commit:
 - Story commit: THIS_COMMIT
-- Commit message: ralph: US-002 templates and Word draw localized contact labels, Present and levels
+- Commit message: ralph: US-001 retire the legacy /resumes routes behind permanent redirects
 
 FINAL: PASS

@@ -203,23 +203,6 @@
       "create": "Créer le CV",
       "creating": "Création..."
     },
-    "fromJob": {
-      "title": "Créer un CV depuis une offre d'emploi",
-      "subtitle": "Collez une offre d'emploi et laissez l'IA créer un CV personnalisé pour vous",
-      "jobDescriptionLabel": "Offre d'emploi",
-      "jobDescriptionPlaceholder": "Collez l'offre d'emploi complète ici...\n\nExemple:\nIngénieur Logiciel\nNous recherchons un Ingénieur Logiciel expérimenté avec 5+ ans d'expérience en React, Node.js et technologies cloud...",
-      "jobDescriptionHint": "Collez la description complète du poste incluant les exigences, responsabilités et qualifications.",
-      "analyzing": "Analyse de l'offre d'emploi...",
-      "generating": "Génération de votre CV...",
-      "create": "Générer le CV",
-      "createButton": "Créer le CV",
-      "creating": "Création de votre CV...",
-      "helpTextEmpty": "Collez une offre d'emploi ci-dessous et notre IA créera un CV professionnel adapté à ce poste.",
-      "titleLabel": "Titre du CV",
-      "titlePlaceholder": "ex: CV Ingénieur Logiciel pour TechCorp",
-      "templateLabel": "Choisir un modèle",
-      "backToResumes": "Retour à mes CV"
-    },
     "errors": {
       "titleRequired": "Le titre du CV est requis",
       "createFailed": "Échec de la création du CV",
