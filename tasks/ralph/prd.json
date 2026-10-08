@@ -36,7 +36,7 @@
         "Out of scope: The modal's other fields and its overall width."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

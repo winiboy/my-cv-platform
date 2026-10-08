@@ -95,7 +95,10 @@ export const TemplateThumbnailPage = memo(function TemplateThumbnailPage({
 
 /**
  * An A4-proportioned window onto the first page of a template, scaled from
- * page width down to the width the card gives it.
+ * page width down to the window's fixed width.
+ *
+ * The width is fixed rather than fluid so that a card's height does not grow
+ * with the width the layout gives it.
  *
  * The page is drawn only once the window has been measured. A CSS transform
  * cannot take a ratio of two lengths, so the scale needs the rendered width;
@@ -131,7 +134,7 @@ const TemplateThumbnail = memo(function TemplateThumbnail({ templateId, locale, 
       inert
       data-testid="template-thumbnail"
       data-template={templateId}
-      className="pointer-events-none select-none relative mt-4 w-full overflow-hidden rounded border border-slate-200 dark:border-slate-700 bg-white"
+      className="pointer-events-none select-none relative w-28 shrink-0 overflow-hidden rounded border border-slate-200 dark:border-slate-700 bg-white"
       style={{ aspectRatio: `${PAGE_WIDTH_MM} / ${PAGE_HEIGHT_MM}` }}
     >
       {scale !== null && (
@@ -227,32 +230,44 @@ export function TemplatePicker({ value, onChange, disabled = false, labelledBy, 
             data-template={option.id}
             onClick={() => select(option.id)}
             onKeyDown={(event) => handleKeyDown(event, option.id)}
-            className={`min-w-0 p-4 border-2 rounded-lg text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 ${
+            className={`@container min-w-0 p-3 border-2 rounded-lg text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 ${
               isSelected
                 ? 'border-teal-600 bg-teal-50 dark:bg-teal-900/20'
                 : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
             } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           >
-            <div className="flex items-start gap-3">
-              <div
-                className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  isSelected
-                    ? 'bg-teal-600 text-white'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                }`}
-              >
-                <Icon className="h-5 w-5" aria-hidden="true" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <span id={nameId} className="block font-semibold mb-1">
-                  {option.name}
-                </span>
-                <span id={descriptionId} className="block text-sm text-slate-600 dark:text-slate-400">
+            {/* The card follows its own width, not the viewport's: the same
+                viewport can give it a full row (mobile, one column) or a narrow
+                column (tablet, two columns beside the dashboard sidebar). The
+                text goes beside the thumbnail only while the column left for it
+                still fits the longest name and description word; otherwise it
+                goes below, so no word is ever broken to fit. */}
+            <div className="flex flex-col items-start gap-3 @[16rem]:flex-row">
+              <TemplateThumbnail templateId={option.id} locale={locale} dict={dict} />
+              {/* `break-words` is a last resort against overflow at widths no
+                  layout above can serve; at supported widths no word breaks. */}
+              <div className="min-w-0 self-stretch @[16rem]:flex-1">
+                {/* The name sits beside the icon tile while the column is wide
+                    enough for both, and drops below it otherwise. */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      isSelected
+                        ? 'bg-teal-600 text-white'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <span id={nameId} className="block min-w-0 break-words font-semibold">
+                    {option.name}
+                  </span>
+                </div>
+                <span id={descriptionId} className="block break-words text-sm text-slate-600 dark:text-slate-400">
                   {option.description}
                 </span>
               </div>
             </div>
-            <TemplateThumbnail templateId={option.id} locale={locale} dict={dict} />
           </div>
         )
       })}
