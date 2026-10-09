@@ -1,121 +1,131 @@
-# Ralph progress — job-search-mobile-detail
+# Ralph progress — parity-in-ci
 
-Contract: tasks/ralph/prd.json (branch ralph/job-search-mobile-detail)
-PRD: tasks/prds/job-search-mobile-detail.md
+Contract: tasks/ralph/prd.json (branch ralph/parity-in-ci)
+PRD: tasks/prds/parity-in-ci.md
 Format: docs/engineering/progress-log-format.md
-Branch setup: from origin/main 7017f15.
-- 3526217 archives the merged compact-template-picker contract (#97).
-- 5b22094 adds this PRD and its contract.
-- a1f3431 adds the PRD amendment and the regenerated contract.
+Branch setup: from origin/main efb4571.
+- 263ee0d archives the merged job-search-mobile-detail contract (#98).
+- 1417354 adds this PRD and its contract.
+- d7d783c adds the PRD amendment and the regenerated contract.
 
 PRD approval trail:
-- 5b22094: the PRD as first approved by the owner, `Status: APPROVED 2026-10-08`.
-- Implementing US-001 showed that tapping a job necessarily selects it, so after coming back the highlighted card is the job just viewed, not the one highlighted before the tap. The AC said "as they were before the tap".
-- The owner chose "L'offre consultée" in chat on 2026-10-08, answering an explicit question.
-- The agent amended that one AC and set the Status line back to DRAFT (uncommitted).
-- The owner then ran the PowerShell command the agent had supplied. It put back `Status: APPROVED 2026-10-08` and changed the amendment heading to "(re-approved by the owner 2026-10-08)". The agent observed the change on disk before the owner's "go".
-- a1f3431 committed that owner-edited file.
+- 1417354: the PRD as first approved by the owner, `Status: APPROVED 2026-10-09`.
+- The first CI trial on Linux (draft PR #99, run 37892980945) went red on one NEW row: `multi-page · professional · colour:print-sidebar-column`.
+- The owner chose "KNOWN Linux + PRD fix" in chat on 2026-10-09, answering an explicit question.
+- The agent amended the PRD and set the Status line back to DRAFT (uncommitted).
+- The owner restored `Status: APPROVED 2026-10-09` and changed the amendment heading to "(re-approved by the owner 2026-10-09)". The agent observed this on disk before the owner's "go". The owner had asked the agent to write the line instead; the agent declined under .claude/rules/prd.md.
+- d7d783c committed the owner-edited file.
 
-## US-001: Open a job's details on a phone and come back to the same results
+## US-001: A pull request that breaks Preview/PDF/Word parity fails CI
 Status: PASS
 Priority: 1
-Branch: ralph/job-search-mobile-detail
-Baseline HEAD: a1f3431
+Branch: ralph/parity-in-ci
+Baseline HEAD: d7d783c
 
 Scope:
 - Scope check: PASS
 - Changed paths:
-  - src/components/jobs/job-search-layout.tsx:
-    - Phone-only open state (useIsMobile, max-width 767px = the md breakpoint, FR-1).
-    - One history.pushState({ jobSearchDetailJobId }) with no URL per opened detail. A popstate listener closes the detail; a forward step reopens it only if that job is still loaded.
-    - Header, filters and list stay mounted and are hidden with CSS while a detail is open. The list's scrollTop is saved on open and restored in a layout effect.
-    - On close, focus moves to the list scroll container. Its tabIndex -1 is set on phone only.
-  - src/components/jobs/job-detail-panel.tsx:
-    - New optional onBackToResults prop. When set, it renders a md:hidden back control, min-h-11 min-w-11, focused on open, and the detail scrolls to the top. That effect's deps are [hasBackControl, job.id].
-    - Phone-mode-only classes on the two CV actions: col-span-2 sm:col-span-1, with label truncation from sm only (sm:truncate).
-  - src/components/jobs/job-list.tsx: new optional scrollContainerRef and scrollContainerTabIndex props.
-  - src/locales/{fr,en,de,it}/jobs.json: +backToResults, 1 line added per file ("Retour aux résultats" / "Back to results" / "Zurück zu den Ergebnissen" / "Torna ai risultati").
-  - e2e/job-search-mobile.spec.ts: new, 7 tests.
-  - e2e/job-cv-template-picker.spec.ts: the 375 px test now taps the card instead of force-unhiding the panel. This is the exception the PRD names. All modal assertions are kept; the containing-block guard now walks every ancestor, which is stronger.
-  - e2e/template-picker-compact.spec.ts (added by #97): its modal-375 tests got the same change, tap instead of force-unhide. Every assertion is kept, including toBeHidden() before the tap, and the guard is strengthened the same way.
-    - Scope note: the PRD's regression constraint names only job-cv-template-picker.spec.ts as an exception.
-    - code-reviewer confirmed this edit is within "every existing e2e keeps its assertions": only the way the modal is reached changed. The force-unhide existed solely to reach a panel phones could not open, and this story removes that limit.
+  - .github/workflows/ci.yml (+79/-0, append-only): new job `parity`, "Parity (required)", on ubuntu-latest.
+    - It reuses the e2e job's setup, the same action versions and Supabase start flags (FR-2).
+    - It installs ttf-mscorefonts-installer with the EULA pre-accepted, then runs fc-cache.
+    - "Check font resolution" logs fc-match and fails fast unless `fc-list | grep -qi verdana` and `grep -qi "times new roman"` both succeed.
+    - Then `pnpm test:parity`, an always-on `parity-results` artifact upload, and supabase stop.
+    - timeout-minutes 30. A comment notes that the fonts are downloaded from SourceForge, so an install failure is infrastructure.
+    - No secrets (FR-1), no continue-on-error, no --grep (FR-3).
+  - e2e/parity/verdicts.ts (+195/-16): a Linux-only KNOWN entry `linux-print-sidebar-column`.
+    - KNOWN_PLATFORM and the pure knownListFor(platform) decide which entries apply. KNOWN_HERE = knownListFor(process.platform) drives the exported KNOWN_IDS and KNOWN_EXPECTATIONS, so parity.spec.ts is unchanged.
+    - A strict parseColumnRun reads observation.printSidebarColumn.runs; any unknown run format throws.
+    - The signature, seamBelowLastText, accepts only this shape:
+      - every page before the last is the sidebar fill from y0 to the bottom;
+      - the last page starts with the fill at y0;
+      - after the fill, only "paper below the last text" rows, plus exactly one near-white "painted below the last text" row of at most 2 px, with paper above and below it;
+      - model, Preview and DOCX agree, and the PDF has exactly 2 colours.
+    - evaluateRow takes an optional `known` list (used by the test only).
+    - assertKnownListConsistent checks the full cross-platform list on every machine.
+    - No tolerance or comparison change.
+  - e2e/parity/linux-print-sidebar-column.spec.ts (new, 12 pure tests, run by `pnpm test:parity`):
+    - real summariseSidebarColumn round-trips of the Linux and Windows run strings;
+    - the platform gate (linux, win32, darwin);
+    - the Linux shape is KNOWN on Linux and NEW elsewhere;
+    - the Windows shape is MATCH everywhere;
+    - 7 negative shapes are NEW on Linux: near-white on page 1, a gap between coloured runs, a 3-px line, a line on a page that isn't the last, a seam with no paper above, a non-near-white line, and two lines.
+  - playwright.parity.config.ts (comment only) and docs/engineering/ralph-pass-criteria.md item 4:
+    - parity runs on every push and PR to main, and becomes required once the owner adds it to branch protection;
+    - CI reports 4 KNOWN rows under 2 ids on Linux, against 3 rows under 1 id on Windows.
+  - tasks/prds/linux-print-sidebar-column.md (new DRAFT, the "fix owed by" target of the KNOWN entry). It stays DRAFT; no agent approves it.
   - tasks/ralph/prd.json (US-001 passes: true), tasks/ralph/progress.txt (this file).
-- At 768 px and up, with the detail closed, DOM and classes are unchanged, per code-reviewer's per-class check:
-  - cn(base, undefined) returns the original class strings;
-  - no back control, no col-span-2, labels keep `truncate`, no list tabindex, no history entry on select.
-  - The 768 and 1440 e2e tests assert these.
-- Not touched: actions logic, modals, card markup, other pages. No dependency (FR-5). Version unchanged. No push, no merge.
+- Not touched: e2e/parity/surfaces.ts, tolerances, the other KNOWN entries, src/, the other CI jobs. Version unchanged. No push of the story branch, no merge.
 
-Checks (one sequential run on the final diff):
-- pnpm typecheck: PASS — exit 0
+The defect behind the Linux KNOWN entry, from the trial artifact `parity-results`, observations/multi-page__professional.json:
+- Linux, run 37892980945: page 1 y0-841 #1E7A4C; page 2 y0-242 #1E7A4C; y243-244 paper; **y245 #FDFEFD painted below the last text**; y246-841 paper.
+- Windows, local: page 1 y0-841 #1E7A4C; page 2 y0-258 #1E7A4C; y259 #8EBCA5 edge; y260-841 paper.
+- So it is a 1-px near-white seam in the blank paper below the last text on the last page, likely an anti-aliasing artefact. It is not a white band in the column, and has no visible user impact. The PRD amendment's first wording ("turns white on a following page") overstated it; the KNOWN `defect` text and the fix PRD describe it accurately. macOS was not measured.
+
+CI evidence (trial branches, opened with the owner's "ok essais CI" and "ok essais 2 et 3", then closed and deleted):
+- Draft PR #99 (run 37892980945; story diff without the KNOWN entry), Linux: 260 passed, 1 NEW (the row above). Microsoft core fonts installed, and Verdana and Times New Roman resolve.
+- Draft PR #100 (run 37892983854; a synthetic regression): failed. code-reviewer rejected it as evidence for AC-4: it was not the #94 revert, and the run was already red because of the Linux row.
+- **Draft PR #101 (run 37970792128): the five story files are blob-identical to this commit (verified by code-reviewer). All 5 jobs green. Parity (required): 273 passed, 0 NEW. The expected-to-fail KNOWN rows are linux-print-sidebar-column plus the 3 US-016 rows (4 rows, 2 ids). The font checks passed. Artifacts `parity-results` and `lint-report` are present.**
+- **Draft PR #102 (run 37970794700): identical to #101 plus ONLY e2e/parity/surfaces.ts reverting the #94 US-001 reader fix (pre-#94 innermost-cell sidebar plus paragraph-shading accent; typecheck clean). Only Parity failed: 63 failed / 210 passed. The failures are 8 × "The DOCX accent has no shading" (the Modern collects) and the dependent Modern rows ("No observation…"). The Linux print row stayed KNOWN.**
+- PRs #99–#102 are closed; the branches ci/parity-trial, ci/parity-regression, ci/parity-trial-2 and ci/parity-regression-2 are deleted, both locally and remotely.
+
+Checks (local, one sequential run on the final diff):
+- pnpm typecheck: PASS — exit 0 (includes e2e/parity; tsconfig covers **/*.ts)
 - pnpm test: PASS — 54 files, 1768 passed, 5 skipped
 - pnpm test:integration: PASS — 4 files, 50 passed
-- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); per-file counts equal to HEAD (layout 4, panel 5, list 1, new spec 0); not above the tracked baseline (306)
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings), not above the tracked baseline (306)
 - pnpm build:verify: PASS — 105/105 static pages
 - pnpm test:e2e: PASS — 235 passed
 - pnpm test:visual: PASS — 10 passed, no re-baseline
-- pnpm test:parity: PASS — 261 passed; parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2, unchanged
+- pnpm test:parity (Windows): PASS — exit 0, 273 passed (261 plus 12 new unit tests); MATCH 206, KNOWN 3 rows, NEW 0.
+  - parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2, byte-identical to before. The Linux-only entry is absent from the Windows report, which answers the AC's "state which": no metadata change on Windows.
 
 Specialized validation:
-- Browser: PASS — e2e/job-search-mobile.spec.ts at 375×812 (fr, plus en for the label). /api/jobs is stubbed with enough results for a second page; the external fetch is stubbed; AI routes are recorded and aborted, and every test asserts none was called.
-  - List first; tap shows the detail in place of the list, filling main's content box within 1 px, with the list and search hidden and no overflow.
-  - The back control sits above the title, is localized, at least 44 px, focused on open, and works with Enter. Afterwards focus is on the list container.
-  - The list returns in the same state: query, type, 40 cards (second page loaded), highlight = the job just viewed, and scrollTop within 1 px. Opening and closing sends no extra /api/jobs request.
-  - page.goBack() returns to the same state on the same URL. A second goBack leaves to /fr/dashboard. History length grows by exactly 1 per opening.
-  - The four actions work: the apply popup URL, save → "Enregistré", and both modals open, fit (all five template options reachable) and close back to the detail. The labels are not truncated in fr and de.
-  - Tapping another job (27 after 29) shows that job.
-  - At 768 and 1440: side by side, first job auto-selected, no back control, no history entry.
-  - HTTP 200 and the console gate in every test.
-- Visual: PASS — test:visual 10/10 unchanged.
-- Export, Database, Security: NOT_APPLICABLE.
+- Browser, Visual, Export, Database, Security: NOT_APPLICABLE — CI and test-infrastructure change only.
+  - Security note: no secrets were added. The job uses only the public local-Supabase dev keys already used by e2e.
 
 Agents:
-- senior-coder: two rounds.
-  - Round 1: the implementation. Chromium did not keep the hidden list's scroll position, so an explicit save and restore was added.
-  - Round 2: ui-expert I-1, plus code-reviewer Minors 1, 4 and 5.
-- ui-expert:
-  - Round 1 FAIL, I-1: at 375 the CV action labels were truncated ("Adapter m…"; de "Meinen Le…" and "Lebenslau…", which cannot be told apart). The markup predates this story, but the story is what made the panel visible on phones.
-  - Round 2 PASS (7/7).
-- code-reviewer: PASS in both rounds.
-  - Minors 1, 4 and 5 were fixed in round 2. The fixes moved focus to the list on close, made the scroll reset follow job.id, and turned the AI-route guard into a recorded, asserted check.
-  - Minors 2, 3 and 6 are recorded below as known limits.
-  - Final note: half of the 375 label check (scrollWidth versus clientWidth on an inline span) is vacuous for the two CV labels. The insideButton half still guards against overflow.
+- senior-coder: three rounds.
+  - Round 1: the job and the docs.
+  - Round 2: the Linux-only KNOWN entry.
+  - Round 3, the review fixes: the signature tightened to the exact run shape, separate font checks, timeout-minutes, wording, and a patch for the #94 regression.
+- ui-expert: NOT_APPLICABLE — no UI.
+- code-reviewer:
+  - Round 1 FAIL:
+    - Critical 1: the #100 evidence was invalid.
+    - Major 1: the signature could mask any white segment in the column.
+    - Major 2: checks had not been re-run on the final diff.
+    - Minors: weak font proof, no timeout, docs wording, row versus id counts.
+  - Round 2 PASS: it verified runs #101 and #102 itself through gh, including blob identity. Residual minors:
+    - commit hygiene (explicit paths only);
+    - the fix PRD stays DRAFT;
+    - the "4 rows / 2 ids" prose in the docs must be updated when US-016 or this entry closes.
 
-Acceptance criteria (amended contract, 9 story AC):
-- AC-01 (375: list first, no detail): PASS — e2e; captures fr/de-375-list.
-- AC-02 (tap → detail full-width in place of the list, no overflow): PASS — e2e geometry checks; captures fr/de-375-detail.
-- AC-03 (back control at top, localized ×4, ≥ 44×44, keyboard): PASS — e2e; jobs.json ×4.
-- AC-04 (back restores filters, loaded results and scroll; highlight = the job just viewed): PASS — e2e, with the second page loaded and scrollTop within 1 px.
-- AC-05 (browser back keeps state and stays on the page; a second back leaves): PASS — e2e.
-- AC-06 (four actions visible and working at 375; both modals open, fit and close back to the detail): PASS — e2e, with full labels in fr and de; ui-expert captures.
-- AC-07 (another job after coming back): PASS — e2e.
-- AC-08 (768 and 1440 unchanged, no back control): PASS — e2e assertions plus the per-class check.
-- AC-09 (HTTP 200, no hydration or React error): PASS — e2e.
-- FR-1..FR-5: PASS.
+Acceptance criteria:
+- AC-01 (the job runs green on Linux; KNOWN 4, 0 NEW): PASS — run 37970792128.
+- AC-02 (the Linux-only KNOWN entry reproduces on Linux; Windows unchanged): PASS.
+  - Linux: KNOWN rows 4.
+  - Windows: KNOWN 3, the row MATCH, and the hash unchanged, with no metadata change.
+- AC-03 (fonts installed and shown; font-family rows MATCH): PASS — the fail-fast font checks passed in run 37970792128, with 0 NEW (font-family rows included).
+- AC-04 (catches a regression): PASS — run 37970794700, the #94 US-001 revert as the only change, failed on the Modern rows.
+- AC-05 (artifact on every run): PASS — `if: always()`; `parity-results` is present on the green run and on the failing ones.
+- AC-06 (docs no longer say local-only or not a CI gate): PASS.
+- AC-07 (other jobs unchanged and passing): PASS — ci.yml append-only; all jobs green in run 37970792128.
+- FR-1..FR-3: PASS.
 
-Decision (FR-2): history.pushState with no URL, so the on-screen control calls history.back() and a popstate listener closes the detail. Before relying on it, Next 15.5.26 app-router.js was read:
-- its patched pushState only copies __NA and the route tree when no URL is given;
-- on popstate it restores the same href and tree, so nothing remounts.
-Rejected: a `?job=` query or a /dashboard/jobs/[id] route. Deep links are out of scope, and a route change would remount the page and lose the in-memory results.
-
-Decision (layout): keep the list mounted and hide it with CSS while the detail is open. Unmounting would lose the loaded pages, and the hidden IntersectionObserver sentinel cannot fire. The header and filters are hidden too, so a filter change cannot reload results under an open detail.
-
-Known limits recorded by this story (code-reviewer Minors 2, 3, 6; not blocking):
-- Opening a detail at 375 and resizing past 768 leaves a stale open state: one back press does nothing visible. Opening a detail, following a sidebar link, then pressing back lands on a detail entry with the layout remounted closed.
-- Ghost tap: on a fast double tap, the second tap can land on the detail content that just appeared under the finger.
-- The FR-3 ancestor guard in the specs checks transform, filter and contain, but not will-change, perspective or backdrop-filter.
+Decision (approach): a Linux ubuntu-latest job with the Microsoft core fonts. Rejected: a Windows runner, because GitHub Windows runners cannot run the Linux containers that `supabase start` needs.
+Decision (KNOWN gate): the platform is passed into the pure knownListFor() instead of being read inside the signature, so the gate is unit-tested for every platform and a mistake fails on any machine.
 
 Open owner decisions recorded by this story:
-- Optional polish (ui-expert): an on-brand focus ring on the list container after a keyboard close, instead of the UA outline.
-- Pre-existing English on Job Search ("All Cantons", "Live Data", "All N jobs loaded", "Preview", "View Full Job Details", the help card), and the detail panel's clipped right edge at 768. Out of scope here.
-- Cards are still not keyboard-operable on any width. This was out of scope.
+- **Owner action after merge:** add "Parity (required)" to the required status checks of the `main` branch protection, in GitHub settings.
+- **Follow-up:** tasks/prds/linux-print-sidebar-column.md (DRAFT) investigates and removes the 1-px seam, then retires the Linux KNOWN entry.
+- **Prose counts:** the docs state "4 rows / 2 ids" against "3 rows / 1 id"; update both texts when US-016 or this entry closes.
 
 Environment notes:
-- Suites ran alone, sequentially. Evidence captures ran afterwards from the gitignored playwright-report/uiexp8/ and were removed after.
+- Trial branches were built from the working tree at story state and verified blob-identical before and after. The story branch was restored with MSYS_NO_PATHCONV=1 `git show` after the first attempt mangled the path; recorded in memory.
+- Local suites ran alone, sequentially.
 
 Commit:
 - Story commit: THIS_COMMIT
-- Commit message: ralph: US-001 job details and actions reachable on phones
+- Commit message: ralph: US-001 run the parity check in CI
 
 FINAL: PASS

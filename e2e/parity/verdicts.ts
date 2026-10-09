@@ -116,12 +116,37 @@ import {
  * instead of a default copied into their own FONT_SIZES — for exactly the
  * elements `TEMPLATE_APPLIED_SIZE_KEYS` says the template applies, modern's
  * two included.
+ *
+ * linux-print-sidebar-column is the one entry that is not a Part 3 defect and
+ * not a defect of every machine: it is how Chromium prints on Linux, which the
+ * CI parity job runs on. It is active on Linux alone (`KNOWN_PLATFORM`); on any
+ * other platform its row is an ordinary row and must MATCH. Registered by the
+ * owner's decision recorded in the amendment to tasks/prds/parity-in-ci.md,
+ * after the trial run https://github.com/winiboy/my-cv-platform/actions/runs/37892980945
+ * (draft PR #99); the fix is owed by tasks/prds/linux-print-sidebar-column.md.
  */
-export type KnownId = 'US-016-html-body-line-height'
+export type KnownId = 'US-016-html-body-line-height' | 'linux-print-sidebar-column'
 
-export const KNOWN_IDS: readonly KnownId[] = [
+const ALL_KNOWN_IDS: readonly KnownId[] = [
   'US-016-html-body-line-height',
+  'linux-print-sidebar-column',
 ]
+
+/**
+ * The platform a known divergence is confined to. An id absent here is a defect
+ * of the code and is known everywhere. An id present here is known only on that
+ * platform: elsewhere its id, its expected rows and its signature are all
+ * withdrawn, so its rows are judged like any other and a matching shape there
+ * is NEW, not excused.
+ */
+const KNOWN_PLATFORM: Readonly<Partial<Record<KnownId, NodeJS.Platform>>> = {
+  'linux-print-sidebar-column': 'linux',
+}
+
+const knownOn = (id: KnownId, platform: NodeJS.Platform): boolean => {
+  const only = KNOWN_PLATFORM[id]
+  return only === undefined || only === platform
+}
 
 export type Verdict = 'MATCH' | `KNOWN: ${KnownId}` | 'NEW'
 
@@ -151,8 +176,11 @@ function expectations(groups: readonly (readonly [KnownId, readonly string[]])[]
  *
  * Nothing that is NEW may be listed here. A NEW divergence is not an expected
  * failure; it is a hole in Part 3's scope.
+ *
+ * These are the rows of every platform; `KNOWN_EXPECTATIONS` is the subset
+ * this machine expects (see `knownListFor`).
  */
-export const KNOWN_EXPECTATIONS: Readonly<Record<string, KnownId>> = expectations([
+const ALL_KNOWN_EXPECTATIONS: Readonly<Record<string, KnownId>> = expectations([
   [
     'US-016-html-body-line-height',
     // US-016 made classic, minimal and creative render stored HTML as formatted
@@ -161,6 +189,12 @@ export const KNOWN_EXPECTATIONS: Readonly<Record<string, KnownId>> = expectation
     // rendered no formatted content at all. Professional and modern already follow
     // the Preview here, through formattedTextLineHeight.
     rowIds('html-body-and-skills', ['classic', 'minimal', 'creative'], ['line-height:bodyText']),
+  ],
+  [
+    'linux-print-sidebar-column',
+    // Linux only (KNOWN_PLATFORM). The two-page professional print, the one
+    // profile that reads the PDF's sidebar column.
+    rowIds('multi-page', ['professional'], ['colour:print-sidebar-column']),
   ],
 ])
 
@@ -505,7 +539,7 @@ interface SignatureContext {
   values: Record<SurfaceId, Value>
 }
 
-interface Signature {
+export interface Signature {
   id: KnownId
   /** The defect, as its story names it. Printed as the note of every row it claims. */
   defect: string
@@ -578,7 +612,141 @@ const SIGNATURES: readonly Signature[] = [
       return !equal(values.docx, values.preview)
     },
   },
+  {
+    id: 'linux-print-sidebar-column',
+    defect:
+      'A one-pixel near-white line is painted in the paper below the last text on the last printed page ' +
+      'of the professional resume, at the sidebar strip: an anti-aliasing seam where the sidebar fill ' +
+      'ends, which Chromium on Linux rasterises as a painted row. The column itself is the sidebar ' +
+      'colour on every page, as in the model, the Preview and the DOCX. On Windows (measured) the row is ' +
+      'a MATCH; macOS is not measured. Fix owed by tasks/prds/linux-print-sidebar-column.md.',
+    matches: ({ row, observation, reference, values }) => {
+      if (row.profile !== 'multi-page' || row.template !== 'professional') return false
+      if (row.subject !== 'printSidebarColumn' || reference === null || reference.kind !== 'colour') return false
+      if (!equal(values.preview, reference) || !equal(values.docx, reference)) return false
+      if (values.pdf.kind !== 'colours' || values.pdf.hexes.length !== 2) return false
+      const column = observation.printSidebarColumn
+      if (!column) return false
+      return seamBelowLastText(column.runs.map(parseColumnRun), reference.hex)
+    },
+  },
 ]
+
+/**
+ * One run of `SidebarColumnReading.runs`, as `summariseSidebarColumn` in
+ * surfaces.ts writes it: `page 2 y245-245 #FDFEFD painted below the last text`.
+ * The signature reads the runs rather than the distinct colours because where a
+ * colour sits is the whole of what tells a seam from a gap in the column.
+ */
+interface ColumnRun {
+  page: number
+  from: number
+  to: number
+  hex: string
+  kind: 'fill' | 'edge' | 'paper' | 'painted'
+}
+
+const COLUMN_RUN = /^page (\d+) y(\d+)-(\d+) (#[0-9A-F]{6})( edge between #[0-9A-F]{6} and #[0-9A-F]{6}| paper below the last text| painted below the last text)?$/
+
+/** A run line in any other form is a change to the reader this signature was written against, so it throws. */
+function parseColumnRun(line: string): ColumnRun {
+  const match = COLUMN_RUN.exec(line)
+  if (!match) throw new Error(`Unrecognised print sidebar column run: ${line}`)
+  const qualifier = match[5] ?? ''
+  const kind = qualifier.startsWith(' edge')
+    ? 'edge'
+    : qualifier.startsWith(' paper')
+      ? 'paper'
+      : qualifier.startsWith(' painted')
+        ? 'painted'
+        : 'fill'
+  return { page: Number(match[1]), from: Number(match[2]), to: Number(match[3]), hex: match[4], kind }
+}
+
+/** The tallest painted line the seam may be, in pixel rows (points at the 72 dpi raster). */
+const SEAM_MAX_ROWS = 2
+
+/**
+ * The exact shape the Linux trial run printed, and nothing looser: every page
+ * before the last is the sidebar colour top to bottom; the last page is the
+ * sidebar colour from its top, then only paper below the last text, with
+ * exactly one near-white line at most `SEAM_MAX_ROWS` tall painted strictly
+ * inside that paper. Near-white anywhere else, an edge, a gap in the colour, or
+ * any other colour is not this defect.
+ */
+function seamBelowLastText(runs: readonly ColumnRun[], sidebarHex: string): boolean {
+  const isSidebar = (run: ColumnRun) => run.kind === 'fill' && coloursAgree(opaque(run.hex), opaque(sidebarHex))
+  const pages = [...new Set(runs.map((run) => run.page))]
+  if (pages.length < 2) return false
+  const lastPage = pages[pages.length - 1]
+
+  for (const page of pages.slice(0, -1)) {
+    const own = runs.filter((run) => run.page === page)
+    if (own[0].from !== 0 || !own.every(isSidebar)) return false
+  }
+
+  const last = runs.filter((run) => run.page === lastPage)
+  if (last[0].from !== 0 || !isSidebar(last[0])) return false
+  let at = 0
+  while (at < last.length && isSidebar(last[at])) at++
+  const below = last.slice(at)
+  const painted = below.filter((run) => run.kind === 'painted')
+  if (painted.length !== 1) return false
+  if (!below.every((run) => run.kind === 'paper' || run.kind === 'painted')) return false
+  const seam = below.indexOf(painted[0])
+  return (
+    seam > 0 &&
+    seam < below.length - 1 &&
+    below[seam - 1].kind === 'paper' &&
+    below[seam + 1].kind === 'paper' &&
+    painted[0].to - painted[0].from + 1 <= SEAM_MAX_ROWS &&
+    nearWhite(painted[0].hex)
+  )
+}
+
+/**
+ * Within `NEAR_WHITE_LEVELS` of paper on every channel. The trial run read
+ * #FDFEFD; the bound is loose enough for a rasteriser's rounding of white and
+ * far from any colour the sidebar controls or the globals.css band can paint.
+ */
+const NEAR_WHITE_LEVELS = 8
+
+function nearWhite(hex: string): boolean {
+  return [1, 3, 5].every((at) => 255 - parseInt(hex.slice(at, at + 2), 16) <= NEAR_WHITE_LEVELS)
+}
+
+/** The known divergences one platform expects: ids, their rows, and their signatures. */
+export interface KnownList {
+  ids: readonly KnownId[]
+  expectations: Readonly<Record<string, KnownId>>
+  signatures: readonly Signature[]
+}
+
+/**
+ * The known list as it applies on `platform`. Taken as a parameter rather than
+ * read from `process.platform` so that the gate itself can be tested.
+ */
+export function knownListFor(platform: NodeJS.Platform): KnownList {
+  const ids = ALL_KNOWN_IDS.filter((id) => knownOn(id, platform))
+  return {
+    ids,
+    expectations: Object.fromEntries(
+      Object.entries(ALL_KNOWN_EXPECTATIONS).filter(([, id]) => ids.includes(id)),
+    ),
+    signatures: SIGNATURES.filter((signature) => ids.includes(signature.id)),
+  }
+}
+
+/** The known list of the machine this runs on. */
+const KNOWN_HERE = knownListFor(process.platform)
+
+export const KNOWN_IDS: readonly KnownId[] = KNOWN_HERE.ids
+
+/**
+ * The rows this machine expects to diverge. Each becomes a `test.fail()` in the
+ * spec; see `ALL_KNOWN_EXPECTATIONS` for the rules.
+ */
+export const KNOWN_EXPECTATIONS: Readonly<Record<string, KnownId>> = KNOWN_HERE.expectations
 
 // ---------------------------------------------------------------------------
 // Evaluation
@@ -628,7 +796,15 @@ function trackingSlack(surface: SurfaceId, sample: StyleSample): number {
   return TWIPS_TOLERANCE / 2 / twipsPerEm
 }
 
-export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): EvaluatedRow {
+/**
+ * `known` is the list of the machine this runs on unless a caller passes
+ * another platform's, which is how the platform gate is tested.
+ */
+export function evaluateRow(
+  row: RowDefinition,
+  resolve: ObservationResolver,
+  known: KnownList = KNOWN_HERE,
+): EvaluatedRow {
   const observation = resolve(row.inputs[0])
   if (observation.profile !== row.profile || observation.template !== row.template) {
     throw new Error(`Observation ${observation.profile}/${observation.template} does not belong to row ${row.id}`)
@@ -800,13 +976,13 @@ export function evaluateRow(row: RowDefinition, resolve: ObservationResolver): E
   if (allMatch) {
     verdict = 'MATCH'
   } else {
-    const known = SIGNATURES.filter((signature) => signature.matches(context))
-    if (known.length > 1) {
-      throw new Error(`${row.id} has the shape of ${known.map((k) => k.id).join(' and ')}; signatures must not overlap`)
+    const shapes = known.signatures.filter((signature) => signature.matches(context))
+    if (shapes.length > 1) {
+      throw new Error(`${row.id} has the shape of ${shapes.map((k) => k.id).join(' and ')}; signatures must not overlap`)
     }
-    if (known.length === 1) {
-      verdict = `KNOWN: ${known[0].id}`
-      note = known[0].defect
+    if (shapes.length === 1) {
+      verdict = `KNOWN: ${shapes[0].id}`
+      note = shapes[0].defect
     } else {
       verdict = 'NEW'
       note = newDivergenceNote(context)
@@ -1320,19 +1496,22 @@ function reportEnvironment(observations: readonly Observation[], host: HostEnvir
  * and every expected row is a row the check reports. A mistyped row id would
  * otherwise expect nothing and fail nothing, and an id with no rows would sit
  * unexercised.
+ *
+ * Checked on the list of every platform, not only this machine's, so that an
+ * entry confined to another platform is still held to these rules here.
  */
 function assertKnownListConsistent(rows: readonly EvaluatedRow[]): void {
-  const expectedIds = new Set(Object.values(KNOWN_EXPECTATIONS))
-  for (const id of KNOWN_IDS) {
+  const expectedIds = new Set(Object.values(ALL_KNOWN_EXPECTATIONS))
+  for (const id of ALL_KNOWN_IDS) {
     const signatures = SIGNATURES.filter((signature) => signature.id === id).length
     if (signatures !== 1) throw new Error(`${id} has ${signatures} signatures; it needs exactly one`)
     if (!expectedIds.has(id)) throw new Error(`${id} has no expected row in KNOWN_EXPECTATIONS`)
   }
   for (const signature of SIGNATURES) {
-    if (!KNOWN_IDS.includes(signature.id)) throw new Error(`Signature ${signature.id} is not in KNOWN_IDS`)
+    if (!ALL_KNOWN_IDS.includes(signature.id)) throw new Error(`Signature ${signature.id} is not in KNOWN_IDS`)
   }
   const reported = new Set(rows.map((row) => row.id))
-  const missing = Object.keys(KNOWN_EXPECTATIONS).filter((id) => !reported.has(id))
+  const missing = Object.keys(ALL_KNOWN_EXPECTATIONS).filter((id) => !reported.has(id))
   if (missing.length > 0) throw new Error(`KNOWN_EXPECTATIONS lists rows the check does not report: ${missing.join('; ')}`)
 }
 
@@ -1348,7 +1527,7 @@ export function buildReport(observations: readonly Observation[], host: HostEnvi
   const known: KnownStatus[] = KNOWN_IDS.map((id) => {
     const catalogued = Object.entries(KNOWN_EXPECTATIONS).filter(([, expected]) => expected === id)
     const confirmed = rows.filter((row) => row.verdict === `KNOWN: ${id}`)
-    const signature = SIGNATURES.find((s) => s.id === id)
+    const signature = KNOWN_HERE.signatures.find((s) => s.id === id)
     if (!signature) throw new Error(`${id} has no signature`)
     return {
       id,
