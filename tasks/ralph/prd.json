@@ -8,7 +8,8 @@
       "title": "A pull request that breaks Preview/PDF/Word parity fails CI",
       "description": "As the owner, I want every PR to run the parity check in CI, so that a NEW divergence blocks the merge instead of being found weeks later.",
       "acceptanceCriteria": [
-        "The job runs green. `ci.yml` has a \"Parity (required)\" job on `ubuntu-latest` that runs on push and on PRs to `main`, and it is green on the PR that adds it (exit 0, 0 NEW, KNOWN 3).",
+        "The job runs green. `ci.yml` has a \"Parity (required)\" job on `ubuntu-latest` that runs on push and on PRs to `main`. It is green on the PR that adds it, or on a draft trial PR with the identical diff: exit 0, 0 NEW, KNOWN 4 on Linux (the 3 existing entries plus the Linux-only one).",
+        "The Linux-only KNOWN entry. It is registered with its exact signature and reproduces on Linux. On Windows it is inactive: local `pnpm test:parity` still reports KNOWN 3, the `multi-page · professional · colour:print-sidebar-column` row is MATCH, and the report hash is unchanged apart from the new entry's metadata, if any (state which).",
         "Fonts. The job's log shows Verdana and Times New Roman installed. The parity report artifact's environment block shows how every font-family row resolved, and they are MATCH.",
         "It catches a regression. On a throwaway branch whose only change reverts the US-001 reader fix of #94 in `e2e/parity/surfaces.ts`, the Parity job fails. A link to the failed run is recorded as evidence, and the branch is not merged and is deleted after.",
         "Artifact. `test-results-parity/` is uploaded on every run, pass or fail.",
@@ -16,7 +17,7 @@
         "Other jobs. The existing jobs (`verify`, `integration`, `e2e`, `lint-debt-report`) are unchanged and still pass.",
         "FR-1: No secret is added to the workflow.",
         "FR-2: The job reuses the `e2e` job's setup steps (pnpm, Node version, Playwright Chromium, Supabase start flags) rather than inventing new ones.",
-        "FR-3: The job does not weaken the suite. No `continue-on-error`, no `--grep` filter, and no env flag that skips rows.",
+        "FR-3: The job does not weaken the suite. The single Linux-only KNOWN entry in Scope is the only exception, and it is pinned by its signature. No `continue-on-error`, no `--grep` filter, and no env flag that skips rows.",
         "Regression constraint: Local `pnpm test:parity` on Windows keeps its current result and report hash.",
         "Regression constraint: The CI wall time of the other jobs is unchanged. The parity job runs in parallel.",
         "Verification: The PR's CI run shows the Parity job green, with its artifact.",
@@ -29,7 +30,8 @@
         "BLOCKER condition: Linux result. With core fonts installed, the Linux run still reports NEW rows (for example from rasterisation or anti-aliasing differences). Report them with the artifact. The owner decides between OS-specific KNOWN handling, a non-required job, or another approach. The suite must not be loosened silently.",
         "BLOCKER condition: Fonts package. `ttf-mscorefonts-installer` cannot be installed on the runner image.",
         "Out of scope: `test:visual` in CI (it needs Linux baselines; a separate decision).",
-        "Out of scope: Any change to `e2e/parity/*` comparison logic, tolerances or the KNOWN list.",
+        "Out of scope: Any change to `e2e/parity/*` comparison logic or tolerances, and any KNOWN change other than the single Linux-only entry described in Scope.",
+        "Out of scope: Fixing the Linux print defect itself (separate PRD, `linux-print-sidebar-column`).",
         "Out of scope: Speeding up the parity suite."
       ],
       "priority": 1,

@@ -2,6 +2,29 @@
 
 **Status:** APPROVED 2026-10-09
 
+> **Amendment 2026-10-09 (re-approved by the owner 2026-10-09).** Approved as written on
+> 2026-10-09.
+>
+> - **What the trial runs showed.**
+>   - The Linux job, with the Microsoft core fonts resolving correctly, ran 260
+>     rows green and 1 NEW: `multi-page · professional ·
+>     colour:print-sidebar-column` (draft PR #99, run 37892980945). The PDF
+>     Chromium prints on Linux shows the sidebar column as `#1E7A4C` and then
+>     `#FDFEFD` (white) on a following page. Model, Preview and DOCX are
+>     `#1F7A4D`.
+>   - It does not reproduce on Windows. It is a real Linux print defect, not a
+>     font effect.
+>   - The deliberate-regression run (draft PR #100, run 37892983854) failed as
+>     intended, on the Modern `colour:accent` rows.
+> - **Owner decision (2026-10-09, "KNOWN Linux + PRD fix").**
+>   - Register this one row as a KNOWN defect that applies on Linux only, with
+>     its exact signature.
+>   - The job stays required.
+>   - The fix goes to a separate PRD, `tasks/prds/linux-print-sidebar-column.md`.
+>
+> The Scope, the Out of Scope list, US-001 and FR-3 are amended below
+> accordingly. Nothing else changes.
+
 ## Objective
 
 `pnpm test:parity` runs on every pull request to `main` as a CI job. A change
@@ -60,10 +83,23 @@ unnoticed, as PR #88 did.
   and the "NOT A CI GATE" header of `playwright.parity.config.ts` to describe the
   new state.
 
+- **One KNOWN entry, active only on Linux** (`process.platform === 'linux'`).
+  - Its id names the defect, for example `linux-print-sidebar-column`.
+  - Its signature pins the observed behaviour: profile `multi-page`, template
+    `professional`, row `colour:print-sidebar-column`; model, Preview and DOCX
+    agree; the PDF diverges by turning white (`#FDFEFD`-like, near white) after
+    the sidebar colour.
+  - It follows the existing KNOWN rules: it runs as `test.fail()`, and goes red
+    if the defect stops reproducing.
+  - On Windows the row stays a normal row and must MATCH.
+
 ## Out of Scope
 
 - `test:visual` in CI (it needs Linux baselines; a separate decision).
-- Any change to `e2e/parity/*` comparison logic, tolerances or the KNOWN list.
+- Any change to `e2e/parity/*` comparison logic or tolerances, and any KNOWN
+  change other than the single Linux-only entry described in Scope.
+- Fixing the Linux print defect itself (separate PRD,
+  `linux-print-sidebar-column`).
 - Speeding up the parity suite.
 
 ## Impact Assessment
@@ -88,8 +124,15 @@ divergence blocks the merge instead of being found weeks later.
 **Acceptance Criteria:**
 
 - [ ] **The job runs green.** `ci.yml` has a "Parity (required)" job on
-      `ubuntu-latest` that runs on push and on PRs to `main`, and it is green on
-      the PR that adds it (exit 0, 0 NEW, KNOWN 3).
+      `ubuntu-latest` that runs on push and on PRs to `main`. It is green on
+      the PR that adds it, or on a draft trial PR with the identical diff: exit
+      0, 0 NEW, KNOWN 4 on Linux (the 3 existing entries plus the Linux-only
+      one).
+- [ ] **The Linux-only KNOWN entry.** It is registered with its exact
+      signature and reproduces on Linux. On Windows it is inactive: local
+      `pnpm test:parity` still reports KNOWN 3, the `multi-page · professional ·
+      colour:print-sidebar-column` row is MATCH, and the report hash is unchanged
+      apart from the new entry's metadata, if any (state which).
 - [ ] **Fonts.** The job's log shows Verdana and Times New Roman installed. The
       parity report artifact's environment block shows how every font-family row
       resolved, and they are MATCH.
@@ -109,7 +152,9 @@ divergence blocks the merge instead of being found weeks later.
 - **FR-1:** No secret is added to the workflow.
 - **FR-2:** The job reuses the `e2e` job's setup steps (pnpm, Node version,
   Playwright Chromium, Supabase start flags) rather than inventing new ones.
-- **FR-3:** The job does not weaken the suite. No `continue-on-error`, no
+- **FR-3:** The job does not weaken the suite. The single Linux-only KNOWN
+  entry in Scope is the only exception, and it is pinned by its signature. No
+  `continue-on-error`, no
   `--grep` filter, and no env flag that skips rows.
 
 ## Regression Constraints
