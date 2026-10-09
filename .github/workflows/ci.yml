@@ -184,3 +184,75 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  parity:
+    name: Parity (required)
+    runs-on: ubuntu-latest
+    # Renders the fixture resumes to Preview, PDF and DOCX and fails on any NEW
+    # divergence or any KNOWN entry that no longer reproduces. Setup is the e2e
+    # job's, step for step, plus the fonts the templates declare.
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      # The parity fixture chooses Verdana, and the Windows machine the KNOWN
+      # list was recorded on also has Times New Roman. Without them Chromium
+      # falls back to another face and the font-family rows turn NEW, which
+      # would be a property of the runner, not of the code. The EULA is
+      # pre-accepted so the install cannot block on an interactive prompt.
+      - name: Install Microsoft core fonts
+        run: |
+          set -euo pipefail
+          echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
+          sudo apt-get update
+          sudo apt-get install -y ttf-mscorefonts-installer
+          sudo fc-cache -f
+
+      # Proof in the log that the declared families resolve to themselves and
+      # not to a fallback. The report's environment block records the same
+      # resolution as Chromium saw it.
+      - name: Show font resolution
+        run: |
+          set -euo pipefail
+          fc-match Verdana
+          fc-match "Times New Roman"
+          fc-list | grep -iE "verdana|times"
+
+      # Same flags as the e2e job, so the stack under test is the same one.
+      - name: Start Supabase
+        run: pnpm supabase start -x studio,imgproxy,realtime,vector,edge-runtime,logflare,supavisor,postgres-meta
+
+      # playwright.parity.config.ts builds the app into .next-parity and starts
+      # it itself, pinned to the local stack.
+      - name: Run parity check
+        run: pnpm test:parity
+
+      # Uploaded on success too: the report and its environment block are the
+      # evidence a green run is judged by, not only a failure's diagnostics.
+      - name: Upload parity results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-results
+          path: test-results-parity/
+          retention-days: 7
+
+      - name: Stop Supabase
+        if: always()
+        run: pnpm supabase stop --no-backup
