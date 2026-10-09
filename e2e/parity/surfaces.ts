@@ -1124,6 +1124,20 @@ function enclosingCellShadings(xml: string, offset: number): (string | null)[] {
   })
 }
 
+/** The shading of the innermost table cell enclosing `offset`. */
+function cellShadingAt(xml: string, offset: number): string | null {
+  const stack: number[] = []
+  for (const token of xml.matchAll(/<w:tc>|<w:tc\s[^>]*>|<\/w:tc>/g)) {
+    if ((token.index ?? 0) >= offset) break
+    if (token[0].startsWith('</')) stack.pop()
+    else stack.push(token.index ?? 0)
+  }
+  const start = stack[stack.length - 1]
+  if (start === undefined) return null
+  const cellProperties = /^<w:tc(?:\s[^>]*)?>\s*<w:tcPr>([\s\S]*?)<\/w:tcPr>/.exec(xml.slice(start))
+  return cellProperties ? shadingColour(cellProperties[1]) : null
+}
+
 export interface SidebarColourDepths {
   sidebarBackgroundDepth: number | null
   accentDepth: number | null
@@ -1290,6 +1304,13 @@ export async function measureDocx(buffer: Buffer, probe: SurfaceProbe): Promise<
 
   const headingParagraphs = paragraphs.filter((p) => headingText(p) === normalise(probe.headingText))
   const sidebarAnchor = anchors.find((anchor) => probe.sidebarKeys.includes(anchor.key))
+  const sidebarColour = (depth: number | null, read: (paragraph: DocxParagraph) => string | null, label: string) => {
+    if (depth === null) return null
+    if (!sidebarAnchor) throw new Error(`No sidebar section in the DOCX to read the ${label} from`)
+    const hex = read(sidebarAnchor.paragraph)
+    if (hex === null) throw new Error(`The DOCX ${label} has no shading`)
+    return { hex, alpha: 255 }
+  }
 
   const extraColours: Record<string, ExtraColourSample> = {}
   for (const extra of probe.extraColourSamples) {
@@ -1314,6 +1335,11 @@ export async function measureDocx(buffer: Buffer, probe: SurfaceProbe): Promise<
         }
       : null,
     extraColours,
-    ...readDocxSidebarColours(xml, sidebarAnchor?.paragraph, probe),
+    sidebarBackground: sidebarColour(
+      probe.sidebarBackgroundDepth,
+      (paragraph) => cellShadingAt(xml, paragraph.offset),
+      'sidebar background',
+    ),
+    accent: sidebarColour(probe.accentDepth, (paragraph) => paragraph.shading, 'accent'),
   }
 }
