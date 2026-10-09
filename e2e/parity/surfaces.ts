@@ -1170,7 +1170,8 @@ export function readDocxSidebarColours(
           `but the heading sits in ${cells.length} cell(s)`,
       )
     }
-    const hex = cells[depth - 1]
+    // [trial] deliberate regression: read the accent one cell too far out.
+    const hex = label === 'accent' ? (cells[depth] ?? null) : cells[depth - 1]
     if (hex === null) throw new Error(`The DOCX ${label} has no shading`)
     return { hex, alpha: 255 }
   }
