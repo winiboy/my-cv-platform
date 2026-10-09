@@ -13,11 +13,18 @@ import { nestedClaudeDirIgnore } from './src/test/nested-worktrees'
  * `e2e/parity/parity.spec.ts` for what a verdict means and when the command
  * exits non-zero.
  *
- * NOT PART OF `pnpm test:e2e`, AND NOT A CI GATE
+ * NOT PART OF `pnpm test:e2e`; ITS OWN REQUIRED CI JOB
  *
- * The check is expected to fail against the divergences Part 3 enumerates, and
- * to fail outright on any it does not. `playwright.config.ts` ignores
- * `e2e/parity` so that the required suite never collects it.
+ * `playwright.config.ts` ignores `e2e/parity` so that the e2e suite never
+ * collects it. The suite runs instead in the "Parity (required)" job of
+ * `.github/workflows/ci.yml`, on ubuntu-latest with the Microsoft core fonts
+ * installed, on every push to `main` and every pull request to it. It is
+ * required once the owner adds it to branch protection. That job fails on any
+ * NEW row and on any KNOWN entry that no longer reproduces, and uploads
+ * `test-results-parity/` whether it passes or fails. Its KNOWN set is not a
+ * local Windows run's: `linux-print-sidebar-column` (verdicts.ts) is active on
+ * Linux only, so CI reports 4 KNOWN rows under 2 ids where Windows reports 3
+ * rows under 1.
  *
  * SEPARATE PORT, BUILD DIRECTORY AND OUTPUT DIRECTORY
  *

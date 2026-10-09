@@ -35,7 +35,7 @@
         "Out of scope: Speeding up the parity suite."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]
