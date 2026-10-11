@@ -32,7 +32,7 @@
         "Out of scope: Word for Mac, Word Online, LibreOffice and Google Docs rendering, beyond recording what was observed if checked."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

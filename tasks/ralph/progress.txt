@@ -1,0 +1,84 @@
+# Ralph progress — docx-modern-sidebar-full-page
+
+Contract: tasks/ralph/prd.json (branch ralph/docx-modern-sidebar-full-page)
+PRD: tasks/prds/docx-modern-sidebar-full-page.md (Status: APPROVED 2026-10-11, written by the owner)
+Format: docs/engineering/progress-log-format.md
+Branch setup: from origin/main 3d4a499. b39e75e archives the merged parity-in-ci contract (#103); 4604faa adds this PRD and its contract.
+- The converter accepted the PRD's "None blocking …" as a resolved Open Questions state (no unresolved question).
+
+## US-001: The cause of the short / lighter sidebar is proven on the current export
+Status: PASS
+Priority: 1
+Branch: ralph/docx-modern-sidebar-full-page
+Baseline HEAD: 4604faa
+
+Scope:
+- Scope check: PASS. Diagnosis only.
+- Changed paths: tasks/ralph/prd.json (US-001 passes: true) and tasks/ralph/progress.txt (this file).
+- Not touched: `git status` shows no change under src/ or e2e/. Version unchanged. No push, no merge.
+- All scripts, DOCX, PDF and PNG files were kept outside the repo, in the session scratchpad `modern-sidebar/`:
+  - generator: gen.test.ts, which calls `generateModernDocx` directly with `resolveResumeLayout` settings, as the geometry test does;
+  - Word COM scripts: word_export.py (SaveAs2 … 17 per docx-word-parity.md, plus per-page EMF in Print Layout) and raster.ps1 (Windows.Data.Pdf and GDI+, at 794×1123);
+  - measurement scripts using the repo's `sharp`.
+- No screen or window capture was taken by the agent.
+
+Evidence:
+- **Header picture present.** Current Modern DOCX (main 3d4a499): `word/header1.xml` holds a `wp:anchor` with behindDoc="1" at page (0,0), extent 2268220 × 10692130 EMU (sidebar width × 16838 twips). The sidebar cell fill is 0D0DA5. This holds for the 1-, 2- and 3-page files.
+- **Word PDF export is uniform.** On every page of the 1-, 2- and 3-page files, the bottom 40 × 238 px of the sidebar are 9520/9520 #0d0da5, and the bottom 60 px at x=100 are #0d0da5 from y 1063 to 1122. No band appears in print or PDF.
+- **Word's own Print Layout render (Pages(n).EnhMetaFileBits) is also uniform**, down to y=1121. This route is the print path and cannot show on-screen dimming: with the header active it renders identically.
+- **Where the cell fill ends**, measured on copies with the header reference removed:
+
+  | File | Page | Fill ends at | Gap to page foot |
+  |---|---|---|---|
+  | 1 page | 1 | y 1089 | 33 px (≈ 8.8 mm) |
+  | 2 pages | 1 | y 1117 | 5 px |
+  | 2 pages | 2 (last) | y 1089 | 33 px |
+  | 3 pages | 1 | y 1117 | 5 px |
+  | 3 pages | 2 | y 1122 | 0 px |
+  | 3 pages | 3 (last) | y 1089 | 33 px |
+
+  Only the header picture paints these gaps.
+- **On-screen evidence (owner).**
+  - The owner's screenshot of 2026-10-11, Word Print Layout of a 2-page Modern CV, shows a lighter blue band at the foot of the sidebar on pages 1 and 2. That is exactly where the measured gaps are.
+  - On 2026-10-11 the owner opened two files sent by the agent in Word Print Layout: 1-actuel-2pages.docx (current code) and 2-correction-P2-2pages.docx (probe P2, below). The owner replied "le 2e fichier est bon, lance la correction P2".
+  - Named limit: the owner did not explicitly confirm the band on the current-code file. It is inferred from the original screenshot together with "the second file is good".
+- **The owner's own file.** It was not provided, so whether it contains header1.xml is not recorded. The lighter (not white) colour of the band rules out a pre-#88 export, which would show white.
+
+Cause: Word draws header content dimmed in Print Layout while the body is being edited. The full-page sidebar picture lives in the header, added by #88. Where the sidebar cell's shading stops, at the last line on each page and up to 33 px short on the last page, the user sees the dimmed header picture as a lighter band. Print and PDF are not dimmed, which is why the COM-PDF method never showed it.
+
+Candidate fixes probed, all on header-less copies so that only the probe paints the gap:
+
+| Probe | Construction | Result | Verdict |
+|---|---|---|---|
+| P1 | Page-anchored picture in the sidebar cell's first paragraph | Fills page 1 only | Rejected: page-count dependent |
+| **P2** | A 1-twip exact repeated header row (`w:tblHeader`) before the main row, holding the same page-anchored sidebar picture (`layoutInCell=0`, behind text) | Every page of the 2- and 3-page files is #0d0da5 to y=1122, last page included; 0 pixels differ from the current export's PDF (1-, 2- and 3-page files); owner sees no band on screen | **Selected for US-002** |
+| P3 | `w:background` plus displayBackgroundShape | Not painted in print | Rejected: FR-4 |
+| C | Extend the cell fill | Impossible at a mid-page break or on the last page | Rejected |
+
+Checks: NOT_APPLICABLE. Diagnosis only: no src/, e2e/ or test change, so the §14 suite has nothing new to verify. It runs on US-002's final diff.
+
+Specialized validation:
+- Export: PASS for the diagnosis, through Word COM PDF rasters and EMF renders above.
+- Browser, Visual, Database, Security: NOT_APPLICABLE.
+
+Agents:
+- senior-coder: diagnosis and probes, scratchpad only.
+- ui-expert: NOT_APPLICABLE. The visual evidence is the owner's own Word screen check.
+- code-reviewer: NOT_APPLICABLE for code. No code changed; the evidence above is reviewed together with US-002.
+
+Acceptance criteria:
+- AC-01 (reproduce: a 2-page CV from current main in Word, screen capture of both page bottoms): PASS on the owner's evidence (screenshot and on-screen check of the current-code file). Named limit as above.
+- AC-02 (Word PDF export rasterised, bottom 40 px of pages 1 and 2 measured): PASS. Uniform #0d0da5.
+- AC-03 (cause stated with evidence): PASS. The header picture is dimmed on screen; gap table above.
+- AC-04 (owner's file checked for header1.xml): NOT EVALUATED. The file was not provided, which the PRD made conditional ("if the owner provides").
+
+Decisions for US-002, from the owner's "lance la correction P2" on 2026-10-11:
+- Construction P2 (repeated 1-twip header row holding the page-anchored sidebar picture).
+- The header picture is removed: it becomes redundant and stays dimmed on screen.
+- e2e/docx-modern-photo.spec.ts asserts "exactly one wp:anchor in document.xml (the sidebar fill is in the header)". That assertion encodes the sidebar-fill construction, so it is adapted in US-002 under the PRD's clause that geometry tests change where the construction changes. The photo assertions themselves stay unchanged.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 prove why the Modern Word sidebar looks short on screen
+
+FINAL: PASS
