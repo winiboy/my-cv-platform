@@ -465,11 +465,17 @@ describe('creative: the header’s decorative discs', () => {
     }
   })
 
-  it('draws no floating raster in a template whose Preview has no such shape', async () => {
+  it('draws exactly one floating raster without a photo: the page-anchored sidebar fill behind the text', async () => {
     const xml = await documentXml('modern-green', generateModernDocx, 'green')
-    // Modern's document body draws only the photo, and this fixture carries
-    // none; its sidebar fill is a drawing in the header part.
-    expect(elements(xml, 'w:drawing')).toEqual([])
+    // Modern's document body draws only the photo, which this fixture does not
+    // carry, and the sidebar fill: one drawing placed on the page behind the
+    // text, in the table's repeated header row.
+    const drawings = elements(xml, 'w:drawing')
+    expect(drawings).toHaveLength(1)
+    expect(drawings[0]).toContain('behindDoc="1"')
+    expect(drawings[0]).toContain('layoutInCell="0"')
+    expect(drawings[0]).toContain('<wp:positionH relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionH>')
+    expect(drawings[0]).toContain('<wp:positionV relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionV>')
   })
 })
 

@@ -113,13 +113,26 @@ test('the Modern DOCX photo is the Preview photo: same box, same cover crop', as
   const zip = await JSZip.loadAsync(await response.body())
   const xml = await zip.file('word/document.xml')!.async('string')
 
-  // The photo is the only drawing in the body; the sidebar fill is in the header.
+  // Two drawings in the body: the sidebar fill, placed on the page behind the
+  // text in the table's repeated first row, and the photo, laid out in its cell.
   const anchors = xml.match(/<wp:anchor\b[\s\S]*?<\/wp:anchor>/g) ?? []
-  expect(anchors).toHaveLength(1)
-  const anchor = anchors[0] ?? ''
+  expect(anchors).toHaveLength(2)
+  const fills = anchors.filter((a) => a.includes('layoutInCell="0"'))
+  const photos = anchors.filter((a) => a.includes('layoutInCell="1"'))
+  expect([fills.length, photos.length]).toEqual([1, 1])
+  const fill = fills[0] ?? ''
+  expect(fill).toContain('behindDoc="1"')
+  expect(fill).toContain('<wp:positionH relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionH>')
+  expect(fill).toContain('<wp:positionV relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionV>')
+  const fillRowEnd = xml.indexOf('</w:tr>')
+  expect(xml.slice(xml.indexOf('<w:tr>'), fillRowEnd)).toContain('<w:tblHeader/>')
+  expect(xml.indexOf(fill)).toBeLessThan(fillRowEnd)
+  const anchor = photos[0] ?? ''
 
-  // Anchored in the sidebar cell's first paragraph, at its top-left.
-  const sidebarCell = xml.slice(xml.indexOf('<w:tc>'), xml.indexOf('</w:tc>'))
+  // Anchored in the sidebar cell's first paragraph, at its top-left: the
+  // content row's first cell, after the fill row.
+  const contentRow = xml.slice(fillRowEnd)
+  const sidebarCell = contentRow.slice(contentRow.indexOf('<w:tc>'), contentRow.indexOf('</w:tc>'))
   const firstParagraph = sidebarCell.slice(sidebarCell.indexOf('<w:p>'), sidebarCell.indexOf('</w:p>'))
   expect(firstParagraph).toContain('<wp:anchor')
   expect(anchor).toContain('layoutInCell="1"')
@@ -208,9 +221,13 @@ for (const { orientation, rotation, flipH } of [
     expect(response.ok()).toBe(true)
     const zip = await JSZip.loadAsync(await response.body())
     const xml = await zip.file('word/document.xml')!.async('string')
+    // The photo is the one drawing laid out in its cell; the sidebar fill is
+    // the other, placed on the page.
     const anchors = xml.match(/<wp:anchor\b[\s\S]*?<\/wp:anchor>/g) ?? []
-    expect(anchors).toHaveLength(1)
-    const anchor = anchors[0] ?? ''
+    expect(anchors).toHaveLength(2)
+    const photos = anchors.filter((a) => a.includes('layoutInCell="1"'))
+    expect(photos).toHaveLength(1)
+    const anchor = photos[0] ?? ''
 
     // The picture's own transform: Word flips, then turns.
     const xfrm = /<pic:spPr\b[^>]*><a:xfrm\b[^>]*>/.exec(anchor)?.[0] ?? ''

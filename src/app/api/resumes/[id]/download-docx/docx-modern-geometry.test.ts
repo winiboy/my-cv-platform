@@ -100,7 +100,8 @@ function settingsFor(row: ReturnType<typeof resumeRow>, options: Options): DocxG
 interface Artifact {
   document: string
   settings: string
-  header: string
+  /** The names of the package's header parts. */
+  headerParts: string[]
   media: Buffer[]
 }
 
@@ -129,7 +130,7 @@ function artifact(options: Options = {}): Promise<Artifact> {
       return {
         document: await read('word/document.xml'),
         settings: await read('word/settings.xml'),
-        header: await read('word/header1.xml'),
+        headerParts: zip.file(/^word\/header\d*\.xml$/).map((entry) => entry.name),
         media,
       }
     })()
@@ -203,6 +204,20 @@ const runProperty = (run: Run, element: string) => attribute(run.properties, ele
 const PAGE_TWIPS = 11908
 const SIDEBAR_TWIPS = 3572
 
+/** The outer table's 1-twip header row, repeated on every page, that carries the sidebar fill. */
+const FILL_ROW = /<w:tr><w:trPr>(?:(?!<\/w:trPr>)[\s\S])*<w:tblHeader\/>[\s\S]*?<\/w:tr>/
+
+/** The document after the sidebar fill row: the content row and what follows it. */
+function afterFillRow(documentXml: string): string {
+  const row = FILL_ROW.exec(documentXml)
+  expect(row, 'the sidebar fill row').not.toBeNull()
+  return documentXml.slice((row?.index ?? 0) + (row?.[0].length ?? 0))
+}
+
+/** The photo's drawings: laid out in their cell, unlike the sidebar fill, which is placed on the page. */
+const photoAnchors = (documentXml: string) =>
+  (documentXml.match(/<wp:anchor\b[\s\S]*?<\/wp:anchor>/g) ?? []).filter((anchor) => anchor.includes('layoutInCell="1"'))
+
 describe('modern DOCX geometry', () => {
   it('lays out in Word 2010 mode, so justified lines break where the browser breaks them', async () => {
     const { settings } = await artifact()
@@ -212,8 +227,9 @@ describe('modern DOCX geometry', () => {
   it('gives both cells of the row a top margin of 0, the main cell p-8 at the sides and no bottom margin', async () => {
     const { document } = await artifact()
     expect(document).toContain(`<w:gridCol w:w="${SIDEBAR_TWIPS}"/><w:gridCol w:w="${PAGE_TWIPS - SIDEBAR_TWIPS}"/>`)
-    const sidebar = /<w:tcW w:type="dxa" w:w="3572"\/>[\s\S]*?<w:tcMar>([\s\S]*?)<\/w:tcMar>/.exec(document)?.[1] ?? ''
-    const main = /<w:tcW w:type="dxa" w:w="8336"\/>[\s\S]*?<w:tcMar>([\s\S]*?)<\/w:tcMar>/.exec(document)?.[1] ?? ''
+    const row = afterFillRow(document)
+    const sidebar = /<w:tcW w:type="dxa" w:w="3572"\/>[\s\S]*?<w:tcMar>([\s\S]*?)<\/w:tcMar>/.exec(row)?.[1] ?? ''
+    const main = /<w:tcW w:type="dxa" w:w="8336"\/>[\s\S]*?<w:tcMar>([\s\S]*?)<\/w:tcMar>/.exec(row)?.[1] ?? ''
     for (const side of ['top', 'left', 'bottom', 'right']) {
       expect(attribute(sidebar, `w:${side}`, 'w:w'), `sidebar ${side}`).toBe('0')
     }
@@ -228,8 +244,10 @@ describe('modern DOCX geometry', () => {
   })
 
   it('starts the sidebar text below the 220px photo zone plus its top padding, in one paragraph', async () => {
-    const first = (document: string) =>
-      paragraphsOf(document.slice(document.indexOf('<w:tcW w:type="dxa" w:w="3572"/>')))[0]
+    const first = (document: string) => {
+      const row = afterFillRow(document)
+      return paragraphsOf(row.slice(row.indexOf('<w:tcW w:type="dxa" w:w="3572"/>')))[0]
+    }
     // 220 + 64 = 284px = 4260 twips, less the paragraph's own 1-twip line.
     const zone = first((await artifact()).document)
     expect([spacing(zone, 'after'), spacing(zone, 'line')]).toEqual([4259, 1])
@@ -256,7 +274,9 @@ describe('modern DOCX geometry', () => {
       const { document } = await artifact({ photoBase64, sidebarWidth })
       const cellTwips = Math.round(PAGE_TWIPS * (sidebarWidth / 100))
       expect(document).toContain(`<w:tcW w:type="dxa" w:w="${cellTwips}"/>`)
-      const anchor = /<wp:anchor\b[\s\S]*?<\/wp:anchor>/.exec(document)?.[0] ?? ''
+      const anchors = photoAnchors(document)
+      expect(anchors, `${sidebarWidth}%: one photo drawing`).toHaveLength(1)
+      const anchor = anchors[0] ?? ''
       expect(anchor).toContain('<wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV>')
       const cx = Number(attribute(anchor, 'wp:extent', 'cx'))
       const cy = Number(attribute(anchor, 'wp:extent', 'cy'))
@@ -267,6 +287,8 @@ describe('modern DOCX geometry', () => {
       const keptRows = (220 * 300) / (cellTwips / 15)
       const trim = Math.round(((400 - keptRows) / 2 / 400) * 100_000)
       expect(anchor, `${sidebarWidth}%`).toContain(`<a:srcRect l="0" t="${trim}" r="0" b="${trim}"/>`)
+      // Only the photo is cropped: the sidebar fill, earlier in the document, keeps its whole image.
+      expect(document.match(/<a:srcRect l=/g), `${sidebarWidth}%`).toHaveLength(1)
     }
   })
 
@@ -452,14 +474,36 @@ describe('modern DOCX geometry', () => {
     expect((await artifact()).document).toContain(`<w:pgSz w:w="${PAGE_TWIPS}" w:h="16838" w:orient="portrait"/>`)
   })
 
-  it('fills the sidebar to the foot of every page with a drawing behind the text, in the header', async () => {
-    const { document, header, media } = await artifact()
-    expect(document).toMatch(/<w:headerReference w:type="default" r:id="[^"]+"\/>/)
-    expect(attribute(header, 'wp:anchor', 'behindDoc')).toBe('1')
-    expect(header).toContain('<wp:positionH relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionH>')
-    expect(header).toContain('<wp:positionV relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionV>')
+  it('fills the sidebar to the foot of every page with a drawing behind the text, in a repeated 1-twip header row', async () => {
+    const { document, headerParts, media } = await artifact()
+    // Not in a page header, which Word draws dimmed on screen (US-001).
+    expect(document).not.toContain('<w:headerReference')
+    expect(headerParts).toEqual([])
+    // The outer table's first row, which Word repeats at the top of every page the table spans.
+    const row = FILL_ROW.exec(document)
+    expect(row?.index, 'the first row of the document').toBe(document.indexOf('<w:tr>'))
+    const rowXml = row?.[0] ?? ''
+    expect(rowXml).toContain('<w:trHeight w:val="1" w:hRule="exact"/>')
+    const cells = rowXml.match(/<w:tc>[\s\S]*?<\/w:tc>/g) ?? []
+    expect(cells.map((cell) => attribute(cell, 'w:tcW', 'w:w'))).toEqual([String(SIDEBAR_TWIPS), String(PAGE_TWIPS - SIDEBAR_TWIPS)])
+    for (const cell of cells) {
+      const margins = /<w:tcMar>([\s\S]*?)<\/w:tcMar>/.exec(cell)?.[1] ?? ''
+      expect(['top', 'left', 'bottom', 'right'].map((side) => attribute(margins, `w:${side}`, 'w:w'))).toEqual(['0', '0', '0', '0'])
+      expect(cell).not.toContain('<w:tcBorders>')
+      expect(cell).not.toContain('<w:shd ')
+    }
+    // One drawing, in the sidebar cell, placed on the page behind the text.
+    const anchors = rowXml.match(/<wp:anchor\b[\s\S]*?<\/wp:anchor>/g) ?? []
+    expect(anchors).toHaveLength(1)
+    expect(cells[0]).toContain('<wp:anchor')
+    const anchor = anchors[0] ?? ''
+    expect(attribute(anchor, 'wp:anchor', 'behindDoc')).toBe('1')
+    expect(attribute(anchor, 'wp:anchor', 'layoutInCell')).toBe('0')
+    expect(anchor).toContain('<wp:wrapNone/>')
+    expect(anchor).toContain('<wp:positionH relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionH>')
+    expect(anchor).toContain('<wp:positionV relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionV>')
     // The sidebar's width and the page's height, at 635 EMU a twip.
-    expect(header).toContain(`<wp:extent cx="${SIDEBAR_TWIPS * 635}" cy="${16838 * 635}"/>`)
+    expect(anchor).toContain(`<wp:extent cx="${SIDEBAR_TWIPS * 635}" cy="${16838 * 635}"/>`)
     // In the sidebar cell's own colour.
     const fill = new RegExp(`<w:tcW w:type="dxa" w:w="${SIDEBAR_TWIPS}"/><w:shd w:fill="([0-9A-F]{6})"`).exec(document)?.[1]
     expect(fill, 'the sidebar cell fill').toBeDefined()

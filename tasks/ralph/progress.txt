@@ -82,3 +82,106 @@ Commit:
 - Commit message: ralph: US-001 prove why the Modern Word sidebar looks short on screen
 
 FINAL: PASS
+
+## US-002: The sidebar is one uniform colour down to the bottom of every page in Word
+Status: PASS
+Priority: 2
+Branch: ralph/docx-modern-sidebar-full-page
+Baseline HEAD: c220354
+
+Scope:
+- Scope check: PASS.
+- Production change: src/app/api/resumes/[id]/download-docx/docx-modern.ts only (FR-1).
+  - Construction P2, as decided in US-001: a first body-table row, `w:tblHeader` (repeated on every page), `cantSplit`, exactly 1 twip high, two zero-margin cells.
+  - Its sidebar cell holds the page-anchored behind-text fill `solidColourPng(sidebarColorHex)` at page (0,0), extent sidebar width × 16838 twips, `layoutInCell="0"`, explicit docPr id 2.
+  - The header picture (`sidebarFillHeader`, the section header, the `Header` import) is removed.
+  - The photo-crop post-process now targets the photo anchor (`layoutInCell="1"`) instead of the first `<a:srcRect/>` in the document.
+- FR-2: no new dependency; docx 9.7.2 APIs only. FR-3: one colour source, the same `sidebarColorHex` as the cell shading.
+- Tests changed, each because it asserted the old construction. No photo assertion was loosened.
+  - docx-modern-geometry.test.ts: "default header with the page-sized picture" becomes "repeated 1-twip header row holding the page-anchored fill, no header part". This is the geometry test the PRD names.
+  - docx-modern-orientation.test.ts: it asserted "exactly one wp:anchor (the photo)". It now finds the photo as the anchor laid out in its cell (`layoutInCell="1"`). The photo assertions are unchanged.
+  - docx-graphics.test.ts: it asserted "no w:drawing in the body, the fill is in the header". It now asserts exactly one body drawing, the fill, behind the text and page-relative at (0,0). The title is renamed to match.
+  - e2e/docx-modern-photo.spec.ts: it asserted "exactly one wp:anchor, the sidebar fill is in the header". It now asserts two anchors: one fill (page-relative, behind the text, inside the tblHeader row) and one photo. The photo assertions are unchanged. The owner's "lance la correction P2" covers this file (US-001 decisions).
+  - e2e/docx-export-layout.spec.ts: its image accounting assumed the fill lived in the header. It is now stricter:
+    - no header may draw an image;
+    - every stored image is accounted for;
+    - the fill is the body's tblHeader-row drawing, and its bytes equal `solidColourPng(MODERN_SIDEBAR_FILL)`.
+  - Reading: the PRD's "all other DOCX tests pass unmodified" is read as tests that do not encode the sidebar-fill construction. Each file above encoded it. If the owner reads the clause literally, the edits to those four files need the owner's decision.
+- Docs: docs/engineering/docx-word-parity.md, the Modern sidebar construction paragraph. It records the new construction and one limit: Word repeats a tblHeader row only at automatic page breaks, so a manual page break inserted inside the table stops the fill on the following pages.
+- Not committed: .claude/settings.local.json and next-env.d.ts, both local churn. Version unchanged. No push, no merge.
+- Evidence scripts and files: session scratchpad `modern-sidebar/` (gen.test.ts, word_export.py, print.ps1, print_and_screen.py, raster.ps1, diff.cjs, colbottom.cjs, screenband.cjs, parthash.py).
+
+Evidence:
+- **Word PDF export (SaveAs2 … 17), before (c220354) vs after, rasterised at 794×1123.**
+  - Files: 1-, 2- and 3-page Modern CVs, each without and with a photo.
+  - Result: 0 differing pixels on all 12 pages.
+  - Sidebar #0d0da5 down to y=1122 on every page, last pages included.
+  - The one-page CV is unchanged (0 px). Text, photo, banners, contacts and fonts are unchanged (0 px). The main column stays white.
+- **Word printing with the session's default options** (PrintOut to "Microsoft Print to PDF"):
+  - The printer was chosen for the Word session only, through WordBasic.FilePrintSetup with DoNotSetAsSysDefault=1. The system default printer stayed the Brother.
+  - Defaults on this machine: PrintBackground=True, PrintDrawingObjects=True, PrintDraft=False.
+  - Files: the same 6, printed with PrintBackground on (the default) and again with it off. The option was restored to True afterwards, and that was checked.
+  - Background on vs off: 0 px on all 12 pages. FR-4 holds: the fill does not depend on the background-printing option.
+  - Printed before vs printed after: 0 px on all 12 pages.
+  - The fill reaches y=1120 of 1122 on every printed page.
+  - The driver prints on Letter paper (MediaBox 612×792), so the A4 page is shifted into the printable area. The printed raster therefore does not match the A4 PDF export pixel for pixel. The shift is identical before and after, and it is not a band.
+- **On screen: Word desktop 16.0.20430, Print Layout, editing the body, all pages side by side.**
+  - Captured with PrintWindow (PW_RENDERFULLCONTENT) of the Word window only.
+  - Files: before-2pages, before-3pages, after-2pages, after-3pages, after-3pages-photo.
+  - Before: the dimmed-header colour #8686d2 fills 25 of the last 40 rows of the last page's sidebar. That is 3910 px on the 2-page file and 3864 px on the 3-page file, plus 4–5 rows at the foot of page 1. This reproduces the owner's symptom.
+  - After: 0 band rows on every page. The remaining 1–2 off-colour rows are the grey page edge, also present on before's middle page, which has no band.
+  - The owner also checked 3-implementation-2pages.docx on screen on 2026-10-11: "le fichier est bon".
+  - Two captures (before-3pages, after-3pages) were sent to the owner.
+  - Named limit: there is no before capture of the photo variant. The photo case is covered by after-3pages-photo plus the 0 px PDF and print diffs.
+- **Other templates.** Professional, Classic, Minimal and Creative were generated before and after with 1 and 4 experiences. Every zip part is identical (docProps/core.xml masked of timestamps). document.xml sha256 prefixes:
+  - professional 70f252c5cfb87cc1 / cd38b44295a50404
+  - classic f916b3ab07fe6613 / b3ced7aba7381e90
+  - minimal 55377e4ce956ad9b / fb74fed25406147f
+  - creative cfb0fbdfaf12ab14 / 968b13aa07ffbea5
+- **Not checked:** LibreOffice, Google Docs, Word for Mac and Word Online (out of scope).
+
+Checks (final diff, after the test title, comment and doc edits):
+- pnpm typecheck: PASS (exit 0).
+- pnpm test: PASS. 1768 passed, 5 skipped.
+- pnpm test:integration: PASS. 50 passed.
+- pnpm lint: 290 problems (221 errors, 69 warnings) against the tracked ceiling of 306. Not above baseline. Exit 1 at the baseline, as expected.
+- pnpm build:verify: PASS. 105/105 static pages.
+- pnpm test:e2e: PASS. 235 passed in one run.
+  - An earlier run on the pre-edit diff had 1 failure: an ERR_NO_BUFFER_SPACE in the login fixture of template-picker-compact.spec.ts:299. That run is superseded.
+- pnpm test:visual: PASS. 10 passed; Windows baselines unchanged.
+- pnpm test:parity: PASS. 273 passed: MATCH 206, KNOWN 3, NEW 0. Report sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2, unchanged.
+
+Specialized validation:
+- Export: PASS. Word PDF, Word print and Word screen evidence above; other-template hashes identical.
+- Browser, Database, Security: NOT_APPLICABLE. DOCX generator only.
+
+Agents:
+- senior-coder: implementation, plus the test title, comment and doc fixes from the review.
+- code-reviewer: PASS on re-review, conditional on visual and parity reproducing the earlier results, which they do (above). The first review was FAIL. The code was found correct; the FAIL was for missing evidence:
+  - printing evidence;
+  - 3-page on-screen captures;
+  - ui-expert validation;
+  - justification of the test edits;
+  - a stale test title and comment.
+
+  Every item is addressed above. The reviewer's optional suggestions are not done and are left for later:
+  - a docPr-uniqueness assertion;
+  - a decorative-image flag;
+  - LibreOffice notes.
+- ui-expert: PASS. It covered the 5 screen captures, the PDF rasters (12 pages) and the printed rasters (36 pages). Its notes:
+  - Letter paper in print, identical before and after;
+  - no before capture of the photo variant.
+
+Acceptance criteria:
+- AC-01 (on screen, 2- and 3-page, captures of every page bottom): PASS.
+- AC-02 (PDF export, sidebar column within 1 level everywhere): PASS.
+- AC-03 (printing with default options shows the same as the PDF): PASS. The fill reaches the bottom of every printed page, and the result is the same with the background option off. Named limit: Letter paper on the PDF driver.
+- AC-04 (one-page CV unchanged): PASS. 0 px.
+- AC-05 (rest of layout within ±1.5 px, main column white): PASS. 0 px.
+- AC-06 (tests changed only where the construction changes): PASS under the reading in Scope. Named for the owner.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 Modern Word sidebar reaches the bottom of every page on screen
+
+FINAL: PASS

@@ -2,7 +2,6 @@ import { getTranslations, type Locale } from '@/lib/i18n'
 import { contactLabel, presentLabel } from '@/lib/resume-template-strings'
 import {
   Document,
-  Header,
   Packer,
   Paragraph,
   TextRun,
@@ -1988,28 +1987,53 @@ export async function generateModernDocx(
 
   // The sidebar's fill on every page, top to foot. The cell's fill ends where
   // the row's part on that page ends — at the last line Word set there, not
-  // at the page's foot (measured: page 1 of A filled to 1105px of 1123), and
-  // after the row it stops altogether. So the fill is also a drawing in the
-  // header, which repeats on every page: the sidebar's width, the page's
-  // height, behind the text, where Word draws it under the cell's own fill.
-  const sidebarFillHeader = new Header({
+  // at the page's foot (measured: up to 33px short of 1123), and after the row
+  // it stops altogether. So the fill is also a drawing: the sidebar's width,
+  // the page's height, anchored to the page behind the text, under the cell's
+  // own fill. It sits in a 1-twip table header row, which Word repeats at the
+  // top of every page the table spans, so the drawing repeats with it. It was
+  // a header drawing until Word was seen to draw header content dimmed in
+  // Print Layout while the body is edited: a lighter band where the cell's
+  // fill stopped (US-001). A body drawing is not dimmed, and the Word-PDF
+  // raster is identical to the header drawing's.
+  const sidebarFillRow = new TableRow({
+    tableHeader: true,
+    cantSplit: true,
+    height: { value: 1, rule: HeightRule.EXACT },
     children: [
-      new Paragraph({
+      new TableCell({
         children: [
-          new ImageRun({
-            type: 'png',
-            data: solidColourPng(sidebarColorHex),
-            transformation: { width: sidebarWidthTwips / 15, height: pageHeightTwips / 15 },
-            floating: {
-              horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: 0 },
-              verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: 0 },
-              wrap: { type: TextWrappingType.NONE },
-              behindDocument: true,
-              allowOverlap: true,
-            },
+          new Paragraph({
+            children: [
+              new ImageRun({
+                type: 'png',
+                data: solidColourPng(sidebarColorHex),
+                transformation: { width: sidebarWidthTwips / 15, height: pageHeightTwips / 15 },
+                // docx 9.7.2 numbers every drawing 1 (a new id generator per
+                // drawing), and the photo shares this part: a distinct id keeps
+                // the two drawings' wp:docPr ids unique.
+                altText: { name: '', description: '', title: '', id: '2' },
+                floating: {
+                  horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: 0 },
+                  verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: 0 },
+                  wrap: { type: TextWrappingType.NONE },
+                  behindDocument: true,
+                  allowOverlap: true,
+                  // Positioned on the page, not clipped to this 1-twip cell.
+                  layoutInCell: false,
+                },
+              }),
+            ],
+            spacing: NO_TEXT_LINE,
           }),
         ],
-        spacing: NO_TEXT_LINE,
+        margins: { top: 0, bottom: 0, left: 0, right: 0 },
+        width: { size: sidebarWidthTwips, type: WidthType.DXA },
+      }),
+      new TableCell({
+        children: [new Paragraph({ children: [], spacing: NO_TEXT_LINE })],
+        margins: { top: 0, bottom: 0, left: 0, right: 0 },
+        width: { size: mainContentWidthTwips, type: WidthType.DXA },
       }),
     ],
   })
@@ -2021,6 +2045,7 @@ export async function generateModernDocx(
 
   const mainTable = new Table({
     rows: [
+      sidebarFillRow,
       new TableRow({
         children: [sidebarCell, mainContentCell],
         cantSplit: false,
@@ -2108,7 +2133,6 @@ export async function generateModernDocx(
             type: DocumentGridType.DEFAULT,
           },
         },
-        headers: { default: sidebarFillHeader },
         children: [
           mainTable,
           // Trailing paragraph required by OOXML after table
@@ -2131,7 +2155,9 @@ export async function generateModernDocx(
 
   // Post-process: apply OOXML srcRect cropping for object-fit: cover on photo.
   // The docx library always emits an empty <a:srcRect/> inside <pic:blipFill>.
-  // We replace the first occurrence with computed crop values via ZIP manipulation.
+  // We replace the photo's with computed crop values via ZIP manipulation. The
+  // photo is the one drawing laid out in its cell; the sidebar fill, placed on
+  // the page, comes before it in the document and keeps its whole image.
   if (photoCropValues) {
     try {
       const zip = await JSZip.loadAsync(buffer)
@@ -2139,11 +2165,10 @@ export async function generateModernDocx(
       if (docXmlFile) {
         let xml = await docXmlFile.async('string')
         const srcRectTag = `<a:srcRect l="${photoCropValues.l}" t="${photoCropValues.t}" r="${photoCropValues.r}" b="${photoCropValues.b}"/>`
-        // The docx library may serialize as self-closing or open/close tag
-        if (xml.includes('<a:srcRect/>')) {
-          xml = xml.replace('<a:srcRect/>', srcRectTag)
-        } else if (xml.includes('<a:srcRect></a:srcRect>')) {
-          xml = xml.replace('<a:srcRect></a:srcRect>', srcRectTag)
+        const photoAt = xml.search(/<wp:anchor\b[^>]*\slayoutInCell="1"/)
+        if (photoAt >= 0) {
+          // The docx library may serialize as self-closing or open/close tag
+          xml = xml.slice(0, photoAt) + xml.slice(photoAt).replace(/<a:srcRect\/>|<a:srcRect><\/a:srcRect>/, srcRectTag)
         }
         zip.file('word/document.xml', xml)
         buffer = await zip.generateAsync({ type: 'nodebuffer' }) as Buffer

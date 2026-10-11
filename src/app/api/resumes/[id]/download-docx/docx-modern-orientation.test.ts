@@ -226,7 +226,12 @@ async function draw(photoBase64: string): Promise<Drawing> {
       .filter((entry) => !entry.dir && entry.name.startsWith('word/media/') && entry.name.endsWith('.jpg'))
       .map((entry) => entry.async('nodebuffer'))
   )
-  return { document, anchors: document.match(/<wp:anchor\b[\s\S]*?<\/wp:anchor>/g) ?? [], media }
+  // The photo's drawings only: the sidebar fill is also an anchor, placed on
+  // the page rather than laid out in its cell.
+  const anchors = (document.match(/<wp:anchor\b[\s\S]*?<\/wp:anchor>/g) ?? []).filter((anchor) =>
+    anchor.includes('layoutInCell="1"'),
+  )
+  return { document, anchors, media }
 }
 
 const attribute = (fragment: string, element: string, name: string) =>
