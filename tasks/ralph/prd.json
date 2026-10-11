@@ -1,0 +1,73 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "ralph/docx-modern-sidebar-full-page",
+  "description": "When a multi-page CV with the Modern template is opened in Microsoft Word, the sidebar column shows one uniform sidebar colour from the top to the bottom of every page. This holds in Word's on-screen Print Layout view, in print, and in Word's PDF export.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "The cause of the short / lighter sidebar is proven on the current export",
+      "description": "As the owner, I want to know exactly why the sidebar looks short in Word, so that the fix targets the real cause.",
+      "acceptanceCriteria": [
+        "Reproduce. A 2-page Modern CV exported from the current `main` is opened in Word desktop (Windows). A screen capture of Print Layout at both page bottoms is recorded.",
+        "Compare with print. Word's own PDF export of the same file (the `docx-word-parity.md` COM method) is rasterised. The sidebar colour at the bottom 40 px of pages 1 and 2 is measured and recorded.",
+        "Cause. The cause of the lighter or white band is stated with evidence: a dimmed header picture, an old file, or another cause.",
+        "Owner's file. If the owner provides the `.docx` from the screenshot, whether it contains `word/header1.xml` with the full-page picture is recorded.",
+        "FR-1: Only `docx-modern.ts`, and helpers it alone uses, change in `src/`.",
+        "FR-2: No new dependency (`docx` 9.7.2 APIs or raw OOXML through it).",
+        "FR-3: The fill colour comes from the same sidebar colour source as the cell shading (one source).",
+        "FR-4: The fix must not rely on Word's \"print background colours and images\" option being turned on.",
+        "Regression constraint: Professional, Classic, Minimal and Creative DOCX are byte-identical (hashes recorded).",
+        "Regression constraint: `pnpm test:parity` keeps 0 NEW and its current KNOWN set; local report hash unchanged, unless a Modern DOCX row legitimately changes, which must be explained.",
+        "Regression constraint: The Modern photo, contact rows, banners and fonts are unchanged.",
+        "Verification: The `CLAUDE.md` §14 baseline, plus `pnpm test:parity`.",
+        "Verification: Export validation: - Word COM PDF rasters of 1-, 2- and 3-page Modern CVs, before and after; - Word screen captures of every page bottom in Print Layout; - DOCX hashes of the other templates.",
+        "Verification: `code-reviewer`. `ui-expert` on the Word screen captures and PDF rasters.",
+        "FAIL condition: Any lighter, darker or white band in the sidebar column on any page, on screen or in PDF.",
+        "FAIL condition: A one-page CV changes, or the other templates' DOCX change.",
+        "FAIL condition: The fix only works with Word's background-printing option enabled.",
+        "BLOCKER condition: No Word to test with. Word desktop is not available to capture the screen view. Report it; on-screen evidence would then come from the owner.",
+        "BLOCKER condition: Word cannot do it. No construction available in OOXML gives a uniform full-height column in Word's screen view and print at the same time. Report the candidates tried with evidence; the owner decides.",
+        "Out of scope: Professional, Classic, Minimal and Creative exports.",
+        "Out of scope: Preview and PDF (print) behaviour in the app.",
+        "Out of scope: Word for Mac, Word Online, LibreOffice and Google Docs rendering, beyond recording what was observed if checked."
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "The sidebar is one uniform colour down to the bottom of every page in Word",
+      "description": "As a user opening my Modern CV in Word, I want the blue sidebar to run uniformly from top to bottom on every page, so that the document looks as designed on screen and when printed.",
+      "acceptanceCriteria": [
+        "On screen. In Word desktop Print Layout, on a 2-page and a 3-page Modern CV, the sidebar column on every page is the sidebar colour from the top edge to the bottom edge. There is no lighter or white band. Screen captures of every page bottom are recorded.",
+        "PDF export. In Word's PDF export of the same files, every sampled pixel in the sidebar column (x within the sidebar width, y from 0 to page height − 1) on every page is within 1 channel level of the sidebar colour.",
+        "Printing. Word printing with default options shows the same as the PDF export.",
+        "One-page CV. A one-page Modern CV still renders exactly as today: the Word-PDF raster is identical within the existing Word-parity tolerances.",
+        "Rest of the layout. Text, photo and section positions in the Word-PDF are unchanged within ±1.5 px (`docx-word-parity.md` method). The main column stays white.",
+        "Tests. Geometry tests are updated only where the sidebar-fill construction changes, and assert the new construction. All other DOCX tests pass unmodified.",
+        "FR-1: Only `docx-modern.ts`, and helpers it alone uses, change in `src/`.",
+        "FR-2: No new dependency (`docx` 9.7.2 APIs or raw OOXML through it).",
+        "FR-3: The fill colour comes from the same sidebar colour source as the cell shading (one source).",
+        "FR-4: The fix must not rely on Word's \"print background colours and images\" option being turned on.",
+        "Regression constraint: Professional, Classic, Minimal and Creative DOCX are byte-identical (hashes recorded).",
+        "Regression constraint: `pnpm test:parity` keeps 0 NEW and its current KNOWN set; local report hash unchanged, unless a Modern DOCX row legitimately changes, which must be explained.",
+        "Regression constraint: The Modern photo, contact rows, banners and fonts are unchanged.",
+        "Verification: The `CLAUDE.md` §14 baseline, plus `pnpm test:parity`.",
+        "Verification: Export validation: - Word COM PDF rasters of 1-, 2- and 3-page Modern CVs, before and after; - Word screen captures of every page bottom in Print Layout; - DOCX hashes of the other templates.",
+        "Verification: `code-reviewer`. `ui-expert` on the Word screen captures and PDF rasters.",
+        "FAIL condition: Any lighter, darker or white band in the sidebar column on any page, on screen or in PDF.",
+        "FAIL condition: A one-page CV changes, or the other templates' DOCX change.",
+        "FAIL condition: The fix only works with Word's background-printing option enabled.",
+        "BLOCKER condition: No Word to test with. Word desktop is not available to capture the screen view. Report it; on-screen evidence would then come from the owner.",
+        "BLOCKER condition: Word cannot do it. No construction available in OOXML gives a uniform full-height column in Word's screen view and print at the same time. Report the candidates tried with evidence; the owner decides.",
+        "Out of scope: Professional, Classic, Minimal and Creative exports.",
+        "Out of scope: Preview and PDF (print) behaviour in the app.",
+        "Out of scope: Word for Mac, Word Online, LibreOffice and Google Docs rendering, beyond recording what was observed if checked."
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
