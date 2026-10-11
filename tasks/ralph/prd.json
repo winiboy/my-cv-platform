@@ -33,7 +33,7 @@
         "Out of scope: The KNOWN `US-016-html-body-line-height` entry."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

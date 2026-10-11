@@ -3,4 +3,75 @@
 Contract: tasks/ralph/prd.json (branch ralph/docx-line-height-single-column)
 PRD: tasks/prds/docx-line-height-single-column.md (Status: APPROVED 2026-10-09, written by the owner)
 Format: docs/engineering/progress-log-format.md
-Branch setup: from origin/main b49efc9. a4eb2ec archives the merged docx-modern-sidebar-full-page contract (#104); the next commit adds this PRD and its contract.
+Branch setup: from origin/main b49efc9. a4eb2ec archives the merged docx-modern-sidebar-full-page contract (#104); 17bb54b adds this PRD and its contract.
+
+## US-001: Classic, Minimal and Creative Word line pitch follows the Preview at fractional sizes
+Status: PASS
+Priority: 1
+Branch: ralph/docx-line-height-single-column
+Baseline HEAD: 17bb54b (origin/main b49efc9 + archive commit + contract commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat):
+  - src/app/api/resumes/[id]/download-docx/docx-classic.ts (+22 −9)
+  - src/app/api/resumes/[id]/download-docx/docx-minimal.ts (+26 −10)
+  - src/app/api/resumes/[id]/download-docx/docx-creative.ts (+21 −7)
+  - src/app/api/resumes/[id]/download-docx/docx-line-spacing.test.ts (+51 −44)
+  - docs/engineering/docx-word-parity.md (+30 −0)
+- Not touched: docx-professional.ts, docx-modern.ts, docx-helpers.ts, everything under e2e/ (git diff -- e2e empty), visual baselines, package.json version. No push, no merge.
+- Pre-existing local changes left unstaged: .claude/settings.local.json, next-env.d.ts.
+
+Checks (all on the final diff, after the last edit):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 54 files, 1768 passed, 5 skipped
+- pnpm test:integration: PASS — 4 files, 50 passed
+- pnpm build: PASS — 105/105 static pages
+- pnpm test:e2e: PASS — 235 passed
+- pnpm test:visual: PASS — 10 passed, no baseline updated
+- pnpm test:parity: PASS — 273 passed; MATCH 206, KNOWN 3, NEW 0, LIMITATION 11, FINDING 3, DECISION 16; parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2, identical to the pre-story baseline recorded in tasks/handoff-2026-10-11.md
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306 (CLAUDE memory baseline, origin/main a4942b4); same count as measured on #104's diff
+
+Specialized validation:
+- Browser: NOT_APPLICABLE — no UI change
+- Visual: PASS — test:visual 10/10 against unchanged baselines (Preview untouched)
+- Export: PASS — generated DOCX inspected as unzipped word/document.xml (details under AC-02, AC-03, AC-05)
+- Database: NOT_APPLICABLE — no schema or data change
+- Security: NOT_APPLICABLE — no trust-boundary change
+
+Agents:
+- senior-coder: implementation (lineFontSizes tables mirroring docx-professional.ts:265; test cases given previewPx)
+- ui-expert: NOT_APPLICABLE — PRD Required Verification: no UI
+- code-reviewer: PASS, round 1. No Critical or Major findings. Minor findings:
+  1. docx-line-spacing.test.ts creative 'summary' case (previewPx 16): the Preview draws it at a fixed text-base that ignores fontScale, so at 0.8/1.2 the case checks the generator's own scaling, not the Preview. Not changed (would need a test edit and a full re-run of every check); recorded as an owner decision below.
+  2. Signs of the drifts in the doc table: confirmed from the raw measurement (all after-fix deltas are positive), see AC-05.
+  3. Same 5-line comment in the three generators: accepted, matches the professional pattern.
+
+Acceptance criteria:
+- AC-01 (every call): PASS — grep of `exactLineSpacing(` in the three generators: 24 calls (classic 8, minimal 9, creative 7), every size argument a lineFontSizes.* entry; every run size and trackingSpacing still on scaledFontSizes.*. Generated document.xml for the e2e fixture at scales 1, 0.8, 1.2, 1.3 × 5 templates: sha256 of all <w:sz>/<w:szCs> values and of the XML with every <w:spacing/> removed are identical before and after in all 20 cases, so only w:spacing changed.
+- AC-02 (default exports): PASS — document.xml at scale 1, e2e fixture (e2e/fixtures/resume.ts, default layout), before = after: classic 28eacadbda69070b…, minimal bb90f40a2172477b…, creative 69e4bf627b3e8e01…. Two runs before the change gave identical hashes (deterministic).
+- AC-03 (Professional and Modern): PASS — document.xml before = after at scales 1, 0.8, 1.2, 1.3: professional 67138fd2…, ab98e134…, 54dfa217…, a219f7e2…; modern 84b09962…, 42a24f46…, 521f9cd3…, c9c9dc59….
+- AC-04 (unit test): PASS — docx-line-spacing.test.ts with the HEAD generators restored: 64 failed / 132 passed (classic 11, minimal 11, creative 10 cases, each at 0.8 and 1.2; every scale-1 case passed). With the new generators: 196/196 passed. All five templates now carry previewPx at 0.8, 1, 1.2.
+- AC-05 (Word re-measure): PASS — method of docs/engineering/docx-word-parity.md: Word 16.0 via COM (Documents.Open read-only, SaveAs2 17), Word PDF read with pdf.js 2.0.550 (pdf-parse), pt × 96/72. Layout: per-property-control's (e2e/parity/profiles.ts), fontScale 1.2, body 16.8px; e2e fixture with one long achievement paragraph (97 words) in the second role. Preview: the same resume on /en/dashboard/resumes/[id]/preview (parity build, port 3120), line tops via Range.getClientRects. Each baseline taken relative to the paragraph's first. Route DOCX document.xml = direct-generator output for all three templates.
+  - classic: 8 lines; Δ per baseline after [0, 0.09, 0.05, 0.14, 0.08, 0.17, 0.10, 0.19] px, max +0.19; before (rounded sizes) max −1.41
+  - minimal: 9 lines; after [0, 0.08, 0.16, 0.24, 0.36, 0.27, 0.35, 0.43, 0.51], max +0.51; before max −1.73 (outside ±1.5)
+  - creative: 9 lines on Word page 1; after max +0.19; before max −1.47. Recorded in docs/engineering/docx-word-parity.md (new section "Line pitch in Classic, Minimal and Creative").
+
+Named limits:
+- AC-05 compares the line pitch inside one paragraph only. Creative's paragraph continues on Word page 2 after line 9. Those lines were not compared: the documented method compares page 2 with the product PDF, which was not captured here.
+- Word sets Creative's paragraph in 13 lines where the Preview draws 14, with the old and the new generator alike. This is a width difference that predates this story; these generators write no w:w, which the PRD puts out of scope.
+
+Open owner decisions recorded by this story:
+- Possible new PRD (before any work on font-scale fidelity for these templates): several Preview elements do not scale with fontScale, while the DOCX generators scale them:
+  - creative: the header summary (text-base, creative-template.tsx:465) and contactLinks (text-xs);
+  - classic: textSm;
+  - minimal: position, company, date and tech (text-xl, text-base, text-sm, text-xs).
+  This is invisible at scale 1. Not in this PRD's scope.
+
+Environment notes:
+- Scratch evidence files (a vitest hash script under src/ and a Playwright measure spec under e2e/parity/) were created, run and deleted before the final checks; none is committed. All checks ran sequentially, one Playwright suite at a time; no stall or re-run.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 Classic, Minimal and Creative Word line pitch follows the Preview at fractional sizes
+FINAL: PASS

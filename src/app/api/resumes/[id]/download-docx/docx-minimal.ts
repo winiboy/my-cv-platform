@@ -233,13 +233,29 @@ export async function generateMinimalDocx(
     tech: pxToHalfPoints(FONT_SIZES.TECH * fontScale),
   }
 
+  // The same sizes unrounded, in half-points, for line spacing only, as
+  // Professional and Modern do (#88). A run's size must be whole half-points,
+  // but the Preview's line box is its px size times the line height: at a
+  // fractional size, spacing from the rounded run size drifts the Word line
+  // pitch from the Preview's on every line.
+  const lineFontSizes = {
+    title: titleFontSize * fontScale * 1.5,
+    contact: contactFontSize * fontScale * 1.5,
+    sectionTitle: sectionTitleFontSize * fontScale * 1.5,
+    body: sectionDescFontSize * fontScale * 1.5,
+    position: FONT_SIZES.POSITION * fontScale * 1.5,
+    company: FONT_SIZES.COMPANY * fontScale * 1.5,
+    date: FONT_SIZES.DATE * fontScale * 1.5,
+    tech: FONT_SIZES.TECH * fontScale * 1.5,
+  }
+
   // Line spacing shared by many paragraphs.
-  const inheritedBody = exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.body])
-  const relaxedBody = exactLineSpacing([LINE_HEIGHT.relaxed, scaledFontSizes.body])
+  const inheritedBody = exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.body])
+  const relaxedBody = exactLineSpacing([LINE_HEIGHT.relaxed, lineFontSizes.body])
   // A title and its date in one flex row: the text-xl h3 beside the text-sm date.
   const titleAndDateLine = exactLineSpacing(
-    [LINE_HEIGHT.textXl, scaledFontSizes.position],
-    [LINE_HEIGHT.textSm, scaledFontSizes.date],
+    [LINE_HEIGHT.textXl, lineFontSizes.position],
+    [LINE_HEIGHT.textSm, lineFontSizes.date],
   )
 
   // Page dimensions: A4
@@ -272,7 +288,7 @@ export async function generateMinimalDocx(
       ],
       spacing: {
         after: spacingAfter ?? pxToTwips(SPACING.SECTION_TITLE_MB),
-        ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.sectionTitle]),
+        ...exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.sectionTitle]),
       },
       border: {
         bottom: {
@@ -338,7 +354,7 @@ export async function generateMinimalDocx(
       alignment: AlignmentType.CENTER,
       spacing: {
         after: pxToTwips(16), // space-y-4 between title and contact
-        ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.title]),
+        ...exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.title]),
       },
     })
   )
@@ -369,7 +385,7 @@ export async function generateMinimalDocx(
           }),
         ],
         alignment: AlignmentType.CENTER,
-        spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.contact]) },
+        spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.contact]) },
       })
     )
   }
@@ -541,7 +557,7 @@ export async function generateMinimalDocx(
                   ],
                   spacing: {
                     after: pxToTwips(SPACING.EXP_LINE2_MB),
-                    ...exactLineSpacing([LINE_HEIGHT.textBase, scaledFontSizes.company]),
+                    ...exactLineSpacing([LINE_HEIGHT.textBase, lineFontSizes.company]),
                   },
                 })
               )
@@ -685,7 +701,7 @@ export async function generateMinimalDocx(
                   after: hasDescription || hasTechnologies
                     ? pxToTwips(SPACING.PROJECT_NAME_MB)
                     : (isLastProject ? sectionEndSpacing : pxToTwips(SPACING.PROJECT_ITEM_GAP)),
-                  ...exactLineSpacing([LINE_HEIGHT.textXl, scaledFontSizes.position]),
+                  ...exactLineSpacing([LINE_HEIGHT.textXl, lineFontSizes.position]),
                 },
               })
             )
@@ -727,7 +743,7 @@ export async function generateMinimalDocx(
                   ],
                   spacing: {
                     after: isLastProject ? sectionEndSpacing : pxToTwips(SPACING.PROJECT_ITEM_GAP),
-                    ...exactLineSpacing([LINE_HEIGHT.textXs, scaledFontSizes.tech]),
+                    ...exactLineSpacing([LINE_HEIGHT.textXs, lineFontSizes.tech]),
                   },
                 })
               )
