@@ -126,28 +126,44 @@ interface OpenedDocx {
   media: string[]
   /** Image parts the document body references — where a photo is drawn. */
   bodyImages: string[]
+  /** Every drawing in the document body, with the image part it draws and that part's bytes. */
+  bodyDrawings: Array<{ at: number; drawing: string; part: string; bytes: Buffer }>
   /** Image parts a page header references, with their bytes. */
   headerImages: Array<{ part: string; bytes: Buffer }>
 }
 
 /**
- * The image parts one part's relationships point at, as zip paths.
+ * The image relationships of one part, id to zip path.
  *
  * Read off `word/_rels/<part>.rels` rather than off `word/media/`, because the
  * folder only says an image is stored, not who draws it. Targets are resolved
  * against `word/`, where every source part read here lives.
  */
-async function imageTargets(zip: JSZip, relsPath: string): Promise<string[]> {
+async function imageRelationships(zip: JSZip, relsPath: string): Promise<Map<string, string>> {
   const rels = zip.file(relsPath)
-  if (rels === null) return []
+  if (rels === null) return new Map()
   const xml = await rels.async('string')
-  return (xml.match(/<Relationship\b[^>]*>/g) ?? [])
-    .filter((relationship) => /\bType="[^"]*\/image"/.test(relationship))
-    .map((relationship) => {
-      const target = /\bTarget="([^"]+)"/.exec(relationship)?.[1]
-      if (target === undefined) throw new Error(`An image relationship without a target: ${relationship}`)
-      return `word/${target.replace(/^\.?\//, '')}`
-    })
+  return new Map(
+    (xml.match(/<Relationship\b[^>]*>/g) ?? [])
+      .filter((relationship) => /\bType="[^"]*\/image"/.test(relationship))
+      .map((relationship) => {
+        const id = /\bId="([^"]+)"/.exec(relationship)?.[1]
+        const target = /\bTarget="([^"]+)"/.exec(relationship)?.[1]
+        if (id === undefined || target === undefined) throw new Error(`An image relationship without an id or target: ${relationship}`)
+        return [id, `word/${target.replace(/^\.?\//, '')}`] as const
+      }),
+  )
+}
+
+/** The image parts one part's relationships point at, as zip paths. */
+async function imageTargets(zip: JSZip, relsPath: string): Promise<string[]> {
+  return [...(await imageRelationships(zip, relsPath)).values()]
+}
+
+async function partBytes(zip: JSZip, part: string, referrer: string): Promise<Buffer> {
+  const file = zip.file(part)
+  if (file === null) throw new Error(`${referrer} references ${part}, which the package lacks`)
+  return file.async('nodebuffer')
 }
 
 async function openDocx(buffer: Buffer): Promise<OpenedDocx> {
@@ -172,22 +188,27 @@ async function openDocx(buffer: Buffer): Promise<OpenedDocx> {
     .filter((entry) => !entry.dir && entry.name.startsWith('word/media/'))
     .map((entry) => entry.name)
 
-  const bodyImages = await imageTargets(zip, 'word/_rels/document.xml.rels')
+  const bodyRelationships = await imageRelationships(zip, 'word/_rels/document.xml.rels')
+  const bodyImages = [...bodyRelationships.values()]
+  const bodyDrawings = await Promise.all(
+    [...xml.matchAll(/<w:drawing>[\s\S]*?<\/w:drawing>/g)].map(async (match) => {
+      const id = /<a:blip\b[^>]*\sr:embed="([^"]+)"/.exec(match[0])?.[1]
+      const part = id === undefined ? undefined : bodyRelationships.get(id)
+      if (part === undefined) throw new Error(`A body drawing without an image relationship: ${match[0].slice(0, 300)}`)
+      return { at: match.index, drawing: match[0], part, bytes: await partBytes(zip, part, 'The body') }
+    }),
+  )
 
   const headerRels = Object.keys(zip.files).filter((name) =>
     /^word\/_rels\/header\d*\.xml\.rels$/.test(name),
   )
   const headerImages = await Promise.all(
     [...new Set((await Promise.all(headerRels.map((rels) => imageTargets(zip, rels)))).flat())].map(
-      async (part) => {
-        const file = zip.file(part)
-        if (file === null) throw new Error(`A header references ${part}, which the package lacks`)
-        return { part, bytes: await file.async('nodebuffer') }
-      },
+      async (part) => ({ part, bytes: await partBytes(zip, part, 'A header') }),
     ),
   )
 
-  return { xml, text, media, bodyImages, headerImages }
+  return { xml, text, media, bodyImages, bodyDrawings, headerImages }
 }
 
 /** The request the download button now makes: the resume, and a language. */
@@ -422,33 +443,62 @@ for (const photoCase of PHOTO_CASES) {
     // into a failed export would be a regression in its own right.
     expect(response.ok()).toBe(true)
 
-    const { xml, text, media, bodyImages, headerImages } = await openDocx(await response.body())
+    const { xml, text, media, bodyImages, bodyDrawings, headerImages } = await openDocx(await response.body())
     expect(text).toContain(FIXTURE_EXPERIENCE[0].company)
 
     /**
-     * Which image is the photo, decided by who draws it rather than by whether
-     * `word/media/` is empty.
+     * Which image is the photo, decided by how it is drawn rather than by
+     * whether `word/media/` is empty.
      *
-     * Modern also stores one image that is not a photo: its sidebar fill, drawn
-     * in the page header so it reaches the foot of every page. So "no photo"
-     * cannot mean "no media" for this template — but it must not be loosened to
-     * "any media is fine" either. Every stored image has to be accounted for:
-     * either the body draws it (the photo), or a header draws it AND it is
-     * byte-for-byte the solid sidebar-colour fill. Anything else stored fails.
-     * A template that draws no header fill has no header images, so for it the
-     * dropped case below still demands an empty `word/media/`.
+     * Modern also stores one image that is not a photo: its sidebar fill,
+     * drawn by the body in the table's first row, a 1-twip header row Word
+     * repeats on every page, so it reaches the foot of every page. (It was a
+     * page-header drawing until Word was seen to dim it on screen.) So "no
+     * photo" cannot mean "no media" for this template — but it must not be
+     * loosened to "any media is fine" either. Every stored image has to be
+     * accounted for by the drawing that draws it:
+     * - the photo: laid out in its cell (`layoutInCell="1"`);
+     * - the sidebar fill: in the repeated first row, placed on the page
+     *   (`layoutInCell="0"`) behind the text, AND byte-for-byte the solid
+     *   sidebar-colour PNG. Exactly one, with or without a photo.
+     * Any other drawing, any stored image no drawing accounts for, and any
+     * header image fail. So a dropped photo leaves exactly one stored image,
+     * the fill, never an empty `word/media/`.
      */
     expect([...media].sort()).toEqual(
       [...new Set([...bodyImages, ...headerImages.map((image) => image.part)])].sort(),
     )
+    expect(headerImages, 'no page header draws an image').toEqual([])
+
+    const firstRow = /<w:tr>[\s\S]*?<\/w:tr>/.exec(xml)
+    expect(firstRow?.[0], 'the first table row repeats on every page').toContain('<w:tblHeader/>')
+    const firstRowEnd = (firstRow?.index ?? 0) + (firstRow?.[0].length ?? 0)
     const sidebarFillPng = solidColourPng(MODERN_SIDEBAR_FILL)
-    for (const image of headerImages) {
-      expect(image.bytes.equals(sidebarFillPng), `${image.part} is the sidebar fill`).toBe(true)
-    }
+    const isSidebarFill = ({ at, drawing, bytes }: (typeof bodyDrawings)[number]) =>
+      at > (firstRow?.index ?? -1) &&
+      at < firstRowEnd &&
+      drawing.includes('layoutInCell="0"') &&
+      drawing.includes('behindDoc="1"') &&
+      drawing.includes('<wp:positionH relativeFrom="page">') &&
+      drawing.includes('<wp:positionV relativeFrom="page">') &&
+      bytes.equals(sidebarFillPng)
+    const isPhoto = ({ drawing }: (typeof bodyDrawings)[number]) => drawing.includes('layoutInCell="1"')
+
+    const fills = bodyDrawings.filter(isSidebarFill)
+    const photos = bodyDrawings.filter(isPhoto)
+    expect(fills, 'exactly one sidebar fill drawing').toHaveLength(1)
+    expect(
+      bodyDrawings.filter((drawing) => !isSidebarFill(drawing) && !isPhoto(drawing)).map((d) => d.drawing.slice(0, 200)),
+      'every body drawing is the sidebar fill or the photo',
+    ).toEqual([])
+    expect([...new Set(bodyDrawings.map((drawing) => drawing.part))].sort(), 'every body image is drawn').toEqual(
+      [...bodyImages].sort(),
+    )
 
     if (photoCase.embedded) {
-      expect(bodyImages).toHaveLength(1)
-      expect(xml).toContain('<w:drawing>')
+      expect(photos).toHaveLength(1)
+      expect(photos[0]?.part).not.toBe(fills[0]?.part)
+      expect(bodyImages).toHaveLength(2)
 
       /**
        * The one OUTPUT this story changed, read off the artifact.
@@ -469,9 +519,10 @@ for (const photoCase of PHOTO_CASES) {
       expect(xml).not.toContain(`w:fill="${MODERN_UNCUSTOMIZED_SIDEBAR_FILL}"`)
       expect(xml).not.toContain(MODERN_UNCUSTOMIZED_ACCENT)
     } else {
-      // No photo: the body references no image and draws nothing.
-      expect(bodyImages).toEqual([])
-      expect(xml).not.toContain('<w:drawing>')
+      // No photo: the body draws only the sidebar fill, and stores only its image.
+      expect(photos).toEqual([])
+      expect(bodyDrawings).toHaveLength(1)
+      expect(bodyImages).toEqual([fills[0]?.part])
     }
   })
 }

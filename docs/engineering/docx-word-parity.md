@@ -168,9 +168,15 @@ paginates:
 - A cell's **bottom margin is reserved at the foot of every page** the row
   spans, ending page 1 early; Modern's main cell has none.
 - A cell's **fill ends at the last line** Word set on that page, and stops after
-  the row. Modern also draws the sidebar colour as a page-anchored image behind
-  the text in the header, which repeats on every page. Word does not draw a 1×1
-  PNG, so the image is larger.
+  the row. Modern also draws the sidebar colour as a solid PNG anchored to the
+  page behind the text (`layoutInCell="0"`), in the table's first row: 1 twip
+  exact, a header row (`w:tblHeader`) that Word repeats on every page. It was in
+  the page header until Word was seen to draw header content dimmed in Print
+  Layout, a lighter band where the cell fill stops (owner-confirmed 2026-10-11);
+  the Word PDF is pixel-identical either way. Word does not draw a 1×1 PNG, so
+  the image is larger. Limit: Word repeats a `w:tblHeader` row only at automatic
+  page breaks, so a manual page break the user inserts inside the table stops
+  the fill on the pages after it.
 
 ### The page
 
