@@ -75,3 +75,65 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 Classic, Minimal and Creative Word line pitch follows the Preview at fractional sizes
 FINAL: PASS
+
+## US-002: A parity profile guards line height at fractional sizes
+Status: PASS
+Priority: 2
+Branch: ralph/docx-line-height-single-column
+Baseline HEAD: c0f5022 (US-001)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat):
+  - e2e/parity/profiles.ts (+27 −6): 'fractional-size' in the ProfileId union; per-property-control's inline layout moved to the const PER_PROPERTY_CONTROL_LAYOUT (same values and key order) and shared with the new profile (rowGroups ['body-line-height'], all five templates, no control, no content)
+  - e2e/parity/verdicts.ts (+7 −4): text of the DECISION "line height: Word exact spacing" only
+  - e2e/parity/surfaces.ts (+6 −4): comment on the LineHeight type only
+- Not touched: comparison logic, tolerances, KNOWN_EXPECTATIONS; git diff -- src empty; no visual baseline; no version change. No push, no merge.
+- Pre-existing local changes left unstaged: .claude/settings.local.json, next-env.d.ts.
+
+Checks (all on the final diff, after the round-2 text fix; the round-1 runs were discarded):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 1768 passed, 5 skipped
+- pnpm test:integration: PASS — 50 passed
+- pnpm build: PASS — 105/105 static pages
+- pnpm test:e2e: PASS — 235 passed
+- pnpm test:visual: PASS — 10 passed, no baseline updated
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0, LIMITATION 11, FINDING 3, DECISION 16; parity-report.json sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b
+- Row diff against the US-001 report (sha256 4e0e9975…): 209 → 214 rows, 5 added (all MATCH), 0 removed, 0 verdicts changed
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306, same count as US-001
+
+Specialized validation:
+- Browser: NOT_APPLICABLE — no UI change
+- Visual: PASS — test:visual 10/10, baselines unchanged
+- Export: PASS — the new rows compare the DOCX produced by the route, read as word/document.xml by the parity harness, against the Preview and the print PDF
+- Database: NOT_APPLICABLE — no schema or data change
+- Security: NOT_APPLICABLE — test-harness change only
+
+Agents:
+- senior-coder: implementation; round-2 text fix
+- ui-expert: NOT_APPLICABLE — PRD Required Verification: no UI
+- code-reviewer:
+  - round 1 FAIL. Major: the DECISION text and the profile purpose said "16.8px body text", which is wrong for professional: its body is FONT_SIZES.BODY 11px, so 13.2px at fontScale 1.2. Minor: the surfaces.ts comment still credited only professional and modern.
+  - Both fixed by senior-coder as text-only changes; every check was re-run.
+  - round 2 PASS. Minor, not fixed: the source comment above PER_PROPERTY_CONTROL_LAYOUT (profiles.ts ~150-154) still says "body text 16.8px" without the professional exception. It is a source comment only, not in the report.
+
+Acceptance criteria:
+- AC-01 (the profile): PASS — profiles.ts: ProfileId includes 'fractional-size'; the profile uses PER_PROPERTY_CONTROL_LAYOUT (fontScale 1.2, per-property sizes at their defaults), rowGroups ['body-line-height'] and TEMPLATES (5). The parity report lists 5 fractional-size rows.
+- AC-02 (MATCH): PASS — all five fractional-size line-height:bodyText rows are MATCH (classic docx ×1.500 = preview/pdf ×1.500, minimal ×1.625, creative ×1.500, modern ×1.500, professional docx ×1.348 against ×1.350 within tolerance). NEW 0, KNOWN 3.
+- AC-03 (catches the defect): PASS — the generators were restored to 17bb54b (pre-US-001) locally with git show, without committing, then pnpm test:parity was run (exit 1). Counts: MATCH 208, KNOWN 3, NEW 3. NEW rows:
+  - classic: docx ×1.488 against ×1.500
+  - minimal: ×1.611 against ×1.625
+  - creative: ×1.488 against ×1.500
+  Professional and modern were MATCH. Run on both the round-1 and the round-2 diff with the same result. The generators were restored afterwards (git diff -- src: 0 lines).
+- AC-04 (text): PASS — the DECISION names all five templates: professional and modern since #88 with w:w, classic, minimal and creative since this PRD without it, guarded by fractional-size. scale-control and per-property-control keep control: true and report 0 rows.
+
+Named limits:
+- The DECISION and the surfaces.ts comment say "lineFontSizes" for all five generators. Modern reaches the same values through lineOf(). Its document-default paragraph still spaces from the rounded size (docx-modern.ts:2103), which has no visible effect because every Modern paragraph sets its own spacing. That predates this story and changing it is out of scope.
+
+Environment notes:
+- Playwright suites ran one at a time. The reverted-generator parity run used the same .next-parity build path as the real run; the build was redone for each.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 A parity profile guards line height at fractional sizes
+FINAL: PASS

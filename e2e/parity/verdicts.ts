@@ -1203,10 +1203,13 @@ export const ANNOTATIONS: readonly AnnotationRow[] = [
       'is written as w:lineRule="exact" at the Preview line height of its element times its size, in twips, ' +
       'taken from src/lib/resume-line-height.ts. Exact rather than at-least: exact is drawn at exactly that ' +
       "pitch in every font, where at-least is drawn at the font's single line whenever that is taller — " +
-      'Verdana\'s 1.215 em against the 1.2 of the professional and modern titles. Since PR #88 the professional ' +
-      'and modern generators multiply by the unrounded Preview size (lineFontSizes), while the run keeps its size ' +
-      'rounded to whole half-points (w:sz, with a w:w width scale back to the Preview advance), so that Word ' +
-      'draws each line at the height of the Preview line box. The line-height rows therefore compare the DOCX ' +
+      'Verdana\'s 1.215 em against the 1.2 of the professional and modern titles. All five generators multiply by ' +
+      'the unrounded Preview size, while the run keeps its size rounded to whole half-points (w:sz), so that Word ' +
+      'draws each line at the height of the Preview line box: professional and modern since PR #88 ' +
+      '(lineFontSizes, with a w:w width scale back to the Preview advance), classic, minimal and creative since ' +
+      'tasks/prds/docx-line-height-single-column.md (no width scale, so their glyph widths and line breaks can ' +
+      'still differ). The fractional-size profile guards it at fontScale 1.2, where every template\'s body size ' +
+      'is fractional (16.8px; 13.2px on professional). The line-height rows therefore compare the DOCX ' +
       'exact pitch divided by the size the Preview draws the element at, not by the run size: pitch over a ' +
       'rounded w:sz read x1.188 for a title Word draws at exactly the x1.200 Preview line box. At a whole ' +
       'half-point size the two divisors are equal. Whether the run size is right is the font-size row. ' +
