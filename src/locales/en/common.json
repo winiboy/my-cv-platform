@@ -176,6 +176,7 @@
     "setDefault": "Set as Default",
     "previewUnsavedTitle": "Preview with unsaved changes",
     "previewUnsavedWarning": "Changes will be lost if you do not save",
+    "pageBreakLabel": "Page {page}",
     "pdfExportComingSoon": "PDF export coming soon!",
     "confirmDelete": "Are you sure you want to delete this resume?",
     "empty": {
