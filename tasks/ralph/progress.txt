@@ -1,256 +1,85 @@
-# Ralph progress — preview-page-break-indicator
+# Ralph progress — modern-print-sidebar-full-page
 
-Contract: tasks/ralph/prd.json (branch ralph/preview-page-break-indicator)
-PRD: tasks/prds/preview-page-break-indicator.md (Status: APPROVED 2026-10-12, written by the owner)
+Contract: tasks/ralph/prd.json (branch ralph/modern-print-sidebar-full-page)
+PRD: tasks/prds/modern-print-sidebar-full-page.md (Status: APPROVED 2026-10-13, written by the owner)
 Format: docs/engineering/progress-log-format.md
-Branch setup: from origin/main b49efc9, while PR #105 (ralph/docx-line-height-single-column) is still open. The docx-modern-sidebar-full-page contract this replaces is archived by a4eb2ec on that branch. When #105 merges, origin/main is merged into this branch and the docx-line-height-single-column contract is archived then.
+Branch setup: from origin/main 91b2bd9 (#106 merged). The first commit archives the merged preview-page-break-indicator contract; the second adds this PRD and its contract.
 
-## US-001: Page boundaries visible in the editor's live preview
+## US-001: A printed Modern CV keeps its sidebar band down to the bottom of every page
 Status: PASS
 Priority: 1
-Branch: ralph/preview-page-break-indicator
-Baseline HEAD: f6b6c22 (origin/main b49efc9 + contract commit)
+Branch: ralph/modern-print-sidebar-full-page
+Baseline HEAD: b976a74 (origin/main 91b2bd9 + archive commit + contract commit)
+
+Root cause (diagnosed before the PRD, 2026-10-13):
+- Modern's sidebar is an in-flow column of resume-document, so in print it ends where the document ends. A probe of the LONG_EXPERIENCE fixture: document 2354 px, 3 pages, sidebar bottom 2354 px, 1015 px of white below it on page 3.
+- The result is identical with and without #106's Preview frame, so #106 is not the cause.
+- Professional has a body-painted print band; Modern never had one (`git log -S "modern-template" -- src/app/globals.css` returns no commit).
 
 Scope:
 - Scope check: PASS
-- Changed paths:
-  - src/lib/resume-page-breaks.ts (new, 66 lines): FR-1 computePageBreaks(height | null) → { pageCount, boundaries }, from PAGE_HEIGHT_PX only
-  - src/lib/resume-page-breaks.test.ts (new, 13 tests)
-  - src/components/dashboard/resume-page-break-indicators.tsx (new, 92 lines): overlay, a sibling of resume-document inside the scaled wrapper; aria-hidden, pointer-events-none, print:hidden; dashed 1-screen-px teal line plus a vertical "Page N" label in the right gutter, counter-scaled
-  - src/components/dashboard/resume-page-break-indicators.test.ts (new, 7 tests, renderToStaticMarkup)
-  - src/components/dashboard/resume-editor.tsx (+8): renders the overlay after the template switch
-  - src/locales/{en,fr,de,it}/common.json (+1 each): resumes.pageBreakLabel = "Page {page}" / "Page {page}" / "Seite {page}" / "Pagina {page}"
-  - e2e/fixtures/resume.ts (+6 −2): optional languages and certifications overrides; the defaults are unchanged
-  - e2e/resume-editor-page-breaks.spec.ts (new, 12 tests)
-- Not touched: the five templates, the layout model, the DOCX generators, the print CSS, e2e/visual baselines, e2e/parity, the database, package.json version. No push, no merge.
-- Pre-existing local changes left unstaged: .claude/settings.local.json, next-env.d.ts.
-
-Checks (all on the final diff, after the round-2 fix; the round-1 runs were discarded):
-- pnpm typecheck: PASS — exit 0
-- pnpm test: PASS — 56 files, 1788 passed, 5 skipped (20 of them new)
-- pnpm test:integration: PASS — 50 passed
-- pnpm build: PASS — 105/105 static pages
-- pnpm test:e2e: PASS — 247 passed. This includes the 12 new tests and, unchanged: resume-editor-responsive.spec.ts, resume-print-geometry.spec.ts, modern-long-sidebar-print.spec.ts
-- pnpm test:visual: PASS — 10 passed. `git status -- e2e` shows no baseline change
-- pnpm test:parity: PASS — 273 passed; MATCH 206, KNOWN 3, NEW 0; parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2, identical to origin/main's
-- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306 (PRD Required Verification). The new files have 0 problems.
-
-Specialized validation:
-- Browser: PASS — e2e/resume-editor-page-breaks.spec.ts drives the rendered editor (detail under Acceptance criteria). Screenshots for ui-expert came from a scratch spec that was run and deleted: 1440×900 (classic en, modern en), 1024×768 (classic en, modern de), 768×1024 (classic en, creative fr), 390×900 (creative de, minimal it); two-page CVs.
-- Visual: PASS — test:visual 10/10, baselines unchanged; this story does not touch the Preview page those captures use
-- Export: PASS (constraint only) — the overlay is print:hidden (e2e asserts it under print emulation); parity sha unchanged; DOCX untouched
-- Database: NOT_APPLICABLE — nothing stored (FR-3)
-- Security: NOT_APPLICABLE — no new data, input or route
-
-Agents:
-- senior-coder: implementation; round-2 fix
-- ui-expert:
-  - round 1 BLOCKED: no tablet capture, and test:visual not shown. Styling had no blocking issue.
-  - round 2 PASS 7/7 after the tablet captures and the test:visual result were supplied.
-  - Optional polish, not applied: the line (teal-500/70) is about 1.9:1 on white and about 2.5:1 over Modern's sidebar, below the 3:1 non-text guideline. A solid teal-600 was suggested. Not blocking: the overlay is aria-hidden and the label (teal-700, about 5.5:1) gives the same position.
-- code-reviewer:
-  - round 1 FAIL, Critical: FR-2. The rule counted one page + 1 px as 2 pages, contradicting the PRD's "exactly one page tall (± 1 px) counts as one page". Its 0.5 px tolerance also never applied, because the editor measures integer offsetHeight.
-  - Fixed: PAGE_EDGE_TOLERANCE_PX = 1, pages = max(1, ceil((h − 1) / 1123)). The component now renders nothing for a non-finite or negative height instead of throwing (round-1 Minor 1). All checks were re-run.
-  - round 2 PASS. Remaining minors, not fixed:
-    - the last label can be clipped by overflow-y-clip when the document ends just past an edge (cosmetic; the line stays);
-    - the US-002 visual-capture risk (below);
-    - the e2e precondition that multi-page heights sit more than 1 px from an edge.
-
-Acceptance criteria:
-- AC-01 (positions): PASS — e2e: each indicator's box and line centre are within 1 px of k × 1123 × previewScale below the document top. Covered: professional and classic multi-page at 1440, at 390, and after dragging the split divider.
-- AC-02 (one page, none): PASS — e2e, all five templates with a one-page fixture; professional and modern asserted at exactly 1123 px. Unit: 1123 and 1124 → 1 page.
-- AC-03 (localized label): PASS — e2e asserts the label in en, fr, de and it ("Page 2", "Seite 2", "Pagina 2"); unit test asserts "Page 2" / "Page 3".
-- AC-04 (live update): PASS — e2e:
-  - typing summary text past the edge adds an indicator, and deleting it removes it, with a window marker proving no reload;
-  - font scale 0.7 → 1.3 → 0.7 gives 1 → 2 → 1 pages.
-- AC-05 (never intercepts): PASS — e2e: computed pointer-events none; elementFromPoint on the line returns CV content; every label's left edge ≥ the document's right edge. ui-expert saw no overlap in 16 screenshots.
-- AC-06 (aligned at every scale): PASS — e2e at 1440, at 390, and after the divider drag; ui-expert on screenshots at 1440, 1024, 768 and 390.
-- AC-07 (outside resume-document, hidden in print): PASS — e2e: the indicator is not contained in [data-testid="resume-document"], and is hidden under emulateMedia print, then visible again.
-
-Decision (FR-2):
-- The tolerance is 1 px inclusive, as the PRD states it. 0.5 px was rejected in review: it contradicted the PRD text and never applied to the editor's integer offsetHeight.
-- US-003 (the printed PDF page count) remains the authority on this rule.
-
-Open owner decisions recorded by this story:
-- Before US-002: test:visual takes element screenshots of resume-document on the Preview page, and an element screenshot captures overlapping siblings. With the indicator on the Preview page, every visual fixture longer than one page would capture the line, which is a PRD FAIL condition. The shared fixture is longer than one page in four templates: classic 1394 px, modern 1542, minimal 1711, creative 1218. US-002 must keep the indicator out of those captures without updating baselines; how it does so is US-002's to decide.
-
-Environment notes:
-- Playwright suites ran one at a time. Scratch screenshot specs were copied into e2e/ only while they ran on their own, and removed before any check; lint and typecheck logs confirm they never saw them.
-
-Commit:
-- Story commit: THIS_COMMIT
-- Commit message: ralph: US-001 Page boundaries visible in the editor's live preview
-FINAL: PASS
-
-## US-002: Page boundaries visible on the Preview page
-Status: PASS
-Priority: 2
-Branch: ralph/preview-page-break-indicator
-Baseline HEAD: a54d6fa (US-001)
-
-Scope:
-- Scope check: PASS
-- Changed paths:
-  - src/components/dashboard/resume-preview-wrapper.tsx (+79 −35):
-    - ResumePreview is wrapped in a 794 px `relative mx-auto` frame with no box styling of its own;
-    - a ResizeObserver stores the frame's offsetHeight;
-    - ResumePageBreakIndicators is a sibling of resume-document at scale 1;
-    - the frame sits inside a `@container` div, and the overlay is given labelClassName="@max-[820px]:hidden".
-  - src/components/dashboard/resume-page-break-indicators.tsx (+11 −1): an optional labelClassName prop, merged with cn(); the editor does not pass it.
-  - e2e/visual/resume-templates.spec.ts (+6): addStyleTag hides [data-testid="page-break-indicators"] before the captures, with a comment (owner decision 2026-10-13, below).
-  - e2e/fixtures/resume.ts (+21 −9): fixtureResumeContent(overrides) extracted; seedFixtureResume spreads it and writes the same columns as before.
-  - e2e/fixtures/page-breaks.ts (new, 60 lines): LONG_EXPERIENCE, ONE_PAGE, expectedPages and expectClearOfPageEdge, moved unchanged from the US-001 spec.
-  - e2e/resume-editor-page-breaks.spec.ts (+6 −52): imports those helpers; no test logic changed.
-  - e2e/resume-preview-page-breaks.spec.ts (new, 430 lines, 8 tests).
-- Not touched: the five templates, resume-preview.tsx, the layout model, print CSS, DOCX, the parity harness, every visual baseline image (`git status -- e2e` shows no __screenshots__ change), the database, package.json version. No push, no merge.
-- Pre-existing local changes left unstaged: .claude/settings.local.json, next-env.d.ts.
-
-Checks (all on the final diff, after the round-2 fix; the round-1 runs were discarded):
-- pnpm typecheck: PASS — exit 0
-- pnpm test: PASS — 1788 passed, 5 skipped
-- pnpm test:integration: PASS — 50 passed
-- pnpm build: PASS — 105/105 static pages
-- pnpm test:e2e: PASS — 255 passed. Includes the 8 new tests, the 12 US-001 tests, resume-print-geometry, modern-long-sidebar-print and resume-editor-responsive.
-- pnpm test:visual: PASS — 10 passed, no baseline changed
-- pnpm test:parity: PASS — 273 passed; MATCH 206, KNOWN 3, NEW 0; parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2 (unchanged)
-- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306. resume-preview-wrapper.tsx has 3 problems, all on lines that predate this story.
-
-Specialized validation:
-- Browser: PASS — e2e/resume-preview-page-breaks.spec.ts on the rendered Preview page (detail under Acceptance criteria). ui-expert reviewed screenshots from a scratch spec, run and deleted; 3-page CVs, edges 2 and 3:
-  - round 1: 1440 (classic en, modern fr), 768 (creative de), 390 (minimal it);
-  - round 2: 1095, 1118 and 1140 (professional en/fr/en), 1440 (classic en), 390 (minimal it).
-- Visual: PASS — test:visual 10/10, baselines unchanged; the overlay is hidden before capture per the owner decision
-- Export: PASS — the printed PDF of the Preview page (page.pdf, preferCSSPageSize, print media) is read per page: page count = indicators + 1, the CV text is present, and no label or "Page <n>" text appears. The overlay is print:hidden; parity sha unchanged.
-- Database: NOT_APPLICABLE — nothing stored (FR-3)
-- Security: NOT_APPLICABLE — no new data, input or route
-
-Agents:
-- senior-coder: implementation; round-2 fix
-- ui-expert:
-  - round 1 PASS 7/7, with this minor: the label creates new horizontal scroll in a band of window widths (computed from the code).
-  - round 2 PASS 7/7 after the fix. It accepted hiding the label, and keeping the line, where the gutter cannot hold it, and raised the AC-1 scope note.
-- code-reviewer:
-  - round 1 FAIL. Critical 1: the label created new horizontal scroll (.claude/rules/frontend.md, "no accidental overflow"). Critical 2: the spec measured overflow on document.documentElement, which the dashboard layout locks, so the assertion could never fail. Minor 1: frame height = document height was checked for classic only.
-  - Fixes:
-    - Measured reality: the overlay created a 3–13 px scroll at 1090–1100 px windows, and lengthened existing scroll by about 14 px at narrower widths.
-    - Labels are now hidden below a container width of 820 px (794 + 2 × 13); the lines stay at every width.
-    - The spec measures max(main, root) overflow. A band test at 390/767/1000/1090/1095/1100/1118/1140/1280 failed before the fix ("1090px: overflow added by the overlay — Expected: 0, Received: 13") and passes after.
-    - The professional one-page case also asserts frame offsetHeight = resume-document offsetHeight.
-  - round 2 BLOCKER: owner decision needed on hiding the label (AC-1). The code was otherwise ready, and the reviewer stated that option (a) "becomes PASS on this diff with no code change". Owner chose (a) on 2026-10-13 (below), so PASS.
-  - Remaining minors, not fixed:
-    - 820 hardcodes 794 + 2 × (LABEL_GAP_PX 3 + 10 px label). It goes stale silently if the gap or font size changes; the band test's 1118 and 1140 cases would catch a drift.
-    - The last label can be clipped when the document ends just past an edge.
-    - The line contrast over dark sidebars is about 2.5:1.
-
-Acceptance criteria:
-- AC-01 (same indicators and labels as US-001): PASS under the owner decision below.
-  - Same component and computePageBreaks at scale 1, same pageBreakLabel.
-  - e2e: positions within 1 px of k × 1123 below the document top, independent expectedPages, none for one page (professional at exactly 1123 px, classic), labels visible and correct in fr, de and it at 1280.
-  - Labels are hidden below an 820 px container (about a 1140 px window); the lines are drawn at every width.
-- AC-02 (follows the rendered document): PASS — e2e:
-  - a longer resume_draft_${id} over a one-page stored CV adds indicators, with the unsaved-changes banner and the draft content checked;
-  - a shorter draft over a long CV removes them;
-  - an image held back by a route and inserted into the document changes nothing until it is released; then an indicator appears without a reload, and removing the image removes it.
-- AC-03 (outside resume-document, hidden in print, no pointer capture): PASS — e2e: not contained in resume-document; pointer-events none; aria-hidden; a click on the line reaches the CV; hidden under print emulation.
-- AC-04 (PDF has no trace): PASS — e2e: the printed PDF has indicators + 1 pages, contains the CV text, and contains no label or "Page <n>" text on any page.
-
-Decision (owner, 2026-10-13, asked in chat before US-002): the Preview page uses the same indicator component as the editor. e2e/visual/resume-templates.spec.ts hides the overlay before capturing resume-document, because that suite guards the templates' rendering and the overlay is not part of the document. No baseline was updated.
-- Consequence: the PRD FAIL condition "indicator appears in a test:visual capture" now holds by construction. The evidence that the overlay never reaches output is the print-emulation check and the PDF text check (AC-03, AC-04).
-
-Decision (owner, 2026-10-13, asked in chat after code-review round 2): on the Preview page, the « Page N » label is hidden when the space beside the centred sheet cannot hold it, below a container width of 820 px (about a 1140 px window with the dashboard sidebar; also tablets and phones). The dashed line stays visible and precise at every width.
-- Alternatives rejected: always showing the label would add up to 13 px of horizontal scroll, which .claude/rules/frontend.md forbids; a new narrow-width label design is out of this PRD's scope.
-- The editor is unaffected: its labels are counter-scaled into the pane padding and always show.
-
-Named limits:
-- At 390 and 768 px the Preview page renders the unscaled 794 px sheet wider than the viewport. That predates this story; the indicator inherits it.
-- The live-update test uses an injected late image as a stand-in for a font or photo finishing loading. The same ResizeObserver handles both, but a real font swap is not exercised.
-
-Environment notes:
-- Playwright suites ran one at a time. Scratch screenshot specs were copied into e2e/ only while they ran on their own, and deleted before any check ran.
-
-Commit:
-- Story commit: THIS_COMMIT
-- Commit message: ralph: US-002 Page boundaries visible on the Preview page
-FINAL: PASS
-
-## US-003: The indicator count matches the printed PDF for every template
-Status: PASS
-Priority: 3
-Branch: ralph/preview-page-break-indicator
-Baseline HEAD: 0a4cf95 (US-002)
-
-Scope:
-- Scope check: PASS
-- Changed paths: e2e/resume-page-break-pdf-count.spec.ts (new, 134 lines, 10 tests). It is collected by test:e2e; playwright.config.ts testIgnore excludes only visual/, parity/, .next/, node_modules and nested worktrees.
-- Not touched: everything under src/ (git diff -- src empty), print CSS, computePageBreaks, the fixtures, every visual baseline, the parity harness, package.json version. No push, no merge.
+- Changed paths (git diff --numstat):
+  - src/app/globals.css (+33): print-only `html:has(.modern-template)` gradient band from --modern-print-sidebar-color / --modern-print-sidebar-width. In print, body and the document's ancestors become transparent, so the band, not white, lies under the document's anti-aliased bottom edge (no seam).
+  - src/components/dashboard/resume-templates/modern-template.tsx (+42 −2): `modern-template` class on resume-document; validated printBandStyle(); a style element rendered as the document's last child.
+  - src/components/dashboard/resume-templates/modern-template.test.ts (+62): emission and validation tests.
+  - e2e/modern-print-sidebar-full-page.spec.ts (new, 447 lines, 9 tests): rasterises the printed PDF with pdf.js inside Chromium.
+  - e2e/visual/__screenshots__/win32/modern-print.png: updated with owner approval (Decision below). sha256 a19090f60f93cc03… → 6e4a462db85e1fd4…
+- Not touched: anything under src/app/api/resumes/[id]/download-docx/ (git diff there: 0 lines); every other visual baseline; the parity harness; the layout model; the database; package.json version. No push, no merge.
 
 Checks (all on the final diff):
+- DOCX (owner's non-negotiable FR-3): PASS — word/document.xml and word/styles.xml generated directly from the generators, for the five templates at the default layout and at a custom one (fontScale 1.2, hue 140 / saturation 60 / brightness 30, sidebarWidth 28). 20 hashes, identical before and after; two baseline runs were identical.
+  - document.xml prefixes: professional 67138fd2414f / dc9f6411acce, modern 84b09962b956 / 5cf097660ca0, classic 28eacadbda69 / 8d7d85ded191, minimal bb90f40a2172 / 0df64932e378, creative 69e4bf627b3e / 513b08db1036.
 - pnpm typecheck: PASS — exit 0
-- pnpm test: PASS — 1788 passed, 5 skipped
+- pnpm test: PASS — 1799 passed, 5 skipped
 - pnpm test:integration: PASS — 50 passed
 - pnpm build: PASS — 105/105 static pages
-- pnpm test:e2e: PASS — 265 passed (10 new)
-- pnpm test:visual: PASS — 10 passed, no baseline change
-- pnpm test:parity: PASS — 273 passed; MATCH 206, KNOWN 3, NEW 0; sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2 (unchanged)
-- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306. The new spec has 0 problems.
+- pnpm test:e2e: PASS — 274 passed, including the 9 new tests and, unchanged: modern-long-sidebar-print, resume-print-geometry, page-break specs, resume-page-break-pdf-count
+- pnpm test:visual: PASS — 10 passed after the approved baseline update. The first run failed only "the modern template prints as approved": 238 px, one antialiased row at the document's bottom edge.
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0; sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b, identical to origin/main's
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306. modern-template.tsx has the same 9 problems as at HEAD.
 
 Specialized validation:
-- Browser: PASS — the spec drives the Preview page and the editor for every case
-- Visual: PASS — test:visual unchanged
-- Export: PASS — each case prints the Preview page the way a user downloads it: controls toggle in its shipped (on) state, print media, page.pdf({ preferCSSPageSize: true }). The PDF is parsed with pdf-parse for its page count.
+- Browser: PASS — the new spec checks that nothing changes on screen: no html/body background image on the Preview page or in the editor.
+- Visual: PASS — 10/10; only modern-print.png changed, as approved.
+- Export: PASS — PDF: the printed Preview page (page.pdf, preferCSSPageSize, print media) is rasterised and read. DOCX: FR-3 above.
 - Database: NOT_APPLICABLE
-- Security: NOT_APPLICABLE
+- Security: PASS (FR-2) — printBandStyle emits a colour only if it matches strict hsl() or hex, and a width only if it is finite and between 0 and 100. Neither pattern admits a semicolon, a closing brace or an angle bracket. Unit tests cover a break-out string, a keyword, rgb(), a negative hue, and widths NaN, −5 and 120.
 
 Agents:
-- senior-coder: implementation (test only; no disagreement between the rule and the PDF found, so nothing escalated)
-- ui-expert: NOT_APPLICABLE — test-only story, no rendered change
+- senior-coder: implementation
+- ui-expert: PASS 7/7 on rasterised real PDFs, before and after:
+  - the band runs to the bottom of the last page, with no seam at the content end (every band row scanned);
+  - its colour is pixel-identical to the sidebar: 13,13,165 for the default, 28,114,71 for hsl(150 60% 28%);
+  - its edge is within about 0.2pt of the sidebar's at 35% and 42%;
+  - the photo zone still draws on top.
 - code-reviewer: PASS, round 1.
-  - Not tautological: the expected count is computed in the test (expectedPages), the main assertion is against the real PDF, and multi-page heights are guarded by expectClearOfPageEdge and expectedPages ≥ 2.
-  - page.pdf() is accepted as the stand-in for window.print(): headless Chromium cannot drive the print dialog, and @page (A4, margin 0) overrides the dialog's paper and margins. The parity harness does the same (e2e/parity/surfaces.ts:854-857, verdicts.ts:1118).
+  - Major 1, required before merge, not before commit: CI prints on Linux, where Professional's body band shows a 1 px seam (KNOWN linux-print-sidebar-column). The PR's Linux CI must pass this spec; if it fails, record it and return to the owner without widening tolerances.
   - Minors, not fixed:
-    - printHeight is recorded as an annotation but not asserted equal to the Preview height. resume-print-geometry.spec.ts already covers screen/print equivalence.
-    - The spec header does not state the page.pdf() stand-in.
+    - the hex pattern accepts 5 and 7 digits (no security impact: invalid CSS prints white);
+    - printing the editor page also shows the band, as Professional's does (not a supported print surface);
+    - the other templates are checked through computed print styles, with their PDFs covered by unchanged visual and parity results.
 
 Acceptance criteria:
-- AC-01 (five templates × one-page and ≥2-page fixture, PDF pages = indicators + 1): PASS — Preview at 1280×900, en. Columns are Preview height / indicators / PDF pages / editor height / editor indicators:
+- AC-01 (last page covered to the bottom): PASS — e2e: on the unchanged source, 3 tests failed with paper in the band on page 3 (rows 125–840 for the default colours, 449–840 for width 42 green). After the fix they pass: both inside columns are the stored colour from the last text line to the last full pixel row, and the column outside the band is white.
+- AC-02 (every other page fully covered): PASS — e2e checks every row of every page for no paper rows and no one-row seam.
+- AC-03 (stored colour and width): PASS — stored defaults, width 35 and width 42 in green; band edge within 1pt of the stored width; colour equal to the stored HSL converted by the test. Note: the PRD says "default 35 %", but DEFAULT_RESUME_LAYOUT.sidebarWidth is 30 (35 is the template's fallback); both are tested.
+- AC-04 (one-page CV prints as before): PASS with the approved deviation. Pixel comparison against the band forced off: identical except one anti-aliased column at the sidebar's right edge (x=249, at most 35/255), which now blends over the band instead of white.
+- AC-05 (nothing on screen): PASS — e2e: no background image on html or body on screen, on the Preview page or in the editor; screen visual baselines unchanged.
+- AC-06 (other templates unchanged): PASS — e2e: Professional, Classic, Minimal and Creative get no Modern band in print. Parity sha unchanged; visual baselines unchanged except modern-print.png.
 
-  | Template | One-page fixture | Multi-page fixture |
-  |---|---|---|
-  | professional | 1123 / 0 / 1 / 1123 / 0 | 1546 / 1 / 2 / 1546 / 1 |
-  | modern | 1123 / 0 / 1 / 1123 / 0 | 2354 / 2 / 3 / 2354 / 2 |
-  | classic | 724 / 0 / 1 / 724 / 0 | 2826 / 2 / 3 / 2826 / 2 |
-  | minimal | 972 / 0 / 1 / 972 / 0 | 3094 / 2 / 3 / 3094 / 2 |
-  | creative | 577 / 0 / 1 / 577 / 0 | 2898 / 2 / 3 / 2898 / 2 |
-
-  The closest multi-page height to an edge is modern's 2354, 108 px past one.
-- AC-02 (editor shows the same count): PASS — same test, same resume, /en/dashboard/resumes/{id}/edit after the preview settles; editor count = Preview count in all 10 cases (table above).
-- AC-03 (deterministic, no real data): PASS — the invented ONE_PAGE and LONG_EXPERIENCE fixtures (e2e/fixtures/page-breaks.ts), seeded per test for a test user created by the auth fixture.
-
-Decision (FR-2, closing US-001's open point): the printed PDF agrees with pages = max(1, ceil((h − 1) / 1123)) on every fixture. Notably, professional and modern at exactly 1123 px print 1 page.
+Decision (owner, 2026-10-13, asked in chat after the first full run):
+- The update of e2e/visual/__screenshots__/win32/modern-print.png, and only that baseline, is authorised. This waives the PRD FAIL condition "any visual baseline needs updating" for that file.
+- The changed pixels are one antialiased row at the document's bottom edge. That edge now blends over the band; the old baseline had recorded the defect itself.
+- The same decision accepts the one-column edge difference under AC-04.
 
 Named limits:
-- No fixture lands inside the tolerance band (height k × 1123 + 1), so the band itself is not PDF-proven. It rests on FR-2's wording and the unit tests. Producing that exact height would need rigged content.
-- The PDF comes from page.pdf(), not the browser's print dialog (see code-reviewer above).
+- Linux print is unverified locally; see code-reviewer Major 1 above.
+- pdf.js 2.0.550 draws the band's hard gradient edge as a ramp about 2pt wide. The spec reads colours 4pt clear of it; this is a reader effect, not the PDF.
 
 Environment notes:
-- All Playwright suites ran one at a time on this machine (Windows); no stall or re-run.
+- Windows; Playwright suites ran one at a time. Scratch probe, hash and raster scripts were run on their own and deleted before any check.
 
 Commit:
 - Story commit: THIS_COMMIT
-- Commit message: ralph: US-003 The indicator count matches the printed PDF for every template
+- Commit message: ralph: US-001 A printed Modern CV keeps its sidebar band down to the bottom of every page
 FINAL: PASS
-
-## Branch maintenance: origin/main (#105) merged in, 2026-10-13
-- PR #105 (docx-line-height-single-column) was squash-merged as f4e4765 on the owner's "fusionne", after all required checks were green.
-- 31b2989 merges origin/main f4e4765 into this branch with -X ours. Only tasks/ralph/prd.json and tasks/ralph/progress.txt were changed on both sides since b49efc9; this branch's versions are the active contract.
-- c77ef5a archives #105's contract: tasks/ralph/archive/2026-10-13-docx-line-height-single-column/ holds origin/main's prd.json and progress.txt.
-- Parity baseline: the PRD regression constraint "test:parity stays at MATCH 206 / KNOWN 3 / NEW 0" was written against b49efc9. On the merged base the baseline is MATCH 211 / KNOWN 3 / NEW 0 (#105 added 5 fractional-size rows). The approved PRD is not edited; this note records the new reference.
-- Full suite on the merged tree 31b2989 + c77ef5a:
-  - typecheck exit 0
-  - test 1788 passed / 5 skipped
-  - test:integration 50 passed
-  - build 105/105
-  - test:e2e 265 passed
-  - test:visual 10 passed, no baseline change
-  - test:parity 283 passed, MATCH 211 / KNOWN 3 / NEW 0, sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b, identical to #105's final report, so the indicator changes nothing in parity
-  - lint 290 problems, ceiling 306

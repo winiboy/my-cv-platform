@@ -429,6 +429,39 @@
     ) !important;
   }
 
+  /* Modern template sidebar band - only applies when modern-template class exists.
+     Modern's sidebar is an in-flow column of the document, so its background
+     ends where the document ends; on a last page the document only partly
+     fills, the rest of the band would be paper. The root's background paints
+     the canvas, which covers every printed page in full, so the band is drawn
+     there and the document's own sidebar lies over it in the same colour.
+     Colour and width come from --modern-print-sidebar-color and
+     --modern-print-sidebar-width, which modern-template.tsx declares on this
+     same element from the user's stored sidebar colour and sidebarWidth. With
+     neither declared the band has no width and the page stays white. The band
+     starts where the centred 794px document does: max() because an A4 page is
+     793.7px wide, so mx-auto resolves to 0 and the document starts at the
+     page edge, and the band must end exactly where the sidebar does.
+     body and every other ancestor of the document are left transparent, so
+     the band, not white, lies directly under it: the page shells paint white
+     in print to the document's height, and the document's anti-aliased bottom
+     edge would blend with that white and print a light seam across the band
+     where the content ends. */
+  html:has(.modern-template) {
+    background: linear-gradient(
+      to right,
+      white max(0px, 50% - 397px),
+      var(--modern-print-sidebar-color, white) max(0px, 50% - 397px),
+      var(--modern-print-sidebar-color, white) calc(max(0px, 50% - 397px) + var(--modern-print-sidebar-width, 0px)),
+      white calc(max(0px, 50% - 397px) + var(--modern-print-sidebar-width, 0px))
+    ) !important;
+  }
+
+  body:has(.modern-template),
+  body :has(.modern-template) {
+    background: transparent !important;
+  }
+
   /* Remove all border radius in print */
   * {
     border-radius: 0 !important;
