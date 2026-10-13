@@ -239,3 +239,18 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-003 The indicator count matches the printed PDF for every template
 FINAL: PASS
+
+## Branch maintenance: origin/main (#105) merged in, 2026-10-13
+- PR #105 (docx-line-height-single-column) was squash-merged as f4e4765 on the owner's "fusionne", after all required checks were green.
+- 31b2989 merges origin/main f4e4765 into this branch with -X ours. Only tasks/ralph/prd.json and tasks/ralph/progress.txt were changed on both sides since b49efc9; this branch's versions are the active contract.
+- c77ef5a archives #105's contract: tasks/ralph/archive/2026-10-13-docx-line-height-single-column/ holds origin/main's prd.json and progress.txt.
+- Parity baseline: the PRD regression constraint "test:parity stays at MATCH 206 / KNOWN 3 / NEW 0" was written against b49efc9. On the merged base the baseline is MATCH 211 / KNOWN 3 / NEW 0 (#105 added 5 fractional-size rows). The approved PRD is not edited; this note records the new reference.
+- Full suite on the merged tree 31b2989 + c77ef5a:
+  - typecheck exit 0
+  - test 1788 passed / 5 skipped
+  - test:integration 50 passed
+  - build 105/105
+  - test:e2e 265 passed
+  - test:visual 10 passed, no baseline change
+  - test:parity 283 passed, MATCH 211 / KNOWN 3 / NEW 0, sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b, identical to #105's final report, so the indicator changes nothing in parity
+  - lint 290 problems, ceiling 306
