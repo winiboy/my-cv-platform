@@ -315,3 +315,20 @@ Commit:
 - Story commit (part 1): THIS_COMMIT
 - Commit message: ralph: US-003 (1/2) Serverless Chromium runtime for the PDF route
 FINAL: PENDING (part 2 after preview verification)
+
+## US-003 — CI fix after the first PR #108 run (2026-10-13)
+- **The run.** PR #108, run 38458060073 (ubuntu-latest), E2E (required): 23 failed, 287 passed, 3 skipped. The 3 skips are the font-substitute cases, which skip on Linux by design.
+- **22 failures: Chromium would not launch.** Every PDF render logged "PDF render failed at launch. Error: browserType.launch: Target page, context or browser has been closed".
+  - Diagnosis: Ubuntu 24.04 runners set kernel.apparmor_restrict_unprivileged_userns=1, which denies the user namespace Chromium's sandbox needs. Playwright's Chromium has no AppArmor profile. The test runner's own browsers launch unsandboxed, so they were unaffected.
+  - This is strong evidence, not proof: the route logs only the first line of a launch error. The next CI run's smoke step will confirm it, or print Chromium's own reason.
+  - Fix in .github/workflows/ci.yml, E2E job only (Parity never calls the PDF route):
+    - set the sysctl to 0, guarded by whether it exists on the runner;
+    - add a smoke step that launches a sandboxed Chromium.
+  - The product code is unchanged: it keeps the sandbox on outside serverless and fails closed.
+  - docs/engineering/pdf-export-runtime.md: new "CI" section, which also notes that any non-Vercel Linux host needs the same setting or an AppArmor profile.
+- **1 failure: the Word button test.** "Word button: behaves exactly as before › on failure…" waited forever on the click: the alert blocked the page, and its handler was only attached after the click.
+  - Test fix: a page.once('dialog') handler, registered before the click, records the dialog and accepts it. Same assertions; the Word button code is unchanged.
+  - Locally the test passed 10 times in a row.
+- **"401 without a session, and with a forged one": no security issue.** The anonymous and forged-cookie requests returned 401 as asserted. The failure is the signed-in owner's control request at spec line 256, the test's single launch failure (20:08:50.07), caused by the launch problem above. The route calls getUser() before anything else.
+- **Local checks after the fix (Windows):** typecheck exit 0; lint 290 (ceiling 306); test:e2e 313 passed. No product code changed, so the earlier unit, build, visual and parity results stand.
+- **Owner (2026-10-13, in chat):** "push quand c'est corrigé"; also "j'accepte les écarts" (the remaining font gaps listed in part 1).

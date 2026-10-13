@@ -512,14 +512,22 @@ test.describe('Word button: behaves exactly as before', () => {
     await openPreview(page, resume.id, 'fr')
     await page.route(DOCX_ROUTE, (route) => route.fulfill({ status: 500, body: 'x' }))
 
-    const dialog = page.waitForEvent('dialog')
+    // The alert is answered INSIDE the listener, registered before the click.
+    // An alert blocks the page, and the click waits for the page to settle:
+    // awaiting the dialog only after the click returned deadlocked whenever the
+    // alert opened before the click finished (seen on Linux CI).
+    const alert = new Promise<{ type: string; message: string }>((resolve) => {
+      page.once('dialog', (dialog) => {
+        resolve({ type: dialog.type(), message: dialog.message() })
+        void dialog.accept()
+      })
+    })
     await page.getByRole('button', { name: frCommon.resumes.downloadWord, exact: true }).click()
-    const alert = await dialog
-    expect(alert.type()).toBe('alert')
+    const shown = await alert
+    expect(shown.type).toBe('alert')
     // The Preview passes the button no dictionary, so the Word error has always
     // been this fallback; giving the PDF button its copy did not change it.
-    expect(alert.message()).toBe('Failed to download Word document. Please try again.')
-    await alert.dismiss()
+    expect(shown.message).toBe('Failed to download Word document. Please try again.')
     await expect(page.getByTestId('pdf-download-error')).toHaveCount(0)
   })
 })

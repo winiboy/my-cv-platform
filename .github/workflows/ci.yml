@@ -164,6 +164,27 @@ jobs:
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
+      # The resume PDF route launches Chromium WITH its sandbox off a serverless
+      # host (src/lib/pdf/browser.ts) and fails closed without it. Ubuntu 24.04
+      # runners set kernel.apparmor_restrict_unprivileged_userns=1, which denies
+      # the user namespace the sandbox needs to any binary without an AppArmor
+      # profile - Playwright's Chromium has none - so every render failed at
+      # launch. The test runner's own browsers were unaffected only because
+      # Playwright launches them with the sandbox off. This lifts the
+      # restriction on this throwaway runner instead of weakening the product.
+      # See docs/engineering/pdf-export-runtime.md, "CI".
+      - name: Allow Chromium's sandbox (unprivileged user namespaces)
+        run: |
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+
+      # Fails fast, with Chromium's own message, if the sandbox still cannot
+      # start - the route itself logs only the first line of a launch error.
+      - name: Check a sandboxed Chromium launches
+        run: |
+          node -e "require('playwright-core').chromium.launch({ chromiumSandbox: true }).then((browser) => browser.close())"
+
       # `mailpit` is NOT excluded here, unlike the other jobs. The password
       # recovery suite reads the actual delivered email out of it — request the
       # reset, open the message, follow its link — because a test that stops at

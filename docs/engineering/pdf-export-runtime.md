@@ -292,6 +292,29 @@ Chromium on Linux also hints and positions glyphs differently from Windows
 (`--font-render-hinting=none` is one of the package's flags). The parity
 suite already records a Linux-only difference for Professional.
 
+## CI
+
+The E2E job (`.github/workflows/ci.yml`) renders real PDFs through the route
+on an `ubuntu-latest` runner, with the local runtime's sandboxed Chromium.
+
+- Ubuntu 24.04 sets `kernel.apparmor_restrict_unprivileged_userns=1`. That
+  denies the user namespace Chromium's sandbox needs to any binary without an
+  AppArmor profile, and Playwright's Chromium has none.
+- On PR #108 every render therefore failed at `launch`, with Playwright's
+  `Target page, context or browser has been closed`.
+- The test runner's own browsers were unaffected because Playwright launches
+  them with the sandbox off.
+- The job lifts that restriction on its throwaway runner (`sysctl`, only if
+  the key exists) before the tests. A smoke step then launches a sandboxed
+  Chromium, and fails with Chromium's full message if it still cannot start.
+  The route logs only the first line of a launch error.
+- The product keeps the sandbox on and fails closed. A Linux server outside
+  Vercel/Lambda needs the same host setting, or an AppArmor profile for its
+  Chromium.
+- No other CI job calls the route. Parity renders from `e2e/parity` only.
+- `e2e/pdf-font-substitutes.spec.ts` is skipped on the Linux runner (see
+  "Evidence" above).
+
 ## Measuring generation time
 
 Locally: a production build (`pnpm build && pnpm start`, as the e2e
