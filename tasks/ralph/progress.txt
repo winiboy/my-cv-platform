@@ -172,3 +172,70 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-002 Page boundaries visible on the Preview page
 FINAL: PASS
+
+## US-003: The indicator count matches the printed PDF for every template
+Status: PASS
+Priority: 3
+Branch: ralph/preview-page-break-indicator
+Baseline HEAD: 0a4cf95 (US-002)
+
+Scope:
+- Scope check: PASS
+- Changed paths: e2e/resume-page-break-pdf-count.spec.ts (new, 134 lines, 10 tests). It is collected by test:e2e; playwright.config.ts testIgnore excludes only visual/, parity/, .next/, node_modules and nested worktrees.
+- Not touched: everything under src/ (git diff -- src empty), print CSS, computePageBreaks, the fixtures, every visual baseline, the parity harness, package.json version. No push, no merge.
+
+Checks (all on the final diff):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 1788 passed, 5 skipped
+- pnpm test:integration: PASS — 50 passed
+- pnpm build: PASS — 105/105 static pages
+- pnpm test:e2e: PASS — 265 passed (10 new)
+- pnpm test:visual: PASS — 10 passed, no baseline change
+- pnpm test:parity: PASS — 273 passed; MATCH 206, KNOWN 3, NEW 0; sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2 (unchanged)
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306. The new spec has 0 problems.
+
+Specialized validation:
+- Browser: PASS — the spec drives the Preview page and the editor for every case
+- Visual: PASS — test:visual unchanged
+- Export: PASS — each case prints the Preview page the way a user downloads it: controls toggle in its shipped (on) state, print media, page.pdf({ preferCSSPageSize: true }). The PDF is parsed with pdf-parse for its page count.
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE
+
+Agents:
+- senior-coder: implementation (test only; no disagreement between the rule and the PDF found, so nothing escalated)
+- ui-expert: NOT_APPLICABLE — test-only story, no rendered change
+- code-reviewer: PASS, round 1.
+  - Not tautological: the expected count is computed in the test (expectedPages), the main assertion is against the real PDF, and multi-page heights are guarded by expectClearOfPageEdge and expectedPages ≥ 2.
+  - page.pdf() is accepted as the stand-in for window.print(): headless Chromium cannot drive the print dialog, and @page (A4, margin 0) overrides the dialog's paper and margins. The parity harness does the same (e2e/parity/surfaces.ts:854-857, verdicts.ts:1118).
+  - Minors, not fixed:
+    - printHeight is recorded as an annotation but not asserted equal to the Preview height. resume-print-geometry.spec.ts already covers screen/print equivalence.
+    - The spec header does not state the page.pdf() stand-in.
+
+Acceptance criteria:
+- AC-01 (five templates × one-page and ≥2-page fixture, PDF pages = indicators + 1): PASS — Preview at 1280×900, en. Columns are Preview height / indicators / PDF pages / editor height / editor indicators:
+
+  | Template | One-page fixture | Multi-page fixture |
+  |---|---|---|
+  | professional | 1123 / 0 / 1 / 1123 / 0 | 1546 / 1 / 2 / 1546 / 1 |
+  | modern | 1123 / 0 / 1 / 1123 / 0 | 2354 / 2 / 3 / 2354 / 2 |
+  | classic | 724 / 0 / 1 / 724 / 0 | 2826 / 2 / 3 / 2826 / 2 |
+  | minimal | 972 / 0 / 1 / 972 / 0 | 3094 / 2 / 3 / 3094 / 2 |
+  | creative | 577 / 0 / 1 / 577 / 0 | 2898 / 2 / 3 / 2898 / 2 |
+
+  The closest multi-page height to an edge is modern's 2354, 108 px past one.
+- AC-02 (editor shows the same count): PASS — same test, same resume, /en/dashboard/resumes/{id}/edit after the preview settles; editor count = Preview count in all 10 cases (table above).
+- AC-03 (deterministic, no real data): PASS — the invented ONE_PAGE and LONG_EXPERIENCE fixtures (e2e/fixtures/page-breaks.ts), seeded per test for a test user created by the auth fixture.
+
+Decision (FR-2, closing US-001's open point): the printed PDF agrees with pages = max(1, ceil((h − 1) / 1123)) on every fixture. Notably, professional and modern at exactly 1123 px print 1 page.
+
+Named limits:
+- No fixture lands inside the tolerance band (height k × 1123 + 1), so the band itself is not PDF-proven. It rests on FR-2's wording and the unit tests. Producing that exact height would need rigged content.
+- The PDF comes from page.pdf(), not the browser's print dialog (see code-reviewer above).
+
+Environment notes:
+- All Playwright suites ran one at a time on this machine (Windows); no stall or re-run.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 The indicator count matches the printed PDF for every template
+FINAL: PASS
