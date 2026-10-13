@@ -5,3 +5,96 @@ PRD: tasks/prds/resume-pdf-direct-download.md (Status: APPROVED 2026-10-13, writ
 Format: docs/engineering/progress-log-format.md
 Branch setup: from origin/main 9769d53 (#107 merged). The first commit archives the merged modern-print-sidebar-full-page contract; the second adds this PRD and its contract.
 Note: US-003 is verified on the PR's Vercel preview deployment, so it can only close after the owner authorises the push.
+
+## US-001: The server returns the resume PDF the Preview shows
+Status: PASS
+Priority: 1
+Branch: ralph/resume-pdf-direct-download
+Baseline HEAD: 24df982 (origin/main 9769d53 + archive commit + contract commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths:
+  - package.json (+1), pnpm-lock.yaml (+3): playwright-core ^1.63.0 in dependencies. The lockfile already held it at the same version and integrity, as a dependency of @playwright/test.
+  - src/app/api/resumes/[id]/download-pdf/route.ts (new, 174 lines): POST, runtime nodejs, maxDuration 60.
+  - src/lib/pdf/ (new):
+    - browser.ts (95): the only Chromium launch; allowlisted env, sandbox on by default
+    - render-preview.ts (257): renders and prints the Preview page
+    - render-policy.ts (134): trusted origin, request allowlist, cookie selection
+    - route-guard.ts (75): redirects refused, refused requests never fetched
+    - payload.ts (184): body and draft size, draft id/owner, photo bound
+    - filename.ts (87): RFC 5987 filename
+    - plus 5 *.test.ts files
+  - e2e/resume-pdf-route.spec.ts (new, 529 lines, 21 tests), e2e/fixtures/pdf.ts (new, 133 lines, shared PDF reader).
+- Not touched: everything under src/app/api/resumes/[id]/download-docx/ (git diff there: 0 lines), the templates, print CSS, the Preview page code, next.config.js, the visual baselines, the database, package.json version. No push, no merge.
+
+Checks (all on the final diff, after the security fixes; the first full run was green too and was discarded):
+- DOCX (owner's non-negotiable): PASS — 20 hashes of word/document.xml and styles.xml, five templates at default and custom layout, identical to the baseline (same baseline as modern-print-sidebar-full-page; the DOCX code is unchanged since).
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 1908 passed, 5 skipped (src/lib/pdf: 109)
+- pnpm test:integration: PASS — 50 passed
+- pnpm build: PASS — 105/105 static pages; the route is listed
+- pnpm test:e2e: PASS — 295 passed. Includes resume-pdf-route (21), security-headers, and every print spec unchanged.
+- pnpm test:visual: PASS — 10 passed, no baseline change
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0; sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b (identical to origin/main's)
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306. The changed files have 0 problems.
+- Local generation time (production build, Windows, a fresh Chromium per request): first request after server start 1271–1505 ms; the rest 1113–1448 ms, median about 1.3 s.
+
+Specialized validation:
+- Browser: PASS — the route renders the real Preview page in headless Chromium. The e2e compares it with the Preview's own print.
+- Visual: PASS — test:visual unchanged.
+- Export: PASS — each PDF is parsed (pdf-parse) and, for Modern, rasterised (pdf.js). DOCX hashes above.
+- Database: NOT_APPLICABLE (nothing stored; the e2e checks the stored row is unchanged after renders)
+- Security: PASS — the security-review skill was run as a code-reviewer agent.
+  - Round 1: PASS with SEC-001 LOW (a same-origin 3xx would be followed without being re-checked against the policy) and SEC-002 LOW (Chromium got the full process.env and ran unsandboxed).
+  - Both fixed: redirects refused via route.fetch({ maxRedirects: 0 }); env allowlisted; sandbox on; launch inside the 30 s budget; origin asserted after navigation.
+  - Round 2 on the final diff: PASS, 0 critical / high / medium / low, 5 info, requirements 10/10, blocked checks 0.
+
+Agents:
+- senior-coder: implementation; security-fix round
+- ui-expert: NOT_APPLICABLE — no UI in US-001 (the button is US-002)
+- security-review: round 1 PASS with two LOW (fixed); round 2 PASS, 0 findings above INFO
+- code-reviewer: PASS on the final diff, conditional on security round 2 passing, which it did. No required code change. Majors handed to US-002 and US-003 (below). Minors, not fixed:
+  - a font that fails to load is not detected: document.fonts.ready also resolves on failure;
+  - the readiness check relies on React's internal `__reactFiber$` key;
+  - playwright-core and @playwright/test both use ^1.63.0, so only the lockfile keeps them together; the comment says "pinned".
+
+Acceptance criteria:
+- AC-01 (application/pdf, attachment, owned resume): PASS — route.ts; e2e asserts the content type and disposition; Cache-Control is private, no-store.
+- AC-02 (401 / 404, two real users): PASS — e2e:
+  - 401 with no session and with a forged cookie;
+  - 404 for another real user's resume, a nonexistent id and a malformed id.
+  - Order: 401 → 415 → 404 → 413 / 400, then launch.
+- AC-03 (fidelity, 5 templates × default and non-default layout): PASS — e2e: the route PDF equals the Preview's print in page count, page size (A4) and text on every page. The non-default layout is Roboto and multi-page, at least 2 pages enforced. The Modern band check from modern-print-sidebar-full-page passes on the route PDF.
+- AC-04 (draft and photo): PASS, with the approved limitation below.
+  - With a draft and a photo, the PDF has the draft text and exactly one more image than without the photo, and equals the Preview print under the same localStorage.
+  - Without them: the stored resume and the same images as the Preview's no-photo print.
+  - A draft naming another resume or another owner gets 400.
+  - An oversized photo is dropped.
+  - The photo bound is restated in src/lib/pdf/payload.ts (same 8 MiB limit, same jpeg/jpg/png/gif/bmp types, base64 alphabet, data: prefix required), because the DOCX route may not be edited.
+- AC-05 (untrusted input): PASS — 413 for an oversized body (declared length and streamed size) and for an oversized draft. The malicious draft contains a script, onerror, an iframe, a remote image, file:///C:/Windows/win.ini, file:///etc/passwd, a CSS url(), an SVG, a javascript: link and a remote photo. Result: a local listener received 0 requests, no script ran, no file content appears, and the PDF equals the Preview's own sanitized print. The stored row is unchanged.
+- AC-06 (filename): PASS — `CV "Zoë" – Zürich` gives an RFC 5987 filename* plus an ASCII fallback with the quotes neutralized; control characters are stripped (no header splitting); an empty title gives resume.pdf. Unit tests and e2e.
+- AC-07 (no print chrome): PASS — displayHeaderFooter false; on every fidelity case, expectNoPrintChrome finds no URL, page title or date.
+
+Decision (owner, 2026-10-13, asked in chat): FR-4 says "network limited to the app's own origin". The renderer may also make GET requests to fonts.googleapis.com (/css, /css2, stylesheets only) and fonts.gstatic.com (/s/, fonts only).
+- Reason: the Preview loads the font picker's families from Google Fonts. Blocking them would print a different font, line breaks and page count from the user's own print.
+- No cookie or resume data goes to those hosts, and only the bare origin is sent as referrer.
+- Rejected alternative: self-hosting the fonts, which would change the root layout and is out of this PRD's scope.
+
+Named limits:
+- WebP photos: the photo bound (the same as the DOCX's boundedPhoto) accepts jpeg/jpg/png/gif/bmp only, so a WebP photo shown in the Preview is missing from the PDF, as it is from the DOCX. This is a recorded fidelity limitation (.claude/rules/exports.md), not a pass. Chromium itself could draw WebP.
+- The session-refresh path (session expiring within 150 s) has no runtime test (security INFO-D).
+- The defence in depth is proven at unit level only. The sanitizer removes every malicious vector before request blocking has anything to block, and the blocking itself is covered by the policy and route-guard unit tests.
+
+Open owner decisions recorded by this story (for US-002 / US-003):
+- Vercel rejects request bodies over 4.5 MB before the route runs, while the route accepts about 10 MiB. A large photo would fail in production with Vercel's own 413. US-002 must either fit the limit or report that failure in the user's language.
+- NEXT_PUBLIC_APP_URL is fixed at build time. On a preview deployment it may point to production, and Deployment Protection may refuse the renderer. US-003 must record which origin rendered the PDF (PRD BLOCKER condition).
+- Chromium on Vercel: playwright-core ships no browser and the sandbox is usually unavailable there. US-003 swaps only browser.ts (@sparticuz/chromium, sandbox false) and must record that it did.
+
+Environment notes:
+- Windows; Playwright suites ran one at a time. The DOCX hash script was run on its own and deleted before any check.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 The server returns the resume PDF the Preview shows
+FINAL: PASS

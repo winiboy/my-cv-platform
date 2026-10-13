@@ -52,7 +52,7 @@
         "Out of scope: Deploying to production. Deployment stays an owner shipping action; this PRD only requires the change to work on the PR's Vercel preview deployment."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
