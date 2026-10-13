@@ -22,15 +22,15 @@ import { generateProfessionalDocx } from './docx-professional'
  *
  * CSS gives leading as a multiple of the font size. The expected spacing of an
  * element is therefore its Preview line height — the ratio its template draws
- * it with, from `resume-line-height.ts` — times the size of the run the
- * generator writes for it, in twips, as Word `exact` spacing. A Word `auto`
- * multiple scales the font's single-line height instead and fails here, as
- * does a ratio the Preview does not draw.
+ * it with, from `resume-line-height.ts` — times the element's Preview font
+ * size, in twips, as Word `exact` spacing. A Word `auto` multiple scales the
+ * font's single-line height instead and fails here, as does a ratio the
+ * Preview does not draw.
  *
- * The size is read from the run in the document, not recomputed, so these
- * tests pin the leading to whatever size the generator writes (US-011 owns
- * whether that size is right). Each case is checked at the default font scale
- * and at a non-default one, where the run size and the spacing must both move.
+ * The run must carry an explicit size, but the leading is checked against the
+ * Preview's size, unrounded, not the run's whole half-points. Each case is
+ * checked at the default font scale and at non-default ones, where the size
+ * and the spacing must both move.
  */
 
 type Generator = (resume: unknown, settings: DocxGeneratorSettings) => Promise<Buffer>
@@ -201,16 +201,16 @@ interface Case {
    */
   rowMinimumPx?: number
   /**
-   * The element's Preview font size at scale 1, in CSS px, for a generator that
-   * spaces lines from the Preview's size rather than its rounded run size.
-   * Professional and Modern do: a run must be whole half-points, but 11px body
-   * text is 16.5 half-points, and spacing it from the rounded 17 drew every line
-   * 0.5px taller than the Preview in Word's render.
+   * The element's Preview font size at scale 1, in CSS px. Every generator
+   * spaces lines from the Preview's size rather than its rounded run size: a
+   * run must be whole half-points, but 11px body text is 16.5 half-points, and
+   * spacing it from the rounded 17 drew every line 0.5px taller than the
+   * Preview in Word's render.
    */
-  previewPx?: number
+  previewPx: number
 }
 
-/** Twips the paragraph must write for a case, at the size of its run. */
+/** Twips the paragraph must write for a case, at its line size in half-points. */
 function expectedLine(c: Case, halfPoints: number): number {
   return Math.round(c.lineHeight * halfPoints * 10 + (c.paddingPx ?? 0) * 15)
 }
@@ -220,7 +220,7 @@ function expectedRowPadding(c: Case, halfPoints: number): number {
   return Math.round(Math.max(0, (c.rowMinimumPx ?? 0) * 15 - expectedLine(c, halfPoints)) / 2)
 }
 
-const containing = (label: string, text: string, lineHeight: number, box: Pick<Case, 'paddingPx' | 'previewPx'> = {}): Case => ({
+const containing = (label: string, text: string, lineHeight: number, box: Pick<Case, 'paddingPx' | 'previewPx'>): Case => ({
   label,
   matches: (p) => lower(p.text).includes(lower(text)),
   run: (run) => lower(run).includes(lower(text)),
@@ -231,16 +231,17 @@ const containing = (label: string, text: string, lineHeight: number, box: Pick<C
 /** Creative writes a "|" run before each heading, standing in for its bar. */
 const headingText = (text: string) => lower(text.replace(/^[\s|]+/, '')).trim()
 
-const heading = (title: string, lineHeight: number, rowMinimumPx?: number): Case => ({
+const heading = (title: string, lineHeight: number, previewPx: number, rowMinimumPx?: number): Case => ({
   label: `heading "${title}"`,
   matches: (p) => headingText(p.text) === lower(title),
   run: (run) => lower(run).trim() === lower(title),
   lineHeight,
+  previewPx,
   ...(rowMinimumPx === undefined ? {} : { rowMinimumPx }),
 })
 
-const headings = (titles: readonly string[], lineHeight: number, rowMinimumPx?: number) =>
-  titles.map((title) => heading(title, lineHeight, rowMinimumPx))
+const headings = (titles: readonly string[], lineHeight: number, previewPx: number, rowMinimumPx?: number) =>
+  titles.map((title) => heading(title, lineHeight, previewPx, rowMinimumPx))
 
 /** Creative's heading bars: `h-8` (32px) in the right column, `h-6` (24px) in the left. */
 const CREATIVE_MAIN_BAR_PX = 32
@@ -260,11 +261,12 @@ const CASES: Readonly<Record<ResumeTemplate, readonly Case[]>> = {
   professional: [
     containing('title', MARK.title, PROFESSIONAL_LINE_HEIGHT.heading, { previewPx: 22 }),
     containing('name', MARK.name, PROFESSIONAL_LINE_HEIGHT.heading, { previewPx: 22 }),
-    { ...heading(MAIN.summary, PROFESSIONAL_LINE_HEIGHT.heading), previewPx: 14 },
+    heading(MAIN.summary, PROFESSIONAL_LINE_HEIGHT.heading, 14),
     ...headings(
       [MAIN.experience, MAIN.education, MAIN.keyAchievements, MAIN.skills, MAIN.languages, MAIN.training],
       PROFESSIONAL_LINE_HEIGHT.heading,
-    ).map((c) => ({ ...c, previewPx: 14.5 })),
+      14.5,
+    ),
     containing('plain achievement', MARK.achievement, PROFESSIONAL_LINE_HEIGHT.body, { previewPx: 11 }),
     containing('formatted achievement', MARK.htmlAchievement, FORMATTED, { previewPx: 11 }),
     containing('formatted summary', MARK.summary, FORMATTED, { previewPx: 11 }),
@@ -277,46 +279,51 @@ const CASES: Readonly<Record<ResumeTemplate, readonly Case[]>> = {
     containing('name (the document title)', MARK.name, MODERN_LINE_HEIGHT.title, { previewPx: 24 }),
     // The accent bar: its inherited 1.5 line plus `padding: 4px 12px` above and below.
     containing('job title bar', MARK.title, PREFLIGHT_LINE_HEIGHT, { paddingPx: 8, previewPx: 16 }),
-    ...headings([SECTIONS.summary, SECTIONS.experience, SECTIONS.projects], MODERN_LINE_HEIGHT.compact).map((c) => ({
-      ...c,
-      previewPx: 16,
-    })),
-    ...headings([SECTIONS.education, SECTIONS.skills, SECTIONS.languages], MODERN_LINE_HEIGHT.compact).map((c) => ({
-      ...c,
-      previewPx: 13,
-    })),
+    ...headings([SECTIONS.summary, SECTIONS.experience, SECTIONS.projects], MODERN_LINE_HEIGHT.compact, 16),
+    ...headings([SECTIONS.education, SECTIONS.skills, SECTIONS.languages], MODERN_LINE_HEIGHT.compact, 13),
     containing('plain achievement', MARK.achievement, MODERN_LINE_HEIGHT.text, { previewPx: 14 }),
     containing('formatted achievement', MARK.htmlAchievement, FORMATTED, { previewPx: 14 }),
     containing('formatted summary', MARK.summary, FORMATTED, { previewPx: 14 }),
     containing('formatted description', MARK.description, FORMATTED, { previewPx: 14 }),
   ],
+  // Sizes from `classic-template.tsx` at the default layout: the title at
+  // `titleFontSize` (24px), headings at `sectionTitleFontSize` (16px), running
+  // text at `sectionDescFontSize` (14px).
   classic: [
-    containing('title', MARK.title, PREFLIGHT_LINE_HEIGHT),
+    containing('title', MARK.title, PREFLIGHT_LINE_HEIGHT, { previewPx: 24 }),
     ...headings(
       [SECTIONS.summary, SECTIONS.experience, SECTIONS.education, SECTIONS.skills, SECTIONS.projects, SECTIONS.languages, SECTIONS.certifications],
       PREFLIGHT_LINE_HEIGHT,
+      16,
     ),
-    containing('achievement', MARK.achievement, PREFLIGHT_LINE_HEIGHT),
-    containing('summary', MARK.summary, RELAXED),
-    containing('description', MARK.description, RELAXED),
+    containing('achievement', MARK.achievement, PREFLIGHT_LINE_HEIGHT, { previewPx: 14 }),
+    containing('summary', MARK.summary, RELAXED, { previewPx: 14 }),
+    containing('description', MARK.description, RELAXED, { previewPx: 14 }),
   ],
+  // Sizes from `minimal-template.tsx` at the default layout: the title at
+  // `titleFontSize` (24px), headings at `sectionTitleFontSize` (16px), running
+  // text at `sectionDescFontSize` (14px).
   minimal: [
-    containing('title', MARK.title, PREFLIGHT_LINE_HEIGHT),
+    containing('title', MARK.title, PREFLIGHT_LINE_HEIGHT, { previewPx: 24 }),
     ...headings(
       [SECTIONS.summary, SECTIONS.experience, SECTIONS.education, SECTIONS.skills, SECTIONS.projects, SECTIONS.languages, SECTIONS.certifications],
       PREFLIGHT_LINE_HEIGHT,
+      16,
     ),
-    containing('achievement', MARK.achievement, RELAXED),
-    containing('summary', MARK.summary, RELAXED),
-    containing('description', MARK.description, RELAXED),
+    containing('achievement', MARK.achievement, RELAXED, { previewPx: 14 }),
+    containing('summary', MARK.summary, RELAXED, { previewPx: 14 }),
+    containing('description', MARK.description, RELAXED, { previewPx: 14 }),
   ],
+  // Sizes from `creative-template.tsx` at the default layout: the title at
+  // `titleFontSize` (24px), headings at `sectionTitleFontSize` (16px), the
+  // header summary `text-base` (16px), running text at `sectionDescFontSize` (14px).
   creative: [
-    containing('title', MARK.title, PREFLIGHT_LINE_HEIGHT),
-    ...headings([SECTIONS.experience, SECTIONS.projects, SECTIONS.education], PREFLIGHT_LINE_HEIGHT, CREATIVE_MAIN_BAR_PX),
-    ...headings([SECTIONS.skills, SECTIONS.languages, SECTIONS.certifications], PREFLIGHT_LINE_HEIGHT, CREATIVE_SIDEBAR_BAR_PX),
-    containing('achievement', MARK.achievement, PREFLIGHT_LINE_HEIGHT),
-    containing('summary', MARK.summary, RELAXED),
-    containing('description', MARK.description, RELAXED),
+    containing('title', MARK.title, PREFLIGHT_LINE_HEIGHT, { previewPx: 24 }),
+    ...headings([SECTIONS.experience, SECTIONS.projects, SECTIONS.education], PREFLIGHT_LINE_HEIGHT, 16, CREATIVE_MAIN_BAR_PX),
+    ...headings([SECTIONS.skills, SECTIONS.languages, SECTIONS.certifications], PREFLIGHT_LINE_HEIGHT, 16, CREATIVE_SIDEBAR_BAR_PX),
+    containing('achievement', MARK.achievement, PREFLIGHT_LINE_HEIGHT, { previewPx: 14 }),
+    containing('summary', MARK.summary, RELAXED, { previewPx: 16 }),
+    containing('description', MARK.description, RELAXED, { previewPx: 14 }),
   ],
 }
 
@@ -332,7 +339,7 @@ describe.each(TEMPLATES)('%s DOCX line spacing', (template) => {
       const [paragraph] = paragraphs
       const run = paragraph.runSizes.find((r) => c.run(r.text))
       expect(run?.halfPoints, `${c.label}: the run carries an explicit size`).toEqual(expect.any(Number))
-      const lineSize = c.previewPx !== undefined ? c.previewPx * fontScale * 1.5 : (run?.halfPoints ?? 0)
+      const lineSize = c.previewPx * fontScale * 1.5
       expect({ line: paragraph.line, lineRule: paragraph.lineRule }).toEqual({
         line: expectedLine(c, lineSize),
         lineRule: 'exact',

@@ -238,14 +238,27 @@ export async function generateClassicDocx(
     textSm: pxToHalfPoints(FONT_SIZES.TEXT_SM * fontScale),
   }
 
+  // The same sizes unrounded, in half-points, for line spacing only, as
+  // Professional and Modern do (#88). A run's size must be whole half-points,
+  // but the Preview's line box is its px size times the line height: at a
+  // fractional size, spacing from the rounded run size drifts the Word line
+  // pitch from the Preview's on every line.
+  const lineFontSizes = {
+    title: titleFontSize * fontScale * 1.5,
+    contact: contactFontSize * fontScale * 1.5,
+    sectionTitle: sectionTitleFontSize * fontScale * 1.5,
+    body: sectionDescFontSize * fontScale * 1.5,
+    textSm: FONT_SIZES.TEXT_SM * fontScale * 1.5,
+  }
+
   // Line spacing shared by many paragraphs.
-  const inheritedBody = exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.body])
-  const relaxedBody = exactLineSpacing([LINE_HEIGHT.relaxed, scaledFontSizes.body])
-  const textSmLine = exactLineSpacing([LINE_HEIGHT.textSm, scaledFontSizes.textSm])
+  const inheritedBody = exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.body])
+  const relaxedBody = exactLineSpacing([LINE_HEIGHT.relaxed, lineFontSizes.body])
+  const textSmLine = exactLineSpacing([LINE_HEIGHT.textSm, lineFontSizes.textSm])
   // A title and its date in one flex row: the h3 inherits 1.5, the date is text-sm.
   const titleAndDateLine = exactLineSpacing(
-    [LINE_HEIGHT.inherited, scaledFontSizes.body],
-    [LINE_HEIGHT.textSm, scaledFontSizes.textSm],
+    [LINE_HEIGHT.inherited, lineFontSizes.body],
+    [LINE_HEIGHT.textSm, lineFontSizes.textSm],
   )
 
   // Page dimensions: A4, from the one declaration every surface reads.
@@ -279,7 +292,7 @@ export async function generateClassicDocx(
       ],
       spacing: {
         after: spacingAfter ?? pxToTwips(SPACING.SECTION_TITLE_MB),
-        ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.sectionTitle]),
+        ...exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.sectionTitle]),
       },
       border: {
         bottom: {
@@ -315,7 +328,7 @@ export async function generateClassicDocx(
       alignment: AlignmentType.CENTER,
       spacing: {
         after: pxToTwips(SPACING.HEADER_MB),
-        ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.title]),
+        ...exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.title]),
       },
     })
   )
@@ -352,7 +365,7 @@ export async function generateClassicDocx(
         alignment: AlignmentType.CENTER,
         spacing: {
           after: hasContactLine2 ? pxToTwips(4) : 0,
-          ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.contact]),
+          ...exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.contact]),
         },
       })
     )
@@ -370,7 +383,7 @@ export async function generateClassicDocx(
           }),
         ],
         alignment: AlignmentType.CENTER,
-        spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.contact]) },
+        spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.contact]) },
       })
     )
   }

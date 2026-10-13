@@ -75,10 +75,12 @@ export type ComparedLineHeight =
  *
  * `exact-pitch` is a DOCX exact spacing (`w:spacing w:lineRule="exact"`), kept
  * as the absolute pitch Word lays every line of the paragraph at, whatever the
- * font, in CSS px. It is not divided by the run size here: since PR #88 the
- * professional and modern generators write it from the UNROUNDED Preview size
- * (`lineFontSizes`, `exactLineSpacing` in `docx-helpers.ts`) while the run keeps
- * a size rounded to whole half-points (`w:sz`, plus a `w:w` width scale), so
+ * font, in CSS px. It is not divided by the run size here: all five generators
+ * write it from the UNROUNDED Preview size (`lineFontSizes`, `exactLineSpacing`
+ * in `docx-helpers.ts`) while the run keeps a size rounded to whole half-points
+ * (`w:sz`). Professional and modern do so since PR #88, with a `w:w` width
+ * scale; classic, minimal and creative since
+ * tasks/prds/docx-line-height-single-column.md, with no width scale. So
  * pitch over `w:sz` reads x1.188 for a title drawn at exactly the Preview's
  * x1.200 line box.
  */

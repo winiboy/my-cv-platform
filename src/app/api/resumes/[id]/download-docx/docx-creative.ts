@@ -297,9 +297,23 @@ export async function generateCreativeDocx(
     body: pxToHalfPoints(sectionDescFontSize * fontScale),
   }
 
+  // The same sizes unrounded, in half-points, for line spacing only, as
+  // Professional and Modern do (#88). A run's size must be whole half-points,
+  // but the Preview's line box is its px size times the line height: at a
+  // fractional size, spacing from the rounded run size drifts the Word line
+  // pitch from the Preview's on every line.
+  const lineFontSizes = {
+    name: titleFontSize * fontScale * 1.5,
+    summary: FONT_SIZES.SUMMARY * fontScale * 1.5,
+    contact: contactFontSize * fontScale * 1.5,
+    contactLinks: FONT_SIZES.CONTACT_LINKS * fontScale * 1.5,
+    sectionTitle: sectionTitleFontSize * fontScale * 1.5,
+    body: sectionDescFontSize * fontScale * 1.5,
+  }
+
   // Line spacing shared by many paragraphs.
-  const inheritedBody = exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.body])
-  const relaxedBody = exactLineSpacing([LINE_HEIGHT.relaxed, scaledFontSizes.body])
+  const inheritedBody = exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.body])
+  const relaxedBody = exactLineSpacing([LINE_HEIGHT.relaxed, lineFontSizes.body])
 
   // Page dimensions: A4
   const pageWidthTwips = convertInchesToTwip(PAGE_WIDTH_INCHES)
@@ -436,7 +450,7 @@ export async function generateCreativeDocx(
     spacingAfter: number,
     column: keyof typeof CREATIVE_HEADING_BAR_STEP,
   ): Paragraph {
-    const headingLine = exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.sectionTitle])
+    const headingLine = exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.sectionTitle])
     const barTwips = pxToTwips(tailwindHeightPx(CREATIVE_HEADING_BAR_STEP[column]))
     const headingRowPadding = Math.round(Math.max(0, barTwips - headingLine.line) / 2)
     return new Paragraph({
@@ -527,7 +541,7 @@ export async function generateCreativeDocx(
       ],
       spacing: {
         after: pxToTwips(SPACING.NAME_MB),
-        ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.name]),
+        ...exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.name]),
       },
       shading: {
         type: ShadingType.SOLID,
@@ -542,7 +556,7 @@ export async function generateCreativeDocx(
   if (resume.summary && !summaryHidden) {
     const summaryAlignment = extractAlignment(resume.summary) || AlignmentType.JUSTIFIED
     // The summary div is `text-base leading-relaxed`; leading-relaxed wins.
-    const summaryLineSpacing = exactLineSpacing([LINE_HEIGHT.relaxed, scaledFontSizes.summary])
+    const summaryLineSpacing = exactLineSpacing([LINE_HEIGHT.relaxed, lineFontSizes.summary])
 
     if (isPlainTextList(resume.summary)) {
       // No HTML-list branch exists here to follow: keep the summary paragraph's
@@ -629,7 +643,7 @@ export async function generateCreativeDocx(
     headerParagraphs.push(
       new Paragraph({
         children: contactRuns,
-        spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.inherited, scaledFontSizes.contact]) },
+        spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.contact]) },
         shading: {
           type: ShadingType.SOLID,
           fill: PALETTE['purple-600'],
@@ -675,7 +689,7 @@ export async function generateCreativeDocx(
         spacing: {
           before: pxToTwips(SPACING.LINKS_ROW_MT),
           after: 0,
-          ...exactLineSpacing([LINE_HEIGHT.textXs, scaledFontSizes.contactLinks]),
+          ...exactLineSpacing([LINE_HEIGHT.textXs, lineFontSizes.contactLinks]),
         },
         shading: {
           type: ShadingType.SOLID,

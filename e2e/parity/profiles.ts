@@ -69,6 +69,7 @@ export type ProfileId =
   | 'multi-page'
   | 'formatted-body'
   | 'html-body-and-skills'
+  | 'fractional-size'
 
 /**
  * Which row families a profile is run for. `font` is the font-family rows alone,
@@ -144,6 +145,18 @@ const PRIMARY_LAYOUT: StoredLayoutModel = {
   mainContentOrder: ['experience', 'summary', 'education'],
   hiddenSidebarSections: ['languages'],
   hiddenMainSections: ['education'],
+}
+
+/**
+ * Primary's layout with the three per-property sizes at their defaults. At
+ * primary's fontScale 1.2 every size it resolves to is fractional (body text
+ * 16.8px), which is why `fractional-size` reuses it.
+ */
+const PER_PROPERTY_CONTROL_LAYOUT: StoredLayoutModel = {
+  ...PRIMARY_LAYOUT,
+  titleFontSize: DEFAULT_RESUME_LAYOUT.titleFontSize,
+  sectionTitleFontSize: DEFAULT_RESUME_LAYOUT.sectionTitleFontSize,
+  sectionDescFontSize: DEFAULT_RESUME_LAYOUT.sectionDescFontSize,
 }
 
 /**
@@ -302,12 +315,7 @@ export const PROFILES: readonly ParityProfile[] = [
     templates: TEMPLATES,
     rowGroups: [],
     control: true,
-    layout: {
-      ...PRIMARY_LAYOUT,
-      titleFontSize: DEFAULT_RESUME_LAYOUT.titleFontSize,
-      sectionTitleFontSize: DEFAULT_RESUME_LAYOUT.sectionTitleFontSize,
-      sectionDescFontSize: DEFAULT_RESUME_LAYOUT.sectionDescFontSize,
-    },
+    layout: PER_PROPERTY_CONTROL_LAYOUT,
   },
   {
     id: 'creative-order',
@@ -413,6 +421,19 @@ export const PROFILES: readonly ParityProfile[] = [
       projects: HTML_PROJECTS,
       minimumPrintedPages: 1,
     },
+  },
+  {
+    id: 'fractional-size',
+    purpose:
+      "The body line height at a fractional size, on all five templates: per-property-control's layout at " +
+      "fontScale 1.2, where every template's body size is fractional (16.8px; 13.2px on professional), over " +
+      "the fixture's plain-text body. Before tasks/prds/docx-line-height-single-column.md " +
+      'classic, minimal and creative spaced each line from the size rounded to whole half-points, a fraction of a ' +
+      "px off the Preview's line box. The other line-height rows (primary, formatted-body, html-body-and-skills) " +
+      'all sample body text at a whole half-point size, where rounding changes nothing, so none could see it.',
+    templates: TEMPLATES,
+    rowGroups: ['body-line-height'],
+    layout: PER_PROPERTY_CONTROL_LAYOUT,
   },
 ]
 
