@@ -14,15 +14,18 @@ function fakeRoute(
   answer: { status: number; headers?: Record<string, string> } = { status: 200 },
 ) {
   const calls: string[] = []
+  const fetched: { headers?: Record<string, string> }[] = []
   const response: FakeResponse = { status: () => answer.status, headers: answer.headers ?? {} }
   const route: GuardedRoute<FakeResponse> = {
     request: () => ({
       url: () => request.url,
       method: () => request.method ?? 'GET',
       resourceType: () => request.resourceType ?? 'document',
+      headers: () => ({ accept: 'text/html', 'user-agent': 'HeadlessChrome' }),
     }),
     fetch: async (options) => {
       calls.push(`fetch maxRedirects=${options.maxRedirects}`)
+      fetched.push({ headers: options.headers })
       return response
     },
     fulfill: async (options) => {
@@ -32,7 +35,7 @@ function fakeRoute(
       calls.push(`abort ${code}`)
     },
   }
-  return { route, calls }
+  return { route, calls, fetched }
 }
 
 const handle = createRendererRouteHandler<FakeResponse>(APP)
@@ -90,6 +93,62 @@ describe('createRendererRouteHandler', () => {
     const { route, calls } = fakeRoute({ url: `${APP}/x` }, { status })
     await handle(route)
     expect(calls).toEqual(['fetch maxRedirects=0', `fulfill ${status}`])
+  })
+
+  it("leaves the browser's headers untouched when no bypass secret is configured", async () => {
+    const { route, fetched } = fakeRoute({ url: `${APP}/en/dashboard/resumes/1/preview` })
+    await handle(route)
+    expect(fetched).toEqual([{ headers: undefined }])
+  })
+})
+
+describe('createRendererRouteHandler with a Vercel protection bypass secret', () => {
+  const SECRET = 'bypass-secret-value'
+  const handleProtected = createRendererRouteHandler<FakeResponse>(APP, { protectionBypassSecret: SECRET })
+
+  it.each([
+    [`${APP}/en/dashboard/resumes/1/preview`, 'document'],
+    [`${APP}/_next/static/chunks/main.js`, 'script'],
+    [`${APP}/_next/static/media/inter.woff2`, 'font'],
+  ])("adds the header, keeping the browser's own headers, to the app's origin: %s", async (url, resourceType) => {
+    const { route, calls, fetched } = fakeRoute({ url, resourceType })
+    await handleProtected(route)
+    expect(calls).toEqual(['fetch maxRedirects=0', 'fulfill 200'])
+    expect(fetched).toEqual([
+      { headers: { accept: 'text/html', 'user-agent': 'HeadlessChrome', 'x-vercel-protection-bypass': SECRET } },
+    ])
+  })
+
+  it.each([
+    ['https://fonts.googleapis.com/css2?family=Roboto', 'stylesheet'],
+    ['https://fonts.gstatic.com/s/roboto/v30/x.woff2', 'font'],
+  ])('never sends it to a font host: %s', async (url, resourceType) => {
+    const { route, calls, fetched } = fakeRoute({ url, resourceType })
+    await handleProtected(route)
+    expect(calls).toEqual(['fetch maxRedirects=0', 'fulfill 200'])
+    expect(fetched).toEqual([{ headers: undefined }])
+  })
+
+  it('never fetches a refused request, so the secret goes nowhere else either', async () => {
+    const { route, calls, fetched } = fakeRoute({ url: 'https://evil.example.test/x', resourceType: 'image' })
+    await handleProtected(route)
+    expect(calls).toEqual(['abort blockedbyclient'])
+    expect(fetched).toEqual([])
+  })
+
+  it('still refuses a redirect from the app origin', async () => {
+    const { route, calls } = fakeRoute(
+      { url: `${APP}/en/dashboard/resumes/1/preview` },
+      { status: 302, headers: { location: 'https://evil.example.test/steal' } },
+    )
+    await handleProtected(route)
+    expect(calls).toEqual(['fetch maxRedirects=0', 'abort blockedbyclient'])
+  })
+
+  it('treats an empty secret as none', async () => {
+    const { route, fetched } = fakeRoute({ url: `${APP}/x` })
+    await createRendererRouteHandler<FakeResponse>(APP, { protectionBypassSecret: '' })(route)
+    expect(fetched).toEqual([{ headers: undefined }])
   })
 })
 

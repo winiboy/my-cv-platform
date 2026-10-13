@@ -4,13 +4,20 @@ import { isAllowedRendererRequest, resolveRenderOrigin, selectSessionCookies } f
 const APP = 'https://cv.example.test'
 
 describe('resolveRenderOrigin', () => {
+  const origin = (
+    appUrl: string | undefined,
+    authUrl: string | undefined,
+    vercelEnv?: string,
+    vercelUrl?: string,
+  ) => resolveRenderOrigin({ appUrl, authUrl, vercelEnv, vercelUrl })
+
   it('prefers NEXT_PUBLIC_APP_URL and keeps only its origin', () => {
-    expect(resolveRenderOrigin('https://cv.example.test/some/path?q=1#x', 'https://other.example.test')).toBe(APP)
+    expect(origin('https://cv.example.test/some/path?q=1#x', 'https://other.example.test')).toBe(APP)
   })
 
   it('falls back to NEXTAUTH_URL', () => {
-    expect(resolveRenderOrigin(undefined, 'http://127.0.0.1:3100/')).toBe('http://127.0.0.1:3100')
-    expect(resolveRenderOrigin('', 'http://127.0.0.1:3100')).toBe('http://127.0.0.1:3100')
+    expect(origin(undefined, 'http://127.0.0.1:3100/')).toBe('http://127.0.0.1:3100')
+    expect(origin('', 'http://127.0.0.1:3100')).toBe('http://127.0.0.1:3100')
   })
 
   it.each([
@@ -20,7 +27,42 @@ describe('resolveRenderOrigin', () => {
     ['a javascript URL', 'javascript:alert(1)', undefined],
     ['credentials in the URL', 'https://user:pass@cv.example.test', undefined],
   ])('fails closed on %s', (_label, appUrl, authUrl) => {
-    expect(resolveRenderOrigin(appUrl, authUrl)).toBeNull()
+    expect(origin(appUrl, authUrl)).toBeNull()
+  })
+
+  describe('on a Vercel preview deployment', () => {
+    const PRODUCTION = 'https://cv.example.test'
+
+    it("renders from this deployment's own URL, over https, not the build-time app URL", () => {
+      expect(origin(PRODUCTION, PRODUCTION, 'preview', 'my-cv-platform-abc123-team.vercel.app')).toBe(
+        'https://my-cv-platform-abc123-team.vercel.app',
+      )
+    })
+
+    it('keeps the configured origin on production, in development and off Vercel', () => {
+      expect(origin(PRODUCTION, undefined, 'production', 'my-cv-platform-abc123-team.vercel.app')).toBe(PRODUCTION)
+      expect(origin(PRODUCTION, undefined, 'development', 'my-cv-platform-abc123-team.vercel.app')).toBe(PRODUCTION)
+      expect(origin(PRODUCTION, undefined, undefined, 'my-cv-platform-abc123-team.vercel.app')).toBe(PRODUCTION)
+    })
+
+    it('keeps the configured origin on a preview with no VERCEL_URL', () => {
+      expect(origin(PRODUCTION, undefined, 'preview', undefined)).toBe(PRODUCTION)
+      expect(origin(PRODUCTION, undefined, 'preview', '')).toBe(PRODUCTION)
+    })
+
+    it.each([
+      ['a scheme', 'https://evil.test'],
+      ['a path', 'my-app.vercel.app/evil'],
+      ['credentials', 'user:pass@my-app.vercel.app'],
+      ['another host behind credentials', 'my-app.vercel.app@evil.test'],
+      ['a port', 'my-app.vercel.app:8443'],
+      ['a query', 'my-app.vercel.app?x=1'],
+      ['a fragment', 'my-app.vercel.app#x'],
+      ['whitespace', 'my-app.vercel.app evil.test'],
+      ['a backslash', 'my-app.vercel.app\\evil.test'],
+    ])('fails closed, without falling back, on a VERCEL_URL with %s', (_label, vercelUrl) => {
+      expect(origin(PRODUCTION, PRODUCTION, 'preview', vercelUrl)).toBeNull()
+    })
   })
 })
 

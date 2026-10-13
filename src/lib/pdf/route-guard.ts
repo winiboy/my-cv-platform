@@ -29,6 +29,7 @@ export interface GuardedRequest {
   url(): string
   method(): string
   resourceType(): string
+  headers(): Record<string, string>
 }
 
 export interface FetchedResponse {
@@ -37,7 +38,7 @@ export interface FetchedResponse {
 
 export interface GuardedRoute<Response extends FetchedResponse> {
   request(): GuardedRequest
-  fetch(options: { maxRedirects: number }): Promise<Response>
+  fetch(options: { maxRedirects: number; headers?: Record<string, string> }): Promise<Response>
   fulfill(options: { response: Response }): Promise<void>
   abort(errorCode: 'blockedbyclient' | 'failed'): Promise<void>
 }
@@ -50,8 +51,29 @@ export function isRedirectStatus(status: number): boolean {
   return status >= 300 && status < 400 && status !== 304
 }
 
+/** Vercel's header for "Protection Bypass for Automation". */
+export const VERCEL_PROTECTION_BYPASS_HEADER = 'x-vercel-protection-bypass'
+
+export interface RendererRouteOptions {
+  /**
+   * Vercel's `VERCEL_AUTOMATION_BYPASS_SECRET`, when the deployment is behind
+   * Deployment Protection. The renderer is a browser with no Vercel login, so
+   * without it a protected preview answers the renderer's own page request
+   * with Vercel's login wall instead of the Preview.
+   *
+   * Added here, by the server-side fetch, to requests for the app's own origin
+   * only — never to the font hosts, which `extraHTTPHeaders` would have sent
+   * it to. The page's scripts never see it: the header is set outside the
+   * page, on a request the browser has already handed over.
+   */
+  protectionBypassSecret?: string
+}
+
 /** The handler for one browser context, bound to the app's trusted origin. */
-export function createRendererRouteHandler<Response extends FetchedResponse>(appOrigin: string) {
+export function createRendererRouteHandler<Response extends FetchedResponse>(
+  appOrigin: string,
+  { protectionBypassSecret }: RendererRouteOptions = {},
+) {
   return async (route: GuardedRoute<Response>): Promise<void> => {
     const request = route.request()
     const allowed = isAllowedRendererRequest(
@@ -62,7 +84,7 @@ export function createRendererRouteHandler<Response extends FetchedResponse>(app
 
     let response: Response
     try {
-      response = await route.fetch({ maxRedirects: 0 })
+      response = await route.fetch(fetchOptions(request, appOrigin, protectionBypassSecret))
     } catch {
       // The server could not be reached, or the render is being torn down at
       // its deadline. The request fails as a network error would, rather than
@@ -71,5 +93,23 @@ export function createRendererRouteHandler<Response extends FetchedResponse>(app
     }
     if (isRedirectStatus(response.status())) return route.abort('blockedbyclient')
     return route.fulfill({ response })
+  }
+}
+
+/**
+ * Redirects refused, as always; the bypass header added for the app's own
+ * origin only. Without a secret the request's headers are left exactly as the
+ * browser sent them, so a deployment with no protection fetches as it did
+ * before the option existed.
+ */
+function fetchOptions(
+  request: GuardedRequest,
+  appOrigin: string,
+  protectionBypassSecret: string | undefined,
+): { maxRedirects: number; headers?: Record<string, string> } {
+  if (!protectionBypassSecret || new URL(request.url()).origin !== appOrigin) return { maxRedirects: 0 }
+  return {
+    maxRedirects: 0,
+    headers: { ...request.headers(), [VERCEL_PROTECTION_BYPASS_HEADER]: protectionBypassSecret },
   }
 }

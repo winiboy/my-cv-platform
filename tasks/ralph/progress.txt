@@ -204,3 +204,114 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-002 "Télécharger PDF" downloads the file instead of printing
 FINAL: PASS
+
+## US-003: PDF generation works in the production runtime — part 1 of 2 (implementation)
+Status: PENDING — awaiting preview-deployment verification (AC-02, AC-03, CI part of AC-04)
+Priority: 3
+Branch: ralph/resume-pdf-direct-download
+Baseline HEAD: 4be2860 (US-002)
+
+Decision (owner, 2026-10-13, asked in chat):
+- AC-02 and AC-03 can only be proven on the PR's Vercel preview deployment, which exists only after the owner-authorised push. US-003 therefore gets two commits:
+  - this one: the implementation, with prd.json passes: false;
+  - a second one: the preview evidence, with passes: true.
+- The PR is squash-merged, so main receives one commit. This is a recorded deviation from "one story = one commit".
+
+Decision (owner, 2026-10-13, asked in chat): on the serverless runtime, add free metric-compatible fonts so the server prints the same line breaks and page count. Done for Arial (Arimo), Calibri (Carlito) and Georgia (Gelasio).
+- Packages: @fontsource 5.3.0, exact pins, OFL-1.1.
+- Mechanism: FontFace registration from inline data: WOFF2, server-side render only. The screen, the user's own print and local renders are unchanged.
+
+Owner answers (2026-10-13): the Vercel plan, the project's Node version and whether Deployment Protection is on are all unknown. The code keeps Hobby-safe defaults (maxDuration 60, default memory) and supports Protection Bypass for Automation. All three are verified on the preview.
+
+Scope (part 1):
+- Scope check: PASS
+- Changed paths (git diff --numstat, plus new files):
+  - package.json (+4), pnpm-lock.yaml (+216): @sparticuz/chromium 153.0.0 exact (Chromium 153, which matches playwright-core 1.63's browserVersion 153.0.8010.12); @fontsource/arimo, carlito, gelasio 5.3.0 exact.
+  - next.config.js (+39): outputFileTracingIncludes for the download-pdf route only (the packed Chromium bin and the three font packages).
+  - src/lib/pdf/browser.ts (+173 −17):
+    - serverless detection (VERCEL or AWS_LAMBDA_FUNCTION_NAME) selects the packed Chromium with the sandbox off;
+    - the default flags that weaken the page are removed (--disable-web-security, --allow-running-insecure-content, --disable-site-isolation-trials, IsolateOrigins, site-per-process, SharedArrayBuffer);
+    - WebGL off; the binary is unpacked once per instance;
+    - local runs are unchanged (Playwright Chromium, sandboxed).
+  - src/lib/pdf/render-policy.ts (+39 −5): on VERCEL_ENV=preview, render from https://${VERCEL_URL} (platform env, never a request header); a malformed value gives 503.
+  - src/lib/pdf/route-guard.ts (+43 −3): x-vercel-protection-bypass, from VERCEL_AUTOMATION_BYPASS_SECRET, is sent only on requests to the app origin.
+  - src/lib/pdf/render-preview.ts (+66 −9): the font-substitution stage; failures are reported at stages fonts and settle.
+  - src/lib/pdf/font-substitutes.ts (new).
+  - src/app/api/resumes/[id]/download-pdf/route.ts (+17 −9).
+  - sentry.server.config.ts and sentry.edge.config.ts (+11 −9 each), src/lib/sentry-server-scrub.ts (new): beforeSend and a new beforeSendTransaction remove request headers, cookies, body and user, plus every http.request.header.* span or transaction attribute, so the bypass secret never reaches Sentry. This closes a leak path the story itself would otherwise create (security INFO-3); code-reviewer judged it in scope.
+  - Tests: browser.test.ts (+259 −7), render-policy.test.ts, route-guard.test.ts, new font-substitutes.test.ts, render-preview.test.ts, sentry-server-scrub.test.ts, and new e2e/pdf-font-substitutes.spec.ts (3 tests, skipped on Linux).
+  - docs/engineering/pdf-export-runtime.md (new): runtime, version pin, bundling, limits, origin, protection, fonts, how to measure.
+- Not touched: src/app/api/resumes/[id]/download-docx/ (git diff there: 0 lines); visual baselines; database; package.json version. No vercel.json was added. No push yet.
+
+Checks (local, all on this exact final diff; the earlier runs on intermediate diffs were all green and are superseded):
+- DOCX: PASS — 20 hashes identical to the baseline.
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 2031 passed, 5 skipped
+- pnpm test:integration: PASS — 50 passed
+- pnpm build: PASS — 105/105 static pages. The route's traced files total about 89.4 MiB (Chromium about 70 MB packed, playwright-core 6.2 MB, fonts 1.47 MiB, app output about 11 MB), against Vercel's 250 MB unzipped limit.
+- pnpm test:e2e: PASS — 313 passed, including resume-pdf-route 21, resume-pdf-download-button 15 and pdf-font-substitutes 3.
+- pnpm test:visual: PASS — 10 passed, no baseline change
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0; sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b (unchanged)
+- pnpm lint: PASS — 290 problems; ceiling 306; the changed files have 0.
+- Local timing (production build, pnpm start, Windows, 3 fresh starts), all 200, below the 5 s target:
+
+  | Request | Median | Range |
+  |---|---|---|
+  | Cold Modern | 1346 ms | 1325–1365 ms |
+  | Warm Modern (3 pages) | 1141 ms | 1097–1224 ms |
+  | Warm Classic (2 pages) | 1215 ms | 1180–1313 ms |
+
+Specialized validation:
+- Security: PASS.
+  - Round 1 on the prep: PASS with SEC-003 LOW (the page-isolation flags kept on serverless, and a misleading comment) and INFO-3 (the bypass header could reach Sentry transactions).
+  - Both fixed. Round 2 on the final diff: PASS, 0 findings above INFO, requirements 8/8.
+  - Residual, accepted and documented: on serverless Chromium runs single-process, without a sandbox, as the same user as Node. A Chromium exploit could read the Node process's environment (/proc/<ppid>/environ). Compensating controls: only the app's own sanitized content, the egress guard, redirects refused, a fresh browser per request, and @sparticuz/chromium and playwright-core kept current together.
+- Font metric compatibility (e2e/pdf-font-substitutes.spec.ts, local Windows):
+  - The real font and the substitute registered under the same name give the same page count and the same lines in each column of every page, within 0.5 pt (Arial, Calibri) or 1 pt (Georgia).
+  - Negative control: Arimo registered as "Georgia" fails the comparison.
+  - The spec is skipped on Linux, which has no reference fonts.
+- Browser, Visual, Export: covered by the e2e and DOCX checks above. Database: NOT_APPLICABLE.
+
+Agents:
+- senior-coder: implementation; fonts round; SEC-003 and Sentry round
+- ui-expert: NOT_APPLICABLE — no UI change
+- security-review: round 1 PASS (1 LOW + INFO); round 2 PASS on the final diff
+- code-reviewer: PASS for this implementation commit with passes: false.
+  - Major 1, required before passes: true: the owner must acknowledge the remaining font gaps (below).
+  - Minors, not fixed:
+    - whether the font files survive Vercel's pnpm-link tracing shows only on the preview; a failure would be explicit (stage fonts, 500);
+    - `vercel dev` sets VERCEL=1 and would select the serverless binary (not part of the workflow);
+    - the Chromium-major match is documented, not test-enforced;
+    - engines.node is ">=20.9.0" while @sparticuz/chromium needs ^22.17 or >=24;
+    - a deadline firing during the first unpack can push past maxDuration.
+
+Acceptance criteria (part 1):
+- AC-01 (dependency and runtime configuration added and documented): PASS — see Scope; docs/engineering/pdf-export-runtime.md.
+- AC-02 (correct PDF on the PR's preview deployment): PENDING (part 2).
+- AC-03 (median warm and cold, locally and on the preview, under 5 s warm): local part PASS (table above); preview part PENDING.
+- AC-04 (build and CI pass): local build PASS; CI PENDING (runs after the push).
+
+Open owner decisions recorded by this story (to resolve before part 2 sets passes: true):
+- Remaining font gaps (code-reviewer Major 1): the server's PDF can differ from a Windows or Mac user's own print in line breaks or pages for:
+  - Segoe UI and Verdana (no free metric-compatible font);
+  - the picker's "Inter" entry (Arial on Windows without Inter, Open Sans on the server);
+  - Calibri font-light;
+  - Helvetica Neue and Avenir on macOS.
+  The owner must acknowledge these as fidelity limitations, or ask for a follow-up (the Inter entry may be fixable, since the app already serves Inter).
+- Preview checklist for part 2:
+  - Node 22.x or 24.x on the Vercel project;
+  - Protection Bypass for Automation if previews are protected;
+  - the first cold request returns 200, with time and pages;
+  - Modern multi-page and a one-page Classic CV (the shared Classic fixture is 2 pages, so a shorter one is needed) give correct pages, with the Modern band to the bottom of the last page;
+  - an Arial or Calibri CV confirms the substitute fonts load on the deployment;
+  - the warm median is under 5 s;
+  - the PDF renders from the preview's own origin;
+  - if possible, a sampled Sentry transaction carries no bypass value.
+
+Environment notes:
+- Windows; Playwright suites ran one at a time. Scratch hash and timing scripts were run on their own and deleted before any check. The serverless launch path has not run anywhere yet: there is no Linux or Lambda environment locally.
+
+Commit:
+- Story commit (part 1): THIS_COMMIT
+- Commit message: ralph: US-003 (1/2) Serverless Chromium runtime for the PDF route
+FINAL: PENDING (part 2 after preview verification)

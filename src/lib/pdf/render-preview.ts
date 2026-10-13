@@ -1,7 +1,13 @@
 import type { APIResponse, Browser, BrowserContext, Page } from 'playwright-core'
 import type { Locale } from '@/lib/i18n'
 import { layoutCacheKey } from '@/lib/resume-layout-store'
-import { launchPdfBrowser } from './browser'
+import { launchPdfBrowser, pdfBrowserRuntime } from './browser'
+import {
+  SUBSTITUTE_FAMILIES,
+  registerFontSubstitutes,
+  serverlessFontSubstitutes,
+  type SubstituteFontFace,
+} from './font-substitutes'
 import type { NamedCookie } from './render-policy'
 import { createRendererRouteHandler } from './route-guard'
 
@@ -23,12 +29,16 @@ import { createRendererRouteHandler } from './route-guard'
  *   - The draft and the photo, written into localStorage under the keys the
  *     Preview reads, for this resume id only, as data passed to an init
  *     script — never spliced into script source.
+ *   - On a serverless host only, metric-compatible stand-ins for Arial,
+ *     Calibri and Georgia, registered as font faces under those names
+ *     (`font-substitutes.ts`), because that host has none of them.
  *
  * WHAT IT MAY DO. Every request goes through `createRendererRouteHandler`:
  * GETs to the app's own origin and the font picker's font files, fetched with
  * redirects refused; everything else, Supabase and any `file:` URL included,
- * is aborted. Chromium itself runs sandboxed, with an allowlisted environment
- * that carries none of the server's secrets (`browser.ts`). WebSockets are closed,
+ * is aborted. Chromium inherits an allowlisted environment that carries none
+ * of the server's secrets, and runs sandboxed except on a serverless host that
+ * cannot provide the sandbox (`browser.ts`, which states what remains there). WebSockets are closed,
  * service workers blocked, dialogs dismissed, downloads refused and any popup
  * closed. Nothing the page does can write to the account.
  *
@@ -48,11 +58,13 @@ export interface RenderPreviewPdfInput {
   draft: string | null
   /** A bounded photo data URL, or `null` for none. */
   photo: string | null
+  /** Vercel's Deployment Protection bypass, sent to the app's origin only (`route-guard.ts`). */
+  protectionBypassSecret?: string
   timeoutMs: number
 }
 
 /** The step a render was on when it failed, so a log can say where without saying what. */
-export type PdfRenderStage = 'launch' | 'context' | 'navigate' | 'settle' | 'print'
+export type PdfRenderStage = 'launch' | 'fonts' | 'context' | 'navigate' | 'settle' | 'print'
 
 export class PdfRenderError extends Error {
   constructor(
@@ -85,6 +97,13 @@ export async function renderPreviewPdf(input: RenderPreviewPdfInput): Promise<Bu
   // The launch is the first thing on the clock, so its own limit is the whole
   // budget; the deadline below still bounds everything that follows it.
   const launching = launchPdfBrowser({ timeoutMs: input.timeoutMs })
+  // Read alongside the launch, on the same clock. Only where the fonts they
+  // stand in for are absent: see `font-substitutes.ts`.
+  const fontSubstitutes: Promise<SubstituteFontFace[]> =
+    pdfBrowserRuntime(process.env) === 'serverless' ? serverlessFontSubstitutes() : Promise.resolve([])
+  // Its failure is reported once the browser is up; a launch failing first must
+  // not leave this rejection unhandled.
+  fontSubstitutes.catch(() => undefined)
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     const deadline = new Promise<never>((_, reject) => {
@@ -94,7 +113,12 @@ export async function renderPreviewPdf(input: RenderPreviewPdfInput): Promise<Bu
       )
     })
     const render = launching.then(
-      (browser) => printPreview(browser, input),
+      async (browser) => {
+        const fonts = await fontSubstitutes.catch((cause: unknown) => {
+          throw new PdfRenderError('fonts', 'Could not read the substitute fonts', { cause })
+        })
+        return printPreview(browser, input, fonts)
+      },
       (cause: unknown) => {
         throw new PdfRenderError('launch', 'Could not launch the PDF browser', { cause })
       },
@@ -113,10 +137,14 @@ export async function renderPreviewPdf(input: RenderPreviewPdfInput): Promise<Bu
   }
 }
 
-async function printPreview(browser: Browser, input: RenderPreviewPdfInput): Promise<Buffer> {
+async function printPreview(
+  browser: Browser,
+  input: RenderPreviewPdfInput,
+  fonts: readonly SubstituteFontFace[],
+): Promise<Buffer> {
   let stage: PdfRenderStage = 'context'
   try {
-    const context = await openIsolatedContext(browser, input)
+    const context = await openIsolatedContext(browser, input, fonts)
     const page = await context.newPage()
     page.on('dialog', (dialog) => {
       void dialog.dismiss().catch(() => undefined)
@@ -140,6 +168,7 @@ async function printPreview(browser: Browser, input: RenderPreviewPdfInput): Pro
     stage = 'settle'
     await assertSeeded(page, seededEntries(input))
     await settlePreview(page, input.resumeId)
+    if (fonts.length > 0) await assertSubstitutesLoaded(page)
 
     stage = 'print'
     await page.emulateMedia({ media: 'print' })
@@ -150,7 +179,11 @@ async function printPreview(browser: Browser, input: RenderPreviewPdfInput): Pro
   }
 }
 
-async function openIsolatedContext(browser: Browser, input: RenderPreviewPdfInput): Promise<BrowserContext> {
+async function openIsolatedContext(
+  browser: Browser,
+  input: RenderPreviewPdfInput,
+  fonts: readonly SubstituteFontFace[],
+): Promise<BrowserContext> {
   const context = await browser.newContext({
     viewport: VIEWPORT,
     locale: input.locale,
@@ -161,7 +194,10 @@ async function openIsolatedContext(browser: Browser, input: RenderPreviewPdfInpu
   context.setDefaultTimeout(input.timeoutMs)
   context.setDefaultNavigationTimeout(input.timeoutMs)
 
-  await context.route('**/*', createRendererRouteHandler<APIResponse>(input.origin))
+  await context.route(
+    '**/*',
+    createRendererRouteHandler<APIResponse>(input.origin, { protectionBypassSecret: input.protectionBypassSecret }),
+  )
   await context.routeWebSocket(/.*/, (socket) => socket.close())
 
   const secure = new URL(input.origin).protocol === 'https:'
@@ -187,6 +223,10 @@ async function openIsolatedContext(browser: Browser, input: RenderPreviewPdfInpu
       },
       { origin: input.origin, entries: storage },
     )
+  }
+
+  if (fonts.length > 0) {
+    await context.addInitScript(registerFontSubstitutes, { origin: input.origin, faces: fonts })
   }
 
   return context
@@ -217,6 +257,23 @@ async function assertSeeded(page: Page, entries: readonly [string, string][]): P
     expected,
   )
   if (missing > 0) throw new PdfRenderError('settle', 'The draft or the photo could not be handed to the Preview')
+}
+
+/**
+ * Fail rather than print with a substitute font that did not load: the text
+ * would silently fall back to another font, with other line breaks. Only the
+ * faces this renderer registered are checked; a face that was never needed
+ * stays `unloaded` and is fine.
+ */
+async function assertSubstitutesLoaded(page: Page): Promise<void> {
+  const failed = await page.evaluate(
+    (families) =>
+      Array.from(document.fonts).filter(
+        (face) => families.includes(face.family.replace(/^["']|["']$/g, '')) && face.status === 'error',
+      ).length,
+    SUBSTITUTE_FAMILIES,
+  )
+  if (failed > 0) throw new PdfRenderError('settle', 'A substitute font failed to load')
 }
 
 /**

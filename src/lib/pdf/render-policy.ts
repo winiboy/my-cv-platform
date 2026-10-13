@@ -20,14 +20,48 @@
  * `NEXT_PUBLIC_APP_URL` is substituted at BUILD time (see the note in
  * `src/app/api/auth/password-reset/route.ts`); `NEXTAUTH_URL` is a runtime read.
  *
+ * ON A VERCEL PREVIEW DEPLOYMENT the build-time `NEXT_PUBLIC_APP_URL` may name
+ * production, so the render — carrying the preview user's session — would go
+ * to the production app and print production's code. There the origin is
+ * `https://${VERCEL_URL}` instead: the URL of this very deployment, set by the
+ * platform in the function's environment (not a request header, so a caller
+ * cannot choose it). Not the branch alias, which can move to a newer
+ * deployment while a render is in flight. A `VERCEL_URL` that is not a bare
+ * host fails closed rather than falling back to another deployment.
+ *
  * Only an http(s) URL with no credentials is accepted, and only its origin is
  * kept: a configured path, query or fragment cannot leak into the page URL.
  */
-export function resolveRenderOrigin(
-  appUrl: string | undefined,
-  authUrl: string | undefined,
-): string | null {
-  const configured = appUrl || authUrl
+export interface RenderOriginConfig {
+  /** `process.env.NEXT_PUBLIC_APP_URL`, passed literally so the build inlines it. */
+  appUrl: string | undefined
+  /** `process.env.NEXTAUTH_URL`. */
+  authUrl: string | undefined
+  /** `process.env.VERCEL_ENV`: `production`, `preview` or `development` on Vercel. */
+  vercelEnv: string | undefined
+  /** `process.env.VERCEL_URL`: this deployment's host, without a scheme. */
+  vercelUrl: string | undefined
+}
+
+export function resolveRenderOrigin({ appUrl, authUrl, vercelEnv, vercelUrl }: RenderOriginConfig): string | null {
+  if (vercelEnv === 'preview' && vercelUrl) return previewDeploymentOrigin(vercelUrl)
+  return configuredOrigin(appUrl || authUrl)
+}
+
+function previewDeploymentOrigin(host: string): string | null {
+  let url: URL
+  try {
+    url = new URL(`https://${host}`)
+  } catch {
+    return null
+  }
+  // A bare host only: anything that parses into a path, a port, credentials
+  // or another host than the one written is refused.
+  if (url.host !== host.toLowerCase() || url.port !== '' || url.username !== '' || url.password !== '') return null
+  return url.origin
+}
+
+function configuredOrigin(configured: string | undefined): string | null {
   if (!configured) return null
 
   let url: URL

@@ -4,7 +4,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { toLocale } from '@/lib/i18n'
 import { pdfContentDisposition } from '@/lib/pdf/filename'
 import { MAX_PDF_REQUEST_BYTES, parsePdfRequestBody, readBoundedBody } from '@/lib/pdf/payload'
-import { resolveRenderOrigin, selectSessionCookies, type NamedCookie } from '@/lib/pdf/render-policy'
+import { resolveRenderOrigin, selectSessionCookies } from '@/lib/pdf/render-policy'
 import { PdfRenderError, renderPreviewPdf } from '@/lib/pdf/render-preview'
 
 /**
@@ -83,11 +83,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const content = parsePdfRequestBody(body.text, resume.id, user.id)
     if (!content.ok) return json(content.reason, content.status)
 
-    const origin = resolveRenderOrigin(process.env.NEXT_PUBLIC_APP_URL, process.env.NEXTAUTH_URL)
+    const origin = resolveRenderOrigin({
+      appUrl: process.env.NEXT_PUBLIC_APP_URL,
+      authUrl: process.env.NEXTAUTH_URL,
+      vercelEnv: process.env.VERCEL_ENV,
+      vercelUrl: process.env.VERCEL_URL,
+    })
     if (!origin) {
-      console.error('PDF route: NEXT_PUBLIC_APP_URL and NEXTAUTH_URL are both unset or invalid; no trusted origin to render from.')
+      console.error('PDF route: no valid trusted origin to render from (VERCEL_URL on a preview, else NEXT_PUBLIC_APP_URL or NEXTAUTH_URL).')
       return json('Service unavailable', 503)
     }
+    const protectionBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || undefined
 
     const { error: sessionError } = await ensureSessionHeadroom(supabase)
     if (sessionError) return json('Unauthorized', 401)
@@ -111,10 +117,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         sessionCookies,
         draft: content.draft,
         photo: content.photo,
+        protectionBypassSecret,
         timeoutMs: RENDER_TIMEOUT_MS,
       })
     } catch (renderError) {
-      logRenderFailure(renderError, sessionCookies)
+      logRenderFailure(renderError, [...sessionCookies.map(({ value }) => value), protectionBypassSecret])
       return json('Failed to generate PDF', renderError instanceof PdfRenderError && renderError.stage === 'timeout' ? 504 : 500)
     } finally {
       activeRenders--
@@ -160,13 +167,14 @@ async function ensureSessionHeadroom(supabase: ServerSupabase): Promise<{ error:
  * Log a failed render without anything the request carried.
  *
  * The stage says where it failed; the cause's message says why, with every
- * forwarded cookie value cut out of it first, so no session token can reach a
- * log however a browser error happens to be worded. Resume content is never
- * part of these messages: the page is addressed by id only.
+ * forwarded cookie value and the protection bypass secret cut out of it
+ * first, so neither can reach a log however a browser error happens to be
+ * worded. Resume content is never part of these messages: the page is
+ * addressed by id only.
  */
-function logRenderFailure(error: unknown, sessionCookies: readonly NamedCookie[]): void {
+function logRenderFailure(error: unknown, secrets: readonly (string | undefined)[]): void {
   const redact = (text: string) =>
-    sessionCookies.reduce((result, { value }) => result.split(value).join('[redacted]'), text)
+    secrets.reduce<string>((result, secret) => (secret ? result.split(secret).join('[redacted]') : result), text)
   const stage = error instanceof PdfRenderError ? error.stage : 'unknown'
   const cause = error instanceof PdfRenderError ? error.cause : error
   const detail = cause instanceof Error ? `${cause.name}: ${redact(cause.message.split('\n')[0])}` : ''
