@@ -1,13 +1,11 @@
 import { test, expect } from './fixtures/auth'
+import { seedFixtureResume } from './fixtures/resume'
 import {
-  FIXTURE_EDUCATION,
-  FIXTURE_EXPERIENCE,
-  FIXTURE_LANGUAGES,
-  FIXTURE_SKILLS,
-  seedFixtureResume,
-  type FixtureContentOverrides,
-  type FixtureExperience,
-} from './fixtures/resume'
+  LONG_EXPERIENCE,
+  ONE_PAGE,
+  expectClearOfPageEdge,
+  expectedPages,
+} from './fixtures/page-breaks'
 import { PAGE_HEIGHT_PX, PAGE_WIDTH_PX } from '../src/lib/resume-page-size'
 import type { Page } from '@playwright/test'
 import type { ResumeTemplate } from '../src/types/database'
@@ -27,30 +25,6 @@ import type { ResumeTemplate } from '../src/types/database'
  */
 
 const HEIGHT = 900
-
-/**
- * Enough extra roles to push every template well past one page. Invented
- * content; the company name is numbered so no two roles render identically.
- */
-const LONG_EXPERIENCE: FixtureExperience[] = Array.from({ length: 10 }, (_, index) => ({
-  ...FIXTURE_EXPERIENCE[index % FIXTURE_EXPERIENCE.length],
-  company: `${FIXTURE_EXPERIENCE[index % FIXTURE_EXPERIENCE.length].company} ${index + 1}`,
-}))
-
-/**
- * A CV short enough for every template to fit one page. The shared fixture
- * does not: it runs onto a second page in all but professional, whose page
- * minimum absorbs it.
- */
-const ONE_PAGE: FixtureContentOverrides = {
-  summary: 'Product engineer building document tooling for regulated industries.',
-  experience: [{ ...FIXTURE_EXPERIENCE[0], achievements: [] }],
-  education: [FIXTURE_EDUCATION[0]],
-  skills: [FIXTURE_SKILLS[0]],
-  projects: [],
-  languages: [FIXTURE_LANGUAGES[0]],
-  certifications: [],
-}
 
 interface IndicatorReading {
   page: number
@@ -126,26 +100,6 @@ async function readPreview(page: Page): Promise<PreviewReading> {
       indicators,
     }
   }, PAGE_WIDTH_PX)
-}
-
-/**
- * The page count FR-2 gives for this height, written independently of the app:
- * every sheet edge the document passes by more than 1 px starts a new page.
- */
-function expectedPages(unscaledHeight: number): number {
-  let pages = 1
-  while (unscaledHeight > pages * PAGE_HEIGHT_PX + 1) pages++
-  return pages
-}
-
-/**
- * Precondition for a multi-page case: the height is clear of every page edge,
- * so the count cannot pass on the tolerance band or a rounding coincidence.
- */
-function expectClearOfPageEdge(unscaledHeight: number): void {
-  const distance = unscaledHeight % PAGE_HEIGHT_PX
-  expect(distance, `height ${unscaledHeight} is within a px of a page edge`).toBeGreaterThan(1)
-  expect(PAGE_HEIGHT_PX - distance).toBeGreaterThan(1)
 }
 
 /** Every indicator sits on its sheet edge, outside the CV, and labels the page below it. */

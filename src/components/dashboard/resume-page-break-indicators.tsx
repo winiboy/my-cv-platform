@@ -1,4 +1,5 @@
 import { computePageBreaks } from '@/lib/resume-page-breaks'
+import { cn } from '@/lib/utils'
 
 /** Visual gap, in screen px, between the page's right edge and a label. */
 const LABEL_GAP_PX = 3
@@ -15,6 +16,11 @@ interface ResumePageBreakIndicatorsProps {
   scale: number
   /** The localized label, with `{page}` standing for the number of the page that starts below the edge. */
   labelTemplate: string
+  /**
+   * Extra classes for each label, for a surface that must decide when its
+   * gutter is too narrow to draw one (the line is always drawn).
+   */
+  labelClassName?: string
 }
 
 /**
@@ -37,6 +43,7 @@ export function ResumePageBreakIndicators({
   documentHeight,
   scale,
   labelTemplate,
+  labelClassName,
 }: ResumePageBreakIndicatorsProps) {
   // A bad measurement must not take the editor down with a render error; it is
   // drawn as "not measured yet". `computePageBreaks` itself stays strict.
@@ -75,7 +82,10 @@ export function ResumePageBreakIndicators({
             />
             <span
               data-testid="page-break-label"
-              className="absolute top-0 whitespace-nowrap text-[10px] font-medium leading-none tracking-wide text-teal-700 [writing-mode:vertical-rl]"
+              className={cn(
+                'absolute top-0 whitespace-nowrap text-[10px] font-medium leading-none tracking-wide text-teal-700 [writing-mode:vertical-rl]',
+                labelClassName
+              )}
               style={{
                 left: `calc(100% + ${LABEL_GAP_PX * screenPx}px)`,
                 transform: `scale(${screenPx})`,

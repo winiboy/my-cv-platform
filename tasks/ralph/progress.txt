@@ -81,3 +81,94 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 Page boundaries visible in the editor's live preview
 FINAL: PASS
+
+## US-002: Page boundaries visible on the Preview page
+Status: PASS
+Priority: 2
+Branch: ralph/preview-page-break-indicator
+Baseline HEAD: a54d6fa (US-001)
+
+Scope:
+- Scope check: PASS
+- Changed paths:
+  - src/components/dashboard/resume-preview-wrapper.tsx (+79 −35):
+    - ResumePreview is wrapped in a 794 px `relative mx-auto` frame with no box styling of its own;
+    - a ResizeObserver stores the frame's offsetHeight;
+    - ResumePageBreakIndicators is a sibling of resume-document at scale 1;
+    - the frame sits inside a `@container` div, and the overlay is given labelClassName="@max-[820px]:hidden".
+  - src/components/dashboard/resume-page-break-indicators.tsx (+11 −1): an optional labelClassName prop, merged with cn(); the editor does not pass it.
+  - e2e/visual/resume-templates.spec.ts (+6): addStyleTag hides [data-testid="page-break-indicators"] before the captures, with a comment (owner decision 2026-10-13, below).
+  - e2e/fixtures/resume.ts (+21 −9): fixtureResumeContent(overrides) extracted; seedFixtureResume spreads it and writes the same columns as before.
+  - e2e/fixtures/page-breaks.ts (new, 60 lines): LONG_EXPERIENCE, ONE_PAGE, expectedPages and expectClearOfPageEdge, moved unchanged from the US-001 spec.
+  - e2e/resume-editor-page-breaks.spec.ts (+6 −52): imports those helpers; no test logic changed.
+  - e2e/resume-preview-page-breaks.spec.ts (new, 430 lines, 8 tests).
+- Not touched: the five templates, resume-preview.tsx, the layout model, print CSS, DOCX, the parity harness, every visual baseline image (`git status -- e2e` shows no __screenshots__ change), the database, package.json version. No push, no merge.
+- Pre-existing local changes left unstaged: .claude/settings.local.json, next-env.d.ts.
+
+Checks (all on the final diff, after the round-2 fix; the round-1 runs were discarded):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 1788 passed, 5 skipped
+- pnpm test:integration: PASS — 50 passed
+- pnpm build: PASS — 105/105 static pages
+- pnpm test:e2e: PASS — 255 passed. Includes the 8 new tests, the 12 US-001 tests, resume-print-geometry, modern-long-sidebar-print and resume-editor-responsive.
+- pnpm test:visual: PASS — 10 passed, no baseline changed
+- pnpm test:parity: PASS — 273 passed; MATCH 206, KNOWN 3, NEW 0; parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2 (unchanged)
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306. resume-preview-wrapper.tsx has 3 problems, all on lines that predate this story.
+
+Specialized validation:
+- Browser: PASS — e2e/resume-preview-page-breaks.spec.ts on the rendered Preview page (detail under Acceptance criteria). ui-expert reviewed screenshots from a scratch spec, run and deleted; 3-page CVs, edges 2 and 3:
+  - round 1: 1440 (classic en, modern fr), 768 (creative de), 390 (minimal it);
+  - round 2: 1095, 1118 and 1140 (professional en/fr/en), 1440 (classic en), 390 (minimal it).
+- Visual: PASS — test:visual 10/10, baselines unchanged; the overlay is hidden before capture per the owner decision
+- Export: PASS — the printed PDF of the Preview page (page.pdf, preferCSSPageSize, print media) is read per page: page count = indicators + 1, the CV text is present, and no label or "Page <n>" text appears. The overlay is print:hidden; parity sha unchanged.
+- Database: NOT_APPLICABLE — nothing stored (FR-3)
+- Security: NOT_APPLICABLE — no new data, input or route
+
+Agents:
+- senior-coder: implementation; round-2 fix
+- ui-expert:
+  - round 1 PASS 7/7, with this minor: the label creates new horizontal scroll in a band of window widths (computed from the code).
+  - round 2 PASS 7/7 after the fix. It accepted hiding the label, and keeping the line, where the gutter cannot hold it, and raised the AC-1 scope note.
+- code-reviewer:
+  - round 1 FAIL. Critical 1: the label created new horizontal scroll (.claude/rules/frontend.md, "no accidental overflow"). Critical 2: the spec measured overflow on document.documentElement, which the dashboard layout locks, so the assertion could never fail. Minor 1: frame height = document height was checked for classic only.
+  - Fixes:
+    - Measured reality: the overlay created a 3–13 px scroll at 1090–1100 px windows, and lengthened existing scroll by about 14 px at narrower widths.
+    - Labels are now hidden below a container width of 820 px (794 + 2 × 13); the lines stay at every width.
+    - The spec measures max(main, root) overflow. A band test at 390/767/1000/1090/1095/1100/1118/1140/1280 failed before the fix ("1090px: overflow added by the overlay — Expected: 0, Received: 13") and passes after.
+    - The professional one-page case also asserts frame offsetHeight = resume-document offsetHeight.
+  - round 2 BLOCKER: owner decision needed on hiding the label (AC-1). The code was otherwise ready, and the reviewer stated that option (a) "becomes PASS on this diff with no code change". Owner chose (a) on 2026-10-13 (below), so PASS.
+  - Remaining minors, not fixed:
+    - 820 hardcodes 794 + 2 × (LABEL_GAP_PX 3 + 10 px label). It goes stale silently if the gap or font size changes; the band test's 1118 and 1140 cases would catch a drift.
+    - The last label can be clipped when the document ends just past an edge.
+    - The line contrast over dark sidebars is about 2.5:1.
+
+Acceptance criteria:
+- AC-01 (same indicators and labels as US-001): PASS under the owner decision below.
+  - Same component and computePageBreaks at scale 1, same pageBreakLabel.
+  - e2e: positions within 1 px of k × 1123 below the document top, independent expectedPages, none for one page (professional at exactly 1123 px, classic), labels visible and correct in fr, de and it at 1280.
+  - Labels are hidden below an 820 px container (about a 1140 px window); the lines are drawn at every width.
+- AC-02 (follows the rendered document): PASS — e2e:
+  - a longer resume_draft_${id} over a one-page stored CV adds indicators, with the unsaved-changes banner and the draft content checked;
+  - a shorter draft over a long CV removes them;
+  - an image held back by a route and inserted into the document changes nothing until it is released; then an indicator appears without a reload, and removing the image removes it.
+- AC-03 (outside resume-document, hidden in print, no pointer capture): PASS — e2e: not contained in resume-document; pointer-events none; aria-hidden; a click on the line reaches the CV; hidden under print emulation.
+- AC-04 (PDF has no trace): PASS — e2e: the printed PDF has indicators + 1 pages, contains the CV text, and contains no label or "Page <n>" text on any page.
+
+Decision (owner, 2026-10-13, asked in chat before US-002): the Preview page uses the same indicator component as the editor. e2e/visual/resume-templates.spec.ts hides the overlay before capturing resume-document, because that suite guards the templates' rendering and the overlay is not part of the document. No baseline was updated.
+- Consequence: the PRD FAIL condition "indicator appears in a test:visual capture" now holds by construction. The evidence that the overlay never reaches output is the print-emulation check and the PDF text check (AC-03, AC-04).
+
+Decision (owner, 2026-10-13, asked in chat after code-review round 2): on the Preview page, the « Page N » label is hidden when the space beside the centred sheet cannot hold it, below a container width of 820 px (about a 1140 px window with the dashboard sidebar; also tablets and phones). The dashed line stays visible and precise at every width.
+- Alternatives rejected: always showing the label would add up to 13 px of horizontal scroll, which .claude/rules/frontend.md forbids; a new narrow-width label design is out of this PRD's scope.
+- The editor is unaffected: its labels are counter-scaled into the pane padding and always show.
+
+Named limits:
+- At 390 and 768 px the Preview page renders the unscaled 794 px sheet wider than the viewport. That predates this story; the indicator inherits it.
+- The live-update test uses an injected late image as a stand-in for a font or photo finishing loading. The same ResizeObserver handles both, but a real font swap is not exercised.
+
+Environment notes:
+- Playwright suites ran one at a time. Scratch screenshot specs were copied into e2e/ only while they ran on their own, and deleted before any check ran.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 Page boundaries visible on the Preview page
+FINAL: PASS

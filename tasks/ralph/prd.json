@@ -97,7 +97,7 @@
         "Out of scope: Redesigning the editor toolbar, the Preview header or the preview frame."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

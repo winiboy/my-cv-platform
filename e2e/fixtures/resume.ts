@@ -192,6 +192,26 @@ export interface SeededResume {
 }
 
 /**
+ * The fixture's resume content with `overrides` applied: exactly the columns
+ * `seedFixtureResume` writes beyond the owner, title and template. Shared so a
+ * test that builds a resume in the browser (a `resume_draft_${id}` draft) draws
+ * the same content as one stored in the database.
+ */
+export function fixtureResumeContent(overrides: FixtureContentOverrides = {}) {
+  return {
+    contact: FIXTURE_CONTACT,
+    summary: overrides.summary ?? FIXTURE_SUMMARY,
+    experience: overrides.experience ?? FIXTURE_EXPERIENCE,
+    education: overrides.education ?? FIXTURE_EDUCATION,
+    skills: overrides.skills ?? FIXTURE_SKILLS,
+    languages: overrides.languages ?? FIXTURE_LANGUAGES,
+    certifications: overrides.certifications ?? FIXTURE_CERTIFICATIONS,
+    projects: overrides.projects ?? FIXTURE_PROJECTS,
+    custom_sections: {},
+  }
+}
+
+/**
  * Insert the fixture resume for `userId` under `template` and return its id.
  *
  * `custom_sections` is left as an empty object rather than omitted: the preview
@@ -209,15 +229,7 @@ export async function seedFixtureResume(
       user_id: userId,
       title: `Visual baseline - ${template}`,
       template,
-      contact: FIXTURE_CONTACT,
-      summary: overrides.summary ?? FIXTURE_SUMMARY,
-      experience: overrides.experience ?? FIXTURE_EXPERIENCE,
-      education: overrides.education ?? FIXTURE_EDUCATION,
-      skills: overrides.skills ?? FIXTURE_SKILLS,
-      languages: overrides.languages ?? FIXTURE_LANGUAGES,
-      certifications: overrides.certifications ?? FIXTURE_CERTIFICATIONS,
-      projects: overrides.projects ?? FIXTURE_PROJECTS,
-      custom_sections: {},
+      ...fixtureResumeContent(overrides),
     })
     .select('id')
     .single()
