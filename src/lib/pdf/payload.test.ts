@@ -16,7 +16,8 @@ const draftFor = (fields: Record<string, unknown>) => JSON.stringify(fields)
 const body = (fields: Record<string, unknown>) => JSON.stringify(fields)
 
 describe('boundedPdfPhoto', () => {
-  it.each(['jpeg', 'jpg', 'png', 'gif', 'bmp'])('accepts a %s data URL', (type) => {
+  // WebP and AVIF beyond the DOCX's types: Chromium draws both (owner, 2026-10-13).
+  it.each(['jpeg', 'jpg', 'png', 'gif', 'bmp', 'webp', 'avif'])('accepts a %s data URL', (type) => {
     const value = `data:image/${type};base64,QUJD`
     expect(boundedPdfPhoto(value)).toBe(value)
   })
@@ -26,6 +27,11 @@ describe('boundedPdfPhoto', () => {
     ['an empty string', ''],
     ['bare base64, which an <img src> would resolve as a URL', 'iVBORw0KGgo='],
     ['an SVG data URL', 'data:image/svg+xml;base64,PHN2Zz4='],
+    ['an SVG data URL spelled as svg', 'data:image/svg;base64,PHN2Zz4='],
+    ['a TIFF data URL', 'data:image/tiff;base64,QUJD'],
+    ['an HEIC data URL', 'data:image/heic;base64,QUJD'],
+    ['a non-image data URL', 'data:text/html;base64,PGI+'],
+    ['a type that only starts like an accepted one', 'data:image/webpx;base64,QUJD'],
     ['a remote URL', 'https://example.com/x.png'],
     ['a local file', 'file:///C:/Windows/win.ini'],
     ['a data URL with whitespace in its payload', 'data:image/png;base64,QU JD'],

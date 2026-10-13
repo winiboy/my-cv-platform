@@ -98,3 +98,109 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 The server returns the resume PDF the Preview shows
 FINAL: PASS
+
+## US-002: "Télécharger PDF" downloads the file instead of printing
+Status: PASS
+Priority: 2
+Branch: ralph/resume-pdf-direct-download
+Baseline HEAD: 373a369 (US-001)
+
+Correction of the record:
+- The US-001 entry above lists the WebP photo drop under "Named limits". That is accurate: it was recorded, not owner-approved.
+- In the US-001 and US-002 review briefs, the orchestrator described it as owner-approved. That was wrong; the owner had approved only the Google Fonts exception. The reviewer was told, and the owner then decided (below).
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat, plus new files):
+  - src/components/dashboard/download-button.tsx (+141 −9): the PDF click handler with busy, error and focus states. handleWordDownload is identical to HEAD (code-reviewer extracted both versions and diffed them).
+  - src/components/dashboard/resume-preview-page-client.tsx (+8): passes pdfMessages only. Still no dict to DownloadButton, so the Word alert keeps its English fallback, as before.
+  - src/lib/pdf/download-client.ts (new, 190 lines): request body, POST, Content-Disposition filename, error kinds, 45 s timeout.
+  - src/lib/pdf/photo.ts (new, 73 lines): the PDF photo check, shared by the route and the client.
+  - src/lib/pdf/payload.ts (+5 −42): the photo check moved to photo.ts and is re-exported from here.
+  - src/locales/{fr,en,de,it}/common.json (+4 each): resumes.generatingPDF, pdfDownloadError, pdfPhotoTooLarge, pdfPhotoUnsupported.
+  - Tests:
+    - src/lib/pdf/download-client.test.ts, src/lib/pdf/photo.test.ts, src/components/dashboard/download-button-messages.test.ts (new);
+    - src/lib/pdf/payload.test.ts (+7 −1);
+    - e2e/resume-pdf-download-button.spec.ts (new, 525 lines, 15 tests).
+- Not touched: everything under src/app/api/resumes/[id]/download-docx/ (git diff there: 0 lines); route.ts, route-guard.ts, browser.ts, render-preview.ts, render-policy.ts (unchanged since US-001); print CSS, templates, visual baselines, the database, package.json version. download-pdf-button.tsx (dead code) is left alone. No push, no merge.
+
+Checks (all on the final diff, after the photo-format round; earlier runs discarded):
+- DOCX: PASS — 20 hashes identical to the baseline.
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 64 files, 1966 passed, 5 skipped
+- pnpm test:integration: PASS — 50 passed
+- pnpm build: PASS — 105/105 static pages
+- pnpm test:e2e: PASS — 310 passed, including resume-pdf-download-button (15) and resume-pdf-route (21).
+  - In the first full run on the pre-photo diff, 1 of 307 tests failed: resume-editor-responsive "at 1024px the preview scale is stable at the scrollbar edge", where loginAs hit its 30 s waitForURL timeout in the auth fixture. That is a known transient and a page this story does not touch.
+  - That spec then passed 10/10 alone, and the full rerun passed 307/307. The final diff's run had no failure.
+- pnpm test:visual: PASS — 10 passed, no baseline change
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0; sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b (unchanged)
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306. The changed files add 0; the one existing `dict: any` in resume-preview-page-client.tsx is on an untouched line.
+
+Specialized validation:
+- Browser: PASS — the e2e drives the real button. ui-expert reviewed screenshots of the idle, busy and error states and the unsupported-photo message, at 1280 and 390, in fr.
+- Visual: PASS — test:visual unchanged.
+- Export: PASS — the downloaded file equals the route's PDF in pages, text, page size and images. ui-expert reviewed the downloaded PDF rasterised: 3 A4 pages, French headings, the Modern band down to every page bottom, no print chrome.
+- Database: NOT_APPLICABLE — the e2e checks the stored row is unchanged after a draft download.
+- Security: PASS — security-review on the final diff: 0 findings above INFO, requirements 6/6.
+  - The check is an anchored, case-sensitive prefix ^data:image/(jpeg|jpg|png|gif|bmp|webp|avif);base64, followed by the base64 alphabet.
+  - WebP and AVIF decoders were already reachable through byte sniffing, so there is no new surface.
+  - The filename only ever goes to anchor.download, on a same-origin blob: URL.
+
+Agents:
+- senior-coder: implementation; photo-format round
+- ui-expert:
+  - round 1 PASS 7/7 (idle, busy, error, and the downloaded PDF);
+  - round 2 PASS on the unsupported-photo message.
+  - Minors, not fixed:
+    - on narrow screens the Word button shifts about 24 px while busy (a min-width would change the idle width);
+    - on mobile the error overlaps the "Aperçu" subtitle;
+    - the busy label's contrast is 2.8:1 (disabled exemption);
+    - the German unsupported message is estimated to take 4 lines on desktop (not captured);
+    - the copy says "JPEG ou PNG" although WebP and AVIF are also accepted.
+  - Pre-existing and out of scope: the Preview header at 390 px overlaps the title and clips the Word button. The header markup is identical to HEAD.
+- code-reviewer:
+  - round 1 PASS, with Major 1: a WebP, AVIF or SVG photo silently disappeared from the PDF, which is a PRD FAIL condition. This was escalated to the owner.
+  - round 2 PASS on the final diff. Remaining minor: HEIC or similar uploads now block the PDF with the message, by the owner's choice.
+
+Acceptance criteria:
+- AC-01 (no window.print; the route's PDF is downloaded): PASS — e2e:
+  - window.print is stubbed before page load and called 0 times;
+  - a download event with filename "Visual baseline - modern.pdf";
+  - one POST with a JSON body;
+  - the file equals the route's PDF in pages, text, page size and images.
+- AC-02 (busy state): PASS — e2e:
+  - the button is disabled, has aria-busy, shows the localized label and has a role=status text;
+  - two clicks in the same tick plus a double click while busy give exactly 1 request.
+- AC-03 (failure): PASS — e2e:
+  - route 500, then a successful retry clears the error;
+  - network abort from the keyboard, with focus returned to the button;
+  - 45 s client timeout (page.clock: still waiting at 44 s, error at 46 s);
+  - a plain-text 413 with a photo shows the photo message.
+  - The strings exist in fr, en, de and it (messages unit test), and the e2e checks fr and de.
+- AC-04 (draft and photo in the PDF): PASS — e2e:
+  - a draft plus a photo gives the draft text and one more image, equal to the route's PDF for the same body;
+  - a WebP photo gives one more image, equal to the route's PDF;
+  - an SVG photo (en and fr) shows the message, sends no request, downloads nothing, and leaves the button usable again.
+  - AVIF is covered by unit tests only, because Chromium's canvas cannot encode AVIF.
+- AC-05 (Word button unchanged): PASS — handleWordDownload is identical to HEAD. The e2e checks:
+  - with no photo: a GET with only ?locale=fr, file resume.docx;
+  - with a photo: a POST of exactly {photoBase64}, with no draft;
+  - the same English alert on a French page, with no inline PDF error.
+  - DOCX hashes are identical.
+
+Decision (owner, 2026-10-13, asked in chat after code-review round 1): the PDF accepts jpeg, jpg, png, gif and bmp, plus WebP and AVIF. Any other photo format (SVG, TIFF, HEIC…) blocks the download, and resumes.pdfPhotoUnsupported asks the user to use a JPEG or PNG; the photo is never dropped silently. The DOCX keeps jpeg/jpg/png/gif/bmp.
+- This supersedes the US-001 "WebP photos" named limit. It changes US-001's AC-04 wording ("bounded as boundedPhoto() does") for the PDF route only; the change lands in this commit because the decision requires it.
+
+Decision (draft check, code-review Minor 1): the client sends any draft that parses as JSON, because the Preview displays any such draft. A draft the route rejects (wrong id or owner) then produces the visible error rather than a PDF that differs from the screen. A unit test records this.
+
+Named limits:
+- Vercel's 4.5 MB request-body limit is not verified yet (US-003). A photo the route accepts but Vercel rejects ends in the "photo too large" message, via the platform 413.
+
+Environment notes:
+- Windows; Playwright suites ran one at a time. Scratch screenshot specs were run on their own and deleted before any check. One transient auth-fixture timeout was re-run as described under Checks.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 "Télécharger PDF" downloads the file instead of printing
+FINAL: PASS

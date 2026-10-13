@@ -52,6 +52,14 @@ export function ResumePreviewPageClient({ resume, locale, dict }: ResumePreviewP
           <DownloadButton
             label={dict.resumes?.downloadPDF || 'Download PDF'}
             wordLabel={dict.resumes?.downloadWord || 'Download Word'}
+            // Only the PDF button's copy: passing `dict` would also change the
+            // Word button's error text, which must stay exactly as it was.
+            pdfMessages={{
+              generating: dict.resumes?.generatingPDF,
+              error: dict.resumes?.pdfDownloadError,
+              photoTooLarge: dict.resumes?.pdfPhotoTooLarge,
+              photoUnsupported: dict.resumes?.pdfPhotoUnsupported,
+            }}
           />
         </div>
       </div>

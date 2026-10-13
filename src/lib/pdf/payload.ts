@@ -1,4 +1,9 @@
 import { z } from 'zod'
+import { MAX_PHOTO_LENGTH, boundedPdfPhoto } from './photo'
+
+// The photo bound lives in `photo.ts`, shared with the browser; re-exported
+// here because this module is where the request's bounds are read.
+export { MAX_PHOTO_LENGTH, boundedPdfPhoto }
 
 /**
  * What a resume PDF request may carry, and the bounds it is held to.
@@ -10,17 +15,6 @@ import { z } from 'zod'
  * it is bounded here, before a browser is launched, and the draft's rich text
  * is then sanitized by the Preview itself exactly as it is for the user.
  */
-
-/**
- * The largest photo this route will hand on, in characters.
- *
- * The same bound, prefixes and alphabet as `boundedPhoto()` in the DOCX route
- * (`src/app/api/resumes/[id]/download-docx/route.ts`), which documents the
- * sizing: above any photo the application can produce, and above what a
- * browser's localStorage can hold. Restated rather than imported because that
- * route may not change and does not export it.
- */
-export const MAX_PHOTO_LENGTH = 8 * 1024 * 1024
 
 /**
  * The largest draft accepted, in characters.
@@ -37,37 +31,6 @@ export const MAX_DRAFT_LENGTH = 2 * 1024 * 1024
  * body that does is refused with 413 without being buffered past this point.
  */
 export const MAX_PDF_REQUEST_BYTES = MAX_PHOTO_LENGTH + MAX_DRAFT_LENGTH + 64 * 1024
-
-/** The image data-URL forms `boundedPhoto()` accepts. */
-const SUPPORTED_PHOTO_DATA_URL = /^data:image\/(?:jpeg|jpg|png|gif|bmp);base64,/
-
-/** Base64 as `FileReader` and `btoa` emit it: no whitespace, no line breaks. */
-const BASE64_PAYLOAD = /^[A-Za-z0-9+/]+={0,2}$/
-
-/**
- * The photo, if it is one the render may show; `undefined` otherwise.
- *
- * `boundedPhoto()`'s checks, with one tightening: the data-URL prefix is
- * required. The photo becomes an `<img src>` on the rendered page, and only a
- * data URL is drawn there without a network request; a bare base64 string
- * would be resolved as a relative URL. The application only ever stores data
- * URLs (`FileReader.readAsDataURL` and the background-removal output), so the
- * tightening costs no real photo.
- *
- * Like `boundedPhoto()`, an unusable photo is dropped rather than failing the
- * request: the PDF is still produced, without a photo.
- */
-export function boundedPdfPhoto(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined
-  if (value.length === 0 || value.length > MAX_PHOTO_LENGTH) return undefined
-
-  const prefix = SUPPORTED_PHOTO_DATA_URL.exec(value)
-  if (!prefix) return undefined
-
-  const payload = value.slice(prefix[0].length)
-  if (payload.length === 0 || !BASE64_PAYLOAD.test(payload)) return undefined
-  return value
-}
 
 /**
  * The body's shape. Unknown keys are refused, so nothing else — a layout, a
