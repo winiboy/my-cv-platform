@@ -25,6 +25,7 @@ interface ModernProps {
   locale: 'en'
   dict: unknown
   sidebarColor?: string
+  sidebarWidth?: number
   mainContentOrder?: readonly ModernMainId[]
 }
 
@@ -152,5 +153,66 @@ describe('US-010: a Modern main order that maps to nothing', () => {
 
     expect(html).not.toContain(SUMMARY)
     expect(html).not.toContain(POSITION)
+  })
+})
+
+describe('modern-print-sidebar-full-page US-001: the print band takes the sidebar colour and width', () => {
+  /**
+   * `globals.css` paints the band on `html:has(.modern-template)` and cannot
+   * read the layout model, so the colour and width reach it as custom
+   * properties this template declares on `html`, in the server render. What
+   * the band looks like on paper is the e2e suite's subject
+   * (`e2e/modern-print-sidebar-full-page.spec.ts`); asserted here is that the
+   * values leave the template in a form a stylesheet can take, and only then.
+   */
+  const declaration = (color: string, widthPx: number) =>
+    `html:has(.modern-template){--modern-print-sidebar-color:${color};--modern-print-sidebar-width:${widthPx}px}`
+
+  it('marks the document as Modern, which the print rule is gated on', () => {
+    expect(render({})).toMatch(/data-testid="resume-document" class="modern-template /)
+  })
+
+  it('declares the stored colour and the sidebar width as px of the 794px page', () => {
+    const html = render({ sidebarColor: 'hsl(150, 60%, 28%)', sidebarWidth: 42 })
+
+    expect(html).toContain(declaration('hsl(150, 60%, 28%)', 333.48))
+  })
+
+  it('accepts decimal components and a decimal width', () => {
+    const html = render({ sidebarColor: 'hsl(217.5, 40.5%, 20.5%)', sidebarWidth: 30 })
+
+    expect(html).toContain(declaration('hsl(217.5, 40.5%, 20.5%)', 238.2))
+  })
+
+  it('follows the colour and width the template itself falls back to', () => {
+    const html = render({})
+
+    expect(html).toContain(declaration('#333333', 277.9))
+  })
+
+  /**
+   * The barrier, not a convenience: a style element's text is not escaped as a
+   * style object is, so a value that could close the declaration or the rule
+   * must not be written at all.
+   */
+  it.each([
+    ['a declaration break-out', 'red;}body{display:none'],
+    ['a keyword', 'rebeccapurple'],
+    ['a function this template is not given', 'rgb(1, 2, 3)'],
+    ['a negative hue', 'hsl(-30, 40%, 20%)'],
+  ])('declares nothing for %s', (_label, sidebarColor) => {
+    const html = render({ sidebarColor })
+
+    expect(html).not.toContain('--modern-print-sidebar')
+  })
+
+  it.each([
+    ['a negative width', -5],
+    ['a width past the page', 120],
+    ['a width that is not a number', Number.NaN],
+  ])('declares nothing for %s', (_label, sidebarWidth) => {
+    const html = render({ sidebarColor: 'hsl(150, 60%, 28%)', sidebarWidth })
+
+    expect(html).not.toContain('--modern-print-sidebar')
   })
 })

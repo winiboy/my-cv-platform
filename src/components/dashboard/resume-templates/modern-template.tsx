@@ -16,7 +16,7 @@ import { contactLabel, presentLabel } from '@/lib/resume-template-strings'
 import { renderFormattedText } from '@/lib/format-text'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import { MODERN_LINE_HEIGHT, MODERN_TITLE_BAR_PADDING_Y_PX } from '@/lib/resume-line-height'
-import { PAGE_HEIGHT_CSS, PAGE_WIDTH_CSS } from '@/lib/resume-page-size'
+import { PAGE_HEIGHT_CSS, PAGE_WIDTH_CSS, PAGE_WIDTH_PX } from '@/lib/resume-page-size'
 import {
   assertExhaustiveSection,
   DEFAULT_MODERN_SIDEBAR_ORDER,
@@ -53,6 +53,42 @@ const TRACKING = PREVIEW_TRACKING.modern
  * the DOCX would not agree with.
  */
 const SIDEBAR_HSL_PATTERN = /^\s*hsl\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)%\s*,\s*(\d+(?:\.\d+)?)%\s*\)\s*$/
+
+/** A hex literal, the shape of `DEFAULT_SIDEBAR_COLOR`. */
+const HEX_COLOR_PATTERN = /^\s*#[0-9a-fA-F]{3,8}\s*$/
+
+/**
+ * The custom properties `globals.css` reads for Modern's print page band.
+ *
+ * The sidebar is an in-flow column of the document, so in print its
+ * background ends where the document ends and the rest of the last page is
+ * paper. The band is painted on the page root under print instead, which
+ * covers every printed page in full; a stylesheet cannot read the layout
+ * model, so the colour and width reach it as these properties, declared on
+ * `html` (an ancestor of this component, which a declaration here could not
+ * reach) by a style element present in the server render.
+ */
+const PRINT_BAND_COLOR_PROPERTY = '--modern-print-sidebar-color'
+const PRINT_BAND_WIDTH_PROPERTY = '--modern-print-sidebar-width'
+
+/**
+ * The declarations that carry the sidebar's own colour and width to the print
+ * band, or null when either is not a value this module will write into a
+ * stylesheet. `sidebarColor` is user-controlled and a style element's text is
+ * not escaped the way React escapes a style object, so a colour outside the
+ * two shapes this template is given is never emitted: a `;` or `}` in it would
+ * end the declaration or the rule. With nothing declared, `globals.css` draws
+ * a band of no width, so the page prints as plain paper.
+ *
+ * The width is the sidebar's own: `sidebarWidth` per cent of the page the
+ * document is pinned to, the same arithmetic as the sidebar's `width`.
+ */
+function printBandStyle(sidebarColor: string, sidebarWidthPercent: number): string | null {
+  if (!SIDEBAR_HSL_PATTERN.test(sidebarColor) && !HEX_COLOR_PATTERN.test(sidebarColor)) return null
+  if (!Number.isFinite(sidebarWidthPercent) || sidebarWidthPercent < 0 || sidebarWidthPercent > 100) return null
+  const widthPx = (PAGE_WIDTH_PX * sidebarWidthPercent) / 100
+  return `html:has(.modern-template){${PRINT_BAND_COLOR_PROPERTY}:${sidebarColor.trim()};${PRINT_BAND_WIDTH_PROPERTY}:${widthPx}px}`
+}
 
 /** Derive a lighter, more saturated accent color from the sidebar HSL color.
  *  Falls back to the default gold when no sidebarColor is provided or it cannot be parsed.
@@ -223,6 +259,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
   const activeSidebarColor = sidebarColor || DEFAULT_SIDEBAR_COLOR
   const accentColor = deriveAccentColor(sidebarColor)
   const activeWidth = sidebarWidth ?? 35
+  const printBandDeclaration = printBandStyle(activeSidebarColor, activeWidth)
   const activeSidebarTopMargin = sidebarTopMargin ?? 0
   const activeMainContentTopMargin = mainContentTopMargin ?? 0
   const activeScale = fontScale ?? 1
@@ -720,7 +757,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
   return (
     <div
       data-testid="resume-document"
-      className="mx-auto shadow-lg print:shadow-none"
+      className="modern-template mx-auto shadow-lg print:shadow-none"
       style={{
         position: 'relative',
         display: 'flex',
@@ -1099,6 +1136,9 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
         )}
 
       </div>
+      {/* Carries the sidebar's colour and width to the print band in globals.css; see
+          PRINT_BAND_COLOR_PROPERTY. Last, so the sidebar stays the document's first child. */}
+      {printBandDeclaration && <style>{printBandDeclaration}</style>}
     </div>
   )
 }

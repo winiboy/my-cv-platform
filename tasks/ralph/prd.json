@@ -41,7 +41,7 @@
         "Out of scope: Page-break placement, break-inside rules, or page count."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]
