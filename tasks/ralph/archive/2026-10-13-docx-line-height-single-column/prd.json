@@ -1,0 +1,72 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "ralph/docx-line-height-single-column",
+  "description": "At any font scale, the Classic, Minimal and Creative Word exports draw the same line pitch as the Preview, as Professional and Modern have done since #88. A parity profile at a fractional size proves it and guards it.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Classic, Minimal and Creative Word line pitch follows the Preview at fractional sizes",
+      "description": "As a user who scales their CV's font, I want the Word file's line spacing to match the Preview for Classic, Minimal and Creative, so that pages break and read the same everywhere.",
+      "acceptanceCriteria": [
+        "Every call. In the three generators, every `exactLineSpacing` call receives the unrounded size of the element it spaces. Run `w:sz` values are unchanged.",
+        "Default exports. At scale 1 with default sizes, the Classic, Minimal and Creative DOCX for the e2e fixture are byte-identical to before (hash of `word/document.xml` recorded before and after).",
+        "Professional and Modern. Their DOCX are byte-identical to before for the same inputs (hashes recorded).",
+        "Unit test. `D/docx-line-spacing.test.ts` asserts the pitch against the Preview px for all five templates, at scales 0.8, 1 and 1.2. It fails on the pre-story generators and passes after.",
+        "Word re-measure. For each of the three templates at `per-property-control` sizes, Word's rendered body line pitch is within ±1.5 px of the Preview's, per baseline. Measured with the `docx-word-parity.md` method; the measurements are recorded in `progress.txt` and the doc.",
+        "FR-1: No change to `e2e/parity` comparison logic, tolerances or the KNOWN list, beyond the new profile and its id.",
+        "FR-2: Only the three generator files, `docx-line-spacing.test.ts` and the docs change under `src/` and `docs/` for US-001.",
+        "FR-3: The default-size output stays byte-identical. That is how the change stays safe for existing users.",
+        "Regression constraint: `pnpm test:parity`: every existing row keeps its verdict, and only the new rows are added.",
+        "Regression constraint: `pnpm test:visual` is unchanged (Preview).",
+        "Regression constraint: The e2e DOCX layout specs and the geometry and letter-spacing tests pass unmodified.",
+        "Verification: The `CLAUDE.md` §14 baseline, plus `pnpm test:parity` (report sha recorded; row diff against the previous report: only the new rows) and `pnpm test:visual`.",
+        "Verification: Export validation: DOCX hashes for the unchanged cases (default sizes for all five templates; Professional and Modern at fractional sizes); a Word COM measurement for the three templates at fractional sizes.",
+        "Verification: `code-reviewer`. `ui-expert` is NOT_APPLICABLE (no UI).",
+        "FAIL condition: Any default-size DOCX or any Professional/Modern DOCX changes.",
+        "FAIL condition: A `fractional-size` row is NEW after the fix, or an existing row changes verdict.",
+        "FAIL condition: A tolerance is changed or a KNOWN entry is added to pass.",
+        "BLOCKER condition: The Word COM measurement cannot run on the machine (Word missing). Report it; the owner decides whether XML-level evidence is enough.",
+        "BLOCKER condition: A title or heading row at the new profile turns NEW after the fix, showing another rounding path. Report it; widen the scope only by PRD update.",
+        "Out of scope: A horizontal width scale (`w:w`) or tracking from unrounded sizes for these three templates. That would be a separate fidelity change.",
+        "Out of scope: Baseline raise (`w:position`) for Georgia headings.",
+        "Out of scope: Spacer lines, page layout, and any Preview change.",
+        "Out of scope: The KNOWN `US-016-html-body-line-height` entry."
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "A parity profile guards line height at fractional sizes",
+      "description": "As the owner, I want the parity check to compare line height at a fractional size for every template, so that this drift can't come back unseen.",
+      "acceptanceCriteria": [
+        "The profile. A `fractional-size` profile exists, with `per-property-control`'s layout and `rowGroups: ['body-line-height']`, covering all five templates. It is added to the `ProfileId` union.",
+        "MATCH. Its five `line-height:bodyText` rows are MATCH. NEW stays 0, and KNOWN stays 3, unchanged.",
+        "It catches the defect. With US-001's generator change reverted locally, the classic, minimal and creative rows of this profile are NEW. Run as evidence and not committed; the output is recorded.",
+        "Text. The `verdicts.ts` DECISION text describes all five templates. The control profiles keep `control: true` and no rows.",
+        "FR-1: No change to `e2e/parity` comparison logic, tolerances or the KNOWN list, beyond the new profile and its id.",
+        "FR-2: Only the three generator files, `docx-line-spacing.test.ts` and the docs change under `src/` and `docs/` for US-001.",
+        "FR-3: The default-size output stays byte-identical. That is how the change stays safe for existing users.",
+        "Regression constraint: `pnpm test:parity`: every existing row keeps its verdict, and only the new rows are added.",
+        "Regression constraint: `pnpm test:visual` is unchanged (Preview).",
+        "Regression constraint: The e2e DOCX layout specs and the geometry and letter-spacing tests pass unmodified.",
+        "Verification: The `CLAUDE.md` §14 baseline, plus `pnpm test:parity` (report sha recorded; row diff against the previous report: only the new rows) and `pnpm test:visual`.",
+        "Verification: Export validation: DOCX hashes for the unchanged cases (default sizes for all five templates; Professional and Modern at fractional sizes); a Word COM measurement for the three templates at fractional sizes.",
+        "Verification: `code-reviewer`. `ui-expert` is NOT_APPLICABLE (no UI).",
+        "FAIL condition: Any default-size DOCX or any Professional/Modern DOCX changes.",
+        "FAIL condition: A `fractional-size` row is NEW after the fix, or an existing row changes verdict.",
+        "FAIL condition: A tolerance is changed or a KNOWN entry is added to pass.",
+        "BLOCKER condition: The Word COM measurement cannot run on the machine (Word missing). Report it; the owner decides whether XML-level evidence is enough.",
+        "BLOCKER condition: A title or heading row at the new profile turns NEW after the fix, showing another rounding path. Report it; widen the scope only by PRD update.",
+        "Out of scope: A horizontal width scale (`w:w`) or tracking from unrounded sizes for these three templates. That would be a separate fidelity change.",
+        "Out of scope: Baseline raise (`w:position`) for Georgia headings.",
+        "Out of scope: Spacer lines, page layout, and any Preview change.",
+        "Out of scope: The KNOWN `US-016-html-body-line-height` entry."
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

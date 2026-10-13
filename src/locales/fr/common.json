@@ -176,6 +176,7 @@
     "setDefault": "Définir par défaut",
     "previewUnsavedTitle": "Aperçu avec modifications non sauvegardées",
     "previewUnsavedWarning": "Les modifications seront perdues si vous ne sauvegardez pas",
+    "pageBreakLabel": "Page {page}",
     "empty": {
       "title": "Aucun CV pour le moment",
       "description": "Créez votre premier CV professionnel pour commencer à postuler."

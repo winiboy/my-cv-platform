@@ -197,6 +197,12 @@ async function openPreviewDocument(
 
   await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
 
+  // This suite guards the templates' rendering. The page-break overlay is drawn
+  // over the document on screen but is not part of it, so it is hidden here.
+  await page.addStyleTag({
+    content: '[data-testid="page-break-indicators"] { display: none !important; }',
+  })
+
   if (controls === 'off') {
     // `force` because the checkbox is `sr-only` - visually hidden but the real
     // control behind the label.

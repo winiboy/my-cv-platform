@@ -1,139 +1,256 @@
-# Ralph progress — docx-line-height-single-column
+# Ralph progress — preview-page-break-indicator
 
-Contract: tasks/ralph/prd.json (branch ralph/docx-line-height-single-column)
-PRD: tasks/prds/docx-line-height-single-column.md (Status: APPROVED 2026-10-09, written by the owner)
+Contract: tasks/ralph/prd.json (branch ralph/preview-page-break-indicator)
+PRD: tasks/prds/preview-page-break-indicator.md (Status: APPROVED 2026-10-12, written by the owner)
 Format: docs/engineering/progress-log-format.md
-Branch setup: from origin/main b49efc9. a4eb2ec archives the merged docx-modern-sidebar-full-page contract (#104); 17bb54b adds this PRD and its contract.
+Branch setup: from origin/main b49efc9, while PR #105 (ralph/docx-line-height-single-column) is still open. The docx-modern-sidebar-full-page contract this replaces is archived by a4eb2ec on that branch. When #105 merges, origin/main is merged into this branch and the docx-line-height-single-column contract is archived then.
 
-## US-001: Classic, Minimal and Creative Word line pitch follows the Preview at fractional sizes
+## US-001: Page boundaries visible in the editor's live preview
 Status: PASS
 Priority: 1
-Branch: ralph/docx-line-height-single-column
-Baseline HEAD: 17bb54b (origin/main b49efc9 + archive commit + contract commit)
+Branch: ralph/preview-page-break-indicator
+Baseline HEAD: f6b6c22 (origin/main b49efc9 + contract commit)
 
 Scope:
 - Scope check: PASS
-- Changed paths (git diff --numstat):
-  - src/app/api/resumes/[id]/download-docx/docx-classic.ts (+22 −9)
-  - src/app/api/resumes/[id]/download-docx/docx-minimal.ts (+26 −10)
-  - src/app/api/resumes/[id]/download-docx/docx-creative.ts (+21 −7)
-  - src/app/api/resumes/[id]/download-docx/docx-line-spacing.test.ts (+51 −44)
-  - docs/engineering/docx-word-parity.md (+30 −0)
-- Not touched: docx-professional.ts, docx-modern.ts, docx-helpers.ts, everything under e2e/ (git diff -- e2e empty), visual baselines, package.json version. No push, no merge.
+- Changed paths:
+  - src/lib/resume-page-breaks.ts (new, 66 lines): FR-1 computePageBreaks(height | null) → { pageCount, boundaries }, from PAGE_HEIGHT_PX only
+  - src/lib/resume-page-breaks.test.ts (new, 13 tests)
+  - src/components/dashboard/resume-page-break-indicators.tsx (new, 92 lines): overlay, a sibling of resume-document inside the scaled wrapper; aria-hidden, pointer-events-none, print:hidden; dashed 1-screen-px teal line plus a vertical "Page N" label in the right gutter, counter-scaled
+  - src/components/dashboard/resume-page-break-indicators.test.ts (new, 7 tests, renderToStaticMarkup)
+  - src/components/dashboard/resume-editor.tsx (+8): renders the overlay after the template switch
+  - src/locales/{en,fr,de,it}/common.json (+1 each): resumes.pageBreakLabel = "Page {page}" / "Page {page}" / "Seite {page}" / "Pagina {page}"
+  - e2e/fixtures/resume.ts (+6 −2): optional languages and certifications overrides; the defaults are unchanged
+  - e2e/resume-editor-page-breaks.spec.ts (new, 12 tests)
+- Not touched: the five templates, the layout model, the DOCX generators, the print CSS, e2e/visual baselines, e2e/parity, the database, package.json version. No push, no merge.
 - Pre-existing local changes left unstaged: .claude/settings.local.json, next-env.d.ts.
 
-Checks (all on the final diff, after the last edit):
+Checks (all on the final diff, after the round-2 fix; the round-1 runs were discarded):
 - pnpm typecheck: PASS — exit 0
-- pnpm test: PASS — 54 files, 1768 passed, 5 skipped
-- pnpm test:integration: PASS — 4 files, 50 passed
-- pnpm build: PASS — 105/105 static pages
-- pnpm test:e2e: PASS — 235 passed
-- pnpm test:visual: PASS — 10 passed, no baseline updated
-- pnpm test:parity: PASS — 273 passed; MATCH 206, KNOWN 3, NEW 0, LIMITATION 11, FINDING 3, DECISION 16; parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2, identical to the pre-story baseline recorded in tasks/handoff-2026-10-11.md
-- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306 (CLAUDE memory baseline, origin/main a4942b4); same count as measured on #104's diff
-
-Specialized validation:
-- Browser: NOT_APPLICABLE — no UI change
-- Visual: PASS — test:visual 10/10 against unchanged baselines (Preview untouched)
-- Export: PASS — generated DOCX inspected as unzipped word/document.xml (details under AC-02, AC-03, AC-05)
-- Database: NOT_APPLICABLE — no schema or data change
-- Security: NOT_APPLICABLE — no trust-boundary change
-
-Agents:
-- senior-coder: implementation (lineFontSizes tables mirroring docx-professional.ts:265; test cases given previewPx)
-- ui-expert: NOT_APPLICABLE — PRD Required Verification: no UI
-- code-reviewer: PASS, round 1. No Critical or Major findings. Minor findings:
-  1. docx-line-spacing.test.ts creative 'summary' case (previewPx 16): the Preview draws it at a fixed text-base that ignores fontScale, so at 0.8/1.2 the case checks the generator's own scaling, not the Preview. Not changed (would need a test edit and a full re-run of every check); recorded as an owner decision below.
-  2. Signs of the drifts in the doc table: confirmed from the raw measurement (all after-fix deltas are positive), see AC-05.
-  3. Same 5-line comment in the three generators: accepted, matches the professional pattern.
-
-Acceptance criteria:
-- AC-01 (every call): PASS — grep of `exactLineSpacing(` in the three generators: 24 calls (classic 8, minimal 9, creative 7), every size argument a lineFontSizes.* entry; every run size and trackingSpacing still on scaledFontSizes.*. Generated document.xml for the e2e fixture at scales 1, 0.8, 1.2, 1.3 × 5 templates: sha256 of all <w:sz>/<w:szCs> values and of the XML with every <w:spacing/> removed are identical before and after in all 20 cases, so only w:spacing changed.
-- AC-02 (default exports): PASS — document.xml at scale 1, e2e fixture (e2e/fixtures/resume.ts, default layout), before = after: classic 28eacadbda69070b…, minimal bb90f40a2172477b…, creative 69e4bf627b3e8e01…. Two runs before the change gave identical hashes (deterministic).
-- AC-03 (Professional and Modern): PASS — document.xml before = after at scales 1, 0.8, 1.2, 1.3: professional 67138fd2…, ab98e134…, 54dfa217…, a219f7e2…; modern 84b09962…, 42a24f46…, 521f9cd3…, c9c9dc59….
-- AC-04 (unit test): PASS — docx-line-spacing.test.ts with the HEAD generators restored: 64 failed / 132 passed (classic 11, minimal 11, creative 10 cases, each at 0.8 and 1.2; every scale-1 case passed). With the new generators: 196/196 passed. All five templates now carry previewPx at 0.8, 1, 1.2.
-- AC-05 (Word re-measure): PASS — method of docs/engineering/docx-word-parity.md: Word 16.0 via COM (Documents.Open read-only, SaveAs2 17), Word PDF read with pdf.js 2.0.550 (pdf-parse), pt × 96/72. Layout: per-property-control's (e2e/parity/profiles.ts), fontScale 1.2, body 16.8px; e2e fixture with one long achievement paragraph (97 words) in the second role. Preview: the same resume on /en/dashboard/resumes/[id]/preview (parity build, port 3120), line tops via Range.getClientRects. Each baseline taken relative to the paragraph's first. Route DOCX document.xml = direct-generator output for all three templates.
-  - classic: 8 lines; Δ per baseline after [0, 0.09, 0.05, 0.14, 0.08, 0.17, 0.10, 0.19] px, max +0.19; before (rounded sizes) max −1.41
-  - minimal: 9 lines; after [0, 0.08, 0.16, 0.24, 0.36, 0.27, 0.35, 0.43, 0.51], max +0.51; before max −1.73 (outside ±1.5)
-  - creative: 9 lines on Word page 1; after max +0.19; before max −1.47. Recorded in docs/engineering/docx-word-parity.md (new section "Line pitch in Classic, Minimal and Creative").
-
-Named limits:
-- AC-05 compares the line pitch inside one paragraph only. Creative's paragraph continues on Word page 2 after line 9. Those lines were not compared: the documented method compares page 2 with the product PDF, which was not captured here.
-- Word sets Creative's paragraph in 13 lines where the Preview draws 14, with the old and the new generator alike. This is a width difference that predates this story; these generators write no w:w, which the PRD puts out of scope.
-
-Open owner decisions recorded by this story:
-- Possible new PRD (before any work on font-scale fidelity for these templates): several Preview elements do not scale with fontScale, while the DOCX generators scale them:
-  - creative: the header summary (text-base, creative-template.tsx:465) and contactLinks (text-xs);
-  - classic: textSm;
-  - minimal: position, company, date and tech (text-xl, text-base, text-sm, text-xs).
-  This is invisible at scale 1. Not in this PRD's scope.
-
-Environment notes:
-- Scratch evidence files (a vitest hash script under src/ and a Playwright measure spec under e2e/parity/) were created, run and deleted before the final checks; none is committed. All checks ran sequentially, one Playwright suite at a time; no stall or re-run.
-
-Commit:
-- Story commit: THIS_COMMIT
-- Commit message: ralph: US-001 Classic, Minimal and Creative Word line pitch follows the Preview at fractional sizes
-FINAL: PASS
-
-## US-002: A parity profile guards line height at fractional sizes
-Status: PASS
-Priority: 2
-Branch: ralph/docx-line-height-single-column
-Baseline HEAD: c0f5022 (US-001)
-
-Scope:
-- Scope check: PASS
-- Changed paths (git diff --numstat):
-  - e2e/parity/profiles.ts (+27 −6): 'fractional-size' in the ProfileId union; per-property-control's inline layout moved to the const PER_PROPERTY_CONTROL_LAYOUT (same values and key order) and shared with the new profile (rowGroups ['body-line-height'], all five templates, no control, no content)
-  - e2e/parity/verdicts.ts (+7 −4): text of the DECISION "line height: Word exact spacing" only
-  - e2e/parity/surfaces.ts (+6 −4): comment on the LineHeight type only
-- Not touched: comparison logic, tolerances, KNOWN_EXPECTATIONS; git diff -- src empty; no visual baseline; no version change. No push, no merge.
-- Pre-existing local changes left unstaged: .claude/settings.local.json, next-env.d.ts.
-
-Checks (all on the final diff, after the round-2 text fix; the round-1 runs were discarded):
-- pnpm typecheck: PASS — exit 0
-- pnpm test: PASS — 1768 passed, 5 skipped
+- pnpm test: PASS — 56 files, 1788 passed, 5 skipped (20 of them new)
 - pnpm test:integration: PASS — 50 passed
 - pnpm build: PASS — 105/105 static pages
-- pnpm test:e2e: PASS — 235 passed
-- pnpm test:visual: PASS — 10 passed, no baseline updated
-- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0, LIMITATION 11, FINDING 3, DECISION 16; parity-report.json sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b
-- Row diff against the US-001 report (sha256 4e0e9975…): 209 → 214 rows, 5 added (all MATCH), 0 removed, 0 verdicts changed
-- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306, same count as US-001
+- pnpm test:e2e: PASS — 247 passed. This includes the 12 new tests and, unchanged: resume-editor-responsive.spec.ts, resume-print-geometry.spec.ts, modern-long-sidebar-print.spec.ts
+- pnpm test:visual: PASS — 10 passed. `git status -- e2e` shows no baseline change
+- pnpm test:parity: PASS — 273 passed; MATCH 206, KNOWN 3, NEW 0; parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2, identical to origin/main's
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306 (PRD Required Verification). The new files have 0 problems.
 
 Specialized validation:
-- Browser: NOT_APPLICABLE — no UI change
-- Visual: PASS — test:visual 10/10, baselines unchanged
-- Export: PASS — the new rows compare the DOCX produced by the route, read as word/document.xml by the parity harness, against the Preview and the print PDF
-- Database: NOT_APPLICABLE — no schema or data change
-- Security: NOT_APPLICABLE — test-harness change only
+- Browser: PASS — e2e/resume-editor-page-breaks.spec.ts drives the rendered editor (detail under Acceptance criteria). Screenshots for ui-expert came from a scratch spec that was run and deleted: 1440×900 (classic en, modern en), 1024×768 (classic en, modern de), 768×1024 (classic en, creative fr), 390×900 (creative de, minimal it); two-page CVs.
+- Visual: PASS — test:visual 10/10, baselines unchanged; this story does not touch the Preview page those captures use
+- Export: PASS (constraint only) — the overlay is print:hidden (e2e asserts it under print emulation); parity sha unchanged; DOCX untouched
+- Database: NOT_APPLICABLE — nothing stored (FR-3)
+- Security: NOT_APPLICABLE — no new data, input or route
 
 Agents:
-- senior-coder: implementation; round-2 text fix
-- ui-expert: NOT_APPLICABLE — PRD Required Verification: no UI
+- senior-coder: implementation; round-2 fix
+- ui-expert:
+  - round 1 BLOCKED: no tablet capture, and test:visual not shown. Styling had no blocking issue.
+  - round 2 PASS 7/7 after the tablet captures and the test:visual result were supplied.
+  - Optional polish, not applied: the line (teal-500/70) is about 1.9:1 on white and about 2.5:1 over Modern's sidebar, below the 3:1 non-text guideline. A solid teal-600 was suggested. Not blocking: the overlay is aria-hidden and the label (teal-700, about 5.5:1) gives the same position.
 - code-reviewer:
-  - round 1 FAIL. Major: the DECISION text and the profile purpose said "16.8px body text", which is wrong for professional: its body is FONT_SIZES.BODY 11px, so 13.2px at fontScale 1.2. Minor: the surfaces.ts comment still credited only professional and modern.
-  - Both fixed by senior-coder as text-only changes; every check was re-run.
-  - round 2 PASS. Minor, not fixed: the source comment above PER_PROPERTY_CONTROL_LAYOUT (profiles.ts ~150-154) still says "body text 16.8px" without the professional exception. It is a source comment only, not in the report.
+  - round 1 FAIL, Critical: FR-2. The rule counted one page + 1 px as 2 pages, contradicting the PRD's "exactly one page tall (± 1 px) counts as one page". Its 0.5 px tolerance also never applied, because the editor measures integer offsetHeight.
+  - Fixed: PAGE_EDGE_TOLERANCE_PX = 1, pages = max(1, ceil((h − 1) / 1123)). The component now renders nothing for a non-finite or negative height instead of throwing (round-1 Minor 1). All checks were re-run.
+  - round 2 PASS. Remaining minors, not fixed:
+    - the last label can be clipped by overflow-y-clip when the document ends just past an edge (cosmetic; the line stays);
+    - the US-002 visual-capture risk (below);
+    - the e2e precondition that multi-page heights sit more than 1 px from an edge.
 
 Acceptance criteria:
-- AC-01 (the profile): PASS — profiles.ts: ProfileId includes 'fractional-size'; the profile uses PER_PROPERTY_CONTROL_LAYOUT (fontScale 1.2, per-property sizes at their defaults), rowGroups ['body-line-height'] and TEMPLATES (5). The parity report lists 5 fractional-size rows.
-- AC-02 (MATCH): PASS — all five fractional-size line-height:bodyText rows are MATCH (classic docx ×1.500 = preview/pdf ×1.500, minimal ×1.625, creative ×1.500, modern ×1.500, professional docx ×1.348 against ×1.350 within tolerance). NEW 0, KNOWN 3.
-- AC-03 (catches the defect): PASS — the generators were restored to 17bb54b (pre-US-001) locally with git show, without committing, then pnpm test:parity was run (exit 1). Counts: MATCH 208, KNOWN 3, NEW 3. NEW rows:
-  - classic: docx ×1.488 against ×1.500
-  - minimal: ×1.611 against ×1.625
-  - creative: ×1.488 against ×1.500
-  Professional and modern were MATCH. Run on both the round-1 and the round-2 diff with the same result. The generators were restored afterwards (git diff -- src: 0 lines).
-- AC-04 (text): PASS — the DECISION names all five templates: professional and modern since #88 with w:w, classic, minimal and creative since this PRD without it, guarded by fractional-size. scale-control and per-property-control keep control: true and report 0 rows.
+- AC-01 (positions): PASS — e2e: each indicator's box and line centre are within 1 px of k × 1123 × previewScale below the document top. Covered: professional and classic multi-page at 1440, at 390, and after dragging the split divider.
+- AC-02 (one page, none): PASS — e2e, all five templates with a one-page fixture; professional and modern asserted at exactly 1123 px. Unit: 1123 and 1124 → 1 page.
+- AC-03 (localized label): PASS — e2e asserts the label in en, fr, de and it ("Page 2", "Seite 2", "Pagina 2"); unit test asserts "Page 2" / "Page 3".
+- AC-04 (live update): PASS — e2e:
+  - typing summary text past the edge adds an indicator, and deleting it removes it, with a window marker proving no reload;
+  - font scale 0.7 → 1.3 → 0.7 gives 1 → 2 → 1 pages.
+- AC-05 (never intercepts): PASS — e2e: computed pointer-events none; elementFromPoint on the line returns CV content; every label's left edge ≥ the document's right edge. ui-expert saw no overlap in 16 screenshots.
+- AC-06 (aligned at every scale): PASS — e2e at 1440, at 390, and after the divider drag; ui-expert on screenshots at 1440, 1024, 768 and 390.
+- AC-07 (outside resume-document, hidden in print): PASS — e2e: the indicator is not contained in [data-testid="resume-document"], and is hidden under emulateMedia print, then visible again.
 
-Named limits:
-- The DECISION and the surfaces.ts comment say "lineFontSizes" for all five generators. Modern reaches the same values through lineOf(). Its document-default paragraph still spaces from the rounded size (docx-modern.ts:2103), which has no visible effect because every Modern paragraph sets its own spacing. That predates this story and changing it is out of scope.
+Decision (FR-2):
+- The tolerance is 1 px inclusive, as the PRD states it. 0.5 px was rejected in review: it contradicted the PRD text and never applied to the editor's integer offsetHeight.
+- US-003 (the printed PDF page count) remains the authority on this rule.
+
+Open owner decisions recorded by this story:
+- Before US-002: test:visual takes element screenshots of resume-document on the Preview page, and an element screenshot captures overlapping siblings. With the indicator on the Preview page, every visual fixture longer than one page would capture the line, which is a PRD FAIL condition. The shared fixture is longer than one page in four templates: classic 1394 px, modern 1542, minimal 1711, creative 1218. US-002 must keep the indicator out of those captures without updating baselines; how it does so is US-002's to decide.
 
 Environment notes:
-- Playwright suites ran one at a time. The reverted-generator parity run used the same .next-parity build path as the real run; the build was redone for each.
+- Playwright suites ran one at a time. Scratch screenshot specs were copied into e2e/ only while they ran on their own, and removed before any check; lint and typecheck logs confirm they never saw them.
 
 Commit:
 - Story commit: THIS_COMMIT
-- Commit message: ralph: US-002 A parity profile guards line height at fractional sizes
+- Commit message: ralph: US-001 Page boundaries visible in the editor's live preview
 FINAL: PASS
+
+## US-002: Page boundaries visible on the Preview page
+Status: PASS
+Priority: 2
+Branch: ralph/preview-page-break-indicator
+Baseline HEAD: a54d6fa (US-001)
+
+Scope:
+- Scope check: PASS
+- Changed paths:
+  - src/components/dashboard/resume-preview-wrapper.tsx (+79 −35):
+    - ResumePreview is wrapped in a 794 px `relative mx-auto` frame with no box styling of its own;
+    - a ResizeObserver stores the frame's offsetHeight;
+    - ResumePageBreakIndicators is a sibling of resume-document at scale 1;
+    - the frame sits inside a `@container` div, and the overlay is given labelClassName="@max-[820px]:hidden".
+  - src/components/dashboard/resume-page-break-indicators.tsx (+11 −1): an optional labelClassName prop, merged with cn(); the editor does not pass it.
+  - e2e/visual/resume-templates.spec.ts (+6): addStyleTag hides [data-testid="page-break-indicators"] before the captures, with a comment (owner decision 2026-10-13, below).
+  - e2e/fixtures/resume.ts (+21 −9): fixtureResumeContent(overrides) extracted; seedFixtureResume spreads it and writes the same columns as before.
+  - e2e/fixtures/page-breaks.ts (new, 60 lines): LONG_EXPERIENCE, ONE_PAGE, expectedPages and expectClearOfPageEdge, moved unchanged from the US-001 spec.
+  - e2e/resume-editor-page-breaks.spec.ts (+6 −52): imports those helpers; no test logic changed.
+  - e2e/resume-preview-page-breaks.spec.ts (new, 430 lines, 8 tests).
+- Not touched: the five templates, resume-preview.tsx, the layout model, print CSS, DOCX, the parity harness, every visual baseline image (`git status -- e2e` shows no __screenshots__ change), the database, package.json version. No push, no merge.
+- Pre-existing local changes left unstaged: .claude/settings.local.json, next-env.d.ts.
+
+Checks (all on the final diff, after the round-2 fix; the round-1 runs were discarded):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 1788 passed, 5 skipped
+- pnpm test:integration: PASS — 50 passed
+- pnpm build: PASS — 105/105 static pages
+- pnpm test:e2e: PASS — 255 passed. Includes the 8 new tests, the 12 US-001 tests, resume-print-geometry, modern-long-sidebar-print and resume-editor-responsive.
+- pnpm test:visual: PASS — 10 passed, no baseline changed
+- pnpm test:parity: PASS — 273 passed; MATCH 206, KNOWN 3, NEW 0; parity-report.json sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2 (unchanged)
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306. resume-preview-wrapper.tsx has 3 problems, all on lines that predate this story.
+
+Specialized validation:
+- Browser: PASS — e2e/resume-preview-page-breaks.spec.ts on the rendered Preview page (detail under Acceptance criteria). ui-expert reviewed screenshots from a scratch spec, run and deleted; 3-page CVs, edges 2 and 3:
+  - round 1: 1440 (classic en, modern fr), 768 (creative de), 390 (minimal it);
+  - round 2: 1095, 1118 and 1140 (professional en/fr/en), 1440 (classic en), 390 (minimal it).
+- Visual: PASS — test:visual 10/10, baselines unchanged; the overlay is hidden before capture per the owner decision
+- Export: PASS — the printed PDF of the Preview page (page.pdf, preferCSSPageSize, print media) is read per page: page count = indicators + 1, the CV text is present, and no label or "Page <n>" text appears. The overlay is print:hidden; parity sha unchanged.
+- Database: NOT_APPLICABLE — nothing stored (FR-3)
+- Security: NOT_APPLICABLE — no new data, input or route
+
+Agents:
+- senior-coder: implementation; round-2 fix
+- ui-expert:
+  - round 1 PASS 7/7, with this minor: the label creates new horizontal scroll in a band of window widths (computed from the code).
+  - round 2 PASS 7/7 after the fix. It accepted hiding the label, and keeping the line, where the gutter cannot hold it, and raised the AC-1 scope note.
+- code-reviewer:
+  - round 1 FAIL. Critical 1: the label created new horizontal scroll (.claude/rules/frontend.md, "no accidental overflow"). Critical 2: the spec measured overflow on document.documentElement, which the dashboard layout locks, so the assertion could never fail. Minor 1: frame height = document height was checked for classic only.
+  - Fixes:
+    - Measured reality: the overlay created a 3–13 px scroll at 1090–1100 px windows, and lengthened existing scroll by about 14 px at narrower widths.
+    - Labels are now hidden below a container width of 820 px (794 + 2 × 13); the lines stay at every width.
+    - The spec measures max(main, root) overflow. A band test at 390/767/1000/1090/1095/1100/1118/1140/1280 failed before the fix ("1090px: overflow added by the overlay — Expected: 0, Received: 13") and passes after.
+    - The professional one-page case also asserts frame offsetHeight = resume-document offsetHeight.
+  - round 2 BLOCKER: owner decision needed on hiding the label (AC-1). The code was otherwise ready, and the reviewer stated that option (a) "becomes PASS on this diff with no code change". Owner chose (a) on 2026-10-13 (below), so PASS.
+  - Remaining minors, not fixed:
+    - 820 hardcodes 794 + 2 × (LABEL_GAP_PX 3 + 10 px label). It goes stale silently if the gap or font size changes; the band test's 1118 and 1140 cases would catch a drift.
+    - The last label can be clipped when the document ends just past an edge.
+    - The line contrast over dark sidebars is about 2.5:1.
+
+Acceptance criteria:
+- AC-01 (same indicators and labels as US-001): PASS under the owner decision below.
+  - Same component and computePageBreaks at scale 1, same pageBreakLabel.
+  - e2e: positions within 1 px of k × 1123 below the document top, independent expectedPages, none for one page (professional at exactly 1123 px, classic), labels visible and correct in fr, de and it at 1280.
+  - Labels are hidden below an 820 px container (about a 1140 px window); the lines are drawn at every width.
+- AC-02 (follows the rendered document): PASS — e2e:
+  - a longer resume_draft_${id} over a one-page stored CV adds indicators, with the unsaved-changes banner and the draft content checked;
+  - a shorter draft over a long CV removes them;
+  - an image held back by a route and inserted into the document changes nothing until it is released; then an indicator appears without a reload, and removing the image removes it.
+- AC-03 (outside resume-document, hidden in print, no pointer capture): PASS — e2e: not contained in resume-document; pointer-events none; aria-hidden; a click on the line reaches the CV; hidden under print emulation.
+- AC-04 (PDF has no trace): PASS — e2e: the printed PDF has indicators + 1 pages, contains the CV text, and contains no label or "Page <n>" text on any page.
+
+Decision (owner, 2026-10-13, asked in chat before US-002): the Preview page uses the same indicator component as the editor. e2e/visual/resume-templates.spec.ts hides the overlay before capturing resume-document, because that suite guards the templates' rendering and the overlay is not part of the document. No baseline was updated.
+- Consequence: the PRD FAIL condition "indicator appears in a test:visual capture" now holds by construction. The evidence that the overlay never reaches output is the print-emulation check and the PDF text check (AC-03, AC-04).
+
+Decision (owner, 2026-10-13, asked in chat after code-review round 2): on the Preview page, the « Page N » label is hidden when the space beside the centred sheet cannot hold it, below a container width of 820 px (about a 1140 px window with the dashboard sidebar; also tablets and phones). The dashed line stays visible and precise at every width.
+- Alternatives rejected: always showing the label would add up to 13 px of horizontal scroll, which .claude/rules/frontend.md forbids; a new narrow-width label design is out of this PRD's scope.
+- The editor is unaffected: its labels are counter-scaled into the pane padding and always show.
+
+Named limits:
+- At 390 and 768 px the Preview page renders the unscaled 794 px sheet wider than the viewport. That predates this story; the indicator inherits it.
+- The live-update test uses an injected late image as a stand-in for a font or photo finishing loading. The same ResizeObserver handles both, but a real font swap is not exercised.
+
+Environment notes:
+- Playwright suites ran one at a time. Scratch screenshot specs were copied into e2e/ only while they ran on their own, and deleted before any check ran.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 Page boundaries visible on the Preview page
+FINAL: PASS
+
+## US-003: The indicator count matches the printed PDF for every template
+Status: PASS
+Priority: 3
+Branch: ralph/preview-page-break-indicator
+Baseline HEAD: 0a4cf95 (US-002)
+
+Scope:
+- Scope check: PASS
+- Changed paths: e2e/resume-page-break-pdf-count.spec.ts (new, 134 lines, 10 tests). It is collected by test:e2e; playwright.config.ts testIgnore excludes only visual/, parity/, .next/, node_modules and nested worktrees.
+- Not touched: everything under src/ (git diff -- src empty), print CSS, computePageBreaks, the fixtures, every visual baseline, the parity harness, package.json version. No push, no merge.
+
+Checks (all on the final diff):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 1788 passed, 5 skipped
+- pnpm test:integration: PASS — 50 passed
+- pnpm build: PASS — 105/105 static pages
+- pnpm test:e2e: PASS — 265 passed (10 new)
+- pnpm test:visual: PASS — 10 passed, no baseline change
+- pnpm test:parity: PASS — 273 passed; MATCH 206, KNOWN 3, NEW 0; sha256 4e0e997561d7389567666e147e7ee24afef78aeee8eccc9ee8636105662a34d2 (unchanged)
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306. The new spec has 0 problems.
+
+Specialized validation:
+- Browser: PASS — the spec drives the Preview page and the editor for every case
+- Visual: PASS — test:visual unchanged
+- Export: PASS — each case prints the Preview page the way a user downloads it: controls toggle in its shipped (on) state, print media, page.pdf({ preferCSSPageSize: true }). The PDF is parsed with pdf-parse for its page count.
+- Database: NOT_APPLICABLE
+- Security: NOT_APPLICABLE
+
+Agents:
+- senior-coder: implementation (test only; no disagreement between the rule and the PDF found, so nothing escalated)
+- ui-expert: NOT_APPLICABLE — test-only story, no rendered change
+- code-reviewer: PASS, round 1.
+  - Not tautological: the expected count is computed in the test (expectedPages), the main assertion is against the real PDF, and multi-page heights are guarded by expectClearOfPageEdge and expectedPages ≥ 2.
+  - page.pdf() is accepted as the stand-in for window.print(): headless Chromium cannot drive the print dialog, and @page (A4, margin 0) overrides the dialog's paper and margins. The parity harness does the same (e2e/parity/surfaces.ts:854-857, verdicts.ts:1118).
+  - Minors, not fixed:
+    - printHeight is recorded as an annotation but not asserted equal to the Preview height. resume-print-geometry.spec.ts already covers screen/print equivalence.
+    - The spec header does not state the page.pdf() stand-in.
+
+Acceptance criteria:
+- AC-01 (five templates × one-page and ≥2-page fixture, PDF pages = indicators + 1): PASS — Preview at 1280×900, en. Columns are Preview height / indicators / PDF pages / editor height / editor indicators:
+
+  | Template | One-page fixture | Multi-page fixture |
+  |---|---|---|
+  | professional | 1123 / 0 / 1 / 1123 / 0 | 1546 / 1 / 2 / 1546 / 1 |
+  | modern | 1123 / 0 / 1 / 1123 / 0 | 2354 / 2 / 3 / 2354 / 2 |
+  | classic | 724 / 0 / 1 / 724 / 0 | 2826 / 2 / 3 / 2826 / 2 |
+  | minimal | 972 / 0 / 1 / 972 / 0 | 3094 / 2 / 3 / 3094 / 2 |
+  | creative | 577 / 0 / 1 / 577 / 0 | 2898 / 2 / 3 / 2898 / 2 |
+
+  The closest multi-page height to an edge is modern's 2354, 108 px past one.
+- AC-02 (editor shows the same count): PASS — same test, same resume, /en/dashboard/resumes/{id}/edit after the preview settles; editor count = Preview count in all 10 cases (table above).
+- AC-03 (deterministic, no real data): PASS — the invented ONE_PAGE and LONG_EXPERIENCE fixtures (e2e/fixtures/page-breaks.ts), seeded per test for a test user created by the auth fixture.
+
+Decision (FR-2, closing US-001's open point): the printed PDF agrees with pages = max(1, ceil((h − 1) / 1123)) on every fixture. Notably, professional and modern at exactly 1123 px print 1 page.
+
+Named limits:
+- No fixture lands inside the tolerance band (height k × 1123 + 1), so the band itself is not PDF-proven. It rests on FR-2's wording and the unit tests. Producing that exact height would need rigged content.
+- The PDF comes from page.pdf(), not the browser's print dialog (see code-reviewer above).
+
+Environment notes:
+- All Playwright suites ran one at a time on this machine (Windows); no stall or re-run.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 The indicator count matches the printed PDF for every template
+FINAL: PASS
+
+## Branch maintenance: origin/main (#105) merged in, 2026-10-13
+- PR #105 (docx-line-height-single-column) was squash-merged as f4e4765 on the owner's "fusionne", after all required checks were green.
+- 31b2989 merges origin/main f4e4765 into this branch with -X ours. Only tasks/ralph/prd.json and tasks/ralph/progress.txt were changed on both sides since b49efc9; this branch's versions are the active contract.
+- c77ef5a archives #105's contract: tasks/ralph/archive/2026-10-13-docx-line-height-single-column/ holds origin/main's prd.json and progress.txt.
+- Parity baseline: the PRD regression constraint "test:parity stays at MATCH 206 / KNOWN 3 / NEW 0" was written against b49efc9. On the merged base the baseline is MATCH 211 / KNOWN 3 / NEW 0 (#105 added 5 fractional-size rows). The approved PRD is not edited; this note records the new reference.
+- Full suite on the merged tree 31b2989 + c77ef5a:
+  - typecheck exit 0
+  - test 1788 passed / 5 skipped
+  - test:integration 50 passed
+  - build 105/105
+  - test:e2e 265 passed
+  - test:visual 10 passed, no baseline change
+  - test:parity 283 passed, MATCH 211 / KNOWN 3 / NEW 0, sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b, identical to #105's final report, so the indicator changes nothing in parity
+  - lint 290 problems, ceiling 306

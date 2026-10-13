@@ -47,6 +47,7 @@ import { ModernTemplate } from './resume-templates/modern-template'
 import { ClassicTemplate } from './resume-templates/classic-template'
 import { MinimalTemplate } from './resume-templates/minimal-template'
 import { CreativeTemplate } from './resume-templates/creative-template'
+import { ResumePageBreakIndicators } from './resume-page-break-indicators'
 import { CVAdaptationModal } from './cv-adaptation-modal'
 import type { CVAdaptationStrings } from '@/lib/cv-adaptation-strings'
 import { QualityWarningBanner } from './quality-warning-banner'
@@ -1855,6 +1856,13 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
                       )
                   }
                 })()}
+                {/* The wrapper's transform makes it the containing block, so the
+                    overlay shares the page's unscaled coordinates. */}
+                <ResumePageBreakIndicators
+                  documentHeight={previewDocHeight}
+                  scale={previewScale}
+                  labelTemplate={dict.resumes.pageBreakLabel}
+                />
               </div>
             </div>
           </div>

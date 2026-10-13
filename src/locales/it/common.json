@@ -176,6 +176,7 @@
     "setDefault": "Imposta come predefinito",
     "previewUnsavedTitle": "Anteprima con modifiche non salvate",
     "previewUnsavedWarning": "Le modifiche andranno perse se non salvi",
+    "pageBreakLabel": "Pagina {page}",
     "pdfExportComingSoon": "Esportazione PDF in arrivo!",
     "confirmDelete": "Sei sicuro di voler eliminare questo CV?",
     "empty": {

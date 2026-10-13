@@ -176,6 +176,7 @@
     "setDefault": "Als Standard festlegen",
     "previewUnsavedTitle": "Vorschau mit nicht gespeicherten Änderungen",
     "previewUnsavedWarning": "Änderungen gehen verloren, wenn Sie nicht speichern",
+    "pageBreakLabel": "Seite {page}",
     "pdfExportComingSoon": "PDF-Export kommt bald!",
     "confirmDelete": "Sind Sie sicher, dass Sie diesen Lebenslauf löschen möchten?",
     "empty": {

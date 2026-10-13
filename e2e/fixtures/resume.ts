@@ -167,6 +167,8 @@ export type FixtureExperience = (typeof FIXTURE_EXPERIENCE)[number]
 export type FixtureSkillCategory = (typeof FIXTURE_SKILLS)[number] & { skillsHtml?: string }
 export type FixtureProject = (typeof FIXTURE_PROJECTS)[number]
 export type FixtureEducation = (typeof FIXTURE_EDUCATION)[number]
+export type FixtureLanguage = (typeof FIXTURE_LANGUAGES)[number]
+export type FixtureCertification = (typeof FIXTURE_CERTIFICATIONS)[number]
 
 /**
  * Content that replaces the fixture's own. Anything not named keeps the fixture
@@ -179,12 +181,34 @@ export interface FixtureContentOverrides {
   skills?: readonly FixtureSkillCategory[]
   projects?: readonly FixtureProject[]
   education?: readonly FixtureEducation[]
+  languages?: readonly FixtureLanguage[]
+  certifications?: readonly FixtureCertification[]
 }
 
 export interface SeededResume {
   id: string
   userId: string
   template: ResumeTemplate
+}
+
+/**
+ * The fixture's resume content with `overrides` applied: exactly the columns
+ * `seedFixtureResume` writes beyond the owner, title and template. Shared so a
+ * test that builds a resume in the browser (a `resume_draft_${id}` draft) draws
+ * the same content as one stored in the database.
+ */
+export function fixtureResumeContent(overrides: FixtureContentOverrides = {}) {
+  return {
+    contact: FIXTURE_CONTACT,
+    summary: overrides.summary ?? FIXTURE_SUMMARY,
+    experience: overrides.experience ?? FIXTURE_EXPERIENCE,
+    education: overrides.education ?? FIXTURE_EDUCATION,
+    skills: overrides.skills ?? FIXTURE_SKILLS,
+    languages: overrides.languages ?? FIXTURE_LANGUAGES,
+    certifications: overrides.certifications ?? FIXTURE_CERTIFICATIONS,
+    projects: overrides.projects ?? FIXTURE_PROJECTS,
+    custom_sections: {},
+  }
 }
 
 /**
@@ -205,15 +229,7 @@ export async function seedFixtureResume(
       user_id: userId,
       title: `Visual baseline - ${template}`,
       template,
-      contact: FIXTURE_CONTACT,
-      summary: overrides.summary ?? FIXTURE_SUMMARY,
-      experience: overrides.experience ?? FIXTURE_EXPERIENCE,
-      education: overrides.education ?? FIXTURE_EDUCATION,
-      skills: overrides.skills ?? FIXTURE_SKILLS,
-      languages: FIXTURE_LANGUAGES,
-      certifications: FIXTURE_CERTIFICATIONS,
-      projects: overrides.projects ?? FIXTURE_PROJECTS,
-      custom_sections: {},
+      ...fixtureResumeContent(overrides),
     })
     .select('id')
     .single()
