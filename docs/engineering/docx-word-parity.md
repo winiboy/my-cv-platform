@@ -16,6 +16,10 @@ The measured constants live in:
   the Word behaviours below as they apply to its structure;
 - `src/lib/resume-page-size.ts` — `PAGE_HEIGHT_TWIPS`, the exact A4 height.
 
+Classic, Minimal and Creative (`docx-classic.ts`, `docx-minimal.ts`,
+`docx-creative.ts`) share one of these rules only: the line pitch, below. Their
+baselines, widths and pagination were not calibrated.
+
 `docx-professional-geometry.test.ts` and `docx-modern-geometry.test.ts` pin each
 value on the generated document, with the arithmetic that derives it. They prove
 the generator still writes what was measured; they cannot prove Word still draws
@@ -137,6 +141,32 @@ size: from the written size every 11px line was 0.5px too tall in Word's render,
 which accumulated down a column. Letter spacing is pinned per template by
 `docx-letter-spacing.test.ts`: Professional takes the em of the Preview's px,
 because Word adds character spacing after the width scale.
+
+### Line pitch in Classic, Minimal and Creative
+
+These three generators space every line from the exact px too, and keep run
+sizes rounded (`docx-line-spacing.test.ts` pins the pitch for all five
+templates). At a fractional size, spacing from the rounded size made each body
+line a fraction of a px shorter or taller than the Preview's, and the error
+accumulated down a paragraph.
+
+Measured at `per-property-control` sizes (font scale 1.2, so body text is
+16.8px), on the e2e fixture with one long achievement paragraph, with each
+baseline taken relative to the paragraph's first:
+
+| Template | Preview lines | Largest drift, rounded sizes | Largest drift, exact sizes |
+|---|---|---|---|
+| Classic | 8 | −1.41px | +0.19px |
+| Minimal | 9 | −1.73px | +0.51px |
+| Creative | 9 on page 1 | −1.47px | +0.19px |
+
+Limits of this measurement:
+
+- Only the line pitch inside one paragraph was compared. Baselines across
+  blocks, and the lines on page 2, were not.
+- Word sets Creative's paragraph in one line fewer than the Preview, with
+  rounded and exact sizes alike. Glyph widths, and so line breaks, still differ
+  here, because these generators write no horizontal scale (`w:w`).
 
 ### Compatibility mode 14
 
