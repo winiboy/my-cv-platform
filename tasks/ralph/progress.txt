@@ -344,3 +344,64 @@ FINAL: PENDING (part 2 after preview verification)
   - docs/engineering/vercel-production-setup.md is the setup checklist: exact variable names, Supabase Auth URL configuration, Node 22, a redeploy without cache plus promote, external checks, and troubleshooting.
   - US-003 stays PENDING; prd.json passes: false. AC-02 and AC-03 (preview or production evidence) and the production part of AC-04 resume once the site serves pages.
 - **Next step for part 2:** once https://my-cv-platform.vercel.app/fr answers 200 and the anonymous PDF route answers 401, the owner signs in to the in-app browser. Then measure the cold and warm download, page counts, the Modern band and the substitute fonts, and record them as the second US-003 commit.
+
+## US-003: PDF generation works in the production runtime — part 2 of 2 (production evidence)
+Status: PASS
+Priority: 3
+Branch: docs/vercel-production-setup (PR #109). The implementation is in a295afe (#108) on main.
+
+Decision (owner, 2026-10-14, asked in chat): "fusionne et vérifie en production".
+- AC-02 and AC-03 name the PR's preview deployment. The owner chose to verify in production instead: the previews are behind Vercel Deployment Protection, and the owner did not want previews connected to the production database.
+- Production was brought up by the owner on 2026-10-14 by following docs/engineering/vercel-production-setup.md.
+
+Checks, external and anonymous, on https://my-cv-platform.vercel.app (2026-10-14):
+- GET /fr: 200.
+- GET /fr/login: 200.
+- POST /api/resumes/<nil-uuid>/download-pdf: 401. The new route is live and reaches its auth check.
+
+Checks signed in, in the owner's own session in the in-app browser. No credential was typed by the agent; the owner signed in.
+- Owner's Modern CV ("CV - coni+partner AG", font IBM Plex Sans, Preview 1346 px, 1 page-break indicator), 4 sequential POSTs from the Preview page with an empty body:
+
+  | Request | Status | Time |
+  |---|---|---|
+  | 1 (cold) | 200 | 9730 ms |
+  | 2 | 200 | 3260 ms |
+  | 3 | 200 | 2812 ms |
+  | 4 | 200 | 3264 ms |
+
+  - Every response: application/pdf, 143740 bytes, 2 pages, Content-Disposition `attachment; filename="CV - coni+partner AG.pdf"; filename*=UTF-8''CV%20-%20coni%2Bpartner%20AG.pdf`.
+  - Page count = indicators + 1.
+- Modern band: the production PDF was rasterised locally with pdf.js 2.0.550 at 72 dpi; copies deleted right after, since they hold the owner's CV.
+  - Page 2 column x=5 is the sidebar colour rgb(37,92,35) at rows 5, 100, 300, 500, 700, 800 and 835 of 842.
+  - Page 1 is the photo zone, rgb(68,68,68), then the same green down to the bottom.
+  - So the band reaches the bottom of every page from the serverless Chromium.
+- The real "Télécharger PDF" button, with window.print stubbed: 1 request, 200 in 3097 ms; window.print called 0 times; no inline error.
+- Classic one-page CV: a test CV "Test PDF Classic" (Classique template, empty content) was created through the UI with the owner's approval, measured, then deleted through the UI. Only the owner's original CV remains.
+  - Preview: 162 px, 0 indicators.
+  - 3 POSTs: 200 each, 2250, 2265 and 2270 ms, 1 page, 4717 bytes.
+  - Substitute fonts, proven: the PDF embeds /BaseFont /AAAAAA+Gelasio-Bold. The title's computed font is "ui-serif, Georgia, …", so on serverless Georgia was replaced by Gelasio as designed.
+- Sandbox: CI run 38472100890 (7cac338) passed E2E on ubuntu-latest, with the sandboxed-launch smoke step, after the userns fix.
+
+Acceptance criteria (part 2):
+- AC-02 (correct PDF for a Modern multi-page CV and a one-page Classic CV, signed in, status, time and pages recorded): PASS, in production instead of the PR preview (owner decision above). Modern: 2 pages, band to every page bottom. Classic: 1 page, substitute serif font embedded.
+- AC-03 (median warm and cold, local and deployed, target under 5 s warm): PASS.
+
+  | Measurement | Local (part 1) | Production |
+  |---|---|---|
+  | Cold | 1346 ms | 9730 ms (first request after deploy; no target set) |
+  | Warm median, Modern | 1141 ms | 3260 ms |
+  | Warm median, Classic | 1215 ms | 2265 ms |
+
+  Both warm medians are under 5 s.
+- AC-04 (build and CI pass with the new dependency): PASS — pnpm build locally; PR #108 CI all green on 7cac338; the Vercel production build serves the route.
+- AC-01: PASS (part 1).
+
+Named limits:
+- The cold start (about 9.7 s) is well above warm. The PRD set the 5 s target for warm only, and US-002 shows a busy state for the whole wait.
+- Memory with 2 concurrent renders on the default function memory was not load-tested.
+- The Vercel plan was not identified; the 60 s maxDuration was enough here.
+
+Commit:
+- Story commit (part 2): THIS_COMMIT
+- Commit message: ralph: US-003 (2/2) production evidence for the PDF runtime
+FINAL: PASS
