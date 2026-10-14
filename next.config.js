@@ -241,6 +241,26 @@ function buildSecurityHeaders() {
   return headers;
 }
 
+/**
+ * The packed Chromium the resume PDF route launches on Vercel
+ * (src/lib/pdf/browser.ts), as a glob relative to this file.
+ *
+ * Output tracing follows `@sparticuz/chromium`'s JavaScript but not the
+ * brotli archives in its `bin/` folder, which the package opens by a computed
+ * path at runtime; without them the deployed route fails at launch. The
+ * folder is named at its real location in pnpm's store, because that is where
+ * the traced JavaScript sits and where the package looks for it.
+ * See docs/engineering/pdf-export-runtime.md.
+ */
+function serverlessChromiumBinGlob() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const path = require("path");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { realpathSync } = require("fs");
+  const packageDir = realpathSync(path.join(__dirname, "node_modules", "@sparticuz", "chromium"));
+  return `./${path.relative(__dirname, path.join(packageDir, "bin")).split(path.sep).join("/")}/**`;
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Build output directory. Overridable so the E2E suite can build into
@@ -249,6 +269,25 @@ const nextConfig = {
   // intermittent "Unexpected end of JSON input" 500s. Defaults to .next, so
   // normal builds and deploys are unaffected.
   distDir: process.env.NEXT_DIST_DIR || ".next",
+
+  // The PDF route's packed Chromium, which tracing cannot see (see
+  // serverlessChromiumBinGlob). The key is a picomatch glob of the route, so
+  // `*` stands for the `[id]` segment, whose brackets would be read as a
+  // character class. `@sparticuz/chromium` and `playwright-core` themselves
+  // need no `serverExternalPackages` entry: Next already keeps both external.
+  //
+  // Also the metric-compatible fonts that renderer registers in place of
+  // Arial, Calibri and Georgia (src/lib/pdf/font-substitutes.ts, whose
+  // FONT_SUBSTITUTES this package list must match): their 400 and 700,
+  // regular and italic stylesheets and WOFF2 files, read at runtime from
+  // `node_modules/@fontsource/<package>`, the path named here.
+  outputFileTracingIncludes: {
+    "/api/resumes/*/download-pdf": [
+      serverlessChromiumBinGlob(),
+      "./node_modules/@fontsource/{arimo,carlito,gelasio}/{400,400-italic,700,700-italic}.css",
+      "./node_modules/@fontsource/{arimo,carlito,gelasio}/files/*-{400,700}-{normal,italic}.woff2",
+    ],
+  },
 
   // NOTE: `swcMinify: false` used to sit here. Next 15 removed the option
   // entirely - it is now an unrecognized key that Next warns about and ignores,

@@ -4,6 +4,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { scrubServerEvent } from "@/lib/sentry-server-scrub";
 
 Sentry.init({
   dsn: "https://333229cc96e7ce83ea2dfa610493397f@o4510522193412096.ingest.de.sentry.io/4510522199834704",
@@ -19,16 +20,17 @@ Sentry.init({
   tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1,
 
   // Last line of defence: strip the request payload, cookies and headers even
-  // if an SDK default or a future option would otherwise attach them.
+  // if an SDK default or a future option would otherwise attach them -
+  // including the `http.request.header.*` span attributes the SDK adds.
   beforeSend(event) {
-    if (event.request) {
-      delete event.request.data
-      delete event.request.cookies
-      delete event.request.headers
-    }
-    delete event.user
-    return event
+    return scrubServerEvent(event)
   },
 
-
+  // Transactions are a SEPARATE hook: `beforeSend` never runs on them, and the
+  // SDK attaches every request header to a sampled server transaction. The
+  // resume PDF renderer's requests carry Vercel's protection bypass secret in
+  // a header the SDK does not mask. See `@/lib/sentry-server-scrub`.
+  beforeSendTransaction(event) {
+    return scrubServerEvent(event)
+  },
 });

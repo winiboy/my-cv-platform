@@ -1,0 +1,48 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "ralph/modern-print-sidebar-full-page",
+  "description": "In the PDF printed from a Modern CV, the left sidebar band covers the full height of every page, including the last one. It has the CV's own sidebar colour and width, as the Word export has done since #104.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "A printed Modern CV keeps its sidebar band down to the bottom of every page",
+      "description": "As a user who downloads my Modern CV as a PDF, I want the coloured left band to run the full height of every page, so that the last page looks like the others and like my Word document.",
+      "acceptanceCriteria": [
+        "For a Modern CV printing on at least two pages, with its last page only partly filled, the band covers that last page from the top edge to the bottom edge in the printed PDF.",
+        "On every other page, the band covers the full page height, as today.",
+        "The band's colour is the CV's stored sidebar colour, and its width is the CV's `sidebarWidth` (shown at the default 35 % and at one non-default width).",
+        "A one-page Modern CV prints exactly as before.",
+        "Nothing of the band shows on screen, in the editor or on the Preview page.",
+        "The change applies only when a Modern CV is printed. A printed Professional, Classic, Minimal or Creative CV is unchanged.",
+        "FR-1: The band is print-only and drawn from the same stored layout values (sidebar colour, `sidebarWidth`) that the Preview draws Modern's sidebar from. No second source of these values is introduced.",
+        "FR-2: A user-controlled colour reaching CSS is validated before it is emitted, as Professional's band colour is.",
+        "FR-3: Zero DOCX impact: `git diff -- \"src/app/api/resumes/[id]/download-docx\"` is empty, and the generated `word/document.xml` of all five templates is byte-identical before and after.",
+        "Regression constraint: `pnpm test:visual` passes with its existing baselines, no baseline updated. On-screen rendering does not move.",
+        "Regression constraint: `pnpm test:parity` keeps every existing row's verdict, NEW 0, KNOWN 3 on Windows (current base after #105 and #106: MATCH 211).",
+        "Regression constraint: `e2e/resume-print-geometry.spec.ts`, `e2e/modern-long-sidebar-print.spec.ts` and the page-break specs (`e2e/resume-*-page-breaks.spec.ts`, `e2e/resume-page-break-pdf-count.spec.ts`) pass unchanged.",
+        "Regression constraint: The printed PDF's page count does not change for any template.",
+        "Regression constraint: The DOCX of every template is byte-identical (FR-3).",
+        "Verification: The CLAUDE.md §14 baseline on the final diff (typecheck, test, test:integration, test:e2e, build or build:verify, lint), with lint judged against the ceiling of 306.",
+        "Verification: `pnpm test:visual` and `pnpm test:parity`.",
+        "Verification: An automated e2e test that reads the printed PDF, not a screenshot. For a multi-page Modern CV, the sidebar colour must cover the band's area down to the bottom of the last page. It must: fail on the current code and pass after the fix; include a default and a non-default `sidebarWidth`, and a non-default colour. The parity harness's `readPrintSidebarColumn` (`e2e/parity/surfaces.ts:889`) shows how a PDF's sidebar column can be read.",
+        "Verification: DOCX hashes of `word/document.xml` for all five templates at default and non-default layouts, before and after.",
+        "Verification: A real PDF printed from the Preview page, opened and checked by eye, recorded as evidence. `ui-expert` reviews the printed result, the band's last page included.",
+        "FAIL condition: Any white strip remains between the end of the content and the bottom of the last page in the band area of a printed Modern PDF.",
+        "FAIL condition: The band's colour or width differs from the CV's stored sidebar colour or `sidebarWidth`.",
+        "FAIL condition: Any byte of any generated DOCX changes, or any file under `src/app/api/resumes/[id]/download-docx/` changes.",
+        "FAIL condition: Any visual baseline needs updating, parity reports NEW > 0 or a changed verdict, or a printed PDF's page count changes.",
+        "FAIL condition: Another template's printed output changes.",
+        "BLOCKER condition: The band cannot follow `sidebarWidth` without changing the document's own layout or the DOCX. In that case, stop and report to the owner.",
+        "BLOCKER condition: The printed PDF's sidebar area cannot be read automatically on this machine. Report it; do not substitute a screenshot of screen media.",
+        "Out of scope: The Word / DOCX export, in any way. This is a non-negotiable owner constraint: no file under `src/app/api/resumes/[id]/download-docx/` changes, and no generated DOCX changes by a single byte.",
+        "Out of scope: The other four templates' print output, including Professional's fixed-width band and its Linux 1 px seam (`tasks/prds/linux-print-sidebar-column.md`).",
+        "Out of scope: The on-screen editor preview and Preview page rendering. The change is print-only.",
+        "Out of scope: How the PDF is produced (the print dialog). That is a separate, later request.",
+        "Out of scope: Page-break placement, break-inside rules, or page count."
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

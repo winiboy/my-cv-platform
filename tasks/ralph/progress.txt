@@ -1,85 +1,334 @@
-# Ralph progress — modern-print-sidebar-full-page
+# Ralph progress — resume-pdf-direct-download
 
-Contract: tasks/ralph/prd.json (branch ralph/modern-print-sidebar-full-page)
-PRD: tasks/prds/modern-print-sidebar-full-page.md (Status: APPROVED 2026-10-13, written by the owner)
+Contract: tasks/ralph/prd.json (branch ralph/resume-pdf-direct-download)
+PRD: tasks/prds/resume-pdf-direct-download.md (Status: APPROVED 2026-10-13, written by the owner)
 Format: docs/engineering/progress-log-format.md
-Branch setup: from origin/main 91b2bd9 (#106 merged). The first commit archives the merged preview-page-break-indicator contract; the second adds this PRD and its contract.
+Branch setup: from origin/main 9769d53 (#107 merged). The first commit archives the merged modern-print-sidebar-full-page contract; the second adds this PRD and its contract.
+Note: US-003 is verified on the PR's Vercel preview deployment, so it can only close after the owner authorises the push.
 
-## US-001: A printed Modern CV keeps its sidebar band down to the bottom of every page
+## US-001: The server returns the resume PDF the Preview shows
 Status: PASS
 Priority: 1
-Branch: ralph/modern-print-sidebar-full-page
-Baseline HEAD: b976a74 (origin/main 91b2bd9 + archive commit + contract commit)
-
-Root cause (diagnosed before the PRD, 2026-10-13):
-- Modern's sidebar is an in-flow column of resume-document, so in print it ends where the document ends. A probe of the LONG_EXPERIENCE fixture: document 2354 px, 3 pages, sidebar bottom 2354 px, 1015 px of white below it on page 3.
-- The result is identical with and without #106's Preview frame, so #106 is not the cause.
-- Professional has a body-painted print band; Modern never had one (`git log -S "modern-template" -- src/app/globals.css` returns no commit).
+Branch: ralph/resume-pdf-direct-download
+Baseline HEAD: 24df982 (origin/main 9769d53 + archive commit + contract commit)
 
 Scope:
 - Scope check: PASS
-- Changed paths (git diff --numstat):
-  - src/app/globals.css (+33): print-only `html:has(.modern-template)` gradient band from --modern-print-sidebar-color / --modern-print-sidebar-width. In print, body and the document's ancestors become transparent, so the band, not white, lies under the document's anti-aliased bottom edge (no seam).
-  - src/components/dashboard/resume-templates/modern-template.tsx (+42 −2): `modern-template` class on resume-document; validated printBandStyle(); a style element rendered as the document's last child.
-  - src/components/dashboard/resume-templates/modern-template.test.ts (+62): emission and validation tests.
-  - e2e/modern-print-sidebar-full-page.spec.ts (new, 447 lines, 9 tests): rasterises the printed PDF with pdf.js inside Chromium.
-  - e2e/visual/__screenshots__/win32/modern-print.png: updated with owner approval (Decision below). sha256 a19090f60f93cc03… → 6e4a462db85e1fd4…
-- Not touched: anything under src/app/api/resumes/[id]/download-docx/ (git diff there: 0 lines); every other visual baseline; the parity harness; the layout model; the database; package.json version. No push, no merge.
+- Changed paths:
+  - package.json (+1), pnpm-lock.yaml (+3): playwright-core ^1.63.0 in dependencies. The lockfile already held it at the same version and integrity, as a dependency of @playwright/test.
+  - src/app/api/resumes/[id]/download-pdf/route.ts (new, 174 lines): POST, runtime nodejs, maxDuration 60.
+  - src/lib/pdf/ (new):
+    - browser.ts (95): the only Chromium launch; allowlisted env, sandbox on by default
+    - render-preview.ts (257): renders and prints the Preview page
+    - render-policy.ts (134): trusted origin, request allowlist, cookie selection
+    - route-guard.ts (75): redirects refused, refused requests never fetched
+    - payload.ts (184): body and draft size, draft id/owner, photo bound
+    - filename.ts (87): RFC 5987 filename
+    - plus 5 *.test.ts files
+  - e2e/resume-pdf-route.spec.ts (new, 529 lines, 21 tests), e2e/fixtures/pdf.ts (new, 133 lines, shared PDF reader).
+- Not touched: everything under src/app/api/resumes/[id]/download-docx/ (git diff there: 0 lines), the templates, print CSS, the Preview page code, next.config.js, the visual baselines, the database, package.json version. No push, no merge.
 
-Checks (all on the final diff):
-- DOCX (owner's non-negotiable FR-3): PASS — word/document.xml and word/styles.xml generated directly from the generators, for the five templates at the default layout and at a custom one (fontScale 1.2, hue 140 / saturation 60 / brightness 30, sidebarWidth 28). 20 hashes, identical before and after; two baseline runs were identical.
-  - document.xml prefixes: professional 67138fd2414f / dc9f6411acce, modern 84b09962b956 / 5cf097660ca0, classic 28eacadbda69 / 8d7d85ded191, minimal bb90f40a2172 / 0df64932e378, creative 69e4bf627b3e / 513b08db1036.
+Checks (all on the final diff, after the security fixes; the first full run was green too and was discarded):
+- DOCX (owner's non-negotiable): PASS — 20 hashes of word/document.xml and styles.xml, five templates at default and custom layout, identical to the baseline (same baseline as modern-print-sidebar-full-page; the DOCX code is unchanged since).
 - pnpm typecheck: PASS — exit 0
-- pnpm test: PASS — 1799 passed, 5 skipped
+- pnpm test: PASS — 1908 passed, 5 skipped (src/lib/pdf: 109)
 - pnpm test:integration: PASS — 50 passed
-- pnpm build: PASS — 105/105 static pages
-- pnpm test:e2e: PASS — 274 passed, including the 9 new tests and, unchanged: modern-long-sidebar-print, resume-print-geometry, page-break specs, resume-page-break-pdf-count
-- pnpm test:visual: PASS — 10 passed after the approved baseline update. The first run failed only "the modern template prints as approved": 238 px, one antialiased row at the document's bottom edge.
-- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0; sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b, identical to origin/main's
-- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306. modern-template.tsx has the same 9 problems as at HEAD.
+- pnpm build: PASS — 105/105 static pages; the route is listed
+- pnpm test:e2e: PASS — 295 passed. Includes resume-pdf-route (21), security-headers, and every print spec unchanged.
+- pnpm test:visual: PASS — 10 passed, no baseline change
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0; sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b (identical to origin/main's)
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306. The changed files have 0 problems.
+- Local generation time (production build, Windows, a fresh Chromium per request): first request after server start 1271–1505 ms; the rest 1113–1448 ms, median about 1.3 s.
 
 Specialized validation:
-- Browser: PASS — the new spec checks that nothing changes on screen: no html/body background image on the Preview page or in the editor.
-- Visual: PASS — 10/10; only modern-print.png changed, as approved.
-- Export: PASS — PDF: the printed Preview page (page.pdf, preferCSSPageSize, print media) is rasterised and read. DOCX: FR-3 above.
-- Database: NOT_APPLICABLE
-- Security: PASS (FR-2) — printBandStyle emits a colour only if it matches strict hsl() or hex, and a width only if it is finite and between 0 and 100. Neither pattern admits a semicolon, a closing brace or an angle bracket. Unit tests cover a break-out string, a keyword, rgb(), a negative hue, and widths NaN, −5 and 120.
+- Browser: PASS — the route renders the real Preview page in headless Chromium. The e2e compares it with the Preview's own print.
+- Visual: PASS — test:visual unchanged.
+- Export: PASS — each PDF is parsed (pdf-parse) and, for Modern, rasterised (pdf.js). DOCX hashes above.
+- Database: NOT_APPLICABLE (nothing stored; the e2e checks the stored row is unchanged after renders)
+- Security: PASS — the security-review skill was run as a code-reviewer agent.
+  - Round 1: PASS with SEC-001 LOW (a same-origin 3xx would be followed without being re-checked against the policy) and SEC-002 LOW (Chromium got the full process.env and ran unsandboxed).
+  - Both fixed: redirects refused via route.fetch({ maxRedirects: 0 }); env allowlisted; sandbox on; launch inside the 30 s budget; origin asserted after navigation.
+  - Round 2 on the final diff: PASS, 0 critical / high / medium / low, 5 info, requirements 10/10, blocked checks 0.
 
 Agents:
-- senior-coder: implementation
-- ui-expert: PASS 7/7 on rasterised real PDFs, before and after:
-  - the band runs to the bottom of the last page, with no seam at the content end (every band row scanned);
-  - its colour is pixel-identical to the sidebar: 13,13,165 for the default, 28,114,71 for hsl(150 60% 28%);
-  - its edge is within about 0.2pt of the sidebar's at 35% and 42%;
-  - the photo zone still draws on top.
-- code-reviewer: PASS, round 1.
-  - Major 1, required before merge, not before commit: CI prints on Linux, where Professional's body band shows a 1 px seam (KNOWN linux-print-sidebar-column). The PR's Linux CI must pass this spec; if it fails, record it and return to the owner without widening tolerances.
-  - Minors, not fixed:
-    - the hex pattern accepts 5 and 7 digits (no security impact: invalid CSS prints white);
-    - printing the editor page also shows the band, as Professional's does (not a supported print surface);
-    - the other templates are checked through computed print styles, with their PDFs covered by unchanged visual and parity results.
+- senior-coder: implementation; security-fix round
+- ui-expert: NOT_APPLICABLE — no UI in US-001 (the button is US-002)
+- security-review: round 1 PASS with two LOW (fixed); round 2 PASS, 0 findings above INFO
+- code-reviewer: PASS on the final diff, conditional on security round 2 passing, which it did. No required code change. Majors handed to US-002 and US-003 (below). Minors, not fixed:
+  - a font that fails to load is not detected: document.fonts.ready also resolves on failure;
+  - the readiness check relies on React's internal `__reactFiber$` key;
+  - playwright-core and @playwright/test both use ^1.63.0, so only the lockfile keeps them together; the comment says "pinned".
 
 Acceptance criteria:
-- AC-01 (last page covered to the bottom): PASS — e2e: on the unchanged source, 3 tests failed with paper in the band on page 3 (rows 125–840 for the default colours, 449–840 for width 42 green). After the fix they pass: both inside columns are the stored colour from the last text line to the last full pixel row, and the column outside the band is white.
-- AC-02 (every other page fully covered): PASS — e2e checks every row of every page for no paper rows and no one-row seam.
-- AC-03 (stored colour and width): PASS — stored defaults, width 35 and width 42 in green; band edge within 1pt of the stored width; colour equal to the stored HSL converted by the test. Note: the PRD says "default 35 %", but DEFAULT_RESUME_LAYOUT.sidebarWidth is 30 (35 is the template's fallback); both are tested.
-- AC-04 (one-page CV prints as before): PASS with the approved deviation. Pixel comparison against the band forced off: identical except one anti-aliased column at the sidebar's right edge (x=249, at most 35/255), which now blends over the band instead of white.
-- AC-05 (nothing on screen): PASS — e2e: no background image on html or body on screen, on the Preview page or in the editor; screen visual baselines unchanged.
-- AC-06 (other templates unchanged): PASS — e2e: Professional, Classic, Minimal and Creative get no Modern band in print. Parity sha unchanged; visual baselines unchanged except modern-print.png.
+- AC-01 (application/pdf, attachment, owned resume): PASS — route.ts; e2e asserts the content type and disposition; Cache-Control is private, no-store.
+- AC-02 (401 / 404, two real users): PASS — e2e:
+  - 401 with no session and with a forged cookie;
+  - 404 for another real user's resume, a nonexistent id and a malformed id.
+  - Order: 401 → 415 → 404 → 413 / 400, then launch.
+- AC-03 (fidelity, 5 templates × default and non-default layout): PASS — e2e: the route PDF equals the Preview's print in page count, page size (A4) and text on every page. The non-default layout is Roboto and multi-page, at least 2 pages enforced. The Modern band check from modern-print-sidebar-full-page passes on the route PDF.
+- AC-04 (draft and photo): PASS, with the approved limitation below.
+  - With a draft and a photo, the PDF has the draft text and exactly one more image than without the photo, and equals the Preview print under the same localStorage.
+  - Without them: the stored resume and the same images as the Preview's no-photo print.
+  - A draft naming another resume or another owner gets 400.
+  - An oversized photo is dropped.
+  - The photo bound is restated in src/lib/pdf/payload.ts (same 8 MiB limit, same jpeg/jpg/png/gif/bmp types, base64 alphabet, data: prefix required), because the DOCX route may not be edited.
+- AC-05 (untrusted input): PASS — 413 for an oversized body (declared length and streamed size) and for an oversized draft. The malicious draft contains a script, onerror, an iframe, a remote image, file:///C:/Windows/win.ini, file:///etc/passwd, a CSS url(), an SVG, a javascript: link and a remote photo. Result: a local listener received 0 requests, no script ran, no file content appears, and the PDF equals the Preview's own sanitized print. The stored row is unchanged.
+- AC-06 (filename): PASS — `CV "Zoë" – Zürich` gives an RFC 5987 filename* plus an ASCII fallback with the quotes neutralized; control characters are stripped (no header splitting); an empty title gives resume.pdf. Unit tests and e2e.
+- AC-07 (no print chrome): PASS — displayHeaderFooter false; on every fidelity case, expectNoPrintChrome finds no URL, page title or date.
 
-Decision (owner, 2026-10-13, asked in chat after the first full run):
-- The update of e2e/visual/__screenshots__/win32/modern-print.png, and only that baseline, is authorised. This waives the PRD FAIL condition "any visual baseline needs updating" for that file.
-- The changed pixels are one antialiased row at the document's bottom edge. That edge now blends over the band; the old baseline had recorded the defect itself.
-- The same decision accepts the one-column edge difference under AC-04.
+Decision (owner, 2026-10-13, asked in chat): FR-4 says "network limited to the app's own origin". The renderer may also make GET requests to fonts.googleapis.com (/css, /css2, stylesheets only) and fonts.gstatic.com (/s/, fonts only).
+- Reason: the Preview loads the font picker's families from Google Fonts. Blocking them would print a different font, line breaks and page count from the user's own print.
+- No cookie or resume data goes to those hosts, and only the bare origin is sent as referrer.
+- Rejected alternative: self-hosting the fonts, which would change the root layout and is out of this PRD's scope.
 
 Named limits:
-- Linux print is unverified locally; see code-reviewer Major 1 above.
-- pdf.js 2.0.550 draws the band's hard gradient edge as a ramp about 2pt wide. The spec reads colours 4pt clear of it; this is a reader effect, not the PDF.
+- WebP photos: the photo bound (the same as the DOCX's boundedPhoto) accepts jpeg/jpg/png/gif/bmp only, so a WebP photo shown in the Preview is missing from the PDF, as it is from the DOCX. This is a recorded fidelity limitation (.claude/rules/exports.md), not a pass. Chromium itself could draw WebP.
+- The session-refresh path (session expiring within 150 s) has no runtime test (security INFO-D).
+- The defence in depth is proven at unit level only. The sanitizer removes every malicious vector before request blocking has anything to block, and the blocking itself is covered by the policy and route-guard unit tests.
+
+Open owner decisions recorded by this story (for US-002 / US-003):
+- Vercel rejects request bodies over 4.5 MB before the route runs, while the route accepts about 10 MiB. A large photo would fail in production with Vercel's own 413. US-002 must either fit the limit or report that failure in the user's language.
+- NEXT_PUBLIC_APP_URL is fixed at build time. On a preview deployment it may point to production, and Deployment Protection may refuse the renderer. US-003 must record which origin rendered the PDF (PRD BLOCKER condition).
+- Chromium on Vercel: playwright-core ships no browser and the sandbox is usually unavailable there. US-003 swaps only browser.ts (@sparticuz/chromium, sandbox false) and must record that it did.
 
 Environment notes:
-- Windows; Playwright suites ran one at a time. Scratch probe, hash and raster scripts were run on their own and deleted before any check.
+- Windows; Playwright suites ran one at a time. The DOCX hash script was run on its own and deleted before any check.
 
 Commit:
 - Story commit: THIS_COMMIT
-- Commit message: ralph: US-001 A printed Modern CV keeps its sidebar band down to the bottom of every page
+- Commit message: ralph: US-001 The server returns the resume PDF the Preview shows
 FINAL: PASS
+
+## US-002: "Télécharger PDF" downloads the file instead of printing
+Status: PASS
+Priority: 2
+Branch: ralph/resume-pdf-direct-download
+Baseline HEAD: 373a369 (US-001)
+
+Correction of the record:
+- The US-001 entry above lists the WebP photo drop under "Named limits". That is accurate: it was recorded, not owner-approved.
+- In the US-001 and US-002 review briefs, the orchestrator described it as owner-approved. That was wrong; the owner had approved only the Google Fonts exception. The reviewer was told, and the owner then decided (below).
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat, plus new files):
+  - src/components/dashboard/download-button.tsx (+141 −9): the PDF click handler with busy, error and focus states. handleWordDownload is identical to HEAD (code-reviewer extracted both versions and diffed them).
+  - src/components/dashboard/resume-preview-page-client.tsx (+8): passes pdfMessages only. Still no dict to DownloadButton, so the Word alert keeps its English fallback, as before.
+  - src/lib/pdf/download-client.ts (new, 190 lines): request body, POST, Content-Disposition filename, error kinds, 45 s timeout.
+  - src/lib/pdf/photo.ts (new, 73 lines): the PDF photo check, shared by the route and the client.
+  - src/lib/pdf/payload.ts (+5 −42): the photo check moved to photo.ts and is re-exported from here.
+  - src/locales/{fr,en,de,it}/common.json (+4 each): resumes.generatingPDF, pdfDownloadError, pdfPhotoTooLarge, pdfPhotoUnsupported.
+  - Tests:
+    - src/lib/pdf/download-client.test.ts, src/lib/pdf/photo.test.ts, src/components/dashboard/download-button-messages.test.ts (new);
+    - src/lib/pdf/payload.test.ts (+7 −1);
+    - e2e/resume-pdf-download-button.spec.ts (new, 525 lines, 15 tests).
+- Not touched: everything under src/app/api/resumes/[id]/download-docx/ (git diff there: 0 lines); route.ts, route-guard.ts, browser.ts, render-preview.ts, render-policy.ts (unchanged since US-001); print CSS, templates, visual baselines, the database, package.json version. download-pdf-button.tsx (dead code) is left alone. No push, no merge.
+
+Checks (all on the final diff, after the photo-format round; earlier runs discarded):
+- DOCX: PASS — 20 hashes identical to the baseline.
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 64 files, 1966 passed, 5 skipped
+- pnpm test:integration: PASS — 50 passed
+- pnpm build: PASS — 105/105 static pages
+- pnpm test:e2e: PASS — 310 passed, including resume-pdf-download-button (15) and resume-pdf-route (21).
+  - In the first full run on the pre-photo diff, 1 of 307 tests failed: resume-editor-responsive "at 1024px the preview scale is stable at the scrollbar edge", where loginAs hit its 30 s waitForURL timeout in the auth fixture. That is a known transient and a page this story does not touch.
+  - That spec then passed 10/10 alone, and the full rerun passed 307/307. The final diff's run had no failure.
+- pnpm test:visual: PASS — 10 passed, no baseline change
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0; sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b (unchanged)
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); ceiling 306. The changed files add 0; the one existing `dict: any` in resume-preview-page-client.tsx is on an untouched line.
+
+Specialized validation:
+- Browser: PASS — the e2e drives the real button. ui-expert reviewed screenshots of the idle, busy and error states and the unsupported-photo message, at 1280 and 390, in fr.
+- Visual: PASS — test:visual unchanged.
+- Export: PASS — the downloaded file equals the route's PDF in pages, text, page size and images. ui-expert reviewed the downloaded PDF rasterised: 3 A4 pages, French headings, the Modern band down to every page bottom, no print chrome.
+- Database: NOT_APPLICABLE — the e2e checks the stored row is unchanged after a draft download.
+- Security: PASS — security-review on the final diff: 0 findings above INFO, requirements 6/6.
+  - The check is an anchored, case-sensitive prefix ^data:image/(jpeg|jpg|png|gif|bmp|webp|avif);base64, followed by the base64 alphabet.
+  - WebP and AVIF decoders were already reachable through byte sniffing, so there is no new surface.
+  - The filename only ever goes to anchor.download, on a same-origin blob: URL.
+
+Agents:
+- senior-coder: implementation; photo-format round
+- ui-expert:
+  - round 1 PASS 7/7 (idle, busy, error, and the downloaded PDF);
+  - round 2 PASS on the unsupported-photo message.
+  - Minors, not fixed:
+    - on narrow screens the Word button shifts about 24 px while busy (a min-width would change the idle width);
+    - on mobile the error overlaps the "Aperçu" subtitle;
+    - the busy label's contrast is 2.8:1 (disabled exemption);
+    - the German unsupported message is estimated to take 4 lines on desktop (not captured);
+    - the copy says "JPEG ou PNG" although WebP and AVIF are also accepted.
+  - Pre-existing and out of scope: the Preview header at 390 px overlaps the title and clips the Word button. The header markup is identical to HEAD.
+- code-reviewer:
+  - round 1 PASS, with Major 1: a WebP, AVIF or SVG photo silently disappeared from the PDF, which is a PRD FAIL condition. This was escalated to the owner.
+  - round 2 PASS on the final diff. Remaining minor: HEIC or similar uploads now block the PDF with the message, by the owner's choice.
+
+Acceptance criteria:
+- AC-01 (no window.print; the route's PDF is downloaded): PASS — e2e:
+  - window.print is stubbed before page load and called 0 times;
+  - a download event with filename "Visual baseline - modern.pdf";
+  - one POST with a JSON body;
+  - the file equals the route's PDF in pages, text, page size and images.
+- AC-02 (busy state): PASS — e2e:
+  - the button is disabled, has aria-busy, shows the localized label and has a role=status text;
+  - two clicks in the same tick plus a double click while busy give exactly 1 request.
+- AC-03 (failure): PASS — e2e:
+  - route 500, then a successful retry clears the error;
+  - network abort from the keyboard, with focus returned to the button;
+  - 45 s client timeout (page.clock: still waiting at 44 s, error at 46 s);
+  - a plain-text 413 with a photo shows the photo message.
+  - The strings exist in fr, en, de and it (messages unit test), and the e2e checks fr and de.
+- AC-04 (draft and photo in the PDF): PASS — e2e:
+  - a draft plus a photo gives the draft text and one more image, equal to the route's PDF for the same body;
+  - a WebP photo gives one more image, equal to the route's PDF;
+  - an SVG photo (en and fr) shows the message, sends no request, downloads nothing, and leaves the button usable again.
+  - AVIF is covered by unit tests only, because Chromium's canvas cannot encode AVIF.
+- AC-05 (Word button unchanged): PASS — handleWordDownload is identical to HEAD. The e2e checks:
+  - with no photo: a GET with only ?locale=fr, file resume.docx;
+  - with a photo: a POST of exactly {photoBase64}, with no draft;
+  - the same English alert on a French page, with no inline PDF error.
+  - DOCX hashes are identical.
+
+Decision (owner, 2026-10-13, asked in chat after code-review round 1): the PDF accepts jpeg, jpg, png, gif and bmp, plus WebP and AVIF. Any other photo format (SVG, TIFF, HEIC…) blocks the download, and resumes.pdfPhotoUnsupported asks the user to use a JPEG or PNG; the photo is never dropped silently. The DOCX keeps jpeg/jpg/png/gif/bmp.
+- This supersedes the US-001 "WebP photos" named limit. It changes US-001's AC-04 wording ("bounded as boundedPhoto() does") for the PDF route only; the change lands in this commit because the decision requires it.
+
+Decision (draft check, code-review Minor 1): the client sends any draft that parses as JSON, because the Preview displays any such draft. A draft the route rejects (wrong id or owner) then produces the visible error rather than a PDF that differs from the screen. A unit test records this.
+
+Named limits:
+- Vercel's 4.5 MB request-body limit is not verified yet (US-003). A photo the route accepts but Vercel rejects ends in the "photo too large" message, via the platform 413.
+
+Environment notes:
+- Windows; Playwright suites ran one at a time. Scratch screenshot specs were run on their own and deleted before any check. One transient auth-fixture timeout was re-run as described under Checks.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 "Télécharger PDF" downloads the file instead of printing
+FINAL: PASS
+
+## US-003: PDF generation works in the production runtime — part 1 of 2 (implementation)
+Status: PENDING — awaiting preview-deployment verification (AC-02, AC-03, CI part of AC-04)
+Priority: 3
+Branch: ralph/resume-pdf-direct-download
+Baseline HEAD: 4be2860 (US-002)
+
+Decision (owner, 2026-10-13, asked in chat):
+- AC-02 and AC-03 can only be proven on the PR's Vercel preview deployment, which exists only after the owner-authorised push. US-003 therefore gets two commits:
+  - this one: the implementation, with prd.json passes: false;
+  - a second one: the preview evidence, with passes: true.
+- The PR is squash-merged, so main receives one commit. This is a recorded deviation from "one story = one commit".
+
+Decision (owner, 2026-10-13, asked in chat): on the serverless runtime, add free metric-compatible fonts so the server prints the same line breaks and page count. Done for Arial (Arimo), Calibri (Carlito) and Georgia (Gelasio).
+- Packages: @fontsource 5.3.0, exact pins, OFL-1.1.
+- Mechanism: FontFace registration from inline data: WOFF2, server-side render only. The screen, the user's own print and local renders are unchanged.
+
+Owner answers (2026-10-13): the Vercel plan, the project's Node version and whether Deployment Protection is on are all unknown. The code keeps Hobby-safe defaults (maxDuration 60, default memory) and supports Protection Bypass for Automation. All three are verified on the preview.
+
+Scope (part 1):
+- Scope check: PASS
+- Changed paths (git diff --numstat, plus new files):
+  - package.json (+4), pnpm-lock.yaml (+216): @sparticuz/chromium 153.0.0 exact (Chromium 153, which matches playwright-core 1.63's browserVersion 153.0.8010.12); @fontsource/arimo, carlito, gelasio 5.3.0 exact.
+  - next.config.js (+39): outputFileTracingIncludes for the download-pdf route only (the packed Chromium bin and the three font packages).
+  - src/lib/pdf/browser.ts (+173 −17):
+    - serverless detection (VERCEL or AWS_LAMBDA_FUNCTION_NAME) selects the packed Chromium with the sandbox off;
+    - the default flags that weaken the page are removed (--disable-web-security, --allow-running-insecure-content, --disable-site-isolation-trials, IsolateOrigins, site-per-process, SharedArrayBuffer);
+    - WebGL off; the binary is unpacked once per instance;
+    - local runs are unchanged (Playwright Chromium, sandboxed).
+  - src/lib/pdf/render-policy.ts (+39 −5): on VERCEL_ENV=preview, render from https://${VERCEL_URL} (platform env, never a request header); a malformed value gives 503.
+  - src/lib/pdf/route-guard.ts (+43 −3): x-vercel-protection-bypass, from VERCEL_AUTOMATION_BYPASS_SECRET, is sent only on requests to the app origin.
+  - src/lib/pdf/render-preview.ts (+66 −9): the font-substitution stage; failures are reported at stages fonts and settle.
+  - src/lib/pdf/font-substitutes.ts (new).
+  - src/app/api/resumes/[id]/download-pdf/route.ts (+17 −9).
+  - sentry.server.config.ts and sentry.edge.config.ts (+11 −9 each), src/lib/sentry-server-scrub.ts (new): beforeSend and a new beforeSendTransaction remove request headers, cookies, body and user, plus every http.request.header.* span or transaction attribute, so the bypass secret never reaches Sentry. This closes a leak path the story itself would otherwise create (security INFO-3); code-reviewer judged it in scope.
+  - Tests: browser.test.ts (+259 −7), render-policy.test.ts, route-guard.test.ts, new font-substitutes.test.ts, render-preview.test.ts, sentry-server-scrub.test.ts, and new e2e/pdf-font-substitutes.spec.ts (3 tests, skipped on Linux).
+  - docs/engineering/pdf-export-runtime.md (new): runtime, version pin, bundling, limits, origin, protection, fonts, how to measure.
+- Not touched: src/app/api/resumes/[id]/download-docx/ (git diff there: 0 lines); visual baselines; database; package.json version. No vercel.json was added. No push yet.
+
+Checks (local, all on this exact final diff; the earlier runs on intermediate diffs were all green and are superseded):
+- DOCX: PASS — 20 hashes identical to the baseline.
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 2031 passed, 5 skipped
+- pnpm test:integration: PASS — 50 passed
+- pnpm build: PASS — 105/105 static pages. The route's traced files total about 89.4 MiB (Chromium about 70 MB packed, playwright-core 6.2 MB, fonts 1.47 MiB, app output about 11 MB), against Vercel's 250 MB unzipped limit.
+- pnpm test:e2e: PASS — 313 passed, including resume-pdf-route 21, resume-pdf-download-button 15 and pdf-font-substitutes 3.
+- pnpm test:visual: PASS — 10 passed, no baseline change
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0; sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b (unchanged)
+- pnpm lint: PASS — 290 problems; ceiling 306; the changed files have 0.
+- Local timing (production build, pnpm start, Windows, 3 fresh starts), all 200, below the 5 s target:
+
+  | Request | Median | Range |
+  |---|---|---|
+  | Cold Modern | 1346 ms | 1325–1365 ms |
+  | Warm Modern (3 pages) | 1141 ms | 1097–1224 ms |
+  | Warm Classic (2 pages) | 1215 ms | 1180–1313 ms |
+
+Specialized validation:
+- Security: PASS.
+  - Round 1 on the prep: PASS with SEC-003 LOW (the page-isolation flags kept on serverless, and a misleading comment) and INFO-3 (the bypass header could reach Sentry transactions).
+  - Both fixed. Round 2 on the final diff: PASS, 0 findings above INFO, requirements 8/8.
+  - Residual, accepted and documented: on serverless Chromium runs single-process, without a sandbox, as the same user as Node. A Chromium exploit could read the Node process's environment (/proc/<ppid>/environ). Compensating controls: only the app's own sanitized content, the egress guard, redirects refused, a fresh browser per request, and @sparticuz/chromium and playwright-core kept current together.
+- Font metric compatibility (e2e/pdf-font-substitutes.spec.ts, local Windows):
+  - The real font and the substitute registered under the same name give the same page count and the same lines in each column of every page, within 0.5 pt (Arial, Calibri) or 1 pt (Georgia).
+  - Negative control: Arimo registered as "Georgia" fails the comparison.
+  - The spec is skipped on Linux, which has no reference fonts.
+- Browser, Visual, Export: covered by the e2e and DOCX checks above. Database: NOT_APPLICABLE.
+
+Agents:
+- senior-coder: implementation; fonts round; SEC-003 and Sentry round
+- ui-expert: NOT_APPLICABLE — no UI change
+- security-review: round 1 PASS (1 LOW + INFO); round 2 PASS on the final diff
+- code-reviewer: PASS for this implementation commit with passes: false.
+  - Major 1, required before passes: true: the owner must acknowledge the remaining font gaps (below).
+  - Minors, not fixed:
+    - whether the font files survive Vercel's pnpm-link tracing shows only on the preview; a failure would be explicit (stage fonts, 500);
+    - `vercel dev` sets VERCEL=1 and would select the serverless binary (not part of the workflow);
+    - the Chromium-major match is documented, not test-enforced;
+    - engines.node is ">=20.9.0" while @sparticuz/chromium needs ^22.17 or >=24;
+    - a deadline firing during the first unpack can push past maxDuration.
+
+Acceptance criteria (part 1):
+- AC-01 (dependency and runtime configuration added and documented): PASS — see Scope; docs/engineering/pdf-export-runtime.md.
+- AC-02 (correct PDF on the PR's preview deployment): PENDING (part 2).
+- AC-03 (median warm and cold, locally and on the preview, under 5 s warm): local part PASS (table above); preview part PENDING.
+- AC-04 (build and CI pass): local build PASS; CI PENDING (runs after the push).
+
+Open owner decisions recorded by this story (to resolve before part 2 sets passes: true):
+- Remaining font gaps (code-reviewer Major 1): the server's PDF can differ from a Windows or Mac user's own print in line breaks or pages for:
+  - Segoe UI and Verdana (no free metric-compatible font);
+  - the picker's "Inter" entry (Arial on Windows without Inter, Open Sans on the server);
+  - Calibri font-light;
+  - Helvetica Neue and Avenir on macOS.
+  The owner must acknowledge these as fidelity limitations, or ask for a follow-up (the Inter entry may be fixable, since the app already serves Inter).
+- Preview checklist for part 2:
+  - Node 22.x or 24.x on the Vercel project;
+  - Protection Bypass for Automation if previews are protected;
+  - the first cold request returns 200, with time and pages;
+  - Modern multi-page and a one-page Classic CV (the shared Classic fixture is 2 pages, so a shorter one is needed) give correct pages, with the Modern band to the bottom of the last page;
+  - an Arial or Calibri CV confirms the substitute fonts load on the deployment;
+  - the warm median is under 5 s;
+  - the PDF renders from the preview's own origin;
+  - if possible, a sampled Sentry transaction carries no bypass value.
+
+Environment notes:
+- Windows; Playwright suites ran one at a time. Scratch hash and timing scripts were run on their own and deleted before any check. The serverless launch path has not run anywhere yet: there is no Linux or Lambda environment locally.
+
+Commit:
+- Story commit (part 1): THIS_COMMIT
+- Commit message: ralph: US-003 (1/2) Serverless Chromium runtime for the PDF route
+FINAL: PENDING (part 2 after preview verification)
+
+## US-003 — CI fix after the first PR #108 run (2026-10-13)
+- **The run.** PR #108, run 38458060073 (ubuntu-latest), E2E (required): 23 failed, 287 passed, 3 skipped. The 3 skips are the font-substitute cases, which skip on Linux by design.
+- **22 failures: Chromium would not launch.** Every PDF render logged "PDF render failed at launch. Error: browserType.launch: Target page, context or browser has been closed".
+  - Diagnosis: Ubuntu 24.04 runners set kernel.apparmor_restrict_unprivileged_userns=1, which denies the user namespace Chromium's sandbox needs. Playwright's Chromium has no AppArmor profile. The test runner's own browsers launch unsandboxed, so they were unaffected.
+  - This is strong evidence, not proof: the route logs only the first line of a launch error. The next CI run's smoke step will confirm it, or print Chromium's own reason.
+  - Fix in .github/workflows/ci.yml, E2E job only (Parity never calls the PDF route):
+    - set the sysctl to 0, guarded by whether it exists on the runner;
+    - add a smoke step that launches a sandboxed Chromium.
+  - The product code is unchanged: it keeps the sandbox on outside serverless and fails closed.
+  - docs/engineering/pdf-export-runtime.md: new "CI" section, which also notes that any non-Vercel Linux host needs the same setting or an AppArmor profile.
+- **1 failure: the Word button test.** "Word button: behaves exactly as before › on failure…" waited forever on the click: the alert blocked the page, and its handler was only attached after the click.
+  - Test fix: a page.once('dialog') handler, registered before the click, records the dialog and accepts it. Same assertions; the Word button code is unchanged.
+  - Locally the test passed 10 times in a row.
+- **"401 without a session, and with a forged one": no security issue.** The anonymous and forged-cookie requests returned 401 as asserted. The failure is the signed-in owner's control request at spec line 256, the test's single launch failure (20:08:50.07), caused by the launch problem above. The route calls getUser() before anything else.
+- **Local checks after the fix (Windows):** typecheck exit 0; lint 290 (ceiling 306); test:e2e 313 passed. No product code changed, so the earlier unit, build, visual and parity results stand.
+- **Owner (2026-10-13, in chat):** "push quand c'est corrigé"; also "j'accepte les écarts" (the remaining font gaps listed in part 1).
