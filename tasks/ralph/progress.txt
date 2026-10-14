@@ -332,3 +332,15 @@ FINAL: PENDING (part 2 after preview verification)
 - **"401 without a session, and with a forged one": no security issue.** The anonymous and forged-cookie requests returned 401 as asserted. The failure is the signed-in owner's control request at spec line 256, the test's single launch failure (20:08:50.07), caused by the launch problem above. The route calls getUser() before anything else.
 - **Local checks after the fix (Windows):** typecheck exit 0; lint 290 (ceiling 306); test:e2e 313 passed. No product code changed, so the earlier unit, build, visual and parity results stand.
 - **Owner (2026-10-13, in chat):** "push quand c'est corrigé"; also "j'accepte les écarts" (the remaining font gaps listed in part 1).
+
+## US-003 — status after merge (2026-10-14)
+- **Merge.** PR #108 was squash-merged as a295afe on the owner's "fusionne et vérifie en production". All checks were green on 7cac338, including E2E on Linux.
+- **Preview verification: not possible.** Every preview deployment is behind Vercel Deployment Protection (302 to vercel.com/sso-api). Its runtime log (owner-supplied) showed "Your project's URL and Key are required to create a Supabase client".
+- **Production verification: not possible either.** The production domain https://my-cv-platform.vercel.app answers `500 X-Vercel-Error: MIDDLEWARE_INVOCATION_FAILED` on /fr, /fr/login and /fr/dashboard, and the PDF route gives 500 to an anonymous POST.
+  - Cause: the Vercel project had no environment variables at all. The owner's dashboard capture showed none, and the owner confirmed they never created any. The code reads NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY with no fallback.
+  - This predates the story: the rolled-back production build 9769d53 (#107) gave the same 500. The hosted site has never served authenticated pages; all work so far has run locally.
+- **Owner attempts on 2026-10-14.** The owner created variables, redeployed and promoted. The domain still answered 500 on the last external check. The owner had been prompted by Vercel to remove the NEXT_PUBLIC_ prefix, which makes the variables invisible to the code. That was explained, but the final state was not confirmed with a log line.
+- **Owner decision (2026-10-14, in chat):** pause the hosting setup.
+  - docs/engineering/vercel-production-setup.md is the setup checklist: exact variable names, Supabase Auth URL configuration, Node 22, a redeploy without cache plus promote, external checks, and troubleshooting.
+  - US-003 stays PENDING; prd.json passes: false. AC-02 and AC-03 (preview or production evidence) and the production part of AC-04 resume once the site serves pages.
+- **Next step for part 2:** once https://my-cv-platform.vercel.app/fr answers 200 and the anonymous PDF route answers 401, the owner signs in to the in-app browser. Then measure the cold and warm download, page counts, the Modern band and the substitute fonts, and record them as the second US-003 commit.
