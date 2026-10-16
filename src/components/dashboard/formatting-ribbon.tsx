@@ -1,7 +1,7 @@
 'use client'
 
 import { Bold, Italic, Underline, List, ListOrdered, Type } from 'lucide-react'
-import { AVAILABLE_FONTS, FONT_SIZES, DEFAULT_FONT_SIZE } from '@/lib/constants/fonts'
+import { AVAILABLE_FONTS, FONT_SIZES, DEFAULT_FONT, DEFAULT_FONT_SIZE } from '@/lib/constants/fonts'
 import { useState, useEffect } from 'react'
 
 export type FormatCommand =
@@ -145,7 +145,7 @@ export function FormattingRibbon({
         >
           {AVAILABLE_FONTS.map((font) => (
             <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
-              {font.name}
+              {font.value === DEFAULT_FONT ? t?.systemDefault || font.name : font.name}
             </option>
           ))}
         </select>

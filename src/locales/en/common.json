@@ -344,7 +344,8 @@
         "fontSize": "Font size",
         "alignLeft": "Align left",
         "alignCenter": "Center",
-        "alignJustify": "Justify"
+        "alignJustify": "Justify",
+        "systemDefault": "System Default"
       }
     },
     "template": {
@@ -548,7 +549,8 @@
         "body": "Body",
         "closing": "Closing",
         "signature": "Signature",
-        "resume": "Linked CV"
+        "resume": "Linked CV",
+        "job": "Linked Job"
       },
       "resume": {
         "title": "Linked Resume",
@@ -584,6 +586,7 @@
         "paragraphLabel": "Paragraph",
         "paragraphPlaceholder": "Write your paragraph...",
         "removeParagraph": "Remove paragraph",
+        "moveUp": "Move up",
         "emptyState": "No body paragraphs yet",
         "addFirst": "Add Your First Paragraph"
       },
@@ -596,6 +599,14 @@
       "signature": {
         "title": "Signature",
         "signOffLabel": "Sign-off",
+        "signOffOptions": {
+          "sincerely": "Sincerely,",
+          "bestRegards": "Best regards,",
+          "kindRegards": "Kind regards,",
+          "yoursFaithfully": "Yours faithfully,",
+          "respectfully": "Respectfully,",
+          "withAppreciation": "With appreciation,"
+        },
         "nameLabel": "Your Name",
         "namePlaceholder": "Your full name"
       }

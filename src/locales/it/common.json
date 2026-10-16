@@ -344,7 +344,8 @@
         "fontSize": "Dimensione carattere",
         "alignLeft": "Allinea a sinistra",
         "alignCenter": "Centra",
-        "alignJustify": "Giustifica"
+        "alignJustify": "Giustifica",
+        "systemDefault": "Carattere di sistema"
       }
     },
     "template": {
@@ -548,7 +549,8 @@
         "body": "Corpo",
         "closing": "Chiusura",
         "signature": "Firma",
-        "resume": "CV collegato"
+        "resume": "CV collegato",
+        "job": "Lavoro collegato"
       },
       "resume": {
         "title": "CV collegato",
@@ -584,6 +586,7 @@
         "paragraphLabel": "Paragrafo",
         "paragraphPlaceholder": "Scrivi il tuo paragrafo...",
         "removeParagraph": "Rimuovi paragrafo",
+        "moveUp": "Sposta su",
         "emptyState": "Nessun paragrafo del corpo",
         "addFirst": "Aggiungi il primo paragrafo"
       },
@@ -596,6 +599,14 @@
       "signature": {
         "title": "Firma",
         "signOffLabel": "Formula di chiusura",
+        "signOffOptions": {
+          "sincerely": "Cordiali saluti,",
+          "bestRegards": "Con i migliori saluti,",
+          "kindRegards": "Distinti saluti,",
+          "yoursFaithfully": "In fede,",
+          "respectfully": "Con osservanza,",
+          "withAppreciation": "Con gratitudine,"
+        },
         "nameLabel": "Il tuo nome",
         "namePlaceholder": "Il tuo nome completo"
       }

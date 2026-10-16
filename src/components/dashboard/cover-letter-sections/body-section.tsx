@@ -90,7 +90,7 @@ export function BodySection({
                     onClick={() => moveParagraph(index, index - 1)}
                     disabled={index === 0}
                     className="p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="Move up"
+                    title={(bodyDict.moveUp as string) || 'Move up'}
                   >
                     <GripVertical className="h-4 w-4" />
                   </button>

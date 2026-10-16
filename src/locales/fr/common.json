@@ -342,7 +342,8 @@
         "fontSize": "Taille de police",
         "alignLeft": "Aligner à gauche",
         "alignCenter": "Centrer",
-        "alignJustify": "Justifier"
+        "alignJustify": "Justifier",
+        "systemDefault": "Police système"
       }
     },
     "template": {
@@ -548,7 +549,8 @@
         "body": "Corps",
         "closing": "Conclusion",
         "signature": "Signature",
-        "resume": "CV lié"
+        "resume": "CV lié",
+        "job": "Emploi lié"
       },
       "resume": {
         "title": "CV lié",
@@ -557,6 +559,56 @@
         "selectResume": "Sélectionner un CV",
         "unlinkResume": "Dissocier",
         "createNew": "Créer un nouveau CV"
+      },
+      "recipient": {
+        "title": "Informations sur le destinataire",
+        "nameLabel": "Nom du destinataire",
+        "namePlaceholder": "ex. : Jean Dupont",
+        "titleLabel": "Fonction du destinataire",
+        "titlePlaceholder": "ex. : Responsable du recrutement",
+        "companyLabel": "Nom de l'entreprise",
+        "companyPlaceholder": "ex. : Acme SA",
+        "addressLabel": "Adresse de l'entreprise",
+        "addressPlaceholder": "Rue du Lac 12\n1000 Lausanne"
+      },
+      "opening": {
+        "title": "Accroche",
+        "greetingLabel": "Formule d'appel",
+        "greetingPlaceholder": "Madame, Monsieur,",
+        "paragraphLabel": "Paragraphe d'introduction",
+        "paragraphHint": "Présentez-vous et expliquez l'objet de votre lettre. Mentionnez le poste visé et comment vous en avez eu connaissance.",
+        "paragraphPlaceholder": "Rédigez votre paragraphe d'introduction..."
+      },
+      "body": {
+        "title": "Paragraphes principaux",
+        "hint": "Expliquez en quoi votre profil correspond au poste. Mettez en avant vos expériences et réalisations pertinentes.",
+        "addParagraph": "Ajouter un paragraphe",
+        "paragraphLabel": "Paragraphe",
+        "paragraphPlaceholder": "Rédigez votre paragraphe...",
+        "removeParagraph": "Supprimer le paragraphe",
+        "moveUp": "Monter",
+        "emptyState": "Aucun paragraphe pour le moment",
+        "addFirst": "Ajouter votre premier paragraphe"
+      },
+      "closing": {
+        "title": "Conclusion",
+        "paragraphLabel": "Paragraphe de conclusion",
+        "paragraphHint": "Exprimez votre motivation et proposez une suite, par exemple un entretien. Remerciez le lecteur de son attention.",
+        "paragraphPlaceholder": "Rédigez votre paragraphe de conclusion..."
+      },
+      "signature": {
+        "title": "Signature",
+        "signOffLabel": "Formule de politesse",
+        "signOffOptions": {
+          "sincerely": "Cordialement,",
+          "bestRegards": "Meilleures salutations,",
+          "kindRegards": "Bien à vous,",
+          "yoursFaithfully": "Salutations distinguées,",
+          "respectfully": "Respectueusement,",
+          "withAppreciation": "Avec mes remerciements,"
+        },
+        "nameLabel": "Votre nom",
+        "namePlaceholder": "Votre nom complet"
       }
     },
     "generation": {
