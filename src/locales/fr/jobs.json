@@ -30,6 +30,7 @@
   "filters": {
     "searchPlaceholder": "Rechercher des offres...",
     "allLocations": "Toutes les villes",
+    "allCantons": "Tous les cantons",
     "allTypes": "Tous les types",
     "clearFilters": "Effacer les filtres"
   },
@@ -49,6 +50,28 @@
   "jobDescription": "Description du poste",
   "requirements": "Exigences",
   "locationNote": "Ce poste est situé en Suisse et nécessite une autorisation légale de travailler en Suisse.",
+  "loading": "Chargement des offres...",
+  "loadingMore": "Chargement d'autres offres...",
+  "allJobsLoaded": "Les {count} offres sont chargées",
+  "liveData": "Données en direct",
+  "notice": "Information",
+  "loadJobsError": "Impossible de charger les offres. Vérifiez votre connexion et réessayez.",
+  "apiError": "Une erreur d'API s'est produite",
+  "locationInSwitzerland": "{city}, Suisse",
+  "preview": "Aperçu",
+  "fullDetailsNote": "La description complète du poste, avec tous les détails, est disponible sur le site de l'employeur.",
+  "viewFullDetails": "Voir l'offre complète",
+  "viewInApplications": "Voir dans mes candidatures",
+  "saving": "En cours…",
+  "jobSavedSuccess": "Offre enregistrée dans vos candidatures !",
+  "jobAlreadySaved": "Cette offre figure déjà dans vos candidatures enregistrées.",
+  "jobSaveError": "Impossible d'enregistrer l'offre. Veuillez réessayer.",
+  "genericError": "Une erreur s'est produite. Veuillez réessayer.",
+  "resumeSelector": {
+    "loadError": "Impossible de charger les CV",
+    "templateLabel": "Modèle {template}",
+    "updatedOn": "Modifié le {date}"
+  },
   "cvAdaptation": {
     "title": "Adapter le CV à l'offre",
     "jobDescriptionLabel": "Description du poste",

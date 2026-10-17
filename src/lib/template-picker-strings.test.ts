@@ -7,7 +7,7 @@ import de from '@/locales/de/common.json'
 import it_ from '@/locales/it/common.json'
 import type { Locale } from '@/lib/i18n'
 import { TemplatePicker, TemplateThumbnailPage, TEMPLATE_OPTIONS } from '@/components/dashboard/template-picker'
-import { templatePickerStrings } from '@/lib/template-picker-strings'
+import { templateNamesFrom, templatePickerStrings } from '@/lib/template-picker-strings'
 
 /**
  * The Job Search page hands its template picker a subset of `common` rather
@@ -86,5 +86,20 @@ describe('templatePickerStrings', () => {
 
     expect(() => templatePickerStrings(withoutLabel)).toThrow(/templateLabel/)
     expect(() => templatePickerStrings({})).toThrow(/templateLabel/)
+  })
+})
+
+describe('templateNamesFrom', () => {
+  it('returns the localized name of every template, keyed by id, without descriptions', () => {
+    const names = templateNamesFrom(templatePickerStrings(fr))
+    expect(Object.keys(names).sort()).toEqual(TEMPLATE_OPTIONS.map(({ id }) => id).sort())
+    expect(names.modern).toBe(fr.resumes.templates.modern)
+    expect(names.professional).toBe(fr.resumes.templates.professional)
+  })
+
+  it('returns the English names in en, so the en resume selector is unchanged', () => {
+    const names = templateNamesFrom(templatePickerStrings(en))
+    expect(names.modern).toBe('Modern')
+    expect(names.professional).toBe('Professional')
   })
 })

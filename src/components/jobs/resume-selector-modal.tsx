@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { X, FileText, Loader2, FilePlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Resume } from '@/types/database'
+import type { Locale } from '@/lib/i18n'
+import { fillTemplate, formatResumeUpdatedDate } from '@/lib/job-search-format'
 
 interface ResumeSelectorModalProps {
   isOpen: boolean
@@ -11,6 +13,9 @@ interface ResumeSelectorModalProps {
   onSelectResume: (resumeId: string) => void
   onCreateNewCV?: () => void
   userId: string
+  locale: Locale
+  /** Localized template names keyed by template id; an id without one is shown as stored. */
+  templateNames: Readonly<Record<string, string>>
   showCreateNewOption?: boolean
   dict?: {
     selectResumeTitle?: string
@@ -21,6 +26,9 @@ interface ResumeSelectorModalProps {
     loading?: string
     newCV?: string
     newCVDescription?: string
+    loadError?: string
+    templateLabel?: string
+    updatedOn?: string
   }
 }
 
@@ -30,6 +38,8 @@ export function ResumeSelectorModal({
   onSelectResume,
   onCreateNewCV,
   userId,
+  locale,
+  templateNames,
   showCreateNewOption = false,
   dict = {},
 }: ResumeSelectorModalProps) {
@@ -68,7 +78,7 @@ export function ResumeSelectorModal({
       }
     } catch (err) {
       console.error('Error fetching resumes:', err)
-      setError('Failed to load resumes')
+      setError(dict.loadError || 'Failed to load resumes')
     } finally {
       setIsLoading(false)
     }
@@ -191,10 +201,16 @@ export function ResumeSelectorModal({
                         <h3 className="font-medium text-gray-900 truncate">{resume.title}</h3>
                       </div>
                       <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
-                        <span className="capitalize">{resume.template} template</span>
+                        <span className="capitalize">
+                          {fillTemplate(dict.templateLabel || '{template} template', {
+                            template: templateNames[resume.template] ?? resume.template,
+                          })}
+                        </span>
                         <span>•</span>
                         <span>
-                          Updated {new Date(resume.updated_at || resume.created_at).toLocaleDateString()}
+                          {fillTemplate(dict.updatedOn || 'Updated {date}', {
+                            date: formatResumeUpdatedDate(resume.updated_at || resume.created_at, locale),
+                          })}
                         </span>
                       </div>
                     </div>

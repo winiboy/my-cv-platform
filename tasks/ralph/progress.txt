@@ -81,3 +81,85 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 the cover-letter editor is fully French in French
 FINAL: PASS
+
+Note: US-001's story commit is aae2936.
+
+## US-002: Job Search shows no English in fr, de or it
+Status: PASS
+Priority: 2
+Branch: ralph/fill-translation-gaps
+Baseline HEAD: aae2936 (US-001 commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat, added/removed):
+  - src/components/jobs/job-card.tsx (6/3), job-detail-panel.tsx (35/14), job-list.tsx (8/1), job-search-layout.tsx (6/5), resume-selector-modal.tsx (19/3).
+  - src/lib/template-picker-strings.ts (14/0, new templateNamesFrom), src/lib/template-picker-strings.test.ts (16/1).
+  - src/locales/{en,fr,de,it}/jobs.json (23/0 each; no existing key changed).
+  - src/lib/job-search-format.ts (new, 72 lines), src/lib/job-search-format.test.ts (new, 117 lines).
+  - e2e/job-search-i18n.spec.ts (new, 506 lines).
+- Keys added in all 4 locales: the PRD's 12 (loading, loadingMore, allJobsLoaded, preview, fullDetailsNote, viewFullDetails, viewInApplications, jobSavedSuccess, jobAlreadySaved, jobSaveError, saving, filters.allCantons) plus liveData, notice, loadJobsError, apiError, locationInSwitzerland, genericError, resumeSelector.{loadError, templateLabel, updatedOn}.
+- Not touched: `git diff --stat -- src/app/api/resumes/[id]/download-docx src/lib/pdf src/app/api package.json pnpm-lock.yaml supabase src/components/ui` is empty. No version change, no migration, no push or merge.
+- Temporary capture spec e2e/zz-uiexp-jobs.spec.ts was generated after the checks and deleted after each capture run; `ls e2e | grep -c zz` is 0.
+
+Checks (final diff, run 2 — run 1 was invalidated by the ui-expert fix round):
+- pnpm typecheck: PASS — 0 errors.
+- pnpm test: PASS — 70 files, 2078 passed, 5 skipped (2063 after US-001).
+- pnpm test:integration: PASS — 4 files, 50 passed.
+- pnpm test:e2e: PASS — 327 passed, 0 failed (316 after US-001; +11 from job-search-i18n.spec.ts).
+- pnpm build: PASS — 105/105 static pages.
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); unchanged from US-001, under the tracked 306 ceiling.
+
+Specialized validation:
+- Browser: PASS — e2e/job-search-i18n.spec.ts: fr/de/it full walk (loading, list, detail, loading more, end of list, saving, saved toast, already-saved toast, resume selector, dates), fr/de/it error notices, fr/de/it 375px saving label not clipped, en unchanged, and a control proving the scan catches English text and an English attribute.
+- Visual: NOT_APPLICABLE — no resume template or print code changed; the PRD does not require test:visual.
+- Export: NOT_APPLICABLE — no export code in the diff.
+- Database: NOT_APPLICABLE — no schema change. The stored job_applications.location value changes (Decision c).
+- Security: NOT_APPLICABLE — no auth, validation or trust boundary changed; the 409 fix only reads fields the API already returns (src/app/api/job-applications/route.ts:176-184).
+
+Agents:
+- senior-coder: implementation, then two scoped fix rounds:
+  - Orchestrator round: the count in allJobsLoaded and the selector's "Updated" date would have changed en output; both now keep the exact previous en call (bare toLocaleString() / toLocaleDateString(undefined)).
+  - ui-expert round: see below.
+- ui-expert, round 1: FAIL — at 375px the in-progress save label was truncated in fr ("Enregistre...") and de ("Wird gesp..."); minor: fr "!" wrapping alone, fr notice "Avis", count not in page locale; evidence gap (end of list, loading more, notice not captured). Fixed: fr "En cours…", de "Speichert…", it "Salvando…"; U+00A0 before "!" in fr jobSavedSuccess; fr notice "Information"; count in page locale for fr/de/it.
+- ui-expert, round 2: BLOCKED — loading-more row below the list's scroll area in the capture; no keyboard trace.
+- ui-expert, round 3: PASS, 7/7 conditions. Evidence: fr/de at 1440 and 1024 (10 states each), en at 1440 and 1024, fr/de/it at 375 (7 mobile states), loading-more with the list scrolled to its end, and a 375px keyboard trace (back control, then Apply, Save, Adapt, Create, View full details, each with a focus ring). No clipped element in any state except the dev branch badge and the sr-only header menu label.
+- code-reviewer: PASS — 0 critical, 0 major, 5 minor (none changes code); required (a), (b), (c) and the server texts to be recorded below.
+
+Acceptance criteria:
+- AC-01 (keys, en = current English): PASS — keys above in all 4 locales; code-reviewer checked every new en value character by character against the replaced fallback or literal; every `dict?.x || '…'` fallback in src/components/jobs now resolves to an existing key.
+- AC-02 (no listed English in fr/de/it): PASS — e2e scan of text nodes plus placeholder/title/aria-label in every state listed under Browser; ui-expert round 3 captures.
+- AC-03 (dates in page locale): PASS — card and detail: fr "15/01/2026", de "15.1.2026", it "15/01/2026" or "15/1/2026" by ICU; e2e and unit tests.
+- AC-04 (en unchanged): PASS, with the two PRD-sanctioned exceptions recorded under Decisions (a) and (b) — every other en string, the count and both dates render as before (e2e en run; unit tests spy on the locale argument).
+- FR-1: PASS — see AC-01. FR-2: PASS — locale-parity.test.ts passes with the new keys. FR-3: PASS — no package.json or lockfile change.
+- Regression constraints: PASS — full e2e 327/327 incl. job-search-mobile, job-cv-template-picker, adaptation-modal-i18n and the cover-letter specs.
+- Verification items: PASS — §14 baseline above; e2e fr and de (plus it); ui-expert fr and de with overflow check; code-reviewer.
+- FAIL conditions: none met — no listed English in fr/de/it; en changes limited to (a) and (b), both named by the PRD; parity control from US-001 unchanged.
+- BLOCKER condition: server texts reported, not blocking — see Open owner decisions.
+- Out of scope respected: canton codes, listing data, server text, runtime merge, other pages.
+
+Decision (a), en behaviour change sanctioned by the PRD: on a duplicate save the API answers 409 with isDuplicate:true, which the client used to drop, so every locale showed the server's English "Job already saved" as an error toast and the button stayed on "Save". The PRD lists jobAlreadySaved with "en = today's fallback", and that fallback was unreachable. The flag is now passed through: the localized info toast shows ("This job is already in your saved applications." in en) and the button shows "Saved". Rejected: leaving the bug, which keeps English in fr/de/it on that path.
+
+Decision (b), en text change sanctioned by the PRD: the two "could not load resumes" toasts in job-detail-panel.tsx used a key whose en text was "Please create a CV first."; the PRD Context names exactly this. They now read resumeSelector.loadError, en "Failed to load resumes" (the selector modal's existing literal). Error path only.
+
+Decision (c), stored data: the POST to /api/job-applications builds location from the localized "{city}, Switzerland" template (the PRD lists that line), so a French save stores "Lausanne, Suisse". This contradicts the PRD's Impact Assessment "Database / persistence: Not affected". en stores the same value as before; duplicate detection keys on job_url, so no duplicates can result; listings with location_full were already stored as given by the feed.
+
+Decision (d), en byte-identity where the old output depended on the browser: allJobsLoaded count and the selector's "Updated" date keep the bare toLocaleString()/toLocaleDateString(undefined) in en and use the page locale in fr/de/it; card and detail dates keep "en-GB" in en (the old literal). src/lib/job-search-format.ts documents each branch.
+
+Decision (e), saving label: no natural French word for "saving" fits the 85px cell at 375px ("Enregistrement…" needs 115px, "Sauvegarde…" 93px), so fr reads "En cours…"; it "Salvando…" (code-reviewer finds it less idiomatic than "Salvataggio…", which needs 91px). Rejected: changing the button layout, which would also change en.
+
+Open owner decisions recorded by this story (none blocks release validation):
+- Decisions (a), (b) and (c) above are the only en or stored-data changes; confirm before merge.
+- Server texts left as they are (PRD BLOCKER rule): `data.message` from /api/jobs in the error notice, and the API's `error` text on non-409 save failures (e.g. "Failed to save job application").
+- App-wide toast container screen-reader labels "Notifications" / "Dismiss notification" (src/components/ui/toast.tsx) are English in every locale; outside Job Search.
+- Pre-existing, from ui-expert: "View in Applications" uses text-teal-600 on white, 3.74:1, below AA; text-teal-700 would give about 5.5:1.
+- Pre-existing, from code-reviewer: listing dates are date-only strings ("2026-01-15", adzuna-client.ts:189) parsed as UTC midnight, so viewers west of UTC see the previous day; unit tests use a full datetime; "All 1 jobs loaded" / "Les 1 offres" plural.
+- Polish: the selector's `capitalize` class title-cases localized template labels ("Modèle Moderne"); kept for en byte-identity.
+
+Environment notes:
+- Windows 11, local Supabase stack, Playwright suites run one at a time; the e2e pins timezoneId Europe/Zurich for dates. No stall or rerun in the final check run.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 Job Search shows no English in fr, de or it
+FINAL: PASS

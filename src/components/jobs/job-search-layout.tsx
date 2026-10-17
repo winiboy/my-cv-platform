@@ -148,11 +148,11 @@ export function JobSearchLayout({ initialJobs, dict, locale, templatePicker, cvA
 
       // If there's an error message but we got data
       if (data.error) {
-        setError(data.message || 'API error occurred')
+        setError(data.message || dict?.apiError || 'API error occurred')
       }
     } catch (err) {
       console.error('Error fetching jobs:', err)
-      setError('Failed to load jobs from API. Please check your connection and try again.')
+      setError(dict?.loadJobsError || 'Failed to load jobs from API. Please check your connection and try again.')
       if (!append) {
         setJobs([])
         setDataSource('adzuna')
@@ -161,7 +161,7 @@ export function JobSearchLayout({ initialJobs, dict, locale, templatePicker, cvA
       setIsLoading(false)
       setIsLoadingMore(false)
     }
-  }, [filters, jobs.length, selectedJobId])
+  }, [filters, jobs.length, selectedJobId, dict])
 
   // Initial fetch and re-fetch when filters change
   useEffect(() => {
@@ -246,7 +246,7 @@ export function JobSearchLayout({ initialJobs, dict, locale, templatePicker, cvA
           <div className="text-sm text-slate-500">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-green-700">
               <span className="h-2 w-2 rounded-full bg-green-500"></span>
-              Live Data
+              {dict?.liveData || 'Live Data'}
             </span>
           </div>
         </div>
@@ -256,7 +256,7 @@ export function JobSearchLayout({ initialJobs, dict, locale, templatePicker, cvA
           <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
             <AlertCircle className="h-5 w-5 flex-shrink-0 text-amber-600" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-amber-900">Notice</p>
+              <p className="text-sm font-medium text-amber-900">{dict?.notice || 'Notice'}</p>
               <p className="mt-1 text-sm text-amber-700">{error}</p>
             </div>
           </div>
@@ -294,6 +294,7 @@ export function JobSearchLayout({ initialJobs, dict, locale, templatePicker, cvA
               selectedJobId={selectedJobId}
               onSelectJob={handleSelectJob}
               dict={dict}
+              locale={locale}
               observerTarget={observerTarget}
               scrollContainerRef={listScrollRef}
               scrollContainerTabIndex={isMobile ? -1 : undefined}

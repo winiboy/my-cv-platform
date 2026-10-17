@@ -62,7 +62,7 @@
         "Out of scope: Merging en into other locales at runtime."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

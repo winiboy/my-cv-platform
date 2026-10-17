@@ -1,6 +1,8 @@
 'use client'
 
 import type { JobListing } from '@/types/jobs'
+import type { Locale } from '@/lib/i18n'
+import { fillTemplate, formatJobSearchCount } from '@/lib/job-search-format'
 import { JobCard } from './job-card'
 import { Loader2 } from 'lucide-react'
 
@@ -9,6 +11,7 @@ interface JobListProps {
   selectedJobId: string | null
   onSelectJob: (jobId: string) => void
   dict: any
+  locale: Locale
   observerTarget?: React.RefObject<HTMLDivElement | null>
   /** The list's own scroll container, for callers that save and restore its offset. */
   scrollContainerRef?: React.RefObject<HTMLDivElement | null>
@@ -24,6 +27,7 @@ export function JobList({
   selectedJobId,
   onSelectJob,
   dict,
+  locale,
   observerTarget,
   scrollContainerRef,
   scrollContainerTabIndex,
@@ -56,6 +60,7 @@ export function JobList({
             isSelected={job.id === selectedJobId}
             onClick={() => onSelectJob(job.id)}
             dict={dict}
+            locale={locale}
           />
         ))}
 
@@ -78,7 +83,9 @@ export function JobList({
         {!hasMore && jobs.length > 0 && (
           <div className="p-6 text-center">
             <p className="text-sm text-slate-500">
-              {dict?.allJobsLoaded || `All ${totalJobs.toLocaleString()} jobs loaded`}
+              {fillTemplate(dict?.allJobsLoaded || 'All {count} jobs loaded', {
+                count: formatJobSearchCount(totalJobs, locale),
+              })}
             </p>
           </div>
         )}

@@ -50,3 +50,17 @@ export function templatePickerStrings(common: Record<string, unknown>): Template
 
   return { label, dict: { resumes: picked } }
 }
+
+/**
+ * The localized template names (`common.json -> resumes.templates`) carried by
+ * picker strings, keyed by template id. Descriptions and any non-string entry
+ * are left out.
+ */
+export function templateNamesFrom(strings: TemplatePickerStrings): Readonly<Record<string, string>> {
+  const templates = asRecord(asRecord(strings.dict.resumes)?.templates) ?? {}
+  const names: Record<string, string> = {}
+  for (const [id, name] of Object.entries(templates)) {
+    if (!id.endsWith('Desc') && typeof name === 'string' && name !== '') names[id] = name
+  }
+  return names
+}
