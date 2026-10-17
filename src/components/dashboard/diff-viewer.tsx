@@ -16,7 +16,7 @@ interface DiffViewerProps {
     | 'currentVersion'
     | 'proposedVersion'
     | 'noContent'
-    | 'reasoning'
+    | 'reasoningLabel'
     | 'applyChange'
     | 'confidenceHigh'
     | 'confidenceMedium'
@@ -96,7 +96,7 @@ export function DiffViewer({
       {/* Reasoning */}
       <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
         <p className="text-xs font-medium text-blue-900 mb-1">
-          {dict.reasoning}:
+          {dict.reasoningLabel}
         </p>
         <p className="text-sm text-blue-800">{reasoning}</p>
       </div>

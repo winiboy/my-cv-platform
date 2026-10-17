@@ -7,7 +7,7 @@ import { DiffViewer } from './diff-viewer'
 import { TemplatePicker } from './template-picker'
 import { toLocale } from '@/lib/i18n'
 import type { TemplatePickerStrings } from '@/lib/template-picker-strings'
-import type { CVAdaptationStrings } from '@/lib/cv-adaptation-strings'
+import { withCategory, type CVAdaptationStrings } from '@/lib/cv-adaptation-strings'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
 import type { ResumeTemplate } from '@/types/database'
 
@@ -425,7 +425,7 @@ export function CVAdaptationModal({
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-700">
-                      {dict.matchScore}:
+                      {dict.matchScoreLabel}
                     </span>
                     <span
                       className={`text-2xl font-bold ${getMatchScoreColor(patch.analysis.matchScore)}`}
@@ -437,7 +437,7 @@ export function CVAdaptationModal({
                   {patch.analysis.keyGaps.length > 0 && (
                     <div>
                       <p className="text-sm font-medium text-gray-700 mb-1">
-                        {dict.keyGaps}:
+                        {dict.keyGapsLabel}
                       </p>
                       <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
                         {patch.analysis.keyGaps.map((gap, index) => (
@@ -450,7 +450,7 @@ export function CVAdaptationModal({
                   {patch.analysis.strengths.length > 0 && (
                     <div>
                       <p className="text-sm font-medium text-gray-700 mb-1">
-                        {dict.strengths}:
+                        {dict.strengthsLabel}
                       </p>
                       <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
                         {patch.analysis.strengths.map((strength, index) => (
@@ -496,7 +496,7 @@ export function CVAdaptationModal({
                     <div key={`add-${index}`} className="border border-gray-200 rounded-lg p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="font-semibold text-gray-900">
-                          {dict.addSkills}: {skillPatch.category}
+                          {withCategory(dict.addSkillsHeading, skillPatch.category)}
                         </h4>
                         <span className={`px-2 py-1 text-xs font-medium rounded-full border ${
                           skillPatch.confidence === 'high' ? 'bg-green-100 text-green-800 border-green-300' :
@@ -520,7 +520,7 @@ export function CVAdaptationModal({
                       </div>
                       <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                         <p className="text-xs font-medium text-blue-900 mb-1">
-                          {dict.reasoning}:
+                          {dict.reasoningLabel}
                         </p>
                         <p className="text-sm text-blue-800">{skillPatch.reasoning}</p>
                       </div>
@@ -543,7 +543,7 @@ export function CVAdaptationModal({
                     <div key={`enhance-${index}`} className="border border-gray-200 rounded-lg p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="font-semibold text-gray-900">
-                          {dict.enhanceSkills}: {skillPatch.category}
+                          {withCategory(dict.enhanceSkillsHeading, skillPatch.category)}
                         </h4>
                         <span className={`px-2 py-1 text-xs font-medium rounded-full border ${
                           skillPatch.confidence === 'high' ? 'bg-green-100 text-green-800 border-green-300' :
@@ -567,7 +567,7 @@ export function CVAdaptationModal({
                       </div>
                       <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                         <p className="text-xs font-medium text-blue-900 mb-1">
-                          {dict.reasoning}:
+                          {dict.reasoningLabel}
                         </p>
                         <p className="text-sm text-blue-800">{skillPatch.reasoning}</p>
                       </div>
