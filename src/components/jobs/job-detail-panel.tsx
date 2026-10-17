@@ -3,9 +3,9 @@
 import { ArrowLeft, MapPin, Briefcase, DollarSign, Calendar, Bookmark, ExternalLink, Sparkles, FilePlus, Loader2, Eye } from 'lucide-react'
 import type { JobListing } from '@/types/jobs'
 import type { Locale } from '@/lib/i18n'
-import type { TemplatePickerStrings } from '@/lib/template-picker-strings'
+import { templateNamesFrom, type TemplatePickerStrings } from '@/lib/template-picker-strings'
 import type { CVAdaptationStrings } from '@/lib/cv-adaptation-strings'
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { isRedirectContent } from '@/lib/adzuna-client'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -15,6 +15,7 @@ import { ResumeSelectorModal } from './resume-selector-modal'
 import { createClient } from '@/lib/supabase/client'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
 import { useRouter } from 'next/navigation'
+import { formatJobSearchDate, jobLocationLabel } from '@/lib/job-search-format'
 
 /**
  * Response from the job-applications POST endpoint
@@ -46,7 +47,14 @@ interface JobDetailPanelDict {
   viewFullDetails?: string
   requirements?: string
   locationNote?: string
+  locationInSwitzerland?: string
   viewInApplications?: string
+  genericError?: string
+  resumeSelector?: {
+    loadError?: string
+    templateLabel?: string
+    updatedOn?: string
+  }
   backToResults?: string
   employmentTypes?: Record<string, string>
   createCV?: {
@@ -115,6 +123,7 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
     company: string
   } | null>(null)
   const [showCreateNewCVModal, setShowCreateNewCVModal] = useState(false)
+  const templateNames = useMemo(() => templateNamesFrom(templatePicker), [templatePicker])
   const rootRef = useRef<HTMLDivElement>(null)
   const backButtonRef = useRef<HTMLButtonElement>(null)
   const hasBackControl = onBackToResults !== undefined
@@ -163,7 +172,7 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
       body: JSON.stringify({
         job_title: job.title,
         company_name: job.company,
-        location: job.location_full || `${job.location_city}, Switzerland`,
+        location: jobLocationLabel(job, dict?.locationInSwitzerland || '{city}, Switzerland'),
         salary_min: salaryMin,
         salary_max: salaryMax,
         job_url: job.application_url || null,
@@ -173,12 +182,18 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
     })
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      return { error: errorData.error || `HTTP ${response.status}` }
+      const errorData: SaveJobResponse = await response.json().catch(() => ({}))
+      // A duplicate is answered with 409; its flag and existing row must reach
+      // `handleSave`, or the already-saved message is never shown.
+      return {
+        error: errorData.error || `HTTP ${response.status}`,
+        isDuplicate: errorData.isDuplicate === true,
+        jobApplication: errorData.jobApplication,
+      }
     }
 
     return response.json()
-  }, [job])
+  }, [job, dict])
 
   const handleSave = async () => {
     // If already saved, just toggle the visual state (no unsave API yet)
@@ -215,8 +230,9 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
       toast.success(dict?.jobSavedSuccess || 'Job saved to your applications!')
     } catch (error) {
       console.error('Error saving job:', error)
-      setSaveError('Failed to save job')
-      toast.error(dict?.jobSaveError || 'Failed to save job. Please try again.')
+      const message = dict?.jobSaveError || 'Failed to save job. Please try again.'
+      setSaveError(message)
+      toast.error(message)
     } finally {
       setIsSaving(false)
     }
@@ -328,7 +344,7 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
 
       if (error) {
         console.error('Error fetching resumes:', error)
-        toast.error(dict?.cvAdaptation?.noResumesError || 'Failed to load resumes')
+        toast.error(dict?.resumeSelector?.loadError || 'Failed to load resumes')
         return
       }
 
@@ -349,7 +365,7 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
     } catch (error) {
       console.error('Error in handleAdaptCV:', error)
       setIsFetchingJob(false)
-      toast.error('An error occurred. Please try again.')
+      toast.error(dict?.genericError || 'An error occurred. Please try again.')
     }
   }
 
@@ -446,7 +462,7 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
 
       if (error) {
         console.error('Error fetching resumes:', error)
-        toast.error(dict?.cvAdaptation?.noResumesError || 'Failed to load resumes')
+        toast.error(dict?.resumeSelector?.loadError || 'Failed to load resumes')
         setIsFetchingJob(false)
         setIsCreateCVMode(false)
         return
@@ -461,7 +477,7 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
       setShowCreateNewCVModal(true)
     } catch (error) {
       console.error('Error in handleCreateCV:', error)
-      toast.error('An error occurred. Please try again.')
+      toast.error(dict?.genericError || 'An error occurred. Please try again.')
       setIsFetchingJob(false)
       setIsCreateCVMode(false)
     }
@@ -596,7 +612,7 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
         <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-slate-600">
           <div className="flex items-center gap-1.5">
             <MapPin className="h-4 w-4" />
-            <span>{job.location_full || `${job.location_city}, Switzerland`}</span>
+            <span>{jobLocationLabel(job, dict?.locationInSwitzerland || '{city}, Switzerland')}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Briefcase className="h-4 w-4" />
@@ -610,7 +626,7 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
           )}
           <div className="flex items-center gap-1.5">
             <Calendar className="h-4 w-4" />
-            <span>{new Date(job.posted_date).toLocaleDateString('en-GB')}</span>
+            <span>{formatJobSearchDate(job.posted_date, locale)}</span>
           </div>
         </div>
 
@@ -756,12 +772,17 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
         onSelectResume={handleResumeSelected}
         onCreateNewCV={handleCreateNewCVFromSelector}
         userId={userId}
+        locale={locale}
+        templateNames={templateNames}
         showCreateNewOption={true}
         dict={{
           ...dict?.cvAdaptation,
           selectResumeTitleWithCreate: dict?.createCV?.selectResumeTitleWithCreate,
           newCV: dict?.createCV?.newCV,
           newCVDescription: dict?.createCV?.newCVDescription,
+          loadError: dict?.resumeSelector?.loadError,
+          templateLabel: dict?.resumeSelector?.templateLabel,
+          updatedOn: dict?.resumeSelector?.updatedOn,
         }}
       />
 

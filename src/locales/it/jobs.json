@@ -30,6 +30,7 @@
   "filters": {
     "searchPlaceholder": "Cerca lavori...",
     "allLocations": "Tutte le città",
+    "allCantons": "Tutti i cantoni",
     "allTypes": "Tutti i tipi",
     "clearFilters": "Cancella filtri"
   },
@@ -49,6 +50,28 @@
   "jobDescription": "Descrizione del lavoro",
   "requirements": "Requisiti",
   "locationNote": "Questa posizione si trova in Svizzera e richiede l'autorizzazione legale a lavorare in Svizzera.",
+  "loading": "Caricamento delle offerte...",
+  "loadingMore": "Caricamento di altre offerte...",
+  "allJobsLoaded": "Tutte le {count} offerte caricate",
+  "liveData": "Dati in tempo reale",
+  "notice": "Avviso",
+  "loadJobsError": "Impossibile caricare le offerte. Controlla la connessione e riprova.",
+  "apiError": "Si è verificato un errore dell'API",
+  "locationInSwitzerland": "{city}, Svizzera",
+  "preview": "Anteprima",
+  "fullDetailsNote": "La descrizione completa dell'offerta, con tutti i dettagli, è disponibile sul sito del datore di lavoro.",
+  "viewFullDetails": "Vedi l'offerta completa",
+  "viewInApplications": "Vedi nelle candidature",
+  "saving": "Salvando…",
+  "jobSavedSuccess": "Offerta salvata nelle tue candidature!",
+  "jobAlreadySaved": "Questa offerta è già tra le tue candidature salvate.",
+  "jobSaveError": "Impossibile salvare l'offerta. Riprova.",
+  "genericError": "Si è verificato un errore. Riprova.",
+  "resumeSelector": {
+    "loadError": "Impossibile caricare i CV",
+    "templateLabel": "Modello {template}",
+    "updatedOn": "Aggiornato il {date}"
+  },
   "cvAdaptation": {
     "title": "Adatta CV all'offerta",
     "jobDescriptionLabel": "Descrizione del lavoro",

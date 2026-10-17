@@ -30,6 +30,7 @@
   "filters": {
     "searchPlaceholder": "Search jobs...",
     "allLocations": "All Cities",
+    "allCantons": "All Cantons",
     "allTypes": "All Types",
     "clearFilters": "Clear filters"
   },
@@ -49,6 +50,28 @@
   "jobDescription": "Job Description",
   "requirements": "Requirements",
   "locationNote": "This position is located in Switzerland and requires legal authorization to work in Switzerland.",
+  "loading": "Loading jobs...",
+  "loadingMore": "Loading more jobs...",
+  "allJobsLoaded": "All {count} jobs loaded",
+  "liveData": "Live Data",
+  "notice": "Notice",
+  "loadJobsError": "Failed to load jobs from API. Please check your connection and try again.",
+  "apiError": "API error occurred",
+  "locationInSwitzerland": "{city}, Switzerland",
+  "preview": "Preview",
+  "fullDetailsNote": "The complete job description with all details is available on the employer's website.",
+  "viewFullDetails": "View Full Job Details",
+  "viewInApplications": "View in Applications",
+  "saving": "Saving...",
+  "jobSavedSuccess": "Job saved to your applications!",
+  "jobAlreadySaved": "This job is already in your saved applications.",
+  "jobSaveError": "Failed to save job. Please try again.",
+  "genericError": "An error occurred. Please try again.",
+  "resumeSelector": {
+    "loadError": "Failed to load resumes",
+    "templateLabel": "{template} template",
+    "updatedOn": "Updated {date}"
+  },
   "cvAdaptation": {
     "title": "Adapt CV to Job",
     "jobDescriptionLabel": "Job Description",

@@ -1,5 +1,7 @@
 'use client'
 
+import { localizedSignOffOptions, signOffOptionsFor } from '@/lib/cover-letter-sign-off'
+
 interface SignatureSectionProps {
   signOff: string
   senderName: string | null
@@ -16,14 +18,10 @@ export function SignatureSection({
   const editorDict = ((dict.coverLetters || {}) as Record<string, unknown>).editor as Record<string, unknown> || {}
   const signatureDict = (editorDict.signature || {}) as Record<string, unknown>
 
-  const signOffOptions = [
-    'Sincerely,',
-    'Best regards,',
-    'Kind regards,',
-    'Yours faithfully,',
-    'Respectfully,',
-    'With appreciation,',
-  ]
+  const signOffOptions = signOffOptionsFor(
+    localizedSignOffOptions((signatureDict.signOffOptions || {}) as Record<string, unknown>),
+    signOff,
+  )
 
   return (
     <div className="space-y-4">

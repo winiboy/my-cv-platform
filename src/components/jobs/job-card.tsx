@@ -2,6 +2,8 @@
 
 import { MapPin, Briefcase, Bookmark } from 'lucide-react'
 import type { JobListing } from '@/types/jobs'
+import type { Locale } from '@/lib/i18n'
+import { formatJobSearchDate, jobLocationLabel } from '@/lib/job-search-format'
 import { useState } from 'react'
 
 interface JobCardProps {
@@ -9,9 +11,10 @@ interface JobCardProps {
   isSelected: boolean
   onClick: () => void
   dict: any
+  locale: Locale
 }
 
-export function JobCard({ job, isSelected, onClick, dict }: JobCardProps) {
+export function JobCard({ job, isSelected, onClick, dict, locale }: JobCardProps) {
   const [isSaved, setIsSaved] = useState(job.is_saved || false)
 
   const handleSaveClick = (e: React.MouseEvent) => {
@@ -43,7 +46,7 @@ export function JobCard({ job, isSelected, onClick, dict }: JobCardProps) {
           <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-600">
             <div className="flex items-center gap-1">
               <MapPin className="h-3 w-3" />
-              <span>{job.location_full || `${job.location_city}, Switzerland`}</span>
+              <span>{jobLocationLabel(job, dict?.locationInSwitzerland || '{city}, Switzerland')}</span>
             </div>
             <div className="flex items-center gap-1">
               <Briefcase className="h-3 w-3" />
@@ -53,7 +56,7 @@ export function JobCard({ job, isSelected, onClick, dict }: JobCardProps) {
 
           {/* Posted Date */}
           <p className="mt-2 text-xs text-slate-500">
-            {dict?.postedOn || 'Posted on'} {new Date(job.posted_date).toLocaleDateString('en-GB')}
+            {dict?.postedOn || 'Posted on'} {formatJobSearchDate(job.posted_date, locale)}
           </p>
         </div>
 

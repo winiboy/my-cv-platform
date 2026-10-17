@@ -344,7 +344,8 @@
         "fontSize": "Schriftgröße",
         "alignLeft": "Linksbündig",
         "alignCenter": "Zentriert",
-        "alignJustify": "Blocksatz"
+        "alignJustify": "Blocksatz",
+        "systemDefault": "Systemschrift"
       }
     },
     "template": {
@@ -548,7 +549,8 @@
         "body": "Hauptteil",
         "closing": "Schluss",
         "signature": "Unterschrift",
-        "resume": "Verknüpfter Lebenslauf"
+        "resume": "Verknüpfter Lebenslauf",
+        "job": "Verknüpfte Stelle"
       },
       "resume": {
         "title": "Verknüpfter Lebenslauf",
@@ -584,6 +586,7 @@
         "paragraphLabel": "Absatz",
         "paragraphPlaceholder": "Schreiben Sie Ihren Absatz...",
         "removeParagraph": "Absatz entfernen",
+        "moveUp": "Nach oben verschieben",
         "emptyState": "Noch keine Hauptabsätze",
         "addFirst": "Ersten Absatz hinzufügen"
       },
@@ -596,6 +599,14 @@
       "signature": {
         "title": "Unterschrift",
         "signOffLabel": "Grußformel",
+        "signOffOptions": {
+          "sincerely": "Mit freundlichen Grüßen",
+          "bestRegards": "Beste Grüße",
+          "kindRegards": "Freundliche Grüße",
+          "yoursFaithfully": "Hochachtungsvoll",
+          "respectfully": "Mit vorzüglicher Hochachtung",
+          "withAppreciation": "Mit herzlichem Dank"
+        },
         "nameLabel": "Ihr Name",
         "namePlaceholder": "Ihr vollständiger Name"
       }

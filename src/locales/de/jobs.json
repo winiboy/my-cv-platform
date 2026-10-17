@@ -30,6 +30,7 @@
   "filters": {
     "searchPlaceholder": "Stellen suchen...",
     "allLocations": "Alle Städte",
+    "allCantons": "Alle Kantone",
     "allTypes": "Alle Typen",
     "clearFilters": "Filter löschen"
   },
@@ -49,6 +50,28 @@
   "jobDescription": "Stellenbeschreibung",
   "requirements": "Anforderungen",
   "locationNote": "Diese Position befindet sich in der Schweiz und erfordert eine gesetzliche Arbeitserlaubnis in der Schweiz.",
+  "loading": "Stellen werden geladen...",
+  "loadingMore": "Weitere Stellen werden geladen...",
+  "allJobsLoaded": "Alle {count} Stellen geladen",
+  "liveData": "Live-Daten",
+  "notice": "Hinweis",
+  "loadJobsError": "Die Stellen konnten nicht geladen werden. Bitte prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+  "apiError": "Ein API-Fehler ist aufgetreten",
+  "locationInSwitzerland": "{city}, Schweiz",
+  "preview": "Vorschau",
+  "fullDetailsNote": "Die vollständige Stellenbeschreibung mit allen Details finden Sie auf der Website des Arbeitgebers.",
+  "viewFullDetails": "Vollständige Stellenanzeige ansehen",
+  "viewInApplications": "In Bewerbungen ansehen",
+  "saving": "Speichert…",
+  "jobSavedSuccess": "Stelle in Ihren Bewerbungen gespeichert!",
+  "jobAlreadySaved": "Diese Stelle ist bereits in Ihren gespeicherten Bewerbungen.",
+  "jobSaveError": "Die Stelle konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.",
+  "genericError": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
+  "resumeSelector": {
+    "loadError": "Lebensläufe konnten nicht geladen werden",
+    "templateLabel": "Vorlage {template}",
+    "updatedOn": "Aktualisiert am {date}"
+  },
   "cvAdaptation": {
     "title": "Lebenslauf an Stelle anpassen",
     "jobDescriptionLabel": "Stellenbeschreibung",
