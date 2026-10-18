@@ -195,9 +195,21 @@ export function ClassicTemplate({
                     {exp.location && <p className="text-sm text-slate-600">{exp.location}</p>}
                   </div>
                   {exp.achievements && exp.achievements.length > 0 ? (
-                    <ul className="mt-2 list-inside list-disc space-y-1 text-slate-800" style={{ position: index === 0 ? 'relative' : undefined, fontSize: `${drawnSectionDescSize}px` }}>
+                    <ul className="mt-2 list-none space-y-1 text-slate-800" style={{ position: index === 0 ? 'relative' : undefined, fontSize: `${drawnSectionDescSize}px` }}>
+                      {/*
+                        The bullet is drawn, not a ::marker: renderFormattedText
+                        always returns a block, which pushes an inline marker onto
+                        a line of its own. Baseline alignment puts the glyph on the
+                        text's first line at any drawn size, and the text column
+                        keeps wrapped lines clear of it. The text wrapper sets no
+                        typography, so the text still draws at what it inherits
+                        here, as the parity body rows sample it.
+                      */}
                       {exp.achievements.map((achievement, i) => (
-                        <li key={i}>{renderFormattedText(achievement)}</li>
+                        <li key={i} className="flex items-baseline gap-2">
+                          <span aria-hidden="true" className="shrink-0">•</span>
+                          <div className="min-w-0 flex-1">{renderFormattedText(achievement)}</div>
+                        </li>
                       ))}
 
                       {/* Description Font Size Slider - on first experience */}
