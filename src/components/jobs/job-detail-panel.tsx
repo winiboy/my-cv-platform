@@ -126,6 +126,11 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
   const templateNames = useMemo(() => templateNamesFrom(templatePicker), [templatePicker])
   const rootRef = useRef<HTMLDivElement>(null)
   const backButtonRef = useRef<HTMLButtonElement>(null)
+  // The action button that started the adapt or create flow. Both modals hand
+  // focus back to it: the button is disabled while the job is fetched, and the
+  // resume selector may sit between it and the modal, so it is not reliably
+  // the focused element when a modal opens.
+  const modalOpenerRef = useRef<HTMLButtonElement>(null)
   const hasBackControl = onBackToResults !== undefined
   // On a phone the two long actions take a full row each, so their labels are
   // never cut; from sm up they sit in the flex row and truncate as before.
@@ -245,7 +250,8 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
     // TODO: Track application
   }
 
-  const handleAdaptCV = async () => {
+  const handleAdaptCV = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    modalOpenerRef.current = event.currentTarget
     try {
       // Get current user
       const supabase = createClient()
@@ -390,7 +396,8 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
     router.push(`/${locale}/dashboard/resumes/${selectedResumeId}/edit?applyAdaptation=true`)
   }
 
-  const handleCreateCV = async () => {
+  const handleCreateCV = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    modalOpenerRef.current = event.currentTarget
     if (!job.application_url || job.application_url === '#') {
       toast.error(dict?.createCV?.noUrlError || 'No external job URL available')
       return
@@ -799,6 +806,7 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
           onApplyChanges={handleApplyChanges}
           dict={cvAdaptation}
           isCreateMode={isCreateCVMode}
+          returnFocusRef={modalOpenerRef}
         />
       )}
 
@@ -815,6 +823,7 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
         isCreateMode={true}
         isCreateNewCV={true}
         templatePicker={templatePicker}
+        returnFocusRef={modalOpenerRef}
       />
     </div>
   )

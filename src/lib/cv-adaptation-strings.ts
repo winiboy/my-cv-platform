@@ -32,17 +32,20 @@ export interface CVAdaptationStrings {
   analyzing: string
   generating: string
   adaptationFailed: string
-  matchScore: string
-  keyGaps: string
-  strengths: string
+  /** Label and its separator; fr puts U+00A0 before the colon. */
+  matchScoreLabel: string
+  keyGapsLabel: string
+  strengthsLabel: string
   summaryTitle: string
   experienceTitle: string
-  addSkills: string
-  enhanceSkills: string
+  /** Contains `{category}`; fill it with `withCategory`. */
+  addSkillsHeading: string
+  /** Contains `{category}`; fill it with `withCategory`. */
+  enhanceSkillsHeading: string
   currentVersion: string
   proposedVersion: string
   noContent: string
-  reasoning: string
+  reasoningLabel: string
   confidenceHigh: string
   confidenceMedium: string
   confidenceLow: string
@@ -88,17 +91,17 @@ const CV_ADAPTATION_KEYS = [
   'analyzing',
   'generating',
   'adaptationFailed',
-  'matchScore',
-  'keyGaps',
-  'strengths',
+  'matchScoreLabel',
+  'keyGapsLabel',
+  'strengthsLabel',
   'summaryTitle',
   'experienceTitle',
-  'addSkills',
-  'enhanceSkills',
+  'addSkillsHeading',
+  'enhanceSkillsHeading',
   'currentVersion',
   'proposedVersion',
   'noContent',
-  'reasoning',
+  'reasoningLabel',
   'confidenceHigh',
   'confidenceMedium',
   'confidenceLow',
@@ -160,4 +163,15 @@ export function cvAdaptationStrings(jobs: Record<string, unknown>): CVAdaptation
   }
 
   return strings
+}
+
+/**
+ * Fill the `{category}` slot of `addSkillsHeading` / `enhanceSkillsHeading`.
+ *
+ * The category comes from the AI response, so it is passed through a replacer
+ * function: a plain replacement string would expand `$&`, `$'` and the like
+ * inside it.
+ */
+export function withCategory(template: string, category: string): string {
+  return template.replace('{category}', () => category)
 }

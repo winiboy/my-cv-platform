@@ -16,7 +16,7 @@ interface DiffViewerProps {
     | 'currentVersion'
     | 'proposedVersion'
     | 'noContent'
-    | 'reasoning'
+    | 'reasoningLabel'
     | 'applyChange'
     | 'confidenceHigh'
     | 'confidenceMedium'
@@ -78,7 +78,7 @@ export function DiffViewer({
             {dict.currentVersion}
           </label>
           <div className="p-3 bg-gray-50 border border-gray-200 rounded-md min-h-[100px] text-sm text-gray-700 whitespace-pre-wrap">
-            {original || <span className="italic text-gray-400">{dict.noContent}</span>}
+            {original || <span className="italic text-gray-500">{dict.noContent}</span>}
           </div>
         </div>
 
@@ -96,7 +96,7 @@ export function DiffViewer({
       {/* Reasoning */}
       <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
         <p className="text-xs font-medium text-blue-900 mb-1">
-          {dict.reasoning}:
+          {dict.reasoningLabel}
         </p>
         <p className="text-sm text-blue-800">{reasoning}</p>
       </div>
@@ -107,7 +107,7 @@ export function DiffViewer({
           type="checkbox"
           checked={isChecked}
           onChange={(e) => onCheckChange(e.target.checked)}
-          className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+          className="w-4 h-4 text-purple-600 border-gray-300 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
         />
         <span className="text-sm font-medium text-gray-700">
           {dict.applyChange}

@@ -4,7 +4,7 @@ import en from '@/locales/en/jobs.json'
 import de from '@/locales/de/jobs.json'
 import it_ from '@/locales/it/jobs.json'
 import type { Locale } from '@/lib/i18n'
-import { cvAdaptationStrings, type CVAdaptationStrings } from '@/lib/cv-adaptation-strings'
+import { cvAdaptationStrings, withCategory, type CVAdaptationStrings } from '@/lib/cv-adaptation-strings'
 
 /**
  * The adaptation modal, its diff viewer and the resume editor's "Adapt to Job"
@@ -33,8 +33,13 @@ const EN_WORDING: Partial<CVAdaptationStrings> = {
   createFailed: 'Failed to create CV',
   summaryTitle: 'Professional Summary',
   experienceTitle: 'Experience Description',
-  addSkills: 'Add Skills',
-  enhanceSkills: 'Enhance',
+  // The modal used to append ':' (and ': {category}') to these in JSX.
+  matchScoreLabel: 'Match Score:',
+  keyGapsLabel: 'Key Gaps:',
+  strengthsLabel: 'Strengths:',
+  reasoningLabel: 'Reasoning:',
+  addSkillsHeading: 'Add Skills: {category}',
+  enhanceSkillsHeading: 'Enhance: {category}',
   noContent: 'No content',
   noChangesTitle: 'Great News!',
   noChangesMessage: "Your CV already aligns well with this job description. We don't recommend any changes at this time.",
@@ -59,8 +64,8 @@ const PREVIOUSLY_HARD_CODED = [
   'optional',
   'summaryTitle',
   'experienceTitle',
-  'addSkills',
-  'enhanceSkills',
+  'addSkillsHeading',
+  'enhanceSkillsHeading',
   'noContent',
   'noChangesTitle',
   'noChangesMessage',
@@ -124,5 +129,64 @@ describe('cvAdaptationStrings', () => {
     expect(() => cvAdaptationStrings(withoutClose)).toThrow(/cvAdaptation\.close/)
     expect(() => cvAdaptationStrings(withoutModalTitle)).toThrow(/createCV\.modalTitle/)
     expect(() => cvAdaptationStrings({})).toThrow(/cvAdaptation\.title/)
+  })
+})
+
+describe('cvAdaptationStrings wording (adaptation-modal-polish, US-001)', () => {
+  const NBSP = '\u00a0'
+  const LABELS = ['matchScoreLabel', 'keyGapsLabel', 'strengthsLabel', 'reasoningLabel'] as const
+  const HEADINGS = ['addSkillsHeading', 'enhanceSkillsHeading'] as const
+
+  for (const locale of LOCALES) {
+    it(`puts the separator of every label in the ${locale} translation`, () => {
+      const strings = cvAdaptationStrings(DICTS[locale])
+
+      for (const key of LABELS) {
+        expect(strings[key], `${locale} ${key}`).toMatch(/:$/)
+      }
+      for (const key of HEADINGS) {
+        expect(strings[key], `${locale} ${key}`).toMatch(/: \{category\}$/)
+      }
+      // French sets a non-breaking space before the colon; the others none.
+      for (const key of [...LABELS, ...HEADINGS]) {
+        const beforeColon = strings[key].charAt(strings[key].indexOf(':') - 1)
+        if (locale === 'fr') {
+          expect(beforeColon, `${locale} ${key}`).toBe(NBSP)
+        } else {
+          expect(beforeColon, `${locale} ${key}`).toMatch(/\S/)
+        }
+      }
+    })
+
+    it(`quotes the real create button in the ${locale} create help text`, () => {
+      const strings = cvAdaptationStrings(DICTS[locale])
+
+      expect(strings.createCVHelpText).toContain(`"${strings.createCVButton}"`)
+    })
+  }
+
+  it('reads naturally in de and it', () => {
+    const german = cvAdaptationStrings(de)
+    const italian = cvAdaptationStrings(it_)
+
+    expect(german.enhanceSkillsHeading).toBe('Erweitern: {category}')
+    expect(german.jobDescriptionCharacterCount).toBe('(mind. 100 Zeichen: {count}/100)')
+    expect(italian.confidenceHigh).toBe('Alta affidabilità')
+    expect(italian.confidenceMedium).toBe('Media affidabilità')
+    expect(italian.confidenceLow).toBe('Bassa affidabilità')
+    expect(italian.optional).toBe('(facoltativo)')
+  })
+
+  it('renders the English headings exactly as the modal composed them before', () => {
+    const english = cvAdaptationStrings(en)
+
+    expect(withCategory(english.addSkillsHeading, 'Design')).toBe('Add Skills: Design')
+    expect(withCategory(english.enhanceSkillsHeading, 'Research')).toBe('Enhance: Research')
+  })
+})
+
+describe('withCategory', () => {
+  it('inserts the category verbatim, even when it holds replacement patterns', () => {
+    expect(withCategory('Add Skills: {category}', "$& and $' and $1")).toBe("Add Skills: $& and $' and $1")
   })
 })

@@ -36,6 +36,8 @@ function admin(): SupabaseClient {
 }
 
 type TestLocale = 'fr' | 'de' | 'en'
+/** The wording checks also cover it, which the full-modal tests above do not. */
+type WordingLocale = TestLocale | 'it'
 
 interface ModalStrings {
   editorButton: string
@@ -49,6 +51,8 @@ interface ModalStrings {
   jobDescriptionPlaceholder: string
   /** The hint and the counter for an empty description. */
   hintWithEmptyCounter: string
+  /** The counter on its own; contains `{count}`. */
+  characterCount: string
   jobTitleLabel: string
   jobTitlePlaceholder: string
   companyLabelWithOptional: string
@@ -97,6 +101,7 @@ const STRINGS: Record<TestLocale, ModalStrings> = {
     jobDescriptionPlaceholder: 'Collez la description complète du poste ici...',
     hintWithEmptyCounter:
       'Incluez les exigences, responsabilités et qualifications pour de meilleurs résultats. (0/100 caractères minimum)',
+    characterCount: '({count}/100 caractères minimum)',
     jobTitleLabel: 'Titre du poste *',
     jobTitlePlaceholder: 'ex. : Ingénieur logiciel senior',
     companyLabelWithOptional: 'Entreprise (optionnel)',
@@ -110,15 +115,15 @@ const STRINGS: Record<TestLocale, ModalStrings> = {
     close: 'Fermer',
     jobTitleRequired: 'Le titre du poste est obligatoire.',
     tooShort: 'La description du poste doit contenir au moins 100 caractères.',
-    matchScore: 'Score de correspondance:',
+    matchScore: 'Score de correspondance\u00a0:',
     summaryTitle: 'Résumé professionnel',
     experienceTitle: "Description de l'expérience",
-    addSkills: 'Ajouter des compétences: Design',
-    enhanceSkills: 'Enrichir: Recherche',
+    addSkills: 'Ajouter des compétences\u00a0: Design',
+    enhanceSkills: 'Enrichir\u00a0: Recherche',
     current: 'Actuel',
     proposed: 'Proposé',
     noContent: 'Aucun contenu',
-    reasoning: 'Justification:',
+    reasoning: 'Justification\u00a0:',
     confidenceHigh: 'Confiance élevée',
     confidenceMedium: 'Confiance moyenne',
     confidenceLow: 'Confiance faible',
@@ -142,7 +147,8 @@ const STRINGS: Record<TestLocale, ModalStrings> = {
     jobDescriptionLabel: 'Stellenbeschreibung *',
     jobDescriptionPlaceholder: 'Fügen Sie die vollständige Stellenbeschreibung hier ein...',
     hintWithEmptyCounter:
-      'Fügen Sie Anforderungen, Verantwortlichkeiten und Qualifikationen für beste Ergebnisse hinzu. (0/100 Zeichen Minimum)',
+      'Fügen Sie Anforderungen, Verantwortlichkeiten und Qualifikationen für beste Ergebnisse hinzu. (mind. 100 Zeichen: 0/100)',
+    characterCount: '(mind. 100 Zeichen: {count}/100)',
     jobTitleLabel: 'Stellentitel *',
     jobTitlePlaceholder: 'z. B. Senior-Softwareentwickler',
     companyLabelWithOptional: 'Unternehmen (optional)',
@@ -160,7 +166,7 @@ const STRINGS: Record<TestLocale, ModalStrings> = {
     summaryTitle: 'Berufliche Zusammenfassung',
     experienceTitle: 'Beschreibung der Erfahrung',
     addSkills: 'Kompetenzen hinzufügen: Design',
-    enhanceSkills: 'Ergänzen: Recherche',
+    enhanceSkills: 'Erweitern: Recherche',
     current: 'Aktuell',
     proposed: 'Vorgeschlagen',
     noContent: 'Kein Inhalt',
@@ -189,6 +195,7 @@ const STRINGS: Record<TestLocale, ModalStrings> = {
     jobDescriptionPlaceholder: 'Paste the full job description here...',
     hintWithEmptyCounter:
       'Include requirements, responsibilities, and qualifications for best results. (0/100 characters minimum)',
+    characterCount: '({count}/100 characters minimum)',
     jobTitleLabel: 'Job Title *',
     jobTitlePlaceholder: 'e.g., Senior Software Engineer',
     companyLabelWithOptional: 'Company (optional)',
@@ -304,7 +311,7 @@ const JOB = {
 const FETCHED = { jobTitle: JOB_TITLE, company: JOB.company, jobDescription: DESCRIPTION }
 
 /** A patch with one change of each kind and each confidence level. Its data words avoid every forbidden pattern. */
-function patchWithChanges(locale: TestLocale) {
+function patchWithChanges(locale: WordingLocale) {
   return {
     jobTitle: JOB_TITLE,
     company: JOB.company,
@@ -492,7 +499,7 @@ for (const locale of ['fr', 'de'] as const) {
     await panel.getByRole('button', { name: s.analyze, exact: true }).click()
     await expect(panel.getByText(s.tooShort, { exact: true })).toBeVisible()
     await panel.locator('textarea').fill(DESCRIPTION)
-    await expect(panel.getByText(`(${DESCRIPTION.length}/100`)).toBeVisible()
+    await expect(panel.getByText(s.characterCount.replace('{count}', String(DESCRIPTION.length)))).toBeVisible()
     await panel.getByRole('button', { name: s.analyze, exact: true }).click()
     await expect(panel.getByText(s.jobTitleRequired, { exact: true })).toBeVisible()
     await expectNoEnglish(panel, ENGLISH_INPUT_STAGE, locale)
@@ -579,7 +586,7 @@ for (const locale of ['fr', 'de'] as const) {
     await expect(createPanel.getByText(s.companyLabelWithOptional, { exact: true })).toBeVisible()
     await expect(createPanel.locator('input[type="text"]').nth(0)).toHaveAttribute('placeholder', s.jobTitlePlaceholder)
     await expect(createPanel.locator('input[type="text"]').nth(1)).toHaveAttribute('placeholder', s.companyPlaceholder)
-    await expect(createPanel.getByText(`(${DESCRIPTION.length}/100`)).toBeVisible()
+    await expect(createPanel.getByText(s.characterCount.replace('{count}', String(DESCRIPTION.length)))).toBeVisible()
     await expect(createPanel.getByRole('button', { name: s.createSubmit, exact: true })).toBeVisible()
     await expect(createPanel.getByText(s.disclaimer)).toBeVisible()
     await expect(createPanel.getByRole('button', { name: s.close, exact: true })).toBeVisible()
@@ -648,3 +655,192 @@ test('en: the modal reads exactly as before, from the editor and from Job Search
   expect(stub.calls()).toBe(2)
   expect(problems).toEqual([])
 })
+
+/**
+ * The modal's wording is correct in every locale (adaptation-modal-polish,
+ * US-001): the labels carry their own colon, French sets U+00A0 before it, the
+ * de/it corrections show, and the create help text quotes the real button.
+ *
+ * The label texts are compared raw, as `textContent`: Playwright's text
+ * matchers fold U+00A0 into a plain space, so they could not tell the two
+ * apart, and en must stay byte-identical.
+ */
+interface ModalWording {
+  editorButton: string
+  title: string
+  analyze: string
+  createCV: string
+  createTitle: string
+  createSubmit: string
+  createHelpText: string
+  companyLabelWithOptional: string
+  emptyCounter: string
+  matchScore: string
+  keyGaps: string
+  strengths: string
+  reasoning: string
+  addSkills: string
+  enhanceSkills: string
+  confidenceHigh: string
+  confidenceMedium: string
+  confidenceLow: string
+}
+
+const WORDING: Record<WordingLocale, ModalWording> = {
+  fr: {
+    editorButton: "Adapter à l'offre",
+    title: "Adapter le CV à l'offre",
+    analyze: "Analyser et générer l'adaptation",
+    createCV: 'Créer un CV',
+    createTitle: "Créer un CV à partir de l'offre",
+    createSubmit: 'Analyser et générer un nouveau CV',
+    createHelpText:
+      'La description du poste a été pré-remplie. Vérifiez les détails et cliquez sur "Analyser et générer un nouveau CV" pour générer un nouveau CV adapté à cette offre.',
+    companyLabelWithOptional: 'Entreprise (optionnel)',
+    emptyCounter: '(0/100 caractères minimum)',
+    matchScore: 'Score de correspondance\u00a0:',
+    keyGaps: 'Lacunes clés\u00a0:',
+    strengths: 'Points forts\u00a0:',
+    reasoning: 'Justification\u00a0:',
+    addSkills: 'Ajouter des compétences\u00a0: Design',
+    enhanceSkills: 'Enrichir\u00a0: Recherche',
+    confidenceHigh: 'Confiance élevée',
+    confidenceMedium: 'Confiance moyenne',
+    confidenceLow: 'Confiance faible',
+  },
+  de: {
+    editorButton: 'An Stelle anpassen',
+    title: 'Lebenslauf an Stelle anpassen',
+    analyze: 'Analysieren und Anpassung generieren',
+    createCV: 'Lebenslauf erstellen',
+    createTitle: 'Lebenslauf aus Stelle erstellen',
+    createSubmit: 'Analysieren und neuen Lebenslauf generieren',
+    createHelpText:
+      'Die Stellenbeschreibung wurde vorausgefüllt. Überprüfen Sie die Details und klicken Sie auf "Analysieren und neuen Lebenslauf generieren", um einen neuen Lebenslauf für diese Stelle zu generieren.',
+    companyLabelWithOptional: 'Unternehmen (optional)',
+    emptyCounter: '(mind. 100 Zeichen: 0/100)',
+    matchScore: 'Übereinstimmungswert:',
+    keyGaps: 'Wichtige Lücken:',
+    strengths: 'Stärken:',
+    reasoning: 'Begründung:',
+    addSkills: 'Kompetenzen hinzufügen: Design',
+    enhanceSkills: 'Erweitern: Recherche',
+    confidenceHigh: 'Hohes Vertrauen',
+    confidenceMedium: 'Mittleres Vertrauen',
+    confidenceLow: 'Niedriges Vertrauen',
+  },
+  it: {
+    editorButton: "Adatta all'offerta",
+    title: "Adatta CV all'offerta",
+    analyze: 'Analizza e genera adattamento',
+    createCV: 'Crea un CV',
+    createTitle: "Crea CV dall'offerta",
+    createSubmit: 'Analizza e genera nuovo CV',
+    createHelpText:
+      'La descrizione del lavoro è stata precompilata. Rivedi i dettagli e clicca su "Analizza e genera nuovo CV" per generare un nuovo CV su misura per questa offerta.',
+    companyLabelWithOptional: 'Azienda (facoltativo)',
+    emptyCounter: '(0/100 caratteri minimo)',
+    matchScore: 'Punteggio di corrispondenza:',
+    keyGaps: 'Lacune chiave:',
+    strengths: 'Punti di forza:',
+    reasoning: 'Motivazione:',
+    addSkills: 'Aggiungi competenze: Design',
+    enhanceSkills: 'Arricchisci: Recherche',
+    confidenceHigh: 'Alta affidabilità',
+    confidenceMedium: 'Media affidabilità',
+    confidenceLow: 'Bassa affidabilità',
+  },
+  // Exactly what the modal drew before this story, when it appended ":" in JSX.
+  en: {
+    editorButton: 'Adapt to Job',
+    title: 'Adapt CV to Job',
+    analyze: 'Analyze & Generate Adaptation',
+    createCV: 'Create CV',
+    createTitle: 'Create CV from Job',
+    createSubmit: 'Analyze and generate new CV',
+    createHelpText:
+      'The job description has been pre-filled. Review the details and click "Analyze and generate new CV" to generate a new CV tailored to this job.',
+    companyLabelWithOptional: 'Company (optional)',
+    emptyCounter: '(0/100 characters minimum)',
+    matchScore: 'Match Score:',
+    keyGaps: 'Key Gaps:',
+    strengths: 'Strengths:',
+    reasoning: 'Reasoning:',
+    addSkills: 'Add Skills: Design',
+    enhanceSkills: 'Enhance: Recherche',
+    confidenceHigh: 'High Confidence',
+    confidenceMedium: 'Medium Confidence',
+    confidenceLow: 'Low Confidence',
+  },
+}
+
+/** The raw `textContent` of every element in the panel that holds only text. */
+async function leafTexts(panel: Locator): Promise<string[]> {
+  return panel.evaluate((element) =>
+    Array.from(element.querySelectorAll('*'))
+      .filter((node) => node.children.length === 0)
+      .map((node) => node.textContent ?? '')
+  )
+}
+
+for (const locale of ['fr', 'de', 'it', 'en'] as const) {
+  const w = WORDING[locale]
+
+  test(`${locale} wording: label colons, de/it corrections and the create help text`, async ({ page, authedUser }) => {
+    const problems = watchConsole(page)
+    const stub = await stubNetwork(page)
+    const resumeId = await createResume(authedUser.id, `Adaptation modal wording, ${locale}`)
+
+    const editor = await page.goto(`/${locale}/dashboard/resumes/${resumeId}/edit`)
+    expect(editor?.status()).toBe(200)
+    await page.getByRole('button', { name: w.editorButton, exact: true }).click()
+    const panel = modal(page, w.title)
+
+    // Input stage: the optional marker and the counter.
+    await expect(panel.getByText(w.companyLabelWithOptional, { exact: true })).toBeVisible()
+    await expect(panel.getByText(w.emptyCounter)).toBeVisible()
+
+    // Preview stage, from the stubbed adaptation response.
+    stub.respondWith(patchWithChanges(locale))
+    await panel.locator('textarea').fill(DESCRIPTION)
+    await panel.locator('input[type="text"]').nth(0).fill(JOB_TITLE)
+    await panel.getByRole('button', { name: w.analyze, exact: true }).click()
+    await expect(panel.getByText(w.matchScore, { exact: true })).toBeVisible()
+
+    const texts = await leafTexts(panel)
+    const count = (text: string) => texts.filter((candidate) => candidate === text).length
+    expect(count(w.matchScore), w.matchScore).toBe(1)
+    expect(count(w.keyGaps), w.keyGaps).toBe(1)
+    expect(count(w.strengths), w.strengths).toBe(1)
+    // Summary and experience (diff viewer), the added and the enhanced skills.
+    expect(count(w.reasoning), w.reasoning).toBe(4)
+    expect(count(w.addSkills), w.addSkills).toBe(1)
+    expect(count(w.enhanceSkills), w.enhanceSkills).toBe(1)
+    expect(count(w.confidenceHigh), w.confidenceHigh).toBe(2)
+    expect(count(w.confidenceMedium), w.confidenceMedium).toBe(1)
+    expect(count(w.confidenceLow), w.confidenceLow).toBe(1)
+
+    // No colon anywhere in the preview is set the other locale's way.
+    const colons = texts.filter((text) => text.includes(':'))
+    expect(colons.length).toBeGreaterThanOrEqual(6)
+    for (const text of colons) {
+      if (locale === 'fr') {
+        expect(text, 'fr sets U+00A0 before every colon').toMatch(/^[^:]*\u00a0:/)
+      } else {
+        expect(text, `${locale} sets no space before a colon`).not.toMatch(/\s:/)
+      }
+    }
+
+    // Create from Job Search: the help text names the button that is there.
+    const jobs = await page.goto(`/${locale}/dashboard/jobs`)
+    expect(jobs?.status()).toBe(200)
+    await page.getByRole('button', { name: w.createCV, exact: true }).click()
+    const createPanel = modal(page, w.createTitle)
+    await expect(createPanel.getByRole('button', { name: w.createSubmit, exact: true })).toBeVisible()
+    expect(await leafTexts(createPanel)).toContain(w.createHelpText)
+    expect(w.createHelpText).toContain(`"${w.createSubmit}"`)
+
+    expect(stub.calls()).toBe(1)
+    expect(problems).toEqual([])
+  })
+}
