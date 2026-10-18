@@ -4,3 +4,74 @@ Contract: tasks/ralph/prd.json (branch ralph/classic-bullet-layout)
 PRD: tasks/prds/classic-bullet-layout.md (Status: APPROVED 2026-10-09, written by the owner)
 Format: docs/engineering/progress-log-format.md
 Branch setup: from origin/main 9b1eb56 (#111 merged). The first commit archives the merged adaptation-modal-polish contract; the second adds this PRD and its contract.
+
+## US-001: Classic bullets start their line
+Status: PASS
+Priority: 1
+Branch: ralph/classic-bullet-layout
+Baseline HEAD: a921841 (origin/main 9b1eb56 + archive commit db22d31 + contract commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths:
+  - src/components/dashboard/resume-templates/classic-template.tsx (14/2): `ul.list-inside.list-disc` + `<li>{renderFormattedText(a)}</li>` → `ul.list-none` + `<li class="flex items-baseline gap-2"><span aria-hidden="true" class="shrink-0">•</span><div class="min-w-0 flex-1">{renderFormattedText(a)}</div></li>`; `position: relative` on the first list kept (it anchors the description font-size slider).
+  - e2e/classic-bullet-layout.spec.ts (new, 169 lines).
+  - e2e/visual/__screenshots__/win32/classic.png and classic-print.png (re-baselined; hashes below).
+- Not touched: `git diff --stat -- src/app src/lib src/locales package.json` is empty (Word generators, renderFormattedText, SanitizedHtml unchanged). No version change, no push or merge.
+- Temporary capture spec e2e/zz-uiexp-classic.spec.ts was generated after the checks and deleted; `ls e2e | grep -c zz` is 0.
+
+Checks (final diff):
+- pnpm typecheck: PASS — 0 errors.
+- pnpm test: PASS — 70 files, 2089 passed, 5 skipped.
+- pnpm test:integration: PASS — 4 files, 50 passed.
+- pnpm test:e2e: PASS — 338 passed, 0 failed (336 at 9b1eb56; +2 from classic-bullet-layout.spec.ts), incl. resume-print-geometry and font-scale-rendered.
+- pnpm build: PASS — 105/105 static pages.
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); unchanged, under the tracked 306 ceiling.
+- pnpm test:visual: PASS — 10 passed after re-baselining only the two Classic images (`playwright test --config playwright.visual.config.ts --update-snapshots -g "the classic template"`, 2 passed). Before re-baselining: 2 failed (classic, classic-print: 794×1395 expected, 794×1290 received, 43058 / 43045 px), 8 passed.
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0, LIMITATION 11, FINDING 3, DECISION 16; KNOWN US-016-html-body-line-height CONFIRMED (classic, minimal, creative rows); test-results-parity/parity-report.json sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b, byte-identical to the reference recorded for #108.
+
+Visual evidence (before = committed baseline at a921841, after = re-baselined):
+- classic.png: sha256 00775b495965ff66… → b2ffc5a9b658a69a…; classic-print.png: 64e030a7c7cae994… → ab11f05adaad9e1f…; the other 8 baseline hashes unchanged.
+- Row comparison (sharp, tolerance 8 per channel), both images: identical for rows 0–404; after compensating the 105px height reduction, identical for the last 707 rows; the only changed band is before-rows 405–687 / after-rows 405–582 — the experience achievements (the second role's header inside the band only moves up). ui-expert repeated the comparison and got the same band.
+- The 105px equals the 5 removed bullet-only lines (3 in the first role, 2 in the second) at about 21px each.
+
+Specialized validation:
+- Browser: PASS — e2e/classic-bullet-layout.spec.ts on /en/dashboard/resumes/<id>/preview, screen and print: for short plain, short HTML, wrapped plain and wrapped HTML achievements: bullet is "•" in the text colour, text still inside .formatted-content / div.text-justify, bullet centre within 4px of the first line's centre, text right of the bullet, wrapped lines start within 0.5px of the first line's x, short items one line. Controls: on the original template it fails ("has no bullet before it"); with the drawn bullet but `li` set back to block it fails ("bullet and first line share a line"); the template was restored byte-identical (cmp) after each control.
+- Visual: PASS — above.
+- Export: PASS — the PDF follows the print view (asserted in e2e under print media, visual classic-print baseline); Word untouched (src/app diff empty).
+- Database: NOT_APPLICABLE — no schema or persistence change.
+- Security: NOT_APPLICABLE — the user-HTML path (renderFormattedText → SanitizedHtml) is unchanged; no new sanitizeHtml call.
+
+Agents:
+- senior-coder: implementation without Playwright (Docker was down); all browser verification run afterwards by the orchestrator.
+- ui-expert: PASS, 6/7 conditions PASS, 1 NOT_APPLICABLE (responsive: fixed 794px A4 surface). Evidence: en/fr screen and print document and achievement captures; glyph measured old disc x48–52 vs new "•" x49–53, same darkest value (slate-800); text starts ~11px after the glyph.
+- code-reviewer: PASS — 0 critical, 0 major, 3 minor (recorded below; none changes behaviour).
+
+Acceptance criteria:
+- AC-01 (plain text, centres within 4px): PASS — e2e, screen and print.
+- AC-02 (HTML <p>): PASS — e2e, short and wrapped HTML.
+- AC-03 (wrap indent): PASS — e2e (≤0.5px; the spec requires a real wrap); captures.
+- AC-04 (print view): PASS — e2e under print media; classic-print baseline; ui-expert on fr/en print captures.
+- AC-05 (visual baselines): PASS — only the two Classic images changed, diff limited to the achievement band (above).
+- AC-06 (parity): PASS — NEW 0, KNOWN 3, US-016 CONFIRMED; report byte-identical.
+- FR-1/FR-2/FR-3: PASS — only classic-template.tsx in src; renderFormattedText call unchanged, no sanitizeHtml; standard Tailwind tokens.
+- Regression constraints: PASS — other 8 baselines and every parity row unchanged; Word untouched; print-geometry and font-scale specs pass in e2e 338/338.
+- Verification items: PASS — §14 baseline, test:visual with before/after evidence, test:parity, new e2e, ui-expert fr/en screen and print, code-reviewer.
+- FAIL conditions: none met. BLOCKER condition: not reached (text stays in .formatted-content / div.text-justify; report byte-identical).
+- Out of scope respected: other templates, Word, renderFormattedText, SanitizedHtml, the description fallback, US-016.
+
+Decision (AC-01/AC-03): the bullet is a drawn "•" in a flex row aligned on the text baseline (`items-baseline`), so it follows the first line at any font size; the text block stays the same element tree inside a wrapper div that sets no typography, which keeps the US-016 signature. Rejected: `list-outside` with padding (marker position depends on font metrics and would not fix the block-child line) and moving the text out of .formatted-content (would change US-016).
+
+Open owner decisions recorded by this story (none blocks release validation):
+- ui-expert / code-reviewer, a11y: a `ul` without list-style loses list semantics in Safari/VoiceOver; none of the five templates set role="list". A cross-template follow-up rather than Classic alone (CLAUDE.md §10).
+- code-reviewer, pre-existing: the font-size slider is a div directly inside the ul (invalid HTML).
+- code-reviewer, test polish: the spec's locator named `document` shadows the DOM global; it measures only the first experience's list.
+
+Environment notes:
+- Docker Desktop's engine was down on the morning of 2026-10-18; the first visual/parity run failed entirely ("Could not create E2E user: fetch failed") and was discarded. After the owner restarted Docker, `pnpm supabase start` brought the local stack back and every check above ran on the final diff.
+- ui-expert could not rasterise the en/fr page.pdf files; AC-04 rests on the print-media captures and e2e.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 Classic bullets start their line
+FINAL: PASS
