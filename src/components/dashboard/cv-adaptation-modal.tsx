@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useId } from 'react'
+import { useState, useEffect, useId, useRef, type RefObject } from 'react'
 import { X, Loader2, CheckCircle, AlertCircle, Sparkles, Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { DiffViewer } from './diff-viewer'
@@ -14,6 +14,19 @@ import type { ResumeTemplate } from '@/types/database'
 /** The template a CV created from a job offer gets unless the user picks another. */
 const CREATE_NEW_CV_DEFAULT_TEMPLATE: ResumeTemplate = 'professional'
 
+const TABBABLE_CANDIDATES = 'a[href], button, input, select, textarea, [tabindex]'
+
+/**
+ * The elements Tab can reach inside `root`, in DOM order. Read on every Tab
+ * press because each stage renders different controls, and the template
+ * picker moves its single tab stop between its options (roving tabindex).
+ */
+function tabbableElements(root: HTMLElement): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(TABBABLE_CANDIDATES)).filter(
+    (element) => element.tabIndex >= 0 && !element.matches(':disabled') && element.getClientRects().length > 0
+  )
+}
+
 interface CVAdaptationModalBaseProps {
   isOpen: boolean
   onClose: () => void
@@ -26,6 +39,13 @@ interface CVAdaptationModalBaseProps {
   isCreateMode?: boolean
   /** Built on the server by `cvAdaptationStrings` from the locale's `jobs` dictionary. */
   dict: CVAdaptationStrings
+  /**
+   * Where focus goes when the modal closes, read when it opens. Needed when
+   * the opener is not the focused element at that moment: it may have been
+   * disabled while the job was fetched, or the modal may follow another
+   * modal. Without it, focus returns to whatever was focused on open.
+   */
+  returnFocusRef?: RefObject<HTMLElement | null>
 }
 
 /**
@@ -53,6 +73,7 @@ export function CVAdaptationModal({
   isCreateNewCV = false,
   templatePicker,
   dict,
+  returnFocusRef,
 }: CVAdaptationModalProps) {
   const router = useRouter()
   const [stage, setStage] = useState<Stage>('input')
@@ -66,6 +87,71 @@ export function CVAdaptationModal({
   const [progressMessage, setProgressMessage] = useState('')
   const [template, setTemplate] = useState<ResumeTemplate>(CREATE_NEW_CV_DEFAULT_TEMPLATE)
   const templateLabelId = useId()
+  const titleId = useId()
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+
+  // Remember the opener while the modal is open and hand focus back to it on
+  // close. This is the cleanup of the open phase rather than part of
+  // `onClose`, because callers close the modal in several ways (close, cancel,
+  // apply, backdrop, Escape, a redirect) and it renders nothing once closed.
+  useEffect(() => {
+    if (!isOpen) return
+    const focusedAtOpen = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const target = returnFocusRef?.current ?? focusedAtOpen
+    return () => {
+      if (target?.isConnected) target.focus()
+    }
+  }, [isOpen, returnFocusRef])
+
+  // Focus starts on the close button, and comes back to it when a stage change
+  // removes the focused control (the submit button gives way to the spinner,
+  // then to the preview). The close button rather than the first field, so a
+  // phone does not raise its keyboard over the modal on open.
+  useEffect(() => {
+    if (!isOpen) return
+    const dialog = dialogRef.current
+    if (dialog && !dialog.contains(document.activeElement)) closeButtonRef.current?.focus()
+  }, [isOpen, stage])
+
+  // Escape closes and Tab cycles within the modal. Escape does exactly what
+  // the close button does, including while a request is in flight: the modal
+  // closes and the request is left to settle, as it was with the button.
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing) return
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+        return
+      }
+      if (event.key !== 'Tab') return
+      const dialog = dialogRef.current
+      if (!dialog) return
+      const tabbable = tabbableElements(dialog)
+      const first = tabbable[0]
+      const last = tabbable[tabbable.length - 1]
+      if (!first || !last) {
+        event.preventDefault()
+        return
+      }
+      const active = document.activeElement
+      if (!dialog.contains(active)) {
+        event.preventDefault()
+        const entry = event.shiftKey ? last : first
+        entry.focus()
+      } else if (event.shiftKey && active === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -237,7 +323,13 @@ export function CVAdaptationModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      className="fixed inset-0 z-50 overflow-y-auto"
+    >
       <div className="flex min-h-screen items-center justify-center p-4">
         {/* Backdrop */}
         <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose} />
@@ -248,15 +340,16 @@ export function CVAdaptationModal({
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-600" />
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 id={titleId} className="text-xl font-semibold text-gray-900">
                 {isCreateMode ? dict.createModeTitle : dict.title}
               </h2>
             </div>
             <button
+              ref={closeButtonRef}
               type="button"
               onClick={onClose}
               aria-label={dict.close}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="rounded-md text-gray-500 hover:text-gray-600 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
             >
               <X className="h-5 w-5" aria-hidden="true" />
             </button>
@@ -529,7 +622,7 @@ export function CVAdaptationModal({
                           type="checkbox"
                           checked={selectedPatches.has(`skillsToAdd-${index}`)}
                           onChange={() => togglePatch(`skillsToAdd-${index}`)}
-                          className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                          className="w-4 h-4 text-purple-600 border-gray-300 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
                         />
                         <span className="text-sm font-medium text-gray-700">
                           {dict.applyChange}
@@ -576,7 +669,7 @@ export function CVAdaptationModal({
                           type="checkbox"
                           checked={selectedPatches.has(`skillsToEnhance-${index}`)}
                           onChange={() => togglePatch(`skillsToEnhance-${index}`)}
-                          className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                          className="w-4 h-4 text-purple-600 border-gray-300 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
                         />
                         <span className="text-sm font-medium text-gray-700">
                           {dict.applyChange}
@@ -606,13 +699,13 @@ export function CVAdaptationModal({
                   <div className="flex gap-2 pt-4 border-t border-gray-200">
                     <button
                       onClick={handleSelectAll}
-                      className="px-4 py-2 text-sm font-medium text-purple-700 hover:text-purple-800 hover:bg-purple-50 rounded-md transition-colors"
+                      className="px-4 py-2 text-sm font-medium text-purple-700 hover:text-purple-800 hover:bg-purple-50 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
                     >
                       {dict.selectAll}
                     </button>
                     <button
                       onClick={handleDeselectAll}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+                      className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
                     >
                       {dict.deselectAll}
                     </button>
@@ -627,7 +720,7 @@ export function CVAdaptationModal({
             <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 hover:bg-gray-200 rounded-md transition-colors"
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-800 hover:bg-gray-200 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
               >
                 {dict.cancel}
               </button>

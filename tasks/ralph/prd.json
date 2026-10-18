@@ -65,7 +65,7 @@
         "Out of scope: Other locales' wording beyond W2 and W3."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]
