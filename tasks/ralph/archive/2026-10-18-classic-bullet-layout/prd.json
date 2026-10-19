@@ -1,0 +1,41 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "ralph/classic-bullet-layout",
+  "description": "In the Classic template's Preview, and so in its PDF, each experience achievement bullet renders on the same line as the start of its text, as the Classic Word export and the other four templates already do.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Classic bullets start their line",
+      "description": "As a user with the Classic template, I want each achievement bullet on the same line as its text, so that my CV reads as a normal bulleted list in Preview and PDF, as it does in Word.",
+      "acceptanceCriteria": [
+        "Plain text. In the Classic Preview of a resume with plain-text achievements (the visual fixture), each bullet's box and the first line of its text share the same line: their vertical centres are within 4 px.",
+        "HTML. The same holds for HTML achievements (`<p>…</p>`, as in the parity profile `html-body-and-skills`).",
+        "Wrapping. A wrapped achievement's second line starts at the same x as its first line of text, not under the bullet.",
+        "Print. The Classic print view (PDF path) shows the same layout.",
+        "Visual baselines. `pnpm test:visual` passes after re-baselining only `classic.png` and `classic-print.png`. The other 8 baselines are unchanged, and the diff of the two Classic images is limited to the achievement blocks.",
+        "Parity. `pnpm test:parity` keeps 0 NEW and KNOWN 3; the US-016 rows still reproduce.",
+        "FR-1: Only `classic-template.tsx` changes in `src/`.",
+        "FR-2: User HTML still renders through `renderFormattedText`, and no new `sanitizeHtml` call is added. Templates are server-rendered, and `sanitizeHtml` needs `document`.",
+        "FR-3: Existing Tailwind tokens only.",
+        "Regression constraint: Every other template's visual baseline and every parity row stays unchanged.",
+        "Regression constraint: Word output is unchanged.",
+        "Regression constraint: The Classic page geometry (`e2e/resume-print-geometry.spec.ts`, `font-scale-rendered.spec.ts`) still passes.",
+        "Verification: The `CLAUDE.md` §14 baseline, plus `pnpm test:visual` (re-baselined for Classic only, with the before/after images attached as evidence) and `pnpm test:parity`.",
+        "Verification: A new e2e on `/en/dashboard/resumes/<id>/preview` for a Classic resume with plain and HTML achievements. It asserts the bullet/text line alignment and the wrap indent.",
+        "Verification: `ui-expert` on the Classic Preview and print in fr and en. `code-reviewer`.",
+        "FAIL condition: The bullet is still on its own line in either the plain or the HTML case.",
+        "FAIL condition: Any baseline other than the two Classic ones changes.",
+        "FAIL condition: Any NEW parity row, or US-016 stops reproducing.",
+        "FAIL condition: Any change outside `classic-template.tsx` in `src/`.",
+        "BLOCKER condition: The fix cannot keep the text inside `.formatted-content` / `div.text-justify` without changing the US-016 signature. Report it; the owner decides whether US-016 is fixed in the same initiative.",
+        "Out of scope: Other templates, the Word export, `renderFormattedText` and `SanitizedHtml`.",
+        "Out of scope: Classic's description fallback (`classic-template.tsx:231-232`), which is not a list.",
+        "Out of scope: New parity rows for bullet geometry.",
+        "Out of scope: Fixing KNOWN US-016."
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}
