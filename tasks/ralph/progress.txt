@@ -4,3 +4,84 @@ Contract: tasks/ralph/prd.json (branch ralph/job-applications-i18n)
 PRD: tasks/prds/job-applications-i18n.md (Status: APPROVED 2026-10-19, written by the owner)
 Format: docs/engineering/progress-log-format.md
 Branch setup: from origin/main 33e279d (#112 merged). The first commit archives the merged classic-bullet-layout contract; the second adds this PRD and its contract.
+
+## US-001: The Kanban board and quick add speak the page language
+Status: PASS
+Priority: 1
+Branch: ralph/job-applications-i18n
+Baseline HEAD: 1204a01 (origin/main 33e279d + archive commit 62a58f6 + contract commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat, added/removed), all under src/components/dashboard/ unless stated:
+  - job-applications/kanban-column.tsx (9/6): every column label and aria-label from jobs.statuses.
+  - job-applications/kanban-board.tsx (10/4): toasts from kanban.board.*.
+  - job-applications/kanban-card.tsx (9/1): card aria-label from kanban.card.ariaLabel, filled in one pass with a replacer function.
+  - job-applications/quick-add-modal.tsx (24/46) + new job-applications/quick-add-schema.ts (57 lines): the Zod schema is built from the dictionary (same rules, limits and order); status badge, validation messages and fallback errors from kanban.quickAdd.*.
+  - job-applications/filter-pills.tsx (4/1), job-applications/filter-dropdown.tsx (1/1): kanban.filters.removeStatus, closeFilters.
+  - job-application-card.tsx (4/1): menu button reads kanban.card.menuLabel; alert reads common.notLoggedIn.
+  - entity-link-badge.tsx (7/2): plural from badges.*LabelPlural.
+  - src/locales/{en,fr,it}/common.json (26/4 each), de/common.json (27/5), de/jobs.json (1/1).
+  - Tests: new quick-add-schema.test.ts (84), entity-link-badge.test.ts (64), src/locales/job-statuses.test.ts (30), e2e/job-applications-i18n.spec.ts (574).
+- Keys added in all four locales: common.notLoggedIn; badges.{resume,coverLetter,job}LabelPlural; kanban.board.{statusUpdateError,deleteError}; kanban.card.ariaLabel; kanban.preview.interviewTypes.{phone_screen,technical,behavioral,final,other}; kanban.filters.{removeStatus,closeFilters}; kanban.quickAdd.{jobTitleTooLong,companyTooLong,urlTooLong,createError,unexpectedError}; kanban.header.searchPlaceholderShort. Changed: de jobs.statuses.declined "Abgelehnt" → "Abgesagt"; de kanban.quickAdd.companyRequired "Firmenname…" → "Unternehmen ist erforderlich".
+- Not touched: `git diff --stat -- package.json pnpm-lock.yaml src/app supabase src/components/dashboard/job-application-status-changer.tsx src/components/dashboard/job-application-delete-button.tsx` is empty (detail page = US-002; no API or status-key change). No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted after each run; `ls e2e | grep -c zz` is 0.
+
+Checks (final diff, run 2 — run 1 was invalidated by the fixes below):
+- pnpm typecheck: PASS — 0 errors.
+- pnpm test: PASS — 73 files, 2127 passed, 5 skipped (2089 at 33e279d).
+- pnpm test:integration: PASS — 4 files, 50 passed.
+- pnpm test:e2e: PASS — 349 passed, 0 failed (338 at 33e279d; +11 from job-applications-i18n.spec.ts). Run 1 had 1 failure in the new spec (en tooltip never opened under full-suite load); fixed in the test (see Agents).
+- pnpm build: PASS — 105/105 static pages.
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); unchanged, under the tracked 306 ceiling.
+
+Specialized validation:
+- Browser: PASS — e2e/job-applications-i18n.spec.ts (fr, de full journeys; en unchanged): seven column headers and aria-labels (incl. a collapsed column) distinct per locale; quick-add badge and all six validation messages; status-change and delete toasts via stubbed PATCH/DELETE 500 with the DB row unchanged; quick-add fallbacks via POST 500 {} and a non-Error rejection; card aria-label, interview-type tooltip, cover-letter badge, status pills, list-view menu; 375px search placeholder, board scan and close-filters button; not-logged-in alert via stubbed /auth/v1/user 401. Scan of text nodes + placeholder/title/aria-label/aria-roledescription (the dnd-kit value "draggable" is skipped: US-003). Control test: the scan catches an English status in text, aria-label and aria-roledescription. Red check: with the original kanban-column, quick-add-modal, filter-pills and job-application-card the fr tests fail (`Expected "Enregistré"`, `Received "Saved"`).
+- Visual: NOT_APPLICABLE — no resume template or print code changed.
+- Export: NOT_APPLICABLE — no export code in the diff.
+- Database: NOT_APPLICABLE — no schema change; statuses stored and sent as the same keys.
+- Security: NOT_APPLICABLE — no auth, API or trust-boundary change; user data in the card aria-label is inserted literally (replacer function; code-reviewer checked "{company}" and "$&" in node).
+
+Agents:
+- senior-coder: implementation, then four scoped rounds:
+  1. de rejected/declined both "Abgelehnt" → declined "Abgesagt"; unit test asserting 7 distinct labels per locale (before: de 6/7).
+  2. New spec's tooltip hover made deterministic (openCardTooltip: leave, re-enter the trigger, toPass 20s); passed 3× alone.
+  3. ui-expert round 1: kanban.header.searchPlaceholderShort added; a sweep of every dictionary read on the page found no other key missing in all locales.
+  4. Same round, cosmetic: fr/it interview types as short forms ("téléphonique"…), de company messages "Unternehmen".
+- ui-expert, round 1: FAIL — "Search..." placeholder in English at 375 in fr/de/it (PRD Context wrongly listed the search as localized).
+- ui-expert, round 2: BLOCKED — no before/after regression evidence, no keyboard walkthrough.
+- ui-expert, round 3: PASS, 7/7. Evidence: fr/de/it/en captures at 1440 and 375 (board, board end, collapsed column, quick add, quick-add errors, list with pills), fr/de tooltip and toast captures; en before (13 changed src files temporarily restored to 1204a01, then restored byte-identical, cmp) vs after: 10 pairs pixel-identical (tolerance 8/channel); fr keyboard walk at 1440 (board 60 stops, list 30) and 375 (board, filter sheet) — every named stop French; contrast from pixels: de toast 7.64:1, fr quick-add error 4.77:1, collapsed "Abgesagt" 4.92:1, "Suchen..." placeholder 5.66:1.
+- code-reviewer: PASS — 0 critical, 0 major, 4 minor (recorded below).
+
+Acceptance criteria:
+- AC-01 (columns): PASS — e2e; captures; keyboard walk ("Ajouter un emploi dans Enregistré…").
+- AC-02 (quick add): PASS — e2e for the badge and all six messages; unit tests 6 rules × 4 locales.
+- AC-03 (toasts and fallbacks): PASS — e2e with stubbed failures; fr/de toast captures.
+- AC-04 (labels): PASS — e2e; keyboard walk; tooltip capture; badge unit test.
+- AC-05 (not logged in): PASS — e2e records the native alert text (common.notLoggedIn in fr/de; en unchanged).
+- AC-06 (en unchanged): PASS — every new en value equals the literal it replaced (code-reviewer byte comparison); en before/after captures pixel-identical.
+- FR-1: PASS (Decision b). FR-2: PASS — locale-parity.test.ts. FR-3: PASS — no package.json/lockfile change. FR-4: PASS — en unchanged.
+- Regression constraints: PASS — e2e 349/349 incl. job-search-i18n; no status-key or API change.
+- Verification items: PASS — §14 baseline; new e2e (fr, de, en, control); ui-expert fr/de at 1440 and 375 incl. collapsed column and German labels; code-reviewer. The detail-page and drag-and-drop parts of the PRD's e2e item belong to US-002/US-003.
+- FAIL conditions: none met. BLOCKER condition: not reached (every listed string is UI text).
+- Out of scope respected: server text, global toast labels, header plural, UTC dates, H1 wording untouched.
+
+Decision (a): de jobs.statuses.declined "Abgesagt" (was "Abgelehnt", identical to rejected); with localized columns two German columns would have had the same name.
+Decision (b), PRD correction: the PRD Context listed the search as "Already localized"; at 375px it read "Search..." in every locale because kanban.header.searchPlaceholderShort existed nowhere. Added under the Objective and FR-1 (same precedent as "Linked Job" in fill-translation-gaps).
+Decision (c): the quick-add Zod schema moved to quick-add-schema.ts and is built from the dictionary (memoized on it); rules, limits and order unchanged.
+Decision (d): fr/it interview types use short forms so the tooltip does not repeat "entretien"/"colloquio".
+
+Open owner decisions recorded by this story (none blocks US-002):
+- ui-expert, pre-existing, major: the 375px filter trigger (icon-only) has an empty accessible name (WCAG 4.1.2). Suggested as the next story.
+- ui-expert, pre-existing: the mobile filter sheet has aria-modal but no focus trap; "Réduire/Trier la colonne" do not name their column, and a collapsed column has an extra unnamed stop.
+- ui-expert, pre-existing: the list-view card status badge overlaps the title in fr/de.
+- code-reviewer, minor: no unit test pins the injection-safe card aria-label fill; the failed-move e2e does not assert the PATCH body; de "Unternehmen ist erforderlich" vs "Der Unternehmensname…" wording; unexpectedError only shows for non-Error rejections (as at HEAD).
+- Other de forms outside this page still say "Firmenname".
+
+Environment notes:
+- Windows 11, local Supabase stack, Playwright suites run one at a time. Docker was running throughout.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 the Kanban board and quick add speak the page language
+FINAL: PASS

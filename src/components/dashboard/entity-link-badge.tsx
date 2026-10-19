@@ -94,8 +94,13 @@ export function EntityLinkBadge({
   // Build the display text
   let displayText: string
   if (count !== undefined && count > 0) {
-    // Show count (e.g., "3 cover letter(s)")
-    displayText = `${count} ${displayLabel}${count > 1 ? 's' : ''}`
+    // Show count (e.g., "3 Cover Letters"). The plural is a translated label,
+    // not an appended "s", which is only correct in English.
+    const countLabel =
+      count > 1
+        ? label || (badgesDict[`${type}LabelPlural`] as string) || `${config.defaultLabel}s`
+        : displayLabel
+    displayText = `${count} ${countLabel}`
   } else if (linked) {
     // Show "Linked" indicator for single entity relationships
     displayText = `${displayLabel} ${linkedText}`

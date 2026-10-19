@@ -422,7 +422,8 @@
     "delete": "Delete",
     "deleting": "Deleting...",
     "confirm": "Confirm",
-    "back": "Back"
+    "back": "Back",
+    "notLoggedIn": "You must be logged in to perform this action"
   },
   "errors": {
     "unauthorized": "Unauthorized",
@@ -668,6 +669,9 @@
     "resumeLabel": "CV",
     "coverLetterLabel": "Cover Letter",
     "jobLabel": "Job",
+    "resumeLabelPlural": "CVs",
+    "coverLetterLabelPlural": "Cover Letters",
+    "jobLabelPlural": "Jobs",
     "linked": "Linked",
     "linkedJob": "Linked Job"
   },
@@ -687,7 +691,9 @@
   "kanban": {
     "board": {
       "ariaLabel": "Job applications board",
-      "skipLink": "Skip Kanban board"
+      "skipLink": "Skip Kanban board",
+      "statusUpdateError": "Failed to update status. Please try again.",
+      "deleteError": "Failed to delete application. Please try again."
     },
     "column": {
       "dropHere": "Drop here",
@@ -699,6 +705,7 @@
       "dragToMove": "Drag to move",
       "moreActions": "More actions",
       "menuLabel": "Job application actions",
+      "ariaLabel": "{title} at {company}",
       "edit": "Edit",
       "createCV": "Create CV for this Job",
       "createCoverLetter": "Create Cover Letter",
@@ -711,11 +718,19 @@
       "salary": "Salary",
       "nextInterview": "Next Interview",
       "notes": "Notes",
-      "deadline": "Deadline"
+      "deadline": "Deadline",
+      "interviewTypes": {
+        "phone_screen": "phone screen",
+        "technical": "technical",
+        "behavioral": "behavioral",
+        "final": "final",
+        "other": "other"
+      }
     },
     "header": {
       "title": "Job Applications",
       "searchPlaceholder": "Search by title, company, or location...",
+      "searchPlaceholderShort": "Search...",
       "viewBoard": "Board",
       "viewList": "List",
       "browseJobs": "Browse Jobs",
@@ -740,6 +755,8 @@
       "dateRange": "Date added",
       "clearAll": "Clear all",
       "removeDateRange": "Remove date range filter",
+      "removeStatus": "Remove {status} filter",
+      "closeFilters": "Close filters",
       "week": "This week",
       "month": "This month",
       "threeMonths": "Last 3 months",
@@ -751,15 +768,20 @@
       "jobTitleLabel": "Job Title",
       "jobTitlePlaceholder": "e.g., Software Engineer",
       "jobTitleRequired": "Job title is required",
+      "jobTitleTooLong": "Job title must be less than 255 characters",
       "companyLabel": "Company",
       "companyPlaceholder": "e.g., Google",
       "companyRequired": "Company name is required",
+      "companyTooLong": "Company name must be less than 255 characters",
       "jobUrlLabel": "Job URL",
       "jobUrlPlaceholder": "https://...",
       "optional": "optional",
       "invalidUrl": "Please enter a valid URL",
+      "urlTooLong": "URL must be less than 2000 characters",
       "save": "Save",
-      "saving": "Saving..."
+      "saving": "Saving...",
+      "createError": "Failed to create job application. Please try again.",
+      "unexpectedError": "An unexpected error occurred. Please try again."
     }
   }
 }

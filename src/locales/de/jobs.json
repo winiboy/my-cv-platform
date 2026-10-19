@@ -13,7 +13,7 @@
     "offer": "Angebot",
     "rejected": "Abgelehnt",
     "accepted": "Angenommen",
-    "declined": "Abgelehnt"
+    "declined": "Abgesagt"
   },
   "confirmDelete": "Sind Sie sicher, dass Sie diese Bewerbung löschen möchten?",
   "deleteError": "Bewerbung konnte nicht gelöscht werden",

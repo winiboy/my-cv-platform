@@ -96,6 +96,14 @@ export function KanbanCard({
 
   const statusConfig = JOB_STATUS_CONFIG[jobApplication.status]
 
+  // One pass with a replacer function: user text is inserted literally, so a
+  // title containing "{company}" or "$&" is not rewritten.
+  const cardAriaLabel = (cardDict.ariaLabel || '{title} at {company}').replace(
+    /\{(title|company)\}/g,
+    (_, placeholder: string) =>
+      placeholder === 'title' ? jobApplication.job_title : jobApplication.company_name
+  )
+
   /**
    * Get translated status label with fallback to English
    */
@@ -293,7 +301,7 @@ export function KanbanCard({
       onFocus={handleFocus}
       role="button"
       tabIndex={0}
-      aria-label={`${jobApplication.job_title} at ${jobApplication.company_name}`}
+      aria-label={cardAriaLabel}
       className={cn(
         'relative block bg-white dark:bg-slate-800',
         'border border-slate-200 dark:border-slate-700',

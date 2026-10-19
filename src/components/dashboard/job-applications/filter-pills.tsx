@@ -101,7 +101,10 @@ export function FilterPills({
               type="button"
               onClick={() => onRemoveStatus(status)}
               className="rounded-full p-0.5 transition-colors hover:bg-slate-200 dark:hover:bg-slate-600"
-              aria-label={`Remove ${getStatusLabel(status)} filter`}
+              aria-label={(filtersDict.removeStatus || 'Remove {status} filter').replace(
+                '{status}',
+                () => getStatusLabel(status)
+              )}
             >
               <X className="h-3 w-3" />
             </button>

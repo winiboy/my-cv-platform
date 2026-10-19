@@ -422,7 +422,8 @@
     "delete": "Supprimer",
     "deleting": "Suppression...",
     "confirm": "Confirmer",
-    "back": "Retour"
+    "back": "Retour",
+    "notLoggedIn": "Vous devez être connecté pour effectuer cette action"
   },
   "errors": {
     "unauthorized": "Non autorisé",
@@ -668,6 +669,9 @@
     "resumeLabel": "CV",
     "coverLetterLabel": "Lettre",
     "jobLabel": "Emploi",
+    "resumeLabelPlural": "CV",
+    "coverLetterLabelPlural": "Lettres",
+    "jobLabelPlural": "Emplois",
     "linked": "Lié",
     "linkedJob": "Emploi lié"
   },
@@ -687,7 +691,9 @@
   "kanban": {
     "board": {
       "ariaLabel": "Tableau des candidatures",
-      "skipLink": "Passer le tableau Kanban"
+      "skipLink": "Passer le tableau Kanban",
+      "statusUpdateError": "Impossible de mettre à jour le statut. Veuillez réessayer.",
+      "deleteError": "Impossible de supprimer la candidature. Veuillez réessayer."
     },
     "column": {
       "dropHere": "Déposer ici",
@@ -699,6 +705,7 @@
       "dragToMove": "Glisser pour déplacer",
       "moreActions": "Plus d'actions",
       "menuLabel": "Actions de candidature",
+      "ariaLabel": "{title} chez {company}",
       "edit": "Modifier",
       "createCV": "Créer un CV pour ce poste",
       "createCoverLetter": "Créer une lettre de motivation",
@@ -711,11 +718,19 @@
       "salary": "Salaire",
       "nextInterview": "Prochain entretien",
       "notes": "Notes",
-      "deadline": "Date limite"
+      "deadline": "Date limite",
+      "interviewTypes": {
+        "phone_screen": "téléphonique",
+        "technical": "technique",
+        "behavioral": "comportemental",
+        "final": "final",
+        "other": "autre"
+      }
     },
     "header": {
       "title": "Candidatures",
       "searchPlaceholder": "Rechercher par titre, entreprise ou lieu...",
+      "searchPlaceholderShort": "Rechercher...",
       "viewBoard": "Tableau",
       "viewList": "Liste",
       "browseJobs": "Parcourir les offres",
@@ -740,6 +755,8 @@
       "dateRange": "Date d'ajout",
       "clearAll": "Tout effacer",
       "removeDateRange": "Supprimer le filtre de date",
+      "removeStatus": "Supprimer le filtre {status}",
+      "closeFilters": "Fermer les filtres",
       "week": "Cette semaine",
       "month": "Ce mois-ci",
       "threeMonths": "3 derniers mois",
@@ -751,15 +768,20 @@
       "jobTitleLabel": "Titre du poste",
       "jobTitlePlaceholder": "ex: Ingénieur Logiciel",
       "jobTitleRequired": "Le titre du poste est obligatoire",
+      "jobTitleTooLong": "Le titre du poste doit comporter moins de 255 caractères",
       "companyLabel": "Entreprise",
       "companyPlaceholder": "ex: Google",
       "companyRequired": "Le nom de l'entreprise est obligatoire",
+      "companyTooLong": "Le nom de l'entreprise doit comporter moins de 255 caractères",
       "jobUrlLabel": "URL de l'offre",
       "jobUrlPlaceholder": "https://...",
       "optional": "optionnel",
       "invalidUrl": "Veuillez entrer une URL valide",
+      "urlTooLong": "L'URL doit comporter moins de 2000 caractères",
       "save": "Enregistrer",
-      "saving": "Enregistrement..."
+      "saving": "Enregistrement...",
+      "createError": "Impossible de créer la candidature. Veuillez réessayer.",
+      "unexpectedError": "Une erreur inattendue s'est produite. Veuillez réessayer."
     }
   }
 }

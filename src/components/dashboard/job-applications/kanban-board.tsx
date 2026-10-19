@@ -67,6 +67,12 @@ export function KanbanBoard({
 }: KanbanBoardProps) {
   const toast = useToast()
 
+  const boardDict = ((dict.kanban as Record<string, unknown>)?.board || {}) as Record<string, string>
+  const statusUpdateErrorMessage =
+    boardDict.statusUpdateError || 'Failed to update status. Please try again.'
+  const deleteErrorMessage =
+    boardDict.deleteError || 'Failed to delete application. Please try again.'
+
   // Local state for optimistic updates during drag operations
   const [localApplications, setLocalApplications] = useState(jobApplications)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -207,9 +213,9 @@ export function KanbanBoard({
     } catch {
       // Rollback optimistic update on failure
       setLocalApplications(previousApplications)
-      toast.error('Failed to update status. Please try again.')
+      toast.error(statusUpdateErrorMessage)
     }
-  }, [localApplications, toast])
+  }, [localApplications, toast, statusUpdateErrorMessage])
 
   /**
    * Handle drag cancel - reset active state without changes.
@@ -250,9 +256,9 @@ export function KanbanBoard({
     } catch {
       // Rollback on error
       setLocalApplications(previousApplications)
-      toast.error('Failed to delete application. Please try again.')
+      toast.error(deleteErrorMessage)
     }
-  }, [localApplications, toast])
+  }, [localApplications, toast, deleteErrorMessage])
 
   /**
    * Handle quick add button click - opens modal for the specified status.
