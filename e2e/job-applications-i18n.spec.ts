@@ -41,6 +41,13 @@ import itJobs from '../src/locales/it/jobs.json'
  * English status. An en run walks the same journey and checks the English did
  * not move.
  *
+ * The detail page (US-002), in fr and de, with and without a linked CV and
+ * cover letter: the 15 `jobApplications.detail.*` labels, the timeline colons
+ * (raw textContent, since Playwright's text matchers fold U+00A0), the status
+ * changer's menu and the "not logged in" alerts from the status changer and
+ * the delete button. An en run checks the same strings did not move, and a
+ * control test shows the detail scan catches one English fallback.
+ *
  * The draggable card's `aria-roledescription="draggable"` is dnd-kit's default
  * and belongs to US-003; the scan skips that one attribute value until then.
  *
@@ -571,4 +578,301 @@ test('control: the scan catches an English status and an English attribute', asy
     element.appendChild(probe)
   })
   expect(await englishIn(main(page))).toEqual(['Interviewing', 'Saved', 'Declined'])
+})
+
+// ---------------------------------------------------------------------------
+// The detail page (US-002)
+// ---------------------------------------------------------------------------
+
+type DetailDict = typeof enCommon.jobApplications.detail
+type DetailKey = keyof DetailDict
+type ScanLocale = 'fr' | 'de' | 'it'
+
+/**
+ * What the detail page rendered for each `jobApplications.detail.*` key before
+ * US-002, when no locale had the key: the page's own fallbacks, copied from the
+ * code. The timeline labels end with the ":" the JSX appended after them.
+ */
+const DETAIL_FALLBACKS: DetailDict = {
+  backToList: 'Back to Job Applications',
+  viewJobPosting: 'View Original Posting',
+  linkedResume: 'Linked CV',
+  editResume: 'Edit CV',
+  noResumeLinked: 'No CV linked to this job application.',
+  createResume: 'Create CV for this Job',
+  linkedCoverLetter: 'Linked Cover Letter',
+  editCoverLetter: 'Edit Cover Letter',
+  noCoverLetterLinked: 'No cover letter linked to this job application.',
+  createCoverLetter: 'Create Cover Letter for this Job',
+  notes: 'Notes',
+  timeline: 'Timeline',
+  created: 'Created:',
+  lastUpdated: 'Last Updated:',
+  deadline: 'Deadline:',
+}
+const DETAIL_KEYS = Object.keys(DETAIL_FALLBACKS) as DetailKey[]
+
+/**
+ * Keys whose translation is spelled like the English: French "Notes" is the
+ * French word, and the board's preview already uses it. The scan cannot tell
+ * those apart from a fallback, so it skips them; the list is asserted, so a
+ * new identical value is a decision, not an accident.
+ */
+const IDENTICAL_TO_ENGLISH: Record<ScanLocale, DetailKey[]> = { fr: ['notes'], de: [], it: [] }
+
+/**
+ * English the status changer and the delete button fall back to. Their keys
+ * exist in every locale; the scan proves the page hands them the dictionary.
+ */
+const DETAIL_CHILD_ENGLISH: readonly (string | RegExp)[] = [
+  'Change Status',
+  'Are you sure you want to delete',
+  'Failed to delete job application',
+  /\bDelet(e|ing)\b/,
+  'Job Description',
+]
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** A fallback as a whole-word pattern, colon dropped, so "Created" alone is caught too. */
+function fallbackPattern(text: string): RegExp {
+  return new RegExp(`(?<!\\p{L})${escapeRegExp(text.replace(/:$/, ''))}(?!\\p{L})`, 'u')
+}
+
+function detailEnglish(locale: ScanLocale): (string | RegExp)[] {
+  const skipped = new Set(IDENTICAL_TO_ENGLISH[locale])
+  return [
+    ...ENGLISH,
+    ...DETAIL_CHILD_ENGLISH,
+    ...DETAIL_KEYS.filter((key) => !skipped.has(key)).map((key) => fallbackPattern(DETAIL_FALLBACKS[key])),
+  ]
+}
+
+async function detailEnglishIn(root: Locator, locale: ScanLocale): Promise<string[]> {
+  const patterns = detailEnglish(locale)
+  const strings = await renderedStrings(root)
+  return strings.filter((text) => patterns.some((pattern) => matches(text, pattern)))
+}
+
+async function expectNoDetailEnglish(root: Locator, locale: ScanLocale, where: string): Promise<void> {
+  expect(await detailEnglishIn(root, locale), `English in ${where}`).toEqual([])
+}
+
+/** Every optional section renders: posting link, notes, description, deadline. Neutral text. */
+const DETAIL_ROWS = {
+  linked: {
+    job_title: 'Produktdesigner Nord',
+    company_name: 'Nordwind SA',
+    status: 'interviewing' as JobStatus,
+    job_url: 'https://example.test/stelle/nord',
+    location: 'Lausanne',
+    job_description: 'Kurzbeschreibung Nordwind',
+    notes: 'Notiz Nordwind',
+    applied_date: '2026-01-20',
+    deadline: '2099-06-20',
+    created_at: '2026-01-15T12:00:00Z',
+    updated_at: '2026-02-16T12:00:00Z',
+  },
+  bare: {
+    job_title: 'Datenanalyst Sued',
+    company_name: 'Suedwind AG',
+    status: 'saved' as JobStatus,
+    job_url: 'https://example.test/stelle/sued',
+    location: 'Genf',
+    job_description: 'Kurzbeschreibung Suedwind',
+    notes: 'Notiz Suedwind',
+    applied_date: '2026-03-02',
+    deadline: '2099-07-21',
+    created_at: '2026-03-01T12:00:00Z',
+    updated_at: '2026-04-02T12:00:00Z',
+  },
+}
+type DetailRow = (typeof DETAIL_ROWS)[keyof typeof DETAIL_ROWS]
+const DETAIL_RESUME_TITLE = 'Profil Nordwind'
+
+async function seedDetail(userId: string): Promise<{ linkedId: string; bareId: string }> {
+  const db = admin()
+  const { data: resume, error: resumeError } = await db
+    .from('resumes')
+    .insert({ user_id: userId, title: DETAIL_RESUME_TITLE, template: 'professional' })
+    .select('id')
+    .single()
+  if (resumeError || !resume) throw new Error(`Could not create a resume: ${resumeError?.message ?? 'no row'}`)
+  const { data: letter, error: letterError } = await db
+    .from('cover_letters')
+    .insert({ user_id: userId, title: COVER_LETTER_TITLE })
+    .select('id')
+    .single()
+  if (letterError || !letter) throw new Error(`Could not create a cover letter: ${letterError?.message ?? 'no row'}`)
+
+  const insert = async (row: Record<string, unknown>): Promise<string> => {
+    const { data, error } = await db.from('job_applications').insert({ user_id: userId, ...row }).select('id').single()
+    if (error || !data) throw new Error(`Could not create a job application: ${error?.message ?? 'no row'}`)
+    return (data as { id: string }).id
+  }
+  return {
+    linkedId: await insert({
+      ...DETAIL_ROWS.linked,
+      resume_id: (resume as { id: string }).id,
+      cover_letter_id: (letter as { id: string }).id,
+    }),
+    bareId: await insert(DETAIL_ROWS.bare),
+  }
+}
+
+/**
+ * The page's own date format, computed in this process: the dev server runs on
+ * the same machine, so it formats in the same time zone.
+ */
+function pageDate(locale: TestLocale, value: string): string {
+  return new Intl.DateTimeFormat(locale, { month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(value))
+}
+
+/** jobs.json strings the status changer and delete button read. */
+const JOBS = { en: enJobs, fr: frJobs, de: deJobs } as const
+
+/**
+ * One detail page: every label, the timeline's raw text, the status menu and
+ * the two "not logged in" alerts. `labels` is the expected text per detail key:
+ * the dictionary for fr/de, `DETAIL_FALLBACKS` for en, so the en run asserts
+ * against what the page rendered before the keys existed.
+ */
+async function walkDetail(
+  page: Page,
+  locale: TestLocale,
+  id: string,
+  row: DetailRow,
+  linked: boolean,
+  labels: DetailDict,
+): Promise<void> {
+  const c = COMMON[locale]
+  const jobs = JOBS[locale]
+  const statuses = STATUSES[locale]
+  const scanLocale = locale === 'en' ? null : locale
+  const dialogs = recordDialogs(page)
+
+  const response = await page.goto(`/${locale}/dashboard/job-applications/${id}`)
+  expect(response?.status()).toBe(200)
+  const content = main(page)
+  await expect(content.getByRole('heading', { level: 1, name: row.job_title, exact: true })).toBeVisible()
+
+  await expect(content.getByRole('link', { name: labels.backToList, exact: true })).toBeVisible()
+  await expect(content.getByRole('link', { name: labels.viewJobPosting, exact: true })).toHaveAttribute('href', row.job_url)
+  await expect(content.getByRole('heading', { name: labels.linkedResume, exact: true })).toBeVisible()
+  await expect(content.getByRole('heading', { name: labels.linkedCoverLetter, exact: true })).toBeVisible()
+  await expect(content.getByRole('heading', { name: labels.notes, exact: true })).toBeVisible()
+  await expect(content.getByText(statuses[row.status], { exact: true })).toBeVisible()
+  if (linked) {
+    await expect(content.getByRole('link', { name: labels.editResume, exact: true })).toBeVisible()
+    await expect(content.getByRole('link', { name: labels.editCoverLetter, exact: true })).toBeVisible()
+    await expect(content.getByText(`${DETAIL_RESUME_TITLE} ${c.badges.linked}`, { exact: true })).toBeVisible()
+    await expect(content.getByText(`1 ${c.badges.coverLetterLabel}`, { exact: true })).toBeVisible()
+    await expect(content.getByText(labels.noResumeLinked, { exact: true })).toHaveCount(0)
+  } else {
+    await expect(content.getByText(labels.noResumeLinked, { exact: true })).toBeVisible()
+    await expect(content.getByRole('link', { name: labels.createResume, exact: true })).toBeVisible()
+    await expect(content.getByText(labels.noCoverLetterLinked, { exact: true })).toBeVisible()
+    await expect(content.getByRole('link', { name: labels.createCoverLetter, exact: true })).toBeVisible()
+    await expect(content.getByRole('link', { name: labels.editResume, exact: true })).toHaveCount(0)
+  }
+
+  // The timeline, on raw textContent: the label carries its own colon (fr with
+  // U+00A0 before it), then the JSX's U+0020, then the date.
+  const timeline = content.getByRole('heading', { name: labels.timeline, exact: true }).locator('..')
+  const lines = await timeline.locator('p').evaluateAll((paragraphs) =>
+    paragraphs.map((p) => ({ label: p.querySelector('span')?.textContent ?? '', text: p.textContent ?? '' })),
+  )
+  expect(lines).toEqual([
+    { label: labels.created, text: `${labels.created} ${pageDate(locale, row.created_at)}` },
+    { label: labels.lastUpdated, text: `${labels.lastUpdated} ${pageDate(locale, row.updated_at)}` },
+    { label: labels.deadline, text: `${labels.deadline} ${pageDate(locale, row.deadline)}` },
+  ])
+
+  // The status menu lists every localized status.
+  await content.getByRole('button', { name: jobs.changeStatus, exact: true }).click()
+  for (const status of JOB_STATUSES) {
+    await expect(content.getByRole('button', { name: statuses[status], exact: true })).toBeVisible()
+  }
+  if (scanLocale) await expectNoDetailEnglish(content, scanLocale, `${locale} detail page${linked ? '' : ' without links'}`)
+
+  // The session is gone as far as the browser client can tell: both actions stop at their alert.
+  await page.route(
+    (u) => u.pathname === '/auth/v1/user',
+    (route) => route.fulfill({ status: 401, json: { code: 401, error_code: 'no_authorization', msg: 'no session' } }),
+  )
+  const target: JobStatus = row.status === 'offer' ? 'applied' : 'offer'
+  await content.getByRole('button', { name: statuses[target], exact: true }).click()
+  await expect.poll(() => dialogs.length).toBe(1)
+  await content.getByRole('button', { name: jobs.delete, exact: true }).click()
+  await expect.poll(() => dialogs.length).toBe(3)
+  expect(dialogs).toEqual([c.common.notLoggedIn, jobs.confirmDelete, c.common.notLoggedIn])
+  if (scanLocale) expect(detailEnglish(scanLocale).filter((pattern) => matches(dialogs.join('\n'), pattern))).toEqual([])
+  await page.unroute((u) => u.pathname === '/auth/v1/user')
+
+  // Neither action reached the row, and the page stayed put.
+  expect(await statusOf(id)).toBe(row.status)
+  await expect(page).toHaveURL(new RegExp(`/${locale}/dashboard/job-applications/${id}$`))
+  await expect(content.getByRole('button', { name: jobs.delete, exact: true })).toBeEnabled()
+  page.removeAllListeners('dialog')
+}
+
+for (const locale of ['fr', 'de'] as const) {
+  test(`${locale}: the detail page, with a linked CV and cover letter, shows no English`, async ({ page, authedUser }) => {
+    const ids = await seedDetail(authedUser.id)
+    await walkDetail(page, locale, ids.linkedId, DETAIL_ROWS.linked, true, COMMON[locale].jobApplications.detail)
+  })
+
+  test(`${locale}: the detail page, with nothing linked, shows no English`, async ({ page, authedUser }) => {
+    const ids = await seedDetail(authedUser.id)
+    await walkDetail(page, locale, ids.bareId, DETAIL_ROWS.bare, false, COMMON[locale].jobApplications.detail)
+  })
+}
+
+test('detail keys: en equals the old fallbacks; fr, de, it differ except the listed ones', () => {
+  expect(COMMON.en.jobApplications.detail).toEqual(DETAIL_FALLBACKS)
+  for (const locale of ['fr', 'de', 'it'] as const) {
+    const detail = COMMON[locale].jobApplications.detail
+    expect(Object.keys(detail).sort()).toEqual([...DETAIL_KEYS].sort())
+    const identical = DETAIL_KEYS.filter((key) => detail[key] === DETAIL_FALLBACKS[key])
+    expect(identical, `${locale} values spelled like the English`).toEqual(IDENTICAL_TO_ENGLISH[locale])
+  }
+  // fr: a non-breaking space before each colon; de and it: none.
+  for (const key of ['created', 'lastUpdated', 'deadline'] as const) {
+    expect(COMMON.fr.jobApplications.detail[key]).toMatch(/\S :$/)
+    expect(COMMON.de.jobApplications.detail[key]).toMatch(/\S:$/)
+    expect(COMMON.it.jobApplications.detail[key]).toMatch(/\S:$/)
+  }
+})
+
+test('en: the detail page, with and without links, renders as before', async ({ page, authedUser }) => {
+  const ids = await seedDetail(authedUser.id)
+  await walkDetail(page, 'en', ids.linkedId, DETAIL_ROWS.linked, true, DETAIL_FALLBACKS)
+  await walkDetail(page, 'en', ids.bareId, DETAIL_ROWS.bare, false, DETAIL_FALLBACKS)
+  // Spelled out once: the label, then an ordinary space.
+  const timeline = main(page).getByRole('heading', { name: 'Timeline', exact: true }).locator('..')
+  expect(await timeline.locator('p').first().evaluate((p) => p.textContent)).toBe(
+    `Created: ${pageDate('en', DETAIL_ROWS.bare.created_at)}`,
+  )
+})
+
+test('control: the detail scan catches an English fallback', async ({ page, authedUser }) => {
+  const ids = await seedDetail(authedUser.id)
+  const response = await page.goto(`/fr/dashboard/job-applications/${ids.linkedId}`)
+  expect(response?.status()).toBe(200)
+  const content = main(page)
+  await expect(content.getByRole('heading', { name: frCommon.jobApplications.detail.timeline, exact: true })).toBeVisible()
+  await expectNoDetailEnglish(content, 'fr', 'fr detail before the control')
+
+  // What the timeline label and the posting link rendered before this story.
+  await content.evaluate((element) => {
+    const label = document.createElement('span')
+    label.textContent = 'Last Updated:'
+    element.appendChild(label)
+    const link = document.createElement('a')
+    link.setAttribute('aria-label', 'View Original Posting')
+    element.appendChild(link)
+  })
+  expect(await detailEnglishIn(content, 'fr')).toEqual(['Last Updated:', 'View Original Posting'])
 })

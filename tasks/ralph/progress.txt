@@ -85,3 +85,68 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 the Kanban board and quick add speak the page language
 FINAL: PASS
+
+Note: US-001's story commit is 0fa7651.
+
+## US-002: The detail page speaks the page language
+Status: PASS
+Priority: 2
+Branch: ralph/job-applications-i18n
+Baseline HEAD: 0fa7651 (US-001 commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat, added/removed):
+  - src/app/[locale]/(dashboard)/dashboard/job-applications/[id]/page.tsx (3/3): the colon after "Created", "Last Updated", "Deadline" moves from the JSX into the translation (fallbacks become 'Created:' etc.).
+  - src/locales/{en,fr,de,it}/common.json (17/0 each): new jobApplications.detail block, 15 keys.
+  - e2e/job-applications-i18n.spec.ts (304/0): detail-page tests.
+- Not touched: `git diff --stat -- package.json pnpm-lock.yaml src/components supabase src/app/api` is empty; the status changer and delete button already read common.notLoggedIn (added in US-001). No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted; `ls e2e | grep -c zz` is 0.
+
+Checks (final diff):
+- pnpm typecheck: PASS — 0 errors.
+- pnpm test: PASS — 73 files, 2127 passed, 5 skipped; locale-parity 22/22.
+- pnpm test:integration: PASS — 4 files, 50 passed.
+- pnpm test:e2e: PASS — 356 passed on the rerun (349 after US-001; +7 detail tests). First run 355 passed, 1 failed: layout-persistence.spec.ts:523, page.waitForURL timeout (file untouched by this story); spec alone 13/13, full suite rerun 356/356.
+- pnpm build: PASS — 105/105 static pages.
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); unchanged, under the tracked 306 ceiling.
+
+Specialized validation:
+- Browser: PASS — fr and de, an application with a linked CV, cover letter, posting URL, notes and deadline, and one without links: all 15 labels from the dictionary, posting href, badges, the timeline on raw textContent (fr label ends in U+00A0 + ":"), the status menu's 7 localized statuses, a scan of main (text + placeholder/title/aria-label) finding none of the 15 fallbacks or the child-component fallbacks; with /auth/v1/user stubbed to 401, status change then delete record [notLoggedIn, confirmDelete, notLoggedIn] in the page language, DB row unchanged. en walk asserting the old fallback table on raw textContent. Control: the detail scan catches "Last Updated:" in text and "View Original Posting" in an aria-label. Red checks: the en walk passed with page.tsx and the four common.json reset to HEAD (so it asserts what the page rendered before); with the new locales and the HEAD page, fr/de fail on "Création ::" (so the page edit is required); files restored and verified with cmp.
+- Visual: NOT_APPLICABLE — no resume template or print code changed.
+- Export: NOT_APPLICABLE — no export code in the diff.
+- Database: NOT_APPLICABLE — no schema or persistence change.
+- Security: NOT_APPLICABLE — text only; no auth or API change.
+
+Agents:
+- senior-coder: implementation in one pass; a sweep of every text node and placeholder/title/aria-label/alt on the detail page (fr/de/it, with/without links, status menu open) found no other English.
+- ui-expert, round 1: BLOCKED — the "full-page" captures were viewport-only (the dashboard scrolls in its own container), so the Timeline and, at 375px, the cover-letter, Notes and Timeline cards were never seen.
+- ui-expert, round 2: PASS, 7/7. Evidence: one element screenshot per card, {fr,de,it,en} × {1440,375} × {linked,bare}, 96 cards, none with a clipped descendant; en before (page.tsx + four common.json temporarily reset to 0fa7651, restored byte-identical, cmp) vs after: 22/24 cards pixel-identical, the two "linked" Timeline cards differ by 64px in a 9×11 box on one glyph of "Deadline: June 20, 2099" — zoomed crops show the same text at the same position (anti-aliasing; the label is now one text node instead of "Deadline" + ":").
+- code-reviewer: PASS — 0 critical, 0 major, 2 minor.
+
+Acceptance criteria:
+- AC-01 (keys, en = fallbacks): PASS — 15 keys in four locales; en equals the JSX fallbacks (test `detail keys`); the three timeline keys carry the colon the JSX used to append.
+- AC-02 (no English in fr/de/it, with and without links): PASS — e2e fr/de linked and bare; per-card captures fr/de/it; it covered statically (every it value differs from en).
+- AC-03 (colons): PASS — fr U+00A0 before ":" (byte check; raw textContent in e2e); de/it no space; en textContent unchanged ("Created: <date>" with one U+0020).
+- AC-04 (alerts): PASS — e2e records both alerts in the page language.
+- FR-1/FR-2/FR-3/FR-4: PASS — strings from jobApplications.detail; parity 22/22; no dependency; en unchanged.
+- Regression constraints: PASS — e2e 356/356; status change and delete unchanged (DB assertions).
+- Verification items: PASS — §14 baseline; detail e2e fr/de + en + control; ui-expert both widths; code-reviewer. Drag-and-drop live-region text belongs to US-003.
+- FAIL conditions: none met. BLOCKER condition: not reached.
+- Out of scope respected.
+
+Decision (AC-02): fr detail.notes is "Notes", identical to the English fallback; it is the correct French word and matches kanban.preview.notes. The e2e allows it through an exact exception list (IDENTICAL_TO_ENGLISH = { fr: ['notes'] }), asserted equal, so any other value identical to English fails.
+Decision (AC-03): the colon moved into the translation for all locales, so fr can set U+00A0 without per-locale logic in the component; en text, accessible text and glyphs are unchanged (only React's SSR text-node separator disappears).
+
+Open owner decisions recorded by this story (none blocks US-003):
+- code-reviewer, pre-existing, privacy: src/app/[locale]/(dashboard)/dashboard/job-applications/[id]/page.tsx:54 console.logs the whole application row (notes, description, salary, linked document titles) on every server render, i.e. into the production function logs. Needs its own small fix (remove or reduce to the id).
+- ui-expert, pre-existing: on the wrapped "create cover letter" link at 375px (fr/it) the icon centres between the two lines (`items-center`); de "Ursprüngliche Stellenanzeige anzeigen" is long and repeats "anzeige"; the linked-CV badge appends a capitalised status word ("Lié"/"Verknüpft").
+- code-reviewer, minor: the fr colon regex in the spec contains a literal U+00A0 (` ` would be clearer); pageDate assumes runner and server share a time zone (timestamps at 12:00Z).
+
+Environment notes:
+- Windows 11, local Supabase stack, Playwright suites run one at a time. One unrelated transient (layout-persistence) absorbed by rerunning the spec alone and the full suite.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 the detail page speaks the page language
+FINAL: PASS

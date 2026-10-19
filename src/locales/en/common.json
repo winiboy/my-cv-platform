@@ -686,6 +686,23 @@
       "noMatchingStatus": "No applications with this status",
       "tryDifferentFilter": "Try selecting a different filter or browse jobs to add new applications.",
       "browseJobsCta": "Browse Job Listings"
+    },
+    "detail": {
+      "backToList": "Back to Job Applications",
+      "viewJobPosting": "View Original Posting",
+      "linkedResume": "Linked CV",
+      "editResume": "Edit CV",
+      "noResumeLinked": "No CV linked to this job application.",
+      "createResume": "Create CV for this Job",
+      "linkedCoverLetter": "Linked Cover Letter",
+      "editCoverLetter": "Edit Cover Letter",
+      "noCoverLetterLinked": "No cover letter linked to this job application.",
+      "createCoverLetter": "Create Cover Letter for this Job",
+      "notes": "Notes",
+      "timeline": "Timeline",
+      "created": "Created:",
+      "lastUpdated": "Last Updated:",
+      "deadline": "Deadline:"
     }
   },
   "kanban": {

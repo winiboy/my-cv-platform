@@ -686,6 +686,23 @@
       "noMatchingStatus": "Nessuna candidatura con questo stato",
       "tryDifferentFilter": "Prova a selezionare un filtro diverso o sfoglia le offerte per aggiungerne di nuove.",
       "browseJobsCta": "Sfoglia le offerte di lavoro"
+    },
+    "detail": {
+      "backToList": "Torna alle candidature",
+      "viewJobPosting": "Visualizza l'offerta originale",
+      "linkedResume": "CV collegato",
+      "editResume": "Modifica CV",
+      "noResumeLinked": "Nessun CV collegato a questa candidatura.",
+      "createResume": "Crea un CV per questa offerta",
+      "linkedCoverLetter": "Lettera di presentazione collegata",
+      "editCoverLetter": "Modifica lettera di presentazione",
+      "noCoverLetterLinked": "Nessuna lettera di presentazione collegata a questa candidatura.",
+      "createCoverLetter": "Crea una lettera di presentazione per questa offerta",
+      "notes": "Note",
+      "timeline": "Cronologia",
+      "created": "Creazione:",
+      "lastUpdated": "Ultimo aggiornamento:",
+      "deadline": "Scadenza:"
     }
   },
   "kanban": {

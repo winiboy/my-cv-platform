@@ -686,6 +686,23 @@
       "noMatchingStatus": "Keine Bewerbungen mit diesem Status",
       "tryDifferentFilter": "Versuchen Sie, einen anderen Filter zu wählen oder durchsuchen Sie Stellen, um neue Bewerbungen hinzuzufügen.",
       "browseJobsCta": "Stellenangebote durchsuchen"
+    },
+    "detail": {
+      "backToList": "Zurück zu den Bewerbungen",
+      "viewJobPosting": "Ursprüngliche Stellenanzeige anzeigen",
+      "linkedResume": "Verknüpfter Lebenslauf",
+      "editResume": "Lebenslauf bearbeiten",
+      "noResumeLinked": "Mit dieser Bewerbung ist kein Lebenslauf verknüpft.",
+      "createResume": "Lebenslauf für diese Stelle erstellen",
+      "linkedCoverLetter": "Verknüpftes Anschreiben",
+      "editCoverLetter": "Anschreiben bearbeiten",
+      "noCoverLetterLinked": "Mit dieser Bewerbung ist kein Anschreiben verknüpft.",
+      "createCoverLetter": "Anschreiben für diese Stelle erstellen",
+      "notes": "Notizen",
+      "timeline": "Zeitverlauf",
+      "created": "Erstellt:",
+      "lastUpdated": "Zuletzt aktualisiert:",
+      "deadline": "Frist:"
     }
   },
   "kanban": {
