@@ -26,6 +26,11 @@ import { cn } from '@/lib/utils'
 import { KanbanColumn } from './kanban-column'
 import { KanbanCard } from './kanban-card'
 import { QuickAddModal } from './quick-add-modal'
+import { createKanbanDndAccessibility, type KanbanDndMessages } from './kanban-dnd-accessibility'
+import { createColumnKeyboardCoordinates } from './kanban-keyboard-coordinates'
+
+/** Arrow keys move a held card column to column, in board order. */
+const columnKeyboardCoordinates = createColumnKeyboardCoordinates(JOB_STATUSES)
 
 /** localStorage key for persisting collapsed column state */
 const COLLAPSED_COLUMNS_STORAGE_KEY = 'kanban_collapsed_columns'
@@ -72,6 +77,14 @@ export function KanbanBoard({
     boardDict.statusUpdateError || 'Failed to update status. Please try again.'
   const deleteErrorMessage =
     boardDict.deleteError || 'Failed to delete application. Please try again.'
+
+  // dnd-kit re-subscribes its announcer whenever this object changes, so it is
+  // rebuilt only when the dictionary does.
+  const dndAccessibility = useMemo(() => {
+    const dndDict = ((dict.kanban as Record<string, unknown>)?.dnd || {}) as KanbanDndMessages
+    const statusLabels = ((dict.jobs as Record<string, unknown>)?.statuses || {}) as Record<string, string>
+    return createKanbanDndAccessibility(dndDict, statusLabels)
+  }, [dict])
 
   // Local state for optimistic updates during drag operations
   const [localApplications, setLocalApplications] = useState(jobApplications)
@@ -154,7 +167,7 @@ export function KanbanBoard({
         tolerance: 5, // 5px tolerance during delay
       },
     }),
-    useSensor(KeyboardSensor)
+    useSensor(KeyboardSensor, { coordinateGetter: columnKeyboardCoordinates })
   )
 
   /**
@@ -420,9 +433,14 @@ export function KanbanBoard({
 
   return (
     <TooltipProvider>
+      {/* A fixed id: without one dnd-kit numbers the instructions element from a
+          module counter that differs between the server render and the client,
+          so each handle's aria-describedby pointed at no element. */}
       <DndContext
+        id="job-applications-board-dnd"
         sensors={sensors}
         collisionDetection={closestCenter}
+        accessibility={dndAccessibility}
         onDragStart={handleDragStartWithReset}
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}

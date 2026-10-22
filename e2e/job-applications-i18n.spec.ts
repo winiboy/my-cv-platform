@@ -48,8 +48,15 @@ import itJobs from '../src/locales/it/jobs.json'
  * the delete button. An en run checks the same strings did not move, and a
  * control test shows the detail scan catches one English fallback.
  *
- * The draggable card's `aria-roledescription="draggable"` is dnd-kit's default
- * and belongs to US-003; the scan skips that one attribute value until then.
+ * Drag and drop (US-003), in fr and de: the drag handle's aria-roledescription,
+ * the screen-reader instructions it points to, and every live-region text of a
+ * keyboard move (Tab to the handle, Space, ArrowRight, Space), a keyboard move
+ * cancelled with Escape, and a mouse move; each names the card by title and
+ * company and the column by its localized status, and the row's status and the
+ * PATCH requests follow. The handle keeps focus, and the card's own Space and
+ * Enter still open its menu and its detail page. The scan reads
+ * the live region and the instructions, and a control test shows it catches
+ * dnd-kit's English defaults. An en run asserts the new en wording.
  *
  * WHAT IS STUBBED
  *
@@ -75,6 +82,8 @@ function admin(): SupabaseClient {
 test.use({ timezoneId: 'Europe/Zurich', viewport: { width: 1440, height: 900 } })
 
 type TestLocale = 'fr' | 'de' | 'en'
+/** The drag-and-drop runs add it, so the Italian announcements render once. */
+type DndLocale = TestLocale | 'it'
 type CommonDict = typeof enCommon
 type StatusesDict = typeof enJobs.statuses
 type JobStatus = keyof StatusesDict
@@ -117,10 +126,15 @@ const ENGLISH: readonly (string | RegExp)[] = [
   'You must be logged in',
   // The header's short placeholder at 375px, "Search...".
   /\bSearch\b/,
+  // dnd-kit's defaults (US-003): the role description "draggable", the
+  // instructions "To pick up a draggable item…" and the announcements
+  // "Picked up draggable item <id>.", "… droppable area …", "Dragging was cancelled…".
+  /\bdraggable\b/i,
+  /\bdroppable\b/i,
+  'Picked up',
+  'To pick up',
+  'Dragging was cancelled',
 ]
-
-/** dnd-kit's default role description: localized by US-003, not this story. */
-const US003_ROLE_DESCRIPTION = 'draggable'
 
 function matches(text: string, pattern: string | RegExp): boolean {
   return typeof pattern === 'string' ? text.includes(pattern) : pattern.test(text)
@@ -128,7 +142,7 @@ function matches(text: string, pattern: string | RegExp): boolean {
 
 /** Every rendered string of `root`: text nodes, plus placeholder, title, aria-label and aria-roledescription. */
 async function renderedStrings(root: Locator): Promise<string[]> {
-  return root.evaluate((element, skippedRoleDescription) => {
+  return root.evaluate((element) => {
     const strings: string[] = []
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
@@ -138,13 +152,11 @@ async function renderedStrings(root: Locator): Promise<string[]> {
     for (const child of [element, ...Array.from(element.querySelectorAll('*'))]) {
       for (const attribute of ['placeholder', 'title', 'aria-label', 'aria-roledescription']) {
         const value = child.getAttribute(attribute)
-        if (!value) continue
-        if (attribute === 'aria-roledescription' && value === skippedRoleDescription) continue
-        strings.push(value)
+        if (value) strings.push(value)
       }
     }
     return strings
-  }, US003_ROLE_DESCRIPTION)
+  })
 }
 
 async function englishIn(root: Locator): Promise<string[]> {
@@ -218,13 +230,13 @@ const main = (page: Page): Locator => page.locator('main')
 const column = (page: Page, status: JobStatus): Locator => page.locator(`[role="group"][data-status="${status}"]`)
 const toast = (page: Page, text: string): Locator => page.getByRole('alert').filter({ hasText: text })
 
-function cardLabel(locale: TestLocale, row: { job_title: string; company_name: string }): string {
+function cardLabel(locale: DndLocale, row: { job_title: string; company_name: string }): string {
   return COMMON[locale].kanban.card.ariaLabel
     .replace('{title}', row.job_title)
     .replace('{company}', row.company_name)
 }
 
-async function gotoBoard(page: Page, locale: TestLocale, query = ''): Promise<void> {
+async function gotoBoard(page: Page, locale: DndLocale, query = ''): Promise<void> {
   const response = await page.goto(`/${locale}/dashboard/job-applications${query}`)
   expect(response?.status()).toBe(200)
   await expect(page.getByRole('button', { name: cardLabel(locale, ROWS.first), exact: true })).toBeVisible()
@@ -250,6 +262,12 @@ async function openCardTooltip(page: Page, card: Locator): Promise<Locator> {
     await expect(tooltip).toBeVisible({ timeout: 3_000 })
   }).toPass({ timeout: 20_000 })
   return tooltip
+}
+
+/** Drags `handle` into `target` with the mouse, past the board's 8px activation distance. */
+async function mouseDrag(page: Page, handle: Locator, target: Locator): Promise<void> {
+  await pointerPickUpAndMove(page, handle, target)
+  await page.mouse.up()
 }
 
 /** Answers every dialog, recording its message; confirm dialogs are accepted. */
@@ -297,7 +315,9 @@ async function walkBoard(page: Page, locale: TestLocale, userId: string): Promis
   expect(new Set(columnLabels).size, `column labels ${columnLabels.join(', ')}`).toBe(JOB_STATUSES.length)
 
   // The card: its label and its cover letter badge.
-  const card = page.getByRole('button', { name: cardLabel(locale, ROWS.first), exact: true })
+  // Scoped to its column: after the failed drag below, the drag overlay's copy
+  // of the card can linger with the same name (a pre-existing defect).
+  const card = column(page, 'saved').getByRole('button', { name: cardLabel(locale, ROWS.first), exact: true })
   await expect(card.getByText(`1 ${c.badges.coverLetterLabel}`, { exact: true })).toBeVisible()
   if (scan) await expectNoEnglish(main(page), `${locale} board`)
 
@@ -383,15 +403,7 @@ async function walkBoard(page: Page, locale: TestLocale, userId: string): Promis
       return method === 'PATCH' || method === 'DELETE' ? route.fulfill({ status: 500, json: {} }) : route.continue()
     },
   )
-  const handle = card.getByRole('button', { name: c.kanban.card.dragToMove, exact: true })
-  const from = await handle.boundingBox()
-  const to = await column(page, 'applied').boundingBox()
-  if (!from || !to) throw new Error('Drag handle or target column has no box')
-  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(from.x + from.width / 2 + 20, from.y + from.height / 2, { steps: 4 })
-  await page.mouse.move(to.x + to.width / 2, to.y + 120, { steps: 12 })
-  await page.mouse.up()
+  await mouseDrag(page, card.getByRole('button', { name: c.kanban.card.dragToMove, exact: true }), column(page, 'applied'))
   await expect(toast(page, c.kanban.board.statusUpdateError)).toBeVisible()
   if (scan) await expectNoEnglish(toast(page, c.kanban.board.statusUpdateError).locator('p'), `${locale} status toast`)
   // Rolled back, and the row was not touched.
@@ -406,7 +418,7 @@ async function walkBoard(page: Page, locale: TestLocale, userId: string): Promis
   await expect(toast(page, c.kanban.board.deleteError)).toBeVisible()
   if (scan) await expectNoEnglish(toast(page, c.kanban.board.deleteError).locator('p'), `${locale} delete toast`)
   expect(dialogs).toEqual([c.kanban.card.confirmDelete])
-  await expect(page.getByRole('button', { name: cardLabel(locale, ROWS.first), exact: true })).toBeVisible()
+  await expect(column(page, 'saved').getByRole('button', { name: cardLabel(locale, ROWS.first), exact: true })).toBeVisible()
   expect(await statusOf(ids.firstId)).toBe('saved')
   expect(await statusOf(ids.secondId)).toBe('applied')
 }
@@ -544,7 +556,7 @@ test('en: the board, quick add and labels are unchanged', async ({ page, authedU
   await walkBoard(page, 'en', authedUser.id)
 
   // The tooltip's type still reads "Phone Screen" on screen: CSS capitalizes it, as before.
-  const card = page.getByRole('button', { name: cardLabel('en', ROWS.first), exact: true })
+  const card = column(page, 'saved').getByRole('button', { name: cardLabel('en', ROWS.first), exact: true })
   const tooltip = await openCardTooltip(page, card)
   await expect(tooltip.getByText('phone screen', { exact: true })).toHaveText('Phone Screen', {
     useInnerText: true,
@@ -571,7 +583,7 @@ test('control: the scan catches an English status and an English attribute', asy
     probe.textContent = 'Interviewing'
     group.appendChild(probe)
   })
-  // dnd-kit's role description is skipped; any other value is read.
+  // Attributes are read too, aria-roledescription included.
   await main(page).evaluate((element) => {
     const probe = document.createElement('div')
     probe.setAttribute('aria-roledescription', 'Declined')
@@ -875,4 +887,351 @@ test('control: the detail scan catches an English fallback', async ({ page, auth
     element.appendChild(link)
   })
   expect(await detailEnglishIn(content, 'fr')).toEqual(['Last Updated:', 'View Original Posting'])
+})
+
+// ---------------------------------------------------------------------------
+// Drag and drop (US-003)
+// ---------------------------------------------------------------------------
+
+type DndKey = keyof typeof enCommon.kanban.dnd
+type Row = { job_title: string; company_name: string }
+
+/** dnd-kit's visually hidden live region, rendered once per `<DndContext>`. */
+const liveRegion = (page: Page): Locator => page.locator('[id^="DndLiveRegion-"]')
+
+/** A raw status key as a whole lowercase word; the labels never are one. */
+const RAW_STATUS_KEY = /\b(saved|applied|interviewing|offer|rejected|accepted|declined)\b/
+
+function dndText(locale: DndLocale, key: DndKey, row: Row, status?: JobStatus): string {
+  return COMMON[locale].kanban.dnd[key].replace(/\{(title|company|column)\}/g, (_, placeholder: string) => {
+    if (placeholder === 'title') return row.job_title
+    if (placeholder === 'company') return row.company_name
+    if (!status) throw new Error(`${key} names a column`)
+    return STATUSES[locale][status]
+  })
+}
+
+/**
+ * Records every text the live region takes. dnd-kit replaces the text on each
+ * event, and a pick-up is followed at once by the first "over", so reading the
+ * region after a key press would miss announcements.
+ */
+async function recordAnnouncements(page: Page): Promise<void> {
+  await expect(liveRegion(page)).toHaveCount(1)
+  await liveRegion(page).evaluate((region) => {
+    const log: string[] = []
+    ;(window as unknown as { __dndAnnouncements: string[] }).__dndAnnouncements = log
+    new MutationObserver(() => {
+      const text = region.textContent ?? ''
+      if (text && text !== log[log.length - 1]) log.push(text)
+    }).observe(region, { childList: true, characterData: true, subtree: true })
+  })
+}
+
+async function announcements(page: Page): Promise<string[]> {
+  return page.evaluate(() => [...(window as unknown as { __dndAnnouncements: string[] }).__dndAnnouncements])
+}
+
+async function clearAnnouncements(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    ;(window as unknown as { __dndAnnouncements: string[] }).__dndAnnouncements.length = 0
+  })
+}
+
+/**
+ * Presses the mouse on `handle` and moves it past the 8px activation distance,
+ * then over `target`, leaving the button down.
+ */
+async function pointerPickUpAndMove(page: Page, handle: Locator, target: Locator): Promise<void> {
+  const from = await handle.boundingBox()
+  const to = await target.boundingBox()
+  if (!from || !to) throw new Error('Drag handle or target column has no box')
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(from.x + from.width / 2 + 20, from.y + from.height / 2, { steps: 4 })
+  await page.mouse.move(to.x + to.width / 2, to.y + 120, { steps: 12 })
+}
+
+/**
+ * Before US-003 the card took focus back whenever focus entered one of its
+ * controls while another card (or none) was the board's focused card, and
+ * Space on the handle also reached the card and opened its menu. Both ways
+ * of reaching the handle are checked: focus landing on it directly, and Tab
+ * from its own card.
+ */
+async function focusHandle(handle: Locator): Promise<void> {
+  await handle.focus()
+  await expect(handle).toBeFocused()
+  // The card's focus effect runs after the focus event; it must not move focus.
+  await handle.page().evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve(null))))
+  await expect(handle).toBeFocused()
+}
+
+async function tabToHandle(card: Locator, handle: Locator): Promise<void> {
+  await card.focus()
+  await expect(card).toBeFocused()
+  await card.page().keyboard.press('Tab')
+  await expect(handle).toBeFocused()
+}
+
+/**
+ * dnd-kit measures the columns just after a pick-up; an arrow pressed before
+ * that has no column to move to. The origin column's "over" highlight is the
+ * page's sign that the measuring is done.
+ */
+async function expectColumnsMeasured(origin: Locator): Promise<void> {
+  await expect(origin).toHaveClass(/\bborder-teal-500\b/)
+}
+
+/**
+ * A keyboard move, a keyboard cancel and a mouse move of one card, with the
+ * live region recorded and every PATCH captured. Shared by the localized and
+ * the en runs; `scan` is false for en.
+ */
+async function walkDragAndDrop(page: Page, locale: DndLocale, userId: string): Promise<void> {
+  const c = COMMON[locale]
+  const scan = locale !== 'en'
+  const ids = await seed(userId)
+  const row = ROWS.first
+  await gotoBoard(page, locale)
+
+  const cardIn = (status: JobStatus) =>
+    column(page, status).getByRole('button', { name: cardLabel(locale, row), exact: true })
+  const handleIn = (status: JobStatus) =>
+    cardIn(status).getByRole('button', { name: c.kanban.card.dragToMove, exact: true })
+
+  // The handle's role description and the instructions it points to.
+  const handle = handleIn('saved')
+  await expect(handle).toHaveAttribute('aria-roledescription', c.kanban.dnd.roleDescription)
+  const describedBy = await handle.getAttribute('aria-describedby')
+  if (!describedBy) throw new Error('The drag handle has no aria-describedby')
+  // Every handle points at the same, existing element (the server-rendered id
+  // used to differ from the client's, leaving the reference dangling).
+  const describedByAll = await page
+    .getByRole('button', { name: c.kanban.card.dragToMove, exact: true })
+    .evaluateAll((handles) => handles.map((element) => element.getAttribute('aria-describedby')))
+  expect(new Set(describedByAll)).toEqual(new Set([describedBy]))
+  const instructions = page.locator(`[id="${describedBy}"]`)
+  expect(await instructions.evaluate((element) => element.textContent)).toBe(c.kanban.dnd.instructions)
+  // Both sit inside the board, so the page scans read them too.
+  await expect(main(page).locator(`[id="${describedBy}"]`)).toHaveCount(1)
+  await expect(main(page).locator('[id^="DndLiveRegion-"]')).toHaveCount(1)
+  if (scan) await expectNoEnglish(main(page), `${locale} board, drag and drop at rest`)
+
+  await recordAnnouncements(page)
+  const patches: { id: string; body: unknown }[] = []
+  page.on('request', (request) => {
+    if (request.method() !== 'PATCH') return
+    const match = /\/api\/job-applications\/([^/?]+)$/.exec(new URL(request.url()).pathname)
+    if (match) patches.push({ id: match[1], body: request.postDataJSON() })
+  })
+  const checkLog = (log: string[], where: string) => {
+    for (const text of log) {
+      expect(text, where).not.toContain(ids.firstId)
+      expect(text, where).not.toMatch(RAW_STATUS_KEY)
+    }
+    if (scan) expect(log.filter((text) => ENGLISH.some((pattern) => matches(text, pattern))), where).toEqual([])
+  }
+
+  const lastAnnouncement = async () => (await announcements(page)).at(-1)
+  const menu = page.getByRole('menu')
+  const tooltip = page.getByRole('tooltip')
+  /**
+   * Focus stays on the held card's handle for the whole drag. Before the fix
+   * the card was remounted at pick-up and focus fell to the body.
+   */
+  const expectHandleFocused = async (expected: Locator, where: string) => {
+    await expect(expected, where).toBeFocused()
+    const active = await page.evaluate(() => ({
+      tag: document.activeElement?.tagName,
+      roleDescription: document.activeElement?.getAttribute('aria-roledescription'),
+    }))
+    expect(active, where).toEqual({ tag: 'BUTTON', roleDescription: c.kanban.dnd.roleDescription })
+  }
+
+  // Keyboard move: focus the handle, Space, ArrowRight once, Space.
+  await focusHandle(handle)
+  await page.keyboard.press('Space')
+  await expect.poll(lastAnnouncement).toBe(dndText(locale, 'pickedUp', row, 'saved'))
+  await expectHandleFocused(handle, `${locale} after Space`)
+  await expect(menu).toHaveCount(0)
+  await expectColumnsMeasured(column(page, 'saved'))
+  await page.keyboard.press('ArrowRight')
+  await expect.poll(lastAnnouncement).toBe(dndText(locale, 'movedOver', row, 'applied'))
+  await expectHandleFocused(handle, `${locale} after ArrowRight`)
+  if (scan) await expectNoEnglish(liveRegion(page), `${locale} live region while dragging`)
+  await page.keyboard.press('Space')
+  await expect.poll(lastAnnouncement).toBe(dndText(locale, 'dropped', row, 'applied'))
+  const moveLog = await announcements(page)
+  expect(moveLog).toEqual([
+    dndText(locale, 'pickedUp', row, 'saved'),
+    dndText(locale, 'movedOver', row, 'applied'),
+    dndText(locale, 'dropped', row, 'applied'),
+  ])
+  checkLog(moveLog, `${locale} keyboard move`)
+  await expect(cardIn('applied')).toBeVisible()
+  await expect(menu).toHaveCount(0)
+  // dnd-kit returns focus to the handle, now in its new column, and the
+  // card's preview stays shut: it opens for the card's own focus, and the
+  // check waits past its 500ms delay.
+  await expectHandleFocused(handleIn('applied'), `${locale} after the drop`)
+  await page.waitForTimeout(800)
+  await expect(tooltip).toHaveCount(0)
+  await expect.poll(() => statusOf(ids.firstId)).toBe('applied')
+  // The status key is sent unchanged, once.
+  expect(patches).toEqual([{ id: ids.firstId, body: { status: 'applied' } }])
+
+  // Keyboard cancel: Tab from the card to its handle, Space, ArrowRight over
+  // the next column, Escape. Nothing moves.
+  await clearAnnouncements(page)
+  await tabToHandle(cardIn('applied'), handleIn('applied'))
+  await page.keyboard.press('Space')
+  await expect.poll(lastAnnouncement).toBe(dndText(locale, 'pickedUp', row, 'applied'))
+  await expectHandleFocused(handleIn('applied'), `${locale} cancel run, after Space`)
+  await expectColumnsMeasured(column(page, 'applied'))
+  await page.keyboard.press('ArrowRight')
+  await expect.poll(lastAnnouncement).toBe(dndText(locale, 'movedOver', row, 'interviewing'))
+  await expectHandleFocused(handleIn('applied'), `${locale} cancel run, after ArrowRight`)
+  await page.keyboard.press('Escape')
+  await expect.poll(lastAnnouncement).toBe(dndText(locale, 'cancelled', row, 'applied'))
+  const cancelLog = await announcements(page)
+  expect(cancelLog).toEqual([
+    dndText(locale, 'pickedUp', row, 'applied'),
+    dndText(locale, 'movedOver', row, 'interviewing'),
+    dndText(locale, 'cancelled', row, 'applied'),
+  ])
+  checkLog(cancelLog, `${locale} keyboard cancel`)
+  await expect(cardIn('applied')).toBeVisible()
+  expect(patches, 'PATCH requests after the cancel').toEqual([{ id: ids.firstId, body: { status: 'applied' } }])
+  expect(await statusOf(ids.firstId)).toBe('applied')
+
+  // Mouse move: Applied → Saved, announced the same way.
+  await clearAnnouncements(page)
+  // The drag overlay's copy of the card is gone once the cancel's drop
+  // animation has finished; a drag started before that does not begin.
+  await expect(page.getByRole('button', { name: cardLabel(locale, row), exact: true })).toHaveCount(1)
+  await mouseDrag(page, handleIn('applied'), column(page, 'saved'))
+  await expect.poll(lastAnnouncement).toBe(dndText(locale, 'dropped', row, 'saved'))
+  const mouseLog = await announcements(page)
+  expect(mouseLog[0]).toBe(dndText(locale, 'pickedUp', row, 'applied'))
+  checkLog(mouseLog, `${locale} mouse move`)
+  await expect(cardIn('saved')).toBeVisible()
+  await expect.poll(() => statusOf(ids.firstId)).toBe('saved')
+  expect(patches).toEqual([
+    { id: ids.firstId, body: { status: 'applied' } },
+    { id: ids.firstId, body: { status: 'saved' } },
+  ])
+  expect(await statusOf(ids.secondId)).toBe('applied')
+  if (scan) await expectNoEnglish(main(page), `${locale} board after the moves`)
+
+  // The card's own keys are unchanged: Space on the card opens its menu, and
+  // Escape closes it; Enter on the card opens the detail page.
+  await page.mouse.move(0, 0)
+  const card = cardIn('saved')
+  await card.focus()
+  await page.keyboard.press('Space')
+  await expect(page.getByRole('menu', { name: c.kanban.card.menuLabel, exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(menu).toHaveCount(0)
+  await card.focus()
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(new RegExp(`/${locale}/dashboard/job-applications/${ids.firstId}$`))
+}
+
+for (const locale of ['fr', 'de', 'it'] as const) {
+  test(`${locale}: drag and drop is announced in the page language`, async ({ page, authedUser }) => {
+    await walkDragAndDrop(page, locale, authedUser.id)
+  })
+}
+
+test('en: drag and drop announcements name the card and the column', async ({ page, authedUser }) => {
+  // New en wording (FR-4): it replaces dnd-kit's default.
+  expect(dndText('en', 'pickedUp', ROWS.first, 'saved')).toBe(
+    'Picked up Produktdesigner Nord at Nordwind SA from the Saved column.',
+  )
+  expect(dndText('en', 'movedOver', ROWS.first, 'applied')).toBe(
+    'Produktdesigner Nord at Nordwind SA is over the Applied column.',
+  )
+  expect(dndText('en', 'dropped', ROWS.first, 'applied')).toBe(
+    'Produktdesigner Nord at Nordwind SA was dropped in the Applied column.',
+  )
+  expect(dndText('en', 'cancelled', ROWS.first, 'applied')).toBe(
+    'Move cancelled. Produktdesigner Nord at Nordwind SA stays in the Applied column.',
+  )
+  expect(COMMON.en.kanban.dnd.roleDescription).toBe('movable card')
+  await walkDragAndDrop(page, 'en', authedUser.id)
+})
+
+/**
+ * US-003 changes the card's focus and key handling for the drag handle only.
+ * Elsewhere the card keeps its pre-US-003 behaviour, quirks included: Enter on
+ * the card or on its "more actions" button opens the detail page (the card's
+ * own Enter handler takes it), and Space on that button opens the card's menu.
+ * These expectations were checked against the pre-US-003 kanban-card.tsx.
+ */
+test('fr: outside the drag handle, Enter and Space on the card behave as before', async ({ page, authedUser }) => {
+  const c = COMMON.fr
+  const ids = await seed(authedUser.id)
+  const detail = new RegExp(`/fr/dashboard/job-applications/${ids.firstId}$`)
+  const card = column(page, 'saved').getByRole('button', { name: cardLabel('fr', ROWS.first), exact: true })
+  const moreActions = card.getByRole('button', { name: c.kanban.card.moreActions, exact: true })
+  const menu = page.getByRole('menu', { name: c.kanban.card.menuLabel, exact: true })
+
+  // Enter on the card itself.
+  await gotoBoard(page, 'fr')
+  await card.focus()
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(detail)
+
+  // Enter on "more actions".
+  await gotoBoard(page, 'fr')
+  await card.focus()
+  await moreActions.focus()
+  await expect(moreActions).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page).toHaveURL(detail)
+
+  // Space on "more actions".
+  await gotoBoard(page, 'fr')
+  await card.focus()
+  await moreActions.focus()
+  await page.keyboard.press('Space')
+  await expect(menu).toBeVisible()
+  await expect(page).toHaveURL(/\/fr\/dashboard\/job-applications$/)
+})
+
+test('dnd keys: fr, de and it differ from en', () => {
+  const keys = Object.keys(COMMON.en.kanban.dnd) as DndKey[]
+  for (const locale of ['fr', 'de', 'it'] as const) {
+    const dnd = COMMON[locale].kanban.dnd
+    expect(Object.keys(dnd).sort()).toEqual([...keys].sort())
+    expect(keys.filter((key) => !dnd[key] || dnd[key] === COMMON.en.kanban.dnd[key]), locale).toEqual([])
+  }
+})
+
+test("control: the scan catches dnd-kit's English defaults", async ({ page, authedUser }) => {
+  const ids = await seed(authedUser.id)
+  await gotoBoard(page, 'fr')
+  await expectNoEnglish(main(page), 'fr before the control')
+
+  // What dnd-kit rendered before this story: its role description on the
+  // handle, its instructions, and a pick-up announcement with the raw id.
+  const handle = page
+    .getByRole('button', { name: cardLabel('fr', ROWS.first), exact: true })
+    .getByRole('button', { name: frCommon.kanban.card.dragToMove, exact: true })
+  const describedBy = await handle.getAttribute('aria-describedby')
+  await handle.evaluate((element) => element.setAttribute('aria-roledescription', 'draggable'))
+  await page.locator(`[id="${describedBy}"]`).evaluate((element) => {
+    element.textContent = 'To pick up a draggable item, press the space bar.'
+  })
+  await liveRegion(page).evaluate((region, id) => {
+    region.textContent = `Picked up draggable item ${id}.`
+  }, ids.firstId)
+  expect((await englishIn(main(page))).sort()).toEqual(
+    [
+      'To pick up a draggable item, press the space bar.',
+      `Picked up draggable item ${ids.firstId}.`,
+      'draggable',
+    ].sort(),
+  )
 })

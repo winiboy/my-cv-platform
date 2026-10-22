@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { ResumeLinkBadge, CoverLetterLinkBadge } from '@/components/dashboard/entity-link-badge'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { KanbanCardPreview } from './kanban-card-preview'
+import { KANBAN_DND_FALLBACK, type KanbanDndMessages } from './kanban-dnd-accessibility'
 
 /**
  * useIsomorphicLayoutEffect is useLayoutEffect on client, useEffect on server.
@@ -67,17 +68,24 @@ export function KanbanCard({
   const cardRef = useRef<HTMLDivElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const menuItemRefs = useRef<(HTMLElement | null)[]>([])
+  const dragHandleRef = useRef<HTMLButtonElement | null>(null)
+
+  /** Whether `target` is the drag handle, which owns its own focus and keys. */
+  const isOnDragHandle = (target: EventTarget | null): boolean =>
+    target instanceof Node && !!dragHandleRef.current?.contains(target)
 
   const jobsDict = (dict.jobs || {}) as Record<string, unknown>
   const statusesDict = (jobsDict.statuses || {}) as Record<string, string>
   const kanbanDict = (dict.kanban || {}) as Record<string, unknown>
   const cardDict = (kanbanDict.card || {}) as Record<string, string>
+  const dndDict = (kanbanDict.dnd || {}) as KanbanDndMessages
 
   // Set up draggable behavior using @dnd-kit
   const {
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     isDragging,
   } = useDraggable({
@@ -86,7 +94,20 @@ export function KanbanCard({
       jobApplication,
       status: jobApplication.status,
     },
+    attributes: {
+      roleDescription: dndDict.roleDescription || KANBAN_DND_FALLBACK.roleDescription,
+    },
   })
+
+  // dnd-kit returns keyboard focus to its activator node after a drop, so the
+  // next move can start without tabbing back from the card.
+  const setDragHandleRef = useCallback(
+    (el: HTMLButtonElement | null) => {
+      dragHandleRef.current = el
+      setActivatorNodeRef(el)
+    },
+    [setActivatorNodeRef]
+  )
 
   // Transform style for drag movement
   const style = {
@@ -143,10 +164,14 @@ export function KanbanCard({
   }, [showMenu])
 
   // Handle programmatic focus when isFocused becomes true
-  // Using useLayoutEffect ensures synchronous DOM focus before paint
+  // Using useLayoutEffect ensures synchronous DOM focus before paint.
+  // Focus on the drag handle (which reports itself through the bubbling
+  // onFocus) is left where it is: moving it to the card made keyboard
+  // dragging impossible.
   useIsomorphicLayoutEffect(() => {
-    if (isFocused && cardRef.current) {
-      cardRef.current.focus()
+    const card = cardRef.current
+    if (isFocused && card && !isOnDragHandle(document.activeElement)) {
+      card.focus()
     }
   }, [isFocused])
 
@@ -195,8 +220,12 @@ export function KanbanCard({
    * - Enter: Navigate to card detail page
    * - Space: Open context menu
    * - Escape: Close context menu if open
+   *
+   * Enter and Space on the drag handle belong to dnd-kit (they pick the card
+   * up and drop it), so the card leaves them alone there.
    */
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.key === 'Enter' || e.key === ' ') && isOnDragHandle(e.target)) return
     if (e.key === 'Enter') {
       e.preventDefault()
       handleCardClick()
@@ -264,12 +293,22 @@ export function KanbanCard({
   /**
    * Handle focus event to sync with keyboard navigation state.
    */
-  const handleFocus = () => {
+  const handleFocus = (e: React.FocusEvent) => {
     onFocus?.(jobApplication.id)
+    // Focus on the drag handle, where dnd-kit puts it back after a keyboard
+    // drop, must not open the preview over the next column. This relies on
+    // Radix: TooltipTrigger wraps its onFocus in composeEventHandlers
+    // (@radix-ui/primitive), which skips Radix's own handler when the event is
+    // default-prevented (checkForDefaultPrevented). Re-check on a Radix upgrade.
+    if (isOnDragHandle(e.target)) e.preventDefault()
   }
 
-  // Tooltip should be disabled during drag operations to avoid interference
+  // Tooltip should be disabled during drag operations to avoid interference.
+  // It is forced closed rather than left out: unwrapping the card changed the
+  // element tree, so React remounted the card mid-drag and keyboard focus fell
+  // to the body.
   const isTooltipDisabled = isDragging || isDragOverlay
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false)
 
   /**
    * Merge refs for dnd-kit, local focus, and keyboard navigation registry.
@@ -321,6 +360,7 @@ export function KanbanCard({
         {/* Mobile: 44px minimum touch target, Desktop: compact */}
         {!isDragOverlay && (
           <button
+            ref={setDragHandleRef}
             type="button"
             className={cn(
               'flex-shrink-0 rounded flex items-center justify-center',
@@ -499,14 +539,13 @@ export function KanbanCard({
     </div>
   )
 
-  // When dragging or in drag overlay, render card without tooltip
-  if (isTooltipDisabled) {
-    return cardElement
-  }
-
   // Wrap card with tooltip for hover preview
   return (
-    <Tooltip delayDuration={500}>
+    <Tooltip
+      delayDuration={500}
+      open={isTooltipOpen && !isTooltipDisabled}
+      onOpenChange={setIsTooltipOpen}
+    >
       <TooltipTrigger asChild>
         {cardElement}
       </TooltipTrigger>

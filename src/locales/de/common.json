@@ -730,6 +730,16 @@
       "deleting": "Wird gelöscht...",
       "confirmDelete": "Sind Sie sicher, dass Sie diese Bewerbung löschen möchten?"
     },
+    "dnd": {
+      "instructions": "Drücken Sie die Leertaste oder die Eingabetaste, um eine Karte aufzunehmen. Verschieben Sie sie beim Ziehen mit der linken oder rechten Pfeiltaste in die vorherige oder nächste Spalte. Drücken Sie erneut die Leertaste oder die Eingabetaste, um sie abzulegen, oder Escape, um abzubrechen.",
+      "pickedUp": "{title} bei {company} aus der Spalte {column} aufgenommen.",
+      "movedOver": "{title} bei {company} befindet sich über der Spalte {column}.",
+      "notOver": "{title} bei {company} befindet sich über keiner Spalte.",
+      "dropped": "{title} bei {company} wurde in der Spalte {column} abgelegt.",
+      "droppedOutside": "{title} bei {company} wurde außerhalb der Spalten abgelegt. Der Status bleibt unverändert.",
+      "cancelled": "Verschieben abgebrochen. {title} bei {company} bleibt in der Spalte {column}.",
+      "roleDescription": "verschiebbare Karte"
+    },
     "preview": {
       "noDetails": "Keine zusätzlichen Details",
       "salary": "Gehalt",

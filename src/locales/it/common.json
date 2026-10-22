@@ -730,6 +730,16 @@
       "deleting": "Eliminazione...",
       "confirmDelete": "Sei sicuro di voler eliminare questa candidatura?"
     },
+    "dnd": {
+      "instructions": "Per prendere una scheda, premi la barra spaziatrice o Invio. Durante il trascinamento, usa le frecce sinistra e destra per spostarla nella colonna precedente o successiva. Premi di nuovo la barra spaziatrice o Invio per rilasciarla, oppure Esc per annullare.",
+      "pickedUp": "Hai preso {title} presso {company} dalla colonna {column}.",
+      "movedOver": "{title} presso {company} è sopra la colonna {column}.",
+      "notOver": "{title} presso {company} non è sopra nessuna colonna.",
+      "dropped": "Hai rilasciato {title} presso {company} nella colonna {column}.",
+      "droppedOutside": "Hai rilasciato {title} presso {company} fuori dalle colonne. Lo stato non cambia.",
+      "cancelled": "Spostamento annullato. {title} presso {company} resta nella colonna {column}.",
+      "roleDescription": "scheda trascinabile"
+    },
     "preview": {
       "noDetails": "Nessun dettaglio aggiuntivo",
       "salary": "Stipendio",
