@@ -422,7 +422,8 @@
     "delete": "Elimina",
     "deleting": "Eliminazione...",
     "confirm": "Conferma",
-    "back": "Indietro"
+    "back": "Indietro",
+    "notLoggedIn": "Devi effettuare l'accesso per eseguire questa azione"
   },
   "errors": {
     "unauthorized": "Non autorizzato",
@@ -668,6 +669,9 @@
     "resumeLabel": "CV",
     "coverLetterLabel": "Lettera",
     "jobLabel": "Lavoro",
+    "resumeLabelPlural": "CV",
+    "coverLetterLabelPlural": "Lettere",
+    "jobLabelPlural": "Lavori",
     "linked": "Collegato",
     "linkedJob": "Lavoro collegato"
   },
@@ -682,12 +686,31 @@
       "noMatchingStatus": "Nessuna candidatura con questo stato",
       "tryDifferentFilter": "Prova a selezionare un filtro diverso o sfoglia le offerte per aggiungerne di nuove.",
       "browseJobsCta": "Sfoglia le offerte di lavoro"
+    },
+    "detail": {
+      "backToList": "Torna alle candidature",
+      "viewJobPosting": "Visualizza l'offerta originale",
+      "linkedResume": "CV collegato",
+      "editResume": "Modifica CV",
+      "noResumeLinked": "Nessun CV collegato a questa candidatura.",
+      "createResume": "Crea un CV per questa offerta",
+      "linkedCoverLetter": "Lettera di presentazione collegata",
+      "editCoverLetter": "Modifica lettera di presentazione",
+      "noCoverLetterLinked": "Nessuna lettera di presentazione collegata a questa candidatura.",
+      "createCoverLetter": "Crea una lettera di presentazione per questa offerta",
+      "notes": "Note",
+      "timeline": "Cronologia",
+      "created": "Creazione:",
+      "lastUpdated": "Ultimo aggiornamento:",
+      "deadline": "Scadenza:"
     }
   },
   "kanban": {
     "board": {
       "ariaLabel": "Bacheca delle candidature",
-      "skipLink": "Salta bacheca Kanban"
+      "skipLink": "Salta bacheca Kanban",
+      "statusUpdateError": "Impossibile aggiornare lo stato. Riprova.",
+      "deleteError": "Impossibile eliminare la candidatura. Riprova."
     },
     "column": {
       "dropHere": "Rilascia qui",
@@ -699,6 +722,7 @@
       "dragToMove": "Trascina per spostare",
       "moreActions": "Altre azioni",
       "menuLabel": "Azioni candidatura",
+      "ariaLabel": "{title} presso {company}",
       "edit": "Modifica",
       "createCV": "Crea CV per questo lavoro",
       "createCoverLetter": "Crea lettera di presentazione",
@@ -706,16 +730,34 @@
       "deleting": "Eliminazione...",
       "confirmDelete": "Sei sicuro di voler eliminare questa candidatura?"
     },
+    "dnd": {
+      "instructions": "Per prendere una scheda, premi la barra spaziatrice o Invio. Durante il trascinamento, usa le frecce sinistra e destra per spostarla nella colonna precedente o successiva. Premi di nuovo la barra spaziatrice o Invio per rilasciarla, oppure Esc per annullare.",
+      "pickedUp": "Hai preso {title} presso {company} dalla colonna {column}.",
+      "movedOver": "{title} presso {company} è sopra la colonna {column}.",
+      "notOver": "{title} presso {company} non è sopra nessuna colonna.",
+      "dropped": "Hai rilasciato {title} presso {company} nella colonna {column}.",
+      "droppedOutside": "Hai rilasciato {title} presso {company} fuori dalle colonne. Lo stato non cambia.",
+      "cancelled": "Spostamento annullato. {title} presso {company} resta nella colonna {column}.",
+      "roleDescription": "scheda trascinabile"
+    },
     "preview": {
       "noDetails": "Nessun dettaglio aggiuntivo",
       "salary": "Stipendio",
       "nextInterview": "Prossimo colloquio",
       "notes": "Note",
-      "deadline": "Scadenza"
+      "deadline": "Scadenza",
+      "interviewTypes": {
+        "phone_screen": "telefonico",
+        "technical": "tecnico",
+        "behavioral": "comportamentale",
+        "final": "finale",
+        "other": "altro"
+      }
     },
     "header": {
       "title": "Candidature",
       "searchPlaceholder": "Cerca per titolo, azienda o luogo...",
+      "searchPlaceholderShort": "Cerca...",
       "viewBoard": "Bacheca",
       "viewList": "Lista",
       "browseJobs": "Sfoglia offerte",
@@ -740,6 +782,8 @@
       "dateRange": "Data aggiunta",
       "clearAll": "Cancella tutto",
       "removeDateRange": "Rimuovi filtro data",
+      "removeStatus": "Rimuovi filtro {status}",
+      "closeFilters": "Chiudi filtri",
       "week": "Questa settimana",
       "month": "Questo mese",
       "threeMonths": "Ultimi 3 mesi",
@@ -751,15 +795,20 @@
       "jobTitleLabel": "Posizione",
       "jobTitlePlaceholder": "es. Ingegnere Software",
       "jobTitleRequired": "La posizione è obbligatoria",
+      "jobTitleTooLong": "La posizione deve contenere meno di 255 caratteri",
       "companyLabel": "Azienda",
       "companyPlaceholder": "es. Google",
       "companyRequired": "Il nome dell'azienda è obbligatorio",
+      "companyTooLong": "Il nome dell'azienda deve contenere meno di 255 caratteri",
       "jobUrlLabel": "URL dell'offerta",
       "jobUrlPlaceholder": "https://...",
       "optional": "opzionale",
       "invalidUrl": "Inserisci un URL valido",
+      "urlTooLong": "L'URL deve contenere meno di 2000 caratteri",
       "save": "Salva",
-      "saving": "Salvataggio..."
+      "saving": "Salvataggio...",
+      "createError": "Impossibile creare la candidatura. Riprova.",
+      "unexpectedError": "Si è verificato un errore imprevisto. Riprova."
     }
   }
 }

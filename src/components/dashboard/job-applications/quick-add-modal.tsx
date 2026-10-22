@@ -1,54 +1,19 @@
 'use client'
 
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { X, Loader2, AlertCircle } from 'lucide-react'
 import type { JobApplicationWithRelations, JobStatus } from '@/types/database'
 import { JOB_STATUS_CONFIG } from '@/lib/constants/job-statuses'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-
-/**
- * Zod schema for quick add form validation.
- * Requires job title and company name, optional URL.
- */
-const quickAddSchema = z.object({
-  job_title: z
-    .string()
-    .min(1, 'Job title is required')
-    .max(255, 'Job title must be less than 255 characters'),
-  company_name: z
-    .string()
-    .min(1, 'Company name is required')
-    .max(255, 'Company name must be less than 255 characters'),
-  job_url: z
-    .string()
-    .max(2000, 'URL must be less than 2000 characters')
-    .refine(
-      (val) => !val || val === '' || isValidUrl(val),
-      'Please enter a valid URL'
-    )
-    .optional()
-    .or(z.literal('')),
-})
-
-/**
- * Helper to validate URL format.
- * Returns true for valid URLs, false otherwise.
- */
-function isValidUrl(value: string): boolean {
-  try {
-    new URL(value)
-    return true
-  } catch {
-    return false
-  }
-}
-
-type QuickAddFormData = z.infer<typeof quickAddSchema>
+import {
+  createQuickAddSchema,
+  type QuickAddFormData,
+  type QuickAddMessages,
+} from './quick-add-schema'
 
 interface QuickAddModalProps {
   /** Whether the modal is currently visible */
@@ -87,7 +52,21 @@ export function QuickAddModal({
   const kanbanDict = (dict.kanban || {}) as Record<string, unknown>
   const quickAddDict = (kanbanDict.quickAdd || {}) as Record<string, string>
   const commonDict = (dict.common || {}) as Record<string, string>
+  const jobsDict = (dict.jobs || {}) as Record<string, unknown>
+  const statusesDict = (jobsDict.statuses || {}) as Record<string, string>
   const statusConfig = JOB_STATUS_CONFIG[initialStatus]
+  const statusLabel = statusesDict[initialStatus] || statusConfig.label
+  const createErrorMessage =
+    quickAddDict.createError || 'Failed to create job application. Please try again.'
+  const unexpectedErrorMessage =
+    quickAddDict.unexpectedError || 'An unexpected error occurred. Please try again.'
+
+  // Keyed on the dictionary's own object, which is stable across renders.
+  const quickAddMessages = kanbanDict.quickAdd as QuickAddMessages | undefined
+  const quickAddSchema = useMemo(
+    () => createQuickAddSchema(quickAddMessages ?? {}),
+    [quickAddMessages]
+  )
 
   const {
     register,
@@ -234,8 +213,7 @@ export function QuickAddModal({
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}))
-          const errorMessage =
-            errorData.error || 'Failed to create job application. Please try again.'
+          const errorMessage = errorData.error || createErrorMessage
           setSubmitError(errorMessage)
           return
         }
@@ -256,11 +234,11 @@ export function QuickAddModal({
         const message =
           error instanceof Error
             ? error.message
-            : 'An unexpected error occurred. Please try again.'
+            : unexpectedErrorMessage
         setSubmitError(message)
       }
     },
-    [initialStatus, onSuccess]
+    [initialStatus, onSuccess, createErrorMessage, unexpectedErrorMessage]
   )
 
   // Don't render anything if modal is closed
@@ -305,7 +283,7 @@ export function QuickAddModal({
                 statusConfig.textColor
               )}
             >
-              {statusConfig.label}
+              {statusLabel}
             </span>
           </div>
           <button

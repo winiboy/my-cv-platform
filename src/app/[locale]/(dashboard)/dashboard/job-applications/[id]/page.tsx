@@ -287,16 +287,16 @@ export default async function JobApplicationDetailPage(props: JobApplicationDeta
         </h2>
         <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
           <p>
-            <span className="font-medium">{(detailDict.created as string) || 'Created'}:</span>{' '}
+            <span className="font-medium">{(detailDict.created as string) || 'Created:'}</span>{' '}
             {formatDate(job.created_at)}
           </p>
           <p>
-            <span className="font-medium">{(detailDict.lastUpdated as string) || 'Last Updated'}:</span>{' '}
+            <span className="font-medium">{(detailDict.lastUpdated as string) || 'Last Updated:'}</span>{' '}
             {formatDate(job.updated_at)}
           </p>
           {job.deadline && (
             <p>
-              <span className="font-medium">{(detailDict.deadline as string) || 'Deadline'}:</span>{' '}
+              <span className="font-medium">{(detailDict.deadline as string) || 'Deadline:'}</span>{' '}
               {formatDate(job.deadline)}
             </p>
           )}

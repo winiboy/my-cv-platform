@@ -354,7 +354,7 @@ export function FilterDropdown({
                 type="button"
                 onClick={() => setIsOpen(false)}
                 className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700 transition-colors"
-                aria-label="Close filters"
+                aria-label={filtersDict.closeFilters || 'Close filters'}
               >
                 <X className="h-5 w-5" />
               </button>

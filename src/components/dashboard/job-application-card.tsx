@@ -62,6 +62,9 @@ export function JobApplicationCard({
   const jobsDict = (dict.jobs || {}) as Record<string, unknown>
   const commonDict = (dict.common || {}) as Record<string, unknown>
   const statusesDict = (jobsDict.statuses || {}) as Record<string, string>
+  const kanbanDict = (dict.kanban || {}) as Record<string, unknown>
+  const cardMenuLabel =
+    ((kanbanDict.card || {}) as Record<string, string>).menuLabel || 'Job application actions'
 
   /**
    * Get translated status label with fallback to English
@@ -203,7 +206,7 @@ export function JobApplicationCard({
           }}
           className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition-colors"
           disabled={isDeleting || isUpdatingStatus}
-          aria-label="Job application actions"
+          aria-label={cardMenuLabel}
         >
           <MoreVertical className="h-4 w-4 text-slate-600 dark:text-slate-400" />
         </button>

@@ -73,6 +73,9 @@ export function KanbanColumn({
   const kanbanDict = (dict.kanban || {}) as Record<string, unknown>
   const quickAddDict = (kanbanDict.quickAdd || {}) as Record<string, string>
   const columnDict = (kanbanDict.column || {}) as Record<string, string>
+  const jobsDict = (dict.jobs || {}) as Record<string, unknown>
+  const statusesDict = (jobsDict.statuses || {}) as Record<string, string>
+  const statusLabel = statusesDict[status] || statusConfig.label
 
   // Auto-expand collapsed column when dragging over it
   useEffect(() => {
@@ -101,7 +104,7 @@ export function KanbanColumn({
       <div
         ref={setNodeRef}
         role="group"
-        aria-label={statusConfig.label}
+        aria-label={statusLabel}
         className={cn(
           'shrink-0 flex flex-col border-2 rounded-lg',
           'w-14 min-w-14',
@@ -149,7 +152,7 @@ export function KanbanColumn({
             'hover:bg-slate-100/50 dark:hover:bg-slate-700/50',
             prefersReducedMotion ? '' : 'transition-colors'
           )}
-          aria-label={`${columnDict.expand || 'Expand column'}: ${statusConfig.label}`}
+          aria-label={`${columnDict.expand || 'Expand column'}: ${statusLabel}`}
         >
           <span
             className={cn(
@@ -161,7 +164,7 @@ export function KanbanColumn({
               transform: 'rotate(180deg)',
             }}
           >
-            {statusConfig.label}
+            {statusLabel}
           </span>
         </button>
       </div>
@@ -173,7 +176,7 @@ export function KanbanColumn({
     <div
       ref={setNodeRef}
       role="group"
-      aria-label={statusConfig.label}
+      aria-label={statusLabel}
       className={cn(
         'shrink-0 flex flex-col border-2 border-transparent rounded-lg',
         prefersReducedMotion
@@ -220,7 +223,7 @@ export function KanbanColumn({
               statusConfig.textColor
             )}
           >
-            {statusConfig.label}
+            {statusLabel}
           </span>
           {/* Quick Add button */}
           {onQuickAdd && (
@@ -239,7 +242,7 @@ export function KanbanColumn({
               aria-label={
                 (quickAddDict.addToColumn || 'Add job to {status}').replace(
                   '{status}',
-                  statusConfig.label
+                  statusLabel
                 )
               }
             >

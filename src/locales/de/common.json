@@ -422,7 +422,8 @@
     "delete": "Löschen",
     "deleting": "Wird gelöscht...",
     "confirm": "Bestätigen",
-    "back": "Zurück"
+    "back": "Zurück",
+    "notLoggedIn": "Sie müssen angemeldet sein, um diese Aktion auszuführen"
   },
   "errors": {
     "unauthorized": "Nicht autorisiert",
@@ -668,6 +669,9 @@
     "resumeLabel": "Lebenslauf",
     "coverLetterLabel": "Anschreiben",
     "jobLabel": "Stelle",
+    "resumeLabelPlural": "Lebensläufe",
+    "coverLetterLabelPlural": "Anschreiben",
+    "jobLabelPlural": "Stellen",
     "linked": "Verknüpft",
     "linkedJob": "Verknüpfte Stelle"
   },
@@ -682,12 +686,31 @@
       "noMatchingStatus": "Keine Bewerbungen mit diesem Status",
       "tryDifferentFilter": "Versuchen Sie, einen anderen Filter zu wählen oder durchsuchen Sie Stellen, um neue Bewerbungen hinzuzufügen.",
       "browseJobsCta": "Stellenangebote durchsuchen"
+    },
+    "detail": {
+      "backToList": "Zurück zu den Bewerbungen",
+      "viewJobPosting": "Ursprüngliche Stellenanzeige anzeigen",
+      "linkedResume": "Verknüpfter Lebenslauf",
+      "editResume": "Lebenslauf bearbeiten",
+      "noResumeLinked": "Mit dieser Bewerbung ist kein Lebenslauf verknüpft.",
+      "createResume": "Lebenslauf für diese Stelle erstellen",
+      "linkedCoverLetter": "Verknüpftes Anschreiben",
+      "editCoverLetter": "Anschreiben bearbeiten",
+      "noCoverLetterLinked": "Mit dieser Bewerbung ist kein Anschreiben verknüpft.",
+      "createCoverLetter": "Anschreiben für diese Stelle erstellen",
+      "notes": "Notizen",
+      "timeline": "Zeitverlauf",
+      "created": "Erstellt:",
+      "lastUpdated": "Zuletzt aktualisiert:",
+      "deadline": "Frist:"
     }
   },
   "kanban": {
     "board": {
       "ariaLabel": "Bewerbungs-Board",
-      "skipLink": "Kanban-Board überspringen"
+      "skipLink": "Kanban-Board überspringen",
+      "statusUpdateError": "Status konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut.",
+      "deleteError": "Bewerbung konnte nicht gelöscht werden. Bitte versuchen Sie es erneut."
     },
     "column": {
       "dropHere": "Hier ablegen",
@@ -699,6 +722,7 @@
       "dragToMove": "Ziehen zum Verschieben",
       "moreActions": "Weitere Aktionen",
       "menuLabel": "Bewerbungsaktionen",
+      "ariaLabel": "{title} bei {company}",
       "edit": "Bearbeiten",
       "createCV": "Lebenslauf für diese Stelle erstellen",
       "createCoverLetter": "Anschreiben erstellen",
@@ -706,16 +730,34 @@
       "deleting": "Wird gelöscht...",
       "confirmDelete": "Sind Sie sicher, dass Sie diese Bewerbung löschen möchten?"
     },
+    "dnd": {
+      "instructions": "Drücken Sie die Leertaste oder die Eingabetaste, um eine Karte aufzunehmen. Verschieben Sie sie beim Ziehen mit der linken oder rechten Pfeiltaste in die vorherige oder nächste Spalte. Drücken Sie erneut die Leertaste oder die Eingabetaste, um sie abzulegen, oder Escape, um abzubrechen.",
+      "pickedUp": "{title} bei {company} aus der Spalte {column} aufgenommen.",
+      "movedOver": "{title} bei {company} befindet sich über der Spalte {column}.",
+      "notOver": "{title} bei {company} befindet sich über keiner Spalte.",
+      "dropped": "{title} bei {company} wurde in der Spalte {column} abgelegt.",
+      "droppedOutside": "{title} bei {company} wurde außerhalb der Spalten abgelegt. Der Status bleibt unverändert.",
+      "cancelled": "Verschieben abgebrochen. {title} bei {company} bleibt in der Spalte {column}.",
+      "roleDescription": "verschiebbare Karte"
+    },
     "preview": {
       "noDetails": "Keine zusätzlichen Details",
       "salary": "Gehalt",
       "nextInterview": "Nächstes Vorstellungsgespräch",
       "notes": "Notizen",
-      "deadline": "Frist"
+      "deadline": "Frist",
+      "interviewTypes": {
+        "phone_screen": "Telefoninterview",
+        "technical": "Fachgespräch",
+        "behavioral": "Verhaltensinterview",
+        "final": "Abschlussgespräch",
+        "other": "Sonstiges"
+      }
     },
     "header": {
       "title": "Bewerbungen",
       "searchPlaceholder": "Nach Titel, Unternehmen oder Ort suchen...",
+      "searchPlaceholderShort": "Suchen...",
       "viewBoard": "Board",
       "viewList": "Liste",
       "browseJobs": "Stellen durchsuchen",
@@ -740,6 +782,8 @@
       "dateRange": "Hinzugefügt am",
       "clearAll": "Alle löschen",
       "removeDateRange": "Datumsfilter entfernen",
+      "removeStatus": "Filter {status} entfernen",
+      "closeFilters": "Filter schließen",
       "week": "Diese Woche",
       "month": "Dieser Monat",
       "threeMonths": "Letzte 3 Monate",
@@ -751,15 +795,20 @@
       "jobTitleLabel": "Stellenbezeichnung",
       "jobTitlePlaceholder": "z.B. Software-Ingenieur",
       "jobTitleRequired": "Stellenbezeichnung ist erforderlich",
+      "jobTitleTooLong": "Die Stellenbezeichnung muss weniger als 255 Zeichen lang sein",
       "companyLabel": "Unternehmen",
       "companyPlaceholder": "z.B. Google",
-      "companyRequired": "Firmenname ist erforderlich",
+      "companyRequired": "Unternehmen ist erforderlich",
+      "companyTooLong": "Der Unternehmensname muss weniger als 255 Zeichen lang sein",
       "jobUrlLabel": "Stellen-URL",
       "jobUrlPlaceholder": "https://...",
       "optional": "optional",
       "invalidUrl": "Bitte geben Sie eine gültige URL ein",
+      "urlTooLong": "Die URL muss weniger als 2000 Zeichen lang sein",
       "save": "Speichern",
-      "saving": "Wird gespeichert..."
+      "saving": "Wird gespeichert...",
+      "createError": "Bewerbung konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
+      "unexpectedError": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut."
     }
   }
 }
