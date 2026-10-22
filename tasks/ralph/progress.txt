@@ -4,3 +4,72 @@ Contract: tasks/ralph/prd.json (branch ralph/cv-from-job-complete)
 PRD: tasks/prds/cv-from-job-complete.md (Status: APPROVED 2026-10-22, written by the owner)
 Format: docs/engineering/progress-log-format.md
 Branch setup: from origin/main b08c064 (#113 merged). The first commit archives the merged job-applications-i18n contract; the second adds this PRD and its contract.
+
+## US-001: A complete CV draft can be built from any job offer
+Status: PASS
+Priority: 1
+Branch: ralph/cv-from-job-complete
+Baseline HEAD: e2d6992 (origin/main b08c064 + archive commit 238d548 + contract commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths (all new, src/lib/resume-from-job/):
+  - build-resume-from-job.ts (407 lines): `buildResumeFromJobOffer({ offer, language, aiContent? })` → the resume's content columns; input types `JobOfferForResume` (title, company, location) and `AiResumeContent` (summary, experience, skills, projects, matching `generateResumeFromJobDescription` plus experience achievements). Reuses the field types of src/types/database.ts.
+  - sample-values.ts (349): `RESUME_CONTENT_LANGUAGES` ['fr','en','de','it'], `isResumeContentLanguage`, `RESUME_SAMPLE_VALUES` (one set per language), `SAMPLE_DATES`; module comment states the values are product content requested by the owner on 2026-10-22, not test fixtures.
+  - untrusted-text.ts (315): `sanitizeUntrustedRichText` (allowlist p br strong em u ul ol li; b/i mapped; no attributes; script/style/iframe and similar removed with content; other tags unwrapped) and `sanitizeUntrustedPlainText`; both remove NUL/C0 controls (except tab, LF, CR) and unpaired surrogates, cut on code points.
+  - Tests: build-resume-from-job.test.ts (499), build-resume-from-job.render.test.ts (268), sample-values.test.ts (149), untrusted-text.test.ts (169).
+- Not touched: `git diff --stat HEAD -- src supabase package.json pnpm-lock.yaml` is empty (only the new untracked directory). No UI, route, prompt, migration, dependency or version change; no push or merge.
+
+Checks (final diff, run 2 — run 1 was stopped when the review fixes invalidated it):
+- pnpm typecheck: PASS — 0 errors.
+- pnpm test: PASS — 79 files, 2366 passed, 5 skipped (2150 at b08c064; +216 in src/lib/resume-from-job).
+- pnpm test:integration: PASS — 4 files, 50 passed.
+- pnpm test:e2e: PASS — 363 passed on the rerun. First run 362 passed, 1 failed: password-reset.spec.ts:221 ("the login form must offer a recovery link"; file untouched by this story, which changes no page); spec alone 21/21, then full suite 363/363.
+- pnpm build: PASS — 105/105 static pages.
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); unchanged, under the tracked 306 ceiling; eslint on src/lib/resume-from-job: 0.
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0; parity-report.json sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b (unchanged reference).
+
+Specialized validation:
+- Browser: NOT_APPLICABLE for this story — no page or route changed. Named limit: rich-text fields render through the client-only SanitizedHtml, so the server render test proves each template routes every drawn rich field through the sanitizer (wrapper count = rich fields drawn, 5 templates × 4 languages, sample-only and AI drafts) but not the visible text; browser evidence of visible rich text in all five templates, editor and Preview is owed by US-002.
+- Visual: NOT_APPLICABLE — no rendering code changed.
+- Export: NOT_APPLICABLE — no export code changed (export-validation of a created CV is required in US-002).
+- Database: NOT_APPLICABLE — no schema or write path in this story.
+- Security: PASS (story layer) — code-reviewer probed both sanitizers with 38 payloads (nested/malformed tags, `<scr<script>ipt>`, entities incl. numeric and `&#106;avascript:`, comments, CDATA, `<svg onload>`, `<img onerror>`, unclosed quotes, uppercase, NUL, PIs): rich output contains only tags the module emits, never attributes; plain output has no angle brackets. Regression tests: 256k-char runs of 13 hostile patterns, plain and rich, each < 100 ms (reviewer measured < 5 ms; 1 MB '<a' run 0 ms). The full security-review of the server path and stub guard is required in US-002.
+
+Agents:
+- senior-coder: implementation, then one round of review fixes and the owner's two decisions:
+  - C1: the plain-text sanitizer scanned unbounded input with a quadratic pattern (128k chars of '<a' ≈ 2.4 s) → input cut to 8× the limit before scanning, linear pattern, linear '&' escaping and closing-tag handling, each AI entry sanitized once.
+  - NUL/controls/unpaired surrogates removed (Postgres rejects them); cuts on code points.
+  - Render test strengthened (per-field wrapper counts, AI draft added).
+- code-reviewer, round 1: FAIL — C1 above; C2 `exemple.com` (the PRD's illustrative fr domain) is a live parked third-party domain with an MX record (`nslookup`), so sample emails/links left in a CV would go to a third party; weak render assertion; invented end date for AI current roles.
+- code-reviewer, round 2: PASS — 0 critical; 2 major carried to US-002/003 (below); 3 minor.
+- ui-expert: NOT_APPLICABLE — no UI changed in this story (rendered evidence is required in US-002).
+
+Acceptance criteria:
+- AC-01 (every field non-empty except photo): PASS — tests for offer + AI, offer alone, offer without location or company, empty or markup-only title, in all four languages; every entry visible.
+- AC-02 (offer data first): PASS — title = job title, contact.location = job location when present, sample summary names the job title (and company when known). An AI summary is used as written (AC-03); making it name the job title belongs to the prompt in US-002/003.
+- AC-03 (AI content where available): PASS — AI summary/experience/skills/projects used; empty fields filled from the sample set; at most 10 entries per section; lengths within AI_TEXT_LIMITS.
+- AC-04 (sample values describe their field, no real entity): PASS — four sets (fr/en/de/it) reviewed by code-reviewer; reserved example.com for every email and URL.
+- AC-05 (one language per CV): PASS — one set per draft; test asserts no value shared between sets (levels excepted).
+- AC-06 (valid formats; rich text renders in all five templates): PASS for this story's layer — YYYY-MM dates, email/URL format, stored language levels, sanitized HTML routed through every template's sanitizer; visible-text browser evidence owed by US-002 (named limit above).
+- FR-1/FR-2/FR-4/FR-6: PASS. FR-3/FR-5/FR-7: NOT_APPLICABLE to US-001 (server path, stub and UI strings are US-002/003).
+- Regression constraints: PASS — no existing file changed; e2e 363/363; parity unchanged.
+- FAIL conditions: none met. BLOCKER conditions: not reached.
+
+Decision (owner, 2026-10-22, in chat): French sample emails and URLs use the reserved `example.com` (prenom.nom@example.com, https://votre-site.example.com, https://example.com/votre-certificat, https://example.com/votre-projet) instead of the PRD's illustrative `exemple.com`, a live parked third-party domain.
+Decision (owner, 2026-10-22, in chat): an AI experience marked current (current:true, "Present", or no/invalid end date) stays current; its valid AI start date is kept; endDate still gets a value (the AI's if valid, else the sample, never before the start) so the field is non-empty (AC-01). All five templates and the five Word generators draw the localized "present" word when current is true (render test in fr: the filler date never appears).
+Decision (sanitizer): no server-safe sanitizer exists in the repo (`sanitizeHtml` needs `document`; FR-6 forbids a dependency), so the module adds its own strict allowlist sanitizer on top of `escapeHtml`. Stored HTML is sanitized again in the browser by SanitizedHtml (defence in depth).
+
+Open owner decisions recorded by this story (carried into US-002/003):
+- code-reviewer, major, acceptance gate for US-002/003: classic, creative, minimal and professional draw an experience description only when it has no achievements; the builder always fills achievements (sample ones when the AI sends none), so the AI's description would be hidden in those four templates. Close it in US-002/003 (e.g. the prompt asks the AI for achievements) and prove it with rendered evidence in the four templates.
+- The editor shows the filler end date in the disabled end-date field of a current role; ui-expert to check in US-002.
+- Pre-existing: src/app/api/ai/analyze-resume/route.ts and src/lib/ai/prompts.ts:54 ignore `current` and read endDate, so AI analysis would see a current role ending at the filler month.
+- Minor: a '<' followed by a letter starts a tag, so "A<B testing" loses the text after '<'; the plain path removes controls after the scan, the rich path before; a current role with a future AI start gets endDate = startDate.
+
+Environment notes:
+- Windows 11, local Supabase stack, Playwright suites run one at a time. One unrelated transient (password-reset) absorbed by rerunning the spec alone and the full suite.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 a complete CV draft can be built from any job offer
+FINAL: PASS

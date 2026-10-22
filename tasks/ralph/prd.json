@@ -50,7 +50,7 @@
         "Out of scope: A schema change: no new column. If one turns out to be needed, raise a BLOCKER."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
