@@ -539,7 +539,9 @@
       "linkResumeHint": "Usa i dati di un CV esistente per generare il contenuto",
       "selectResume": "Seleziona un CV...",
       "create": "Crea lettera",
-      "creating": "Creazione..."
+      "creating": "Creazione...",
+      "generating": "Stesura della lettera...",
+      "generationFailed": "Al momento non è stato possibile scrivere la tua lettera di presentazione. Non è stato creato nulla. Riprova tra un istante."
     },
     "editor": {
       "titlePlaceholder": "Lettera senza titolo",

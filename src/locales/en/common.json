@@ -539,7 +539,9 @@
       "linkResumeHint": "Use data from an existing resume to generate content",
       "selectResume": "Select a resume...",
       "create": "Create Cover Letter",
-      "creating": "Creating..."
+      "creating": "Creating...",
+      "generating": "Writing your cover letter...",
+      "generationFailed": "Your cover letter could not be written right now. Nothing was created. Please try again in a moment."
     },
     "editor": {
       "titlePlaceholder": "Untitled Cover Letter",

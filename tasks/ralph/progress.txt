@@ -4,3 +4,119 @@ Contract: tasks/ralph/prd.json (branch ralph/cover-letter-from-job)
 PRD: tasks/prds/cover-letter-from-job.md (Status: APPROVED 2026-10-24, written by the owner: the owner approved the exact approval command in the app, which ran it in the owner's terminal)
 Format: docs/engineering/progress-log-format.md
 Branch setup: from origin/main 675dd37 (#114 merged). The first commit archives the merged cv-from-job-complete contract; the second adds this PRD and its contract.
+
+## US-001: A letter created from an application is written from the offer and the linked CV
+Status: PASS
+Priority: 1
+Branch: ralph/cover-letter-from-job
+Baseline HEAD: 3cc4634 (origin/main 675dd37 + archive and contract commits)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat, added/removed; new files with line counts):
+  - New src/app/api/cover-letters/from-job-application/route.ts (259) + route.test.ts (542, 36 tests): POST.
+    - Order: 401 → Zod body (jobApplicationId and resumeId uuid, locale enum, title/company/job title cut to 255/200) → application and CV read with the session plus user_id (missing and foreign → same 404, before any spend) → marked place for the US-002 availability check → AI rate limit → AI (or the guarded stub) in the offer's language (detectOfferLanguage → page locale) → sanitize → insert → link job_applications.cover_letter_id → 201 { coverLetterId }.
+    - AI failure: provider error or invalid/incomplete reply → 502; provider 429 or our limit → 429; no insert, no link.
+  - New src/lib/ai/cover-letter-generation.ts (133) + test (120): model options (BALANCED, 0.7, 1500 tokens), CV profile extraction and JSON parsing shared with /api/ai/generate-cover-letter, and the generator for the new route.
+  - New src/lib/cover-letter-from-job/stored-letter.ts (84) + test (82): opening/body/closing reduced to plain text, escaped, stored as one <p> each (≤ 10 body paragraphs, ≤ 2,000 chars); greeting, sign-off and sender_name plain text; an empty part refuses the letter; CV fields bounded for the prompt.
+  - New src/lib/ai/prompts.cover-letter.test.ts (89): SHA-256 pins of the modal's prompt (with/without CV in fr/en/de/it, undefined and unknown locale); src/lib/ai/prompts.ts unchanged.
+  - src/app/api/ai/generate-cover-letter/route.ts (14/33): uses the shared module; behaviour unchanged (code-reviewer read it line by line).
+  - src/lib/ai/test-stub.ts (51/8), test-stub-contract.ts (52/0), test-stub.test.ts (90/1): stub letter per language and coverLetterGeneratorFor(request); isAiTestStubEnabled untouched.
+  - src/components/dashboard/create-cover-letter-form.tsx (92/21): the application path posts to the route, with a ref guard, a localized busy label and a localized error, and keeps the form filled. The shared error box gets text-red-700, role="alert", and focus on error. The no-application path keeps its client insert and defaults; its unreachable link code is removed.
+  - src/locales/{fr,en,de,it}/common.json (3/1 each): coverLetters.new.generating, coverLetters.new.generationFailed.
+  - New e2e/cover-letter-from-job-application.spec.ts (391, 8 tests).
+- Not touched: `git diff --stat HEAD -- supabase package.json pnpm-lock.yaml src/lib/ai/prompts.ts src/components/dashboard/cover-letter-templates src/lib/cover-letter-pdf-html.ts src/app/api/jobs` is empty (no migration, dependency, prompt, template, PDF or allowlist change). No US-002/US-003 work. No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted.
+
+Checks:
+- Run 1 (first diff), invalidated by the ui-expert fix:
+  - test:e2e 383 passed, 1 failed: resume-editor-page-breaks.spec.ts:252, the login fixture's page.fill timed out; rerun alone 12/12.
+  - All other checks green.
+- Run 2 (started after the fix) was stopped when the code-reviewer comment fix came in.
+- Run 3 (final diff, all on the first pass):
+  - pnpm typecheck: PASS — 0 errors.
+  - pnpm test: PASS — 90 files, 2519 passed, 5 skipped (2449 after cv-from-job-complete).
+  - pnpm test:integration: PASS — 4 files, 50 passed.
+  - pnpm test:e2e: PASS — 384 passed, 0 failed (376 before; +8 from cover-letter-from-job-application.spec.ts).
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 287 problems (219 errors, 68 warnings); unchanged, under the tracked 306 ceiling.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — e2e/cover-letter-from-job-application.spec.ts (8):
+  - (a) German offer under /fr with a CV → German stub letter, stored row checked (resume_id, job_application_id, company, job title, greeting, opening, body incl. the stub's "CV used" paragraph, closing, sign-off, sender_name), application linked, editor shows the text;
+  - (b) French offer under /de without a CV → French letter, resume_id null;
+  - (c) provider error and provider rate limit → localized error, no letter, cover_letter_id unchanged, form filled (2 tests);
+  - (d) a foreign application → refused, nothing created or linked;
+  - (e) without an application → the old defaults, zero calls to the route;
+  - (f) double submit in one tick → one POST, one letter;
+  - plus the de busy label.
+- Visual: NOT_APPLICABLE — no template, editor, Preview or PDF code changed; parity unchanged.
+- Export: NOT_APPLICABLE — PRD marks exports not affected; PDF generator diff empty; e2e/cover-letter-pdf-export.spec.ts green in the full run.
+- Database: NOT_APPLICABLE — no schema or policy change; insert and link through the user's session (RLS) after explicit ownership checks.
+- Security: PASS — security-review (skill procedure): 7 trust boundaries, 11/11 requirements, 0 critical/high/medium, 1 low, 2 info; vitest 82/82 on the five affected unit files.
+  - SEC-004 LOW, pre-existing adjacent: cover_letters INSERT/UPDATE and job_applications UPDATE RLS check only user_id, not ownership of the referenced resume/application/letter (same as SEC-003 for resumes); the route checks ownership itself.
+  - SEC-005 INFO: the three free-text fields have no .max() before JSON parsing on chunked requests (values are cut before the AI and the insert, as in the existing AI routes).
+  - SEC-006 INFO: client job title/company reach the prompt cut to 200 chars; strictly less surface than the existing route.
+
+Agents:
+- senior-coder: implementation, then three scoped fixes:
+  - error-box contrast and role="alert";
+  - focus on error (a keyboard trace showed focus falling to <body>);
+  - a comment corrected at code-reviewer's request.
+- ui-expert, round 1: FAIL.
+  - Error text 4.36:1 (< 4.5:1).
+  - Evidence gaps: no 375 capture showed the submit row, no failure with a CV selected, no keyboard trace, no no-application capture.
+- ui-expert, round 2: PASS 7/7.
+  - Error text 5.87:1; 1440/768/375 covered.
+  - After a failure the CV and fields are kept, with 0 letters and no link.
+  - Keyboard: Tab order title → company → job title → CV → submit, ring at every stop; after an error focus is on the alert.
+  - German offer under /fr gives a German letter; the no-application form is unchanged.
+- code-reviewer, round 1: PASS — every AC met; refactor of /api/ai/generate-cover-letter behaviour-preserving; 130 unit tests re-run; minors below.
+- code-reviewer, round 2 (error-box change): PASS — one wrong comment (fixed before run 3).
+
+Acceptance criteria:
+- AC-01 (non-empty AI opening/body/closing, greeting and sign-off in the letter's language, company/job title/application id, resume_id = selection): PASS — e2e (a)(b); route tests; captures.
+- AC-02 (CV summary/experience/skills in the prompt, sender_name from the CV): PASS — route tests; e2e (a) stub "CV used" paragraph and sender_name.
+- AC-03 (no CV → offer alone, resume_id null): PASS — e2e (b); route test.
+- AC-04 (offer language, page fallback; German under /fr → German): PASS — e2e (a)(b); route tests; capture de-offer-under-fr.
+- AC-05 (no description not refused): PASS — route test ('Not provided' in the description slot).
+- AC-06 (AI failure or rate limit → localized error, nothing stored, link unchanged, form filled): PASS — e2e (c); 9 route failure cases each assert no write; ui-expert round 2 JSON.
+- AC-07 (link points to the letter, editor shows the text): PASS — e2e (a). Accepted deviation (code-reviewer minor 2): if the link update fails after the insert, the request still succeeds and the letter keeps its own job_application_id — the old form's behaviour.
+- AC-08 (busy label, disabled, double submit → one letter): PASS — e2e (f) and busy-label assertion; captures.
+- AC-09 (foreign application or CV refused, nothing created or linked): PASS — e2e (d); route tests for both.
+- FR-1, FR-3 … FR-7: PASS. FR-2 (availability check): belongs to US-002; the insertion point is marked in the route.
+- Regression constraints: PASS — no-application path unchanged in data (e2e (e)); the modal's prompt pinned and its route behaviour preserved; entry points untouched; the three cover-letter specs green in the full run.
+- Verification items: §14 + unit + e2e + security-review + ui-expert + code-reviewer: PASS. The deadline/availability unit and e2e cases listed in the shared verification bullet belong to US-002.
+
+Decision (implementer, accepted by code-reviewer): opening, body and closing are stored as one escaped <p> each because the editor, template and PDF all treat them as HTML; greeting, sign-off and sender_name stay plain text.
+Decision: an AI reply with any part empty after sanitizing counts as a failure (502), so the FAIL condition "empty opening, body or closing" cannot be stored.
+Decision (interpretation of AC-01, code-reviewer minor 3): company and job title come from the form fields (pre-filled from the application, editable), with the application's values as fallback. FR-1 lists them as form fields. They match the application unless the user edits them.
+Decision (scope, code-reviewer round 2): the shared error box now takes focus and is announced on the no-application path too (title-required and insert errors). This is a UI-only accessibility change; that path's stored data is unchanged.
+
+Named limitation: the real provider's failure rate for letters is not measured (no provider key in the test environment). Token budget unchanged at 1500.
+
+Open owner decisions recorded by this story (none blocks US-002):
+- ui-expert, more visible since this story: the letter template prints the date ('en-US') and "Re: Application for …" in English above French/German paragraphs (modern-letter-template.tsx:17, :60; cover-letter-pdf-html.ts:73). Recommended as the next PRD.
+- ui-expert, pre-existing:
+  - the "Creating cover letter for job application" banner is English (coverLetters.new.creatingForJob missing);
+  - the default title "Cover Letter - … at …" is English;
+  - the editor's title input clips without an ellipsis;
+  - the editor at 375 runs off the right edge;
+  - the header shows signed-out links to a signed-in user.
+- ui-expert, minor: the busy label wraps at 375 and the FileText icon shrinks (no shrink-0).
+- code-reviewer, minor:
+  - no route-level test for the refactored /api/ai/generate-cover-letter (preservation verified by reading);
+  - the double-submit guard is client-side only;
+  - a null entry in a stored experience array gives a 500 on both routes;
+  - sanitizing strips "<" and ">" from AI text;
+  - role="alert" plus focus may be announced twice by some screen readers.
+- security-review: SEC-004 (RLS on referenced ids, with SEC-003), SEC-005, SEC-006.
+
+Environment notes:
+- Windows 11, local Supabase stack, Playwright suites run one at a time. Run 1's single e2e failure was the known login-fixture timeout; run 3 was green on the first pass.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 a cover letter from an application is written from the offer and the CV
+FINAL: PASS

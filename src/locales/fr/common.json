@@ -539,7 +539,9 @@
       "linkResumeHint": "Utilisez les données d'un CV existant pour générer le contenu",
       "selectResume": "Sélectionnez un CV...",
       "create": "Créer la lettre",
-      "creating": "Création..."
+      "creating": "Création...",
+      "generating": "Rédaction de la lettre...",
+      "generationFailed": "Votre lettre de motivation n'a pas pu être rédigée pour le moment. Rien n'a été créé. Veuillez réessayer dans un instant."
     },
     "editor": {
       "titlePlaceholder": "Lettre sans titre",

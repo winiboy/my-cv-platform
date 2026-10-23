@@ -539,7 +539,9 @@
       "linkResumeHint": "Verwenden Sie Daten aus einem vorhandenen Lebenslauf zur Inhaltserstellung",
       "selectResume": "Lebenslauf auswählen...",
       "create": "Anschreiben erstellen",
-      "creating": "Wird erstellt..."
+      "creating": "Wird erstellt...",
+      "generating": "Anschreiben wird verfasst...",
+      "generationFailed": "Ihr Anschreiben konnte gerade nicht verfasst werden. Es wurde nichts erstellt. Bitte versuchen Sie es gleich noch einmal."
     },
     "editor": {
       "titlePlaceholder": "Unbenanntes Anschreiben",

@@ -1,9 +1,14 @@
 import { AiCompletionError } from './client'
+import { generateCoverLetter, type CoverLetterGenerator } from './cover-letter-generation'
 import type { JobDescriptionToResumeInput } from './prompts'
 import { generateResumeFromJobDescription } from './transformations'
-import { AI_TEST_STUB_DIRECTIVES, AI_TEST_STUB_ENABLED_VALUE } from './test-stub-contract'
+import {
+  AI_TEST_STUB_COVER_LETTER_TEXTS,
+  AI_TEST_STUB_DIRECTIVES,
+  AI_TEST_STUB_ENABLED_VALUE,
+} from './test-stub-contract'
 
-export { AI_TEST_STUB_DIRECTIVES, AI_TEST_STUB_ENABLED_VALUE }
+export { AI_TEST_STUB_COVER_LETTER_TEXTS, AI_TEST_STUB_DIRECTIVES, AI_TEST_STUB_ENABLED_VALUE }
 
 /**
  * A server-side stand-in for the AI provider, for the end-to-end suite only
@@ -187,12 +192,7 @@ function isStubLanguage(value: unknown): value is keyof typeof STUB_TEXTS {
 export const generateStubResumeFromJobDescription: typeof generateResumeFromJobDescription = async (
   input: JobDescriptionToResumeInput
 ): Promise<GenerationResult> => {
-  if (input.jobDescription.includes(AI_TEST_STUB_DIRECTIVES.providerError)) {
-    throw new AiCompletionError('provider_error', AI_TEST_STUB_MODEL, 500)
-  }
-  if (input.jobDescription.includes(AI_TEST_STUB_DIRECTIVES.rateLimited)) {
-    throw new AiCompletionError('rate_limited', AI_TEST_STUB_MODEL, 429)
-  }
+  throwRequestedProviderFailure(input.jobDescription)
 
   const texts = STUB_TEXTS[isStubLanguage(input.locale) ? input.locale : 'en']
   // Job Search does not know the job title; the real AI takes it from the
@@ -240,4 +240,47 @@ export function resumeGeneratorFor(request: AiTestStubRequest): typeof generateR
   return isAiTestStubEnabled(process.env, request)
     ? generateStubResumeFromJobDescription
     : generateResumeFromJobDescription
+}
+
+/** Throws the provider failure a directive in the job description asks for. */
+function throwRequestedProviderFailure(jobDescription: string): void {
+  if (jobDescription.includes(AI_TEST_STUB_DIRECTIVES.providerError)) {
+    throw new AiCompletionError('provider_error', AI_TEST_STUB_MODEL, 500)
+  }
+  if (jobDescription.includes(AI_TEST_STUB_DIRECTIVES.rateLimited)) {
+    throw new AiCompletionError('rate_limited', AI_TEST_STUB_MODEL, 429)
+  }
+}
+
+/**
+ * The stub's cover letter, in the shape `generateCoverLetter` returns, in the
+ * language the request asks for. Deterministic: the same input always gives the
+ * same answer or error. A request carrying a CV profile gets one more body
+ * paragraph, so a test can tell that the CV reached the generator.
+ *
+ * The job title is placed in the opening unescaped, as a provider could return
+ * it; the caller sanitizes AI output whichever answered.
+ */
+export const generateStubCoverLetter: CoverLetterGenerator = async (input) => {
+  throwRequestedProviderFailure(input.jobDescription)
+
+  const texts = AI_TEST_STUB_COVER_LETTER_TEXTS[isStubLanguage(input.locale) ? input.locale : 'en']
+  const hasProfile =
+    Boolean(input.resumeSummary) || Boolean(input.resumeExperience?.length) || Boolean(input.resumeSkills?.length)
+
+  return {
+    greeting: texts.greeting,
+    openingParagraph: texts.opening(input.jobTitle),
+    bodyParagraphs: hasProfile ? [texts.body, texts.resumeUsed] : [texts.body],
+    closingParagraph: texts.closing,
+    signOff: texts.signOff,
+  }
+}
+
+/**
+ * The cover-letter generator for this request: the stub when every guard
+ * condition holds, otherwise the real AI.
+ */
+export function coverLetterGeneratorFor(request: AiTestStubRequest): CoverLetterGenerator {
+  return isAiTestStubEnabled(process.env, request) ? generateStubCoverLetter : generateCoverLetter
 }

@@ -1,10 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AiCompletionError } from './client'
+import { generateCoverLetter } from './cover-letter-generation'
 import {
+  AI_TEST_STUB_COVER_LETTER_TEXTS,
   AI_TEST_STUB_DIRECTIVES,
   AI_TEST_STUB_ENABLED_VALUE,
+  coverLetterGeneratorFor,
+  generateStubCoverLetter,
   generateStubResumeFromJobDescription,
   isAiTestStubEnabled,
   type AiTestStubEnvironment,
@@ -129,5 +133,90 @@ describe('generateStubResumeFromJobDescription', () => {
     })
     await expect(rateLimited).rejects.toBeInstanceOf(AiCompletionError)
     await expect(rateLimited).rejects.toMatchObject({ reason: 'rate_limited' })
+  })
+})
+
+describe('generateStubCoverLetter', () => {
+  const INPUT = {
+    jobDescription: 'An offer for the stub test.',
+    jobTitle: 'Dateningenieur',
+    companyName: 'Beispiel AG',
+  }
+
+  it('answers with a complete letter in the requested language, naming the job title', async () => {
+    const letter = await generateStubCoverLetter({ ...INPUT, locale: 'de' })
+    const german = AI_TEST_STUB_COVER_LETTER_TEXTS.de
+    expect(letter).toEqual({
+      greeting: german.greeting,
+      openingParagraph: german.opening('Dateningenieur'),
+      bodyParagraphs: [german.body],
+      closingParagraph: german.closing,
+      signOff: german.signOff,
+    })
+    expect(letter.openingParagraph).toContain('KI-Testtext')
+    expect(letter.openingParagraph).toContain('Dateningenieur')
+  })
+
+  it('answers in every content language, and in English for any other', async () => {
+    expect((await generateStubCoverLetter({ ...INPUT, locale: 'fr' })).openingParagraph).toContain('Texte IA de test')
+    expect((await generateStubCoverLetter({ ...INPUT, locale: 'it' })).openingParagraph).toContain('Testo IA di prova')
+    expect((await generateStubCoverLetter({ ...INPUT, locale: 'en' })).openingParagraph).toContain('Test AI text')
+    expect((await generateStubCoverLetter({ ...INPUT, locale: 'es' })).openingParagraph).toContain('Test AI text')
+  })
+
+  it('writes one more body paragraph when the request carries a CV profile', async () => {
+    const french = AI_TEST_STUB_COVER_LETTER_TEXTS.fr
+    for (const profile of [
+      { resumeSummary: 'Un profil.' },
+      { resumeExperience: [{ position: 'Analyste', company: 'Acme' }] },
+      { resumeSkills: ['SQL'] },
+    ]) {
+      const letter = await generateStubCoverLetter({ ...INPUT, ...profile, locale: 'fr' })
+      expect(letter.bodyParagraphs).toEqual([french.body, french.resumeUsed])
+    }
+    const withoutProfile = await generateStubCoverLetter({ ...INPUT, resumeExperience: [], resumeSkills: [], locale: 'fr' })
+    expect(withoutProfile.bodyParagraphs).toEqual([french.body])
+  })
+
+  it('is deterministic', async () => {
+    const input = { ...INPUT, locale: 'it', resumeSummary: 'Profilo.' }
+    expect(await generateStubCoverLetter(input)).toEqual(await generateStubCoverLetter(input))
+  })
+
+  it('fails as the provider would when the description asks it to', async () => {
+    await expect(
+      generateStubCoverLetter({ ...INPUT, jobDescription: `${INPUT.jobDescription} ${AI_TEST_STUB_DIRECTIVES.providerError}` })
+    ).rejects.toMatchObject({ name: 'AiCompletionError', reason: 'provider_error', providerStatus: 500 })
+    const rateLimited = generateStubCoverLetter({
+      ...INPUT,
+      jobDescription: `${INPUT.jobDescription} ${AI_TEST_STUB_DIRECTIVES.rateLimited}`,
+    })
+    await expect(rateLimited).rejects.toBeInstanceOf(AiCompletionError)
+    await expect(rateLimited).rejects.toMatchObject({ reason: 'rate_limited', providerStatus: 429 })
+  })
+})
+
+describe('coverLetterGeneratorFor', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('picks the stub only when every guard condition holds', () => {
+    vi.stubEnv('AI_TEST_STUB', AI_TEST_STUB_ENABLED_VALUE)
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'http://127.0.0.1:54321')
+    vi.stubEnv('VERCEL', '')
+    vi.stubEnv('VERCEL_ENV', '')
+    expect(coverLetterGeneratorFor(LOCAL_REQUEST)).toBe(generateStubCoverLetter)
+    expect(coverLetterGeneratorFor(request('https://cv.example.com/x', { host: 'cv.example.com' }))).toBe(
+      generateCoverLetter
+    )
+
+    vi.stubEnv('VERCEL_ENV', 'production')
+    expect(coverLetterGeneratorFor(LOCAL_REQUEST)).toBe(generateCoverLetter)
+  })
+
+  it('picks the real AI without the flag', () => {
+    vi.stubEnv('AI_TEST_STUB', '')
+    expect(coverLetterGeneratorFor(LOCAL_REQUEST)).toBe(generateCoverLetter)
   })
 })
