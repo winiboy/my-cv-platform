@@ -208,7 +208,10 @@
       "templateLabel": "Choose Template",
       "templateHint": "Select a template that fits your style",
       "create": "Create Resume",
-      "creating": "Creating..."
+      "creating": "Creating...",
+      "creatingForJob": "Creating CV for job application",
+      "generating": "Generating your CV...",
+      "notTailored": "This CV could not be tailored to the job offer. Its sample values show what to fill in."
     },
     "errors": {
       "titleRequired": "Resume title is required",
@@ -423,7 +426,8 @@
     "deleting": "Deleting...",
     "confirm": "Confirm",
     "back": "Back",
-    "notLoggedIn": "You must be logged in to perform this action"
+    "notLoggedIn": "You must be logged in to perform this action",
+    "at": "at"
   },
   "errors": {
     "unauthorized": "Unauthorized",

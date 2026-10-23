@@ -1,237 +1,244 @@
-# Ralph progress — job-applications-i18n
+# Ralph progress — cv-from-job-complete
 
-Contract: tasks/ralph/prd.json (branch ralph/job-applications-i18n)
-PRD: tasks/prds/job-applications-i18n.md (Status: APPROVED 2026-10-19, written by the owner)
+Contract: tasks/ralph/prd.json (branch ralph/cv-from-job-complete)
+PRD: tasks/prds/cv-from-job-complete.md (Status: APPROVED 2026-10-22, written by the owner)
 Format: docs/engineering/progress-log-format.md
-Branch setup: from origin/main 33e279d (#112 merged). The first commit archives the merged classic-bullet-layout contract; the second adds this PRD and its contract.
+Branch setup: from origin/main b08c064 (#113 merged). The first commit archives the merged job-applications-i18n contract; the second adds this PRD and its contract.
 
-## US-001: The Kanban board and quick add speak the page language
+## US-001: A complete CV draft can be built from any job offer
 Status: PASS
 Priority: 1
-Branch: ralph/job-applications-i18n
-Baseline HEAD: 1204a01 (origin/main 33e279d + archive commit 62a58f6 + contract commit)
+Branch: ralph/cv-from-job-complete
+Baseline HEAD: e2d6992 (origin/main b08c064 + archive commit 238d548 + contract commit)
 
 Scope:
 - Scope check: PASS
-- Changed paths (git diff --numstat, added/removed), all under src/components/dashboard/ unless stated:
-  - job-applications/kanban-column.tsx (9/6): every column label and aria-label from jobs.statuses.
-  - job-applications/kanban-board.tsx (10/4): toasts from kanban.board.*.
-  - job-applications/kanban-card.tsx (9/1): card aria-label from kanban.card.ariaLabel, filled in one pass with a replacer function.
-  - job-applications/quick-add-modal.tsx (24/46) + new job-applications/quick-add-schema.ts (57 lines): the Zod schema is built from the dictionary (same rules, limits and order); status badge, validation messages and fallback errors from kanban.quickAdd.*.
-  - job-applications/filter-pills.tsx (4/1), job-applications/filter-dropdown.tsx (1/1): kanban.filters.removeStatus, closeFilters.
-  - job-application-card.tsx (4/1): menu button reads kanban.card.menuLabel; alert reads common.notLoggedIn.
-  - entity-link-badge.tsx (7/2): plural from badges.*LabelPlural.
-  - src/locales/{en,fr,it}/common.json (26/4 each), de/common.json (27/5), de/jobs.json (1/1).
-  - Tests: new quick-add-schema.test.ts (84), entity-link-badge.test.ts (64), src/locales/job-statuses.test.ts (30), e2e/job-applications-i18n.spec.ts (574).
-- Keys added in all four locales: common.notLoggedIn; badges.{resume,coverLetter,job}LabelPlural; kanban.board.{statusUpdateError,deleteError}; kanban.card.ariaLabel; kanban.preview.interviewTypes.{phone_screen,technical,behavioral,final,other}; kanban.filters.{removeStatus,closeFilters}; kanban.quickAdd.{jobTitleTooLong,companyTooLong,urlTooLong,createError,unexpectedError}; kanban.header.searchPlaceholderShort. Changed: de jobs.statuses.declined "Abgelehnt" → "Abgesagt"; de kanban.quickAdd.companyRequired "Firmenname…" → "Unternehmen ist erforderlich".
-- Not touched: `git diff --stat -- package.json pnpm-lock.yaml src/app supabase src/components/dashboard/job-application-status-changer.tsx src/components/dashboard/job-application-delete-button.tsx` is empty (detail page = US-002; no API or status-key change). No version change, no push or merge.
-- Temporary capture specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted after each run; `ls e2e | grep -c zz` is 0.
+- Changed paths (all new, src/lib/resume-from-job/):
+  - build-resume-from-job.ts (407 lines): `buildResumeFromJobOffer({ offer, language, aiContent? })` → the resume's content columns; input types `JobOfferForResume` (title, company, location) and `AiResumeContent` (summary, experience, skills, projects, matching `generateResumeFromJobDescription` plus experience achievements). Reuses the field types of src/types/database.ts.
+  - sample-values.ts (349): `RESUME_CONTENT_LANGUAGES` ['fr','en','de','it'], `isResumeContentLanguage`, `RESUME_SAMPLE_VALUES` (one set per language), `SAMPLE_DATES`; module comment states the values are product content requested by the owner on 2026-10-22, not test fixtures.
+  - untrusted-text.ts (315): `sanitizeUntrustedRichText` (allowlist p br strong em u ul ol li; b/i mapped; no attributes; script/style/iframe and similar removed with content; other tags unwrapped) and `sanitizeUntrustedPlainText`; both remove NUL/C0 controls (except tab, LF, CR) and unpaired surrogates, cut on code points.
+  - Tests: build-resume-from-job.test.ts (499), build-resume-from-job.render.test.ts (268), sample-values.test.ts (149), untrusted-text.test.ts (169).
+- Not touched: `git diff --stat HEAD -- src supabase package.json pnpm-lock.yaml` is empty (only the new untracked directory). No UI, route, prompt, migration, dependency or version change; no push or merge.
 
-Checks (final diff, run 2 — run 1 was invalidated by the fixes below):
+Checks (final diff, run 2 — run 1 was stopped when the review fixes invalidated it):
 - pnpm typecheck: PASS — 0 errors.
-- pnpm test: PASS — 73 files, 2127 passed, 5 skipped (2089 at 33e279d).
+- pnpm test: PASS — 79 files, 2366 passed, 5 skipped (2150 at b08c064; +216 in src/lib/resume-from-job).
 - pnpm test:integration: PASS — 4 files, 50 passed.
-- pnpm test:e2e: PASS — 349 passed, 0 failed (338 at 33e279d; +11 from job-applications-i18n.spec.ts). Run 1 had 1 failure in the new spec (en tooltip never opened under full-suite load); fixed in the test (see Agents).
+- pnpm test:e2e: PASS — 363 passed on the rerun. First run 362 passed, 1 failed: password-reset.spec.ts:221 ("the login form must offer a recovery link"; file untouched by this story, which changes no page); spec alone 21/21, then full suite 363/363.
 - pnpm build: PASS — 105/105 static pages.
-- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); unchanged, under the tracked 306 ceiling.
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); unchanged, under the tracked 306 ceiling; eslint on src/lib/resume-from-job: 0.
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0; parity-report.json sha256 399a7dddcb79fa7a6141e316bd89a840795e59715ada0393cb530be8f874d88b (unchanged reference).
 
 Specialized validation:
-- Browser: PASS — e2e/job-applications-i18n.spec.ts (fr, de full journeys; en unchanged): seven column headers and aria-labels (incl. a collapsed column) distinct per locale; quick-add badge and all six validation messages; status-change and delete toasts via stubbed PATCH/DELETE 500 with the DB row unchanged; quick-add fallbacks via POST 500 {} and a non-Error rejection; card aria-label, interview-type tooltip, cover-letter badge, status pills, list-view menu; 375px search placeholder, board scan and close-filters button; not-logged-in alert via stubbed /auth/v1/user 401. Scan of text nodes + placeholder/title/aria-label/aria-roledescription (the dnd-kit value "draggable" is skipped: US-003). Control test: the scan catches an English status in text, aria-label and aria-roledescription. Red check: with the original kanban-column, quick-add-modal, filter-pills and job-application-card the fr tests fail (`Expected "Enregistré"`, `Received "Saved"`).
-- Visual: NOT_APPLICABLE — no resume template or print code changed.
-- Export: NOT_APPLICABLE — no export code in the diff.
-- Database: NOT_APPLICABLE — no schema change; statuses stored and sent as the same keys.
-- Security: NOT_APPLICABLE — no auth, API or trust-boundary change; user data in the card aria-label is inserted literally (replacer function; code-reviewer checked "{company}" and "$&" in node).
+- Browser: NOT_APPLICABLE for this story — no page or route changed. Named limit: rich-text fields render through the client-only SanitizedHtml, so the server render test proves each template routes every drawn rich field through the sanitizer (wrapper count = rich fields drawn, 5 templates × 4 languages, sample-only and AI drafts) but not the visible text; browser evidence of visible rich text in all five templates, editor and Preview is owed by US-002.
+- Visual: NOT_APPLICABLE — no rendering code changed.
+- Export: NOT_APPLICABLE — no export code changed (export-validation of a created CV is required in US-002).
+- Database: NOT_APPLICABLE — no schema or write path in this story.
+- Security: PASS (story layer) — code-reviewer probed both sanitizers with 38 payloads (nested/malformed tags, `<scr<script>ipt>`, entities incl. numeric and `&#106;avascript:`, comments, CDATA, `<svg onload>`, `<img onerror>`, unclosed quotes, uppercase, NUL, PIs): rich output contains only tags the module emits, never attributes; plain output has no angle brackets. Regression tests: 256k-char runs of 13 hostile patterns, plain and rich, each < 100 ms (reviewer measured < 5 ms; 1 MB '<a' run 0 ms). The full security-review of the server path and stub guard is required in US-002.
 
 Agents:
-- senior-coder: implementation, then four scoped rounds:
-  1. de rejected/declined both "Abgelehnt" → declined "Abgesagt"; unit test asserting 7 distinct labels per locale (before: de 6/7).
-  2. New spec's tooltip hover made deterministic (openCardTooltip: leave, re-enter the trigger, toPass 20s); passed 3× alone.
-  3. ui-expert round 1: kanban.header.searchPlaceholderShort added; a sweep of every dictionary read on the page found no other key missing in all locales.
-  4. Same round, cosmetic: fr/it interview types as short forms ("téléphonique"…), de company messages "Unternehmen".
-- ui-expert, round 1: FAIL — "Search..." placeholder in English at 375 in fr/de/it (PRD Context wrongly listed the search as localized).
-- ui-expert, round 2: BLOCKED — no before/after regression evidence, no keyboard walkthrough.
-- ui-expert, round 3: PASS, 7/7. Evidence: fr/de/it/en captures at 1440 and 375 (board, board end, collapsed column, quick add, quick-add errors, list with pills), fr/de tooltip and toast captures; en before (13 changed src files temporarily restored to 1204a01, then restored byte-identical, cmp) vs after: 10 pairs pixel-identical (tolerance 8/channel); fr keyboard walk at 1440 (board 60 stops, list 30) and 375 (board, filter sheet) — every named stop French; contrast from pixels: de toast 7.64:1, fr quick-add error 4.77:1, collapsed "Abgesagt" 4.92:1, "Suchen..." placeholder 5.66:1.
-- code-reviewer: PASS — 0 critical, 0 major, 4 minor (recorded below).
+- senior-coder: implementation, then one round of review fixes and the owner's two decisions:
+  - C1: the plain-text sanitizer scanned unbounded input with a quadratic pattern (128k chars of '<a' ≈ 2.4 s) → input cut to 8× the limit before scanning, linear pattern, linear '&' escaping and closing-tag handling, each AI entry sanitized once.
+  - NUL/controls/unpaired surrogates removed (Postgres rejects them); cuts on code points.
+  - Render test strengthened (per-field wrapper counts, AI draft added).
+- code-reviewer, round 1: FAIL — C1 above; C2 `exemple.com` (the PRD's illustrative fr domain) is a live parked third-party domain with an MX record (`nslookup`), so sample emails/links left in a CV would go to a third party; weak render assertion; invented end date for AI current roles.
+- code-reviewer, round 2: PASS — 0 critical; 2 major carried to US-002/003 (below); 3 minor.
+- ui-expert: NOT_APPLICABLE — no UI changed in this story (rendered evidence is required in US-002).
 
 Acceptance criteria:
-- AC-01 (columns): PASS — e2e; captures; keyboard walk ("Ajouter un emploi dans Enregistré…").
-- AC-02 (quick add): PASS — e2e for the badge and all six messages; unit tests 6 rules × 4 locales.
-- AC-03 (toasts and fallbacks): PASS — e2e with stubbed failures; fr/de toast captures.
-- AC-04 (labels): PASS — e2e; keyboard walk; tooltip capture; badge unit test.
-- AC-05 (not logged in): PASS — e2e records the native alert text (common.notLoggedIn in fr/de; en unchanged).
-- AC-06 (en unchanged): PASS — every new en value equals the literal it replaced (code-reviewer byte comparison); en before/after captures pixel-identical.
-- FR-1: PASS (Decision b). FR-2: PASS — locale-parity.test.ts. FR-3: PASS — no package.json/lockfile change. FR-4: PASS — en unchanged.
-- Regression constraints: PASS — e2e 349/349 incl. job-search-i18n; no status-key or API change.
-- Verification items: PASS — §14 baseline; new e2e (fr, de, en, control); ui-expert fr/de at 1440 and 375 incl. collapsed column and German labels; code-reviewer. The detail-page and drag-and-drop parts of the PRD's e2e item belong to US-002/US-003.
-- FAIL conditions: none met. BLOCKER condition: not reached (every listed string is UI text).
-- Out of scope respected: server text, global toast labels, header plural, UTC dates, H1 wording untouched.
+- AC-01 (every field non-empty except photo): PASS — tests for offer + AI, offer alone, offer without location or company, empty or markup-only title, in all four languages; every entry visible.
+- AC-02 (offer data first): PASS — title = job title, contact.location = job location when present, sample summary names the job title (and company when known). An AI summary is used as written (AC-03); making it name the job title belongs to the prompt in US-002/003.
+- AC-03 (AI content where available): PASS — AI summary/experience/skills/projects used; empty fields filled from the sample set; at most 10 entries per section; lengths within AI_TEXT_LIMITS.
+- AC-04 (sample values describe their field, no real entity): PASS — four sets (fr/en/de/it) reviewed by code-reviewer; reserved example.com for every email and URL.
+- AC-05 (one language per CV): PASS — one set per draft; test asserts no value shared between sets (levels excepted).
+- AC-06 (valid formats; rich text renders in all five templates): PASS for this story's layer — YYYY-MM dates, email/URL format, stored language levels, sanitized HTML routed through every template's sanitizer; visible-text browser evidence owed by US-002 (named limit above).
+- FR-1/FR-2/FR-4/FR-6: PASS. FR-3/FR-5/FR-7: NOT_APPLICABLE to US-001 (server path, stub and UI strings are US-002/003).
+- Regression constraints: PASS — no existing file changed; e2e 363/363; parity unchanged.
+- FAIL conditions: none met. BLOCKER conditions: not reached.
 
-Decision (a): de jobs.statuses.declined "Abgesagt" (was "Abgelehnt", identical to rejected); with localized columns two German columns would have had the same name.
-Decision (b), PRD correction: the PRD Context listed the search as "Already localized"; at 375px it read "Search..." in every locale because kanban.header.searchPlaceholderShort existed nowhere. Added under the Objective and FR-1 (same precedent as "Linked Job" in fill-translation-gaps).
-Decision (c): the quick-add Zod schema moved to quick-add-schema.ts and is built from the dictionary (memoized on it); rules, limits and order unchanged.
-Decision (d): fr/it interview types use short forms so the tooltip does not repeat "entretien"/"colloquio".
+Decision (owner, 2026-10-22, in chat): French sample emails and URLs use the reserved `example.com` (prenom.nom@example.com, https://votre-site.example.com, https://example.com/votre-certificat, https://example.com/votre-projet) instead of the PRD's illustrative `exemple.com`, a live parked third-party domain.
+Decision (owner, 2026-10-22, in chat): an AI experience marked current (current:true, "Present", or no/invalid end date) stays current; its valid AI start date is kept; endDate still gets a value (the AI's if valid, else the sample, never before the start) so the field is non-empty (AC-01). All five templates and the five Word generators draw the localized "present" word when current is true (render test in fr: the filler date never appears).
+Decision (sanitizer): no server-safe sanitizer exists in the repo (`sanitizeHtml` needs `document`; FR-6 forbids a dependency), so the module adds its own strict allowlist sanitizer on top of `escapeHtml`. Stored HTML is sanitized again in the browser by SanitizedHtml (defence in depth).
 
-Open owner decisions recorded by this story (none blocks US-002):
-- ui-expert, pre-existing, major: the 375px filter trigger (icon-only) has an empty accessible name (WCAG 4.1.2). Suggested as the next story.
-- ui-expert, pre-existing: the mobile filter sheet has aria-modal but no focus trap; "Réduire/Trier la colonne" do not name their column, and a collapsed column has an extra unnamed stop.
-- ui-expert, pre-existing: the list-view card status badge overlaps the title in fr/de.
-- code-reviewer, minor: no unit test pins the injection-safe card aria-label fill; the failed-move e2e does not assert the PATCH body; de "Unternehmen ist erforderlich" vs "Der Unternehmensname…" wording; unexpectedError only shows for non-Error rejections (as at HEAD).
-- Other de forms outside this page still say "Firmenname".
+Open owner decisions recorded by this story (carried into US-002/003):
+- code-reviewer, major, acceptance gate for US-002/003: classic, creative, minimal and professional draw an experience description only when it has no achievements; the builder always fills achievements (sample ones when the AI sends none), so the AI's description would be hidden in those four templates. Close it in US-002/003 (e.g. the prompt asks the AI for achievements) and prove it with rendered evidence in the four templates.
+- The editor shows the filler end date in the disabled end-date field of a current role; ui-expert to check in US-002.
+- Pre-existing: src/app/api/ai/analyze-resume/route.ts and src/lib/ai/prompts.ts:54 ignore `current` and read endDate, so AI analysis would see a current role ending at the filler month.
+- Minor: a '<' followed by a letter starts a tag, so "A<B testing" loses the text after '<'; the plain path removes controls after the scan, the rich path before; a current role with a future AI start gets endDate = startDate.
 
 Environment notes:
-- Windows 11, local Supabase stack, Playwright suites run one at a time. Docker was running throughout.
+- Windows 11, local Supabase stack, Playwright suites run one at a time. One unrelated transient (password-reset) absorbed by rerunning the spec alone and the full suite.
 
 Commit:
 - Story commit: THIS_COMMIT
-- Commit message: ralph: US-001 the Kanban board and quick add speak the page language
+- Commit message: ralph: US-001 a complete CV draft can be built from any job offer
 FINAL: PASS
 
-Note: US-001's story commit is 0fa7651.
+Note: US-001's story commit is 28a6c36.
 
-## US-002: The detail page speaks the page language
+## US-002: A CV created from a saved job application is complete
 Status: PASS
 Priority: 2
-Branch: ralph/job-applications-i18n
-Baseline HEAD: 0fa7651 (US-001 commit)
+Branch: ralph/cv-from-job-complete
+Baseline HEAD: 28a6c36 (US-001 commit)
 
 Scope:
 - Scope check: PASS
-- Changed paths (git diff --numstat, added/removed):
-  - src/app/[locale]/(dashboard)/dashboard/job-applications/[id]/page.tsx (3/3): the colon after "Created", "Last Updated", "Deadline" moves from the JSX into the translation (fallbacks become 'Created:' etc.).
-  - src/locales/{en,fr,de,it}/common.json (17/0 each): new jobApplications.detail block, 15 keys.
-  - e2e/job-applications-i18n.spec.ts (304/0): detail-page tests.
-- Not touched: `git diff --stat -- package.json pnpm-lock.yaml src/components supabase src/app/api` is empty; the status changer and delete button already read common.notLoggedIn (added in US-001). No version change, no push or merge.
-- Temporary capture specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted; `ls e2e | grep -c zz` is 0.
+- Changed paths (git diff --numstat, added/removed; new files with line counts):
+  - New src/app/api/resumes/from-job-application/route.ts (248) + route.test.ts (381): POST; 401 before any work; Zod body (jobApplicationId uuid, title string cut to 200, template enum, locale enum; any job content from the client ignored); application read with the user's session plus an explicit user_id filter and check (missing and foreign ids → same 404 before any write); description usable at ≥ 50 chars → existing AI rate limit, then the AI (or the test stub) with maxTokens 4000; any AI failure (provider error, provider 429, our limit, invalid JSON) → sample content; buildResumeFromJobOffer; insert; both-way link (back-link failure logged, CV kept); 201 { resumeId, tailored }.
+  - New src/lib/resume-from-job/detect-offer-language.ts (139) + test (157): stopword vote over fr/en/de/it plus es/pt/nl; an offer gets fr/en/de/it only if that language is first, has ≥ 8 hits and ≥ 2× the runner-up across all seven; otherwise the UI locale. Input cut to 20,000 chars.
+  - New src/lib/resume-from-job/resume-title.ts (22) + test (23): the 200-char title limit, tied to AI_TEXT_LIMITS.SHORT_LABEL by test.
+  - New src/lib/ai/test-stub.ts (230), test-stub-contract.ts (18), test-stub.test.ts (123): server-side AI stub for e2e (see Decision, owner).
+  - src/lib/ai/prompts.ts (76/7): optional `targetJobTitle` adds 2–3 plain-text achievements per experience, a summary naming the target job title (JSON-quoted, marked as data), one-paragraph descriptions with achievements only in the array, compact JSON; without it the prompt is byte-identical (6 SHA-256 pins, prompts.job-description.test.ts 74 lines).
+  - src/lib/ai/transformations.ts (12/2): optional `{ maxTokens }`, default 2000 (Job Search unchanged); transformations.job-description.test.ts (39).
+  - src/components/dashboard/create-resume-form.tsx (85/20): with a job application the title is pre-filled (cut to 200, maxLength on that form only) and submit calls the route; localized busy label, disabled button and a ref guard; a 12 s warning toast when not tailored (survives the redirect); `errors.generic` on the new error path; title-required uses the existing `resumes.errors.titleRequired`. Without an application the client insert is unchanged (its unreachable link-back code removed).
+  - src/locales/{en,fr,de,it}/common.json (6/2 each): resumes.new.creatingForJob, resumes.new.generating, resumes.new.notTailored, common.at.
+  - playwright.config.ts (6/0): AI_TEST_STUB in the web server env.
+  - New e2e/cv-from-job-application.spec.ts (431).
+- Not touched: `git diff --stat HEAD -- supabase package.json pnpm-lock.yaml src/app/api/ai/generate-from-job-description src/components/dashboard/cv-adaptation-modal.tsx src/components/jobs src/app/api/resumes/[id]/download-docx src/lib/pdf src/components/dashboard/resume-templates` is empty (no migration, dependency, Job Search, export or template change). No version change, no push or merge.
+- Temporary capture/export specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted; `ls e2e | grep -c zz` is 0.
 
-Checks (final diff):
+Checks (final diff, run 3 — runs 1 and 2 were invalidated by the review fixes):
 - pnpm typecheck: PASS — 0 errors.
-- pnpm test: PASS — 73 files, 2127 passed, 5 skipped; locale-parity 22/22.
+- pnpm test: PASS — 85 files, 2431 passed, 5 skipped (2366 after US-001).
 - pnpm test:integration: PASS — 4 files, 50 passed.
-- pnpm test:e2e: PASS — 356 passed on the rerun (349 after US-001; +7 detail tests). First run 355 passed, 1 failed: layout-persistence.spec.ts:523, page.waitForURL timeout (file untouched by this story); spec alone 13/13, full suite rerun 356/356.
+- pnpm test:e2e: PASS — 373 passed, 0 failed (363 after US-001; +10 from cv-from-job-application.spec.ts). Earlier full runs on the previous diff had one unrelated transient each (password-reset.spec.ts:221 twice, then the auth fixture in resume-editor-responsive.spec.ts:86); password-reset alone 21/21.
 - pnpm build: PASS — 105/105 static pages.
 - pnpm lint: PASS — 290 problems (221 errors, 69 warnings); unchanged, under the tracked 306 ceiling.
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0; report sha256 399a7dddcb79fa7a… (unchanged reference).
 
 Specialized validation:
-- Browser: PASS — fr and de, an application with a linked CV, cover letter, posting URL, notes and deadline, and one without links: all 15 labels from the dictionary, posting href, badges, the timeline on raw textContent (fr label ends in U+00A0 + ":"), the status menu's 7 localized statuses, a scan of main (text + placeholder/title/aria-label) finding none of the 15 fallbacks or the child-component fallbacks; with /auth/v1/user stubbed to 401, status change then delete record [notLoggedIn, confirmDelete, notLoggedIn] in the page language, DB row unchanged. en walk asserting the old fallback table on raw textContent. Control: the detail scan catches "Last Updated:" in text and "View Original Posting" in an aria-label. Red checks: the en walk passed with page.tsx and the four common.json reset to HEAD (so it asserts what the page rendered before); with the new locales and the HEAD page, fr/de fail on "Création ::" (so the page edit is required); files restored and verified with cmp.
-- Visual: NOT_APPLICABLE — no resume template or print code changed.
-- Export: NOT_APPLICABLE — no export code in the diff.
-- Database: NOT_APPLICABLE — no schema or persistence change.
-- Security: NOT_APPLICABLE — text only; no auth or API change.
+- Browser: PASS — e2e/cv-from-job-application.spec.ts (10): (a) a German offer under /fr → a complete, tailored German CV, linked both ways, every stored field and one value per editor section checked; (b) no description → complete sample CV in the page language with the notice; (c) provider error and provider rate limit → same (2 tests); (d) a foreign and a missing application id → refused, nothing created or linked for either user; (e) creating without an application stores empty content and calls no route; (f) banner, title-required message and busy state in fr, de and en (3 tests), double submit via two requestSubmit() in one tick → exactly one POST and one resume; (g) a 255-char job title → 200 shown, maxlength 200, stored title equals what was shown.
+- Visual: NOT_APPLICABLE — no template, print or Preview code changed; parity unchanged.
+- Export: PASS — export-validation on the final diff: two CVs created through the real flow (fr sample, de tailored) × 5 templates; PDF via POST /api/resumes/[id]/download-pdf and DOCX via GET /api/resumes/[id]/download-docx: 20 artifacts, all 200, %PDF- / OOXML with word/document.xml; 16 inventory values (title, contact email/phone/location, summary, experience position/company/achievement, education school/degree, skills category, language, certification name/issuer, project name/description) present in every PDF (pdf.js text) and every DOCX (w:t text, entities decoded); no raw markup in any PDF; export code diff empty.
+- Database: NOT_APPLICABLE — no schema or policy change; writes go through the user's session (RLS).
+- Security: PASS — security-review (skill procedure, final diff): 6 trust boundaries, 7/7 requirements, 0 critical/high/medium, 1 low, 5 info:
+  - SEC-001 INFO: the stub's request check can be met by a caller on a directly exposed self-host; conditions 1–3 (flag value, not Vercel, loopback Supabase URL) are operator-only.
+  - SEC-002 LOW, pre-existing: transformations.ts logs the raw AI reply when it is not valid JSON.
+  - SEC-003 INFO, pre-existing: the resumes INSERT policy does not check job_application_id ownership; the route checks it.
+  - SEC-004 INFO: no CSRF token, consistent with the repo; SameSite=Lax session cookies.
+  - SEC-005 INFO: per-call output budget doubled for this route (4000), bounded by the unchanged per-user rate limit.
+  - SEC-006 INFO, pre-existing helper: the JSON body limit trusts Content-Length.
 
 Agents:
-- senior-coder: implementation in one pass; a sweep of every text node and placeholder/title/aria-label/alt on the detail page (fr/de/it, with/without links, status menu open) found no other English.
-- ui-expert, round 1: BLOCKED — the "full-page" captures were viewport-only (the dashboard scrolls in its own container), so the Timeline and, at 375px, the cover-letter, Notes and Timeline cards were never seen.
-- ui-expert, round 2: PASS, 7/7. Evidence: one element screenshot per card, {fr,de,it,en} × {1440,375} × {linked,bare}, 96 cards, none with a clipped descendant; en before (page.tsx + four common.json temporarily reset to 0fa7651, restored byte-identical, cmp) vs after: 22/24 cards pixel-identical, the two "linked" Timeline cards differ by 64px in a 9×11 box on one glyph of "Deadline: June 20, 2099" — zoomed crops show the same text at the same position (anti-aliasing; the label is now one text node instead of "Deadline" + ":").
-- code-reviewer: PASS — 0 critical, 0 major, 2 minor.
+- senior-coder: implementation, then one fix round from code-reviewer (below).
+- ui-expert, round 1: BLOCKED — no current-role and no keyboard evidence (everything else passed).
+- ui-expert, round 2: PASS, 7/7 — creation page, busy state, editor landing and notice, 8 editor sections and Preview in 5 templates for fr/de × tailored/sample at 1440 and 375; current role shows "Présent" in classic and professional (the disabled end-date field shows the filler "juin 2024"); keyboard order Retour → title → template radio → submit, ring at every stop, one request under a double Enter.
+- ui-expert, round 3 (final diff): PASS — renders unchanged after the fixes; stored rows identical to round 2 (ids and timestamps aside).
+- code-reviewer, round 1: FAIL — (critical) a realistic Spanish offer was detected as Italian, giving an Italian CV instead of the UI locale; (major) a pre-filled 201–255-char job title was rejected by the route; (major) the longer prompt's token budget unmeasured and the prompt contradicted itself on bullets; minors: wrong key for the generic error, a near-duplicate title-required key, a double-submit test that did not reach the ref guard.
+- code-reviewer, round 2: PASS — all fixed; Job Search prompt independently rebuilt from HEAD and byte-identical; 329 unit tests re-run; minors remain (below).
 
 Acceptance criteria:
-- AC-01 (keys, en = fallbacks): PASS — 15 keys in four locales; en equals the JSX fallbacks (test `detail keys`); the three timeline keys carry the colon the JSX used to append.
-- AC-02 (no English in fr/de/it, with and without links): PASS — e2e fr/de linked and bare; per-card captures fr/de/it; it covered statically (every it value differs from en).
-- AC-03 (colons): PASS — fr U+00A0 before ":" (byte check; raw textContent in e2e); de/it no space; en textContent unchanged ("Created: <date>" with one U+0020).
-- AC-04 (alerts): PASS — e2e records both alerts in the page language.
-- FR-1/FR-2/FR-3/FR-4: PASS — strings from jobApplications.detail; parity 22/22; no dependency; en unchanged.
-- Regression constraints: PASS — e2e 356/356; status change and delete unchanged (DB assertions).
-- Verification items: PASS — §14 baseline; detail e2e fr/de + en + control; ui-expert both widths; code-reviewer. Drag-and-drop live-region text belongs to US-003.
-- FAIL conditions: none met. BLOCKER condition: not reached.
-- Out of scope respected.
+- AC-01 (title pre-filled, editable, template choosable): PASS — e2e (f)(g); captures.
+- AC-02 (complete content, AI in the offer's language, every editor section shows content): PASS — e2e (a); ui-expert; export-validation.
+- AC-03 (language): PASS — e2e (a) German under /fr; unit tests on full-length fr/en/de/it/Swiss-fr offers and es/pt/nl → UI locale; route test: full-length Spanish under /fr → French.
+- AC-04 (no description or AI failure → complete CV + localized notice): PASS — e2e (b)(c); unit tests for short/null description, provider error, unparsable reply, provider 429 and our rate limit.
+- AC-05 (link both ways; foreign/missing refused, nothing created): PASS — e2e (a)(d); security-review T2/T4.
+- AC-06 (banner and title-required in fr/de/it, en unchanged): PASS — e2e (f); en values equal the old fallbacks.
+- AC-07 (busy state, no double submit): PASS — e2e (f); ui-expert keyboard evidence.
+- FR-1/FR-2: PASS — buildResumeFromJobOffer only. FR-3: PASS — server read with ownership; client job content ignored (unit test). FR-4: PASS — US-001 sanitizers; lengths and entry counts bounded. FR-5: PASS as amended by the owner (Decision below). FR-6: PASS. FR-7: PASS — parity test.
+- Regression constraints: PASS — no-job creation keeps empty content, picker and required title (e2e (e)); template-picker 5/5, compact 20/20, job-cv-template-picker 6/6 (rerun; first run one cold-start timing check 10584 ms > 10000 ms on an unchanged flow); full e2e 373/373; parity and exports unchanged.
+- Verification items: PASS — §14 + parity; unit tests; e2e fr/de; export-validation; security-review; ui-expert fr/de at 1440/375, 5 templates; code-reviewer.
+- FAIL conditions: none met. BLOCKER conditions: language detection needed no dependency or schema change; the token-budget condition is recorded as a named limitation (below).
 
-Decision (AC-02): fr detail.notes is "Notes", identical to the English fallback; it is the correct French word and matches kanban.preview.notes. The e2e allows it through an exact exception list (IDENTICAL_TO_ENGLISH = { fr: ['notes'] }), asserted equal, so any other value identical to English fails.
-Decision (AC-03): the colon moved into the translation for all locales, so fr can set U+00A0 without per-locale logic in the component; en text, accessible text and glyphs are unchanged (only React's SSR text-node separator disappears).
+Decision (owner, 2026-10-23, in chat): the AI test stub is enabled only when AI_TEST_STUB equals the value set in playwright.config.ts AND VERCEL/VERCEL_ENV are unset AND NEXT_PUBLIC_SUPABASE_URL is loopback AND the request URL, Host and every x-forwarded-for entry are loopback. This replaces the PRD's `NODE_ENV === 'production'` wording, because the e2e server is itself a production build (Next builds NODE_ENV in as 'production'). Unit tests show it stays off on Vercel production and preview, with a hosted Supabase URL and for non-local requests.
+Decision (language): detected from the offer before the AI call and passed to the AI as the language to write in, so AI text and sample gap-fill always share one language, also when the AI fails. Rejected: letting the AI report the language, which can disagree with the sample set or be missing on failure.
+Decision (prompt): the US-001 gate (sample achievements hid the AI description in classic, creative, minimal and professional) is closed by asking the AI for 2–3 achievements per experience; the AI's own achievements render in all four (ui-expert).
+Decision (scope, recorded at code-reviewer's request): the no-job form now shows the translated title-required message in fr/de/it, because both paths share `resumes.errors.titleRequired` (AC-06); before, it read a missing key and fell back to English. en text, empty content, picker and required title are unchanged.
+
+Named limitation (PRD BLOCKER condition 3, for the owner): the real-provider failure rate of the longer prompt is not measured — no provider call was possible here (.env.local is off-limits and the AI key is the owner's). The route asks maxTokens 4000 (Job Search keeps 2000); a truncated or invalid reply falls back to a complete sample CV with the notice, so a high failure rate would look like "not tailored" rather than an error. Check in production (create a few CVs from real offers in fr and de; the notice must not appear for offers with a real description).
 
 Open owner decisions recorded by this story (none blocks US-003):
-- code-reviewer, pre-existing, privacy: src/app/[locale]/(dashboard)/dashboard/job-applications/[id]/page.tsx:54 console.logs the whole application row (notes, description, salary, linked document titles) on every server render, i.e. into the production function logs. Needs its own small fix (remove or reduce to the id).
-- ui-expert, pre-existing: on the wrapped "create cover letter" link at 375px (fr/it) the icon centres between the two lines (`items-center`); de "Ursprüngliche Stellenanzeige anzeigen" is long and repeats "anzeige"; the linked-CV badge appends a capitalised status word ("Lié"/"Verknüpft").
-- code-reviewer, minor: the fr colon regex in the spec contains a literal U+00A0 (` ` would be clearer); pageDate assumes runner and server share a time zone (timestamps at 12:00Z).
+- ui-expert, major, pre-existing but now on every created CV: the editor shows the English QualityWarningBanner ("The job description is limited…") on every job-linked CV, wrong on tailored CVs and duplicating the notice on sample ones (resume-editor.tsx:1177-1181).
+- ui-expert, major, pre-existing: "GPA:" hardcoded in classic, minimal and creative, "Technologies:" in classic, so fr/de/it CVs show English labels (the sample now always fills gpa).
+- ui-expert, major, pre-existing: in creative's Preview the skills font-size sliders sit over the Experience heading and first job title (print unaffected).
+- ui-expert, pre-existing: the template radio's accessible name is the thumbnail's text; the disabled end-date of a current role shows the filler date; the toast is clipped at 375; modern breaks contact values mid-word; professional lists certifications under "Formation / Cours"; modern and minimal sample CVs run just past page 1; the fr notice could read better.
+- code-reviewer, minor: es/pt/nl word lists still share con/del/al/una (it), que (fr), die (de) — a short Italian offer can fall back to the UI locale (never a wrong language); the editor e2e checks one value per section; the route has no explicit maxDuration (a platform timeout would give an error instead of the sample fallback).
+- security-review: SEC-002 (raw AI reply logged on parse failure, pre-existing), SEC-003 (INSERT policy does not check job_application_id ownership, pre-existing).
 
 Environment notes:
-- Windows 11, local Supabase stack, Playwright suites run one at a time. One unrelated transient (layout-persistence) absorbed by rerunning the spec alone and the full suite.
+- Windows 11, local Supabase stack, Playwright suites run one at a time. Full-suite transients on earlier diffs (password-reset; auth fixture) absorbed by reruns; the final full run was green on the first pass.
 
 Commit:
 - Story commit: THIS_COMMIT
-- Commit message: ralph: US-002 the detail page speaks the page language
+- Commit message: ralph: US-002 a CV created from a saved job application is complete
 FINAL: PASS
 
-Note: US-002's story commit is d26e235.
-
-## US-003: Drag and drop is announced in the page language
+## US-003: A CV created from Job Search is complete
 Status: PASS
 Priority: 3
-Branch: ralph/job-applications-i18n
-Baseline HEAD: d26e235 (US-002 commit)
-
-Owner decision recorded for this story (2026-10-21, in chat, quoted): "J'étends US-003 : corrige le glisser-déposer au clavier (la carte ne doit plus voler le focus de la poignée) et vérifie le déplacement au clavier." Before it, keyboard drag had never worked: focusing the handle moved focus to the card, and Space opened the card menu (BLOCKER raised by senior-coder; the owner chose to extend the story rather than split it).
+Branch: ralph/cv-from-job-complete
+Baseline HEAD: 60ee30b (US-002 commit)
 
 Scope:
 - Scope check: PASS
-- Changed paths (git diff --numstat, added/removed), under src/components/dashboard/job-applications/ unless stated:
-  - kanban-board.tsx (19/1): DndContext `accessibility` prop (instructions + announcements) built once per dictionary; fixed `id="job-applications-board-dnd"`; KeyboardSensor with the column coordinateGetter.
-  - kanban-card.tsx (50/11): roleDescription via useDraggable; drag handle ref (`setDragHandleRef` → local ref + dnd-kit setActivatorNodeRef); focus effect, Enter/Space guard and tooltip focus guard act on the drag handle only; the Tooltip wrapper is always rendered and controlled (no remount at drag start).
-  - New kanban-dnd-accessibility.ts (135 lines) + .test.ts (134): announcement builder, English fallbacks, one-pass template fill.
-  - New kanban-keyboard-coordinates.ts (57) + .test.ts (92): ArrowLeft/Right jump to the adjacent column's centre.
-  - src/locales/{en,fr,de,it}/common.json (10/0 each): kanban.dnd.{instructions,pickedUp,movedOver,notOver,dropped,droppedOutside,cancelled,roleDescription}.
-  - e2e/job-applications-i18n.spec.ts (384/25).
-- Not touched: `git diff --stat -- package.json pnpm-lock.yaml src/app supabase src/components/dashboard/job-applications/kanban-column.tsx` is empty (an intermediate `scroll-pt-2` in kanban-column.tsx was reverted, see Agents). No version change, no push or merge.
-- Temporary capture/probe specs were deleted after each run; `ls e2e | grep -c zz` is 0.
+- Changed paths (git diff --numstat, added/removed; new files with line counts):
+  - src/app/api/ai/generate-from-job-description/route.ts (44/28): language detected from the offer (detectOfferLanguage → request locale → en); the AI is asked for a complete resume ({ completeResume: true }, maxTokens COMPLETE_RESUME_MAX_TOKENS = 4000); the reply goes through buildResumeFromJobOffer + toResumeColumns before insert (before, the AI reply was stored unsanitized). AI failure keeps the same 500 { error, message } and inserts nothing. Request fields { jobDescription, title, template, locale }, validation order and response keys unchanged.
+  - New src/app/api/ai/generate-from-job-description/route.test.ts (239): 11 tests — German offer under /fr, es/missing/it page locales, AI content sanitized (onclick and <script> stripped), provider error, provider 429, unparsable reply, our rate limit (429 before generation), response keys pinned.
+  - src/lib/ai/prompts.ts (38/23) + prompts.job-description.test.ts (50/6): `completeResume` option (fixed instruction text only, no new untrusted input); the 6 base SHA-256 pins unchanged, 4 new pins lock the Job Search prompt (deliberate: AC-01 requires a complete resume).
+  - src/lib/ai/test-stub.ts (16/3) + test-stub.test.ts (10/0): `resumeGeneratorFor(request)` picks the stub or the real generator for both routes; isAiTestStubEnabled byte-identical to US-002.
+  - src/lib/ai/transformations.ts (15/0): the generator accepts the complete-resume option.
+  - src/lib/resume-from-job/build-resume-from-job.ts (39/0): `toResumeColumns(draft)` — the column mapping both routes now share.
+  - src/app/api/resumes/from-job-application/route.ts (9/39) + route.test.ts (2/1): uses the shared toResumeColumns and resumeGeneratorFor; behaviour unchanged (same columns, 4000 tokens, stub selection).
+  - New e2e/fixtures/resume-from-job.ts (101): expectCompleteRow / expectEditorShowsEverySection / resumesOf, moved out of e2e/cv-from-job-application.spec.ts (1/80); no assertion dropped.
+  - New e2e/cv-from-job-search.spec.ts (121): 3 tests.
+- Not touched: `git diff --stat HEAD -- supabase package.json pnpm-lock.yaml src/components src/app/api/resumes/[id] src/lib/pdf src/locales` is empty (no migration, dependency, UI component, locale, template or export change). No version change, no push or merge.
+- Temporary capture/export specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted; `ls e2e | grep -c zz` is 0.
 
-Checks (final diff, run 3 — runs 1 and 2 were invalidated by the fixes below; run 3's first e2e pass is detailed):
+Checks (final diff, one run):
 - pnpm typecheck: PASS — 0 errors.
-- pnpm test: PASS — 75 files, 2150 passed, 5 skipped (2127 after US-002; +23 from the two new unit files).
+- pnpm test: PASS — 86 files, 2449 passed, 5 skipped (2431 after US-002).
 - pnpm test:integration: PASS — 4 files, 50 passed.
-- pnpm test:e2e: PASS — 363 passed on the rerun (356 after US-002). First run 362 passed, 1 failed: resume-pdf-route.spec.ts:372 (page-1 text, route vs Preview print; file untouched by this story); spec alone 21/21, then full suite 363/363.
-- pnpm build: PASS — 105/105 static pages.
-- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); unchanged, under the tracked 306 ceiling.
+- pnpm test:e2e: PASS — 376 passed, 0 failed (373 after US-002; +3 from cv-from-job-search.spec.ts), first pass.
+- pnpm build: PASS — exit 0.
+- pnpm lint: PASS — 287 problems (219 errors, 68 warnings); 290 after US-002, under the tracked 306 ceiling (the typed insert removed `any` casts).
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
 
 Specialized validation:
-- Browser: PASS — e2e/job-applications-i18n.spec.ts (25 tests): real keyboard move in fr, de, it and en (focus the handle → Space → ArrowRight → Space): the live region's exact sequence, focus on the handle (BUTTON with the localized aria-roledescription) after Space, after ArrowRight and after the drop, one PATCH `{status:'applied'}`, DB row `applied`, no tooltip 800ms after the drop; keyboard cancel (Tab from the card to the handle, Space, ArrowRight, Escape): "cancelled" announcement, no PATCH, DB unchanged; a mouse move (second PATCH `{status:'saved'}`); instructions and roledescription localized; "fr: outside the drag handle, Enter and Space on the card behave as before" (passes against HEAD's card and the current one); scans include aria-roledescription and dnd-kit's English defaults; control test catches "draggable", "To pick up a draggable item…" and "Picked up draggable item <uuid>.". Red checks (each run once, file restored, cmp): original focus effect fails "handle stays focused"; keydown guard removed fails "fr after Space"; remounting tooltip wrapper fails "fr after Space"; no tooltip focus guard fails "tooltip count 0 after the drop".
-- Visual: NOT_APPLICABLE — no resume template or print code changed.
-- Export: NOT_APPLICABLE — no export code in the diff.
-- Database: NOT_APPLICABLE — no schema change; the PATCH body is the same status key as before.
-- Security: NOT_APPLICABLE — no auth or API change; user text in announcements is inserted literally (unit test with "{column}" and "$&").
-
-Live-region texts observed (card Produktdesigner Nord, Nordwind SA; asserted exactly in e2e):
-- fr: "Vous avez saisi … chez Nordwind SA dans la colonne Enregistré." → "… est au-dessus de la colonne Postulé." → "Vous avez déposé … dans la colonne Postulé."; cancel ends "Déplacement annulé. … reste dans la colonne Postulé."
-- de: "… aus der Spalte Gespeichert aufgenommen." → "… über der Spalte Beworben." → "… in der Spalte Beworben abgelegt."; cancel "Verschieben abgebrochen. … bleibt in der Spalte Beworben."
-- it: "Hai preso … presso Nordwind SA dalla colonna Salvato." → "… è sopra la colonna Candidato." → "Hai rilasciato … nella colonna Candidato."
-- en: "Picked up … at Nordwind SA from the Saved column." → "… is over the Applied column." → "… was dropped in the Applied column."; cancel "Move cancelled. … stays in the Applied column."
+- Browser: PASS — e2e/cv-from-job-search.spec.ts: (a)(b) under /fr and /de a German offer from Job Search → a complete German CV: title "CV - Beispiel AG", template professional, every stored field non-empty (expectCompleteRow), the stub's AI text and achievements, German sample contact/education/certification, every editor section showing its stored content; (c) provider error → the modal shows the route's error, stays on /fr/dashboard/jobs, no resume row. job-cv-template-picker, adaptation-modal, job-search-mobile and job-applications specs green inside the full run.
+- Visual: NOT_APPLICABLE — no template, print or Preview code changed; parity unchanged.
+- Export: PASS — export-validation on the final diff: two CVs created through Job Search (French offer under /fr, German offer under /de) × 5 templates; PDF via POST /api/resumes/[id]/download-pdf and DOCX via GET /api/resumes/[id]/download-docx: 20 artifacts, all 200, %PDF- / OOXML; the same 16 inventory values as US-002 present in every PDF (pdf.js text) and every DOCX (w:t text, entities decoded); no raw markup in any PDF; PDFs 1–2 pages; export code diff empty.
+- Database: NOT_APPLICABLE — no schema or policy change; insert through the user's session (RLS), user_id from the session.
+- Security: PASS — security-review (skill procedure, final diff): 5 trust boundaries, 7/7 requirements, 0 critical/high/medium, 2 low, 3 info; vitest 299/299 on the affected modules:
+  - SEC-001 INFO (unchanged guard, now also selecting the Job Search generator).
+  - SEC-002 LOW, pre-existing: raw AI reply logged on parse failure; the reply can now be up to 4000 tokens.
+  - SEC-007 INFO: Job Search output budget 2000 → 4000 tokens, bounded by the 15,000-char input cap and the unchanged 60/10 min per-user limit; the second AI call (extractJobRequirements) still counts once.
+  - SEC-008 INFO, pre-existing: the route stores the raw trimmed title (the user's own data, ≤ 200 chars, sanitized when rendered).
+  - SEC-009 LOW, pre-existing: the 500 echoes error.message and whole error objects are logged.
 
 Agents:
-- senior-coder: announcements first (verified by mouse only, because keyboard drag was broken → BLOCKER to the owner), then the owner's extension, then four scoped rounds:
-  1. ui-expert round 1: the card's Tooltip wrapper was dropped while dragging, so React remounted the card and focus fell to BODY during the drag (and the preview tooltip opened after each drop) → wrapper always rendered and controlled; focus guard on the tooltip trigger.
-  2. ui-expert round 2: an added `scroll-pt-2` had no effect (the 375px clipping of the first card's top is pre-existing, from the sticky header's `-my-2`) → reverted.
-  3. Spec flake: after a failed mouse status change the drag-overlay copy of the card lingers (pre-existing at HEAD, reproduced 6/6) and doubled card lookups → card lookups after a drag scoped to their column (test-only).
-  4. code-reviewer BLOCKER (below) → both guards narrowed to the drag handle; comment naming the Radix dependency.
-- ui-expert, round 1: FAIL — focus on BODY during the drag (WCAG 2.4.3), tooltip opening after every drop, ring clipped at 375, no it evidence.
-- ui-expert, round 2: PASS, 7/7 — 48 keyboard steps (fr/de/it/en × 1440/768/375 × handle focused, picked up, over next, dropped): focus on the handle with the localized roledescription at every step, no tooltip, localized live region; ring ~4.8:1; en unfocused before/after identical except today's date ("Oct 19" vs "Oct 21" crops).
-- Re-captured on the final diff: 48/48 steps with focus on the handle, 0 tooltips, live region non-empty after pick-up in every run.
-- code-reviewer, round 1: BLOCKER — the Enter/Space guard covered every card descendant, so keyboard behaviour of the menu (incl. Delete) changed, which the PRD's FAIL condition forbids; the owner's extension covers the handle only. Resolved with the narrow option.
-- code-reviewer, round 2: PASS, conditional on a green full e2e on the final diff — met (363/363).
+- senior-coder: implementation, no fix round.
+- ui-expert, round 1: BLOCKED — 1440 fully covered and passing; 375 had only the Contact editor captured.
+- ui-expert, round 2: PASS, 6/7 + 1 N/A — busy state, editor landing and every section, Preview in 5 templates, fr/de at 1440 and 375 (Preview and Experience/Education/Languages/Certifications editors at 375; document scrollWidth 375 on all 18 pages); AI-failure state; one language per CV.
+- code-reviewer: PASS — every AC met; US-002 route unchanged after the helper extraction; one builder; 1109 unit tests re-run; minors below.
 
 Acceptance criteria:
-- AC-01 (instructions localized): PASS — DndContext screenReaderInstructions from kanban.dnd.instructions; the fixed id makes the handle's aria-describedby resolve; e2e reads it.
-- AC-02 (announcements): PASS — sequences above; never a UUID or raw key; unknown card data or column → silent (unit test).
-- AC-03 (role description): PASS — "movable card" / "carte déplaçable" / "verschiebbare Karte" / "scheda trascinabile"; e2e and captures.
-- AC-04 (mouse and keyboard still change status): PASS — keyboard move and mouse move with PATCH body and DB assertions; owner extension met.
-- FR-1/FR-2/FR-3: PASS — kanban.dnd.* keys; parity; no dependency (@dnd-kit/core 6.3.1 already installed). FR-4: PASS — only the dnd strings are new en wording.
-- Regression constraints: PASS — e2e 363/363; outside the drag handle, Enter/Space behave as at HEAD (32-combination probe, only the 4 handle combinations differ; e2e pins it).
-- Verification items: PASS — §14 baseline; e2e incl. the drag-and-drop live-region text for a keyboard move; ui-expert; code-reviewer.
-- FAIL conditions: none met. BLOCKER condition: not reached.
-- Out of scope respected.
+- AC-01 (shared builder; contact, education, languages, certifications, achievements filled): PASS — route builds through buildResumeFromJobOffer/toResumeColumns; e2e (a)(b) expectCompleteRow + editor; route unit tests; export-validation.
+- AC-02 (offer's language, US-002 fallback): PASS — e2e German offer under /fr and /de; unit tests es/missing/it page locales → locale or en.
+- AC-03 (AI failure or rate limit → error, no CV): PASS — e2e (c); unit tests provider error, provider 429, unparsable reply, our limit.
+- AC-04 (modal flow and request fields unchanged): PASS — request body and response keys pinned by unit test; job-cv-template-picker and adaptation-modal specs green in the full run; ui-expert busy and failure states.
+- FR-1: PASS — one builder and one sample set for both entry points; toResumeColumns replaces the per-route mapping. FR-2: PASS — unchanged sample module. FR-3: NOT_APPLICABLE to Job Search (no application read); US-002 path unchanged. FR-4: PASS — AI output now sanitized on this route (unit test). FR-5: PASS as amended by the owner (US-002 Decision); guard unchanged. FR-6: PASS. FR-7: PASS — no new UI string.
+- Regression constraints: PASS — no-job creation, template picker, adaptation modal, Job Search mobile, job-applications specs green in the full e2e run; no existing CV modified; exports and parity unchanged (NEW 0 / KNOWN 3; generator diff empty).
+- Verification items: PASS — §14 + parity; unit tests; e2e fr/de; export-validation; security-review; ui-expert fr/de at 1440/375, 5 templates; code-reviewer.
+- FAIL conditions: none met. BLOCKER conditions: none (token budget: named limitation below).
 
-Decision (keyboard movement): ArrowLeft/Right move the card onto the centre of the adjacent column in board order (closestCenter then always selects that column); ArrowUp/Down do nothing (default prevented); the ends are no-ops; collapsed columns are targets as for the mouse. Space or Enter picks up and drops, Escape cancels (dnd-kit defaults). The instructions in all four locales describe exactly these keys.
-Decision (announcements): the first "over" of the card's own column, which dnd-kit fires in the same render as the pick-up, is not announced, so the live region (which keeps only the latest text) reads the pick-up.
-Decision (scope of the focus fix): the focus and key guards apply to the drag handle only (code-reviewer option b); every other card descendant keeps HEAD's behaviour, including HEAD's quirks (Enter on "more actions", a badge link or a menu item opens the detail page; Space never activates a link menu item).
+Decision (website sample keeps its scheme, ui-expert issue): the sample website "https://votre-site.example.com" is rendered as a link href (professional-template.tsx:580); without a scheme it would resolve inside the app. Its mid-word wrap in the Modern sidebar is a template follow-up.
+Decision (scope, code-reviewer minor 3): Job Search sends the CV name ("CV - Beispiel AG") as `title`, so the builder's job title is the CV name. The request fields are fixed by AC-04; the headline is overridden by the request title as before; only the sample-summary fallback (used when the sanitized AI summary is empty) would read the CV name.
 
-Open owner decisions recorded by this story:
-- Pre-existing defect: after a failed mouse status change, the drag overlay's copy of the card lingers on the page until the card next changes (reproduced at HEAD 6/6). Needs its own story.
-- Pre-existing: on the card, Enter on "more actions", a badge link or a menu item opens the detail page instead of acting on that control; Space does not activate link menu items (keyboard users cannot delete through the menu with Enter). Kept unchanged here; worth a story.
-- Pre-existing (ui-expert): at 375px the mobile column header's `-my-2` covers the top ~8px of the first card; the grip icon (text-slate-400, ~2.6:1) is below the 3:1 non-text contrast.
-- code-reviewer, minor: the spec waits on the Tailwind class `border-teal-500` (no non-palette hook exists); a `data-over` attribute in a later story would remove it. fill() in kanban-dnd-accessibility.ts duplicates the card aria-label fill.
-- Not reproduced: the US-001 quick-add invalid-URL step failed twice during earlier spec runs under load; 400+ later runs (incl. 12× CPU throttling and forced focus steals) never failed, so no cause or fix.
+Named limitation (PRD BLOCKER condition 3, for the owner, both entry points): the real-provider failure rate of the complete-resume prompt is not measured (no provider call possible here). Job Search now asks for 4000 tokens per generation (was 2000), roughly doubling the worst-case cost per request. A failed or truncated reply shows the existing error on Job Search (no fallback, AC-03). Check in production with a few real offers in fr and de.
+
+Open owner decisions recorded by this story (none blocks the initiative):
+- ui-expert, high, pre-existing: Preview at 375 is unusable for every CV — the A4 page is shown at 794px and cut at 375 inside an inner container, the header title wraps into the controls and the second button is clipped (preview page unchanged since #81). Needs its own PRD.
+- ui-expert, medium, pre-existing: at 375 the entry card header (AI button + four translate chips) pushes the show/hide, delete and collapse icons off the card in Experience and Education (worse than at 1440).
+- ui-expert, low: Modern breaks long contact values mid-word; Professional lists certifications under "Formation / Cours"; Classic, Minimal and Creative use the CV title as the headline instead of contact.name.
+- The Job Search modal error text is English ("Failed to generate resume") on every locale — unchanged by AC-03.
+- code-reviewer, minor: quality analysis now scores the sample values too (short placeholders can match short requirements and hide the warning); resumeGeneratorFor lives in test-stub.ts though both production routes use it; toResumeColumns returns a title both callers override; e2e covers the provider-error failure only (429 and parse failure at unit level).
+- security-review: SEC-002 and SEC-009 (logging and echoed error messages, pre-existing).
 
 Environment notes:
-- Windows 11, local Supabase stack, Playwright suites run one at a time. Transients absorbed by reruns: the auth fixture (fixtures/auth.ts:153/160) twice in spec runs, and resume-pdf-route.spec.ts once in the final full run. A rate limit interrupted one investigation round; it resumed with its state intact.
+- Windows 11, local Supabase stack, Playwright suites run one at a time; the full run was green on the first pass.
 
 Commit:
 - Story commit: THIS_COMMIT
-- Commit message: ralph: US-003 drag and drop is announced in the page language and works by keyboard
+- Commit message: ralph: US-003 a CV created from Job Search is complete
 FINAL: PASS

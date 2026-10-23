@@ -208,7 +208,10 @@
       "templateLabel": "Scegli modello",
       "templateHint": "Seleziona un modello che si adatta al tuo stile",
       "create": "Crea CV",
-      "creating": "Creazione..."
+      "creating": "Creazione...",
+      "creatingForJob": "CV per la candidatura",
+      "generating": "Generazione del tuo CV...",
+      "notTailored": "Questo CV non è stato adattato all'offerta. I valori di esempio indicano cosa compilare."
     },
     "errors": {
       "titleRequired": "Il titolo del CV è richiesto",
@@ -423,7 +426,8 @@
     "deleting": "Eliminazione...",
     "confirm": "Conferma",
     "back": "Indietro",
-    "notLoggedIn": "Devi effettuare l'accesso per eseguire questa azione"
+    "notLoggedIn": "Devi effettuare l'accesso per eseguire questa azione",
+    "at": "presso"
   },
   "errors": {
     "unauthorized": "Non autorizzato",
