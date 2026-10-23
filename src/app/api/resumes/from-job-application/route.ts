@@ -3,16 +3,19 @@ import { z } from 'zod'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
 import { AI_TEXT_LIMITS, enforceJsonBodyLimit } from '@/lib/api/ai-input-limits'
-import { generateResumeFromJobDescription } from '@/lib/ai/transformations'
-import { generateStubResumeFromJobDescription, isAiTestStubEnabled } from '@/lib/ai/test-stub'
+import { resumeGeneratorFor } from '@/lib/ai/test-stub'
+import { COMPLETE_RESUME_MAX_TOKENS } from '@/lib/ai/transformations'
 import { locales, type Locale } from '@/lib/i18n'
-import { buildResumeFromJobOffer, type AiResumeContent } from '@/lib/resume-from-job/build-resume-from-job'
+import {
+  buildResumeFromJobOffer,
+  toResumeColumns,
+  type AiResumeContent,
+} from '@/lib/resume-from-job/build-resume-from-job'
 import { detectOfferLanguage } from '@/lib/resume-from-job/detect-offer-language'
 import type { ResumeContentLanguage } from '@/lib/resume-from-job/sample-values'
 import { sanitizeUntrustedPlainText } from '@/lib/resume-from-job/untrusted-text'
 import { RESUME_TITLE_MAX_LENGTH } from '@/lib/resume-from-job/resume-title'
 import type { ResumeInsert, ResumeTemplate } from '@/types/database'
-import type { Json } from '@/types/supabase'
 
 /**
  * POST /api/resumes/from-job-application
@@ -42,20 +45,6 @@ export const dynamic = 'force-dynamic'
  */
 const MIN_USABLE_DESCRIPTION_LENGTH = 50
 
-/**
- * Output budget for the complete-resume request, twice Job Search's 2000.
- *
- * This request asks for more than Job Search's: 2-3 achievements per
- * experience on top of the same summary, experiences, skills and projects.
- * The reasoning model bills its hidden reasoning against the same budget
- * (`src/lib/ai/client.ts`: measured from 18 to 1470 tokens per call), and a
- * reply cut short is not valid JSON, which this route then turns into a
- * sample-only CV. Doubling the room makes that cut much less likely; the cost
- * per call stays bounded and the rate limit is unchanged. The real failure
- * rate has not been measured (no provider calls from the development checkout).
- */
-const COMPLETE_RESUME_MAX_TOKENS = 4000
-
 const RESUME_TEMPLATES = ['modern', 'classic', 'minimal', 'creative', 'professional'] as const satisfies readonly ResumeTemplate[]
 
 const requestSchema = z.object({
@@ -71,16 +60,6 @@ interface CreateResumeFromJobApplicationResponse {
   resumeId: string
   /** `false` when the content could not be tailored by the AI (AC4). */
   tailored: boolean
-}
-
-/**
- * A builder section as a JSONB column value. The sections are plain JSON data
- * (strings, booleans, arrays, objects), but their interfaces in
- * `@/types/database` carry no index signature, which the generated `Json` type
- * requires; the cast states that, and nothing more.
- */
-function asJson(value: object): Json {
-  return value as unknown as Json
 }
 
 /** The AI's content for the offer, or `null` when it was not used or failed. */
@@ -103,9 +82,7 @@ async function generateTailoredContent(
   }
 
   try {
-    const generate = isAiTestStubEnabled(process.env, request)
-      ? generateStubResumeFromJobDescription
-      : generateResumeFromJobDescription
+    const generate = resumeGeneratorFor(request)
     const { resumeData } = await generate(input, { maxTokens: COMPLETE_RESUME_MAX_TOKENS })
     return resumeData
   } catch (error) {
@@ -195,17 +172,10 @@ export async function POST(request: NextRequest) {
     const newResume: ResumeInsert = {
       user_id: user.id,
       template,
+      ...toResumeColumns(draft),
       // The title the user chose on the form (pre-filled with the job title)
       // names the CV; templates draw it as the headline.
       title,
-      contact: asJson(draft.contact),
-      summary: draft.summary,
-      experience: asJson(draft.experience),
-      education: asJson(draft.education),
-      skills: asJson(draft.skills),
-      languages: asJson(draft.languages),
-      certifications: asJson(draft.certifications),
-      projects: asJson(draft.projects),
       custom_sections: [],
       is_default: false,
       is_public: false,

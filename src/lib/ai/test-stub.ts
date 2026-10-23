@@ -1,6 +1,6 @@
 import { AiCompletionError } from './client'
 import type { JobDescriptionToResumeInput } from './prompts'
-import type { generateResumeFromJobDescription } from './transformations'
+import { generateResumeFromJobDescription } from './transformations'
 import { AI_TEST_STUB_DIRECTIVES, AI_TEST_STUB_ENABLED_VALUE } from './test-stub-contract'
 
 export { AI_TEST_STUB_DIRECTIVES, AI_TEST_STUB_ENABLED_VALUE }
@@ -195,7 +195,9 @@ export const generateStubResumeFromJobDescription: typeof generateResumeFromJobD
   }
 
   const texts = STUB_TEXTS[isStubLanguage(input.locale) ? input.locale : 'en']
-  const jobTitle = input.targetJobTitle ?? ''
+  // Job Search does not know the job title; the real AI takes it from the
+  // description, the stub names its own test position instead.
+  const jobTitle = input.targetJobTitle || texts.position
 
   return {
     resumeData: {
@@ -211,7 +213,7 @@ export const generateStubResumeFromJobDescription: typeof generateResumeFromJobD
           description: texts.description,
           // Only a complete-resume request asks for achievements, exactly as
           // the real prompt does.
-          ...(input.targetJobTitle ? { achievements: [...texts.achievements] } : {}),
+          ...(input.completeResume || input.targetJobTitle ? { achievements: [...texts.achievements] } : {}),
           visible: true,
         },
       ],
@@ -227,4 +229,15 @@ export const generateStubResumeFromJobDescription: typeof generateResumeFromJobD
     },
     tokensUsed: 0,
   }
+}
+
+/**
+ * The resume generator for this request: the stub when every guard condition
+ * holds, otherwise the real AI. The one place the routes that generate a
+ * resume on the server choose between them.
+ */
+export function resumeGeneratorFor(request: AiTestStubRequest): typeof generateResumeFromJobDescription {
+  return isAiTestStubEnabled(process.env, request)
+    ? generateStubResumeFromJobDescription
+    : generateResumeFromJobDescription
 }

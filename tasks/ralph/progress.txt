@@ -163,3 +163,82 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-002 a CV created from a saved job application is complete
 FINAL: PASS
+
+## US-003: A CV created from Job Search is complete
+Status: PASS
+Priority: 3
+Branch: ralph/cv-from-job-complete
+Baseline HEAD: 60ee30b (US-002 commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat, added/removed; new files with line counts):
+  - src/app/api/ai/generate-from-job-description/route.ts (44/28): language detected from the offer (detectOfferLanguage → request locale → en); the AI is asked for a complete resume ({ completeResume: true }, maxTokens COMPLETE_RESUME_MAX_TOKENS = 4000); the reply goes through buildResumeFromJobOffer + toResumeColumns before insert (before, the AI reply was stored unsanitized). AI failure keeps the same 500 { error, message } and inserts nothing. Request fields { jobDescription, title, template, locale }, validation order and response keys unchanged.
+  - New src/app/api/ai/generate-from-job-description/route.test.ts (239): 11 tests — German offer under /fr, es/missing/it page locales, AI content sanitized (onclick and <script> stripped), provider error, provider 429, unparsable reply, our rate limit (429 before generation), response keys pinned.
+  - src/lib/ai/prompts.ts (38/23) + prompts.job-description.test.ts (50/6): `completeResume` option (fixed instruction text only, no new untrusted input); the 6 base SHA-256 pins unchanged, 4 new pins lock the Job Search prompt (deliberate: AC-01 requires a complete resume).
+  - src/lib/ai/test-stub.ts (16/3) + test-stub.test.ts (10/0): `resumeGeneratorFor(request)` picks the stub or the real generator for both routes; isAiTestStubEnabled byte-identical to US-002.
+  - src/lib/ai/transformations.ts (15/0): the generator accepts the complete-resume option.
+  - src/lib/resume-from-job/build-resume-from-job.ts (39/0): `toResumeColumns(draft)` — the column mapping both routes now share.
+  - src/app/api/resumes/from-job-application/route.ts (9/39) + route.test.ts (2/1): uses the shared toResumeColumns and resumeGeneratorFor; behaviour unchanged (same columns, 4000 tokens, stub selection).
+  - New e2e/fixtures/resume-from-job.ts (101): expectCompleteRow / expectEditorShowsEverySection / resumesOf, moved out of e2e/cv-from-job-application.spec.ts (1/80); no assertion dropped.
+  - New e2e/cv-from-job-search.spec.ts (121): 3 tests.
+- Not touched: `git diff --stat HEAD -- supabase package.json pnpm-lock.yaml src/components src/app/api/resumes/[id] src/lib/pdf src/locales` is empty (no migration, dependency, UI component, locale, template or export change). No version change, no push or merge.
+- Temporary capture/export specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted; `ls e2e | grep -c zz` is 0.
+
+Checks (final diff, one run):
+- pnpm typecheck: PASS — 0 errors.
+- pnpm test: PASS — 86 files, 2449 passed, 5 skipped (2431 after US-002).
+- pnpm test:integration: PASS — 4 files, 50 passed.
+- pnpm test:e2e: PASS — 376 passed, 0 failed (373 after US-002; +3 from cv-from-job-search.spec.ts), first pass.
+- pnpm build: PASS — exit 0.
+- pnpm lint: PASS — 287 problems (219 errors, 68 warnings); 290 after US-002, under the tracked 306 ceiling (the typed insert removed `any` casts).
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — e2e/cv-from-job-search.spec.ts: (a)(b) under /fr and /de a German offer from Job Search → a complete German CV: title "CV - Beispiel AG", template professional, every stored field non-empty (expectCompleteRow), the stub's AI text and achievements, German sample contact/education/certification, every editor section showing its stored content; (c) provider error → the modal shows the route's error, stays on /fr/dashboard/jobs, no resume row. job-cv-template-picker, adaptation-modal, job-search-mobile and job-applications specs green inside the full run.
+- Visual: NOT_APPLICABLE — no template, print or Preview code changed; parity unchanged.
+- Export: PASS — export-validation on the final diff: two CVs created through Job Search (French offer under /fr, German offer under /de) × 5 templates; PDF via POST /api/resumes/[id]/download-pdf and DOCX via GET /api/resumes/[id]/download-docx: 20 artifacts, all 200, %PDF- / OOXML; the same 16 inventory values as US-002 present in every PDF (pdf.js text) and every DOCX (w:t text, entities decoded); no raw markup in any PDF; PDFs 1–2 pages; export code diff empty.
+- Database: NOT_APPLICABLE — no schema or policy change; insert through the user's session (RLS), user_id from the session.
+- Security: PASS — security-review (skill procedure, final diff): 5 trust boundaries, 7/7 requirements, 0 critical/high/medium, 2 low, 3 info; vitest 299/299 on the affected modules:
+  - SEC-001 INFO (unchanged guard, now also selecting the Job Search generator).
+  - SEC-002 LOW, pre-existing: raw AI reply logged on parse failure; the reply can now be up to 4000 tokens.
+  - SEC-007 INFO: Job Search output budget 2000 → 4000 tokens, bounded by the 15,000-char input cap and the unchanged 60/10 min per-user limit; the second AI call (extractJobRequirements) still counts once.
+  - SEC-008 INFO, pre-existing: the route stores the raw trimmed title (the user's own data, ≤ 200 chars, sanitized when rendered).
+  - SEC-009 LOW, pre-existing: the 500 echoes error.message and whole error objects are logged.
+
+Agents:
+- senior-coder: implementation, no fix round.
+- ui-expert, round 1: BLOCKED — 1440 fully covered and passing; 375 had only the Contact editor captured.
+- ui-expert, round 2: PASS, 6/7 + 1 N/A — busy state, editor landing and every section, Preview in 5 templates, fr/de at 1440 and 375 (Preview and Experience/Education/Languages/Certifications editors at 375; document scrollWidth 375 on all 18 pages); AI-failure state; one language per CV.
+- code-reviewer: PASS — every AC met; US-002 route unchanged after the helper extraction; one builder; 1109 unit tests re-run; minors below.
+
+Acceptance criteria:
+- AC-01 (shared builder; contact, education, languages, certifications, achievements filled): PASS — route builds through buildResumeFromJobOffer/toResumeColumns; e2e (a)(b) expectCompleteRow + editor; route unit tests; export-validation.
+- AC-02 (offer's language, US-002 fallback): PASS — e2e German offer under /fr and /de; unit tests es/missing/it page locales → locale or en.
+- AC-03 (AI failure or rate limit → error, no CV): PASS — e2e (c); unit tests provider error, provider 429, unparsable reply, our limit.
+- AC-04 (modal flow and request fields unchanged): PASS — request body and response keys pinned by unit test; job-cv-template-picker and adaptation-modal specs green in the full run; ui-expert busy and failure states.
+- FR-1: PASS — one builder and one sample set for both entry points; toResumeColumns replaces the per-route mapping. FR-2: PASS — unchanged sample module. FR-3: NOT_APPLICABLE to Job Search (no application read); US-002 path unchanged. FR-4: PASS — AI output now sanitized on this route (unit test). FR-5: PASS as amended by the owner (US-002 Decision); guard unchanged. FR-6: PASS. FR-7: PASS — no new UI string.
+- Regression constraints: PASS — no-job creation, template picker, adaptation modal, Job Search mobile, job-applications specs green in the full e2e run; no existing CV modified; exports and parity unchanged (NEW 0 / KNOWN 3; generator diff empty).
+- Verification items: PASS — §14 + parity; unit tests; e2e fr/de; export-validation; security-review; ui-expert fr/de at 1440/375, 5 templates; code-reviewer.
+- FAIL conditions: none met. BLOCKER conditions: none (token budget: named limitation below).
+
+Decision (website sample keeps its scheme, ui-expert issue): the sample website "https://votre-site.example.com" is rendered as a link href (professional-template.tsx:580); without a scheme it would resolve inside the app. Its mid-word wrap in the Modern sidebar is a template follow-up.
+Decision (scope, code-reviewer minor 3): Job Search sends the CV name ("CV - Beispiel AG") as `title`, so the builder's job title is the CV name. The request fields are fixed by AC-04; the headline is overridden by the request title as before; only the sample-summary fallback (used when the sanitized AI summary is empty) would read the CV name.
+
+Named limitation (PRD BLOCKER condition 3, for the owner, both entry points): the real-provider failure rate of the complete-resume prompt is not measured (no provider call possible here). Job Search now asks for 4000 tokens per generation (was 2000), roughly doubling the worst-case cost per request. A failed or truncated reply shows the existing error on Job Search (no fallback, AC-03). Check in production with a few real offers in fr and de.
+
+Open owner decisions recorded by this story (none blocks the initiative):
+- ui-expert, high, pre-existing: Preview at 375 is unusable for every CV — the A4 page is shown at 794px and cut at 375 inside an inner container, the header title wraps into the controls and the second button is clipped (preview page unchanged since #81). Needs its own PRD.
+- ui-expert, medium, pre-existing: at 375 the entry card header (AI button + four translate chips) pushes the show/hide, delete and collapse icons off the card in Experience and Education (worse than at 1440).
+- ui-expert, low: Modern breaks long contact values mid-word; Professional lists certifications under "Formation / Cours"; Classic, Minimal and Creative use the CV title as the headline instead of contact.name.
+- The Job Search modal error text is English ("Failed to generate resume") on every locale — unchanged by AC-03.
+- code-reviewer, minor: quality analysis now scores the sample values too (short placeholders can match short requirements and hide the warning); resumeGeneratorFor lives in test-stub.ts though both production routes use it; toResumeColumns returns a title both callers override; e2e covers the provider-error failure only (429 and parse failure at unit level).
+- security-review: SEC-002 and SEC-009 (logging and echoed error messages, pre-existing).
+
+Environment notes:
+- Windows 11, local Supabase stack, Playwright suites run one at a time; the full run was green on the first pass.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 a CV created from Job Search is complete
+FINAL: PASS

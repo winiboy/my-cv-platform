@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateResumeFromJobDescription } from '@/lib/ai/transformations'
+import { COMPLETE_RESUME_MAX_TOKENS } from '@/lib/ai/transformations'
+import { resumeGeneratorFor } from '@/lib/ai/test-stub'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { extractJobRequirements } from '@/lib/ai/job-requirements-extractor'
 import { calculateRelevanceScore, type ResumeContent } from '@/lib/ai/relevance-scorer'
 import { QUALITY_THRESHOLD } from '@/lib/constants'
 import type { ResumeInsert } from '@/types/database'
+import { buildResumeFromJobOffer, toResumeColumns } from '@/lib/resume-from-job/build-resume-from-job'
+import { detectOfferLanguage } from '@/lib/resume-from-job/detect-offer-language'
+import { isResumeContentLanguage, type ResumeContentLanguage } from '@/lib/resume-from-job/sample-values'
 import type { QualityAnalysis } from '@/types/quality-analysis'
 import { enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
 import {
@@ -84,35 +88,47 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate resume content using AI
-    const result = await generateResumeFromJobDescription({
-      jobDescription: jobDescription.trim(),
-      locale: locale || 'en',
+    // The offer's language when it is clearly fr, en, de or it, otherwise the
+    // page's, as for a saved job application (cv-from-job-complete, US-003).
+    // An unsupported page locale falls back to English, as the prompt always did.
+    const language: ResumeContentLanguage =
+      detectOfferLanguage(jobDescription) ?? (isResumeContentLanguage(locale) ? locale : 'en')
+
+    // Generate resume content using AI. A failure or a provider rate limit
+    // throws to the handler below, as before: Job Search shows the error and
+    // creates no CV (US-003 AC3), unlike the saved-application flow.
+    // `completeResume` asks for achievements and a summary naming the job, which
+    // the AI takes from the description: this request carries no job title.
+    const result = await resumeGeneratorFor(request)(
+      { jobDescription: jobDescription.trim(), locale: language, completeResume: true },
+      { maxTokens: COMPLETE_RESUME_MAX_TOKENS }
+    )
+
+    // Every field filled through the one builder: the AI's content, sanitized,
+    // and the sample values of the same language for everything else. The
+    // request has no separate job title, company or location; the CV title it
+    // sends names the CV as before.
+    const draft = buildResumeFromJobOffer({
+      offer: { title },
+      language,
+      aiContent: result.resumeData,
     })
 
-    // Create resume in database
-    const newResume = {
+    const newResume: ResumeInsert = {
       user_id: user.id,
-      title: title.trim(),
       template,
-      contact: {},
-      summary: result.resumeData.summary || '',
-      experience: result.resumeData.experience || [],
-      education: [],
-      skills: result.resumeData.skills || [],
-      languages: [],
-      certifications: [],
-      projects: result.resumeData.projects || [],
+      ...toResumeColumns(draft),
+      title: title.trim(),
       custom_sections: [],
       is_default: false,
       is_public: false,
-    } as const
+    }
 
-    const result2: any = await (supabase
+    const result2 = await supabase
       .from('resumes')
-      .insert(newResume as any)
+      .insert(newResume)
       .select()
-      .single())
+      .single()
 
     if (result2.error) {
       console.error('Error creating resume:', result2.error)
@@ -131,15 +147,15 @@ export async function POST(request: NextRequest) {
         locale || 'en'
       )
 
-      // Convert the saved resume to ResumeContent format for scoring
+      // The saved resume in ResumeContent format for scoring
       const resumeContent: ResumeContent = {
-        summary: result.resumeData.summary || null,
-        contact: {},
-        experience: result.resumeData.experience || [],
-        education: [],
-        skills: result.resumeData.skills || [],
-        projects: result.resumeData.projects || [],
-        certifications: [],
+        summary: draft.summary,
+        contact: draft.contact,
+        experience: draft.experience,
+        education: draft.education,
+        skills: draft.skills,
+        projects: draft.projects,
+        certifications: draft.certifications,
       }
 
       const relevanceScore = calculateRelevanceScore(resumeContent, requirements)

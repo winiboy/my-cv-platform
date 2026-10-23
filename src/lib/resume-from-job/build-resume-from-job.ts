@@ -1,5 +1,6 @@
 import { escapeHtml } from '@/lib/escape-html'
 import { AI_LIST_LIMITS, AI_TEXT_LIMITS } from '@/lib/api/ai-input-limits'
+import type { Json } from '@/types/supabase'
 import type {
   ResumeCertification,
   ResumeContact,
@@ -403,5 +404,43 @@ export function buildResumeFromJobOffer({ offer, language, aiContent }: BuildRes
       },
     ],
     projects: buildProjects(aiContent?.projects, sample.project),
+  }
+}
+
+/** A draft's content as the `resumes` columns, ready for an insert. */
+export interface ResumeDraftColumns {
+  title: string
+  contact: Json
+  summary: string
+  experience: Json
+  education: Json
+  skills: Json
+  languages: Json
+  certifications: Json
+  projects: Json
+}
+
+/**
+ * A builder section as a JSONB column value. The sections are plain JSON data
+ * (strings, booleans, arrays, objects), but their interfaces in
+ * `@/types/database` carry no index signature, which the generated `Json` type
+ * requires; the cast states that, and nothing more.
+ */
+function asJson(value: object): Json {
+  return value as unknown as Json
+}
+
+/** The draft's content as insertable columns, for both routes that create a CV from an offer. */
+export function toResumeColumns(draft: ResumeDraftContent): ResumeDraftColumns {
+  return {
+    title: draft.title,
+    contact: asJson(draft.contact),
+    summary: draft.summary,
+    experience: asJson(draft.experience),
+    education: asJson(draft.education),
+    skills: asJson(draft.skills),
+    languages: asJson(draft.languages),
+    certifications: asJson(draft.certifications),
+    projects: asJson(draft.projects),
   }
 }

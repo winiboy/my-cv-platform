@@ -149,7 +149,7 @@
         "Out of scope: A schema change: no new column. If one turns out to be needed, raise a BLOCKER."
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

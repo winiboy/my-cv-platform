@@ -105,6 +105,16 @@ describe('generateStubResumeFromJobDescription', () => {
     expect(resumeData.experience[0]).not.toHaveProperty('achievements')
   })
 
+  it('answers a Job Search complete-resume request, which has no job title, with achievements', async () => {
+    const { resumeData } = await generateStubResumeFromJobDescription({
+      jobDescription: DESCRIPTION,
+      locale: 'fr',
+      completeResume: true,
+    })
+    expect(resumeData.summary).toContain('Poste IA de test')
+    expect(resumeData.experience[0].achievements).toEqual(['Réalisation IA de test 1', 'Réalisation IA de test 2'])
+  })
+
   it('is deterministic', async () => {
     const input = { jobDescription: DESCRIPTION, locale: 'it', targetJobTitle: 'Ingegnere' }
     expect(await generateStubResumeFromJobDescription(input)).toEqual(await generateStubResumeFromJobDescription(input))

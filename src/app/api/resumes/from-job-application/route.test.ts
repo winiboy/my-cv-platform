@@ -102,7 +102,8 @@ const generateResumeFromJobDescription = vi.fn()
 const enforceAiRateLimit = vi.fn<(request: NextRequest, caller: unknown) => Promise<NextResponse | null>>()
 
 vi.mock('@/lib/supabase/server', () => ({ createServerSupabaseClient: async () => fakeSupabase() }))
-vi.mock('@/lib/ai/transformations', () => ({
+vi.mock('@/lib/ai/transformations', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/ai/transformations')>()),
   generateResumeFromJobDescription: (...args: unknown[]) => generateResumeFromJobDescription(...args),
 }))
 vi.mock('@/lib/api/ai-rate-limit', () => ({

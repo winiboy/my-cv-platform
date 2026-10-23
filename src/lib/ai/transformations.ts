@@ -136,6 +136,21 @@ Provide ONLY the optimized text without any introduction or explanation.`
 export const JOB_DESCRIPTION_TO_RESUME_MAX_TOKENS = 2000
 
 /**
+ * Output budget for a complete-resume request (`completeResume` or
+ * `targetJobTitle`), twice the default. Used by both ways of creating a CV
+ * from an offer (cv-from-job-complete, US-002 and US-003).
+ *
+ * Such a request asks for more: 2-3 achievements per experience on top of the
+ * same summary, experiences, skills and projects. The reasoning model bills
+ * its hidden reasoning against the same budget (`./client.ts`: measured from
+ * 18 to 1470 tokens per call), and a reply cut short is not valid JSON.
+ * Doubling the room makes that cut much less likely; the cost per call stays
+ * bounded and the rate limit is unchanged. The real failure rate has not been
+ * measured (no provider calls from the development checkout).
+ */
+export const COMPLETE_RESUME_MAX_TOKENS = 4000
+
+/**
  * Generate resume content from a job description
  *
  * `options.maxTokens` lets a caller that asks for more output (the complete
