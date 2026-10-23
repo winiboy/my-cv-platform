@@ -132,16 +132,26 @@ Provide ONLY the optimized text without any introduction or explanation.`
   }
 }
 
+/** The output budget of `generateResumeFromJobDescription` unless a caller sets one. */
+export const JOB_DESCRIPTION_TO_RESUME_MAX_TOKENS = 2000
+
 /**
  * Generate resume content from a job description
+ *
+ * `options.maxTokens` lets a caller that asks for more output (the complete
+ * resume of cv-from-job-complete, US-002) give it more room; every other
+ * caller keeps the default budget.
  */
-export async function generateResumeFromJobDescription(input: JobDescriptionToResumeInput) {
+export async function generateResumeFromJobDescription(
+  input: JobDescriptionToResumeInput,
+  options: { readonly maxTokens?: number } = {}
+) {
   const prompt = buildJobDescriptionToResumePrompt(input)
 
   const result = await generateCompletion(prompt, {
     model: MODELS.BALANCED,
     temperature: 0.7,
-    maxTokens: 2000,
+    maxTokens: options.maxTokens ?? JOB_DESCRIPTION_TO_RESUME_MAX_TOKENS,
   })
 
   // Parse JSON response

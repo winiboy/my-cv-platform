@@ -5,6 +5,7 @@ import {
   assertLocalSupabase,
 } from './src/test/local-stack'
 import { nestedClaudeDirIgnore } from './src/test/nested-worktrees'
+import { AI_TEST_STUB_ENABLED_VALUE } from './src/lib/ai/test-stub-contract'
 
 /**
  * E2E configuration.
@@ -112,6 +113,11 @@ export default defineConfig({
       // dev server the developer already has open - the collision that caused
       // the cache corruption above.
       NEXT_DIST_DIR: '.next-e2e',
+      // Server-side AI stub for the routes that call the AI on the server
+      // (src/lib/ai/test-stub.ts). It also requires a local Supabase URL, a
+      // loopback request and no Vercel deployment, so this value alone cannot
+      // switch it on anywhere else.
+      AI_TEST_STUB: AI_TEST_STUB_ENABLED_VALUE,
     },
   },
 })

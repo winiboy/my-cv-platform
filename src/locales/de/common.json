@@ -208,7 +208,10 @@
       "templateLabel": "Vorlage wählen",
       "templateHint": "Wählen Sie eine Vorlage, die zu Ihrem Stil passt",
       "create": "Lebenslauf erstellen",
-      "creating": "Wird erstellt..."
+      "creating": "Wird erstellt...",
+      "creatingForJob": "Lebenslauf für die Bewerbung",
+      "generating": "Ihr Lebenslauf wird erstellt...",
+      "notTailored": "Dieser Lebenslauf konnte nicht an das Stellenangebot angepasst werden. Die Beispielwerte zeigen, was Sie ausfüllen sollten."
     },
     "errors": {
       "titleRequired": "Lebenslauf-Titel ist erforderlich",
@@ -423,7 +426,8 @@
     "deleting": "Wird gelöscht...",
     "confirm": "Bestätigen",
     "back": "Zurück",
-    "notLoggedIn": "Sie müssen angemeldet sein, um diese Aktion auszuführen"
+    "notLoggedIn": "Sie müssen angemeldet sein, um diese Aktion auszuführen",
+    "at": "bei"
   },
   "errors": {
     "unauthorized": "Nicht autorisiert",

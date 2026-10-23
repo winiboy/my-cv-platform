@@ -73,3 +73,93 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 a complete CV draft can be built from any job offer
 FINAL: PASS
+
+Note: US-001's story commit is 28a6c36.
+
+## US-002: A CV created from a saved job application is complete
+Status: PASS
+Priority: 2
+Branch: ralph/cv-from-job-complete
+Baseline HEAD: 28a6c36 (US-001 commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat, added/removed; new files with line counts):
+  - New src/app/api/resumes/from-job-application/route.ts (248) + route.test.ts (381): POST; 401 before any work; Zod body (jobApplicationId uuid, title string cut to 200, template enum, locale enum; any job content from the client ignored); application read with the user's session plus an explicit user_id filter and check (missing and foreign ids → same 404 before any write); description usable at ≥ 50 chars → existing AI rate limit, then the AI (or the test stub) with maxTokens 4000; any AI failure (provider error, provider 429, our limit, invalid JSON) → sample content; buildResumeFromJobOffer; insert; both-way link (back-link failure logged, CV kept); 201 { resumeId, tailored }.
+  - New src/lib/resume-from-job/detect-offer-language.ts (139) + test (157): stopword vote over fr/en/de/it plus es/pt/nl; an offer gets fr/en/de/it only if that language is first, has ≥ 8 hits and ≥ 2× the runner-up across all seven; otherwise the UI locale. Input cut to 20,000 chars.
+  - New src/lib/resume-from-job/resume-title.ts (22) + test (23): the 200-char title limit, tied to AI_TEXT_LIMITS.SHORT_LABEL by test.
+  - New src/lib/ai/test-stub.ts (230), test-stub-contract.ts (18), test-stub.test.ts (123): server-side AI stub for e2e (see Decision, owner).
+  - src/lib/ai/prompts.ts (76/7): optional `targetJobTitle` adds 2–3 plain-text achievements per experience, a summary naming the target job title (JSON-quoted, marked as data), one-paragraph descriptions with achievements only in the array, compact JSON; without it the prompt is byte-identical (6 SHA-256 pins, prompts.job-description.test.ts 74 lines).
+  - src/lib/ai/transformations.ts (12/2): optional `{ maxTokens }`, default 2000 (Job Search unchanged); transformations.job-description.test.ts (39).
+  - src/components/dashboard/create-resume-form.tsx (85/20): with a job application the title is pre-filled (cut to 200, maxLength on that form only) and submit calls the route; localized busy label, disabled button and a ref guard; a 12 s warning toast when not tailored (survives the redirect); `errors.generic` on the new error path; title-required uses the existing `resumes.errors.titleRequired`. Without an application the client insert is unchanged (its unreachable link-back code removed).
+  - src/locales/{en,fr,de,it}/common.json (6/2 each): resumes.new.creatingForJob, resumes.new.generating, resumes.new.notTailored, common.at.
+  - playwright.config.ts (6/0): AI_TEST_STUB in the web server env.
+  - New e2e/cv-from-job-application.spec.ts (431).
+- Not touched: `git diff --stat HEAD -- supabase package.json pnpm-lock.yaml src/app/api/ai/generate-from-job-description src/components/dashboard/cv-adaptation-modal.tsx src/components/jobs src/app/api/resumes/[id]/download-docx src/lib/pdf src/components/dashboard/resume-templates` is empty (no migration, dependency, Job Search, export or template change). No version change, no push or merge.
+- Temporary capture/export specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted; `ls e2e | grep -c zz` is 0.
+
+Checks (final diff, run 3 — runs 1 and 2 were invalidated by the review fixes):
+- pnpm typecheck: PASS — 0 errors.
+- pnpm test: PASS — 85 files, 2431 passed, 5 skipped (2366 after US-001).
+- pnpm test:integration: PASS — 4 files, 50 passed.
+- pnpm test:e2e: PASS — 373 passed, 0 failed (363 after US-001; +10 from cv-from-job-application.spec.ts). Earlier full runs on the previous diff had one unrelated transient each (password-reset.spec.ts:221 twice, then the auth fixture in resume-editor-responsive.spec.ts:86); password-reset alone 21/21.
+- pnpm build: PASS — 105/105 static pages.
+- pnpm lint: PASS — 290 problems (221 errors, 69 warnings); unchanged, under the tracked 306 ceiling.
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0; report sha256 399a7dddcb79fa7a… (unchanged reference).
+
+Specialized validation:
+- Browser: PASS — e2e/cv-from-job-application.spec.ts (10): (a) a German offer under /fr → a complete, tailored German CV, linked both ways, every stored field and one value per editor section checked; (b) no description → complete sample CV in the page language with the notice; (c) provider error and provider rate limit → same (2 tests); (d) a foreign and a missing application id → refused, nothing created or linked for either user; (e) creating without an application stores empty content and calls no route; (f) banner, title-required message and busy state in fr, de and en (3 tests), double submit via two requestSubmit() in one tick → exactly one POST and one resume; (g) a 255-char job title → 200 shown, maxlength 200, stored title equals what was shown.
+- Visual: NOT_APPLICABLE — no template, print or Preview code changed; parity unchanged.
+- Export: PASS — export-validation on the final diff: two CVs created through the real flow (fr sample, de tailored) × 5 templates; PDF via POST /api/resumes/[id]/download-pdf and DOCX via GET /api/resumes/[id]/download-docx: 20 artifacts, all 200, %PDF- / OOXML with word/document.xml; 16 inventory values (title, contact email/phone/location, summary, experience position/company/achievement, education school/degree, skills category, language, certification name/issuer, project name/description) present in every PDF (pdf.js text) and every DOCX (w:t text, entities decoded); no raw markup in any PDF; export code diff empty.
+- Database: NOT_APPLICABLE — no schema or policy change; writes go through the user's session (RLS).
+- Security: PASS — security-review (skill procedure, final diff): 6 trust boundaries, 7/7 requirements, 0 critical/high/medium, 1 low, 5 info:
+  - SEC-001 INFO: the stub's request check can be met by a caller on a directly exposed self-host; conditions 1–3 (flag value, not Vercel, loopback Supabase URL) are operator-only.
+  - SEC-002 LOW, pre-existing: transformations.ts logs the raw AI reply when it is not valid JSON.
+  - SEC-003 INFO, pre-existing: the resumes INSERT policy does not check job_application_id ownership; the route checks it.
+  - SEC-004 INFO: no CSRF token, consistent with the repo; SameSite=Lax session cookies.
+  - SEC-005 INFO: per-call output budget doubled for this route (4000), bounded by the unchanged per-user rate limit.
+  - SEC-006 INFO, pre-existing helper: the JSON body limit trusts Content-Length.
+
+Agents:
+- senior-coder: implementation, then one fix round from code-reviewer (below).
+- ui-expert, round 1: BLOCKED — no current-role and no keyboard evidence (everything else passed).
+- ui-expert, round 2: PASS, 7/7 — creation page, busy state, editor landing and notice, 8 editor sections and Preview in 5 templates for fr/de × tailored/sample at 1440 and 375; current role shows "Présent" in classic and professional (the disabled end-date field shows the filler "juin 2024"); keyboard order Retour → title → template radio → submit, ring at every stop, one request under a double Enter.
+- ui-expert, round 3 (final diff): PASS — renders unchanged after the fixes; stored rows identical to round 2 (ids and timestamps aside).
+- code-reviewer, round 1: FAIL — (critical) a realistic Spanish offer was detected as Italian, giving an Italian CV instead of the UI locale; (major) a pre-filled 201–255-char job title was rejected by the route; (major) the longer prompt's token budget unmeasured and the prompt contradicted itself on bullets; minors: wrong key for the generic error, a near-duplicate title-required key, a double-submit test that did not reach the ref guard.
+- code-reviewer, round 2: PASS — all fixed; Job Search prompt independently rebuilt from HEAD and byte-identical; 329 unit tests re-run; minors remain (below).
+
+Acceptance criteria:
+- AC-01 (title pre-filled, editable, template choosable): PASS — e2e (f)(g); captures.
+- AC-02 (complete content, AI in the offer's language, every editor section shows content): PASS — e2e (a); ui-expert; export-validation.
+- AC-03 (language): PASS — e2e (a) German under /fr; unit tests on full-length fr/en/de/it/Swiss-fr offers and es/pt/nl → UI locale; route test: full-length Spanish under /fr → French.
+- AC-04 (no description or AI failure → complete CV + localized notice): PASS — e2e (b)(c); unit tests for short/null description, provider error, unparsable reply, provider 429 and our rate limit.
+- AC-05 (link both ways; foreign/missing refused, nothing created): PASS — e2e (a)(d); security-review T2/T4.
+- AC-06 (banner and title-required in fr/de/it, en unchanged): PASS — e2e (f); en values equal the old fallbacks.
+- AC-07 (busy state, no double submit): PASS — e2e (f); ui-expert keyboard evidence.
+- FR-1/FR-2: PASS — buildResumeFromJobOffer only. FR-3: PASS — server read with ownership; client job content ignored (unit test). FR-4: PASS — US-001 sanitizers; lengths and entry counts bounded. FR-5: PASS as amended by the owner (Decision below). FR-6: PASS. FR-7: PASS — parity test.
+- Regression constraints: PASS — no-job creation keeps empty content, picker and required title (e2e (e)); template-picker 5/5, compact 20/20, job-cv-template-picker 6/6 (rerun; first run one cold-start timing check 10584 ms > 10000 ms on an unchanged flow); full e2e 373/373; parity and exports unchanged.
+- Verification items: PASS — §14 + parity; unit tests; e2e fr/de; export-validation; security-review; ui-expert fr/de at 1440/375, 5 templates; code-reviewer.
+- FAIL conditions: none met. BLOCKER conditions: language detection needed no dependency or schema change; the token-budget condition is recorded as a named limitation (below).
+
+Decision (owner, 2026-10-23, in chat): the AI test stub is enabled only when AI_TEST_STUB equals the value set in playwright.config.ts AND VERCEL/VERCEL_ENV are unset AND NEXT_PUBLIC_SUPABASE_URL is loopback AND the request URL, Host and every x-forwarded-for entry are loopback. This replaces the PRD's `NODE_ENV === 'production'` wording, because the e2e server is itself a production build (Next builds NODE_ENV in as 'production'). Unit tests show it stays off on Vercel production and preview, with a hosted Supabase URL and for non-local requests.
+Decision (language): detected from the offer before the AI call and passed to the AI as the language to write in, so AI text and sample gap-fill always share one language, also when the AI fails. Rejected: letting the AI report the language, which can disagree with the sample set or be missing on failure.
+Decision (prompt): the US-001 gate (sample achievements hid the AI description in classic, creative, minimal and professional) is closed by asking the AI for 2–3 achievements per experience; the AI's own achievements render in all four (ui-expert).
+Decision (scope, recorded at code-reviewer's request): the no-job form now shows the translated title-required message in fr/de/it, because both paths share `resumes.errors.titleRequired` (AC-06); before, it read a missing key and fell back to English. en text, empty content, picker and required title are unchanged.
+
+Named limitation (PRD BLOCKER condition 3, for the owner): the real-provider failure rate of the longer prompt is not measured — no provider call was possible here (.env.local is off-limits and the AI key is the owner's). The route asks maxTokens 4000 (Job Search keeps 2000); a truncated or invalid reply falls back to a complete sample CV with the notice, so a high failure rate would look like "not tailored" rather than an error. Check in production (create a few CVs from real offers in fr and de; the notice must not appear for offers with a real description).
+
+Open owner decisions recorded by this story (none blocks US-003):
+- ui-expert, major, pre-existing but now on every created CV: the editor shows the English QualityWarningBanner ("The job description is limited…") on every job-linked CV, wrong on tailored CVs and duplicating the notice on sample ones (resume-editor.tsx:1177-1181).
+- ui-expert, major, pre-existing: "GPA:" hardcoded in classic, minimal and creative, "Technologies:" in classic, so fr/de/it CVs show English labels (the sample now always fills gpa).
+- ui-expert, major, pre-existing: in creative's Preview the skills font-size sliders sit over the Experience heading and first job title (print unaffected).
+- ui-expert, pre-existing: the template radio's accessible name is the thumbnail's text; the disabled end-date of a current role shows the filler date; the toast is clipped at 375; modern breaks contact values mid-word; professional lists certifications under "Formation / Cours"; modern and minimal sample CVs run just past page 1; the fr notice could read better.
+- code-reviewer, minor: es/pt/nl word lists still share con/del/al/una (it), que (fr), die (de) — a short Italian offer can fall back to the UI locale (never a wrong language); the editor e2e checks one value per section; the route has no explicit maxDuration (a platform timeout would give an error instead of the sample fallback).
+- security-review: SEC-002 (raw AI reply logged on parse failure, pre-existing), SEC-003 (INSERT policy does not check job_application_id ownership, pre-existing).
+
+Environment notes:
+- Windows 11, local Supabase stack, Playwright suites run one at a time. Full-suite transients on earlier diffs (password-reset; auth fixture) absorbed by reruns; the final full run was green on the first pass.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 a CV created from a saved job application is complete
+FINAL: PASS
