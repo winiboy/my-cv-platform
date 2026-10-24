@@ -5,8 +5,14 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { generateCompletion, MODELS } from '@/lib/ai/client'
+import { generateCompletion } from '@/lib/ai/client'
 import { buildCoverLetterGenerationPrompt } from '@/lib/ai/prompts'
+import {
+  COVER_LETTER_COMPLETION_OPTIONS,
+  coverLetterProfileFromResume,
+  parseCoverLetterJson,
+  type CoverLetterResumeRow,
+} from '@/lib/ai/cover-letter-generation'
 import { enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
 import {
   AI_TEXT_LIMITS,
@@ -116,32 +122,12 @@ export async function POST(request: NextRequest) {
         .select('summary, experience, skills')
         .eq('id', resumeId)
         .eq('user_id', user.id)
-        .single<{
-          summary: string | null
-          experience: unknown
-          skills: unknown
-        }>()
+        .single<CoverLetterResumeRow>()
 
       if (error) {
         console.error('Error fetching resume:', error)
       } else if (resume) {
-        resumeSummary = resume.summary || undefined
-
-        // Extract experience
-        const experience = resume.experience as { position: string; company: string; description?: string }[] | null
-        if (Array.isArray(experience)) {
-          resumeExperience = experience.slice(0, 3).map(exp => ({
-            position: exp.position,
-            company: exp.company,
-            description: exp.description,
-          }))
-        }
-
-        // Extract skills
-        const skills = resume.skills as { items?: string[]; skillsHtml?: string }[] | null
-        if (Array.isArray(skills)) {
-          resumeSkills = skills.flatMap(cat => cat.items || [])
-        }
+        ;({ resumeSummary, resumeExperience, resumeSkills } = coverLetterProfileFromResume(resume))
       }
     }
 
@@ -158,19 +144,14 @@ export async function POST(request: NextRequest) {
       locale,
     })
 
-    const result = await generateCompletion(prompt, {
-      model: MODELS.BALANCED,
-      temperature: 0.7,
-      maxTokens: 1500,
-    })
+    const result = await generateCompletion(prompt, COVER_LETTER_COMPLETION_OPTIONS)
 
     // Parse JSON response
-    let parsedContent
+    // The reply's shape is not validated on this route: its behaviour is kept
+    // exactly as it was before the parsing moved to the shared module.
+    let parsedContent: Record<string, unknown>
     try {
-      const text = result.text.trim()
-      const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
-      const jsonText = jsonMatch ? jsonMatch[1] : text
-      parsedContent = JSON.parse(jsonText)
+      parsedContent = parseCoverLetterJson(result.text) as Record<string, unknown>
     } catch (error) {
       console.error('Failed to parse JSON response:', error)
       console.error('Raw response:', result.text)

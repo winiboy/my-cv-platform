@@ -1,9 +1,29 @@
 import { AiCompletionError } from './client'
+import { generateCoverLetter, type CoverLetterGenerator } from './cover-letter-generation'
 import type { JobDescriptionToResumeInput } from './prompts'
 import { generateResumeFromJobDescription } from './transformations'
-import { AI_TEST_STUB_DIRECTIVES, AI_TEST_STUB_ENABLED_VALUE } from './test-stub-contract'
+import {
+  checkOfferPage,
+  offerPageCheckForStatus,
+  type OfferPageChecker,
+} from '@/lib/cover-letter-from-job/offer-availability'
+import { JOB_BOARD_ALLOWED_HOSTS } from '@/lib/security/job-board-allowlist'
+import { isHostAllowed } from '@/lib/security/safe-fetch'
+import {
+  AI_TEST_STUB_COVER_LETTER_TEXTS,
+  AI_TEST_STUB_DIRECTIVES,
+  AI_TEST_STUB_ENABLED_VALUE,
+  AI_TEST_STUB_OFFER_PAGE_PARAM,
+  AI_TEST_STUB_OFFER_PAGE_TIMEOUT,
+} from './test-stub-contract'
 
-export { AI_TEST_STUB_DIRECTIVES, AI_TEST_STUB_ENABLED_VALUE }
+export {
+  AI_TEST_STUB_COVER_LETTER_TEXTS,
+  AI_TEST_STUB_DIRECTIVES,
+  AI_TEST_STUB_ENABLED_VALUE,
+  AI_TEST_STUB_OFFER_PAGE_PARAM,
+  AI_TEST_STUB_OFFER_PAGE_TIMEOUT,
+}
 
 /**
  * A server-side stand-in for the AI provider, for the end-to-end suite only
@@ -187,12 +207,7 @@ function isStubLanguage(value: unknown): value is keyof typeof STUB_TEXTS {
 export const generateStubResumeFromJobDescription: typeof generateResumeFromJobDescription = async (
   input: JobDescriptionToResumeInput
 ): Promise<GenerationResult> => {
-  if (input.jobDescription.includes(AI_TEST_STUB_DIRECTIVES.providerError)) {
-    throw new AiCompletionError('provider_error', AI_TEST_STUB_MODEL, 500)
-  }
-  if (input.jobDescription.includes(AI_TEST_STUB_DIRECTIVES.rateLimited)) {
-    throw new AiCompletionError('rate_limited', AI_TEST_STUB_MODEL, 429)
-  }
+  throwRequestedProviderFailure(input.jobDescription)
 
   const texts = STUB_TEXTS[isStubLanguage(input.locale) ? input.locale : 'en']
   // Job Search does not know the job title; the real AI takes it from the
@@ -240,4 +255,88 @@ export function resumeGeneratorFor(request: AiTestStubRequest): typeof generateR
   return isAiTestStubEnabled(process.env, request)
     ? generateStubResumeFromJobDescription
     : generateResumeFromJobDescription
+}
+
+/** Throws the provider failure a directive in the job description asks for. */
+function throwRequestedProviderFailure(jobDescription: string): void {
+  if (jobDescription.includes(AI_TEST_STUB_DIRECTIVES.providerError)) {
+    throw new AiCompletionError('provider_error', AI_TEST_STUB_MODEL, 500)
+  }
+  if (jobDescription.includes(AI_TEST_STUB_DIRECTIVES.rateLimited)) {
+    throw new AiCompletionError('rate_limited', AI_TEST_STUB_MODEL, 429)
+  }
+}
+
+/**
+ * The stub's cover letter, in the shape `generateCoverLetter` returns, in the
+ * language the request asks for. Deterministic: the same input always gives the
+ * same answer or error. A request carrying a CV profile gets one more body
+ * paragraph, so a test can tell that the CV reached the generator.
+ *
+ * The job title is placed in the opening unescaped, as a provider could return
+ * it; the caller sanitizes AI output whichever answered.
+ */
+export const generateStubCoverLetter: CoverLetterGenerator = async (input) => {
+  throwRequestedProviderFailure(input.jobDescription)
+
+  const texts = AI_TEST_STUB_COVER_LETTER_TEXTS[isStubLanguage(input.locale) ? input.locale : 'en']
+  const hasProfile =
+    Boolean(input.resumeSummary) || Boolean(input.resumeExperience?.length) || Boolean(input.resumeSkills?.length)
+
+  return {
+    greeting: texts.greeting,
+    openingParagraph: texts.opening(input.jobTitle),
+    bodyParagraphs: hasProfile ? [texts.body, texts.resumeUsed] : [texts.body],
+    closingParagraph: texts.closing,
+    signOff: texts.signOff,
+  }
+}
+
+/**
+ * The cover-letter generator for this request: the stub when every guard
+ * condition holds, otherwise the real AI.
+ */
+export function coverLetterGeneratorFor(request: AiTestStubRequest): CoverLetterGenerator {
+  return isAiTestStubEnabled(process.env, request) ? generateStubCoverLetter : generateCoverLetter
+}
+
+/**
+ * The stub's offer-page check (cover-letter-from-job, US-002, FR-5): it never
+ * touches the network, so no e2e test reaches a real job board.
+ *
+ * A URL that is not http(s) on an allowed job board is inconclusive, as the
+ * real check would find. On an allowed board, `AI_TEST_STUB_OFFER_PAGE_PARAM`
+ * names the status the page "answers", mapped exactly as the real check maps
+ * it, or `AI_TEST_STUB_OFFER_PAGE_TIMEOUT`. Without the parameter the check is
+ * inconclusive.
+ */
+export const stubCheckOfferPage: OfferPageChecker = async (jobUrl) => {
+  const value = jobUrl?.trim()
+  if (!value) return { kind: 'undetermined', cause: 'no-url' }
+
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return { kind: 'undetermined', cause: 'invalid-url' }
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return { kind: 'undetermined', cause: 'scheme-not-allowed' }
+  }
+  if (!isHostAllowed(url.hostname, JOB_BOARD_ALLOWED_HOSTS)) {
+    return { kind: 'undetermined', cause: 'host-not-allowed' }
+  }
+
+  const directive = url.searchParams.get(AI_TEST_STUB_OFFER_PAGE_PARAM)
+  if (directive === AI_TEST_STUB_OFFER_PAGE_TIMEOUT) return { kind: 'undetermined', cause: 'timeout' }
+  if (directive !== null && /^[1-5]\d\d$/.test(directive)) return offerPageCheckForStatus(Number(directive))
+  return { kind: 'undetermined', cause: 'stubbed' }
+}
+
+/**
+ * The offer-page checker for this request: the stub when every guard condition
+ * holds, otherwise the real check.
+ */
+export function offerPageCheckerFor(request: AiTestStubRequest): OfferPageChecker {
+  return isAiTestStubEnabled(process.env, request) ? stubCheckOfferPage : checkOfferPage
 }

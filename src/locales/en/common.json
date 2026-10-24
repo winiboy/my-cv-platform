@@ -539,7 +539,11 @@
       "linkResumeHint": "Use data from an existing resume to generate content",
       "selectResume": "Select a resume...",
       "create": "Create Cover Letter",
-      "creating": "Creating..."
+      "creating": "Creating...",
+      "generating": "Writing your cover letter...",
+      "generationFailed": "Your cover letter could not be written right now. Nothing was created. Please try again in a moment.",
+      "offerClosedDeadline": "This offer is no longer open: its application deadline has passed. No cover letter was created.",
+      "offerClosedPage": "This offer is no longer open: its page on the job board is no longer available. No cover letter was created."
     },
     "editor": {
       "titlePlaceholder": "Untitled Cover Letter",

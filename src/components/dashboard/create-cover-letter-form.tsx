@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { initialCoverLetterResumeId } from '@/lib/cover-letter-from-job/initial-resume-id'
 import { FileText } from 'lucide-react'
 import type { CoverLetterInsert, JobApplication } from '@/types/database'
 
@@ -23,10 +24,11 @@ export function CreateCoverLetterForm({
 }: CreateCoverLetterFormProps) {
   const router = useRouter()
 
-  // Validate that the initial resume_id exists in the resumes list
-  const validatedResumeId = initialResumeIdProp && resumes.some((r) => r.id === initialResumeIdProp)
-    ? initialResumeIdProp
-    : ''
+  const validatedResumeId = initialCoverLetterResumeId({
+    applicationResumeId: jobApplication?.resume_id,
+    queryResumeId: initialResumeIdProp,
+    resumes,
+  })
 
   // Pre-fill from job application if provided
   const initialCompany = jobApplication?.company_name || ''
@@ -40,7 +42,21 @@ export function CreateCoverLetterForm({
   const [jobTitle, setJobTitle] = useState(initialJobTitle)
   const [selectedResumeId, setSelectedResumeId] = useState<string>(validatedResumeId)
   const [isCreating, setIsCreating] = useState(false)
+  // A state update is not visible to a second submit fired in the same tick, so
+  // the job-application path, which spends an AI call, also guards with a ref.
+  const isSubmittingRef = useRef(false)
   const [error, setError] = useState('')
+  const errorRef = useRef<HTMLDivElement>(null)
+
+  // The submit button is disabled while the letter is created, which drops
+  // focus to <body>; moving it to the error keeps a keyboard user's place.
+  // Focus moves when an error appears or changes. A submit that sends a request
+  // clears the error before awaiting it, so a retry that fails again refocuses.
+  // A repeated synchronous validation message does not: its clear and set are
+  // batched into one render with an unchanged value, so the effect does not run.
+  useEffect(() => {
+    if (error) errorRef.current?.focus()
+  }, [error])
 
   const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
   const newDict = (coverLettersDict.new || {}) as Record<string, unknown>
@@ -48,12 +64,89 @@ export function CreateCoverLetterForm({
   const errorsDict = (dict.errors || {}) as Record<string, unknown>
   const validationDict = (errorsDict.validation || {}) as Record<string, unknown>
 
+  /** The localized message for a 409: the offer is no longer open (US-002), naming why. */
+  const offerClosedMessage = async (response: Response): Promise<string> => {
+    const body = (await response.json().catch(() => null)) as { reason?: unknown } | null
+    if (body?.reason === 'deadline_passed') {
+      return (newDict.offerClosedDeadline as string) || 'This offer is no longer open: its deadline has passed.'
+    }
+    if (body?.reason === 'page_unavailable') {
+      return (newDict.offerClosedPage as string) || 'This offer is no longer open: its page is no longer available.'
+    }
+    return (errorsDict.generic as string) || 'An error occurred. Please try again.'
+  }
+
+  /**
+   * The job-application path (US-001): the server reads the application and the
+   * selected CV, has the AI write the letter, stores it and links it. Only
+   * identifiers and form fields are sent. On failure nothing is stored, and the
+   * form keeps its values so the user can retry.
+   */
+  const createFromJobApplication = async (jobApplicationId: string) => {
+    if (isSubmittingRef.current) return
+    isSubmittingRef.current = true
+    setIsCreating(true)
+
+    try {
+      const response = await fetch('/api/cover-letters/from-job-application', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobApplicationId,
+          title: title.trim(),
+          companyName: companyName.trim(),
+          jobTitle: jobTitle.trim(),
+          resumeId: selectedResumeId || null,
+          // The route segment's locale; the server validates it. `toLocale` is
+          // not used here because `@/lib/i18n` would bring every translation
+          // file into this client bundle.
+          locale,
+        }),
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError((validationDict.loginRequired as string) || 'You must be logged in')
+        } else if (response.status === 409) {
+          setError(await offerClosedMessage(response))
+        } else if (response.status === 429 || response.status === 502) {
+          setError(
+            (newDict.generationFailed as string) ||
+              'Your cover letter could not be written right now. Please try again in a moment.'
+          )
+        } else {
+          setError((errorsDict.generic as string) || 'An error occurred. Please try again.')
+        }
+        isSubmittingRef.current = false
+        setIsCreating(false)
+        return
+      }
+
+      const result = (await response.json()) as { coverLetterId?: unknown }
+      if (typeof result.coverLetterId !== 'string') {
+        throw new Error('Malformed response from /api/cover-letters/from-job-application')
+      }
+
+      router.push(`/${locale}/dashboard/cover-letters/${result.coverLetterId}/edit`)
+    } catch (err) {
+      console.error('Unexpected error:', err)
+      setError((errorsDict.generic as string) || 'An error occurred. Please try again.')
+      isSubmittingRef.current = false
+      setIsCreating(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
     if (!title.trim()) {
       setError((newDict.titleRequired as string) || 'Cover letter title is required')
+      return
+    }
+
+    if (jobApplication) {
+      await createFromJobApplication(jobApplication.id)
       return
     }
 
@@ -84,16 +177,17 @@ export function CreateCoverLetterForm({
 
       console.log('Authenticated user:', user.id.substring(0, 8) + '...')
 
-      // Create cover letter - ensure resume_id and job_application_id are null when empty
+      // A letter without a job application starts empty. One for an application
+      // is written by createFromJobApplication above.
       const resumeId = selectedResumeId && selectedResumeId.trim() !== '' ? selectedResumeId : null
       const newCoverLetter: CoverLetterInsert = {
         user_id: user.id,
         title: title.trim(),
         resume_id: resumeId,
-        job_application_id: jobApplication?.id || null,
+        job_application_id: null,
         company_name: companyName.trim() || null,
         job_title: jobTitle.trim() || null,
-        job_description: jobApplication?.job_description || null,
+        job_description: null,
         greeting: 'Dear Hiring Manager,',
         opening_paragraph: null,
         body_paragraphs: [],
@@ -133,20 +227,6 @@ export function CreateCoverLetterForm({
         setError(errorMessage)
         setIsCreating(false)
         return
-      }
-
-      // Create bidirectional link: update job_applications.cover_letter_id
-      if (jobApplication?.id && coverLetter?.id) {
-        const { error: updateError } = await supabase
-          .from('job_applications')
-          .update({ cover_letter_id: coverLetter.id, updated_at: new Date().toISOString() })
-          .eq('id', jobApplication.id)
-          .eq('user_id', user.id)
-
-        if (updateError) {
-          // Log but don't fail the operation - the cover letter was created successfully
-          console.error('Error linking cover letter to job application:', updateError)
-        }
       }
 
       // Redirect to editor
@@ -239,8 +319,13 @@ export function CreateCoverLetterForm({
 
       {/* Error message */}
       {error && (
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <div
+          ref={errorRef}
+          role="alert"
+          tabIndex={-1}
+          className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg focus:outline-none"
+        >
+          <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
         </div>
       )}
 
@@ -253,7 +338,9 @@ export function CreateCoverLetterForm({
         >
           <FileText className="h-5 w-5" />
           {isCreating
-            ? ((newDict.creating as string) || 'Creating...')
+            ? jobApplication
+              ? ((newDict.generating as string) || 'Writing your cover letter...')
+              : ((newDict.creating as string) || 'Creating...')
             : ((newDict.create as string) || 'Create Cover Letter')}
         </button>
         <button
