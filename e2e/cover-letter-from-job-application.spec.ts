@@ -45,7 +45,14 @@ import deCommon from '../src/locales/de/common.json'
  *     check), show the localized closed-offer message naming the reason and
  *     create or link nothing (US-002);
  * (i) a page that cannot be checked, or a future deadline with a page that
- *     times out, still gives a letter (US-002).
+ *     times out, still gives a letter (US-002);
+ * (j) an application's linked CV starts selected in "Lier à un CV", and an
+ *     untouched submit stores it;
+ * (k) the user can change that selection, or clear it, and the letter uses
+ *     the final selection;
+ * (l) an application with no CV, opened with `?resume_id=`, starts on that CV;
+ * (m) an application whose `resume_id` is another user's CV starts empty,
+ *     even with a `?resume_id=` naming one of the user's CVs (US-003).
  *
  * The offer-page check is stubbed under the same guard as the AI: a seeded
  * `job_url` names the status its page "answers" through
@@ -103,6 +110,7 @@ async function seedApplication(
     coverLetterId?: string
     deadline?: string | null
     jobUrl?: string | null
+    resumeId?: string | null
   }
 ): Promise<string> {
   const { data, error } = await admin()
@@ -115,6 +123,7 @@ async function seedApplication(
       cover_letter_id: fields.coverLetterId ?? null,
       deadline: fields.deadline ?? null,
       job_url: fields.jobUrl ?? null,
+      resume_id: fields.resumeId ?? null,
       status: 'saved',
     })
     .select('id')
@@ -487,6 +496,160 @@ test.describe('Cover letter from a saved job application', () => {
       expect(await linkedCoverLetterId(applicationId)).toBe(letter.id)
     })
   }
+
+  for (const locale of ['fr', 'de'] as const) {
+    test(`(j) the application's CV starts selected under /${locale}, and an untouched submit stores it`, async ({
+      page,
+      authedUser,
+    }) => {
+      // A second CV, more recently updated, so the linked one is not simply the first option.
+      const linkedResumeId = await seedResume(authedUser.id, 'Verknüpfter Lebenslauf', 'Anna Muster')
+      await seedResume(authedUser.id, 'Anderer Lebenslauf', 'Anna Muster')
+      const applicationId = await seedApplication(authedUser.id, {
+        jobTitle: 'Data Engineer',
+        company: 'Beispiel AG',
+        description: GERMAN_OFFER,
+        resumeId: linkedResumeId,
+      })
+
+      await page.goto(`/${locale}/dashboard/cover-letters/new?jobApplicationId=${applicationId}`)
+      await expect(page.locator('#resumeId')).toHaveValue(linkedResumeId)
+
+      const response = await submitAndWaitForRoute(page)
+      expect(response.status()).toBe(201)
+      expect(response.request().postDataJSON()).toMatchObject({ resumeId: linkedResumeId })
+      await page.waitForURL(new RegExp(`/${locale}/dashboard/cover-letters/[0-9a-f-]+/edit`))
+
+      const [letter] = await lettersOf(authedUser.id)
+      expect(letter).toMatchObject({
+        resume_id: linkedResumeId,
+        job_application_id: applicationId,
+        sender_name: 'Anna Muster',
+      })
+    })
+  }
+
+  test('(k) a linked CV changed to another one under /fr gives a letter with the new CV', async ({
+    page,
+    authedUser,
+  }) => {
+    const linkedResumeId = await seedResume(authedUser.id, 'CV lié', 'Anna Muster')
+    const chosenResumeId = await seedResume(authedUser.id, 'CV choisi', 'Berta Beispiel')
+    const applicationId = await seedApplication(authedUser.id, {
+      jobTitle: 'Data Engineer',
+      company: 'Beispiel AG',
+      description: GERMAN_OFFER,
+      resumeId: linkedResumeId,
+    })
+
+    await page.goto(`/fr/dashboard/cover-letters/new?jobApplicationId=${applicationId}`)
+    const select = page.locator('#resumeId')
+    await expect(select).toHaveValue(linkedResumeId)
+    await select.selectOption(chosenResumeId)
+
+    const response = await submitAndWaitForRoute(page)
+    expect(response.status()).toBe(201)
+    await page.waitForURL(/\/fr\/dashboard\/cover-letters\/[0-9a-f-]+\/edit/)
+
+    const [letter] = await lettersOf(authedUser.id)
+    expect(letter).toMatchObject({ resume_id: chosenResumeId, sender_name: 'Berta Beispiel' })
+  })
+
+  test('(k) a linked CV cleared under /de gives a letter with no resume_id', async ({ page, authedUser }) => {
+    const linkedResumeId = await seedResume(authedUser.id, 'Verknüpfter Lebenslauf', 'Anna Muster')
+    const applicationId = await seedApplication(authedUser.id, {
+      jobTitle: 'Data Engineer',
+      company: 'Beispiel AG',
+      description: GERMAN_OFFER,
+      resumeId: linkedResumeId,
+    })
+
+    await page.goto(`/de/dashboard/cover-letters/new?jobApplicationId=${applicationId}`)
+    const select = page.locator('#resumeId')
+    await expect(select).toHaveValue(linkedResumeId)
+    await select.selectOption('')
+
+    const response = await submitAndWaitForRoute(page)
+    expect(response.status()).toBe(201)
+    await page.waitForURL(/\/de\/dashboard\/cover-letters\/[0-9a-f-]+\/edit/)
+
+    const german = AI_TEST_STUB_COVER_LETTER_TEXTS.de
+    const [letter] = await lettersOf(authedUser.id)
+    expect(letter).toMatchObject({
+      resume_id: null,
+      sender_name: null,
+      // Without a CV the stub writes no CV paragraph.
+      body_paragraphs: [`<p>${german.body}</p>`],
+    })
+  })
+
+  test('(l) an application with no CV, opened with ?resume_id= under /fr, starts on that CV', async ({
+    page,
+    authedUser,
+  }) => {
+    const queryResumeId = await seedResume(authedUser.id, 'CV du lien', 'Anna Muster')
+    await seedResume(authedUser.id, 'Autre CV', 'Anna Muster')
+    const applicationId = await seedApplication(authedUser.id, {
+      jobTitle: 'Data Engineer',
+      company: 'Beispiel AG',
+      description: GERMAN_OFFER,
+    })
+
+    await page.goto(`/fr/dashboard/cover-letters/new?jobApplicationId=${applicationId}&resume_id=${queryResumeId}`)
+    await expect(page.locator('#resumeId')).toHaveValue(queryResumeId)
+
+    const response = await submitAndWaitForRoute(page)
+    expect(response.status()).toBe(201)
+    await page.waitForURL(/\/fr\/dashboard\/cover-letters\/[0-9a-f-]+\/edit/)
+
+    const [letter] = await lettersOf(authedUser.id)
+    expect(letter.resume_id).toBe(queryResumeId)
+  })
+
+  test.describe("(m) an application linked to another user's CV", () => {
+    let other: TestUser
+
+    test.beforeEach(async () => {
+      other = await createTestUser()
+    })
+
+    test.afterEach(async () => {
+      await deleteTestUser(other.id)
+    })
+
+    test('starts with an empty select under /de, and the letter has no resume_id', async ({
+      page,
+      authedUser,
+    }) => {
+      // The user's own CV, so the select is rendered and could be wrongly filled.
+      const ownResumeId = await seedResume(authedUser.id, 'Eigener Lebenslauf', 'Anna Muster')
+      const foreignResumeId = await seedResume(other.id, 'Fremder Lebenslauf', 'Other User')
+      // Seeded with the service-role client: no user could link this through the app.
+      const applicationId = await seedApplication(authedUser.id, {
+        jobTitle: 'Data Engineer',
+        company: 'Beispiel AG',
+        description: GERMAN_OFFER,
+        resumeId: foreignResumeId,
+      })
+
+      // A linked CV decides alone: a valid ?resume_id= does not apply when the
+      // application's CV is not the user's.
+      await page.goto(`/de/dashboard/cover-letters/new?jobApplicationId=${applicationId}&resume_id=${ownResumeId}`)
+      await expect(page.locator('#resumeId')).toHaveValue('')
+
+      await page.goto(`/de/dashboard/cover-letters/new?jobApplicationId=${applicationId}`)
+      const select = page.locator('#resumeId')
+      await expect(select).toHaveValue('')
+      await expect(select.locator(`option[value="${foreignResumeId}"]`)).toHaveCount(0)
+
+      const response = await submitAndWaitForRoute(page)
+      expect(response.status()).toBe(201)
+      await page.waitForURL(/\/de\/dashboard\/cover-letters\/[0-9a-f-]+\/edit/)
+
+      const [letter] = await lettersOf(authedUser.id)
+      expect(letter).toMatchObject({ resume_id: null, sender_name: null })
+    })
+  })
 })
 
 /** A `job_url` on an allowed board whose stubbed page answers `directive`, or no directive at all. */

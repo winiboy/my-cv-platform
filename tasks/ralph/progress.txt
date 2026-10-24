@@ -228,3 +228,75 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-002 a closed offer creates no cover letter
 FINAL: PASS
+
+## US-003: "Lier à un CV" shows the application's CV
+Status: PASS
+Priority: 3
+Branch: ralph/cover-letter-from-job
+Baseline HEAD: 38079d6 (US-002 commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat, added/removed; new files with line counts):
+  - New src/lib/cover-letter-from-job/initial-resume-id.ts (28) + test (62, 9 tests): `initialCoverLetterResumeId({ applicationResumeId, queryResumeId, resumes })`.
+    - An application with a linked CV: that CV if it is in the user's own list, otherwise empty.
+    - No linked CV (null, undefined or ''): `?resume_id=` if it is in the list, otherwise empty.
+  - src/components/dashboard/create-cover-letter-form.tsx (6/4): the select's initial value comes from the helper, given `jobApplication?.resume_id`. No markup, class or string changed.
+  - e2e/cover-letter-from-job-application.spec.ts (164/1): `seedApplication` accepts `resumeId`; cases (j)–(m).
+- Not touched: cover-letters/new/page.tsx (already passed the application and the user's own `id, title` list), the route, locales, migrations, dependencies. No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted.
+
+Checks:
+- Run 1 (first diff) was stopped when code-reviewer FAILed AC4; its results were not used.
+- Run 2 (final diff, all on the first pass):
+  - cover-letter-from-job-application.spec.ts alone: 20 passed.
+  - pnpm typecheck: PASS — 0 errors.
+  - pnpm test: PASS — 2594 passed, 5 skipped (2585 after US-002; +9 from initial-resume-id.test.ts).
+  - pnpm test:integration: PASS — 4 files, 50 passed.
+  - pnpm test:e2e: PASS — 396 passed, 0 failed (390 after US-002; +6 from (j)–(m)).
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 287 problems (219 errors, 68 warnings); unchanged, under the tracked 306 ceiling.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — e2e:
+  - (j) fr and de: the linked CV starts selected; submitting untouched stores it as resume_id;
+  - (k) fr: change to another CV → the letter uses it; de: clear → resume_id null and no CV paragraph;
+  - (l) fr: no linked CV with `?resume_id=` → starts on that CV, as before;
+  - (m) de: linked to another user's CV → starts empty, the foreign CV is not an option, the letter has resume_id null; also with `&resume_id=<own CV>` the select stays empty.
+  - Captures: fr and de at 1440, 768 and 375 with two CVs → the linked one selected at every width (value checked, not only text); the foreign case → value '' and options without the foreign CV.
+- Visual: NOT_APPLICABLE — no markup or style change; parity unchanged.
+- Export: NOT_APPLICABLE.
+- Database: NOT_APPLICABLE — no schema or policy change.
+- Security: PASS — security-review: 2 trust boundaries, 4/4 requirements, 0 findings.
+  - A forged query or stored id can neither pre-select nor reveal another user's CV title: the list is server-read with user_id, and the helper only returns ids from it.
+  - The submit route still re-checks CV ownership (unchanged since US-001).
+  - Nothing new reaches the client.
+  - SEC-004 referenced, not re-raised.
+
+Agents:
+- senior-coder: implementation, then one scoped fix.
+- code-reviewer, round 1: FAIL (Major) — with the application linked to a foreign CV and a valid `?resume_id=`, the helper fell back to the query CV, and a unit test pinned that. AC4 says the select starts empty whenever the application's CV is not the user's; AC3's query exception applies only with no linked CV.
+- code-reviewer, round 2: PASS — the linked CV alone decides; docstring rewritten; test flipped; e2e (m) asserts the crossed case; no remaining findings.
+- ui-expert: PASS 7/7 — linked CV pre-selected at 1440/768/375 in fr and de with two CVs listed; the foreign case looks like the existing no-CV state; no markup change.
+
+Acceptance criteria:
+- AC-01 (the application's CV, when it is one of the user's, starts selected): PASS — e2e (j) fr/de; unit tests; captures.
+- AC-02 (the user can change or clear it; the letter uses the final selection): PASS — e2e (k) with stored rows.
+- AC-03 (no linked CV → empty unless `?resume_id=` names one of the user's CVs): PASS — e2e (l); unit tests.
+- AC-04 (the application's CV is not the user's → empty): PASS — e2e (m) incl. the crossed `?resume_id=` case; unit tests.
+- FR-1 … FR-7: PASS (no route, schema, dependency or string change; the route's ownership checks unchanged).
+- Regression constraints: PASS — without an application the helper reduces to the previous `?resume_id=` check (code-reviewer); full e2e green.
+- FAIL condition "Lier à un CV ignores the application's linked CV": not met.
+
+Decision (implementer, accepted by code-reviewer): when both the application's CV and `?resume_id=` are the user's, the application's CV wins (AC1 is unconditional). An empty-string application resume_id counts as no linked CV, the same as NULL.
+
+Open owner decisions recorded by this story: none new.
+
+Environment notes:
+- Windows 11, local Supabase stack, Playwright suites run one at a time; the final full run was green on the first pass.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 "Lier à un CV" starts on the application's CV
+FINAL: PASS

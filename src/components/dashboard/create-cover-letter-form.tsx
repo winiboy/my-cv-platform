@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { initialCoverLetterResumeId } from '@/lib/cover-letter-from-job/initial-resume-id'
 import { FileText } from 'lucide-react'
 import type { CoverLetterInsert, JobApplication } from '@/types/database'
 
@@ -23,10 +24,11 @@ export function CreateCoverLetterForm({
 }: CreateCoverLetterFormProps) {
   const router = useRouter()
 
-  // Validate that the initial resume_id exists in the resumes list
-  const validatedResumeId = initialResumeIdProp && resumes.some((r) => r.id === initialResumeIdProp)
-    ? initialResumeIdProp
-    : ''
+  const validatedResumeId = initialCoverLetterResumeId({
+    applicationResumeId: jobApplication?.resume_id,
+    queryResumeId: initialResumeIdProp,
+    resumes,
+  })
 
   // Pre-fill from job application if provided
   const initialCompany = jobApplication?.company_name || ''
