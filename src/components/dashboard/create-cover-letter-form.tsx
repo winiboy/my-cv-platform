@@ -62,6 +62,18 @@ export function CreateCoverLetterForm({
   const errorsDict = (dict.errors || {}) as Record<string, unknown>
   const validationDict = (errorsDict.validation || {}) as Record<string, unknown>
 
+  /** The localized message for a 409: the offer is no longer open (US-002), naming why. */
+  const offerClosedMessage = async (response: Response): Promise<string> => {
+    const body = (await response.json().catch(() => null)) as { reason?: unknown } | null
+    if (body?.reason === 'deadline_passed') {
+      return (newDict.offerClosedDeadline as string) || 'This offer is no longer open: its deadline has passed.'
+    }
+    if (body?.reason === 'page_unavailable') {
+      return (newDict.offerClosedPage as string) || 'This offer is no longer open: its page is no longer available.'
+    }
+    return (errorsDict.generic as string) || 'An error occurred. Please try again.'
+  }
+
   /**
    * The job-application path (US-001): the server reads the application and the
    * selected CV, has the AI write the letter, stores it and links it. Only
@@ -93,6 +105,8 @@ export function CreateCoverLetterForm({
       if (!response.ok) {
         if (response.status === 401) {
           setError((validationDict.loginRequired as string) || 'You must be logged in')
+        } else if (response.status === 409) {
+          setError(await offerClosedMessage(response))
         } else if (response.status === 429 || response.status === 502) {
           setError(
             (newDict.generationFailed as string) ||

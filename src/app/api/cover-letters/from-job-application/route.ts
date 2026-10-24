@@ -8,13 +8,14 @@ import {
   type CoverLetterResumeProfile,
   type GeneratedCoverLetter,
 } from '@/lib/ai/cover-letter-generation'
-import { coverLetterGeneratorFor } from '@/lib/ai/test-stub'
+import { coverLetterGeneratorFor, offerPageCheckerFor } from '@/lib/ai/test-stub'
 import { enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
 import { AI_TEXT_LIMITS, enforceJsonBodyLimit } from '@/lib/api/ai-input-limits'
 import {
   boundCoverLetterResumeProfile,
   toStoredCoverLetterContent,
 } from '@/lib/cover-letter-from-job/stored-letter'
+import { isDeadlinePassed, type OfferClosedReason } from '@/lib/cover-letter-from-job/offer-availability'
 import { locales, type Locale } from '@/lib/i18n'
 import { detectOfferLanguage } from '@/lib/resume-from-job/detect-offer-language'
 import type { ResumeContentLanguage } from '@/lib/resume-from-job/sample-values'
@@ -36,6 +37,9 @@ import type { CoverLetterInsert, ResumeContact } from '@/types/database'
  * Unlike the CV flow, there is no fallback content: when the AI fails, is rate
  * limited or answers with something that is not a letter, nothing is stored or
  * linked and the client shows an error so the user can retry (AC6).
+ *
+ * An offer that is no longer open - deadline past, or its job-board page
+ * answering 404 or 410 - gets no letter: 409 with the reason (US-002).
  */
 
 export const dynamic = 'force-dynamic'
@@ -62,6 +66,16 @@ const requestSchema = z.object({
 
 interface CreateCoverLetterFromJobApplicationResponse {
   coverLetterId: string
+}
+
+/** 409: the offer is no longer open (US-002); the client localizes `reason`. */
+interface OfferClosedResponse {
+  error: 'offer_closed'
+  reason: OfferClosedReason
+}
+
+function offerClosed(reason: OfferClosedReason): NextResponse<OfferClosedResponse> {
+  return NextResponse.json({ error: 'offer_closed', reason }, { status: 409 })
 }
 
 interface ResumeRow {
@@ -119,7 +133,7 @@ export async function POST(request: NextRequest) {
     // and the checks below keep ownership enforced even if a policy widened.
     const { data: application, error: applicationError } = await supabase
       .from('job_applications')
-      .select('id, user_id, job_title, company_name, job_description')
+      .select('id, user_id, job_title, company_name, job_description, deadline, job_url')
       .eq('id', jobApplicationId)
       .eq('user_id', user.id)
       .maybeSingle()
@@ -154,8 +168,25 @@ export async function POST(request: NextRequest) {
       resume = data
     }
 
-    // US-002 adds the offer-availability check here: after the reads, before
-    // the rate limit is counted and the AI is called.
+    // US-002: a closed offer gets no letter. The deadline needs no network and
+    // is checked first, so a past deadline spends no budget at all.
+    if (isDeadlinePassed(application.deadline, new Date())) {
+      console.info('[cover-letters/from-job-application] Offer closed: deadline_passed')
+      return offerClosed('deadline_passed')
+    }
+
+    // Counted before the page fetch, so the per-user AI budget also bounds how
+    // often a user can make the server fetch job-board pages. A page found
+    // removed therefore spends one unit.
+    const throttled = await enforceAiRateLimit(request, { kind: 'user', userId: user.id })
+    if (throttled) return throttled
+
+    const pageCheck = await offerPageCheckerFor(request)(application.job_url)
+    if (pageCheck.kind === 'gone') {
+      // The reason and the page's status only: the URL may carry personal data.
+      console.info('[cover-letters/from-job-application] Offer closed: page_unavailable', pageCheck.status)
+      return offerClosed('page_unavailable')
+    }
 
     const description = (application.job_description ?? '').trim()
     // AC4: the offer's language when it is clearly fr, en, de or it, otherwise
@@ -175,10 +206,6 @@ export async function POST(request: NextRequest) {
     const profile: CoverLetterResumeProfile = resume
       ? boundCoverLetterResumeProfile(coverLetterProfileFromResume(resume))
       : {}
-
-    // Counted only when the AI is about to be called.
-    const throttled = await enforceAiRateLimit(request, { kind: 'user', userId: user.id })
-    if (throttled) return throttled
 
     let generated: GeneratedCoverLetter
     try {

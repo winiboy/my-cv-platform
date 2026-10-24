@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AiCompletionError } from '@/lib/ai/client'
 
 /**
@@ -113,6 +113,15 @@ vi.mock('@/lib/api/ai-rate-limit', () => ({
   enforceAiRateLimit: (request: NextRequest, caller: unknown) => enforceAiRateLimit(request, caller),
 }))
 
+// The offer-page check (US-002) runs the real `safeFetch`; only DNS and the
+// network underneath it are replaced, so no test reaches a real job board.
+const dnsLookup = vi.fn<(hostname: string, options: unknown) => Promise<Array<{ address: string; family: number }>>>()
+const pageFetch = vi.fn<(url: string, init: RequestInit) => Promise<Response>>()
+
+vi.mock('node:dns/promises', () => ({
+  lookup: (hostname: string, options: unknown) => dnsLookup(hostname, options),
+}))
+
 const { POST } = await import('./route')
 
 function createRequest(body: unknown): NextRequest {
@@ -191,6 +200,16 @@ beforeEach(() => {
   generateCompletion.mockResolvedValue(reply(GERMAN_LETTER))
   enforceAiRateLimit.mockReset()
   enforceAiRateLimit.mockResolvedValue(null)
+  dnsLookup.mockReset()
+  dnsLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
+  pageFetch.mockReset()
+  pageFetch.mockRejectedValue(new Error('no page fetch expected'))
+  vi.stubGlobal('fetch', (url: string, init: RequestInit) => pageFetch(url, init))
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
 })
 
 describe('POST /api/cover-letters/from-job-application', () => {
@@ -538,5 +557,245 @@ describe('POST /api/cover-letters/from-job-application', () => {
       expect(insertedLetter()).toMatchObject({ job_application_id: APPLICATION_ID })
       errorLog.mockRestore()
     })
+  })
+})
+
+describe('POST /api/cover-letters/from-job-application - a closed offer (US-002)', () => {
+  /** 2026-10-24 12:00 UTC: "today" for every deadline test. */
+  const NOW = new Date('2026-10-24T12:00:00Z')
+  const JOB_URL = 'https://www.jobs.ch/de/stellenangebote/detail/123/?ref=secret-token'
+
+  function withOffer(fields: { deadline?: string | null; job_url?: string | null }) {
+    state.application = { ...state.application, deadline: null, job_url: null, ...fields }
+  }
+
+  function pageAnswers(status: number) {
+    pageFetch.mockResolvedValue(new Response(status === 204 ? null : 'page body', { status }))
+  }
+
+  function expectNothingDone() {
+    expect(generateCompletion).not.toHaveBeenCalled()
+    expect(writes()).toEqual([])
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(NOW)
+  })
+
+  describe('the deadline, in UTC', () => {
+    it('refuses a deadline before today with 409 deadline_passed, and fetches nothing', async () => {
+      withOffer({ deadline: '2026-10-23', job_url: JOB_URL })
+      pageAnswers(200)
+      const infoLog = vi.spyOn(console, 'info').mockImplementation(() => undefined)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({ error: 'offer_closed', reason: 'deadline_passed' })
+      expect(pageFetch).not.toHaveBeenCalled()
+      expect(dnsLookup).not.toHaveBeenCalled()
+      // Checked before the rate limit: a closed offer spends no AI budget.
+      expect(enforceAiRateLimit).not.toHaveBeenCalled()
+      expectNothingDone()
+      infoLog.mockRestore()
+    })
+
+    it('uses the UTC date, not the server-local one', async () => {
+      // 23:30 UTC on the 23rd is already the 24th in Zurich; the 23rd is still open.
+      vi.setSystemTime(new Date('2026-10-23T23:30:00Z'))
+      withOffer({ deadline: '2026-10-23' })
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(201)
+    })
+
+    it.each([
+      ['today', '2026-10-24'],
+      ['in the future', '2026-12-31'],
+      ['missing', null],
+      ['malformed', '24.10.2025'],
+    ])('creates the letter when the deadline is %s', async (_label, deadline) => {
+      withOffer({ deadline })
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(201)
+      expect(insertedLetter()).toMatchObject({ job_application_id: APPLICATION_ID })
+    })
+  })
+
+  describe('the offer page on an allowed job board', () => {
+    it.each([404, 410])('refuses a page answering %i with 409 page_unavailable', async (status) => {
+      withOffer({ deadline: '2026-12-31', job_url: JOB_URL })
+      pageAnswers(status)
+      const infoLog = vi.spyOn(console, 'info').mockImplementation(() => undefined)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({ error: 'offer_closed', reason: 'page_unavailable' })
+      expect(pageFetch).toHaveBeenCalledTimes(1)
+      const [url, init] = pageFetch.mock.calls[0]
+      expect(url).toBe(JOB_URL)
+      expect(init).toMatchObject({ redirect: 'manual' })
+      // The page is fetched only after the rate limit has counted the request.
+      expect(enforceAiRateLimit).toHaveBeenCalledWith(expect.anything(), { kind: 'user', userId: USER_ID })
+      expect(enforceAiRateLimit.mock.invocationCallOrder[0]).toBeLessThan(pageFetch.mock.invocationCallOrder[0])
+      expectNothingDone()
+      // FR-4: the reason and status are logged, never the URL or its query.
+      const logged = JSON.stringify(infoLog.mock.calls)
+      expect(logged).toContain('page_unavailable')
+      expect(logged).not.toContain('secret-token')
+      expect(logged).not.toContain('jobs.ch')
+      infoLog.mockRestore()
+    })
+
+    it('refuses a rate-limited user before fetching the page', async () => {
+      withOffer({ deadline: '2026-12-31', job_url: JOB_URL })
+      pageAnswers(404)
+      enforceAiRateLimit.mockResolvedValueOnce(NextResponse.json({ error: 'Too many requests' }, { status: 429 }))
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(429)
+      expect(pageFetch).not.toHaveBeenCalled()
+      expect(dnsLookup).not.toHaveBeenCalled()
+      expectNothingDone()
+    })
+
+    it('follows a redirect to a removed page and refuses it', async () => {
+      withOffer({ job_url: JOB_URL })
+      pageFetch
+        .mockResolvedValueOnce(new Response(null, { status: 301, headers: { location: 'https://www.jobs.ch/expired' } }))
+        .mockResolvedValueOnce(new Response('gone', { status: 410 }))
+      const infoLog = vi.spyOn(console, 'info').mockImplementation(() => undefined)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(409)
+      expect(pageFetch.mock.calls.map(([url]) => url)).toEqual([JOB_URL, 'https://www.jobs.ch/expired'])
+      expectNothingDone()
+      infoLog.mockRestore()
+    })
+
+    it.each([200, 204, 401, 403, 429, 500, 503])('creates the letter when the page answers %i', async (status) => {
+      withOffer({ job_url: JOB_URL })
+      pageAnswers(status)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(201)
+      expect(generateCompletion).toHaveBeenCalledTimes(1)
+    })
+
+    it('cancels the page body without reading it', async () => {
+      withOffer({ job_url: JOB_URL })
+      let cancelled = false
+      const page = new Response(
+        new ReadableStream({
+          cancel() {
+            cancelled = true
+          },
+        }),
+        { status: 200 }
+      )
+      const reads = [vi.spyOn(page, 'text'), vi.spyOn(page, 'arrayBuffer'), vi.spyOn(page, 'json')]
+      pageFetch.mockResolvedValue(page)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(201)
+      expect(cancelled).toBe(true)
+      for (const read of reads) expect(read).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('a page that cannot be checked leaves the offer open', () => {
+    const cases: Array<[string, () => void]> = [
+      ['no job_url', () => withOffer({ job_url: null })],
+      ['an empty job_url', () => withOffer({ job_url: '   ' })],
+      ['a host outside the allowlist', () => withOffer({ job_url: 'https://careers.example.com/job/1' })],
+      ['a non-http scheme', () => withOffer({ job_url: 'file:///etc/passwd' })],
+      ['an invalid URL', () => withOffer({ job_url: 'not a url' })],
+      [
+        'an allowed host resolving to a private address',
+        () => {
+          withOffer({ job_url: JOB_URL })
+          dnsLookup.mockResolvedValue([{ address: '169.254.169.254', family: 4 }])
+        },
+      ],
+      [
+        'a redirect to a host outside the allowlist',
+        () => {
+          withOffer({ job_url: JOB_URL })
+          pageFetch.mockResolvedValueOnce(
+            new Response(null, { status: 302, headers: { location: 'https://evil.example/404' } })
+          )
+        },
+      ],
+      [
+        'too many redirects',
+        () => {
+          withOffer({ job_url: JOB_URL })
+          pageFetch.mockImplementation(async () => new Response(null, { status: 301, headers: { location: JOB_URL } }))
+        },
+      ],
+      [
+        'a timeout',
+        () => {
+          withOffer({ job_url: JOB_URL })
+          pageFetch.mockRejectedValue(new DOMException('The operation was aborted.', 'AbortError'))
+        },
+      ],
+      [
+        'a network error',
+        () => {
+          withOffer({ job_url: JOB_URL })
+          pageFetch.mockRejectedValue(new TypeError('fetch failed'))
+        },
+      ],
+      [
+        'an unresolvable host',
+        () => {
+          withOffer({ job_url: JOB_URL })
+          dnsLookup.mockRejectedValue(new Error('ENOTFOUND'))
+        },
+      ],
+    ]
+
+    for (const [label, arrange] of cases) {
+      it(`creates the letter for ${label}`, async () => {
+        arrange()
+
+        const response = await POST(createRequest(VALID_BODY))
+
+        expect(response.status).toBe(201)
+        expect(generateCompletion).toHaveBeenCalledTimes(1)
+        expect(insertedLetter()).toMatchObject({ job_application_id: APPLICATION_ID })
+      })
+    }
+
+    it('never contacts a private address or a host outside the allowlist', async () => {
+      withOffer({ job_url: 'https://careers.example.com/job/1' })
+      await POST(createRequest(VALID_BODY))
+      expect(pageFetch).not.toHaveBeenCalled()
+
+      withOffer({ job_url: JOB_URL })
+      dnsLookup.mockResolvedValue([{ address: '10.0.0.5', family: 4 }])
+      await POST(createRequest(VALID_BODY))
+      expect(pageFetch).not.toHaveBeenCalled()
+    })
+  })
+
+  it("checks the offer only after ownership: another user's application is 404 and nothing is fetched", async () => {
+    withOffer({ deadline: '2020-01-01', job_url: JOB_URL })
+    state.application = { ...state.application, user_id: OTHER_USER_ID }
+
+    const response = await POST(createRequest(VALID_BODY))
+
+    expect(response.status).toBe(404)
+    expect(pageFetch).not.toHaveBeenCalled()
   })
 })

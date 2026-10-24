@@ -541,7 +541,9 @@
       "create": "Crea lettera",
       "creating": "Creazione...",
       "generating": "Stesura della lettera...",
-      "generationFailed": "Al momento non è stato possibile scrivere la tua lettera di presentazione. Non è stato creato nulla. Riprova tra un istante."
+      "generationFailed": "Al momento non è stato possibile scrivere la tua lettera di presentazione. Non è stato creato nulla. Riprova tra un istante.",
+      "offerClosedDeadline": "Questa offerta non è più aperta: la scadenza per candidarsi è passata. Non è stata creata alcuna lettera.",
+      "offerClosedPage": "Questa offerta non è più aperta: la sua pagina sul portale di lavoro non è più disponibile. Non è stata creata alcuna lettera."
     },
     "editor": {
       "titlePlaceholder": "Lettera senza titolo",

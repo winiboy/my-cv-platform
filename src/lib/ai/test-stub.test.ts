@@ -3,11 +3,16 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AiCompletionError } from './client'
 import { generateCoverLetter } from './cover-letter-generation'
+import { checkOfferPage } from '@/lib/cover-letter-from-job/offer-availability'
 import {
   AI_TEST_STUB_COVER_LETTER_TEXTS,
   AI_TEST_STUB_DIRECTIVES,
   AI_TEST_STUB_ENABLED_VALUE,
+  AI_TEST_STUB_OFFER_PAGE_PARAM,
+  AI_TEST_STUB_OFFER_PAGE_TIMEOUT,
   coverLetterGeneratorFor,
+  offerPageCheckerFor,
+  stubCheckOfferPage,
   generateStubCoverLetter,
   generateStubResumeFromJobDescription,
   isAiTestStubEnabled,
@@ -218,5 +223,75 @@ describe('coverLetterGeneratorFor', () => {
   it('picks the real AI without the flag', () => {
     vi.stubEnv('AI_TEST_STUB', '')
     expect(coverLetterGeneratorFor(LOCAL_REQUEST)).toBe(generateCoverLetter)
+  })
+})
+
+describe('stubCheckOfferPage', () => {
+  const page = (directive?: string) =>
+    `https://www.jobs.ch/de/stellenangebote/detail/123/${
+      directive === undefined ? '' : `?${AI_TEST_STUB_OFFER_PAGE_PARAM}=${directive}`
+    }`
+
+  it('answers the status the URL names, mapped as the real check maps it', async () => {
+    await expect(stubCheckOfferPage(page('404'))).resolves.toEqual({ kind: 'gone', status: 404 })
+    await expect(stubCheckOfferPage(page('410'))).resolves.toEqual({ kind: 'gone', status: 410 })
+    await expect(stubCheckOfferPage(page('200'))).resolves.toEqual({ kind: 'answered', status: 200 })
+    await expect(stubCheckOfferPage(page('503'))).resolves.toEqual({ kind: 'answered', status: 503 })
+  })
+
+  it('times out when asked to', async () => {
+    await expect(stubCheckOfferPage(page(AI_TEST_STUB_OFFER_PAGE_TIMEOUT))).resolves.toEqual({
+      kind: 'undetermined',
+      cause: 'timeout',
+    })
+  })
+
+  it('is inconclusive without a directive, or with one it does not know', async () => {
+    for (const url of [page(), page('gone'), page('999'), page('')]) {
+      await expect(stubCheckOfferPage(url)).resolves.toEqual({ kind: 'undetermined', cause: 'stubbed' })
+    }
+  })
+
+  it('is inconclusive where the real check would be, whatever the directive', async () => {
+    await expect(stubCheckOfferPage(null)).resolves.toEqual({ kind: 'undetermined', cause: 'no-url' })
+    await expect(stubCheckOfferPage('not a url')).resolves.toEqual({ kind: 'undetermined', cause: 'invalid-url' })
+    await expect(
+      stubCheckOfferPage(`ftp://www.jobs.ch/x?${AI_TEST_STUB_OFFER_PAGE_PARAM}=404`)
+    ).resolves.toEqual({ kind: 'undetermined', cause: 'scheme-not-allowed' })
+    await expect(
+      stubCheckOfferPage(`https://careers.example.com/x?${AI_TEST_STUB_OFFER_PAGE_PARAM}=404`)
+    ).resolves.toEqual({ kind: 'undetermined', cause: 'host-not-allowed' })
+  })
+
+  it('never touches the network', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    for (const url of [page(), page('404'), page('200'), page(AI_TEST_STUB_OFFER_PAGE_TIMEOUT)]) {
+      await stubCheckOfferPage(url)
+    }
+    expect(fetchSpy).not.toHaveBeenCalled()
+    fetchSpy.mockRestore()
+  })
+})
+
+describe('offerPageCheckerFor', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('picks the stub only when every guard condition holds', () => {
+    vi.stubEnv('AI_TEST_STUB', AI_TEST_STUB_ENABLED_VALUE)
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'http://127.0.0.1:54321')
+    vi.stubEnv('VERCEL', '')
+    vi.stubEnv('VERCEL_ENV', '')
+    expect(offerPageCheckerFor(LOCAL_REQUEST)).toBe(stubCheckOfferPage)
+    expect(offerPageCheckerFor(request('https://cv.example.com/x', { host: 'cv.example.com' }))).toBe(checkOfferPage)
+
+    vi.stubEnv('VERCEL', '1')
+    expect(offerPageCheckerFor(LOCAL_REQUEST)).toBe(checkOfferPage)
+  })
+
+  it('picks the real check without the flag', () => {
+    vi.stubEnv('AI_TEST_STUB', '')
+    expect(offerPageCheckerFor(LOCAL_REQUEST)).toBe(checkOfferPage)
   })
 })

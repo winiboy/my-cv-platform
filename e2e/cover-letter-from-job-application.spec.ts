@@ -2,7 +2,12 @@ import { test, expect, createTestUser, deleteTestUser, type TestUser } from './f
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Page } from '@playwright/test'
 import { LOCAL_SUPABASE_URL, LOCAL_SERVICE_KEY, assertLocalSupabase } from '../src/test/local-stack'
-import { AI_TEST_STUB_COVER_LETTER_TEXTS, AI_TEST_STUB_DIRECTIVES } from '../src/lib/ai/test-stub-contract'
+import {
+  AI_TEST_STUB_COVER_LETTER_TEXTS,
+  AI_TEST_STUB_DIRECTIVES,
+  AI_TEST_STUB_OFFER_PAGE_PARAM,
+  AI_TEST_STUB_OFFER_PAGE_TIMEOUT,
+} from '../src/lib/ai/test-stub-contract'
 import frCommon from '../src/locales/fr/common.json'
 import deCommon from '../src/locales/de/common.json'
 
@@ -35,7 +40,16 @@ import deCommon from '../src/locales/de/common.json'
  * (e) a letter created without an application is unchanged: the default
  *     greeting and sign-off, no request to the new route;
  * (f) the busy label is localized in fr and de, and two submits in one tick
- *     send one request and create one letter.
+ *     send one request and create one letter;
+ * (g) a past deadline, and (h) a removed page (404 from the stubbed page
+ *     check), show the localized closed-offer message naming the reason and
+ *     create or link nothing (US-002);
+ * (i) a page that cannot be checked, or a future deadline with a page that
+ *     times out, still gives a letter (US-002).
+ *
+ * The offer-page check is stubbed under the same guard as the AI: a seeded
+ * `job_url` names the status its page "answers" through
+ * `AI_TEST_STUB_OFFER_PAGE_PARAM`, and no test reaches a real job board.
  */
 
 const SUPABASE_URL = process.env.TEST_SUPABASE_URL ?? LOCAL_SUPABASE_URL
@@ -82,7 +96,14 @@ interface StoredLetter {
 
 async function seedApplication(
   userId: string,
-  fields: { jobTitle: string; company: string; description: string | null; coverLetterId?: string }
+  fields: {
+    jobTitle: string
+    company: string
+    description: string | null
+    coverLetterId?: string
+    deadline?: string | null
+    jobUrl?: string | null
+  }
 ): Promise<string> {
   const { data, error } = await admin()
     .from('job_applications')
@@ -92,6 +113,8 @@ async function seedApplication(
       company_name: fields.company,
       job_description: fields.description,
       cover_letter_id: fields.coverLetterId ?? null,
+      deadline: fields.deadline ?? null,
+      job_url: fields.jobUrl ?? null,
       status: 'saved',
     })
     .select('id')
@@ -388,4 +411,103 @@ test.describe('Cover letter from a saved job application', () => {
       expect(await linkedCoverLetterId(applicationId)).toBe(letters[0].id)
     })
   }
+
+  for (const locale of ['fr', 'de'] as const) {
+    test(`(g) a past deadline under /${locale} shows the closed-offer message and creates nothing`, async ({
+      page,
+      authedUser,
+    }) => {
+      const applicationId = await seedApplication(authedUser.id, {
+        jobTitle: 'Data Engineer',
+        company: 'Beispiel AG',
+        description: GERMAN_OFFER,
+        deadline: utcDateOffset(-7),
+        // A page that would answer 200: the deadline decides first.
+        jobUrl: stubbedJobUrl('200'),
+      })
+
+      await page.goto(`/${locale}/dashboard/cover-letters/new?jobApplicationId=${applicationId}`)
+      await page.locator('#title').fill('Mein Anschreiben')
+      const response = await submitAndWaitForRoute(page)
+
+      expect(response.status()).toBe(409)
+      expect(await response.json()).toEqual({ error: 'offer_closed', reason: 'deadline_passed' })
+      await expectClosedOfferMessage(page, COMMON[locale].coverLetters.new.offerClosedDeadline)
+      await expect(page.locator('#title')).toHaveValue('Mein Anschreiben')
+      expect(await lettersOf(authedUser.id)).toEqual([])
+      expect(await linkedCoverLetterId(applicationId)).toBeNull()
+    })
+
+    test(`(h) a removed offer page under /${locale} shows the closed-offer message and creates nothing`, async ({
+      page,
+      authedUser,
+    }) => {
+      const applicationId = await seedApplication(authedUser.id, {
+        jobTitle: 'Data Engineer',
+        company: 'Beispiel AG',
+        description: GERMAN_OFFER,
+        deadline: utcDateOffset(30),
+        jobUrl: stubbedJobUrl('404'),
+      })
+
+      await page.goto(`/${locale}/dashboard/cover-letters/new?jobApplicationId=${applicationId}`)
+      const response = await submitAndWaitForRoute(page)
+
+      expect(response.status()).toBe(409)
+      expect(await response.json()).toEqual({ error: 'offer_closed', reason: 'page_unavailable' })
+      await expectClosedOfferMessage(page, COMMON[locale].coverLetters.new.offerClosedPage)
+      expect(await lettersOf(authedUser.id)).toEqual([])
+      expect(await linkedCoverLetterId(applicationId)).toBeNull()
+    })
+  }
+
+  for (const [locale, label, deadline, jobUrl] of [
+    ['fr', 'a page the check cannot determine', null, stubbedJobUrl()],
+    // Tomorrow, not today: a run crossing UTC midnight between seeding and the
+    // server's check would turn "today" into a past deadline. The today
+    // boundary is covered by the unit tests, with a fixed clock.
+    ['de', 'a future deadline and a page that times out', utcDateOffset(1), stubbedJobUrl(AI_TEST_STUB_OFFER_PAGE_TIMEOUT)],
+  ] as const) {
+    test(`(i) ${label} under /${locale} still gives a letter`, async ({ page, authedUser }) => {
+      const applicationId = await seedApplication(authedUser.id, {
+        jobTitle: 'Data Engineer',
+        company: 'Beispiel AG',
+        description: GERMAN_OFFER,
+        deadline,
+        jobUrl,
+      })
+
+      await page.goto(`/${locale}/dashboard/cover-letters/new?jobApplicationId=${applicationId}`)
+      const response = await submitAndWaitForRoute(page)
+
+      expect(response.status()).toBe(201)
+      await page.waitForURL(new RegExp(`/${locale}/dashboard/cover-letters/[0-9a-f-]+/edit`))
+      const [letter] = await lettersOf(authedUser.id)
+      expect(letter.opening_paragraph).toBe(`<p>${AI_TEST_STUB_COVER_LETTER_TEXTS.de.opening('Data Engineer')}</p>`)
+      expect(await linkedCoverLetterId(applicationId)).toBe(letter.id)
+    })
+  }
 })
+
+/** A `job_url` on an allowed board whose stubbed page answers `directive`, or no directive at all. */
+function stubbedJobUrl(directive?: string): string {
+  const url = new URL('https://www.jobs.ch/de/stellenangebote/detail/e2e-offer/')
+  if (directive !== undefined) url.searchParams.set(AI_TEST_STUB_OFFER_PAGE_PARAM, directive)
+  return url.toString()
+}
+
+/** Today plus `days`, as the UTC `YYYY-MM-DD` the server compares deadlines in. */
+function utcDateOffset(days: number): string {
+  const date = new Date()
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+/** The closed-offer message, in the alert that takes focus, on the unchanged form. */
+async function expectClosedOfferMessage(page: Page, message: string) {
+  const alert = page.locator('form [role="alert"]')
+  await expect(alert).toHaveText(message)
+  await expect(alert).toBeFocused()
+  expect(page.url()).toContain('/dashboard/cover-letters/new')
+  await expect(page.locator('button[type="submit"]')).toBeEnabled()
+}

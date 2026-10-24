@@ -68,3 +68,15 @@ export const AI_TEST_STUB_COVER_LETTER_TEXTS: Readonly<Record<'fr' | 'en' | 'de'
     signOff: 'Cordiali saluti,',
   },
 }
+
+/**
+ * The query parameter an e2e test puts on a seeded `job_url` to choose what the
+ * stubbed offer-page check answers, e.g. `https://www.jobs.ch/x?ai-test-stub-page=404`.
+ * Its value is the HTTP status the page "answers", or
+ * `AI_TEST_STUB_OFFER_PAGE_TIMEOUT`. Without it, the stub answers that the page
+ * could not be checked, and never touches the network.
+ */
+export const AI_TEST_STUB_OFFER_PAGE_PARAM = 'ai-test-stub-page'
+
+/** The value of `AI_TEST_STUB_OFFER_PAGE_PARAM` that makes the stubbed check time out. */
+export const AI_TEST_STUB_OFFER_PAGE_TIMEOUT = 'timeout'

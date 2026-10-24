@@ -7,11 +7,10 @@ import { getGroqClient, MODELS } from "@/lib/ai/client";
 
 import {
   BlockedRequestError,
-  hostWithSubdomains,
   isHostAllowed,
   safeFetch,
-  type AllowedHost,
 } from '@/lib/security/safe-fetch'
+import { JOB_BOARD_ALLOWED_HOSTS } from '@/lib/security/job-board-allowlist'
 
 /** Total budget for one page fetch, including its redirect chain. */
 const FETCH_TIMEOUT_MS = 15_000
@@ -20,55 +19,10 @@ const FETCH_TIMEOUT_MS = 15_000
 const MAX_REDIRECTS = 5
 
 /**
- * Allowed hosts for fetching job descriptions.
- *
- * Every entry allows subdomains, which is the behaviour this endpoint has
- * always had. For the multi-tenant ATS platforms that is knowingly wide: a
- * tenant subdomain is available to anyone who signs up, so `*.workday.com` and
- * friends let a third party serve arbitrary content — or an arbitrary redirect —
- * from inside the allowlist. The redirect and private-address checks in
- * `safeFetch` contain the consequences; narrowing these entries to `exactHost`
- * would reject legitimate tenant URLs users paste and is a product decision,
- * not a code cleanup.
+ * Allowed hosts for fetching job descriptions: the shared job-board list, also
+ * used by the cover-letter availability check. See its note on subdomains.
  */
-const ALLOWED_HOSTS: readonly AllowedHost[] = [
-  // Adzuna domains
-  hostWithSubdomains('adzuna.ch'),
-  hostWithSubdomains('adzuna.com'),
-  hostWithSubdomains('adzuna.de'),
-  hostWithSubdomains('adzuna.fr'),
-  hostWithSubdomains('adzuna.co.uk'),
-  // Swiss job boards
-  hostWithSubdomains('jobs.ch'),
-  hostWithSubdomains('jobcloud.ch'),
-  hostWithSubdomains('jobup.ch'),
-  hostWithSubdomains('jobscout24.ch'),
-  // International job boards
-  hostWithSubdomains('indeed.com'),
-  hostWithSubdomains('indeed.ch'),
-  hostWithSubdomains('indeed.de'),
-  hostWithSubdomains('indeed.fr'),
-  hostWithSubdomains('linkedin.com'),
-  hostWithSubdomains('glassdoor.com'),
-  hostWithSubdomains('glassdoor.ch'),
-  hostWithSubdomains('monster.ch'),
-  hostWithSubdomains('monster.com'),
-  hostWithSubdomains('stepstone.ch'),
-  hostWithSubdomains('stepstone.de'),
-  hostWithSubdomains('xing.com'),
-  hostWithSubdomains('karriere.at'),
-  // Multi-tenant ATS / recruiting platforms — see the note above.
-  hostWithSubdomains('join.com'),
-  hostWithSubdomains('greenhouse.io'),
-  hostWithSubdomains('lever.co'),
-  hostWithSubdomains('workday.com'),
-  hostWithSubdomains('smartrecruiters.com'),
-  hostWithSubdomains('breezy.hr'),
-  hostWithSubdomains('recruitee.com'),
-  hostWithSubdomains('teamtailor.com'),
-  hostWithSubdomains('personio.de'),
-  hostWithSubdomains('personio.ch'),
-]
+const ALLOWED_HOSTS = JOB_BOARD_ALLOWED_HOSTS
 
 /**
  * Check if a URL's hostname is from an allowed domain

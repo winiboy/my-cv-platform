@@ -120,3 +120,111 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 a cover letter from an application is written from the offer and the CV
 FINAL: PASS
+
+## US-002: A closed offer creates no letter
+Status: PASS
+Priority: 2
+Branch: ralph/cover-letter-from-job
+Baseline HEAD: 8db14e0 (US-001 commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat, added/removed; new files with line counts):
+  - New src/lib/cover-letter-from-job/offer-availability.ts (126) + test (164): `isDeadlinePassed` compares UTC calendar dates (today is open; null or malformed decides nothing); the page checker runs `safeFetch` GET with the job-board allowlist, a 5 s budget for the whole chain and 5 redirects; the body is cancelled unread; only a final 404 or 410 means closed.
+  - New src/lib/security/job-board-allowlist.ts (55) + test (59): the job-board allowlist moved out of fetch-external, with the same 32 entries in the same order (pinned against 8db14e0). The test also checks fetch-external keeps no list of its own.
+  - src/app/api/jobs/fetch-external/route.ts (4/50): imports the shared list as `ALLOWED_HOSTS`; timeout, redirects, headers and checks unchanged.
+  - src/app/api/cover-letters/from-job-application/route.ts (35/8): order is
+    1. ownership reads;
+    2. deadline check (past → 409 { error: 'offer_closed', reason: 'deadline_passed' }, no rate-limit unit used);
+    3. enforceAiRateLimit;
+    4. page check (404/410 → 409 reason 'page_unavailable');
+    5. the AI.
+    The closed reason, and the page's status for a removed page, are logged; the URL never is.
+  - route.test.ts (260/1; 31 tests in the file's top level):
+    - deadline past / today / future / missing / malformed, and a UTC-vs-local case;
+    - page 404, 410, 301→410, 200, 204, 401, 403, 429, 500, 503;
+    - no URL, empty URL, host off the allowlist, file: scheme, invalid URL;
+    - private and metadata addresses, redirect off the allowlist, too many redirects;
+    - timeout, network error, unresolvable host;
+    - body cancelled, URL never logged;
+    - ownership before availability;
+    - rate limit before the page fetch.
+  - src/lib/ai/test-stub.ts (57/1), test-stub-contract.ts (12/0), test-stub.test.ts (75/0): `offerPageCheckerFor(request)` under the unchanged guard. The stub never uses the network: on an allowed host it takes a status, or `timeout`, from the `ai-test-stub-page` query directive; with no directive the page counts as undetermined. isAiTestStubEnabled byte-identical (md5 vs 3cc4634).
+  - src/components/dashboard/create-cover-letter-form.tsx (14/0): a 409 maps its reason to `offerClosedDeadline` / `offerClosedPage` in the US-001 error box (role="alert", focused); an unknown reason shows the generic error; the form stays filled.
+  - src/locales/{fr,en,de,it}/common.json (3/1 each): coverLetters.new.offerClosedDeadline, coverLetters.new.offerClosedPage.
+  - e2e/cover-letter-from-job-application.spec.ts (125/3): cases (g), (h), (i) in fr and de.
+- Not touched: `git diff --stat HEAD -- supabase package.json pnpm-lock.yaml src/lib/security/safe-fetch.ts` is empty (no migration, dependency or safeFetch change); allowlist entries unchanged. No US-003 work. No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted.
+
+Checks:
+- Run 1 (first diff, invalidated by the ui-expert and code-reviewer fixes): all green on the first pass.
+  - e2e 390 passed; test 2585 passed.
+- Run 2 (final diff, all on the first pass):
+  - pnpm typecheck: PASS — 0 errors.
+  - pnpm test: PASS — 2585 passed, 5 skipped (2519 after US-001).
+  - pnpm test:integration: PASS — 4 files, 50 passed.
+  - pnpm test:e2e: PASS — 390 passed, 0 failed (384 after US-001; +6 from cases (g)(h)(i) × fr/de).
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 287 problems (219 errors, 68 warnings); unchanged, under the tracked 306 ceiling.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — e2e/cover-letter-from-job-application.spec.ts, in fr and de:
+  - (g) a deadline 7 days past → the deadline message, nothing created or linked; the stubbed page would answer 200, so the deadline is what decides.
+  - (h) a stubbed 404 page → the page message, nothing created.
+  - (i) fr: a page without a stub directive (undetermined) → a letter is created; de: a future deadline and a page that times out → a letter is created.
+  - The error box takes focus in (g)(h).
+  - Captures: fr and de × deadline/page at 1440, 768 and 375. At every width: 409 with the right reason, the localized message, focus on the alert, the chosen CV and title kept, 0 letters, no link.
+- Visual: NOT_APPLICABLE — no template, editor, Preview or PDF code changed; parity unchanged.
+- Export: NOT_APPLICABLE — PRD marks exports not affected.
+- Database: NOT_APPLICABLE — no schema or policy change; `deadline` and `job_url` are read with the session after the ownership check.
+- Security: PASS — security-review (skill procedure): 5 trust boundaries, 12/12 requirements, 0 critical/high/medium, 1 low, 2 info; vitest 190/190 on the six affected files.
+  - Schemes, private and metadata addresses, and redirects are re-checked on every hop.
+  - A blocked or failed fetch counts as undetermined, so the 409 cannot be used to probe the internal network.
+  - The 409 body is fixed and is returned only after the ownership check.
+  - SEC-007 LOW, pre-existing adjacent: safeFetch resolves then checks, but does not pin the connection (DNS rebinding needs DNS control of an allowlisted zone); dns.lookup is outside the 5 s abort. fetch-external has the same property.
+  - SEC-008 INFO, pre-existing adjacent: Sentry's outgoing-fetch spans may record the full job_url (not verified at runtime).
+  - SEC-009 INFO: no explicit refusal of credentials in the URL; fetch rejects such a URL before sending, which counts as undetermined.
+
+Agents:
+- senior-coder: implementation, then three scoped changes:
+  - the rate limit moved before the page fetch (orchestrator: an unlimited page fetch per submit was an abuse path);
+  - the German page message;
+  - e2e seed dates.
+- ui-expert, round 1: FAIL — de offerClosedPage "Ihre Seite auf der Jobplattform" read as the formal "your page"; everything else 7/7.
+- ui-expert, round 2: PASS 7/7 — "Die Stellenanzeige ist auf der Jobplattform nicht mehr verfügbar" at 1440/768/375; contrast 5.87:1; fr, en and it texts judged clear.
+- code-reviewer, round 1: PASS — every AC met; fetch-external unchanged (32 hosts diffed); deadline semantics checked; minors below.
+- code-reviewer, round 2 (German string, e2e dates): PASS.
+
+Acceptance criteria:
+- AC-01 (deadline before today, UTC, server-side → localized message, nothing created or linked): PASS — e2e (g) fr/de; route tests incl. a UTC-vs-local case; captures.
+- AC-02 (404 or 410 on an allowed host, redirects re-checked → same message, nothing created): PASS — e2e (h) fr/de; route tests 404, 410, 301→410.
+- AC-03 (every other case creates the letter): PASS — no URL, host off the allowlist, 2xx, 3xx limit, 401/403, 429, 5xx, timeout and network error are all route-tested. e2e (i) covers an undetermined page and a timeout.
+- AC-04 (server-side, bounded time, AI not called when closed): PASS — 5 s budget, 5 redirects, body cancelled; closed branches return before the generator (route tests assert no AI call and no write).
+- AC-05 (the message names the reason): PASS — two keys in four languages; captures.
+- FR-2: PASS. FR-5: PASS — stubbed page check under the same guard, no e2e request reaches a job board. FR-6: PASS — no migration or dependency, allowlist not widened. FR-7: PASS — locale parity.
+- Regression constraints: PASS — fetch-external unchanged; the US-001 cases and the no-application path still pass; full e2e green.
+- FAIL conditions: none met.
+
+Decision (orchestrator): the order is deadline → rate limit → page fetch. A past deadline costs no AI budget. The per-user AI limit caps how often a user can make the server fetch job-board pages. A removed page costs one unit, and an already-limited user whose offer page is gone sees the rate-limit error rather than the closed-offer message.
+Decision (implementer): safeFetch only does GET, so the checker sends GET with fetch-external's headers and cancels the body once the status is known; safeFetch's shared options were not extended with HEAD.
+Decision: only a final 404 or 410 closes the offer. A refused URL, a timeout, a network error and every other status leave it open, as the owner decided on 2026-10-23.
+
+Named limitations:
+- On the real path, the page check adds up to 5 s before the AI call, run in sequence (PRD risk; code-reviewer minor 3).
+- Many job boards answer 200 for an expired ad or need a login, so only clear removals are detected (PRD risk).
+
+Open owner decisions recorded by this story (none blocks US-003):
+- ui-expert, minor:
+  - the submit button stays enabled after a closed-offer message, so a retry gets the same refusal;
+  - the message uses the red error style although the user did nothing wrong (amber would fit).
+- code-reviewer, minor: `ISO_DATE` checks the date's shape, not the calendar (Postgres DATE cannot store an invalid one).
+- security-review: SEC-007 (pin the connection in safeFetch, own story), SEC-008 (scrub URLs from Sentry fetch spans), SEC-009 (refuse credentials in the URL).
+
+Environment notes:
+- Windows 11, local Supabase stack, Playwright suites run one at a time; both full runs green on the first pass.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 a closed offer creates no cover letter
+FINAL: PASS

@@ -3,12 +3,27 @@ import { generateCoverLetter, type CoverLetterGenerator } from './cover-letter-g
 import type { JobDescriptionToResumeInput } from './prompts'
 import { generateResumeFromJobDescription } from './transformations'
 import {
+  checkOfferPage,
+  offerPageCheckForStatus,
+  type OfferPageChecker,
+} from '@/lib/cover-letter-from-job/offer-availability'
+import { JOB_BOARD_ALLOWED_HOSTS } from '@/lib/security/job-board-allowlist'
+import { isHostAllowed } from '@/lib/security/safe-fetch'
+import {
   AI_TEST_STUB_COVER_LETTER_TEXTS,
   AI_TEST_STUB_DIRECTIVES,
   AI_TEST_STUB_ENABLED_VALUE,
+  AI_TEST_STUB_OFFER_PAGE_PARAM,
+  AI_TEST_STUB_OFFER_PAGE_TIMEOUT,
 } from './test-stub-contract'
 
-export { AI_TEST_STUB_COVER_LETTER_TEXTS, AI_TEST_STUB_DIRECTIVES, AI_TEST_STUB_ENABLED_VALUE }
+export {
+  AI_TEST_STUB_COVER_LETTER_TEXTS,
+  AI_TEST_STUB_DIRECTIVES,
+  AI_TEST_STUB_ENABLED_VALUE,
+  AI_TEST_STUB_OFFER_PAGE_PARAM,
+  AI_TEST_STUB_OFFER_PAGE_TIMEOUT,
+}
 
 /**
  * A server-side stand-in for the AI provider, for the end-to-end suite only
@@ -283,4 +298,45 @@ export const generateStubCoverLetter: CoverLetterGenerator = async (input) => {
  */
 export function coverLetterGeneratorFor(request: AiTestStubRequest): CoverLetterGenerator {
   return isAiTestStubEnabled(process.env, request) ? generateStubCoverLetter : generateCoverLetter
+}
+
+/**
+ * The stub's offer-page check (cover-letter-from-job, US-002, FR-5): it never
+ * touches the network, so no e2e test reaches a real job board.
+ *
+ * A URL that is not http(s) on an allowed job board is inconclusive, as the
+ * real check would find. On an allowed board, `AI_TEST_STUB_OFFER_PAGE_PARAM`
+ * names the status the page "answers", mapped exactly as the real check maps
+ * it, or `AI_TEST_STUB_OFFER_PAGE_TIMEOUT`. Without the parameter the check is
+ * inconclusive.
+ */
+export const stubCheckOfferPage: OfferPageChecker = async (jobUrl) => {
+  const value = jobUrl?.trim()
+  if (!value) return { kind: 'undetermined', cause: 'no-url' }
+
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return { kind: 'undetermined', cause: 'invalid-url' }
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return { kind: 'undetermined', cause: 'scheme-not-allowed' }
+  }
+  if (!isHostAllowed(url.hostname, JOB_BOARD_ALLOWED_HOSTS)) {
+    return { kind: 'undetermined', cause: 'host-not-allowed' }
+  }
+
+  const directive = url.searchParams.get(AI_TEST_STUB_OFFER_PAGE_PARAM)
+  if (directive === AI_TEST_STUB_OFFER_PAGE_TIMEOUT) return { kind: 'undetermined', cause: 'timeout' }
+  if (directive !== null && /^[1-5]\d\d$/.test(directive)) return offerPageCheckForStatus(Number(directive))
+  return { kind: 'undetermined', cause: 'stubbed' }
+}
+
+/**
+ * The offer-page checker for this request: the stub when every guard condition
+ * holds, otherwise the real check.
+ */
+export function offerPageCheckerFor(request: AiTestStubRequest): OfferPageChecker {
+  return isAiTestStubEnabled(process.env, request) ? stubCheckOfferPage : checkOfferPage
 }
