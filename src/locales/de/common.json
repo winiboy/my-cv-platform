@@ -733,10 +733,24 @@
       "ariaLabel": "{title} bei {company}",
       "edit": "Bearbeiten",
       "createCV": "Lebenslauf für diese Stelle erstellen",
+      "linkResume": "Vorhandenen Lebenslauf verknüpfen",
       "createCoverLetter": "Anschreiben erstellen",
       "delete": "Löschen",
       "deleting": "Wird gelöscht...",
       "confirmDelete": "Sind Sie sicher, dass Sie diese Bewerbung löschen möchten?"
+    },
+    "linkResume": {
+      "title": "Vorhandenen Lebenslauf verknüpfen",
+      "description": "Wählen Sie den Lebenslauf, den Sie für {title} bei {company} gesendet haben.",
+      "listLabel": "Ihre Lebensläufe",
+      "current": "Aktuell verknüpft",
+      "updated": "Geändert am {date}",
+      "loading": "Ihre Lebensläufe werden geladen...",
+      "empty": "Sie haben noch keinen Lebenslauf.",
+      "confirm": "Lebenslauf verknüpfen",
+      "linking": "Wird verknüpft...",
+      "loadError": "Ihre Lebensläufe konnten nicht geladen werden. Bitte versuchen Sie es erneut.",
+      "linkError": "Der Lebenslauf konnte nicht verknüpft werden. Bitte versuchen Sie es erneut."
     },
     "dnd": {
       "instructions": "Drücken Sie die Leertaste oder die Eingabetaste, um eine Karte aufzunehmen. Verschieben Sie sie beim Ziehen mit der linken oder rechten Pfeiltaste in die vorherige oder nächste Spalte. Drücken Sie erneut die Leertaste oder die Eingabetaste, um sie abzulegen, oder Escape, um abzubrechen.",

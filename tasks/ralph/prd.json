@@ -92,7 +92,7 @@
         "Out of scope: Changing how the resume editor's job association works."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

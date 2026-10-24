@@ -733,10 +733,24 @@
       "ariaLabel": "{title} chez {company}",
       "edit": "Modifier",
       "createCV": "Créer un CV pour ce poste",
+      "linkResume": "Lier un CV existant",
       "createCoverLetter": "Créer une lettre de motivation",
       "delete": "Supprimer",
       "deleting": "Suppression...",
       "confirmDelete": "Êtes-vous sûr de vouloir supprimer cette candidature ?"
+    },
+    "linkResume": {
+      "title": "Lier un CV existant",
+      "description": "Choisissez le CV envoyé pour {title} chez {company}.",
+      "listLabel": "Vos CV",
+      "current": "Lié actuellement",
+      "updated": "Modifié le {date}",
+      "loading": "Chargement de vos CV...",
+      "empty": "Vous n'avez encore aucun CV.",
+      "confirm": "Lier le CV",
+      "linking": "Liaison...",
+      "loadError": "Impossible de charger vos CV. Veuillez réessayer.",
+      "linkError": "Impossible de lier le CV. Veuillez réessayer."
     },
     "dnd": {
       "instructions": "Pour saisir une carte, appuyez sur Espace ou Entrée. Pendant le déplacement, utilisez les flèches gauche et droite pour la placer dans la colonne précédente ou suivante. Appuyez de nouveau sur Espace ou Entrée pour la déposer, ou sur Échap pour annuler.",

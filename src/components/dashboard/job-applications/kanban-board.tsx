@@ -26,6 +26,8 @@ import { cn } from '@/lib/utils'
 import { KanbanColumn } from './kanban-column'
 import { KanbanCard } from './kanban-card'
 import { QuickAddModal } from './quick-add-modal'
+import { LinkResumeDialog } from './link-resume-dialog'
+import { applyResumeLink, type KanbanLinkedResume } from './kanban-resume-link'
 import { createKanbanDndAccessibility, type KanbanDndMessages } from './kanban-dnd-accessibility'
 import { createColumnKeyboardCoordinates } from './kanban-keyboard-coordinates'
 
@@ -93,6 +95,10 @@ export function KanbanBoard({
   // Quick Add modal state
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
   const [quickAddStatus, setQuickAddStatus] = useState<JobStatus>('saved')
+
+  // "Lier un CV existant" dialog: the card it is open for, and the card's menu
+  // button, which gets focus back when it closes.
+  const [linkTarget, setLinkTarget] = useState<{ applicationId: string; menuButton: HTMLButtonElement | null } | null>(null)
 
   // Sort preferences per column - persists during session
   const [columnSortPreferences, setColumnSortPreferences] = useState<
@@ -300,6 +306,42 @@ export function KanbanBoard({
     setIsQuickAddOpen(false)
   }, [])
 
+  const handleLinkResumeOpen = useCallback((applicationId: string, menuButton: HTMLButtonElement | null) => {
+    setLinkTarget({ applicationId, menuButton })
+  }, [])
+
+  /**
+   * Closes the dialog of `applicationId`, if it is still the open one: a late
+   * call from a dialog that is no longer shown must not close another.
+   */
+  const handleLinkResumeClose = useCallback((applicationId: string) => {
+    if (linkTarget?.applicationId !== applicationId) return
+    const menuButton = linkTarget.menuButton
+    setLinkTarget(null)
+    // After the dialog has gone, so its own focus handling cannot win.
+    requestAnimationFrame(() => {
+      if (menuButton?.isConnected) menuButton.focus()
+    })
+  }, [linkTarget])
+
+  /**
+   * The server linked `resume` to the card: show it there, and remove it from
+   * any other card, as the server cleared that link too. The board follows
+   * the server whatever dialog is open; only the closing is limited to the
+   * dialog that linked.
+   */
+  const handleResumeLinked = useCallback(
+    (applicationId: string, resume: KanbanLinkedResume) => {
+      setLocalApplications((apps) => applyResumeLink(apps, applicationId, resume))
+      handleLinkResumeClose(applicationId)
+    },
+    [handleLinkResumeClose]
+  )
+
+  const linkTargetApplication = linkTarget
+    ? localApplications.find((app) => app.id === linkTarget.applicationId) ?? null
+    : null
+
   /**
    * Handle column collapse toggle.
    * Updates the collapsed state for a specific column.
@@ -483,6 +525,7 @@ export function KanbanBoard({
                 onQuickAdd={handleQuickAdd}
                 isCollapsed={!isMobile && collapsedColumns[status]}
                 onToggleCollapse={() => handleToggleCollapse(status)}
+                onLinkResume={handleLinkResumeOpen}
               />
             ))}
           </div>
@@ -510,6 +553,17 @@ export function KanbanBoard({
         locale={locale}
         dict={dict}
       />
+
+      {linkTargetApplication && (
+        <LinkResumeDialog
+          key={linkTargetApplication.id}
+          jobApplication={linkTargetApplication}
+          locale={locale}
+          dict={dict}
+          onClose={handleLinkResumeClose}
+          onLinked={handleResumeLinked}
+        />
+      )}
     </TooltipProvider>
   )
 }

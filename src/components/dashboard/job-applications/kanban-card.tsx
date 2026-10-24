@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { MapPin, GripVertical, MoreVertical, Pencil, FileText, Mail, Trash2 } from 'lucide-react'
+import { MapPin, GripVertical, MoreVertical, Pencil, FileText, Link2, Mail, Trash2 } from 'lucide-react'
 import type { JobApplicationWithRelations } from '@/types/database'
 import { JOB_STATUS_CONFIG } from '@/lib/constants/job-statuses'
 import { cn } from '@/lib/utils'
@@ -22,7 +23,33 @@ const useIsomorphicLayoutEffect =
   typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 /** Number of menu items for keyboard navigation bounds */
-const MENU_ITEM_COUNT = 4
+const MENU_ITEM_COUNT = 5
+
+/** Space kept between the menu and its button, and between the menu and the viewport edges. */
+const MENU_GAP_PX = 4
+const MENU_VIEWPORT_MARGIN_PX = 8
+
+/**
+ * Where the fixed-position menu goes: right-aligned under its button, above
+ * it when there is no room below, and kept inside the viewport.
+ */
+function placeMenu(
+  button: DOMRect,
+  menu: { width: number; height: number },
+  viewport: { width: number; height: number }
+): { top: number; left: number } {
+  const maxLeft = viewport.width - menu.width - MENU_VIEWPORT_MARGIN_PX
+  const left = Math.max(MENU_VIEWPORT_MARGIN_PX, Math.min(button.right - menu.width, maxLeft))
+
+  const below = button.bottom + MENU_GAP_PX
+  const above = button.top - MENU_GAP_PX - menu.height
+  const fitsBelow = below + menu.height <= viewport.height - MENU_VIEWPORT_MARGIN_PX
+  const fitsAbove = above >= MENU_VIEWPORT_MARGIN_PX
+  const top = fitsBelow || !fitsAbove
+    ? Math.max(MENU_VIEWPORT_MARGIN_PX, Math.min(below, viewport.height - menu.height - MENU_VIEWPORT_MARGIN_PX))
+    : above
+  return { top, left }
+}
 
 interface KanbanCardProps {
   jobApplication: JobApplicationWithRelations
@@ -40,6 +67,11 @@ interface KanbanCardProps {
   registerCardRef?: (id: string, el: HTMLDivElement | null) => void
   /** Whether the viewport is mobile-sized for touch-friendly targets */
   isMobile?: boolean
+  /**
+   * "Lier un CV existant": opens the board's link dialog for this card. The
+   * menu button is passed so focus can return to it when the dialog closes.
+   */
+  onLinkResume?: (applicationId: string, menuButton: HTMLButtonElement | null) => void
 }
 
 /**
@@ -59,6 +91,7 @@ export function KanbanCard({
   onFocus,
   registerCardRef,
   isMobile = false,
+  onLinkResume,
 }: KanbanCardProps) {
   const router = useRouter()
   const [showMenu, setShowMenu] = useState(false)
@@ -115,6 +148,12 @@ export function KanbanCard({
     opacity: isDragging ? 0.5 : 1,
   }
 
+  // A drag closes the menu, rather than only hiding it: a menu left open would
+  // come back unplaced after the drop, with its listeners still attached, and
+  // Space could not reopen it. State adjusted during render, as React advises
+  // for state that follows a changing value.
+  if (isDragging && showMenu) setShowMenu(false)
+
   const statusConfig = JOB_STATUS_CONFIG[jobApplication.status]
 
   // One pass with a replacer function: user text is inserted literally, so a
@@ -146,6 +185,46 @@ export function KanbanCard({
   // Use applied_date if available, otherwise fall back to created_at
   const displayDate = jobApplication.applied_date || jobApplication.created_at
 
+  // The menu is portaled to <body> with fixed positioning, so neither the
+  // board's horizontal scroll container nor the card's drag transform clips or
+  // moves it. Placed before paint from the button's position; written to the
+  // node directly, as it depends on the menu's own rendered size. Its first
+  // item takes focus here, once placed.
+  useIsomorphicLayoutEffect(() => {
+    const menu = menuRef.current
+    const button = menuButtonRef.current
+    if (!showMenu || !menu || !button) return
+    const { top, left } = placeMenu(
+      button.getBoundingClientRect(),
+      { width: menu.offsetWidth, height: menu.offsetHeight },
+      { width: window.innerWidth, height: window.innerHeight }
+    )
+    menu.style.top = `${top}px`
+    menu.style.left = `${left}px`
+    menuItemRefs.current[0]?.focus({ preventScroll: true })
+  }, [showMenu])
+
+  // A fixed menu would drift away from its button on scroll (the board's or
+  // the page's) or resize, so it closes instead. A scroll closes it only if
+  // the button actually moved: focusing the card can scroll it into view just
+  // as the menu opens, and that must not close it.
+  useEffect(() => {
+    const button = menuButtonRef.current
+    if (!showMenu || !button) return
+    const anchor = button.getBoundingClientRect()
+    const close = () => setShowMenu(false)
+    const closeIfMoved = () => {
+      const current = button.getBoundingClientRect()
+      if (Math.abs(current.top - anchor.top) > 0.5 || Math.abs(current.left - anchor.left) > 0.5) close()
+    }
+    window.addEventListener('scroll', closeIfMoved, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('scroll', closeIfMoved, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [showMenu])
+
   // Handle click outside to close menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -175,15 +254,10 @@ export function KanbanCard({
     }
   }, [isFocused])
 
-  // Focus first menu item when menu opens
+  // The roving tab stop starts on the first item each time the menu opens; the
+  // placement effect above focuses it.
   useIsomorphicLayoutEffect(() => {
-    if (showMenu) {
-      setMenuFocusIndex(0)
-      // Focus first item after menu renders
-      requestAnimationFrame(() => {
-        menuItemRefs.current[0]?.focus()
-      })
-    }
+    if (showMenu) setMenuFocusIndex(0)
   }, [showMenu])
 
   /**
@@ -251,6 +325,11 @@ export function KanbanCard({
    * - Enter/Space: Activate current item
    */
   const handleMenuKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // The menu handles its own keys. React events bubble out of the portal to
+    // the card and the board, whose handlers would otherwise take them: Enter
+    // would open the detail page instead of the focused item, Space would
+    // reopen the menu, and the arrows would move focus to another card.
+    e.stopPropagation()
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault()
@@ -284,7 +363,9 @@ export function KanbanCard({
         menuButtonRef.current?.focus()
         break
       case 'Tab':
-        // Close menu on Tab to allow natural focus flow
+        // Close the menu and let Tab continue from its button: the menu sits at
+        // the end of <body>, so the browser's next stop would be outside the board.
+        menuButtonRef.current?.focus()
         setShowMenu(false)
         break
     }
@@ -414,18 +495,26 @@ export function KanbanCard({
         )}
       </div>
 
-      {/* Context menu dropdown */}
+      {/* Context menu dropdown, portaled to <body> (see the placement effect) */}
       {/* Mobile: larger touch targets with py-3 (48px height), Desktop: compact */}
-      {showMenu && (
+      {showMenu && !isDragging && createPortal(
         <div
           ref={menuRef}
           role="menu"
           aria-label={cardDict.menuLabel || 'Job application actions'}
+          // Moved to its place by the placement effect, which runs before the
+          // browser paints, so the menu is never seen at 0,0. Deliberately not
+          // hidden meanwhile: `duration-150` makes every property transition,
+          // `visibility` included, and a menu still computing as hidden when
+          // its first item is focused refuses the focus.
+          style={{ position: 'fixed', top: 0, left: 0 }}
           className={cn(
-            'absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-lg z-50',
+            'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-lg z-50',
             'animate-in fade-in-0 zoom-in-95 duration-150 origin-top-right',
             isMobile ? 'w-56' : 'w-48'
           )}
+          // React events bubble out of a portal along the component tree: a
+          // click must not reach the card (which opens the detail page).
           onClick={(e) => e.stopPropagation()}
           onKeyDown={handleMenuKeyDown}
         >
@@ -440,7 +529,7 @@ export function KanbanCard({
             )}
             onClick={() => setShowMenu(false)}
           >
-            <Pencil className="h-4 w-4" />
+            <Pencil className="h-4 w-4 shrink-0" />
             {cardDict.edit || 'Edit'}
           </Link>
           <Link
@@ -454,38 +543,56 @@ export function KanbanCard({
             )}
             onClick={() => setShowMenu(false)}
           >
-            <FileText className="h-4 w-4" />
+            <FileText className="h-4 w-4 shrink-0" />
             {cardDict.createCV || 'Create CV for this Job'}
           </Link>
-          <Link
+          <button
             ref={(el) => { menuItemRefs.current[2] = el }}
-            href={`/${locale}/dashboard/cover-letters/new?jobApplicationId=${jobApplication.id}`}
+            type="button"
             role="menuitem"
             tabIndex={menuFocusIndex === 2 ? 0 : -1}
+            className={cn(
+              'flex items-center gap-2 px-3 text-sm text-left hover:bg-slate-100 dark:hover:bg-slate-700 focus:bg-slate-100 dark:focus:bg-slate-700 focus:outline-none w-full',
+              isMobile ? 'py-3' : 'py-2'
+            )}
+            onClick={() => {
+              setShowMenu(false)
+              onLinkResume?.(jobApplication.id, menuButtonRef.current)
+            }}
+          >
+            <Link2 className="h-4 w-4 shrink-0" />
+            {cardDict.linkResume || 'Link existing CV'}
+          </button>
+          <Link
+            ref={(el) => { menuItemRefs.current[3] = el }}
+            href={`/${locale}/dashboard/cover-letters/new?jobApplicationId=${jobApplication.id}`}
+            role="menuitem"
+            tabIndex={menuFocusIndex === 3 ? 0 : -1}
             className={cn(
               'flex items-center gap-2 px-3 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 focus:bg-slate-100 dark:focus:bg-slate-700 focus:outline-none',
               isMobile ? 'py-3' : 'py-2'
             )}
             onClick={() => setShowMenu(false)}
           >
-            <Mail className="h-4 w-4" />
+            <Mail className="h-4 w-4 shrink-0" />
             {cardDict.createCoverLetter || 'Create Cover Letter'}
           </Link>
           <button
-            ref={(el) => { menuItemRefs.current[3] = el }}
+            ref={(el) => { menuItemRefs.current[4] = el }}
             onClick={handleDelete}
             disabled={isDeleting}
             role="menuitem"
-            tabIndex={menuFocusIndex === 3 ? 0 : -1}
+            tabIndex={menuFocusIndex === 4 ? 0 : -1}
             className={cn(
               'flex items-center gap-2 px-3 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 focus:bg-red-50 dark:focus:bg-red-900/20 focus:outline-none w-full',
               isMobile ? 'py-3' : 'py-2'
             )}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-4 w-4 shrink-0" />
             {isDeleting ? (cardDict.deleting || 'Deleting...') : (cardDict.delete || 'Delete')}
           </button>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Company name */}

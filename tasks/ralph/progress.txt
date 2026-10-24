@@ -102,3 +102,145 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 a CV created from Job Search is linked to its saved offer
 FINAL: PASS
+
+## US-002: An existing CV can be linked from an application card
+Status: PASS
+Priority: 2
+Branch: ralph/job-cv-linking
+Baseline HEAD: a32240c (US-001 commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat, added/removed; new files with line counts):
+  - New src/app/api/job-applications/[id]/link-resume/route.ts (87) + route.test.ts (231, 19 tests): authenticated POST { resumeId }.
+    - Zod uuid validation on both ids; 401 / 400 / 404 (a missing row and another user's row get the same 404) / 500.
+    - 200 returns { resume: { id, title, template } }.
+    - Logs step names and codes only.
+  - New src/app/api/resumes/route.ts (52) + route.test.ts (66): authenticated GET of the caller's own CVs (id, title, updated_at), filtered on user_id explicitly, newest first.
+  - src/lib/job-applications/link-resume.ts (73/35) + test (113/10): the US-001 helper extended.
+    - After the reverse link it also clears resume_id on the user's other applications still pointing at this CV (user_id, resume_id = CV, id ≠ X), on top of the CVs pointing at X.
+    - Returns the linked CV.
+    - The undo restores the CV's previous link.
+    - A failed clear is reported as a warning on a successful result.
+    - The header states what it guarantees.
+  - New src/components/dashboard/job-applications/link-resume-dialog.tsx (370): the dialog.
+    - Native radios, newest first, the current CV marked and pre-selected; confirm stays disabled until a different CV is picked.
+    - Empty state with a link to /resumes/new?jobApplicationId=.
+    - Localized load and link errors in a role="alert" box that receives focus (focus-visible ring).
+    - Tab trap that also catches stray focus; Escape and outside click close it; nothing closes it while a link is in flight.
+    - Follows the board's quick-add modal pattern: no dialog library is installed, and FR-4 forbids new dependencies.
+  - New src/components/dashboard/job-applications/kanban-resume-link.ts (34) + test (49): a pure board update. The target card gets the CV; any other card that showed it loses it.
+  - src/components/dashboard/job-applications/kanban-card.tsx (130/23): "Lier un CV existant" directly below "Créer un CV pour ce poste".
+    - The ⋮ menu is portaled to document.body: position fixed from the ⋮ button, flipped up when needed, clamped to the viewport.
+    - It closes on resize, on a scroll that moves ⋮, and when a drag starts.
+    - All key events stay inside the menu.
+    - The first item gets focus once the menu is placed.
+    - The five icons are shrink-0.
+  - kanban-board.tsx (54/0), kanban-column.tsx (4/0): open the dialog for a card, apply the server's answer to the board, return focus to ⋮; a close for a dialog that is no longer open is ignored.
+  - src/locales/{fr,en,de,it}/common.json (14/0 each): kanban.card.linkResume and the kanban.linkResume section.
+  - src/test/fake-supabase-tables.ts (18/1): order() (compares as strings, noted).
+  - src/app/api/ai/generate-from-job-description/route.ts (2/0): logs the helper's new stale-link warning.
+  - New e2e/job-applications-link-resume.spec.ts (491; 12 test definitions, several run in fr and de).
+- Not touched: migrations, package.json, the resume editor's association code, /api/resumes/from-job-application, the application detail page. No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted.
+  - The "before" captures came from a temporary worktree at origin/main f24a1d1 (.claude/worktrees/before-main, outside the commit; TypeScript, vitest and Playwright ignore .claude/). Its temporary spec was deleted.
+
+Checks:
+- Runs 1–4 (earlier diffs) were invalidated by the review fixes below.
+  - Run 4 exposed a regression introduced by the portaled menu: opened from the keyboard, the first item no longer received focus, failing the keyboard e2e in fr and de.
+  - Root cause, found with an instrumented spec: the menu was hidden with visibility:hidden until placed. Its `duration-150` transition (transition-property: all) kept the computed visibility "hidden" when focus() ran, so the browser refused the focus.
+  - Fixed by not hiding the menu before placement. Placement runs in a layout effect, before paint.
+- Final run (this diff):
+  - The four affected specs alone (job-applications-link-resume, job-applications-i18n, cv-from-job-application, cover-letter-from-job-application): 73 passed, 1 failed. The failure was job-applications-i18n.spec.ts:1172 (fr): the login fixture never found #email (e2e/fixtures/auth.ts:153), so the test body never ran. The same test passed in the full run below. The previous run had job-applications-i18n ×3 at 75/75.
+  - pnpm typecheck: PASS — 0 errors.
+  - pnpm test: PASS — 2690 passed, 5 skipped (2658 after US-001).
+  - pnpm test:integration: PASS — 4 files, 50 passed.
+  - pnpm test:e2e: PASS — 418 passed, 0 failed, on the first pass (398 after US-001).
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 287 problems (219 errors, 68 warnings); unchanged, under the tracked 306 ceiling.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — e2e/job-applications-link-resume.spec.ts:
+  - fr and de:
+    - link to a card without a CV: badge without reload; rows checked both ways;
+    - replace a linked CV: old link cleared, badge changed;
+    - take a CV from another card: that card's badge disappears, its resume_id is null;
+    - empty state and its link;
+    - keyboard: Space opens, the menu order, Enter, radio, Tab trap, Escape back to ⋮;
+    - a failed link (held request, then 500): busy state; Escape, outside click, X and Cancel cannot close the dialog; then the localized alert is focused, one Tab stays inside the dialog, the badge is unchanged, no reload, rows unchanged;
+    - at 375×812 with one card, all five menu items are inside the viewport and topmost at their centres.
+  - fr:
+    - Enter on "Créer un CV…" opens /resumes/new?jobApplicationId=…;
+    - Tab from the menu goes to ⋮ or after it;
+    - the menu closes on resize and on board scroll.
+  - Forged requests with another user's CV or application → 404, nothing changed; GET /api/resumes lists only the caller's CVs.
+- Visual: PASS — ui-expert before/after comparison against origin/main f24a1d1 (same seed, fr/de, 1440/375). The board and card are unchanged; the menu has one more item and is no longer clipped (on main it is already cut by the board at both widths). No resume template changed, so test:visual does not apply; parity unchanged.
+- Export: NOT_APPLICABLE.
+- Database: NOT_APPLICABLE — no schema or policy change; all writes go through the user's session with explicit user_id filters.
+- Security: PASS — security-review (skill procedure): 5 trust boundaries, 6/6 requirements, 0 findings; vitest 107/107 on the affected files.
+  - Both routes check ownership before any write; the new clear step's filter values all come from the server.
+  - GET /api/resumes exposes only id/title/updated_at of the caller's own CVs; no CORS.
+  - CSRF is consistent with the repo (SameSite=Lax cookies, no CSRF token on any route).
+  - Titles render as React text.
+  - SEC-010/011 still open, unaffected.
+
+Agents:
+- senior-coder: implementation, then four fix rounds:
+  - code-reviewer round 1: AC8 evidence, closing during a link, keyboard e2e in de, fake order note;
+  - ui-expert round 1: focus after an error, menu clipping;
+  - the menu-focus regression, root-caused as above, plus code-reviewer's three minors (close the menu on drag, error ring, menu e2e);
+  - ui-expert round 2 polish: icons shrink-0, dialog footer wrap and min-w-0, ring red-500.
+- ui-expert:
+  - round 1: FAIL (Major: focus fell to <body> after a failed link; Major: the new item was clipped at 1440 and hidden at 375);
+  - round 2: two attempts stopped on API connection errors with no verdict; a fresh ui-expert gave FAIL (Minor: the new item's icon squashed when the German label wraps; Minor: the de dialog gutter collapsed at 375; advisory: error ring 1.90:1; condition 5 needed "before" evidence);
+  - round 3: PASS 7/7 with the before/after comparison.
+- code-reviewer:
+  - round 1: FAIL (Critical: no rendered evidence for AC8);
+  - round 2: PASS;
+  - round 3 (ui-expert fixes): PASS with three minors (fixed);
+  - round 4 (menu-focus fix and minors): PASS;
+  - round 5 (polish): PASS.
+  - The US-001 carried Major (clear the old application when an existing CV moves) is fixed in this story's helper and tested.
+
+Acceptance criteria:
+- AC-01 ("Lier un CV existant" directly below "Créer un CV pour cette offre", in fr/en/de/it): PASS — e2e menu order; locale parity. The card's own label reads "Créer un CV pour ce poste"; the new item sits directly below it.
+- AC-02 (the dialog lists own CVs by title, newest first; the current one marked): PASS — e2e; route test; captures.
+- AC-03 (link both ways; badge without reload): PASS — e2e fr/de.
+- AC-04 (the application's previous CV cleared): PASS — e2e; helper tests.
+- AC-05 (the picked CV's previous application cleared): PASS — e2e "take a CV from another card"; helper tests.
+- AC-06 (no CVs → localized empty state with the link): PASS — e2e fr/de; captures.
+- AC-07 (another user's CV or application refused server-side, nothing changes): PASS — route tests; forged-request e2e.
+- AC-08 (failure → localized error in the dialog, nothing changes): PASS — e2e fr/de with rows checked; captures.
+- AC-09 (keyboard; Escape returns focus to the menu button): PASS — e2e fr/de; ui-expert.
+- FR-1 … FR-5: PASS.
+- Regression constraints: PASS — Kanban keyboard and drag and drop (job-applications-i18n ×3 75/75, Kanban unit tests); the resume editor association untouched; the full e2e green.
+- FAIL conditions: none met.
+
+Decision (implementer, accepted by code-reviewer): the CV list comes from a new authenticated GET /api/resumes, since the board never uses the browser Supabase client.
+Decision: the board updates from the server's answer, not optimistically; a late onLinked still updates the cards (the link exists), but only the open dialog can close.
+Decision (behaviour change, accepted by code-reviewer and ui-expert): the card's ⋮ menu is portaled and keeps all its key events. As a result:
+- Enter on an existing item ("Modifier", "Créer un CV…", "Créer une lettre…") now activates that item; before, the card took the Enter and opened the detail page;
+- arrow keys no longer jump to other cards from inside an open menu;
+- opening the menu with the mouse also focuses its first item.
+Decision: the empty-state link reuses the card's existing "Créer un CV pour ce poste" wording.
+
+Known limitation (code-reviewer, accepted): if clearing a previous link fails after the new link is written, the route answers 200 and logs a warning; a stale link on the user's own row can remain. Without a transaction (FR-4: no schema change) undoing it would not be atomic either.
+
+Open owner decisions recorded by this story:
+- ui-expert, advisory: at 375 in German the dialog's footer buttons stack unevenly after wrapping (a full-width, primary-on-top layout on small screens would read better).
+- ui-expert, pre-existing:
+  - the outline Button's hover uses the purple --accent token;
+  - white on teal-500 in the primary Button is 3.87:1;
+  - the close button shares the "Annuler" name with Cancel (QuickAddModal pattern);
+  - the card's top edge is clipped at 375 (also on main).
+- Observation, ui-expert: linking a CV bumps its updated_at (the update touches the resumes row), so "Modifié le" changes and it moves to the top of the list. The resume editor's association behaves the same way.
+- The temporary worktree .claude/worktrees/before-main (origin/main f24a1d1) can be removed once no session needs it.
+
+Environment notes:
+- Windows 11, local Supabase stack, Playwright suites run one at a time. The only final-run failure was the known login-fixture timeout, in the separate run of the affected specs.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 an existing CV can be linked from an application card
+FINAL: PASS

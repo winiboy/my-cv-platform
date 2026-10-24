@@ -5,7 +5,7 @@
  *
  * It implements only what those routes call: `from(table)` with `select`
  * (a plain column list, no embedded resources), `insert`, `update`, `eq`,
- * `neq`, and the terminals `single`, `maybeSingle` and a plain `await`. It
+ * `neq`, `order`, and the terminals `single`, `maybeSingle` and a plain `await`. It
  * applies the query's own filters and NOTHING else: no RLS. That is
  * deliberate, so a test proves the code filters on `user_id` itself rather
  * than leaning on a policy.
@@ -126,6 +126,7 @@ class FakeQuery implements PromiseLike<QueryResult> {
   private payload: Row | undefined
   private returning = false
   private columns: string[] | null = null
+  private ordering: { column: string; ascending: boolean } | null = null
   private readonly filters: Filter[] = []
 
   constructor(
@@ -161,8 +162,24 @@ class FakeQuery implements PromiseLike<QueryResult> {
     return this
   }
 
+  /**
+   * Compares the column's values as strings: right for ISO timestamps and
+   * text, wrong for numbers (`'10' < '9'`). Extend it before ordering on one.
+   */
+  order(column: string, { ascending = true }: { ascending?: boolean } = {}): this {
+    this.ordering = { column, ascending }
+    return this
+  }
+
   private execute(): QueryResult {
     const result = this.tables.run(this.tableName, this.operation, this.filters, this.payload, this.returning)
+    const ordering = this.ordering
+    if (ordering && Array.isArray(result.data)) {
+      const direction = ordering.ascending ? 1 : -1
+      ;(result.data as Row[]).sort(
+        (a, b) => String(a[ordering.column]).localeCompare(String(b[ordering.column])) * direction
+      )
+    }
     const columns = this.columns
     if (!columns || !Array.isArray(result.data)) return result
     const projected = (result.data as Row[]).map((row) =>

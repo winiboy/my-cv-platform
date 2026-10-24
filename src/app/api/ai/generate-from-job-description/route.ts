@@ -55,6 +55,8 @@ async function linkResumeToOfferApplication(
     const linked = await linkResumeToJobApplication(supabase, { userId, resumeId, jobApplicationId })
     if (!linked.ok) {
       console.error(`${LOG_PREFIX} Could not link the CV to its job application:`, linked.step, linked.code)
+    } else if (linked.staleLink) {
+      console.error(`${LOG_PREFIX} Linked, but a previous link could not be cleared:`, linked.staleLink.step, linked.staleLink.code)
     }
   } catch (error) {
     console.error(`${LOG_PREFIX} Could not link the CV to its job application:`, error instanceof Error ? error.name : 'unknown')

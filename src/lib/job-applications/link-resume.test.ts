@@ -27,7 +27,14 @@ function seedApplication(fields: Row = {}): Row {
 }
 
 function seedResume(fields: Row = {}): Row {
-  return db.seed('resumes', { id: crypto.randomUUID(), user_id: USER_ID, job_application_id: null, ...fields })
+  return db.seed('resumes', {
+    id: crypto.randomUUID(),
+    user_id: USER_ID,
+    title: 'A CV',
+    template: 'classic',
+    job_application_id: null,
+    ...fields,
+  })
 }
 
 function link(resume: Row, application: Row) {
@@ -51,7 +58,7 @@ describe('linkResumeToJobApplication', () => {
     const application = seedApplication()
     const resume = seedResume()
 
-    await expect(link(resume, application)).resolves.toEqual({ ok: true })
+    await expect(link(resume, application)).resolves.toMatchObject({ ok: true })
 
     expect(resume.job_application_id).toBe(application.id)
     expect(application.resume_id).toBe(resume.id)
@@ -64,7 +71,7 @@ describe('linkResumeToJobApplication', () => {
     application.resume_id = named.id
     const resume = seedResume()
 
-    await expect(link(resume, application)).resolves.toEqual({ ok: true })
+    await expect(link(resume, application)).resolves.toMatchObject({ ok: true })
 
     expect(application.resume_id).toBe(resume.id)
     expect(resume.job_application_id).toBe(application.id)
@@ -80,7 +87,7 @@ describe('linkResumeToJobApplication', () => {
     application.resume_id = moved.id
     const resume = seedResume()
 
-    await expect(link(resume, application)).resolves.toEqual({ ok: true })
+    await expect(link(resume, application)).resolves.toMatchObject({ ok: true })
 
     expect(moved.job_application_id).toBe(elsewhere.id)
   })
@@ -89,7 +96,7 @@ describe('linkResumeToJobApplication', () => {
     const application = seedApplication()
     const foreign = seedResume({ user_id: OTHER_USER_ID, job_application_id: application.id })
 
-    await expect(link(seedResume(), application)).resolves.toEqual({ ok: true })
+    await expect(link(seedResume(), application)).resolves.toMatchObject({ ok: true })
 
     expect(foreign.job_application_id).toBe(application.id)
   })
@@ -116,7 +123,7 @@ describe('linkResumeToJobApplication', () => {
     expect(db.writes()).toEqual([])
   })
 
-  it('reports a failed clear and keeps the new link', async () => {
+  it('reports a failed clear of the previous CVs and keeps the new link', async () => {
     const application = seedApplication()
     const old = seedResume({ job_application_id: application.id })
     application.resume_id = old.id
@@ -124,10 +131,9 @@ describe('linkResumeToJobApplication', () => {
     // The clear is the only update filtered with `neq`.
     db.failOn('resumes', 'update', { when: (query) => query.filters.some(([, , operator]) => operator === 'neq') })
 
-    await expect(link(resume, application)).resolves.toEqual({
-      ok: false,
-      step: 'clear_previous_resumes',
-      code: 'XX000',
+    await expect(link(resume, application)).resolves.toMatchObject({
+      ok: true,
+      staleLink: { step: 'clear_previous_resumes', code: 'XX000' },
     })
 
     expect(resume.job_application_id).toBe(application.id)
@@ -173,5 +179,102 @@ describe('linkResumeToJobApplication', () => {
 
     expect(application.resume_id).toBeNull()
     expect(db.writes()).toHaveLength(1)
+  })
+
+  it('returns the linked CV for the caller to show', async () => {
+    const application = seedApplication()
+    const resume = seedResume({ title: 'Data CV', template: 'modern' })
+
+    await expect(link(resume, application)).resolves.toEqual({
+      ok: true,
+      resume: { id: resume.id, title: 'Data CV', template: 'modern' },
+      staleLink: null,
+    })
+  })
+
+  describe('a CV moving from another application (US-002)', () => {
+    it('clears the resume_id of the application the CV leaves', async () => {
+      const previous = seedApplication()
+      const application = seedApplication()
+      const resume = seedResume({ job_application_id: previous.id })
+      previous.resume_id = resume.id
+
+      await expect(link(resume, application)).resolves.toMatchObject({ ok: true })
+
+      expect(resume.job_application_id).toBe(application.id)
+      expect(application.resume_id).toBe(resume.id)
+      expect(previous.resume_id).toBeNull()
+      expect(db.table('job_applications')).toHaveLength(2)
+    })
+
+    it('clears every other application of the user still pointing to the CV', async () => {
+      const application = seedApplication()
+      const resume = seedResume()
+      const first = seedApplication({ resume_id: resume.id })
+      const second = seedApplication({ resume_id: resume.id })
+
+      await expect(link(resume, application)).resolves.toMatchObject({ ok: true })
+
+      expect(first.resume_id).toBeNull()
+      expect(second.resume_id).toBeNull()
+    })
+
+    it("never clears another user's application pointing to the CV", async () => {
+      const application = seedApplication()
+      const resume = seedResume()
+      const foreign = seedApplication({ user_id: OTHER_USER_ID, resume_id: resume.id })
+
+      await expect(link(resume, application)).resolves.toMatchObject({ ok: true })
+
+      expect(foreign.resume_id).toBe(resume.id)
+    })
+
+    it('reports a failed clear of the previous application and keeps the new link', async () => {
+      const previous = seedApplication()
+      const application = seedApplication()
+      const resume = seedResume({ job_application_id: previous.id })
+      previous.resume_id = resume.id
+      db.failOn('job_applications', 'update', {
+        when: (query) => query.filters.some(([, , operator]) => operator === 'neq'),
+      })
+
+      await expect(link(resume, application)).resolves.toMatchObject({
+        ok: true,
+        staleLink: { step: 'clear_previous_applications', code: 'XX000' },
+      })
+
+      expect(resume.job_application_id).toBe(application.id)
+      expect(application.resume_id).toBe(resume.id)
+      expect(previous.resume_id).toBe(resume.id)
+    })
+
+    it('still clears the previous application when clearing the previous CVs failed', async () => {
+      const previous = seedApplication()
+      const application = seedApplication()
+      const resume = seedResume({ job_application_id: previous.id })
+      previous.resume_id = resume.id
+      db.failOn('resumes', 'update', { when: (query) => query.filters.some(([, , operator]) => operator === 'neq') })
+
+      await expect(link(resume, application)).resolves.toMatchObject({
+        ok: true,
+        staleLink: { step: 'clear_previous_resumes' },
+      })
+
+      expect(previous.resume_id).toBeNull()
+    })
+
+    it('restores the CV to the application it leaves when the new one cannot be linked back', async () => {
+      const previous = seedApplication()
+      const application = seedApplication()
+      const resume = seedResume({ job_application_id: previous.id })
+      previous.resume_id = resume.id
+      db.failOn('job_applications', 'update')
+
+      await expect(link(resume, application)).resolves.toMatchObject({ ok: false, step: 'link_application' })
+
+      expect(resume.job_application_id).toBe(previous.id)
+      expect(previous.resume_id).toBe(resume.id)
+      expect(application.resume_id).toBeNull()
+    })
   })
 })
