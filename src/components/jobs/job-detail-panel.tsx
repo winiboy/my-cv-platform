@@ -16,6 +16,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
 import { useRouter } from 'next/navigation'
 import { formatJobSearchDate, jobLocationLabel } from '@/lib/job-search-format'
+import { jobListingToApplicationInput } from '@/lib/job-applications/job-listing-to-application'
 
 /**
  * Response from the job-applications POST endpoint
@@ -150,40 +151,23 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
     backButtonRef.current?.focus({ preventScroll: true })
   }, [hasBackControl, job.id])
 
+  // The fields the offer is saved with, by "Save" and alongside "Créer un CV"
+  // (job-cv-linking FR-2): one mapping for both.
+  const offerApplication = useMemo(
+    () => jobListingToApplicationInput(job, dict?.locationInSwitzerland || '{city}, Switzerland'),
+    [job, dict]
+  )
+
   /**
    * Saves a job to the user's job applications
    * Creates a new record with status 'saved'
    */
   const saveJobToApplications = useCallback(async (): Promise<SaveJobResponse> => {
-    // Extract salary values from salary_range string if available
-    // Format is typically "X - Y CHF" from Adzuna
-    let salaryMin: number | null = null
-    let salaryMax: number | null = null
-
-    if (job.salary_range) {
-      const salaryMatch = job.salary_range.match(/(\d[\d\s']*)/g)
-      if (salaryMatch && salaryMatch.length >= 1) {
-        salaryMin = parseInt(salaryMatch[0].replace(/[\s']/g, ''), 10) || null
-        if (salaryMatch.length >= 2) {
-          salaryMax = parseInt(salaryMatch[1].replace(/[\s']/g, ''), 10) || null
-        }
-      }
-    }
-
     const response = await fetch('/api/job-applications', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({
-        job_title: job.title,
-        company_name: job.company,
-        location: jobLocationLabel(job, dict?.locationInSwitzerland || '{city}, Switzerland'),
-        salary_min: salaryMin,
-        salary_max: salaryMax,
-        job_url: job.application_url || null,
-        job_description: job.description || null,
-        source: 'Adzuna',
-      }),
+      body: JSON.stringify(offerApplication),
     })
 
     if (!response.ok) {
@@ -198,7 +182,7 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
     }
 
     return response.json()
-  }, [job, dict])
+  }, [offerApplication])
 
   const handleSave = async () => {
     // If already saved, just toggle the visual state (no unsave API yet)
@@ -823,6 +807,7 @@ export function JobDetailPanel({ job, dict, locale, templatePicker, cvAdaptation
         isCreateMode={true}
         isCreateNewCV={true}
         templatePicker={templatePicker}
+        offer={offerApplication}
         returnFocusRef={modalOpenerRef}
       />
     </div>

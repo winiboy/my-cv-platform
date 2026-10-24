@@ -6,33 +6,12 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { z } from 'zod'
-import { JOB_STATUSES } from '@/lib/constants/job-statuses'
+import {
+  createJobApplicationWithDedupe,
+  jobApplicationCreateSchema,
+} from '@/lib/job-applications/create-job-application'
 
 export const dynamic = 'force-dynamic'
-
-/**
- * Valid job statuses for validation.
- * Uses the canonical JOB_STATUSES array from constants.
- */
-const jobStatusSchema = z.enum(JOB_STATUSES as [string, ...string[]])
-
-/**
- * Zod schema for job application creation from job search
- * Maps job search data to job_applications table fields
- */
-const jobApplicationCreateSchema = z.object({
-  job_title: z.string().min(1, 'Job title is required').max(255),
-  company_name: z.string().min(1, 'Company name is required').max(255),
-  location: z.string().max(500).nullable().optional(),
-  salary_min: z.number().nullable().optional(),
-  salary_max: z.number().nullable().optional(),
-  job_url: z.string().url().max(2000).nullable().optional(),
-  job_description: z.string().max(50000).nullable().optional(),
-  source: z.string().max(100).nullable().optional(),
-  /** Optional status for quick-add from Kanban column. Defaults to 'saved' if not provided. */
-  status: jobStatusSchema.optional(),
-})
 
 /**
  * GET /api/job-applications
@@ -142,76 +121,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const {
-      job_title,
-      company_name,
-      location,
-      salary_min,
-      salary_max,
-      job_url,
-      job_description,
-      source,
-      status: requestedStatus,
-    } = validationResult.data
+    const result = await createJobApplicationWithDedupe(supabase, user.id, validationResult.data)
 
-    // Format salary range if provided
-    let salaryRange: string | null = null
-    if (salary_min !== null && salary_min !== undefined && salary_max !== null && salary_max !== undefined) {
-      salaryRange = `${salary_min.toLocaleString('de-CH')} - ${salary_max.toLocaleString('de-CH')} CHF`
-    } else if (salary_min !== null && salary_min !== undefined) {
-      salaryRange = `From ${salary_min.toLocaleString('de-CH')} CHF`
-    } else if (salary_max !== null && salary_max !== undefined) {
-      salaryRange = `Up to ${salary_max.toLocaleString('de-CH')} CHF`
+    if (result.kind === 'duplicate') {
+      return NextResponse.json(
+        {
+          error: 'Job already saved',
+          jobApplication: result.existing,
+          isDuplicate: true,
+        },
+        { status: 409 }
+      )
     }
 
-    // Check if this job URL already exists for this user (prevent duplicates)
-    if (job_url) {
-      const { data: existingJob } = await supabase
-        .from('job_applications')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('job_url', job_url)
-        .single()
-
-      if (existingJob) {
-        return NextResponse.json(
-          {
-            error: 'Job already saved',
-            jobApplication: existingJob,
-            isDuplicate: true,
-          },
-          { status: 409 }
-        )
-      }
-    }
-
-    // Determine the initial status (use provided status or default to 'saved')
-    // Type assertion ensures TypeScript recognizes this as a valid JobStatus
-    const initialStatus = (requestedStatus || 'saved') as 'saved' | 'applied' | 'interviewing' | 'offer' | 'rejected' | 'accepted' | 'declined'
-
-    // Create the job application record
-    const { data: jobApplication, error } = await supabase
-      .from('job_applications')
-      .insert({
-        user_id: user.id,
-        job_title,
-        company_name,
-        location: location || null,
-        salary_range: salaryRange,
-        job_url: job_url || null,
-        job_description: job_description || null,
-        status: initialStatus,
-        priority: 'medium',
-        notes: source ? `Source: ${source}` : null,
-        contacts: [],
-        documents: [],
-        interviews: [],
-        is_archived: false,
-      })
-      .select()
-      .single()
-
-    if (error) {
+    if (result.kind === 'failed') {
+      const { error } = result
       console.error('[job-applications POST] insert error:', error)
       console.error('[API] Error creating job application:', {
         code: error.code,
@@ -226,7 +150,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { jobApplication, message: 'Job saved successfully' },
+      { jobApplication: result.jobApplication, message: 'Job saved successfully' },
       { status: 201 }
     )
   } catch (error) {

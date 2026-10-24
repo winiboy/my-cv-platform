@@ -17,6 +17,49 @@ import {
   findOversizedField,
   oversizedFieldResponse,
 } from '@/lib/api/ai-input-limits'
+import {
+  createJobApplicationWithDedupe,
+  jobOfferApplicationSchema,
+  type JobOfferApplication,
+} from '@/lib/job-applications/create-job-application'
+import { linkResumeToJobApplication } from '@/lib/job-applications/link-resume'
+
+type ServerSupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>
+
+const LOG_PREFIX = '[generate-from-job-description]'
+
+/**
+ * Saves the offer as the user's job application, or finds the one already
+ * saved with the same URL, and links the new CV to it both ways
+ * (job-cv-linking US-001).
+ *
+ * Called only once the CV exists, so a failed generation touches no
+ * application. Never throws: the CV is the result of the request, and a
+ * failure here is logged, by step and database code only, and leaves it as
+ * it is (AC6).
+ */
+async function linkResumeToOfferApplication(
+  supabase: ServerSupabaseClient,
+  userId: string,
+  resumeId: string,
+  offer: JobOfferApplication
+): Promise<void> {
+  try {
+    const saved = await createJobApplicationWithDedupe(supabase, userId, offer)
+    if (saved.kind === 'failed') {
+      console.error(`${LOG_PREFIX} Could not save the offer as a job application:`, saved.error.code)
+      return
+    }
+
+    const jobApplicationId = saved.kind === 'created' ? saved.jobApplication.id : saved.existing.id
+    const linked = await linkResumeToJobApplication(supabase, { userId, resumeId, jobApplicationId })
+    if (!linked.ok) {
+      console.error(`${LOG_PREFIX} Could not link the CV to its job application:`, linked.step, linked.code)
+    }
+  } catch (error) {
+    console.error(`${LOG_PREFIX} Could not link the CV to its job application:`, error instanceof Error ? error.name : 'unknown')
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,6 +90,14 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body = await request.json()
     const { jobDescription, title, template, locale } = body
+
+    // The Job Search offer the CV is made for, to save and link once the CV
+    // exists. Optional and untrusted: when it is missing or invalid the CV is
+    // still created, as before this field existed, and nothing is linked.
+    const offer = body.offer === undefined ? null : jobOfferApplicationSchema.safeParse(body.offer)
+    if (offer && !offer.success) {
+      console.error(`${LOG_PREFIX} Offer ignored, invalid fields:`, offer.error.issues.map((issue) => issue.path.join('.')))
+    }
 
     // Ceilings on everything that reaches the prompt: without them the cost of
     // a single request is whatever the caller chooses to upload.
@@ -136,6 +187,10 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to create resume in database' },
         { status: 500 }
       )
+    }
+
+    if (offer?.success) {
+      await linkResumeToOfferApplication(supabase, user.id, result2.data.id, offer.data)
     }
 
     // Extract job requirements and calculate quality analysis

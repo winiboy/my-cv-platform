@@ -4,3 +4,101 @@ Contract: tasks/ralph/prd.json (branch ralph/job-cv-linking)
 PRD: tasks/prds/job-cv-linking.md (Status: APPROVED 2026-10-24, written by the owner: the owner approved the exact approval command in the app, which ran it in the owner's terminal)
 Format: docs/engineering/progress-log-format.md
 Branch setup: from origin/main f24a1d1 (#115 merged). The first commit archives the merged cover-letter-from-job contract; the second adds this PRD and its contract. The companion PRD tasks/prds/cover-letter-export-translate.md (also approved 2026-10-24) runs after this initiative merges, on its own branch.
+
+## US-001: A CV created from Job Search is linked to its saved offer
+Status: PASS
+Priority: 1
+Branch: ralph/job-cv-linking
+Baseline HEAD: a93193f (origin/main f24a1d1 + archive and contract commits)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat, added/removed; new files with line counts):
+  - New src/lib/job-applications/job-listing-to-application.ts (62) + test (71): the one client mapping from a Job Search listing to application fields:
+    - title, company, location via jobLocationLabel;
+    - salary regex;
+    - application_url → job_url;
+    - description;
+    - source 'Adzuna'.
+    Both Save and "Créer un CV" use it; the test pins the exact body Save sent before.
+  - New src/lib/job-applications/create-job-application.ts (160): Save's schema (moved unchanged), salary formatting and `createJobApplicationWithDedupe` (user_id + job_url; created | duplicate | failed); plus `jobOfferApplicationSchema` for the offer sent with "Créer un CV" (Save's limits, status dropped, job_url http(s) only).
+  - New src/lib/job-applications/link-resume.ts (116) + test (177, 10 tests): `linkResumeToJobApplication`.
+    - Reads the application and the CV, each filtered on user_id; a foreign row stops at load_application or load_resume, with no write.
+    - Writes resumes.job_application_id, then job_applications.resume_id. If the second write fails, the first is undone; the undo checks its own result and reports rollback_link_resume on failure.
+    - Clears every other CV of the user still pointing at the application (user_id, job_application_id = X, id ≠ new CV); a failure is reported as clear_previous_resumes, logged, not undone.
+    - Every write checks it changed a row.
+  - src/app/api/ai/generate-from-job-description/route.ts (55/0): optional `offer`; only after the CV insert succeeds does it find or create the application and link it. An invalid offer is ignored (field names logged). Response fields unchanged.
+  - route.test.ts (341/32): the 11 existing tests moved onto the fake; US-001 cases added.
+  - src/app/api/job-applications/route.ts (17/93) + new route.test.ts (183, 15 tests): Save uses the shared schema and function. 201, 409 { error, jobApplication: { id }, isDuplicate }, 400 and 500 are unchanged. The 15 tests also pass against the HEAD route (implementer ran them before the switch).
+  - src/components/dashboard/cv-adaptation-modal.tsx (7/3): optional `offer` prop, typed so only create-new mode can pass it.
+  - src/components/jobs/job-detail-panel.tsx (11/26): builds the mapping once, for Save and for the create modal.
+  - New src/test/fake-supabase-tables.ts (197): an in-memory Supabase stand-in for tests. It applies only the query's own filters (no RLS), supports eq/neq/single/maybeSingle, and can inject failures per table and operation, by nth call or by predicate; writes() lists all writes.
+  - e2e/cv-from-job-search.spec.ts (153/0), e2e/job-cv-template-picker.spec.ts (18/1): see Browser; the picker's exact request-body assertions now include a literal `offer`.
+- Not touched: migrations, package.json, the resume editor's association code, /api/resumes/from-job-application, locales. No version change, no push or merge.
+
+Checks:
+- Run 1 (first diff) was stopped when code-reviewer FAILed; its results were not used.
+- Run 2 (final diff):
+  - cv-from-job-search.spec.ts + job-cv-template-picker.spec.ts alone: 12 passed.
+  - pnpm typecheck: PASS — 0 errors.
+  - pnpm test: PASS — 2658 passed, 5 skipped (2594 on origin/main f24a1d1).
+  - pnpm test:integration: PASS — 4 files, 50 passed.
+  - pnpm test:e2e: PASS — 398 passed, 1 failed.
+    - The failure was resume-print-geometry.spec.ts:32 (minimal): the login fixture's page.fill timed out at e2e/fixtures/auth.ts:153 before the test started. That is the same transient as cover-letter-from-job run 1, in a spec this story doesn't touch.
+    - Rerun alone: 5/5 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 287 problems (219 errors, 68 warnings); unchanged, under the tracked 306 ceiling.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — e2e/cv-from-job-search.spec.ts, fr and de:
+  - an unsaved offer → one application (title, company, location, URL, description, status saved) linked both ways; the CV's badge is inside that application's Kanban card (card found by its localized accessible name);
+  - an offer already saved with an old linked CV → no second application; link replaced; the old CV is kept with job_application_id cleared and its badge gone from the card;
+  - AI failure → no application (and, de, an already-saved application and its CV unchanged).
+  - job-cv-template-picker.spec.ts: the request body carries the literal offer.
+- Visual: NOT_APPLICABLE — no rendering code changed; parity unchanged.
+- Export: NOT_APPLICABLE.
+- Database: NOT_APPLICABLE — no schema or policy change; rows and link columns are written through the user's session with explicit user_id filters.
+- Security: PASS — security-review (skill procedure), 5 trust boundaries, 7/7 requirements, 0 critical/high/medium, 2 low; vitest 64/64 on the affected files.
+  - The re-check of the reworked helper also passed, 3/3, with no new findings (75/75 tests).
+  - The multi-row clear can only reach the user's own CVs: all filter values come from the server, and user_id is sufficient on its own, without the SEC-003/004 RLS gap.
+  - SEC-010 LOW, pre-existing adjacent: Save's job_url accepts javascript:/data: (Zod 4 url()); rendered as an href in job-association-section.tsx:109. React and browsers block execution, and it is self-only. The new offer path refuses non-http(s).
+  - SEC-011 LOW, pre-existing adjacent: Save logs the full PostgrestError on a failed insert.
+
+Agents:
+- senior-coder: implementation, then one fix round.
+- ui-expert: NOT_APPLICABLE — US-001 changes no rendered UI. The modal, buttons and badge are the existing components; that the badge appears on the right card is asserted by e2e. The PRD scopes ui-expert to US-002's card menu and dialog.
+- code-reviewer, round 1: FAIL.
+  - Critical: only the CV named in application.resume_id was cleared, so CVs linked earlier by the resume editor could keep pointing at the application.
+  - Major: the undo's result was unchecked.
+  - Major: no tests for CV ownership, a failed clear or a failed undo.
+- code-reviewer, round 2: PASS — all fixed and tested. Major for US-002: when an EXISTING CV moves from application Y to X, Y's resume_id must also be cleared; US-001 cannot reach this (it only links a CV it just created, whose link is null).
+
+Acceptance criteria:
+- AC-01 (an unsaved offer → application saved and linked both ways): PASS — e2e fr/de; route tests.
+- AC-02 (same job_url → no second application): PASS — e2e fr/de; route tests.
+- AC-03 (an existing linked CV is replaced, old CV kept and cleared): PASS — e2e fr/de; helper test with two old CVs.
+- AC-04 (no URL → new application, linked): PASS — route test. The UI refuses an offer without a URL, so this path is unit-only.
+- AC-05 (AI failure or rate limit → nothing created or changed): PASS — route tests (provider error, provider 429, our limit, CV insert failure); e2e.
+- AC-06 (CV kept if saving/linking fails; logged without content): PASS — route and helper tests with injected failures; a test checks no content reaches the logs.
+- AC-07 (the card shows the CV badge): PASS — e2e, scoped to the card.
+- FR-1 … FR-5: PASS.
+- Regression constraints: PASS. Save, 409 and quick-add are pinned by 15 tests. The CV content flow is unchanged; adapt mode cannot pass `offer`; the editor association is untouched. The full e2e passed apart from the transient above.
+- FAIL conditions: none met.
+
+Decision (implementer, accepted by code-reviewer): an invalid offer does not block the CV; it is ignored and only its field names are logged.
+Decision: the offer uses Save's schema with two stricter rules: status is dropped, and job_url must be http(s). Save itself is unchanged.
+Decision: the application uses the listing's own fields, like Save, not the text fetched from the external page.
+Known debt (mandated by FR-2, code-reviewer minor): the dedupe keeps Save's `.single()` lookup. With two existing same-URL rows, or a read error, nothing is found and another row is created; concurrent clicks can race. A unique constraint is out of scope.
+
+Open owner decisions recorded by this story:
+- security-review: SEC-010 (Save accepts javascript:/data: job_url) and SEC-011 (Save logs the full Postgres error).
+- code-reviewer, minor: the test fake's null handling differs from SQL (`eq(col, null)` matches null); no current test depends on it.
+
+Environment notes:
+- Windows 11, local Supabase stack, Playwright suites run one at a time. The run-2 e2e failure was the known login-fixture timeout.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 a CV created from Job Search is linked to its saved offer
+FINAL: PASS
