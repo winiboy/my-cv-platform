@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { linearCeiling, measureScaling } from '@/test/linear-time'
 import { countLanguageVotes, detectOfferLanguage, MAX_SCANNED_CHARACTERS } from './detect-offer-language'
 
 /**
@@ -148,10 +149,42 @@ describe('detectOfferLanguage', () => {
     expect(detectOfferLanguage(42)).toBeNull()
   })
 
-  it('reads only the beginning of a very long text, quickly', () => {
-    const padded = `${IN_SCOPE_OFFERS.it} ${'x '.repeat(MAX_SCANNED_CHARACTERS)} ${IN_SCOPE_OFFERS.en.repeat(50)}`
-    const started = performance.now()
-    expect(detectOfferLanguage(padded)).toBe('it')
-    expect(performance.now() - started).toBeLessThan(200)
+  /**
+   * Growth, not a wall-clock budget (see `measureScaling`): each test times the
+   * same call on a short and a long text and asserts on the ratio, which does
+   * not depend on how fast the machine is.
+   */
+  describe('cost', () => {
+    it('reads only the beginning of a very long text, quickly', () => {
+      const padded = `${IN_SCOPE_OFFERS.it} ${'x '.repeat(MAX_SCANNED_CHARACTERS)} ${IN_SCOPE_OFFERS.en.repeat(50)}`
+
+      // A text 32 times as long, its tail made of the window's densest token
+      // (one word every two characters), so reading past the window costs at
+      // least as much per character as reading the window. Reading only the
+      // window keeps the ratio near 1; reading the whole text puts it near 32.
+      // 2 sits well above the first and far below the second.
+      const longer = padded + 'x '.repeat(Math.ceil((31 * padded.length) / 2))
+      const { ratio } = measureScaling(
+        () => detectOfferLanguage(padded),
+        () => detectOfferLanguage(longer)
+      )
+      expect(ratio).toBeLessThan(2)
+
+      expect(detectOfferLanguage(padded)).toBe('it')
+    })
+
+    it('scans the window it reads in linear time', () => {
+      // A window 8 times as long: linear cost grows about 8x, quadratic 64x.
+      const growth = 8
+      const textOf = (length: number): string =>
+        IN_SCOPE_OFFERS.en.repeat(Math.ceil(length / IN_SCOPE_OFFERS.en.length)).slice(0, length)
+      const partWindow = textOf(MAX_SCANNED_CHARACTERS / growth)
+      const fullWindow = textOf(MAX_SCANNED_CHARACTERS)
+      const { ratio } = measureScaling(
+        () => detectOfferLanguage(partWindow),
+        () => detectOfferLanguage(fullWindow)
+      )
+      expect(ratio).toBeLessThan(linearCeiling(growth))
+    })
   })
 })

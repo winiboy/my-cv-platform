@@ -244,3 +244,28 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-002 an existing CV can be linked from an application card
 FINAL: PASS
+
+## CI fix (not a story): timing tests measure growth, not wall-clock time
+PR #116's "Verify (required)" job failed twice on src/lib/resume-from-job/untrusted-text.test.ts, which asserted a 256k adversarial sanitize took under 100 ms; the shared runner measured 109 ms, then 121 ms. The test came from cv-from-job-complete and is untouched by this initiative; it passed locally and on #114/#115.
+- The timing checks in untrusted-text.test.ts and detect-offer-language.test.ts now assert how cost grows instead of an absolute budget. The new helper src/test/linear-time.ts:
+  - times the same work at N and 8N, best of 5, interleaved, calibrated samples of at least 10 ms;
+  - "linear" means a ratio under 8^1.5 ≈ 22.6, the geometric midpoint between linear (8) and quadratic (64);
+  - "bounded" (the detector reads only its 20k window) means a ratio under 2 at 32× the text.
+  - The helper has its own test (src/test/linear-time.test.ts).
+- Correctness assertions are unchanged.
+- The plain-text check now scans the whole 256k; the label-limit call is kept.
+- Proof that detection is kept (injected, then reverted):
+  - rich-text rescan per match: 42.7–53.4;
+  - plain-text rescan: 53.4–55.1;
+  - detector window rescan: 59–62;
+  - detector without .slice: 35–37;
+  - whole-text word scan: 39–42.
+  - Real code reads 4.6–17.3 under parallel load (mostly 7–10), and 0.91–1.01 for the bounded check.
+- Stability:
+  - the three files 10/10, then 20/20 while the full suite looped in parallel;
+  - reviewer re-runs 5/5, plus 3/3 under load.
+- Checks: pnpm test 2694 passed, 5 skipped; typecheck 0; lint 287 (unchanged).
+- code-reviewer:
+  - PASS, with the Major (detector margin too thin at 4×) fixed;
+  - redesign PASS. On cheap cases the new check is ~20× stricter than the old 100 ms budget, and about as strict on the expensive ones.
+  - Minor, recorded: if a timing test ever flakes on CI, add a single retry rather than raising the ceiling.
