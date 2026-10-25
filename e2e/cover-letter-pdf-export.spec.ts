@@ -1,46 +1,59 @@
-import { test, expect } from './fixtures/auth'
-import type { Locator, Page } from '@playwright/test'
-import { createClient } from '@supabase/supabase-js'
+import { createServer, type Server } from 'node:http'
+import type { AddressInfo } from 'node:net'
+import { test, expect, createTestUser, deleteTestUser } from './fixtures/auth'
+import type { APIResponse, Download, Locator, Page } from '@playwright/test'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
   LOCAL_SUPABASE_URL,
   LOCAL_SERVICE_KEY,
   assertLocalSupabase,
 } from '../src/test/local-stack'
+import { readPdf, type ReadPdf } from './fixtures/pdf'
+import fr from '../src/locales/fr/common.json'
+import de from '../src/locales/de/common.json'
 
 /**
- * The cover letter card's "Download PDF" button produces a real, valid PDF.
+ * A cover letter downloads as a real PDF file, from the letters list's ⋮ menu
+ * and from the editor (cover-letter-export-translate, US-001).
  *
  * WHY THIS NEEDS A BROWSER
  *
- * The export is entirely client-side: `cover-letter-card.tsx` dynamically
- * imports `html2pdf.js`, which rasterises the letter with html2canvas and
- * wraps the bitmap in a jsPDF document. There is no API route to assert
- * against and no server artefact to inspect - the bytes only exist once a real
- * engine has laid the letter out, painted it to a canvas, and handed the file
- * to the browser's download machinery. A unit test can reach none of that.
+ * The PDF is printed server-side by `POST /api/cover-letters/[id]/download-pdf`
+ * in a headless Chromium, but what the user gets is a file their browser
+ * saves: the click, the request, the name the page gives the download and the
+ * bytes. Only a real download shows all of them, and only the PDF's own text
+ * shows that every part of the letter reached it, in order.
  *
- * WHY IT EXISTS AT ALL
+ * WHAT IS ASSERTED, in fr and de
  *
- * The export runs through a dependency chain the application does not control
- * (html2pdf.js -> html2canvas + jsPDF). That chain has to be upgraded whenever
- * an advisory lands against it, and every such upgrade can silently change the
- * generated document instead of breaking a build. Nothing else in the suite
- * would notice a PDF that became one page shorter, a different size, or empty.
+ *   - The download is a complete PDF (`%PDF-` ... `%%EOF`) named after the
+ *     letter's title, at the cover letter's own 816 x 1056 px (612 x 792 pt)
+ *     page, and no dialog opens on the way.
+ *   - It is a TEXT PDF, not a picture: no image is embedded, and its extracted
+ *     text holds every part of the letter in order — sender, date, recipient
+ *     block, subject, greeting, opening, each body paragraph, closing,
+ *     sign-off, signature name.
+ *   - Rich text keeps its meaning: bold and italic faces are embedded, and an
+ *     ordered list keeps its numbers.
+ *   - A long letter flows onto exactly two pages with nothing missing.
+ *   - The editor refuses with unsaved changes, telling the user to save first,
+ *     and sends no request at all.
+ *   - A failed generation shows the localized error and saves no file.
+ *   - Another user's letter id answers 404 with no PDF.
  *
- * WHAT IS ASSERTED
+ * And, once, independent of the page language:
  *
- * The downloaded bytes are a PDF, are not truncated, and carry the cover
- * letter's own 816x1056 px geometry - which Part 3 US-008 deliberately left
- * out of the resumes' move to A4, so a page that silently became A4 is a
- * regression, not an improvement.
- *
- * On top of that, the page must stay quiet: no dialog, no uncaught error, no
- * script-level console error. The export swallows its own failures into `console.error` and
- * an `alert()`, which is why the oklch regression this test now guards looked
- * like a flaky download for weeks rather than a total, every-user outage. The
- * structural assertions above could not have caught it - there were no bytes at
- * all - and they equally could not catch a render that resolved every colour to
- * black. The quiet-page assertions are the half that fails loudly.
+ *   - Page boundary: a letter that ends just above the bottom of page 1 is one
+ *     page with its last line on it; one paragraph more is two pages, neither
+ *     of them empty. Both letters are built from one-line paragraphs, whose
+ *     height is set by the template's line-height rather than by the width of
+ *     whichever serif the machine has, so the boundary holds on every machine.
+ *     Measured: the one-page letter ends 9.5 px above page 1's bottom margin.
+ *   - `ul` items keep their "•" bullet, as text beside the item.
+ *   - A hostile letter (images, an @import, a frame, a meta refresh, a
+ *     javascript: link, an onerror handler, CSS backgrounds, all aimed at a
+ *     listener this test runs on the loopback) prints its visible text, and
+ *     the listener records no request at all.
  */
 
 const SUPABASE_URL = process.env.TEST_SUPABASE_URL ?? LOCAL_SUPABASE_URL
@@ -48,328 +61,508 @@ const SERVICE_KEY = process.env.TEST_SUPABASE_SERVICE_KEY ?? LOCAL_SERVICE_KEY
 
 assertLocalSupabase(SUPABASE_URL, 'E2E cover letter PDF export')
 
-/**
- * jsPDF writes the MediaBox in points. For `unit: 'px'` it converts at 96/72,
- * so the component's `format: [816, 1056]` becomes 1088 x 1408 pt. These are
- * the numbers the current export actually produces, measured rather than
- * derived, so a change in either the format or the unit fails here.
- */
-const EXPECTED_MEDIA_BOX = { width: 1088, height: 1408 }
-
-const LETTER_TITLE = 'E2E PDF Export'
-
-function admin() {
+function admin(): SupabaseClient {
   return createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 }
 
-/**
- * The letter both tests export. Shared rather than duplicated: the second test
- * forces a failure on the same document the first one exports successfully, so
- * the two outcomes differ only by the injected colour and nothing else.
- */
-async function insertTestLetter(userId: string): Promise<void> {
-  const { error: insertError } = await admin()
-    .from('cover_letters')
-    .insert({
-      user_id: userId,
-      title: LETTER_TITLE,
-      recipient_name: 'Mr. Charles Babbage',
-      recipient_title: 'Head of Engineering',
-      company_name: 'Analytical Engines SA',
-      company_address: '12 Rue du Calcul\n1003 Lausanne\nSwitzerland',
-      greeting: 'Dear Mr. Babbage,',
-      // Both tags are here so the rasterised page can be checked for surviving
-      // inline formatting: the sanitizer, the markup builder and html2canvas
-      // each get a chance to drop it, and a plain-text letter would look
-      // perfectly correct without it.
-      opening_paragraph:
-        'I am writing to apply for the <strong>Senior Software Engineer</strong> position, ' +
-        'and I am <em>particularly</em> drawn to your work.',
-      // Long enough to overflow one page, so the multi-page slicing path is
-      // exercised too: a single-page letter would pass even if slicing broke.
-      body_paragraphs: Array.from(
-        { length: 8 },
-        (_, i) =>
-          `Paragraph ${i + 1}: I have spent the last several years building and shipping ` +
-          `production software, and I own the document export pipeline end to end.`
-      ),
-      closing_paragraph: 'Thank you for your time and consideration.',
-      sign_off: 'Sincerely,',
-      sender_name: 'Ada Lovelace',
-      job_title: 'Senior Software Engineer',
-      // `template` is left to its column default: the cover_letters schema
-      // constrains it to 'modern', so naming a value here would only couple
-      // this fixture to a constraint the export does not depend on.
-    })
-  expect(insertError, insertError?.message).toBeNull()
+const LOCALES = { fr, de } as const
+type TestLocale = keyof typeof LOCALES
+
+/** US Letter in points: the cover letter's 816 x 1056 CSS px page. */
+const LETTER_PAGE_PT = { width: 612, height: 792 }
+
+/** Accented on purpose: the name travels RFC 5987-encoded and must come back intact. */
+const LETTER_TITLE = 'Lettre PDF Zürich'
+
+const BODY_PARAGRAPHS = [
+  'Body one: I have spent the last several years building and shipping production software.',
+  'Body two: I own the document export pipeline end to end, from markup to file.',
+  'Body three: I care about accessibility, localization and the details users notice.',
+]
+
+/** The letter every short-letter test downloads. Each part is a distinct marker. */
+const FULL_LETTER = {
+  sender_name: 'Ada Lovelace',
+  recipient_name: 'Charles Babbage',
+  recipient_title: 'Head of Engineering',
+  company_name: 'Analytical Engines SA',
+  company_address: '12 Rue du Calcul\n1003 Lausanne',
+  job_title: 'Senior Software Engineer',
+  greeting: 'Dear Mr. Babbage,',
+  opening_paragraph:
+    '<p>I am writing to apply with <strong>strong conviction</strong> and <em>genuine interest</em>.</p>' +
+    '<ol><li>First listed reason</li><li>Second listed reason</li></ol>',
+  body_paragraphs: BODY_PARAGRAPHS.map((text) => `<p>${text}</p>`),
+  closing_paragraph: '<p>Thank you for your time and consideration.</p>',
+  sign_off: 'Sincerely,',
 }
 
+/** Every part of FULL_LETTER, in the order the letter prints them. */
+const FULL_LETTER_PARTS: (string | RegExp)[] = [
+  'Ada Lovelace',
+  /[A-Z][a-z]+\d{1,2},\d{4}/,
+  'Charles Babbage',
+  'Head of Engineering',
+  'Analytical Engines SA',
+  '12 Rue du Calcul',
+  '1003 Lausanne',
+  'Re: Application for Senior Software Engineer',
+  'Dear Mr. Babbage,',
+  'I am writing to apply with strong conviction and genuine interest.',
+  '1.',
+  'First listed reason',
+  '2.',
+  'Second listed reason',
+  ...BODY_PARAGRAPHS,
+  'Thank you for your time and consideration.',
+  'Sincerely,',
+  'Ada Lovelace',
+]
+
 /**
- * Opens the kebab on the test letter's card and returns its "Download PDF" item.
- *
- * The card is addressed by its title, then the kebab inside that card, so a
- * second cover letter in the list could never make this click ambiguous.
- * `div.relative` is the card's own root: filtering plain `div` by text and
- * taking the innermost match lands on the wrapper around the heading, which
- * does not contain the menu button. The kebab toggle carries an icon and no
- * label, so it is addressed by position within the card rather than by an
- * accessible name it lacks.
+ * Long enough to need a second page with a wide margin either way, so a
+ * different serif on another machine still lands on exactly two: about 1.4
+ * pages of content.
  */
-async function openDownloadPdf(page: Page): Promise<Locator> {
+const LONG_BODY = Array.from(
+  { length: 8 },
+  (_, i) =>
+    `Long paragraph ${i + 1}: ` +
+    'I have built and shipped production software for many years, and I own the export pipeline. '.repeat(3),
+)
+
+/** A one-line body paragraph: it never wraps, whatever the font's widths. */
+const SHORT_LINES = (count: number) => Array.from({ length: count }, (_, i) => `<p>Short line ${i + 1}.</p>`)
+
+/** The page-boundary letters' fixed parts: one-line paragraphs and a two-item `ul`. */
+const BOUNDARY_LETTER = {
+  opening_paragraph: '<p>Opening line.</p><ul><li>Bullet alpha</li><li>Bullet beta</li></ul>',
+  closing_paragraph: '<p>Thank you.</p>',
+}
+
+/** Body paragraphs that end the letter 9.5 px above page 1's bottom margin. */
+const LINES_FILLING_PAGE_ONE = 10
+
+async function insertLetter(userId: string, fields: Record<string, unknown> = {}): Promise<string> {
+  const { data, error } = await admin()
+    .from('cover_letters')
+    .insert({ user_id: userId, title: LETTER_TITLE, ...FULL_LETTER, ...fields })
+    .select('id')
+    .single()
+  expect(error, error?.message).toBeNull()
+  return (data as { id: string }).id
+}
+
+/** Collects dialogs, so a test can assert none opened (no print dialog, no alert). */
+function watchDialogs(page: Page): string[] {
+  const dialogs: string[] = []
+  page.on('dialog', (dialog) => {
+    dialogs.push(`${dialog.type()}: ${dialog.message()}`)
+    void dialog.dismiss()
+  })
+  return dialogs
+}
+
+/** Counts requests to the PDF route, so a test can assert none was sent. */
+function watchPdfRequests(page: Page): string[] {
+  const requests: string[] = []
+  page.on('request', (request) => {
+    if (/\/api\/cover-letters\/[^/]+\/download-pdf$/.test(new URL(request.url()).pathname)) requests.push(request.method())
+  })
+  return requests
+}
+
+/** Opens the ⋮ menu of the letter's card and returns its PDF item. */
+async function openListPdfItem(page: Page, locale: TestLocale): Promise<Locator> {
   const card = page
     .locator('div.relative')
     .filter({ has: page.getByRole('heading', { level: 3, name: LETTER_TITLE }) })
     .last()
   await expect(card.getByRole('heading', { name: LETTER_TITLE })).toBeVisible()
-
+  // The kebab carries an icon and no label, so it is addressed by position.
   await card.locator('button').first().click()
-
-  const downloadButton = page.getByRole('button', { name: /Download PDF/i })
-  await expect(downloadButton).toBeVisible()
-  return downloadButton
+  const item = page.getByRole('button', { name: LOCALES[locale].coverLetters.downloadPDF, exact: true })
+  await expect(item).toBeVisible()
+  return item
 }
 
-test('the cover letter card exports a valid PDF at the cover letter page size', async ({
-  page,
-  authedUser,
-}) => {
-  // No `test.setTimeout` override. An earlier draft raised this to 120s on the
-  // assumption that rasterising a multi-page letter at scale 2 would dwarf
-  // everything else in the suite; measured against the fixed export it is 1.8s
-  // end to end, fixtures included, which is the suite's own average. The
-  // config's 90s is already fifty times the real cost, and a per-test blank
-  // cheque in a `workers: 1, retries: 0` suite buys nothing but a slower way to
-  // discover a hang.
+async function openEditor(page: Page, locale: TestLocale, letterId: string): Promise<Locator> {
+  const response = await page.goto(`/${locale}/dashboard/cover-letters/${letterId}/edit`)
+  expect(response?.status()).toBe(200)
+  const button = page.getByRole('button', { name: LOCALES[locale].coverLetters.downloadPDF, exact: true })
+  await expect(button).toBeVisible()
+  return button
+}
 
-  // The export's only failure channel is `console.error` plus an `alert()` that
-  // Playwright auto-dismisses, so a thrown export used to be indistinguishable
-  // from a slow one: the oklch regression presented as a download that simply
-  // never arrived. These are assertions, not diagnostics - a future export that
-  // fails silently has to fail this test, and fail it with the reason.
-  //
-  // Their window starts here, which is already after the login form and the
-  // post-login redirect: the `authedUser` fixture runs `loginAs` before this
-  // body (`e2e/fixtures/auth.ts:160-171`), so both of those navigations have
-  // happened. Nothing is weakened by that - `consoleErrors` is cleared at the
-  // click anyway, because loading this dashboard logs a handful of unrelated
-  // 403/404 subresource failures and asserting on them would be asserting on
-  // someone else's bug. From the click onward the count must be zero.
-  const consoleErrors: string[] = []
-  const reportedFailures: string[] = []
+/**
+ * The editor's PDF notice, by id: Next's route announcer is a second
+ * `role="alert"` on every page.
+ */
+const pdfNotice = (page: Page) => page.locator('#cover-letter-pdf-notice')
 
-  // Resolved by the first dialog or uncaught error, so the export's own failure
-  // report can be raced against the download instead of waited out.
-  let signalFailure: (reason: string) => void = () => {}
-  const failureReported = new Promise<string>((resolve) => {
-    signalFailure = resolve
+/** POST to the PDF route with the page's own session. */
+function requestPdf(page: Page, letterId: string): Promise<APIResponse> {
+  return page.request.post(`/api/cover-letters/${letterId}/download-pdf`, {
+    data: {},
+    headers: { 'Content-Type': 'application/json' },
+    timeout: 90_000,
   })
-  const reportFailure = (reason: string) => {
-    reportedFailures.push(reason)
-    signalFailure(reason)
-  }
+}
 
-  page.on('console', (m) => {
-    if (m.type() === 'error') consoleErrors.push(m.text())
-  })
-  page.on('pageerror', (e) => reportFailure(`pageerror ${e.name}: ${e.message}`))
-  page.on('dialog', (d) => {
-    reportFailure(`dialog: ${d.message()}`)
-    void d.dismiss()
-  })
-
-  await insertTestLetter(authedUser.id)
-
-  await page.goto('/en/dashboard/cover-letters')
-
-  const downloadButton = await openDownloadPdf(page)
-
-  // A raise, not a formality. Playwright's own fixtures push `actionTimeout`
-  // into the context default - `playwright/lib/index.js:356` sets
-  // `_defaultContextTimeout = actionTimeout || 0`, applied at
-  // `playwright-core/lib/coreBundle.js:59239` - and `TimeoutSettings._timeout`
-  // (`:57509-57519`) falls through explicit, then page default, then that
-  // context default, and only then to 30s. So a bare `waitForEvent` here would
-  // get the config's 15s, and stating 30s doubles it. Against a measured 1.8s
-  // for the whole test - fixtures and PDF parsing included - that is headroom
-  // for a loaded machine rather than the inflated ceiling the broken export
-  // needed to fail through.
-  const downloadPromise = page.waitForEvent('download', { timeout: 30_000 })
-  // Everything logged on the way here belongs to page load, not to the export.
-  // From this line on, anything logged is the export's.
-  consoleErrors.length = 0
-  await downloadButton.click()
-
-  // The export's alert() fires within a second of a thrown render, so waiting on
-  // the download alone would burn the full timeout on a failure the page has
-  // already reported. Racing the two names the reason immediately.
-  const outcome = await Promise.race([
-    downloadPromise.then(
-      () => 'download' as const,
-      () => 'no download within the timeout' as const
-    ),
-    failureReported.then((reason) => `the export reported: ${reason}` as const),
-  ])
-  expect(outcome, `consoleErrors: ${JSON.stringify(consoleErrors, null, 2)}`).toBe('download')
-
-  const download = await downloadPromise
-
+async function downloadedBytes(download: Download): Promise<Buffer> {
   const stream = await download.createReadStream()
   const chunks: Buffer[] = []
   for await (const chunk of stream) chunks.push(chunk as Buffer)
-  const pdf = Buffer.concat(chunks)
+  return Buffer.concat(chunks)
+}
 
-  // Attached rather than discarded. The failure this test was written for
-  // produced no bytes at all, but the next one need not: a colour fix that
-  // resolved everything to black, or a render that came back blank, would
-  // satisfy every structural assertion below. None of them can see the page.
-  // The document itself is the only evidence that can, so it travels with the
-  // result instead of being thrown away on the happy path.
-  await test.info().attach('cover-letter.pdf', { body: pdf, contentType: 'application/pdf' })
+/** Whitespace removed: where pdf.js splits a line into items is not the letter's business. */
+const squash = (text: string) => text.replace(/\s+/g, '')
 
-  expect(download.suggestedFilename()).toBe('E2E_PDF_Export.pdf')
-
-  // A PDF, and a complete one. Asserting only the header would pass for a
-  // file that the export aborted halfway through writing.
-  expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-')
-  const text = pdf.toString('latin1')
-  expect(text.trimEnd().endsWith('%%EOF')).toBe(true)
-
-  const mediaBoxes = [
-    ...text.matchAll(/\/MediaBox\s*\[\s*([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s*\]/g),
-  ].map((m) => ({ width: Number(m[3]), height: Number(m[4]) }))
-
-  expect(mediaBoxes.length).toBeGreaterThanOrEqual(2)
-  for (const box of mediaBoxes) {
-    expect(box).toEqual(EXPECTED_MEDIA_BOX)
+/** Every part found, each after the one before it. */
+function expectPartsInOrder(text: string, parts: readonly (string | RegExp)[]): void {
+  const haystack = squash(text)
+  let from = 0
+  for (const part of parts) {
+    let at: number
+    let length: number
+    if (typeof part === 'string') {
+      at = haystack.indexOf(squash(part), from)
+      length = squash(part).length
+    } else {
+      const match = new RegExp(part.source, 'g')
+      match.lastIndex = from
+      const found = match.exec(haystack)
+      at = found ? found.index : -1
+      length = found ? found[0].length : 0
+    }
+    expect(at, `"${String(part)}" is missing, or out of order, in: ${text}`).toBeGreaterThanOrEqual(0)
+    from = at + length
   }
+}
 
-  // The letter is rasterised into the page, so a PDF that rendered nothing
-  // would still have the right page size. The embedded JPEGs are what carry
-  // the content, and an empty render does not produce hundreds of kilobytes.
-  expect(text).toContain('/DCTDecode')
-  expect(pdf.length).toBeGreaterThan(50_000)
+/** A complete text PDF at the cover letter's page size. */
+async function expectTextPdf(pdf: Buffer): Promise<ReadPdf> {
+  expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-')
+  expect(pdf.toString('latin1').trimEnd().endsWith('%%EOF')).toBe(true)
+  const read = await readPdf(pdf)
+  expect(read.images, 'the letter must be text, not a picture of the page').toBe(0)
+  for (const page of read.pages) {
+    expect(Math.round(page.widthPt)).toBe(LETTER_PAGE_PT.width)
+    expect(Math.round(page.heightPt)).toBe(LETTER_PAGE_PT.height)
+  }
+  return read
+}
 
-  // A download can arrive *and* the page can still have complained - a partly
-  // failed render, a missing asset, a second export attempt. Nothing about the
-  // bytes above would notice, so the page's own error channels are asserted
-  // clean rather than merely raced against.
-  expect(reportedFailures, 'the export must not raise a dialog or an uncaught error').toEqual([])
+/** The names of the fonts the PDF embeds; Chromium keeps the style in them. */
+function embeddedFontNames(pdf: Buffer): string[] {
+  return [...pdf.toString('latin1').matchAll(/\/FontName\s*\/([^\s/<>[\]]+)/g)].map((match) => match[1])
+}
 
-  // Subresource-load failures are excluded, and only those. Two of them arrive
-  // here on the browser's own idle schedule and belong to neither the export nor
-  // this test: the dashboard's `<Link>` prefetches answer 404 for
-  // `/en/dashboard/goals` and `/en/dashboard/settings`, and the browser Sentry
-  // SDK's envelope POSTs are rejected 403 by the real ingest host from a local
-  // run. Both are pre-existing and both are someone else's bug to fix; pinning
-  // this test to them would only make it flaky.
-  //
-  // Nothing is lost by the exclusion. The export reports its own failures by
-  // calling `console.error` and `alert`, which are a script error and a dialog -
-  // exactly what is still asserted at zero here and directly above.
-  const scriptErrors = consoleErrors.filter((m) => !m.startsWith('Failed to load resource'))
-  expect(
-    scriptErrors,
-    `the export must not log a console error. everything logged after the click: ${JSON.stringify(consoleErrors, null, 2)}`
-  ).toEqual([])
+async function expectFullLetter(pdf: Buffer, download: Download): Promise<void> {
+  await test.info().attach('cover-letter.pdf', { body: pdf, contentType: 'application/pdf' })
+  expect(download.suggestedFilename()).toBe(`${LETTER_TITLE}.pdf`)
+  const read = await expectTextPdf(pdf)
+  expect(read.pages).toHaveLength(1)
+  expectPartsInOrder(read.pages.map((page) => page.text).join(' '), FULL_LETTER_PARTS)
+
+  const fonts = embeddedFontNames(pdf)
+  expect(fonts.some((name) => /Bold/i.test(name)), `bold face embedded: ${fonts.join(', ')}`).toBe(true)
+  expect(fonts.some((name) => /Italic|Oblique/i.test(name)), `italic face embedded: ${fonts.join(', ')}`).toBe(true)
+}
+
+for (const locale of Object.keys(LOCALES) as TestLocale[]) {
+  const messages = LOCALES[locale].coverLetters
+
+  test.describe(`cover letter PDF (${locale})`, () => {
+    test('the list ⋮ menu downloads the letter as a text PDF with every part in order', async ({ page, authedUser }) => {
+      const dialogs = watchDialogs(page)
+      await insertLetter(authedUser.id)
+      await page.goto(`/${locale}/dashboard/cover-letters`)
+
+      const item = await openListPdfItem(page, locale)
+      const downloading = page.waitForEvent('download', { timeout: 60_000 })
+      await item.click()
+      const download = await downloading
+
+      await expectFullLetter(await downloadedBytes(download), download)
+      expect(dialogs).toEqual([])
+    })
+
+    test('the editor downloads the saved letter as a text PDF with every part in order', async ({ page, authedUser }) => {
+      const dialogs = watchDialogs(page)
+      const letterId = await insertLetter(authedUser.id)
+      const button = await openEditor(page, locale, letterId)
+
+      const downloading = page.waitForEvent('download', { timeout: 60_000 })
+      await button.click()
+      const download = await downloading
+
+      await expectFullLetter(await downloadedBytes(download), download)
+      expect(dialogs).toEqual([])
+    })
+
+    test('a long letter flows onto a second page with no part missing', async ({ page, authedUser }) => {
+      const letterId = await insertLetter(authedUser.id, {
+        body_paragraphs: LONG_BODY.map((text) => `<p>${text}</p>`),
+      })
+      const button = await openEditor(page, locale, letterId)
+
+      const downloading = page.waitForEvent('download', { timeout: 60_000 })
+      await button.click()
+      const pdf = await downloadedBytes(await downloading)
+      await test.info().attach('long-cover-letter.pdf', { body: pdf, contentType: 'application/pdf' })
+
+      const read = await expectTextPdf(pdf)
+      expect(read.pages).toHaveLength(2)
+      expectPartsInOrder(read.pages.map((p) => p.text).join(' '), [
+        'Ada Lovelace',
+        'Dear Mr. Babbage,',
+        ...LONG_BODY.map((text) => text.trim()),
+        'Thank you for your time and consideration.',
+        'Sincerely,',
+        'Ada Lovelace',
+      ])
+      // The second page carries the end of the letter, not a blank sheet.
+      expectPartsInOrder(read.pages[1].text, ['Sincerely,', 'Ada Lovelace'])
+    })
+
+    test('with unsaved changes the editor asks to save first and downloads nothing', async ({ page, authedUser }) => {
+      const letterId = await insertLetter(authedUser.id)
+      const button = await openEditor(page, locale, letterId)
+      const requests = watchPdfRequests(page)
+      let downloads = 0
+      page.on('download', () => {
+        downloads++
+      })
+
+      await page.getByPlaceholder(LOCALES[locale].coverLetters.editor.titlePlaceholder).fill('Edited title')
+      await button.click()
+
+      await expect(pdfNotice(page)).toHaveText(messages.editor.saveBeforeDownload)
+      expect(requests).toEqual([])
+      expect(downloads).toBe(0)
+
+      // Nothing was saved on the user's behalf.
+      const { data } = await admin().from('cover_letters').select('title').eq('id', letterId).single()
+      expect((data as { title: string }).title).toBe(LETTER_TITLE)
+    })
+
+    test('a failed generation shows the localized error and saves no file', async ({ page, authedUser }) => {
+      const letterId = await insertLetter(authedUser.id)
+      await page.route('**/api/cover-letters/*/download-pdf', (route) =>
+        route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"Failed to generate PDF"}' }),
+      )
+      let downloads = 0
+      page.on('download', () => {
+        downloads++
+      })
+
+      // Editor: an inline alert.
+      const button = await openEditor(page, locale, letterId)
+      await button.click()
+      await expect(pdfNotice(page)).toHaveText(messages.downloadPDFError)
+
+      // List: the card reports its failures in a dialog.
+      const dialogs = watchDialogs(page)
+      await page.goto(`/${locale}/dashboard/cover-letters`)
+      await (await openListPdfItem(page, locale)).click()
+      await expect.poll(() => dialogs).toEqual([`alert: ${messages.downloadPDFError}`])
+
+      expect(downloads).toBe(0)
+    })
+  })
+}
+
+test("another user's letter id is refused with 404 and no PDF", async ({ page, authedUser }) => {
+  const other = await createTestUser()
+  try {
+    const foreignId = await insertLetter(other.id)
+    // The signed-in user's own letter answers, so the 404 is about ownership.
+    const ownId = await insertLetter(authedUser.id)
+
+    const post = (id: string) => requestPdf(page, id)
+
+    const foreign = await post(foreignId)
+    expect(foreign.status()).toBe(404)
+    expect(foreign.headers()['content-type']).not.toContain('application/pdf')
+    expect(foreign.headers()['content-disposition']).toBeUndefined()
+
+    expect((await post('00000000-0000-4000-8000-000000000000')).status()).toBe(404)
+    expect((await post('not-a-uuid')).status()).toBe(404)
+
+    const own = await post(ownId)
+    expect(own.status()).toBe(200)
+    expect(own.headers()['content-type']).toBe('application/pdf')
+  } finally {
+    await deleteTestUser(other.id)
+  }
 })
 
-/**
- * A colour html2canvas cannot parse, injected with `!important` so it beats the
- * fallback stylesheet `onclone` installs. This is the original outage
- * reproduced, not a synthetic error. `parseBackgroundColor` reads the *cloned*
- * document's `html` and `body` (`html2canvas.esm.js:7757, :7798-7805`), and this
- * rule reaches that clone in two steps: `createStyleClone` rebuilds the `<style>`
- * element's text from `sheet.cssRules` (`:5280-5281, :5303-5325`) - necessary,
- * because its `cloneNode(false)` copies no child text node - and `toIFrame` then
- * adopts the whole cloned tree into the iframe document (`:5266`), where that
- * text is parsed as CSS again. `cssText` serialisation preserves `!important`
- * and `oklch()`, so the parser throws `Attempting to parse an unsupported color
- * function "oklch"`. html2canvas rejects, which is the exact path that leaks.
- */
-const UNPARSEABLE_COLOR_CSS = 'html, body { background-color: oklch(0.7 0.1 200) !important; }'
+test.describe('cover letter PDF: keyboard focus (fr)', () => {
+  const locale: TestLocale = 'fr'
 
-test('a failed export leaves no html2pdf overlay blocking the dashboard', async ({
-  page,
-  authedUser,
-}) => {
-  // Same reasoning as the test above: no override. This one is faster still -
-  // 1.6s measured - because the render aborts instead of completing.
-
-  // `html2pdf.js` appends a `position: fixed`, viewport-covering
-  // `.html2pdf__overlay` to `document.body` before it rasterises
-  // (src/worker.js:105-125) and removes it only in `toCanvas_post` (:152),
-  // which a rejected `html2canvas()` never reaches. Its `opacity: 0` hides it
-  // but does not stop pointer events, so the failure this whole change exists
-  // to handle used to end with the dashboard unclickable and every retry
-  // stacking another one.
-  //
-  // The mount is counted by observer rather than read after the fact: the
-  // component now removes the overlay in its `finally`, so by the time this
-  // test could look, it is gone either way. Without the counter, a future
-  // html2pdf that stopped creating the overlay at all would make the
-  // zero-overlays assertion below pass vacuously.
-  await page.addInitScript(() => {
-    const target = window as unknown as { __html2pdfOverlaysMounted?: number }
-    target.__html2pdfOverlaysMounted = 0
-    new MutationObserver((records) => {
-      for (const record of records) {
-        for (const node of record.addedNodes) {
-          if (node instanceof HTMLElement && node.classList.contains('html2pdf__overlay')) {
-            target.__html2pdfOverlaysMounted = (target.__html2pdfOverlaysMounted ?? 0) + 1
-          }
-        }
-      }
-    }).observe(document, { childList: true, subtree: true })
-  })
-
-  // The export's only user-visible failure channel. Dismissed immediately,
-  // because `alert()` blocks the page and the cleanup runs after it returns.
-  const dialogs: string[] = []
-  let signalDialog: () => void = () => {}
-  const dialogShown = new Promise<void>((resolve) => {
-    signalDialog = resolve
-  })
-  page.on('dialog', (d) => {
-    dialogs.push(d.message())
-    signalDialog()
-    void d.dismiss()
-  })
-
-  await insertTestLetter(authedUser.id)
-
-  await page.goto('/en/dashboard/cover-letters')
-  await page.addStyleTag({ content: UNPARSEABLE_COLOR_CSS })
-
-  const downloadButton = await openDownloadPdf(page)
-  await downloadButton.click()
-
-  await dialogShown
-  expect(dialogs, 'a failed export must tell the user').toHaveLength(1)
-
-  // The `finally` runs as `alert()` returns, so this is settled by now; it is
-  // polled rather than read once so the assertion reports the leak instead of
-  // a scheduling race.
-  await expect
-    .poll(
-      () =>
-        page.evaluate(() => ({
-          mounted:
-            (window as unknown as { __html2pdfOverlaysMounted?: number })
-              .__html2pdfOverlaysMounted ?? 0,
-          overlays: document.querySelectorAll('.html2pdf__overlay').length,
-          containers: document.querySelectorAll('.html2pdf__container').length,
-        })),
-      { timeout: 15_000 }
+  test('after a failed request the editor button keeps focus, so Enter retries', async ({ page, authedUser }) => {
+    const letterId = await insertLetter(authedUser.id)
+    const button = await openEditor(page, locale, letterId)
+    const route = '**/api/cover-letters/*/download-pdf'
+    await page.route(route, (r) =>
+      r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"Failed to generate PDF"}' }),
     )
-    .toEqual({ mounted: 1, overlays: 0, containers: 0 })
 
-  // The count is the mechanism; this is the symptom. An overlay still mounted
-  // sits above the card at `zIndex: 1000`, so Playwright's own hit-target check
-  // fails this click with "intercepts pointer events" - which is precisely what
-  // the user hit. A passing click is the proof that the dashboard is usable
-  // again, not merely that one selector matched nothing.
-  const reopened = await openDownloadPdf(page)
-  await expect(reopened).toBeVisible()
+    await button.focus()
+    await expect(button).toBeFocused()
+    await page.keyboard.press('Enter')
+
+    // The button was disabled while busy, which drops focus to <body>; it must
+    // come back once the request has ended.
+    await expect(pdfNotice(page)).toHaveText(LOCALES[locale].coverLetters.downloadPDFError)
+    await expect(button).toBeFocused()
+
+    await page.unroute(route)
+    const downloading = page.waitForEvent('download', { timeout: 60_000 })
+    await page.keyboard.press('Enter')
+    const pdf = await downloadedBytes(await downloading)
+    expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-')
+    await expect(button).toBeFocused()
+  })
+
+  test('the list ⋮ item hands focus back to the menu toggle it closes', async ({ page, authedUser }) => {
+    await insertLetter(authedUser.id)
+    await page.goto(`/${locale}/dashboard/cover-letters`)
+    const item = await openListPdfItem(page, locale)
+    const toggle = page
+      .locator('div.relative')
+      .filter({ has: page.getByRole('heading', { level: 3, name: LETTER_TITLE }) })
+      .last()
+      .locator('button')
+      .first()
+
+    const downloading = page.waitForEvent('download', { timeout: 60_000 })
+    await item.click()
+    await expect(toggle).toBeFocused()
+    await downloading
+    await expect(toggle).toBeFocused()
+  })
+})
+
+test.describe('cover letter PDF: page boundary', () => {
+  test('a letter ending near the bottom of page 1 is one page, with its last line on it', async ({ page, authedUser }) => {
+    const letterId = await insertLetter(authedUser.id, {
+      ...BOUNDARY_LETTER,
+      body_paragraphs: SHORT_LINES(LINES_FILLING_PAGE_ONE),
+    })
+    const response = await requestPdf(page, letterId)
+    expect(response.status()).toBe(200)
+    const pdf = await response.body()
+    await test.info().attach('page-one-full.pdf', { body: pdf, contentType: 'application/pdf' })
+
+    const read = await expectTextPdf(pdf)
+    expect(read.pages).toHaveLength(1)
+    expectPartsInOrder(read.pages[0].text, [
+      'Dear Mr. Babbage,',
+      `Short line ${LINES_FILLING_PAGE_ONE}.`,
+      'Thank you.',
+      'Sincerely,',
+      'Ada Lovelace',
+    ])
+    // The signature is the last thing on the page.
+    expect(squash(read.pages[0].text).endsWith('AdaLovelace')).toBe(true)
+  })
+
+  test('one paragraph more is two pages, neither of them empty', async ({ page, authedUser }) => {
+    const lines = LINES_FILLING_PAGE_ONE + 1
+    const letterId = await insertLetter(authedUser.id, { ...BOUNDARY_LETTER, body_paragraphs: SHORT_LINES(lines) })
+    const response = await requestPdf(page, letterId)
+    expect(response.status()).toBe(200)
+    const pdf = await response.body()
+    await test.info().attach('page-one-overflow.pdf', { body: pdf, contentType: 'application/pdf' })
+
+    const read = await expectTextPdf(pdf)
+    expect(read.pages).toHaveLength(2)
+    for (const pdfPage of read.pages) expect(pdfPage.text.trim()).not.toBe('')
+    expectPartsInOrder(read.pages.map((p) => p.text).join(' '), [
+      ...Array.from({ length: lines }, (_, i) => `Short line ${i + 1}.`),
+      'Thank you.',
+      'Sincerely,',
+      'Ada Lovelace',
+    ])
+    expectPartsInOrder(read.pages[1].text, ['Ada Lovelace'])
+  })
+
+  test('ul items keep their bullet as text beside the item', async ({ page, authedUser }) => {
+    const letterId = await insertLetter(authedUser.id, { ...BOUNDARY_LETTER, body_paragraphs: SHORT_LINES(1) })
+    const response = await requestPdf(page, letterId)
+    expect(response.status()).toBe(200)
+    const read = await expectTextPdf(await response.body())
+    expectPartsInOrder(read.pages[0].text, ['Opening line.', '•', 'Bullet alpha', '•', 'Bullet beta', 'Short line 1.'])
+  })
+})
+
+test.describe('cover letter PDF: hostile content', () => {
+  let listener: Server
+  let port = 0
+  const hits: string[] = []
+
+  test.beforeAll(async () => {
+    listener = createServer((request, response) => {
+      hits.push(`${request.method} ${request.url}`)
+      response.writeHead(204)
+      response.end()
+    })
+    await new Promise<void>((resolve) => listener.listen(0, '127.0.0.1', resolve))
+    port = (listener.address() as AddressInfo).port
+  })
+
+  test.afterAll(async () => {
+    await new Promise<void>((resolve) => listener.close(() => resolve()))
+  })
+
+  test('prints the visible text and reaches no URL in the letter', async ({ page, authedUser }) => {
+    const target = (path: string) => `http://127.0.0.1:${port}/${path}`
+
+    // The listener answers on this machine, where the server renders: a request
+    // from the renderer would have been recorded.
+    await fetch(target('probe'))
+    expect(hits).toEqual(['GET /probe'])
+    hits.length = 0
+
+    const letterId = await insertLetter(authedUser.id, {
+      sender_name: `Ada <img src="${target('sender')}">`,
+      opening_paragraph:
+        '<p>Visible opening text.</p>' +
+        `<img src="${target('img')}">` +
+        `<style>@import url(${target('css')})</style>` +
+        `<iframe src="${target('frame')}"></iframe>` +
+        `<meta http-equiv="refresh" content="0;url=${target('meta')}">` +
+        '<a href="javascript:alert(1)">Visible link text</a>' +
+        `<img src="x" onerror="fetch('${target('onerror')}')">`,
+      body_paragraphs: [
+        `<p style="font-family:x;background:url(${target('bg')})">Visible body text.</p>`,
+        `<p><span style="font-family:x;background-image:url(${target('span-bg')})">Visible span text.</span></p>`,
+      ],
+      closing_paragraph: '<p>Visible closing text.</p>',
+    })
+
+    const response = await requestPdf(page, letterId)
+    expect(response.status()).toBe(200)
+    const pdf = await response.body()
+    await test.info().attach('hostile-cover-letter.pdf', { body: pdf, contentType: 'application/pdf' })
+
+    const read = await expectTextPdf(pdf)
+    const text = read.pages.map((p) => p.text).join(' ')
+    expectPartsInOrder(text, [
+      'Visible opening text.',
+      'Visible link text',
+      'Visible body text.',
+      'Visible span text.',
+      'Visible closing text.',
+    ])
+    // A plain-text field prints its markup as text, escaped.
+    expect(squash(text)).toContain(squash(`Ada <img src="${target('sender')}">`))
+
+    expect(hits, 'the renderer must not request any URL from the letter').toEqual([])
+  })
 })

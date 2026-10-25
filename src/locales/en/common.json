@@ -497,6 +497,7 @@
     "duplicate": "Duplicate",
     "downloadPDF": "Download PDF",
     "downloadPDFError": "The PDF could not be created. Please try again.",
+    "downloadPDFTooLarge": "This letter is too long to export. Shorten its paragraphs and try again.",
     "confirmDelete": "Are you sure you want to delete this cover letter?",
     "jobAssociation": {
       "linkedJob": "Linked Job",
@@ -552,6 +553,9 @@
       "saveFailed": "Failed to save",
       "generate": "Generate",
       "check": "Check",
+      "downloadPdf": "PDF",
+      "downloadingPdf": "Creating PDF...",
+      "saveBeforeDownload": "Save your changes first: the PDF is made from the saved letter.",
       "sections": {
         "recipient": "Recipient",
         "opening": "Opening",

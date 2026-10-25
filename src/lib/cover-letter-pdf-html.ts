@@ -25,12 +25,34 @@ export interface CoverLetterPdfHtmlOptions {
 }
 
 /**
- * Builds the HTML markup that the dashboard card hands to html2pdf.
+ * The body paragraphs a letter prints: the stored JSON array's strings, in
+ * order. `body_paragraphs` is a JSON column the editor writes directly, so a
+ * malformed row (not an array, or an item that is not a string) prints what it
+ * can rather than failing the export. The one filter the builder and the PDF
+ * renderer's sanitizing step share, so both see the same paragraphs.
+ */
+export function coverLetterBodyParagraphs(bodyParagraphs: CoverLetterPdfFields['body_paragraphs']): string[] {
+  if (!Array.isArray(bodyParagraphs)) return []
+  return bodyParagraphs.filter((paragraph): paragraph is string => typeof paragraph === 'string')
+}
+
+/**
+ * The date line as the letter export has always printed it: US English, long
+ * month. Localizing it is a separate requirement (PRD
+ * `tasks/prds/cover-letter-export-translate.md`, Out of Scope).
+ */
+export function formatCoverLetterPdfDate(date: Date): string {
+  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+}
+
+/**
+ * Builds the HTML markup of a cover letter's PDF, which the server prints in a
+ * headless browser (`src/lib/pdf/render-cover-letter.ts`).
  *
  * Plain-text fields (sender_name, recipient_name, recipient_title,
  * company_name, company_address, job_title, greeting, sign_off, and the
  * date) are entered by the user as text, so they are HTML-escaped: the markup
- * is assigned to `innerHTML`, and unescaped values would execute as HTML.
+ * is parsed as HTML, and unescaped values would become elements.
  *
  * Rich-text fields (opening_paragraph, body_paragraphs, closing_paragraph)
  * legitimately contain formatting markup, so they go through
@@ -47,9 +69,7 @@ export function buildCoverLetterPdfHtml(
 ): string {
   const { currentDate, sanitizeRichText } = options
 
-  const bodyParagraphs = Array.isArray(coverLetter.body_paragraphs)
-    ? (coverLetter.body_paragraphs as string[])
-    : []
+  const bodyParagraphs = coverLetterBodyParagraphs(coverLetter.body_paragraphs)
 
   return `
         <div style="width: 816px; min-height: 1056px; background: white; padding: 64px; font-family: Georgia, serif; font-size: 14px; line-height: 1.625; color: #1f2937;">

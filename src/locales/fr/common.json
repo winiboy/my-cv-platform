@@ -497,6 +497,7 @@
     "duplicate": "Dupliquer",
     "downloadPDF": "Télécharger PDF",
     "downloadPDFError": "Le PDF n'a pas pu être créé. Veuillez réessayer.",
+    "downloadPDFTooLarge": "Cette lettre est trop longue pour être exportée. Raccourcissez ses paragraphes et réessayez.",
     "confirmDelete": "Êtes-vous sûr de vouloir supprimer cette lettre de motivation ?",
     "jobAssociation": {
       "linkedJob": "Emploi lié",
@@ -552,6 +553,9 @@
       "saveFailed": "Échec de l'enregistrement",
       "generate": "Générer",
       "check": "Vérifier",
+      "downloadPdf": "PDF",
+      "downloadingPdf": "Création du PDF...",
+      "saveBeforeDownload": "Enregistrez d'abord vos modifications : le PDF est créé à partir de la lettre enregistrée.",
       "sections": {
         "recipient": "Destinataire",
         "opening": "Accroche",

@@ -117,7 +117,9 @@ evidence below was gathered.
    without it is still a net win, because the directives that block the beacon
    do not depend on it.
 2. **The print path.** `window.print()` on all five templates.
-3. **The cover-letter PDF export** (html2pdf.js → html2canvas + jsPDF).
+3. **The cover-letter PDF export** — no longer a browser path: the PDF is
+   printed server-side (`/api/cover-letters/[id]/download-pdf`), so the page
+   only receives a file.
 4. **Profile-photo background removal** — confirm no violation asks for
    `'unsafe-eval'` in a production build, only `'wasm-unsafe-eval'`.
 5. **Google OAuth sign-in**, then the dashboard user menu, for the

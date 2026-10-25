@@ -82,3 +82,22 @@ describe('cleanPdfBasename', () => {
     expect(() => encodeURIComponent(name)).not.toThrow()
   })
 })
+
+describe('a caller-named fallback', () => {
+  it('replaces resume for a title with nothing usable, in both parameters', () => {
+    expect(pdfContentDisposition('', 'cover-letter')).toBe(
+      `attachment; filename="cover-letter.pdf"; filename*=UTF-8''cover-letter.pdf`,
+    )
+    expect(cleanPdfBasename(' . ', 'cover-letter')).toBe('cover-letter')
+  })
+
+  it('leaves a usable title untouched', () => {
+    expect(pdfContentDisposition('Lettre', 'cover-letter')).toBe(pdfContentDisposition('Lettre'))
+  })
+
+  it('is not used for a non-ASCII title, which keeps its own name', () => {
+    const { ascii, unicode } = parse(pdfContentDisposition('日本', 'cover-letter'))
+    expect(unicode).toBe('日本.pdf')
+    expect(ascii).toBe('__.pdf')
+  })
+})

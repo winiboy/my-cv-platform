@@ -17,7 +17,7 @@
  * the quoted fallback well-formed: no quote or backslash can reach it.
  */
 
-/** Used when a title has nothing left once cleaned. */
+/** Used when a title has nothing left once cleaned, unless the caller names another. */
 const FALLBACK_BASENAME = 'resume'
 
 /**
@@ -41,7 +41,7 @@ const NON_PRINTABLE_ASCII = /[^\x20-\x7e]/g
  * The title as a file base name: unsafe characters replaced, whitespace
  * collapsed, Windows' trailing dots and spaces removed, length bounded.
  */
-export function cleanPdfBasename(title: string | null | undefined): string {
+export function cleanPdfBasename(title: string | null | undefined, fallback: string = FALLBACK_BASENAME): string {
   const cleaned = (title ?? '')
     .normalize('NFC')
     .replace(CONTROL_CHARS, ' ')
@@ -53,7 +53,7 @@ export function cleanPdfBasename(title: string | null | undefined): string {
   // surrogate pair into an unencodable lone half.
   const bounded = Array.from(cleaned).slice(0, MAX_BASENAME_LENGTH).join('')
   const trimmed = bounded.replace(/[\s.]+$/, '')
-  return trimmed.length > 0 ? trimmed : FALLBACK_BASENAME
+  return trimmed.length > 0 ? trimmed : fallback
 }
 
 /** RFC 5987 `value-chars`: `encodeURIComponent` leaves four characters the grammar does not allow. */
@@ -64,24 +64,29 @@ function encodeRfc5987(value: string): string {
   )
 }
 
-function asciiFallback(basename: string): string {
+function asciiFallback(basename: string, fallback: string): string {
   const ascii = basename
     .normalize('NFD')
     .replace(COMBINING_MARKS, '')
     .replace(NON_PRINTABLE_ASCII, '_')
     .trim()
-  return ascii.length > 0 ? ascii : FALLBACK_BASENAME
+  return ascii.length > 0 ? ascii : fallback
 }
 
 /**
  * `attachment; filename="<ascii>.pdf"; filename*=UTF-8''<encoded>.pdf`.
  *
- * An empty or entirely unusable title gives `resume.pdf` in both parameters.
+ * An empty or entirely unusable title gives `<fallback>.pdf` in both
+ * parameters: `resume.pdf` unless the caller names another base name, which
+ * must itself be printable ASCII with no character `cleanPdfBasename` replaces.
  */
-export function pdfContentDisposition(title: string | null | undefined): string {
-  const basename = cleanPdfBasename(title)
+export function pdfContentDisposition(
+  title: string | null | undefined,
+  fallback: string = FALLBACK_BASENAME,
+): string {
+  const basename = cleanPdfBasename(title, fallback)
   return (
-    `attachment; filename="${asciiFallback(basename)}.pdf"; ` +
+    `attachment; filename="${asciiFallback(basename, fallback)}.pdf"; ` +
     `filename*=UTF-8''${encodeRfc5987(`${basename}.pdf`)}`
   )
 }

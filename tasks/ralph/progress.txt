@@ -4,3 +4,153 @@ Contract: tasks/ralph/prd.json (branch ralph/cover-letter-export-translate)
 PRD: tasks/prds/cover-letter-export-translate.md (Status: APPROVED 2026-10-24, written by the owner: the owner approved the exact approval command in the app, which ran it in the owner's terminal)
 Format: docs/engineering/progress-log-format.md
 Branch setup: from origin/main eba78d1 (#116 merged). The first commit archives the merged job-cv-linking contract; the second adds this PRD and its contract.
+
+## US-001: A cover letter downloads as a real PDF file
+Status: PASS
+Priority: 1
+Branch: ralph/cover-letter-export-translate
+Baseline HEAD: b1b9548 (origin/main eba78d1 + archive and contract commits)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; new files untracked):
+  - New `src/app/api/cover-letters/[id]/download-pdf/route.ts` (+ route.test.ts): POST, JSON only.
+    - Checks in order: 401 → 415 → uuid / ownership 404 (session + explicit user_id) → 500 on a read error → 422 above the size guard (before any render slot) → 503 + Retry-After when busy → 500/504 on a render failure.
+    - Content-Disposition comes from the title (shared pdfContentDisposition; fallback cover-letter.pdf).
+    - Logs only the stage and the error name.
+  - New `src/lib/pdf/render-cover-letter.ts` (+ test): prints `buildCoverLetterPdfHtml` in the same `launchPdfBrowser` Chromium as resumes, with a 30 s limit, on a US Letter page (612×792 pt).
+    - Rich fields are sanitized in the page with the editor's own sanitizer before the markup is set.
+    - JavaScript disabled, every request aborted, WebSockets closed, setContent only; fonts inlined on serverless.
+    - The print stylesheet:
+      - restores the base styles the old export inherited (border-box, zero paragraph margins);
+      - adds list markers ("•" as text, numbers for ol);
+      - adds a 64 px top margin on page 2 and later;
+      - lifts the template's min-height and bottom padding, so a full page 1 never spills onto an empty page 2.
+  - New `src/lib/pdf/render-slots.ts` (+ test): one limit of 2 concurrent renders, shared by the resume and cover-letter routes. The resume route uses it with unchanged 503 semantics (5/12).
+  - New `src/lib/rich-html-sanitizer.ts`: the editor sanitizer moved byte-for-byte; `html-utils` re-exports it as `sanitizeHtml` (9/80), so there is one self-contained body.
+  - New `src/lib/cover-letter-limits.ts` (+ test):
+    - the API field limits, unchanged values, now read by both cover-letter schemas (14/13 each);
+    - a separate, generous PDF resource guard: 20,000 characters per printed rich field, 2,000 per plain field, 50 body paragraphs, 200,000 total.
+  - `src/lib/cover-letter-pdf-html.ts` (25/5) + test: one shared `coverLetterBodyParagraphs` filter (non-strings skipped) and `formatCoverLetterPdfDate` (the same en-US date as before).
+  - New `src/lib/pdf/cover-letter-download-client.ts` (+ test) and `src/lib/hooks/use-cover-letter-pdf-download.ts`: the browser request and download. Anything that isn't a PDF is rejected; double clicks are guarded; 45 s timeout.
+  - `src/components/dashboard/cover-letter-card.tsx` (15/131): the ⋮ item uses the server PDF; the html2pdf path is removed; focus returns to ⋮ after the menu closes.
+  - `src/components/dashboard/cover-letter-editor.tsx` (98/1): a PDF button in the header, disabled with a spinner while busy.
+    - With unsaved changes it shows the localized "save first" notice and sends no request.
+    - Inline localized errors for a failure and for "too long"; the notice uses role="alert" and text-red-700 for failures.
+    - Focus returns to the button when a request ends, if focus was lost.
+  - Deleted `src/lib/html2canvas-color-fallback.ts` (+ test): the card was its only importer.
+  - `src/lib/pdf/filename.ts` (+ test), `download-client.ts`: an optional fallback name; defaults unchanged.
+  - `src/lib/pdf/browser.ts` (23/10): the header describes the cover-letter renderer's controls. `render-preview.ts` (5/2): type-only, adds a 'sanitize' stage.
+  - `next.config.js` (20/13): traces Chromium and fonts for the new route.
+  - `docs/engineering/pdf-export-runtime.md`, `docs/engineering/security-headers.md`: updated for two routes; the obsolete html2pdf CSP note retired.
+  - `src/locales/{fr,en,de,it}/common.json` (4/0 each).
+  - `e2e/cover-letter-pdf-export.spec.ts` (508/315): rewritten for the server PDF.
+- Not touched: migrations, package.json and pnpm-lock.yaml, resume templates. The html2pdf.js dependency is now unused and left in package.json (open decision below). No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted. Today's PDFs came from the temporary origin/main worktree (.claude/worktrees/before-main).
+
+Checks:
+- Earlier runs on earlier diffs were invalidated by the fixes below.
+  - The second run caught a regression from the sanitizer move: e2e/html-sanitizer.spec.ts injects `sanitizeHtml.toString()`, which became a wrapper around an import, so 18 cases failed. Fixed by re-exporting the self-contained function; the spec is unchanged.
+  - The third run's one e2e failure was resume-pdf-route.spec.ts:372 (the Preview-print text reference read letter-spaced headings as "S E N I O R"). The same test fails 1 time in 63 on origin/main f24a1d1 too (repeated ×3 in the temporary worktree), so it is pre-existing and flaky, not caused by this story.
+- Final run (this diff), all on the first pass:
+  - pnpm typecheck: PASS — 0 errors.
+  - pnpm test: PASS — 2772 passed, 5 skipped (2694 on origin/main eba78d1).
+  - pnpm test:integration: PASS — 4 files, 50 passed.
+  - pnpm test:e2e: PASS — 433 passed, 0 failed.
+  - pnpm build: PASS — 105/105 static pages. `route.js.nft.json` traces Chromium for both download-pdf routes.
+  - pnpm lint: PASS — 287 problems (219 errors, 68 warnings); unchanged, under the tracked 306 ceiling.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — e2e/cover-letter-pdf-export.spec.ts, fr and de:
+  - list and editor downloads: %PDF-/%%EOF, filename from the title, page size, 0 images, every part in order, italic and bold faces;
+  - a long letter: 2 pages;
+  - save-first: no request and no silent save;
+  - a forced 500: localized error, no file;
+  - another user's id: 404.
+  - Additional cases:
+    - a letter filling page 1 stays at 1 page with the signature last; one paragraph more gives 2 pages, neither empty;
+    - ul bullets are present in the extracted text;
+    - a hostile letter (img, @import, iframe, meta refresh, javascript: href, onerror, CSS url(), background-image, hostile sender) makes 0 requests to a loopback listener (a control request does reach it), its visible text prints, and the escaped markup prints as text;
+    - keyboard: after a 500, focus is back on the editor button and Enter retries and downloads; the list ⋮ keeps focus after a download.
+- Visual: NOT_APPLICABLE for resume rendering (no template changed; parity unchanged). The PDF before/after comparison is under Export.
+- Export: PASS — export-validation on a full letter and a long letter (fr text, lists, special characters), today's html2pdf export (origin/main) vs the new server PDF:
+  - Today's PDFs have 0 extractable characters (canvas images; 204 KB and 630 KB).
+  - The new PDFs:
+    - 561 and 2,066 characters, every part in order, nothing missing;
+    - "•" bullets and "1."/"2." numbers;
+    - the same page counts (1 and 2), 55 KB each;
+    - Content-Disposition carries the title.
+  - Rendered pages compared by ui-expert: the same proportions (left margin 7.9% → 7.8%, longest line 82.9% → 82.2%, signature at 73% → 73.5% of the page height), fonts, weights and section order.
+  - Intended differences: list markers, and a top margin on page 2 (today's export cut "Veuillez agréer…" at the page edge).
+- Database: NOT_APPLICABLE — no schema or policy change; read-only access through the user's session.
+- Security: PASS — security-review (skill procedure), 5 trust boundaries, 10/10 requirements, 0 critical/high/medium; re-check after the fixes PASS; vitest 124/124 on the affected files.
+  - XSS: escaping, the inert-document sanitizer before setContent, and JS disabled. SSRF and egress: every request aborted, WebSockets closed, no navigation.
+  - IDOR → 404. CSRF: JSON only, no CORS. Content-Disposition safe (a CRLF title is tested).
+  - SEC-012 (size) is resolved by the guard. The residual (inline font-size not clamped, bounded by the 30 s limit) is INFO.
+  - SEC-013 LOW: one user can hold both render slots; the PRD requires the shared pool.
+  - SEC-014 closed by the hostile-letter e2e.
+  - SEC-015 closed (browser.ts header).
+
+Agents:
+- senior-coder: implementation, then five fix rounds:
+  1. page-1 boundary, notice reset, shared body filter, hostile-letter e2e, size guard, docs;
+  2. the guard loosened so no previously exportable letter is refused;
+  3. the sanitizer re-export (html-sanitizer regression);
+  4. the error contrast;
+  5. focus return after a request.
+- code-reviewer:
+  - round 1: FAIL. Major: a letter filling page 1 could get an empty page 2, because the template's bottom padding plus the @page margin was untested.
+  - Later rounds: PASS on each fix: fixes; sanitizer re-export; contrast and focus return.
+- ui-expert:
+  - round 1: FAIL. Major: the error text was 4.36:1. Major, pre-existing: the editor header overflows at 375, so the new button needs sideways scrolling.
+  - round 2: PASS 7/7.
+    - Error text 5.87:1. Keyboard trace: focus is back on the button after a 500, and Enter retries.
+    - Mobile is not made worse beyond adding a button to a row that already overflowed; the list ⋮ is a working mobile path.
+
+Acceptance criteria:
+- AC-01 (list ⋮ and editor download a .pdf named after the title, no print dialog): PASS — e2e fr/de.
+- AC-02 (real PDF with extractable text): PASS — e2e (0 images, extracted text); export-validation.
+- AC-03 (every non-empty part, in order): PASS — e2e; export-validation.
+- AC-04 (layout matches today's export): PASS — ui-expert's proportion comparison; same builder and section order; intended differences listed above.
+- AC-05 (rich text keeps its meaning): PASS — e2e italic/bold faces, "•" and numbered lists.
+- AC-06 (a long letter flows without clipping): PASS — e2e 2 pages; boundary tests; page-2 top margin.
+- AC-07 (editor: the saved letter; save first; no silent save): PASS — e2e; the notice clears on save.
+- AC-08 (another user's letter refused, no file): PASS — unit + e2e 404.
+- AC-09 (a failure shows a localized error, no broken file): PASS — unit + e2e; the client rejects non-PDF answers.
+- FR-1, FR-3, FR-6, FR-7: PASS. FR-2, FR-4, FR-5: belong to US-002/US-003.
+- Regression constraints: PASS — resume PDF/DOCX e2e and parity unchanged; the editor specs green in the full run; e2e/cover-letter-pdf-export.spec.ts updated with its content assertions kept.
+- FAIL conditions: none met (no print dialog, no image-only PDF, no part missing, no cross-user download).
+
+Decision (implementer, accepted by code-reviewer and ui-expert): the page is US Letter (612×792 pt), not A4. The letter markup is 816 px wide, wider than A4's 794 px, and today's export has the same proportions.
+Decision: the print stylesheet changes listed above (base styles, list markers, page-2 margin, min-height and bottom padding lifted). They change no markup.
+Decision (orchestrator): the size guard is a resource bound, separate from the API input limits. The editor saves straight to Supabase without those limits, and the export must not refuse letters it accepted before.
+Decision: one render-slot pool of 2 for both PDF routes, as the PRD's shared-pool risk describes.
+
+Named limitations:
+- On the real deployment, the 2-page result for the long letter was checked with Windows Georgia; CI's fallback serif was not measured (the content is about 1.4 pages).
+- The date line uses the server clock and en-US (out of scope).
+
+Open owner decisions recorded by this story:
+- html2pdf.js is now unused in package.json; removing it changes only the lockfile. It had a vulnerable nested jspdf in the past.
+- ui-expert, pre-existing:
+  - the editor header overflows at 375 and its buttons are under 44 px (draft PRD cover-letter-editor-responsive);
+  - "Modifications non enregistrées" is 3.20:1 (text-amber-700 would fix it);
+  - the editor's live preview shows no list markers while the PDF does (CLAUDE.md §10);
+  - the global focus ring (`outline-ring/50`) is 1.93:1 against white, app-wide;
+  - the save-error banner uses the same 4.36:1 red as the fixed notice.
+- ui-expert, minor: a repeated identical error may not be re-announced by screen readers.
+- code-reviewer, minor:
+  - an edit made during an in-flight save is marked saved (pre-existing) and could make a PDF miss it;
+  - no Sentry capture on render failures (consistent with the resume route);
+  - the ⋮ toggle has no accessible name.
+- security-review: SEC-013 (per-user render cap); the residual inline font-size clamp.
+- e2e: resume-pdf-route.spec.ts:372 is flaky on origin/main too (1 in 63).
+
+Environment notes:
+- Windows 11, local Supabase stack, Playwright suites run one at a time; the final full run was green on the first pass.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 a cover letter downloads as a real PDF file
+FINAL: PASS

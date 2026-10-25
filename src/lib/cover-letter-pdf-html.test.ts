@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   buildCoverLetterPdfHtml,
+  coverLetterBodyParagraphs,
   type CoverLetterPdfFields,
 } from './cover-letter-pdf-html'
 
@@ -159,5 +160,38 @@ describe('buildCoverLetterPdfHtml fallbacks and conditionals', () => {
     expect(html).not.toContain('Ignored without recipient or company')
     expect(html).not.toContain('Re: Application for')
     expect(html).not.toContain('text-align: justify')
+  })
+})
+
+describe('malformed body_paragraphs', () => {
+  it('keeps the string paragraphs, in order, and skips anything else', () => {
+    expect(coverLetterBodyParagraphs(['One', null, 3, { p: 'x' }, ['y'], 'Two', ''])).toEqual(['One', 'Two', ''])
+  })
+
+  it('treats a value that is not an array as no paragraphs', () => {
+    expect(coverLetterBodyParagraphs(null)).toEqual([])
+    expect(coverLetterBodyParagraphs('<p>One</p>')).toEqual([])
+    expect(coverLetterBodyParagraphs({ 0: 'One' })).toEqual([])
+  })
+
+  it('builds the letter from the string paragraphs only, never handing the sanitizer a non-string', () => {
+    const sanitizeRichText = vi.fn((html: string) => {
+      if (typeof html !== 'string') throw new Error('non-string reached the sanitizer')
+      return html
+    })
+    const html = buildCoverLetterPdfHtml(makeCoverLetter({ body_paragraphs: ['Body one', null, 42, 'Body two'] }), {
+      currentDate: CURRENT_DATE,
+      sanitizeRichText,
+    })
+    expect(html).toContain('Body one')
+    expect(html).toContain('Body two')
+    expect(html).not.toContain('42')
+    expect(html.indexOf('Body one')).toBeLessThan(html.indexOf('Body two'))
+  })
+
+  it('builds a letter whose body is not an array, with its other parts', () => {
+    const html = build({ body_paragraphs: { broken: true } })
+    expect(html).toContain('Opening')
+    expect(html).toContain('Closing')
   })
 })

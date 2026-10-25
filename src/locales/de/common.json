@@ -497,6 +497,7 @@
     "duplicate": "Duplizieren",
     "downloadPDF": "PDF herunterladen",
     "downloadPDFError": "Das PDF konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
+    "downloadPDFTooLarge": "Dieses Anschreiben ist zu lang für den Export. Kürzen Sie die Absätze und versuchen Sie es erneut.",
     "confirmDelete": "Möchten Sie dieses Anschreiben wirklich löschen?",
     "jobAssociation": {
       "linkedJob": "Verknüpfte Stelle",
@@ -552,6 +553,9 @@
       "saveFailed": "Speichern fehlgeschlagen",
       "generate": "Generieren",
       "check": "Prüfen",
+      "downloadPdf": "PDF",
+      "downloadingPdf": "PDF wird erstellt...",
+      "saveBeforeDownload": "Speichern Sie zuerst Ihre Änderungen: Das PDF wird aus dem gespeicherten Anschreiben erstellt.",
       "sections": {
         "recipient": "Empfänger",
         "opening": "Einleitung",
