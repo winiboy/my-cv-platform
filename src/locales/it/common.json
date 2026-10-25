@@ -733,10 +733,24 @@
       "ariaLabel": "{title} presso {company}",
       "edit": "Modifica",
       "createCV": "Crea CV per questo lavoro",
+      "linkResume": "Collega un CV esistente",
       "createCoverLetter": "Crea lettera di presentazione",
       "delete": "Elimina",
       "deleting": "Eliminazione...",
       "confirmDelete": "Sei sicuro di voler eliminare questa candidatura?"
+    },
+    "linkResume": {
+      "title": "Collega un CV esistente",
+      "description": "Scegli il CV inviato per {title} presso {company}.",
+      "listLabel": "I tuoi CV",
+      "current": "Collegato ora",
+      "updated": "Modificato il {date}",
+      "loading": "Caricamento dei tuoi CV...",
+      "empty": "Non hai ancora nessun CV.",
+      "confirm": "Collega CV",
+      "linking": "Collegamento...",
+      "loadError": "Impossibile caricare i tuoi CV. Riprova.",
+      "linkError": "Impossibile collegare il CV. Riprova."
     },
     "dnd": {
       "instructions": "Per prendere una scheda, premi la barra spaziatrice o Invio. Durante il trascinamento, usa le frecce sinistra e destra per spostarla nella colonna precedente o successiva. Premi di nuovo la barra spaziatrice o Invio per rilasciarla, oppure Esc per annullare.",

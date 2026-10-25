@@ -36,6 +36,8 @@ interface KanbanColumnProps {
   isCollapsed?: boolean
   /** Callback to toggle column collapse state */
   onToggleCollapse?: () => void
+  /** Opens the board's "Lier un CV existant" dialog for a card */
+  onLinkResume?: (applicationId: string, menuButton: HTMLButtonElement | null) => void
 }
 
 /**
@@ -59,6 +61,7 @@ export function KanbanColumn({
   onQuickAdd,
   isCollapsed = false,
   onToggleCollapse,
+  onLinkResume,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
@@ -296,6 +299,7 @@ export function KanbanColumn({
               onFocus={onCardFocus}
               registerCardRef={registerCardRef}
               isMobile={isMobile}
+              onLinkResume={onLinkResume}
             />
           ))
         )}

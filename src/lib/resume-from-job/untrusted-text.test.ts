@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { linearCeiling, measureScaling } from '@/test/linear-time'
 import { sanitizeUntrustedPlainText, sanitizeUntrustedRichText } from './untrusted-text'
 
 const LIMIT = 10_000
@@ -113,32 +114,56 @@ describe('sanitizeUntrustedPlainText', () => {
 
 describe('adversarial input', () => {
   const SIZE = 256 * 1024
+  /**
+   * Linear time is checked as growth, not as a wall-clock budget: the same run
+   * at an eighth of `SIZE` and at `SIZE`. Linear cost grows about 8x, quadratic
+   * 64x (see `measureScaling` and `linearCeiling`).
+   */
+  const GROWTH = 8
+  const LINEAR_RATIO_CEILING = linearCeiling(GROWTH)
   /** Runs that made a backtracking pattern, a per-match slice or a stack search quadratic. */
   const RUNS = ['<a', '</a', '<a ', '<!--', '<!', '<?', '&', '&#1', '<p>', '</b>', '<script>', '\n \n', 'a<']
 
+  const runOf = (run: string, length: number): string => run.repeat(Math.ceil(length / run.length)).slice(0, length)
+
   describe.each(RUNS)('a 256k-character run of %j', (run) => {
-    const input = run.repeat(Math.ceil(SIZE / run.length)).slice(0, SIZE)
+    const input = runOf(run, SIZE)
+    const smaller = runOf(run, SIZE / GROWTH)
 
     it('is sanitized as plain text in linear time and within the limit', () => {
-      const started = performance.now()
+      // A limit as long as the input, so the scan covers all of it rather than
+      // the label-sized window a real call reads.
+      const { ratio } = measureScaling(
+        () => sanitizeUntrustedPlainText(smaller, smaller.length),
+        () => sanitizeUntrustedPlainText(input, input.length)
+      )
+      expect(ratio).toBeLessThan(LINEAR_RATIO_CEILING)
+
       const text = sanitizeUntrustedPlainText(input, AI_LABEL)
-      expect(performance.now() - started).toBeLessThan(100)
       expect(text.length).toBeLessThanOrEqual(AI_LABEL)
     })
 
     it('is sanitized as rich text in linear time', () => {
-      const started = performance.now()
+      const { ratio } = measureScaling(
+        () => sanitizeUntrustedRichText(smaller, smaller.length),
+        () => sanitizeUntrustedRichText(input, SIZE)
+      )
+      expect(ratio).toBeLessThan(LINEAR_RATIO_CEILING)
+
       const html = sanitizeUntrustedRichText(input, SIZE)
-      expect(performance.now() - started).toBeLessThan(100)
       expect(html.replace(/<\/?(p|br|strong|em|u|ul|ol|li)>/g, '')).not.toMatch(/[<>]/)
     })
   })
 
   it('a deep stack of open tags with stray closes stays fast', () => {
-    const input = '<p>'.repeat(40_000) + '</em>'.repeat(40_000)
-    const started = performance.now()
-    sanitizeUntrustedRichText(input, input.length)
-    expect(performance.now() - started).toBeLessThan(100)
+    const stack = (depth: number): string => '<p>'.repeat(depth) + '</em>'.repeat(depth)
+    const input = stack(40_000)
+    const smaller = stack(40_000 / GROWTH)
+    const { ratio } = measureScaling(
+      () => sanitizeUntrustedRichText(smaller, smaller.length),
+      () => sanitizeUntrustedRichText(input, input.length)
+    )
+    expect(ratio).toBeLessThan(LINEAR_RATIO_CEILING)
   })
 })
 

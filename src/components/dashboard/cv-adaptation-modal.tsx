@@ -10,6 +10,7 @@ import type { TemplatePickerStrings } from '@/lib/template-picker-strings'
 import { withCategory, type CVAdaptationStrings } from '@/lib/cv-adaptation-strings'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
 import type { ResumeTemplate } from '@/types/database'
+import type { JobOfferApplicationInput } from '@/lib/job-applications/job-listing-to-application'
 
 /** The template a CV created from a job offer gets unless the user picks another. */
 const CREATE_NEW_CV_DEFAULT_TEMPLATE: ResumeTemplate = 'professional'
@@ -50,12 +51,13 @@ interface CVAdaptationModalBaseProps {
 
 /**
  * Creating a new CV needs the template picker's strings; adapting an existing
- * CV shows no picker and so takes none.
+ * CV shows no picker and so takes none. Only a new CV can carry the offer it
+ * is made for: the server saves it as a job application and links the two.
  */
 type CVAdaptationModalProps = CVAdaptationModalBaseProps &
   (
-    | { isCreateNewCV: true; templatePicker: TemplatePickerStrings }
-    | { isCreateNewCV?: false; templatePicker?: undefined }
+    | { isCreateNewCV: true; templatePicker: TemplatePickerStrings; offer?: JobOfferApplicationInput }
+    | { isCreateNewCV?: false; templatePicker?: undefined; offer?: undefined }
   )
 
 type Stage = 'input' | 'processing' | 'preview'
@@ -72,6 +74,7 @@ export function CVAdaptationModal({
   isCreateMode = false,
   isCreateNewCV = false,
   templatePicker,
+  offer,
   dict,
   returnFocusRef,
 }: CVAdaptationModalProps) {
@@ -222,6 +225,7 @@ export function CVAdaptationModal({
             title: company.trim() ? `CV - ${company.trim()}` : jobTitle.trim(),
             template,
             locale,
+            ...(offer ? { offer } : {}),
           }),
         })
 

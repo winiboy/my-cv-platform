@@ -91,12 +91,29 @@ const FETCHED = {
     'run user research, build and maintain the design system, and work closely with product managers and engineers.',
 }
 
-/** The request body the modal sent before this story, minus `template`. */
+/** The listing's location as each page's "{city}, Switzerland" text renders it. */
+const EXPECTED_LOCATION: Record<TestLocale, string> = { fr: 'Lausanne, Suisse', en: 'Lausanne, Switzerland' }
+
+/**
+ * The request body the modal sent before this story, minus `template`, plus
+ * the listing's offer that job-cv-linking US-001 added, as Save sends it.
+ */
 function expectedRequestFields(locale: TestLocale) {
   return {
     jobDescription: FETCHED.jobDescription,
     title: `CV - ${FETCHED.company}`,
     locale,
+    offer: {
+      job_title: 'Product Designer',
+      company_name: 'Listing Company SA',
+      location: EXPECTED_LOCATION[locale],
+      salary_min: null,
+      salary_max: null,
+      job_url: 'https://jobs.example.test/offers/product-designer',
+      job_description:
+        'Listing description. You will design product flows for a Swiss software company and work with engineering and research teams every day.',
+      source: 'Adzuna',
+    },
   }
 }
 

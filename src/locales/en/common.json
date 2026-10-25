@@ -733,10 +733,24 @@
       "ariaLabel": "{title} at {company}",
       "edit": "Edit",
       "createCV": "Create CV for this Job",
+      "linkResume": "Link existing CV",
       "createCoverLetter": "Create Cover Letter",
       "delete": "Delete",
       "deleting": "Deleting...",
       "confirmDelete": "Are you sure you want to delete this job application?"
+    },
+    "linkResume": {
+      "title": "Link an existing CV",
+      "description": "Choose the CV you sent for {title} at {company}.",
+      "listLabel": "Your CVs",
+      "current": "Currently linked",
+      "updated": "Updated {date}",
+      "loading": "Loading your CVs...",
+      "empty": "You don't have any CV yet.",
+      "confirm": "Link CV",
+      "linking": "Linking...",
+      "loadError": "Your CVs could not be loaded. Please try again.",
+      "linkError": "The CV could not be linked. Please try again."
     },
     "dnd": {
       "instructions": "To pick up a card, press the space bar or Enter. While dragging, press the left or right arrow key to move it to the previous or next column. Press the space bar or Enter again to drop it, or press Escape to cancel.",
