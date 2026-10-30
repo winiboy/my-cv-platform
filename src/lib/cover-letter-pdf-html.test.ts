@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   buildCoverLetterPdfHtml,
   coverLetterBodyParagraphs,
+  coverLetterParts,
   type CoverLetterPdfFields,
 } from './cover-letter-pdf-html'
 
@@ -160,6 +161,63 @@ describe('buildCoverLetterPdfHtml fallbacks and conditionals', () => {
     expect(html).not.toContain('Ignored without recipient or company')
     expect(html).not.toContain('Re: Application for')
     expect(html).not.toContain('text-align: justify')
+  })
+})
+
+describe('coverLetterParts: the one list of parts both exports print', () => {
+  it('lists every part in the letter order', () => {
+    expect(coverLetterParts(makeCoverLetter({ company_address: '1 Main Street\nTown' }), CURRENT_DATE)).toEqual([
+      { kind: 'sender', text: 'Jane Doe' },
+      { kind: 'date', text: CURRENT_DATE },
+      {
+        kind: 'recipient',
+        lines: [
+          { text: 'John Smith', multiline: false },
+          { text: 'Head of Talent', multiline: false },
+          { text: 'Acme', multiline: false },
+          { text: '1 Main Street\nTown', multiline: true },
+        ],
+      },
+      { kind: 'subject', text: 'Re: Application for Engineer' },
+      { kind: 'greeting', text: 'Dear John,' },
+      { kind: 'opening', html: 'Opening' },
+      { kind: 'body', html: 'Body one' },
+      { kind: 'body', html: 'Body two' },
+      { kind: 'closing', html: 'Closing' },
+      { kind: 'signOff', text: 'Best regards,' },
+      { kind: 'signature', text: 'Jane Doe' },
+    ])
+  })
+
+  it('leaves out empty optional parts and falls back to the default greeting and sign-off', () => {
+    const parts = coverLetterParts(
+      makeCoverLetter({
+        sender_name: '',
+        recipient_name: null,
+        company_name: null,
+        job_title: null,
+        greeting: '',
+        opening_paragraph: '',
+        body_paragraphs: [],
+        closing_paragraph: null,
+        sign_off: '',
+      }),
+      CURRENT_DATE,
+    )
+    expect(parts).toEqual([
+      { kind: 'date', text: CURRENT_DATE },
+      { kind: 'greeting', text: 'Dear Hiring Manager,' },
+      { kind: 'signOff', text: 'Sincerely,' },
+    ])
+  })
+
+  it('is what the PDF markup prints, in the same order', () => {
+    const html = build()
+    const order = ['Jane Doe', CURRENT_DATE, 'John Smith', 'Acme', 'Re: Application for Engineer', 'Dear John,', 'Opening', 'Body one', 'Body two', 'Closing', 'Best regards,']
+    const positions = order.map((text) => html.indexOf(text))
+    expect(positions.every((position) => position >= 0)).toBe(true)
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions)
+    expect(html.lastIndexOf('Jane Doe')).toBeGreaterThan(html.indexOf('Best regards,'))
   })
 })
 

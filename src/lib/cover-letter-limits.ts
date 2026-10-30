@@ -70,7 +70,13 @@ const textLength = (value: unknown): number => (typeof value === 'string' ? valu
 
 /**
  * Whether the server may print this stored letter: every printed part within
- * `COVER_LETTER_PDF_GUARD`. Checked before a render slot is taken.
+ * `COVER_LETTER_PDF_GUARD`. Checked before a render slot is taken, and by the
+ * Word export before it builds anything: a letter over this guard exports in
+ * neither format. The reverse does not hold: the Word export adds its own
+ * structural caps (`COVER_LETTER_DOCX_LIMITS` in
+ * `src/app/api/cover-letters/[id]/download-docx/cover-letter-docx.ts`: 1,000
+ * paragraphs and 5,000 runs), so a letter within this guard can still export
+ * as a PDF but be refused with 422 as a Word file.
  *
  * Body items that are not strings are neither counted nor printed
  * (`coverLetterBodyParagraphs`).

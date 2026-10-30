@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanPdfBasename, pdfContentDisposition } from './filename'
+import { attachmentContentDisposition, cleanPdfBasename, pdfContentDisposition } from './filename'
 
 /** The two parameters of a disposition, decoded the way a browser reads them. */
 function parse(header: string): { type: string; ascii: string; unicode: string } {
@@ -99,5 +99,22 @@ describe('a caller-named fallback', () => {
     const { ascii, unicode } = parse(pdfContentDisposition('日本', 'cover-letter'))
     expect(unicode).toBe('日本.pdf')
     expect(ascii).toBe('__.pdf')
+  })
+})
+
+describe('attachmentContentDisposition', () => {
+  it('names a Word file with the same cleaning as a PDF', () => {
+    expect(attachmentContentDisposition('Lettre Zürich', 'cover-letter', 'docx')).toBe(
+      `attachment; filename="Lettre Zurich.docx"; filename*=UTF-8''Lettre%20Z%C3%BCrich.docx`,
+    )
+    expect(attachmentContentDisposition('Lettre Zürich', 'cover-letter', 'pdf')).toBe(
+      pdfContentDisposition('Lettre Zürich', 'cover-letter'),
+    )
+  })
+
+  it('falls back to <fallback>.docx for a title with nothing usable', () => {
+    expect(attachmentContentDisposition('  ', 'cover-letter', 'docx')).toBe(
+      `attachment; filename="cover-letter.docx"; filename*=UTF-8''cover-letter.docx`,
+    )
   })
 })

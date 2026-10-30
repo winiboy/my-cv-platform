@@ -154,3 +154,143 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 a cover letter downloads as a real PDF file
 FINAL: PASS
+
+## US-002: A cover letter downloads as a Word file
+Status: PASS
+Priority: 2
+Branch: ralph/cover-letter-export-translate
+Baseline HEAD: 45183d5 (US-001 commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; new files untracked):
+  - New `src/app/api/cover-letters/[id]/download-docx/route.ts` (+ route.test.ts): POST, JSON only.
+    - Same order of checks as the PDF route: 401 → 415 → uuid/ownership 404 → 500 on read error → 422 above the size guard → build → 422 above the Word caps.
+    - Responds with the DOCX MIME type, `private, no-store`, and `attachmentContentDisposition` from the title (fallback `cover-letter.docx`).
+    - Logs only error names and database codes.
+  - New `download-docx/cover-letter-docx.ts` (+ test): builds the `.docx` with the existing `docx` library from the shared `coverLetterParts()`.
+    - The page matches the PDF template: US Letter 12240×15840 twips, 64 px margins, same font and spacing.
+    - Lists are real Word numbering.
+    - `COVER_LETTER_DOCX_LIMITS` caps a letter at 1,000 paragraphs and 5,000 runs.
+    - One `clampFontSizePx` feeds both the run size and the line spacing.
+  - New `download-docx/rich-text-blocks.ts` (+ test): server-side rich text to paragraphs, list items and runs.
+    - Uses the editor sanitizer's allowlist (a drift test compares it with the sanitizer's array); other elements become text.
+    - Nesting is capped at 32 levels and the paragraph budget is enforced while parsing, so work is O(length × 32).
+    - Entity references to XML-invalid characters decode to nothing; windows-1252 &#128;–&#159; are mapped.
+  - `src/lib/cover-letter-pdf-html.ts` (129/49) + test (58/0): new `coverLetterParts()` is the one ordered list of parts and defaults, also giving the date and the "Re: Application for …" line. The PDF HTML builder now uses it; markup is unchanged apart from whitespace between tags. Also adds `COVER_LETTER_EXPORT_COLUMNS`, shared by both routes.
+  - `src/app/api/cover-letters/[id]/download-pdf/route.ts` (2/9): uses the shared columns; no behaviour change.
+  - New `src/lib/cover-letter-download-client.ts` (+ test) and `src/lib/hooks/use-cover-letter-download.ts`: one client and one hook for both formats. Any answer that isn't the requested type is rejected. They replace US-001's PDF-only `use-cover-letter-pdf-download.ts` and `pdf/cover-letter-download-client.ts` (+ test), which are deleted.
+  - `src/lib/pdf/filename.ts` (+ test): `attachmentContentDisposition(title, fallback, 'pdf' | 'docx')`; `pdfContentDisposition` delegates to it, so callers are unchanged.
+  - `src/components/dashboard/cover-letter-card.tsx` (54/22): "Télécharger Word" under "Télécharger PDF" in the ⋮ menu, with the same focus return and alert as PDF.
+  - `src/components/dashboard/cover-letter-editor.tsx` (97/45):
+    - a Word button next to PDF, with the same busy/disabled state, save-first notice, error, too-long message and focus return;
+    - one notice at a time (`#cover-letter-pdf-notice` / `#cover-letter-docx-notice`, role="alert");
+    - `whitespace-nowrap` on the header status labels.
+  - `src/lib/cover-letter-limits.ts` (7/1): doc comment; the size guard covers both formats, and Word has extra structural caps.
+  - `src/locales/{fr,en,de,it}/common.json` (5/0 each).
+  - New `e2e/cover-letter-docx-export.spec.ts` (9 tests).
+- Not touched: migrations, package.json/pnpm-lock.yaml (docx and jszip were already dependencies), resume DOCX/PDF generators. No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted.
+
+Checks:
+- Runs on earlier diffs were invalidated by the fixes below.
+- Two runs on the near-final diff hit environment trouble:
+  - One run took 51 min for e2e (normally about 15). 7 PDF downloads timed out waiting for the download event. Alone, `cover-letter-pdf-export`, `cover-letter-docx-export` and `resume-pdf-download-button` passed 41/41 in 3.5 min.
+  - During that run, code-reviewer briefly copied a file into src/components/dashboard and deleted it in the same command; nothing remained.
+- Final run (this diff):
+  - pnpm typecheck: PASS — 0 errors.
+  - pnpm test: PASS — 107 files, 2872 passed, 5 skipped (2772 after US-001).
+  - pnpm test:integration: PASS — 4 files, 50 passed.
+  - pnpm test:e2e: PASS — 442 passed, 0 failed (433 after US-001; +9 from cover-letter-docx-export).
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 287 problems (219 errors, 68 warnings), unchanged. Two unused `no-control-regex` disable directives the story had added (289) were removed.
+  - pnpm test:parity: PASS on the third attempt — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+    - First attempt: the web-server build could not reach fonts.googleapis.com (`next/font` Inter, ENOTFOUND).
+    - Second attempt: "collect · primary · professional" hit the login fixture timeout (page.fill #email, 15 s), and 32 rows that read its output failed with it.
+
+Specialized validation:
+- Browser: PASS — e2e/cover-letter-docx-export.spec.ts, fr and de:
+  - list and editor downloads: valid zip with `word/document.xml`, every part in order, accents and special characters intact;
+  - save-first sends no request;
+  - a forced 500: localized error, no file;
+  - another user's id: 404.
+- Visual: NOT_APPLICABLE for resume rendering (no template changed; parity unchanged).
+- Export: PASS — export-validation on the full and long fixture letters, files from POST /api/cover-letters/[id]/download-docx.
+  - Package checks (`docx-inspect`):
+    - PK zip; parts document, styles, numbering, settings, fontTable;
+    - no external relationship targets; 0 XML-invalid characters in every .xml/.rels;
+    - every part present and in order;
+    - 4 real Word list items (`w:numPr`); bold and italic runs where the letter has them;
+    - US Letter page size;
+    - Content-Disposition from the title, with the DOCX MIME type.
+  - Rendered in Microsoft Word for Microsoft 365 on this machine (COM automation, saved as PDF; producer metadata confirms Word):
+    - the full letter is 1 page and the long letter 2;
+    - layout matches our PDF of the same letter: name baseline 85 vs 80 px, signature 779 vs 776 px;
+    - margins, font, weights, grey date, bold "Re:" line, bold and italic phrases, special characters, bullets and numbers, and the page break all agree.
+- Database: NOT_APPLICABLE — read-only, through the user's session.
+- Security: PASS after one fix round — security-review, 5 trust boundaries, 10/10 requirements.
+  - Round 1 FAIL:
+    - SEC-016 MEDIUM: a letter within the size guard stalled the event loop 3.77 s (10 × `<p>x` floods, about 40k paragraphs).
+    - SEC-017 LOW: `&#1;`, `&#x1F;`, `&#xFFFE;` survived into document.xml, and an unclamped size produced `w:line="2.4375e+301"`.
+  - Round 2 PASS (independent probe):
+    - every hostile letter is refused (422) or built in ≤ 50 ms, longest stall 37 ms;
+    - no XML-invalid characters in any part;
+    - integer `w:line` and `w:sz` within Word's bounds.
+  - Injection probe: a sender containing `</w:t><w:fldSimple w:instr="INCLUDEPICTURE …">`, a DDE string, a crafted font-family, `<a href>` and `<img src>` produced no hyperlink, field, drawing or external target; the text stayed literal.
+  - SEC-018 LOW, pre-existing adjacent: the resume DOCX route puts the raw title into Content-Disposition (`src/app/api/resumes/[id]/download-docx/route.ts:259`).
+
+Agents:
+- senior-coder: implementation, then fixes:
+  - SEC-016 and SEC-017, plus a run cap of 5,000 found while re-measuring;
+  - the allowlist drift test;
+  - the doc comment and lint cleanup;
+  - the header label nowrap.
+- code-reviewer:
+  - round 1: PASS. Minors: the converter's "linear time" claim was false (fixed by the nesting cap) and the allowlist was duplicated (drift test added).
+  - Rounds 2 and 3: PASS. A "both formats or neither" comment was wrong; it was fixed.
+- ui-expert:
+  - round 1: BLOCKED — the 1366 header was unverified with the extra button.
+  - round 2: FAIL — at 1366 the unsaved-changes label split in two (fr and de), caused by the Word button's 93 px.
+  - round 3: BLOCKED — the keyboard trace was missing on the final code.
+  - final: PASS 7/7.
+    - At 1366 the label wraps whole under the title, with no horizontal scroll.
+    - 1440 and 375 are pixel-identical to round 1.
+    - Notice switching: PDF error → Word save-first, one at a time, role="alert".
+    - Keyboard: Tab reaches "Télécharger Word"; after a 500, focus is back on it; Enter downloads.
+
+Acceptance criteria:
+- AC-01 (list ⋮ and editor download a .docx named after the title): PASS — e2e fr/de; headers.
+- AC-02 (valid Word document, same parts and order, real paragraphs, bold/italic/lists): PASS — e2e and unit tests; docx-inspect; opened and rendered in Microsoft Word.
+- AC-03 (accents and special characters intact): PASS — e2e fixture (Jürgen Weiß, Größe & Söhne, j’ai, « sincère »); the Word rendering.
+- AC-04 (same saved-state, ownership and error rules as US-001): PASS — e2e save-first, 500 and 404; route tests for 401, 415, 404 and 422.
+- FR-2 (docx server-side): PASS. FR-3: PASS. FR-6 (no migration, no new dependency): PASS. FR-7: PASS (locale parity).
+- Regression constraints: PASS — US-001 PDF behaviour unchanged (its spec green alone and in the full run); resume exports and parity unchanged.
+- FAIL conditions: none met.
+
+Decision (implementer, accepted by code-reviewer): `coverLetterParts()` is the single source of parts, order and defaults for PDF and Word, so the two formats cannot drift.
+Decision: a dedicated converter, not the resume `parseHtmlToDocxRuns`. That one decodes `&lt;b&gt;` into a real tag and flattens a field into one paragraph, and it is shared by five resume templates.
+Decision: Word lists are real Word numbering, not "•" text, since the point is editing in Word.
+Decision: the route is POST + JSON like the PDF route. It has no render slot, because the build is in-process and bounded by the caps above.
+Decision: the guard keeps the name `isCoverLetterWithinPdfGuard` (it now covers both formats). Word adds its own structural caps, so a letter within the guard can export as PDF but get 422 as Word.
+
+Named limitations:
+- An undefined windows-1252 reference (e.g. &#x81;) stays as its C1 character, which XML 1.0 allows (security-review).
+- Formatting can be misplaced, never text lost, on hostile markup nested more than 32 deep with unclosed tags. The editor cannot produce it (code-reviewer).
+
+Open owner decisions recorded by this story:
+- ui-expert, optional: merge PDF and Word into one "Télécharger ▾" button, as TealHQ does; it would win back about 93 px of header width.
+- ui-expert, pre-existing:
+  - the 375 editor overflow (draft responsive PRD);
+  - the amber unsaved label at 3.20:1;
+  - no list markers in the live preview;
+  - the global focus ring at 1.93:1.
+- security-review: SEC-018 (resume DOCX Content-Disposition uses the raw title).
+- e2e environment: the login-fixture timeout recurs across specs (seen this story in parity collect); a single retry policy for that fixture would cut reruns.
+
+Environment notes:
+- Windows 11, local Supabase stack, Playwright suites run one at a time; Microsoft Word for Microsoft 365 available for the rendering check.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 a cover letter downloads as a Word file
+FINAL: PASS

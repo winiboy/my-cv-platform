@@ -18,7 +18,8 @@ import {
   Download,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { useCoverLetterPdfDownload } from '@/lib/hooks/use-cover-letter-pdf-download'
+import { useCoverLetterDownload } from '@/lib/hooks/use-cover-letter-download'
+import type { CoverLetterExportFormat } from '@/lib/cover-letter-download-client'
 import type { Locale } from '@/lib/i18n'
 import type { CoverLetter, Resume, CoverLetterAnalysis } from '@/types/database'
 import { CoverLetterPreview } from './cover-letter-preview'
@@ -49,8 +50,11 @@ interface CoverLetterEditorProps {
   dict: Record<string, unknown>
 }
 
-/** Why the PDF button did not download, as the editor tells the user. */
-type PdfNotice = 'save-first' | 'failed' | 'too-large'
+/** Why a download button (PDF or Word) did not download, as the editor tells the user. */
+interface DownloadNotice {
+  format: CoverLetterExportFormat
+  reason: 'save-first' | 'failed' | 'too-large'
+}
 
 type SectionId = 'resume' | 'job' | 'recipient' | 'opening' | 'body' | 'closing' | 'signature'
 
@@ -82,11 +86,16 @@ export function CoverLetterEditor({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [showGenerationModal, setShowGenerationModal] = useState(false)
   const [showCheckerModal, setShowCheckerModal] = useState(false)
-  const [pdfNotice, setPdfNotice] = useState<PdfNotice | null>(null)
+  const [downloadNotice, setDownloadNotice] = useState<DownloadNotice | null>(null)
   const pdfButtonRef = useRef<HTMLButtonElement>(null)
-  // Set when the button starts a request, cleared once focus is handed back.
-  const restorePdfFocusRef = useRef(false)
-  const { download: downloadPdf, isDownloading: isDownloadingPdf } = useCoverLetterPdfDownload(initialCoverLetter.id)
+  const wordButtonRef = useRef<HTMLButtonElement>(null)
+  // Set when a button starts a request, cleared once focus is handed back.
+  const restoreFocusRef = useRef<Record<CoverLetterExportFormat, boolean>>({ pdf: false, docx: false })
+  const { download: downloadPdf, isDownloading: isDownloadingPdf } = useCoverLetterDownload(initialCoverLetter.id, 'pdf')
+  const { download: downloadWord, isDownloading: isDownloadingWord } = useCoverLetterDownload(
+    initialCoverLetter.id,
+    'docx'
+  )
 
   const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
   const editorDict = (coverLettersDict.editor || {}) as Record<string, unknown>
@@ -131,7 +140,7 @@ export function CoverLetterEditor({
         setHasUnsavedChanges(false)
         // Saving is the only way unsaved changes end, and it answers both
         // notices: the letter is saved, and a new click is a new attempt.
-        setPdfNotice(null)
+        setDownloadNotice(null)
       }
     } catch (err) {
       console.error('Unexpected error:', err)
@@ -142,43 +151,64 @@ export function CoverLetterEditor({
   }
 
   /**
-   * The server prints the SAVED letter. With unsaved edits that would not be
+   * The server exports the SAVED letter. With unsaved edits that would not be
    * the letter on screen, so the user is asked to save first; saving on their
    * behalf would commit edits they have not chosen to keep.
    */
-  const handlePdfDownload = async () => {
+  const handleDownload = async (format: CoverLetterExportFormat) => {
     // No request and no busy state here, so the button keeps its focus.
     if (hasUnsavedChanges) {
-      setPdfNotice('save-first')
+      setDownloadNotice({ format, reason: 'save-first' })
       return
     }
-    setPdfNotice(null)
-    restorePdfFocusRef.current = true
-    const result = await downloadPdf()
-    if (result === 'failed' || result === 'too-large') setPdfNotice(result)
+    setDownloadNotice(null)
+    restoreFocusRef.current[format] = true
+    const result = await (format === 'pdf' ? downloadPdf : downloadWord)()
+    if (result === 'failed' || result === 'too-large') setDownloadNotice({ format, reason: result })
   }
 
-  // The button is disabled while the request runs, and a disabled button
-  // drops focus to <body>: a keyboard user would be left nowhere, unable to
-  // retry with Enter. Once it is usable again, focus returns to it, but only
-  // if focus is still lost, never taken from where the user moved it since.
-  // The notice keeps `role="alert"`, so the outcome is still announced.
-  useEffect(() => {
-    if (isDownloadingPdf || !restorePdfFocusRef.current) return
-    restorePdfFocusRef.current = false
+  // A button is disabled while its request runs, and a disabled button drops
+  // focus to <body>: a keyboard user would be left nowhere, unable to retry
+  // with Enter. Once it is usable again, focus returns to it, but only if
+  // focus is still lost, never taken from where the user moved it since. The
+  // notice keeps `role="alert"`, so the outcome is still announced.
+  const restoreFocus = useCallback((format: CoverLetterExportFormat, button: HTMLButtonElement | null) => {
+    if (!restoreFocusRef.current[format]) return
+    restoreFocusRef.current[format] = false
     const focusWasLost = document.activeElement === null || document.activeElement === document.body
-    if (focusWasLost) pdfButtonRef.current?.focus()
-  }, [isDownloadingPdf])
+    if (focusWasLost) button?.focus()
+  }, [])
 
-  const pdfNoticeMessage =
-    pdfNotice === 'failed'
-      ? (coverLettersDict.downloadPDFError as string) || 'The PDF could not be created. Please try again.'
-      : pdfNotice === 'too-large'
-        ? (coverLettersDict.downloadPDFTooLarge as string) ||
-          'This letter is too long to export. Shorten its paragraphs and try again.'
-        : pdfNotice === 'save-first'
-          ? (editorDict.saveBeforeDownload as string) || 'Save your changes first: the PDF is made from the saved letter.'
-          : ''
+  useEffect(() => {
+    if (!isDownloadingPdf) restoreFocus('pdf', pdfButtonRef.current)
+  }, [isDownloadingPdf, restoreFocus])
+
+  useEffect(() => {
+    if (!isDownloadingWord) restoreFocus('docx', wordButtonRef.current)
+  }, [isDownloadingWord, restoreFocus])
+
+  const downloadNoticeMessage = (() => {
+    if (!downloadNotice) return ''
+    const { format, reason } = downloadNotice
+    if (reason === 'too-large') {
+      // The size guard is the same for both formats, and so is its message.
+      return (
+        (coverLettersDict.downloadPDFTooLarge as string) ||
+        'This letter is too long to export. Shorten its paragraphs and try again.'
+      )
+    }
+    if (format === 'pdf') {
+      return reason === 'failed'
+        ? (coverLettersDict.downloadPDFError as string) || 'The PDF could not be created. Please try again.'
+        : (editorDict.saveBeforeDownload as string) || 'Save your changes first: the PDF is made from the saved letter.'
+    }
+    return reason === 'failed'
+      ? (coverLettersDict.downloadWordError as string) || 'The Word file could not be created. Please try again.'
+      : (editorDict.saveBeforeDownloadWord as string) ||
+          'Save your changes first: the Word file is made from the saved letter.'
+  })()
+  // One notice at a time, named after the button it answers.
+  const downloadNoticeId = downloadNotice ? `cover-letter-${downloadNotice.format}-notice` : undefined
 
   const updateCoverLetter = useCallback((updates: Partial<CoverLetter>) => {
     setCoverLetter((prev) => ({ ...prev, ...updates }))
@@ -494,12 +524,12 @@ export function CoverLetterEditor({
               placeholder={(editorDict.titlePlaceholder as string) || 'Untitled Cover Letter'}
             />
             {hasUnsavedChanges && (
-              <span className="text-xs text-amber-600 dark:text-amber-400 ml-2">
+              <span className="text-xs text-amber-600 dark:text-amber-400 ml-2 whitespace-nowrap">
                 {(editorDict.unsavedChanges as string) || 'Unsaved changes'}
               </span>
             )}
             {lastSaved && !hasUnsavedChanges && (
-              <span className="text-xs text-slate-500 ml-2">
+              <span className="text-xs text-slate-500 ml-2 whitespace-nowrap">
                 {(editorDict.lastSaved as string) || 'Saved'}{' '}
                 {lastSaved.toLocaleTimeString()}
               </span>
@@ -527,7 +557,7 @@ export function CoverLetterEditor({
           <button
             ref={pdfButtonRef}
             type="button"
-            onClick={handlePdfDownload}
+            onClick={() => handleDownload('pdf')}
             disabled={isDownloadingPdf}
             aria-busy={isDownloadingPdf}
             aria-label={
@@ -535,7 +565,7 @@ export function CoverLetterEditor({
                 ? (editorDict.downloadingPdf as string) || 'Creating PDF...'
                 : (coverLettersDict.downloadPDF as string) || 'Download PDF'
             }
-            aria-describedby={pdfNoticeMessage ? 'cover-letter-pdf-notice' : undefined}
+            aria-describedby={downloadNotice?.format === 'pdf' ? downloadNoticeId : undefined}
             className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors disabled:cursor-wait disabled:opacity-80"
           >
             {isDownloadingPdf ? (
@@ -544,6 +574,28 @@ export function CoverLetterEditor({
               <Download className="h-4 w-4" />
             )}
             {(editorDict.downloadPdf as string) || 'PDF'}
+          </button>
+          {/* Word download: the saved letter, generated by the server */}
+          <button
+            ref={wordButtonRef}
+            type="button"
+            onClick={() => handleDownload('docx')}
+            disabled={isDownloadingWord}
+            aria-busy={isDownloadingWord}
+            aria-label={
+              isDownloadingWord
+                ? (editorDict.downloadingWord as string) || 'Creating Word file...'
+                : (coverLettersDict.downloadWord as string) || 'Download Word'
+            }
+            aria-describedby={downloadNotice?.format === 'docx' ? downloadNoticeId : undefined}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors disabled:cursor-wait disabled:opacity-80"
+          >
+            {isDownloadingWord ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {(editorDict.downloadWord as string) || 'Word'}
           </button>
           {/* Save Button */}
           <button
@@ -570,25 +622,25 @@ export function CoverLetterEditor({
         </div>
       )}
 
-      {/* PDF download notice */}
-      {pdfNoticeMessage && (
+      {/* PDF or Word download notice */}
+      {downloadNotice && (
         <div
           className={
-            pdfNotice === 'failed'
+            downloadNotice.reason === 'failed'
               ? 'px-4 py-2 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800'
               : 'px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800'
           }
         >
           <p
-            id="cover-letter-pdf-notice"
+            id={downloadNoticeId}
             role="alert"
             className={
-              pdfNotice === 'failed'
+              downloadNotice.reason === 'failed'
                 ? 'text-sm text-red-700 dark:text-red-400'
                 : 'text-sm text-amber-700 dark:text-amber-400'
             }
           >
-            {pdfNoticeMessage}
+            {downloadNoticeMessage}
           </p>
         </div>
       )}

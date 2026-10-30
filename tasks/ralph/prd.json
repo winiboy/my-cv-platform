@@ -99,7 +99,7 @@
         "Out of scope: Changing the AI provider, model or rate limits."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

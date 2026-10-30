@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { formatCoverLetterPdfDate } from '@/lib/cover-letter-pdf-html'
+import { COVER_LETTER_EXPORT_COLUMNS, formatCoverLetterPdfDate } from '@/lib/cover-letter-pdf-html'
 import { isCoverLetterWithinPdfGuard } from '@/lib/cover-letter-limits'
 import { pdfContentDisposition } from '@/lib/pdf/filename'
 import { renderCoverLetterPdf } from '@/lib/pdf/render-cover-letter'
@@ -33,13 +33,6 @@ const RENDER_TIMEOUT_MS = 30_000
 /** The file name when the title has nothing usable left once cleaned. */
 const FALLBACK_FILENAME = 'cover-letter'
 
-/**
- * What the PDF prints, and the title it is named after. Nothing else is read.
- * One literal, so supabase-js can type the row from it.
- */
-const PDF_COLUMNS =
-  'title, sender_name, recipient_name, recipient_title, company_name, company_address, job_title, greeting, opening_paragraph, body_paragraphs, closing_paragraph, sign_off'
-
 const idSchema = z.uuid()
 
 const json = (error: string, status: number, headers?: HeadersInit) =>
@@ -66,7 +59,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // rely on it.
     const { data: coverLetter, error } = await supabase
       .from('cover_letters')
-      .select(PDF_COLUMNS)
+      .select(COVER_LETTER_EXPORT_COLUMNS)
       .eq('id', id)
       .eq('user_id', user.id)
       .maybeSingle()

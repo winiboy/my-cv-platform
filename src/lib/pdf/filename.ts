@@ -1,5 +1,6 @@
 /**
- * The `Content-Disposition` header of a resume PDF download.
+ * The `Content-Disposition` header of a document download: a resume or cover
+ * letter PDF, or a cover letter's Word file.
  *
  * The resume title is user-controlled, so it reaches the header only after two
  * transformations, and the header carries it twice:
@@ -73,20 +74,35 @@ function asciiFallback(basename: string, fallback: string): string {
   return ascii.length > 0 ? ascii : fallback
 }
 
+/** The file types a download is named with. */
+export type AttachmentExtension = 'pdf' | 'docx'
+
 /**
- * `attachment; filename="<ascii>.pdf"; filename*=UTF-8''<encoded>.pdf`.
+ * `attachment; filename="<ascii>.<extension>"; filename*=UTF-8''<encoded>.<extension>`.
  *
- * An empty or entirely unusable title gives `<fallback>.pdf` in both
- * parameters: `resume.pdf` unless the caller names another base name, which
- * must itself be printable ASCII with no character `cleanPdfBasename` replaces.
+ * An empty or entirely unusable title gives `<fallback>.<extension>` in both
+ * parameters. `fallback` must itself be printable ASCII with no character
+ * `cleanPdfBasename` replaces.
+ */
+export function attachmentContentDisposition(
+  title: string | null | undefined,
+  fallback: string,
+  extension: AttachmentExtension,
+): string {
+  const basename = cleanPdfBasename(title, fallback)
+  return (
+    `attachment; filename="${asciiFallback(basename, fallback)}.${extension}"; ` +
+    `filename*=UTF-8''${encodeRfc5987(`${basename}.${extension}`)}`
+  )
+}
+
+/**
+ * The PDF case of `attachmentContentDisposition`: `resume.pdf` unless the
+ * caller names another fallback base name.
  */
 export function pdfContentDisposition(
   title: string | null | undefined,
   fallback: string = FALLBACK_BASENAME,
 ): string {
-  const basename = cleanPdfBasename(title, fallback)
-  return (
-    `attachment; filename="${asciiFallback(basename, fallback)}.pdf"; ` +
-    `filename*=UTF-8''${encodeRfc5987(`${basename}.pdf`)}`
-  )
+  return attachmentContentDisposition(title, fallback, 'pdf')
 }

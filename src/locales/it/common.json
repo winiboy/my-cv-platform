@@ -498,6 +498,8 @@
     "downloadPDF": "Scarica PDF",
     "downloadPDFError": "Non è stato possibile creare il PDF. Riprova.",
     "downloadPDFTooLarge": "Questa lettera è troppo lunga per essere esportata. Accorcia i paragrafi e riprova.",
+    "downloadWord": "Scarica Word",
+    "downloadWordError": "Non è stato possibile creare il file Word. Riprova.",
     "confirmDelete": "Sei sicuro di voler eliminare questa lettera di presentazione?",
     "jobAssociation": {
       "linkedJob": "Lavoro collegato",
@@ -556,6 +558,9 @@
       "downloadPdf": "PDF",
       "downloadingPdf": "Creazione del PDF...",
       "saveBeforeDownload": "Salva prima le modifiche: il PDF viene creato dalla lettera salvata.",
+      "downloadWord": "Word",
+      "downloadingWord": "Creazione del file Word...",
+      "saveBeforeDownloadWord": "Salva prima le modifiche: il file Word viene creato dalla lettera salvata.",
       "sections": {
         "recipient": "Destinatario",
         "opening": "Apertura",
