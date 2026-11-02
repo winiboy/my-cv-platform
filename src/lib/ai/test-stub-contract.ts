@@ -80,3 +80,13 @@ export const AI_TEST_STUB_OFFER_PAGE_PARAM = 'ai-test-stub-page'
 
 /** The value of `AI_TEST_STUB_OFFER_PAGE_PARAM` that makes the stubbed check time out. */
 export const AI_TEST_STUB_OFFER_PAGE_TIMEOUT = 'timeout'
+
+/**
+ * What the stubbed cover-letter translation writes before every segment it
+ * "translates", e.g. `[DE] ` for German: deterministic, and visibly not the
+ * original. A segment carrying one of `AI_TEST_STUB_DIRECTIVES` fails the
+ * whole translation as the provider would.
+ */
+export function aiTestStubTranslationPrefix(targetLanguage: 'fr' | 'en' | 'de' | 'it'): string {
+  return `[${targetLanguage.toUpperCase()}] `
+}

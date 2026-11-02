@@ -561,6 +561,26 @@
       "downloadWord": "Word",
       "downloadingWord": "Creating Word file...",
       "saveBeforeDownloadWord": "Save your changes first: the Word file is made from the saved letter.",
+      "translate": {
+        "label": "Translate",
+        "to": {
+          "en": "Translate into English",
+          "fr": "Translate into French",
+          "de": "Translate into German",
+          "it": "Translate into Italian"
+        },
+        "translating": {
+          "en": "Translating into English...",
+          "fr": "Translating into French...",
+          "de": "Translating into German...",
+          "it": "Translating into Italian..."
+        },
+        "saveFirst": "Save your changes first: the translation is made from the saved letter.",
+        "failed": "The letter could not be translated. No new letter was created. Please try again.",
+        "rateLimited": "Too many AI requests in a short time. No new letter was created. Try again in a few minutes.",
+        "tooLarge": "This letter is too long to translate. Shorten its paragraphs and try again.",
+        "empty": "This letter has no text to translate yet. Write it, save it, and try again."
+      },
       "sections": {
         "recipient": "Recipient",
         "opening": "Opening",

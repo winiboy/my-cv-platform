@@ -18,6 +18,9 @@ import {
   Download,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { cn } from '@/lib/utils'
+import { LANGUAGE_FLAG_OPTIONS, type FlagLanguage } from '@/components/ui/language-flags'
+import { requestCoverLetterTranslation } from '@/lib/cover-letter-translate-client'
 import { useCoverLetterDownload } from '@/lib/hooks/use-cover-letter-download'
 import type { CoverLetterExportFormat } from '@/lib/cover-letter-download-client'
 import type { Locale } from '@/lib/i18n'
@@ -56,6 +59,12 @@ interface DownloadNotice {
   reason: 'save-first' | 'failed' | 'too-large'
 }
 
+/** Why a translation flag created no letter, as the editor tells the user. */
+type TranslateNotice = 'save-first' | 'failed' | 'rate-limited' | 'too-large' | 'empty'
+
+/** The notice element the flags point to; one notice is shown at a time. */
+const TRANSLATE_NOTICE_ID = 'cover-letter-translate-notice'
+
 type SectionId = 'resume' | 'job' | 'recipient' | 'opening' | 'body' | 'closing' | 'signature'
 
 const SECTIONS = [
@@ -76,7 +85,7 @@ export function CoverLetterEditor({
   locale,
   dict,
 }: CoverLetterEditorProps) {
-  const _router = useRouter()
+  const router = useRouter()
   const [coverLetter, setCoverLetter] = useState(initialCoverLetter)
   const [currentJobApplication, setCurrentJobApplication] = useState<JobApplicationData | null>(initialJobApplication)
   const [activeSection, setActiveSection] = useState<SectionId>('recipient')
@@ -87,6 +96,8 @@ export function CoverLetterEditor({
   const [showGenerationModal, setShowGenerationModal] = useState(false)
   const [showCheckerModal, setShowCheckerModal] = useState(false)
   const [downloadNotice, setDownloadNotice] = useState<DownloadNotice | null>(null)
+  const [translatingTo, setTranslatingTo] = useState<FlagLanguage | null>(null)
+  const [translateNotice, setTranslateNotice] = useState<TranslateNotice | null>(null)
   const pdfButtonRef = useRef<HTMLButtonElement>(null)
   const wordButtonRef = useRef<HTMLButtonElement>(null)
   // Set when a button starts a request, cleared once focus is handed back.
@@ -100,6 +111,9 @@ export function CoverLetterEditor({
   const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
   const editorDict = (coverLettersDict.editor || {}) as Record<string, unknown>
   const commonDict = (dict.common || {}) as Record<string, unknown>
+  const translateDict = (editorDict.translate || {}) as Record<string, unknown>
+  const translateToDict = (translateDict.to || {}) as Partial<Record<FlagLanguage, string>>
+  const translatingDict = (translateDict.translating || {}) as Partial<Record<FlagLanguage, string>>
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -138,9 +152,10 @@ export function CoverLetterEditor({
       } else {
         setLastSaved(new Date())
         setHasUnsavedChanges(false)
-        // Saving is the only way unsaved changes end, and it answers both
-        // notices: the letter is saved, and a new click is a new attempt.
+        // Saving is the only way unsaved changes end, and it answers every
+        // notice: the letter is saved, and a new click is a new attempt.
         setDownloadNotice(null)
+        setTranslateNotice(null)
       }
     } catch (err) {
       console.error('Unexpected error:', err)
@@ -156,6 +171,8 @@ export function CoverLetterEditor({
    * behalf would commit edits they have not chosen to keep.
    */
   const handleDownload = async (format: CoverLetterExportFormat) => {
+    // One notice at a time.
+    setTranslateNotice(null)
     // No request and no busy state here, so the button keeps its focus.
     if (hasUnsavedChanges) {
       setDownloadNotice({ format, reason: 'save-first' })
@@ -166,6 +183,68 @@ export function CoverLetterEditor({
     const result = await (format === 'pdf' ? downloadPdf : downloadWord)()
     if (result === 'failed' || result === 'too-large') setDownloadNotice({ format, reason: result })
   }
+
+  /**
+   * Translates the SAVED letter into a new copy and opens it, by the same
+   * save-first rule as the downloads: the server translates what is stored,
+   * so with unsaved edits the copy would not be the letter on screen.
+   *
+   * The flags are `aria-disabled`, not `disabled`, while a translation runs,
+   * so the clicked flag keeps keyboard focus; a second click is ignored here.
+   * On success the busy state stays until the new letter's page replaces
+   * this one.
+   */
+  const handleTranslate = async (targetLanguage: FlagLanguage) => {
+    if (translatingTo !== null) return
+    setDownloadNotice(null)
+    if (hasUnsavedChanges) {
+      setTranslateNotice('save-first')
+      return
+    }
+    setTranslateNotice(null)
+    setTranslatingTo(targetLanguage)
+    const result = await requestCoverLetterTranslation(coverLetter.id, targetLanguage)
+    if (result.kind === 'created') {
+      router.push(`/${locale}/dashboard/cover-letters/${result.coverLetterId}/edit`)
+      return
+    }
+    setTranslatingTo(null)
+    setTranslateNotice(result.kind)
+  }
+
+  const isTranslateFailure = translateNotice === 'failed' || translateNotice === 'rate-limited'
+
+  const translateNoticeMessage = (() => {
+    switch (translateNotice) {
+      case 'save-first':
+        return (
+          (translateDict.saveFirst as string) ||
+          'Save your changes first: the translation is made from the saved letter.'
+        )
+      case 'rate-limited':
+        return (
+          (translateDict.rateLimited as string) ||
+          'Too many AI requests in a short time. No new letter was created. Try again in a few minutes.'
+        )
+      case 'too-large':
+        return (
+          (translateDict.tooLarge as string) ||
+          'This letter is too long to translate. Shorten its paragraphs and try again.'
+        )
+      case 'empty':
+        return (
+          (translateDict.empty as string) ||
+          'This letter has no text to translate yet. Write it, save it, and try again.'
+        )
+      case 'failed':
+        return (
+          (translateDict.failed as string) ||
+          'The letter could not be translated. No new letter was created. Please try again.'
+        )
+      default:
+        return ''
+    }
+  })()
 
   // A button is disabled while its request runs, and a disabled button drops
   // focus to <body>: a keyboard user would be left nowhere, unable to retry
@@ -619,6 +698,74 @@ export function CoverLetterEditor({
       {saveError && (
         <div className="px-4 py-2 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
           <p className="text-sm text-red-600 dark:text-red-400">{saveError}</p>
+        </div>
+      )}
+
+      {/* Translation: a translated copy of the saved letter, opened once created */}
+      <div className="flex items-center justify-end gap-2 px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+        {/*
+          Before the flags, so busy text grows to the left and the flags never
+          move. Always in the DOM, so it is announced when it fills. Below sm
+          it is visually hidden: beside 44 px flags it would not fit, and the
+          spinner in the tapped flag shows the busy state there.
+        */}
+        <span role="status" className="sr-only sm:not-sr-only text-sm text-slate-600 dark:text-slate-300">
+          {translatingTo ? translatingDict[translatingTo] || `Translating into ${translatingTo.toUpperCase()}...` : ''}
+        </span>
+        {/* Label and flags stay together; on a screen too narrow for one line, the label sits above the flags. */}
+        <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+          <span id="cover-letter-translate-label" className="text-sm text-slate-600 dark:text-slate-300">
+            {(translateDict.label as string) || 'Translate'}
+          </span>
+          <div role="group" aria-labelledby="cover-letter-translate-label" className="flex items-center gap-2 sm:gap-1">
+            {LANGUAGE_FLAG_OPTIONS.map(({ code, Flag }) => {
+              const isBusy = translatingTo === code
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => handleTranslate(code)}
+                  aria-disabled={translatingTo !== null}
+                  aria-busy={isBusy}
+                  aria-label={
+                    isBusy
+                      ? translatingDict[code] || `Translating into ${code.toUpperCase()}...`
+                      : translateToDict[code] || `Translate into ${code.toUpperCase()}`
+                  }
+                  aria-describedby={translateNotice ? TRANSLATE_NOTICE_ID : undefined}
+                  className={cn(
+                    // 44 px touch targets on phones: a mis-tap creates a letter and leaves the page.
+                    'flex items-center justify-center gap-1 px-2 py-1.5 rounded-full transition-colors min-h-11 min-w-11 sm:min-h-0 sm:min-w-0',
+                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1',
+                    'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600',
+                    'aria-disabled:cursor-wait aria-disabled:opacity-80'
+                  )}
+                >
+                  <Flag />
+                  {isBusy && <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Translation notice: red for a failure, amber for what the user can fix, as the download notice */}
+      {translateNotice && (
+        <div
+          className={
+            isTranslateFailure
+              ? 'px-4 py-2 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800'
+              : 'px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800'
+          }
+        >
+          <p
+            id={TRANSLATE_NOTICE_ID}
+            role="alert"
+            className={isTranslateFailure ? 'text-sm text-red-700 dark:text-red-400' : 'text-sm text-amber-700 dark:text-amber-400'}
+          >
+            {translateNoticeMessage}
+          </p>
         </div>
       )}
 

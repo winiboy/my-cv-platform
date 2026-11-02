@@ -16,6 +16,7 @@ import {
   RotateCcw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { LANGUAGE_FLAG_OPTIONS } from '@/components/ui/language-flags'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/ui/toast'
 import {
@@ -45,68 +46,6 @@ import type { GrammarAnalysisResponse } from '@/types/grammar-check'
  * Minimum character count required for grammar analysis.
  */
 const MIN_PASTE_CHARACTERS = 100
-
-/**
- * SVG Flag components for language selection.
- * Simple, lightweight representations of country flags.
- */
-function FlagGB({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 60 30" width="20" height="10" aria-hidden="true">
-      {/* Blue background */}
-      <rect width="60" height="30" fill="#012169" />
-      {/* White diagonal stripes */}
-      <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" strokeWidth="6" />
-      {/* Red diagonal stripes */}
-      <path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" strokeWidth="2" />
-      {/* White cross */}
-      <path d="M30,0 V30 M0,15 H60" stroke="#fff" strokeWidth="10" />
-      {/* Red cross */}
-      <path d="M30,0 V30 M0,15 H60" stroke="#C8102E" strokeWidth="6" />
-    </svg>
-  )
-}
-
-function FlagFR({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 30 20" width="20" height="13" aria-hidden="true">
-      <rect width="10" height="20" fill="#002395" />
-      <rect x="10" width="10" height="20" fill="#fff" />
-      <rect x="20" width="10" height="20" fill="#ED2939" />
-    </svg>
-  )
-}
-
-function FlagDE({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 30 20" width="20" height="13" aria-hidden="true">
-      <rect width="30" height="6.67" fill="#000" />
-      <rect y="6.67" width="30" height="6.67" fill="#DD0000" />
-      <rect y="13.33" width="30" height="6.67" fill="#FFCC00" />
-    </svg>
-  )
-}
-
-function FlagIT({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 30 20" width="20" height="13" aria-hidden="true">
-      <rect width="10" height="20" fill="#009246" />
-      <rect x="10" width="10" height="20" fill="#fff" />
-      <rect x="20" width="10" height="20" fill="#CE2B37" />
-    </svg>
-  )
-}
-
-/**
- * Language options for grammar analysis.
- * Users can select which language to use for checking grammar.
- */
-const LANGUAGE_OPTIONS = [
-  { code: 'en', flag: <FlagGB />, fullName: 'English' },
-  { code: 'fr', flag: <FlagFR />, fullName: 'Français' },
-  { code: 'de', flag: <FlagDE />, fullName: 'Deutsch' },
-  { code: 'it', flag: <FlagIT />, fullName: 'Italiano' },
-] as const
 
 /**
  * Decodes common HTML entities to their text equivalents.
@@ -744,7 +683,7 @@ export function GrammarCheckerClient({
             aria-label={translations.selectLanguage || 'Select analysis language'}
             className="flex items-center gap-1 px-2 pb-2"
           >
-            {LANGUAGE_OPTIONS.map((lang) => {
+            {LANGUAGE_FLAG_OPTIONS.map((lang) => {
               const isSelected = analysisLanguage === lang.code
 
               return (
@@ -762,7 +701,7 @@ export function GrammarCheckerClient({
                       : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600'
                   )}
                 >
-                  {lang.flag}
+                  <lang.Flag />
                 </button>
               )
             })}

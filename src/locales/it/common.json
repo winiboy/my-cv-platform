@@ -561,6 +561,26 @@
       "downloadWord": "Word",
       "downloadingWord": "Creazione del file Word...",
       "saveBeforeDownloadWord": "Salva prima le modifiche: il file Word viene creato dalla lettera salvata.",
+      "translate": {
+        "label": "Traduci",
+        "to": {
+          "en": "Traduci in inglese",
+          "fr": "Traduci in francese",
+          "de": "Traduci in tedesco",
+          "it": "Traduci in italiano"
+        },
+        "translating": {
+          "en": "Traduzione in inglese...",
+          "fr": "Traduzione in francese...",
+          "de": "Traduzione in tedesco...",
+          "it": "Traduzione in italiano..."
+        },
+        "saveFirst": "Salva prima le modifiche: la traduzione viene creata dalla lettera salvata.",
+        "failed": "Non è stato possibile tradurre la lettera. Nessuna nuova lettera è stata creata. Riprova.",
+        "rateLimited": "Troppe richieste IA in poco tempo. Nessuna nuova lettera è stata creata. Riprova tra qualche minuto.",
+        "tooLarge": "Questa lettera è troppo lunga per essere tradotta. Accorcia i paragrafi e riprova.",
+        "empty": "Questa lettera non contiene ancora testo da tradurre. Scrivila, salvala e riprova."
+      },
       "sections": {
         "recipient": "Destinatario",
         "opening": "Apertura",

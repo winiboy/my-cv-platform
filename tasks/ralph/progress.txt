@@ -294,3 +294,143 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-002 a cover letter downloads as a Word file
 FINAL: PASS
+
+## US-003: A letter can be translated by flag into a new copy
+Status: PASS
+Priority: 3
+Branch: ralph/cover-letter-export-translate
+Baseline HEAD: 281088a (US-002 commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; new files untracked):
+  - New `src/components/ui/language-flags.tsx` (+ test): `FlagGB`, `FlagFR`, `FlagDE`, `FlagIT` moved unchanged from the grammar checker, plus the shared language list. The test pins each flag to its markup at 281088a and checks that no other component defines its own flags.
+  - `src/components/tools/grammar-checker-client.tsx` (3/64): imports the shared flags.
+  - New `src/app/api/cover-letters/[id]/translate/route.ts` (+ route.test.ts): POST { targetLanguage }, maxDuration 60.
+    - Checks, in order:
+      1. 401;
+      2. 415 (JSON only);
+      3. 400 (Zod: en/fr/de/it);
+      4. 404 for a bad uuid, a missing letter or another user's letter (session read plus explicit user_id);
+      5. 422 above the size guard;
+      6. 422 above the AI limits (120 segments, 12,000 characters);
+      7. 422 `{ error: 'empty' }` for a letter with no text;
+      8. only then `enforceAiRateLimit`.
+    - Errors and insert:
+      - a provider error gives 502;
+      - a provider rate limit gives 429;
+      - an incomplete rebuild (missing part, or any overflow) gives 502;
+      - otherwise one insert under the session user, title "<title> (XX)" cut to fit 255.
+    - It never writes the original letter or job_applications.
+  - New `translate/letter-segments.ts` (+ test): splits the stored letter into segments with US-002's DOM-free allowlist parser, each written in a mini-markup (`<b>`, `<i>`, `<u>`, `<br>`). Rebuilding the reply:
+    - the structure comes from the original, never from the reply;
+    - the reply is re-parsed with the allowlist;
+    - each run goes through `sanitizeUntrustedPlainText` with its own length as the limit (nothing is ever cut) and is escaped;
+    - each part must fit its column (rich parts 20,000 characters of escaped HTML, greeting and sign-off 255), or the translation is refused;
+    - the result then passes the final `sanitizeUntrustedRichText`.
+  - New `src/lib/ai/cover-letter-translation.ts` (+ test): one AI call per letter, with the same model and temperature 0.3 as `translateSummary`. A reply must have exactly one translation per segment.
+  - `src/lib/ai/prompts.ts` (68/15): the language table and tone rules are extracted into shared constants, and the letter-translation prompt is added. New `src/lib/ai/prompts.translation.test.ts` pins the full `buildTranslationPrompt` text (de) against 281088a; the resume-section prompt is identical in all 4 languages.
+  - `src/lib/ai/test-stub.ts` (24/0), `test-stub-contract.ts` (10/0), `test-stub.test.ts` (62/0): a stub translator (prefix "[DE] " and so on) with provider-error and rate-limited directives, behind the unchanged `isAiTestStubEnabled` guard.
+  - New `src/lib/cover-letter-translate-client.ts` (+ test): the browser request, with a 65 s timeout (above the route's 60 s, so the client can't report a failure for a copy the server then creates). Only a 201 with a uuid opens a letter.
+  - `src/components/dashboard/cover-letter-editor.tsx` (150/3): a row under the header with the "Traduire" label and the four flags.
+    - Flags: localized names; 44×44 below sm.
+    - Busy state: `aria-disabled` plus `aria-busy`, a spinner on the tapped flag, the busy name, and a role="status" text (sr-only below sm).
+    - Same save-first rule as the downloads.
+    - One notice at a time with PDF/Word (`#cover-letter-translate-notice`, role="alert"): red for failed and rate-limited, amber for save-first, empty and too-large.
+  - `src/locales/{fr,en,de,it}/common.json` (20/0 each).
+  - New `e2e/cover-letter-translate.spec.ts`.
+- Not touched: migrations, package.json and the lockfile, `language-flags` markup (moved byte for byte), the PDF/Word routes. No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted. The "before" flag captures came from the temporary origin/main worktree.
+
+Checks:
+- Runs on earlier diffs were invalidated by the review fixes below.
+- Environment incidents on the final diff:
+  - One run failed almost entirely because Docker Desktop was not running, so the local Supabase stack was down ("Could not create E2E user: fetch failed"; integration tests 50 skipped). Docker Desktop and `supabase start` were started and the run was repeated.
+  - In the repeated run, `pnpm build` and the parity web server crashed early with "uncaughtException TypeError: Cannot read properties of undefined (reading 'length')". This reproduced in `.next` until that ignored build directory was deleted, so it was a corrupt build cache. `.next-parity` was cleared the same way. No code changed.
+- Final results (this diff):
+  - Cover-letter specs alone (translate, pdf, docx, editor-i18n, editor-spacing): 46 passed.
+  - pnpm typecheck: PASS — 0 errors.
+  - pnpm test: PASS — 113 files, 2970 passed, 5 skipped (2872 after US-002).
+  - pnpm test:integration: PASS — 4 files, 50 passed.
+  - pnpm test:e2e: PASS — 453 passed, 0 failed, first pass (442 after US-002).
+  - pnpm build: PASS — 105/105 static pages (after clearing `.next`).
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings); one fewer than before (`_router` in the editor is now used).
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (after clearing `.next-parity`).
+
+Specialized validation:
+- Browser: PASS — e2e/cover-letter-translate.spec.ts, on fr and de pages:
+  - localized names;
+  - busy state;
+  - DE on a French letter creates and opens "Lettre Zürich (DE)": the stored row has translated parts and kept columns, the original is unchanged, the application link is unchanged;
+  - keyboard: Tab to a flag, then Enter;
+  - failures (502, 429) show a localized error and create nothing;
+  - save-first sends no request;
+  - another user's id gives 404.
+- Visual: PASS — the grammar checker's language row was captured logged in, as an element, on origin/main f24a1d1 (worktree) and on the branch, in fr and de at 1440 and 375: a 0-byte pixel diff (172×33) and identical innerHTML (2,415 chars) for all four pairs. The first attempt captured the site's language switcher by mistake and was discarded. No resume template changed, so test:visual does not apply.
+- Export: NOT_APPLICABLE.
+- Database: NOT_APPLICABLE — one insert through the session (RLS), no schema change.
+- Security: PASS — security-review: 5 trust boundaries, 9/9 requirements, 0 critical/high/medium/low, 3 info.
+  - Hostile replies fed to the rebuild (`javascript:` links, onerror, onclick/style url(), script, iframe, svg onload, entity- and double-encoded tags, extra structure) produced only p/br/strong/em/u/ul/ol/li with no attributes.
+  - No ReDoS: a 30k flood took 1 ms; 1M-character replies took 36–87 ms and were refused.
+  - The rate limit comes after every cheap refusal.
+  - Re-check after the truncation fix: PASS; no sanitizing step weakened.
+  - SEC-019 INFO: the copy carries the source's resume_id and job_application_id; those can already be foreign through SEC-004.
+  - SEC-020 INFO: prompt injection can only shape the user's own copy, within the budget.
+  - SEC-021 INFO, pre-existing: `enforceJsonBodyLimit` trusts Content-Length.
+
+Agents:
+- senior-coder: implementation, then two fix rounds:
+  - truncation, empty message, client timeout and maxDuration, prompt pin;
+  - touch targets, status before label, notice colours.
+- code-reviewer:
+  - round 1: FAIL. Major: each translated run was cut at 2,000 characters without signalling, and the copy was still inserted. A 1,904-character paragraph translated to 3,424 characters was stored at 2,007, ending lost.
+  - round 2: PASS.
+  - round 3 (UI fixes): PASS.
+- ui-expert:
+  - round 1: FAIL. Major: on mobile the flags were about 36×25 px with 4 px gaps, and a mis-tap creates a letter and navigates away. Minors: the row jumped when busy text appeared; notice colours were inconsistent. The grammar checker was confirmed unchanged.
+  - round 2: first attempt stopped on an API connection error; a fresh ui-expert gave PASS 7/7.
+    - At 375 every flag is 44×44, scrollWidth is 375, and long German notices wrap cleanly.
+    - Contrast: red notice 5.87, amber notice 4.85, label 11.37, flag focus ring 3.45.
+    - Keyboard focus stays on the flag after a 502, and Enter retries.
+    - The new copy opens. The grammar checker is pixel-identical.
+
+Acceptance criteria:
+- AC-01 (four flags from one shared component, the same SVGs as the grammar checker): PASS — language-flags.tsx; unit test against 281088a markup.
+- AC-02 (the checker's flags identical before and after, by pixel comparison): PASS — 0-byte diff, fr/de × 1440/375.
+- AC-03 (localized accessible names, keyboard, localized busy state): PASS — e2e; captures; ui-expert. Below sm the busy text is sr-only and the tapped flag shows the spinner and its busy name.
+- AC-04 (a click creates and opens "<title> (DE)"; parts translated; recipient, company, sender, template, resume_id, job_application_id kept): PASS — e2e stored-row check; route tests.
+- AC-05 (the original is unchanged, the application's cover_letter_id still points to it): PASS — e2e; the route only inserts.
+- AC-06 (failure or rate limit shows a localized error and creates nothing): PASS — e2e and route tests (502, 429, incomplete).
+- AC-07 (translated text sanitized like cover-letter-from-job; bold, italic and lists kept): PASS — letter-segments tests; security-review hostile-reply probe.
+- AC-08 (another user's letter refused): PASS — route test and e2e 404.
+- FR-3, FR-4, FR-5, FR-6, FR-7: PASS.
+- Regression constraints: PASS. The grammar checker is unchanged (pixel and HTML). The editor sections, the AI modal and PDF/Word are unchanged (their specs are green). The resume-section translation prompt is pinned in full.
+- FAIL conditions: none met.
+
+Decision (implementer, accepted by code-reviewer): one AI call per letter, translating whole blocks in a mini-markup. The structure always comes from the original, so the reply cannot add, merge or split paragraphs.
+Decision: translation follows the same save-first rule as the downloads and always translates the saved row.
+Decision: the flags row sits under the header, not in it, because the header has no room left at 1366 after US-002.
+Decision: analysis score and results are not copied (they judged the original text).
+Decision: any overflow refuses the translation (502) instead of shortening it, so a copy is never stored with part of its text missing.
+Decision: the client times out at 65 s, above the route's 60 s maxDuration.
+
+Named limitations:
+- Inline font size, font family and alignment are not carried into the copy (the AI rich-text allowlist has no attributes).
+- Text a user typed with literal "<" or ">" loses those characters in the copy.
+- Translating a copy again stacks suffixes ("Lettre (DE) (FR)").
+
+Open owner decisions recorded by this story:
+- ui-expert, minor:
+  - from 640 px up (landscape phones, touch tablets) the flags return to about 36×25 px; a `pointer-fine:` or `lg:` breakpoint would keep 44 px targets on touch devices;
+  - the busy spinner widens the tapped flag by 8 px (the earlier flags shift; they are inert while busy).
+- ui-expert, owner note: every flag is offered even for the letter's own language.
+- code-reviewer, minor: `rich-text-blocks.ts` (under download-docx) is now imported by the translate route too; move it to src/lib later.
+- security-review: SEC-019/020/021 (INFO).
+
+Environment notes:
+- Windows 11. Docker Desktop had to be started and the local Supabase stack brought up. A corrupt `.next` and `.next-parity` build cache was cleared. Playwright suites ran one at a time.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 a letter can be translated by flag into a new copy
+FINAL: PASS
