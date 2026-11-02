@@ -4,3 +4,92 @@ Contract: tasks/ralph/prd.json (branch ralph/cover-letter-template-language)
 PRD: tasks/prds/cover-letter-template-language.md (Status: APPROVED 2026-11-02, written by the owner: the owner approved the exact approval command in the app, which ran it in the owner's terminal)
 Format: docs/engineering/progress-log-format.md
 Branch setup: from origin/main aaaef1e (#117 merged). The first commit archives the merged cover-letter-export-translate contract; the second adds this PRD and its contract.
+
+## US-001: The exports show the date, subject and defaults in the letter's language
+Status: PASS
+Priority: 1
+Branch: ralph/cover-letter-template-language
+Baseline HEAD: d9dcc65 (origin/main aaaef1e + archive and contract commits)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; new files untracked):
+  - New `src/lib/cover-letter-language.ts` (106 lines) + test (164):
+    - `COVER_LETTER_WORDING`: one frozen entry per language (date locale, subject, default greeting, default sign-off). Date locales en-US / fr-FR / de-DE / it-IT, chosen once and documented in the file.
+    - `formatCoverLetterDate(date, language)`: Intl long format, runtime time zone as before.
+    - `resolveCoverLetterLanguage(paragraphsHtml, fallback)`: markup and entities stripped (linear regexes), then `detectOfferLanguage`, else the page language.
+    - `coverLetterRequestLanguage(body)`: the request's `locale` through `toLocale`/`defaultLocale` from `@/lib/i18n`; anything else is 'en'.
+    - No server-only import, so US-002's preview can use it.
+  - `src/lib/cover-letter-pdf-html.ts` (58/19) + test (89/3):
+    - `coverLetterParts(coverLetter, currentDate, language)` stays the one source; the subject and the empty-greeting/sign-off defaults come from `COVER_LETTER_WORDING[language]`.
+    - `coverLetterLanguage` (the resolver over opening, body, closing) and `coverLetterExportLanguage` (language + date line, shared by both routes).
+    - `MAX_COVER_LETTER_EXPORT_REQUEST_BYTES` = 1024.
+    - `formatCoverLetterPdfDate` and the private English defaults removed; no reference remains in src or e2e.
+  - `download-pdf/route.ts` (31/8) and `download-docx/route.ts` (28/9) + tests (66/4, 76/2): the body is read with `readBoundedBody` (413 over 1024 bytes, 400 if not JSON). Order: 401 → 415 → body → id/ownership 404 → size guard 422 → (PDF) slot 503.
+  - `cover-letter-docx.ts` (6/3), `render-cover-letter.ts` (5/1), tests (1/1 each): the language is passed through to `coverLetterParts`.
+  - `cover-letter-download-client.ts` (14/8) + test (10/10), `hooks/use-cover-letter-download.ts` (10/4), `cover-letter-card.tsx` (2/2), `cover-letter-editor.tsx` (7/2): the page locale is sent as `{"locale": …}` in the existing JSON body.
+  - New `e2e/cover-letter-template-language.spec.ts` (246 lines): 4 cases, PDF and Word each.
+  - `e2e/cover-letter-docx-export.spec.ts` (20/9): expected-text update only. Its mixed fr/de/en fixture is undetectable (7 French function words, the detector needs 8), so its date and subject now follow the page (fr under /fr, de under /de) instead of English. A unit test pins that fixture as undetectable in all 4 page languages.
+- Not touched: `modern-letter-template.tsx` and `cover-letter-preview.tsx` (US-002), migrations, package.json, locales, stored data. No version change, no push or merge.
+- Temporary capture spec (e2e/zz-uiexp-tl1.spec.ts) generated after the checks, run alone, deleted.
+
+Checks:
+- A first full run was stopped before it finished, when review fixes were requested; it is not used as evidence.
+- Final run (this diff):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 114 files, 3019 passed, 5 skipped.
+  - pnpm test:integration: PASS — 4 files, 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286; eslint on the changed files: 0 problems.
+  - pnpm test:e2e: PASS — 457 passed, 0 failed (15.5 min), including the cover-letter pdf-export, docx-export, editor-i18n, editor-spacing and the new template-language specs.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — e2e/cover-letter-template-language.spec.ts downloads through the editor's PDF and Word buttons:
+  - a French letter under /de and a German one under /fr print the letter's language;
+  - a letter too short to tell, under /de, follows the page and keeps its stored greeting "Bonjour Madame,";
+  - an English letter under /fr prints "Re: Application for …", "Dear Hiring Manager,", "Sincerely," and the en-US date;
+  - the four parts are separate Word paragraphs in order, and appear in the same order in the PDF text;
+  - no English part in the fr/de files.
+- Visual: NOT_APPLICABLE — no template or layout changed; parity unchanged.
+- Export: PASS — export-validation on 5 letters, PDF and Word each, generated through the editor buttons (scratchpad tl1-exports, sha256 prefixes):
+  - fr letter under /de: PDF fc477d0c…, Word f0a90387… — "2 novembre 2026", "Objet : Candidature au poste de Ingénieur logiciel", "Madame, Monsieur,", "Veuillez agréer mes salutations distinguées,".
+  - de letter under /fr: PDF c33800f9…, Word ece4f920… — "2. November 2026", "Betreff: Bewerbung als Softwareentwickler", "Sehr geehrte Damen und Herren,", "Mit freundlichen Grüßen,".
+  - it letter under /fr: PDF 891aac9f…, Word 7d8a6650… — "2 novembre 2026", "Oggetto: Candidatura per la posizione di Sviluppatore software", "Gentili Signore e Signori,", "Cordiali saluti,".
+  - undetectable letter under /de: PDF e2330868…, Word 5919d76f… — German date, subject and sign-off, stored greeting kept.
+  - en letter under /fr: PDF b51bee76…, Word ddeabefd… — today's English wording.
+  - All 10: valid (%PDF / PK with document.xml), 1 page; the four parts present and in order in both formats and identical between them (10/10); 0 English parts in the 8 fr/de/it/undetectable files.
+  - Rendered: the fr and it PDFs rasterized; the it .docx opened in Microsoft Word (1 page) and its render matches the PDF (same parts, order and typography; line wrapping differs by renderer, as before).
+- Database: NOT_APPLICABLE — no schema, policy or stored-data change.
+- Security: PASS — security-review, 3 trust boundaries, 6/6 requirements, 0 critical/high/medium. First pass: SEC-001 LOW (unbounded request.json()), fixed with readBoundedBody; re-review PASS with 0 low, 1 info.
+
+Agents:
+- senior-coder: implementation, then one fix round (code-review minors 1-6 and SEC-001).
+- ui-expert: NOT_APPLICABLE — this story changes no rendered UI (the editor and list only pass the locale to the request); the preview is US-002, where ui-expert runs.
+- code-reviewer: PASS — first pass PASS with 8 minor findings; minors 1-6 fixed; re-review on the final diff PASS (242/242 affected unit tests re-run).
+
+Acceptance criteria:
+- AC-01 (French): PASS — export fr-letter-under-de PDF + Word; e2e French case; unit tests per language.
+- AC-02 (German and Italian): PASS — exports de-letter-under-fr and it-letter-under-fr; e2e German case; unit tests for de and it.
+- AC-03 (English unchanged): PASS — en-letter-under-fr export and e2e; unit test equates the en-US Intl call with the old toLocaleDateString on 3 dates; cover-letter-pdf-export.spec.ts unchanged and green.
+- AC-04 (undetectable → page language, routes know the locale): PASS — short-letter-under-de export and e2e; route tests for the locale allowlist and fallback.
+- AC-05 (stored greeting/sign-off printed as stored): PASS — "Bonjour Madame," kept under /de; unit tests in 4 languages.
+- AC-06 (PDF and Word identical for the four parts): PASS — 5/5 letters, both formats built from one coverLetterExportLanguage + coverLetterParts.
+- FR-1 to FR-5: PASS — one resolver; one constant set with documented date locales; coverLetterParts the single source; no migration, dependency or data change; the four languages present, checked by a unit test (constant set, not locale files).
+- Regression constraints: PASS — full e2e and parity green; English byte-identical; layout unchanged.
+- Verification items for US-002 (preview e2e, ui-expert on the preview): belong to US-002.
+
+Decision:
+- The request carries the page locale in its existing JSON body, capped at 1 KiB; an unknown locale is 'en' (the app's default).
+
+Open owner decisions:
+- French subject wording: "Candidature au poste de Ingénieur…" has no elision ("d'Ingénieur"); the PRD's literal wording is followed. Dates on the 1st print "1 janvier", not "1er janvier".
+- PRD line 60 says "No new input or route"; the request's locale is a new, allowlisted body input (security-review SEC-002, INFO). Only the owner edits the PRD.
+
+Environment notes:
+- `.next` and `.next-e2e` were deleted (git-ignored) after the stopped first run, in case it left a partial build.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 The exports show the date, subject and defaults in the letter's language
+FINAL: PASS

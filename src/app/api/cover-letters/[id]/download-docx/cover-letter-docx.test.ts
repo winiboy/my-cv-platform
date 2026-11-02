@@ -63,7 +63,7 @@ async function readDocx(buffer: Buffer): Promise<{ paragraphs: ReadParagraph[]; 
   return { paragraphs, numbering, xml }
 }
 
-const build = (coverLetter: CoverLetterPdfFields) => buildCoverLetterDocx({ coverLetter, currentDate: CURRENT_DATE })
+const build = (coverLetter: CoverLetterPdfFields) => buildCoverLetterDocx({ coverLetter, currentDate: CURRENT_DATE, language: 'en' })
 
 describe('buildCoverLetterDocx: a valid Word file', () => {
   it('is a zip holding the parts Word needs', async () => {

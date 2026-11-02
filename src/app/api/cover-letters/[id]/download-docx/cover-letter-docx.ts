@@ -13,6 +13,7 @@ import {
   type CoverLetterPart,
   type CoverLetterPdfFields,
 } from '@/lib/cover-letter-pdf-html'
+import type { CoverLetterLanguage } from '@/lib/cover-letter-language'
 import { pxToHalfPoints, pxToTwips } from '@/app/api/resumes/[id]/download-docx/docx-helpers'
 import {
   RichTextTooLargeError,
@@ -75,8 +76,10 @@ function spend(budget: DocxBudget, paragraphs: number, runs: number): void {
 
 export interface CoverLetterDocxInput {
   coverLetter: CoverLetterPdfFields
-  /** The date line, pre-formatted (`formatCoverLetterPdfDate`), as the PDF prints it. */
+  /** The date line, pre-formatted (`formatCoverLetterDate`) in `language`, as the PDF prints it. */
   currentDate: string
+  /** The letter's display language (`coverLetterLanguage`), as the PDF uses it. */
+  language: CoverLetterLanguage
 }
 
 /** The template's metrics, in CSS px, as `buildCoverLetterPdfHtml` draws them. */
@@ -342,12 +345,12 @@ const compact = (paragraphs: (PendingParagraph | null)[]): PendingParagraph[] =>
  * Throws `CoverLetterDocxTooLargeError` beyond `COVER_LETTER_DOCX_LIMITS`,
  * before the parts past the limit are built.
  */
-export function coverLetterDocxParagraphs({ coverLetter, currentDate }: CoverLetterDocxInput): Paragraph[] {
+export function coverLetterDocxParagraphs({ coverLetter, currentDate, language }: CoverLetterDocxInput): Paragraph[] {
   const lists = new ListInstances()
   const pending: PendingParagraph[] = []
   const budget: DocxBudget = { ...COVER_LETTER_DOCX_LIMITS }
 
-  for (const part of coverLetterParts(coverLetter, currentDate)) {
+  for (const part of coverLetterParts(coverLetter, currentDate, language)) {
     const paragraphs = partParagraphs(part, lists, budget)
     if (paragraphs.length === 0) continue
     const margins = PART_MARGINS_PX[part.kind]

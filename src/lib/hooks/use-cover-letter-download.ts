@@ -26,14 +26,15 @@ export type CoverLetterDownloadResult = 'downloaded' | 'too-large' | 'failed'
 /**
  * Downloads a saved cover letter as a PDF or Word file, for the letters list
  * and the editor. One instance per format, so each button has its own busy
- * state.
+ * state. `locale` is the page's, sent for the wording of a letter whose own
+ * language cannot be told.
  *
  * `download` resolves once the file is handed to the browser or the attempt
  * failed; the caller tells the user. A click while one download is running is
  * ignored and resolves to `null`: state alone cannot stop it, since two clicks
  * dispatched before React re-renders the busy button would both see `false`.
  */
-export function useCoverLetterDownload(coverLetterId: string, format: CoverLetterExportFormat) {
+export function useCoverLetterDownload(coverLetterId: string, format: CoverLetterExportFormat, locale: string) {
   const [isDownloading, setIsDownloading] = useState(false)
   const inFlightRef = useRef(false)
 
@@ -46,7 +47,12 @@ export function useCoverLetterDownload(coverLetterId: string, format: CoverLette
     // The PDF's budget bounds the Word file too, which is far quicker.
     const timeout = window.setTimeout(() => controller.abort(), PDF_DOWNLOAD_TIMEOUT_MS)
     try {
-      const { blob, filename } = await requestCoverLetterFile({ coverLetterId, format, signal: controller.signal })
+      const { blob, filename } = await requestCoverLetterFile({
+        coverLetterId,
+        format,
+        locale,
+        signal: controller.signal,
+      })
       const url = window.URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
@@ -69,7 +75,7 @@ export function useCoverLetterDownload(coverLetterId: string, format: CoverLette
       inFlightRef.current = false
       setIsDownloading(false)
     }
-  }, [coverLetterId, format])
+  }, [coverLetterId, format, locale])
 
   return { download, isDownloading }
 }

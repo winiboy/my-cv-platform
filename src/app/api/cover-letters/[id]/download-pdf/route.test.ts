@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PdfRenderError } from '@/lib/pdf/render-preview'
 import { MAX_CONCURRENT_PDF_RENDERS, tryAcquirePdfRenderSlot, type PdfRenderSlot } from '@/lib/pdf/render-slots'
 import { COVER_LETTER_FIELD_LIMITS, COVER_LETTER_PDF_GUARD } from '@/lib/cover-letter-limits'
+import { MAX_COVER_LETTER_EXPORT_REQUEST_BYTES } from '@/lib/cover-letter-pdf-html'
 
 /**
  * Unit coverage for `POST /api/cover-letters/[id]/download-pdf`
@@ -53,11 +54,11 @@ function fakeSupabase() {
   }
 }
 
-const renderCoverLetterPdf = vi.fn<(input: { coverLetter: Row; currentDate: string; timeoutMs: number }) => Promise<Buffer>>()
+const renderCoverLetterPdf = vi.fn<(input: { coverLetter: Row; currentDate: string; language: string; timeoutMs: number }) => Promise<Buffer>>()
 
 vi.mock('@/lib/supabase/server', () => ({ createServerSupabaseClient: async () => fakeSupabase() }))
 vi.mock('@/lib/pdf/render-cover-letter', () => ({
-  renderCoverLetterPdf: (input: { coverLetter: Row; currentDate: string; timeoutMs: number }) => renderCoverLetterPdf(input),
+  renderCoverLetterPdf: (input: { coverLetter: Row; currentDate: string; language: string; timeoutMs: number }) => renderCoverLetterPdf(input),
 }))
 
 const { POST } = await import('./route')
@@ -84,13 +85,13 @@ function letterRow(overrides: Row = {}): Row {
   }
 }
 
-function request(contentType: string | null = 'application/json'): NextRequest {
+function request(contentType: string | null = 'application/json', body = '{}'): NextRequest {
   const headers: Record<string, string> = {}
   if (contentType) headers['content-type'] = contentType
   return new NextRequest(`http://localhost:3000/api/cover-letters/${LETTER_ID}/download-pdf`, {
     method: 'POST',
     headers,
-    body: '{}',
+    body,
   })
 }
 
@@ -314,5 +315,66 @@ describe('POST /api/cover-letters/[id]/download-pdf: failures', () => {
     const slots = [tryAcquirePdfRenderSlot(), tryAcquirePdfRenderSlot()]
     expect(slots.every((slot) => slot !== null)).toBe(true)
     slots.forEach((slot) => slot?.release())
+  })
+})
+
+describe('POST /api/cover-letters/[id]/download-pdf: the letter language', () => {
+  const FRENCH =
+    "<p>Je vous écris pour vous présenter ma candidature au poste de développeur. Avec cinq ans d'expérience dans une équipe agile, je suis convaincu que mon profil correspond à vos besoins et à votre entreprise.</p>"
+
+  const renderedWith = () => renderCoverLetterPdf.mock.calls[0][0]
+
+  it('prints a letter detected as French in French, whatever the page locale', async () => {
+    state.row = letterRow({ opening_paragraph: FRENCH })
+    expect((await call(LETTER_ID, request('application/json', '{"locale":"de"}'))).status).toBe(200)
+    expect(renderedWith().language).toBe('fr')
+    expect(renderedWith().currentDate).toMatch(/^\d{1,2} [a-zéû]+ \d{4}$/)
+  })
+
+  it('follows the page locale for a letter too short to tell', async () => {
+    expect((await call(LETTER_ID, request('application/json', '{"locale":"de"}'))).status).toBe(200)
+    expect(renderedWith().language).toBe('de')
+    expect(renderedWith().currentDate).toMatch(/^\d{1,2}\. [A-Z][a-zä]+ \d{4}$/)
+  })
+
+  it('prints in English for a short letter without a supported locale, as before', async () => {
+    for (const body of ['{}', '{"locale":"es"}', '{"locale":["fr"]}', 'null', '"fr"']) {
+      renderCoverLetterPdf.mockClear()
+      expect((await call(LETTER_ID, request('application/json', body))).status).toBe(200)
+      expect(renderedWith().language).toBe('en')
+      expect(renderedWith().currentDate).toMatch(/^[A-Z][a-z]+ \d{1,2}, \d{4}$/)
+    }
+  })
+
+  it('refuses a body that is not JSON with 400 and renders nothing', async () => {
+    const response = await call(LETTER_ID, request('application/json', 'locale=fr'))
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: 'Invalid request body' })
+    expect(state.filters).toEqual([])
+    expect(renderCoverLetterPdf).not.toHaveBeenCalled()
+  })
+
+  it('refuses a body over the cap with 413, before reading the letter, and accepts one exactly at it', async () => {
+    const padded = (bytes: number) => {
+      const shell = '{"locale":"de","pad":""}'
+      return `{"locale":"de","pad":"${'x'.repeat(bytes - shell.length)}"}`
+    }
+    expect(padded(MAX_COVER_LETTER_EXPORT_REQUEST_BYTES)).toHaveLength(MAX_COVER_LETTER_EXPORT_REQUEST_BYTES)
+
+    const over = await call(LETTER_ID, request('application/json', padded(MAX_COVER_LETTER_EXPORT_REQUEST_BYTES + 1)))
+    expect(over.status).toBe(413)
+    expect(await over.json()).toEqual({ error: 'Payload too large' })
+    expect(state.filters).toEqual([])
+    expect(renderCoverLetterPdf).not.toHaveBeenCalled()
+
+    expect((await call(LETTER_ID, request('application/json', padded(MAX_COVER_LETTER_EXPORT_REQUEST_BYTES)))).status).toBe(200)
+    expect(renderedWith().language).toBe('de')
+  })
+
+  it('checks the session and the content type before reading the body', async () => {
+    const oversized = 'x'.repeat(MAX_COVER_LETTER_EXPORT_REQUEST_BYTES + 1)
+    expect((await call(LETTER_ID, request('text/plain', oversized))).status).toBe(415)
+    state.user = null
+    expect((await call(LETTER_ID, request('application/json', oversized))).status).toBe(401)
   })
 })

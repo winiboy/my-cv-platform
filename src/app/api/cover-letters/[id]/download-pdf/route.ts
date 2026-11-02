@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { COVER_LETTER_EXPORT_COLUMNS, formatCoverLetterPdfDate } from '@/lib/cover-letter-pdf-html'
+import {
+  COVER_LETTER_EXPORT_COLUMNS,
+  MAX_COVER_LETTER_EXPORT_REQUEST_BYTES,
+  coverLetterExportLanguage,
+} from '@/lib/cover-letter-pdf-html'
+import { coverLetterRequestLanguage } from '@/lib/cover-letter-language'
 import { isCoverLetterWithinPdfGuard } from '@/lib/cover-letter-limits'
 import { pdfContentDisposition } from '@/lib/pdf/filename'
+import { readBoundedBody } from '@/lib/pdf/payload'
 import { renderCoverLetterPdf } from '@/lib/pdf/render-cover-letter'
 import { PdfRenderError } from '@/lib/pdf/render-preview'
 import { tryAcquirePdfRenderSlot } from '@/lib/pdf/render-slots'
@@ -13,14 +19,18 @@ import { tryAcquirePdfRenderSlot } from '@/lib/pdf/render-slots'
  *
  * The SAVED cover letter as a PDF file, printed server-side from the export's
  * own markup (see `src/lib/pdf/render-cover-letter.ts`). The request carries
- * nothing but the id: the letter is read from the database with the user's
- * session, so an unsaved edit in the browser is never what is printed.
+ * the id and, in its JSON body, the page's `locale`: the letter is read from
+ * the database with the user's session, so an unsaved edit in the browser is
+ * never what is printed. The locale only chooses the wording of the date,
+ * subject and default formulas when the letter's own language cannot be told
+ * (`coverLetterLanguage`).
  *
  * Order of checks, cheapest and least revealing first: session (401), JSON
- * content type (415), id shape and ownership (404, the same for a letter that
- * does not exist and one that belongs to someone else), the letter's size
- * (422, only for a row far beyond any real letter), a free render slot (503). No
- * browser is launched until all of them pass.
+ * content type (415), a body within `MAX_COVER_LETTER_EXPORT_REQUEST_BYTES`
+ * (413) that is JSON (400), id shape and ownership (404, the same for a letter
+ * that does not exist and one that belongs to someone else), the letter's size
+ * (422, only for a row far beyond any real letter), a free render slot (503).
+ * No browser is launched until all of them pass.
  */
 
 // A headless browser needs Node APIs, and is far beyond the default duration.
@@ -53,6 +63,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const contentType = request.headers.get('content-type') ?? ''
     if (!/^application\/json\s*(?:;|$)/i.test(contentType)) return json('Unsupported Media Type', 415)
 
+    // The page's language, for a letter whose own language cannot be told.
+    const body = await readBoundedBody(request, MAX_COVER_LETTER_EXPORT_REQUEST_BYTES)
+    if (!body.ok) return json('Payload too large', 413)
+    let parsedBody: unknown
+    try {
+      parsedBody = JSON.parse(body.text)
+    } catch {
+      return json('Invalid request body', 400)
+    }
+    const pageLanguage = coverLetterRequestLanguage(parsedBody)
+
     if (!idSchema.safeParse(id).success) return json('Cover letter not found', 404)
 
     // RLS already hides other users' rows; the explicit owner filter does not
@@ -76,11 +97,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const slot = tryAcquirePdfRenderSlot()
     if (!slot) return json('Too many PDF renders in progress', 503, { 'Retry-After': '5' })
+    const { language, currentDate } = coverLetterExportLanguage(coverLetter, pageLanguage, new Date())
     let pdf: Buffer
     try {
       pdf = await renderCoverLetterPdf({
         coverLetter,
-        currentDate: formatCoverLetterPdfDate(new Date()),
+        currentDate,
+        language,
         timeoutMs: RENDER_TIMEOUT_MS,
       })
     } catch (renderError) {

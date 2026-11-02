@@ -74,15 +74,25 @@ const FULL_LETTER = {
   sign_off: 'Mit freundlichen Grüßen,',
 }
 
-/** Every paragraph of FULL_LETTER's Word file, in order. */
-const FULL_LETTER_PARAGRAPHS: (string | RegExp)[] = [
+/**
+ * The date line and the subject FULL_LETTER prints under each page locale.
+ * Its paragraphs mix French, German and English too thinly for a language to
+ * be told, so they follow the page (cover-letter-template-language, US-001).
+ */
+const PAGE_LANGUAGE_PARTS: Readonly<Record<TestLocale, { date: RegExp; subject: string }>> = {
+  fr: { date: /^\d{1,2} [a-zéû]+ \d{4}$/, subject: 'Objet : Candidature au poste de Ingénieur logiciel' },
+  de: { date: /^\d{1,2}\. [A-ZÄ][a-zä]+ \d{4}$/, subject: 'Betreff: Bewerbung als Ingénieur logiciel' },
+}
+
+/** Every paragraph of FULL_LETTER's Word file, in order, opened under `locale`. */
+const fullLetterParagraphs = (locale: TestLocale): (string | RegExp)[] => [
   'Zoë Lovelace',
-  /^[A-Z][a-z]+ \d{1,2}, \d{4}$/,
+  PAGE_LANGUAGE_PARTS[locale].date,
   'Jürgen Weiß',
   'Leiter Entwicklung',
   'Größe & Söhne AG',
   'Bahnhofstraße 1\n8001 Zürich',
-  'Re: Application for Ingénieur logiciel',
+  PAGE_LANGUAGE_PARTS[locale].subject,
   'Sehr geehrter Herr Weiß,',
   'Je postule avec une conviction forte et un réel intérêt « sincère ».',
   'Première raison',
@@ -189,15 +199,16 @@ async function readWordParagraphs(docx: Buffer): Promise<WordParagraph[]> {
   })
 }
 
-async function expectFullLetter(docx: Buffer, download: Download): Promise<void> {
+async function expectFullLetter(docx: Buffer, download: Download, locale: TestLocale): Promise<void> {
   await test.info().attach('cover-letter.docx', { body: docx, contentType: DOCX_TYPE })
   expect(download.suggestedFilename()).toBe(`${LETTER_TITLE}.docx`)
 
   const paragraphs = await readWordParagraphs(docx)
   const texts = paragraphs.map((paragraph) => paragraph.text)
   // Every part, in order, each a paragraph of its own: nothing more, nothing less.
-  expect(texts).toHaveLength(FULL_LETTER_PARAGRAPHS.length)
-  FULL_LETTER_PARAGRAPHS.forEach((expected, index) => {
+  const expectedParagraphs = fullLetterParagraphs(locale)
+  expect(texts).toHaveLength(expectedParagraphs.length)
+  expectedParagraphs.forEach((expected, index) => {
     if (typeof expected === 'string') expect(texts[index]).toBe(expected)
     else expect(texts[index]).toMatch(expected)
   })
@@ -225,7 +236,7 @@ for (const locale of Object.keys(LOCALES) as TestLocale[]) {
       await item.click()
       const download = await downloading
 
-      await expectFullLetter(await downloadedBytes(download), download)
+      await expectFullLetter(await downloadedBytes(download), download, locale)
       expect(dialogs).toEqual([])
     })
 
@@ -238,7 +249,7 @@ for (const locale of Object.keys(LOCALES) as TestLocale[]) {
       await button.click()
       const download = await downloading
 
-      await expectFullLetter(await downloadedBytes(download), download)
+      await expectFullLetter(await downloadedBytes(download), download, locale)
       expect(dialogs).toEqual([])
       await expect(button).toBeEnabled()
     })

@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   buildCoverLetterPdfHtml,
   coverLetterBodyParagraphs,
+  coverLetterExportLanguage,
+  coverLetterLanguage,
   coverLetterParts,
   type CoverLetterPdfFields,
 } from './cover-letter-pdf-html'
@@ -32,6 +34,7 @@ function makeCoverLetter(overrides: Partial<CoverLetterPdfFields> = {}): CoverLe
 function build(overrides: Partial<CoverLetterPdfFields> = {}): string {
   return buildCoverLetterPdfHtml(makeCoverLetter(overrides), {
     currentDate: CURRENT_DATE,
+    language: 'en',
     sanitizeRichText: passthrough,
   })
 }
@@ -72,6 +75,7 @@ describe('buildCoverLetterPdfHtml plain-text fields', () => {
   it('escapes the current date', () => {
     const html = buildCoverLetterPdfHtml(makeCoverLetter(), {
       currentDate: IMG_PAYLOAD,
+      language: 'en',
       sanitizeRichText: passthrough,
     })
 
@@ -94,7 +98,7 @@ describe('buildCoverLetterPdfHtml rich-text fields', () => {
         body_paragraphs: ['<b>One</b>', '<i>Two</i>'],
         closing_paragraph: '<u>Close</u>',
       }),
-      { currentDate: CURRENT_DATE, sanitizeRichText },
+      { currentDate: CURRENT_DATE, language: 'en', sanitizeRichText },
     )
 
     expect(sanitizeRichText.mock.calls).toEqual([
@@ -110,6 +114,7 @@ describe('buildCoverLetterPdfHtml rich-text fields', () => {
 
     const html = buildCoverLetterPdfHtml(makeCoverLetter(), {
       currentDate: CURRENT_DATE,
+      language: 'en',
       sanitizeRichText,
     })
 
@@ -126,7 +131,7 @@ describe('buildCoverLetterPdfHtml rich-text fields', () => {
         closing_paragraph: null,
         body_paragraphs: { not: 'an array' },
       }),
-      { currentDate: CURRENT_DATE, sanitizeRichText },
+      { currentDate: CURRENT_DATE, language: 'en', sanitizeRichText },
     )
 
     expect(sanitizeRichText).not.toHaveBeenCalled()
@@ -166,7 +171,7 @@ describe('buildCoverLetterPdfHtml fallbacks and conditionals', () => {
 
 describe('coverLetterParts: the one list of parts both exports print', () => {
   it('lists every part in the letter order', () => {
-    expect(coverLetterParts(makeCoverLetter({ company_address: '1 Main Street\nTown' }), CURRENT_DATE)).toEqual([
+    expect(coverLetterParts(makeCoverLetter({ company_address: '1 Main Street\nTown' }), CURRENT_DATE, 'en')).toEqual([
       { kind: 'sender', text: 'Jane Doe' },
       { kind: 'date', text: CURRENT_DATE },
       {
@@ -203,12 +208,49 @@ describe('coverLetterParts: the one list of parts both exports print', () => {
         sign_off: '',
       }),
       CURRENT_DATE,
+      'en',
     )
     expect(parts).toEqual([
       { kind: 'date', text: CURRENT_DATE },
       { kind: 'greeting', text: 'Dear Hiring Manager,' },
       { kind: 'signOff', text: 'Sincerely,' },
     ])
+  })
+
+  it.each([
+    ['fr', 'Objet : Candidature au poste de Engineer', 'Madame, Monsieur,', 'Veuillez agréer mes salutations distinguées,'],
+    ['de', 'Betreff: Bewerbung als Engineer', 'Sehr geehrte Damen und Herren,', 'Mit freundlichen Grüßen,'],
+    ['it', 'Oggetto: Candidatura per la posizione di Engineer', 'Gentili Signore e Signori,', 'Cordiali saluti,'],
+    ['en', 'Re: Application for Engineer', 'Dear Hiring Manager,', 'Sincerely,'],
+  ] as const)('words the subject and the empty greeting and sign-off in %s', (language, subject, greeting, signOff) => {
+    const parts = coverLetterParts(makeCoverLetter({ greeting: '', sign_off: '' }), CURRENT_DATE, language)
+    expect(parts.find((part) => part.kind === 'subject')).toEqual({ kind: 'subject', text: subject })
+    expect(parts.find((part) => part.kind === 'greeting')).toEqual({ kind: 'greeting', text: greeting })
+    expect(parts.find((part) => part.kind === 'signOff')).toEqual({ kind: 'signOff', text: signOff })
+    expect(parts.find((part) => part.kind === 'date')).toEqual({ kind: 'date', text: CURRENT_DATE })
+  })
+
+  it.each(['fr', 'de', 'it', 'en'] as const)('prints a stored greeting and sign-off as stored, in %s', (language) => {
+    const parts = coverLetterParts(
+      makeCoverLetter({ greeting: 'Dear John,', sign_off: 'Best regards,' }),
+      CURRENT_DATE,
+      language,
+    )
+    expect(parts.find((part) => part.kind === 'greeting')).toEqual({ kind: 'greeting', text: 'Dear John,' })
+    expect(parts.find((part) => part.kind === 'signOff')).toEqual({ kind: 'signOff', text: 'Best regards,' })
+  })
+
+  it('prints the localized parts in the PDF markup', () => {
+    const html = buildCoverLetterPdfHtml(makeCoverLetter({ greeting: '', sign_off: '' }), {
+      currentDate: '2. November 2026',
+      language: 'de',
+      sanitizeRichText: passthrough,
+    })
+    expect(html).toContain('2. November 2026')
+    expect(html).toContain('<strong>Betreff: Bewerbung als Engineer</strong>')
+    expect(html).toContain('Sehr geehrte Damen und Herren,')
+    expect(html).toContain('Mit freundlichen Grüßen,')
+    expect(html).not.toContain('Re: Application for')
   })
 
   it('is what the PDF markup prints, in the same order', () => {
@@ -239,6 +281,7 @@ describe('malformed body_paragraphs', () => {
     })
     const html = buildCoverLetterPdfHtml(makeCoverLetter({ body_paragraphs: ['Body one', null, 42, 'Body two'] }), {
       currentDate: CURRENT_DATE,
+      language: 'en',
       sanitizeRichText,
     })
     expect(html).toContain('Body one')
@@ -251,5 +294,48 @@ describe('malformed body_paragraphs', () => {
     const html = build({ body_paragraphs: { broken: true } })
     expect(html).toContain('Opening')
     expect(html).toContain('Closing')
+  })
+})
+
+describe('coverLetterLanguage: the letter display-language resolver', () => {
+  const GERMAN =
+    '<p>Mit großem Interesse habe ich Ihre Anzeige gelesen und bewerbe mich für die Stelle als Entwickler.</p>'
+  const GERMAN_MORE = '<p>In meiner Erfahrung bei einer Firma habe ich die Aufgaben im Team mit Freude übernommen.</p>'
+
+  it('detects the language from the opening, the body and the closing together', () => {
+    const letter = makeCoverLetter({ opening_paragraph: GERMAN, body_paragraphs: [GERMAN_MORE], closing_paragraph: '' })
+    expect(coverLetterLanguage(letter, 'fr')).toBe('de')
+  })
+
+  it('falls back to the page language for a letter too short to tell', () => {
+    expect(coverLetterLanguage(makeCoverLetter(), 'it')).toBe('it')
+    expect(
+      coverLetterLanguage(makeCoverLetter({ opening_paragraph: null, body_paragraphs: null, closing_paragraph: null }), 'de'),
+    ).toBe('de')
+  })
+
+  it('reads only the string body paragraphs of a malformed row', () => {
+    const letter = makeCoverLetter({ opening_paragraph: '', body_paragraphs: [GERMAN, 42, null, GERMAN_MORE], closing_paragraph: '' })
+    expect(coverLetterLanguage(letter, 'en')).toBe('de')
+  })
+})
+
+describe('coverLetterExportLanguage: what both export routes print', () => {
+  const GERMAN =
+    '<p>Mit großem Interesse habe ich Ihre Anzeige gelesen und bewerbe mich für die Stelle als Entwickler. In meiner Erfahrung bei einer Firma habe ich die Aufgaben im Team mit Freude übernommen.</p>'
+  const NOVEMBER_2_2026 = new Date(2026, 10, 2, 12)
+
+  it('formats the date line in the language the letter resolves to', () => {
+    expect(coverLetterExportLanguage(makeCoverLetter({ opening_paragraph: GERMAN }), 'fr', NOVEMBER_2_2026)).toEqual({
+      language: 'de',
+      currentDate: '2. November 2026',
+    })
+  })
+
+  it('falls back to the page language for both, for a letter too short to tell', () => {
+    expect(coverLetterExportLanguage(makeCoverLetter(), 'it', NOVEMBER_2_2026)).toEqual({
+      language: 'it',
+      currentDate: '2 novembre 2026',
+    })
   })
 })

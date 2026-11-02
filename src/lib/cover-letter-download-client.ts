@@ -54,6 +54,11 @@ export class CoverLetterDownloadError extends Error {
 export interface CoverLetterFileRequest {
   coverLetterId: string
   format: CoverLetterExportFormat
+  /**
+   * The page's locale, which the route validates: the letter's wording when
+   * its own language cannot be told.
+   */
+  locale: string
   signal: AbortSignal
 }
 
@@ -65,22 +70,23 @@ export interface CoverLetterFile {
 /**
  * Request the saved letter as a file and return it with its name.
  *
- * The body is empty: the route exports the letter as stored, never anything
- * the browser holds. Throws `CoverLetterDownloadError` for any answer that is
- * not the requested file type, so an error page is never saved as a broken
- * file; the error body is not read. A 422 is the route refusing a letter over
- * the size guard; the caller tells it apart by `status`. Network failures and
- * an aborted `signal` reject with the `fetch` error.
+ * The body carries only the page's locale: the route exports the letter as
+ * stored, never anything the browser holds. Throws `CoverLetterDownloadError`
+ * for any answer that is not the requested file type, so an error page is
+ * never saved as a broken file; the error body is not read. A 422 is the route
+ * refusing a letter over the size guard; the caller tells it apart by
+ * `status`. Network failures and an aborted `signal` reject with the `fetch`
+ * error.
  */
 export async function requestCoverLetterFile(
-  { coverLetterId, format, signal }: CoverLetterFileRequest,
+  { coverLetterId, format, locale, signal }: CoverLetterFileRequest,
   fetchImpl: typeof fetch = fetch,
 ): Promise<CoverLetterFile> {
   const contract = COVER_LETTER_EXPORT_FORMATS[format]
   const response = await fetchImpl(`/api/cover-letters/${encodeURIComponent(coverLetterId)}/${contract.route}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: '{}',
+    body: JSON.stringify({ locale }),
     signal,
   })
 
