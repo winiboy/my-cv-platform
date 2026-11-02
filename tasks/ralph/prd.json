@@ -48,7 +48,7 @@
         "Out of scope: Word export changes, unless the Word check finds the same defect (then it is a BLOCKER for an owner decision, not silent extra scope)."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

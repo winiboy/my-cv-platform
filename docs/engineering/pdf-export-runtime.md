@@ -243,10 +243,37 @@ The serverless Chromium has one system font: Open Sans, from the package's
   - the faces are read once per instance, and a failed read fails the render
     at stage `fonts`;
   - a registered face that fails to load fails it at `settle`.
+- **Hyphen supplement:** the latin subsets are registered for the whole block
+  U+2000–206F, but the latin subsets of Gelasio, Arimo and Carlito have no
+  glyph for U+2010 hyphen, U+2011 non-breaking hyphen and U+2012 figure
+  dash. Open Sans has none either, so no font on the serverless runtime
+  could draw them, and they printed as the missing-glyph box. Each face
+  therefore gets one more face, `hyphenSupplement` in `font-substitutes.ts`:
+  - the same font, built from the latin subset's WOFF file, whose `cmap`
+    maps only those three code points to the font's own U+002D glyph, so
+    they print with the substitute's own hyphen width;
+  - inlined as a `data:` TrueType font, registered for `U+2010-2012` only;
+  - those code points are removed from the subsets' ranges, so the
+    supplement is the one face that serves them. That includes Arimo's
+    Hebrew subset, which does draw U+2010 (range `U+200C-2010`): taking it
+    out is intentional, so all three hyphens print with the latin hyphen.
+
+  The text is not rewritten: a U+2011 still does not break a line and still
+  copies out of the PDF as U+2011. The hyphen keeps its own advance, but as
+  a separate font run it is not kerned against the letters beside it. A font
+  change that `hyphenSupplement` rejects fails every serverless PDF at stage
+  `fonts`; the unit tests run it against the installed packages, so such a
+  change fails there first. The substitutes' other gaps among the
+  checked characters (U+2015, U+2020, U+2021, U+202F, U+2030, U+2032, and
+  the invisible U+00AD) print correctly without a supplement: Chromium
+  takes those glyphs from another font. A unit test pins every gap against
+  the installed packages, so a Fontsource update that changes coverage
+  fails the test.
 - **Files:** read from `node_modules/@fontsource/<package>` under
   `process.cwd()`. `next.config.js` `outputFileTracingIncludes` lists the
-  four stylesheets and their WOFF2 files for this route, at that same path. A
-  unit test keeps that list equal to `FONT_SUBSTITUTES`.
+  four stylesheets, their WOFF2 files and the latin subsets' WOFF files for
+  this route, at that same path. A unit test keeps that list equal to
+  `FONT_SUBSTITUTES`.
 - **Not added:** Tinos (Times New Roman), Caladea (Cambria) and Cousine
   (Courier New). Times New Roman and Cambria come after Georgia in
   `font-serif`, so they are never reached. Monospace text appears only in the

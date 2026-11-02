@@ -267,6 +267,7 @@ function pdfRendererTracedFiles() {
     serverlessChromiumBinGlob(),
     "./node_modules/@fontsource/{arimo,carlito,gelasio}/{400,400-italic,700,700-italic}.css",
     "./node_modules/@fontsource/{arimo,carlito,gelasio}/files/*-{400,700}-{normal,italic}.woff2",
+    "./node_modules/@fontsource/{arimo,carlito,gelasio}/files/*-latin-{400,700}-{normal,italic}.woff",
   ];
 }
 
@@ -289,7 +290,8 @@ const nextConfig = {
   // Also the metric-compatible fonts both renderers register in place of
   // Arial, Calibri and Georgia (src/lib/pdf/font-substitutes.ts, whose
   // FONT_SUBSTITUTES this package list must match): their 400 and 700,
-  // regular and italic stylesheets and WOFF2 files, read at runtime from
+  // regular and italic stylesheets and WOFF2 files, plus the latin subsets'
+  // WOFF files their hyphen supplements are built from, read at runtime from
   // `node_modules/@fontsource/<package>`, the path named here.
   outputFileTracingIncludes: {
     "/api/resumes/*/download-pdf": pdfRendererTracedFiles(),
