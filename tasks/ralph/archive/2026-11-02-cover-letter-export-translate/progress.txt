@@ -1,0 +1,436 @@
+# Ralph progress — cover-letter-export-translate
+
+Contract: tasks/ralph/prd.json (branch ralph/cover-letter-export-translate)
+PRD: tasks/prds/cover-letter-export-translate.md (Status: APPROVED 2026-10-24, written by the owner: the owner approved the exact approval command in the app, which ran it in the owner's terminal)
+Format: docs/engineering/progress-log-format.md
+Branch setup: from origin/main eba78d1 (#116 merged). The first commit archives the merged job-cv-linking contract; the second adds this PRD and its contract.
+
+## US-001: A cover letter downloads as a real PDF file
+Status: PASS
+Priority: 1
+Branch: ralph/cover-letter-export-translate
+Baseline HEAD: b1b9548 (origin/main eba78d1 + archive and contract commits)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; new files untracked):
+  - New `src/app/api/cover-letters/[id]/download-pdf/route.ts` (+ route.test.ts): POST, JSON only.
+    - Checks in order: 401 → 415 → uuid / ownership 404 (session + explicit user_id) → 500 on a read error → 422 above the size guard (before any render slot) → 503 + Retry-After when busy → 500/504 on a render failure.
+    - Content-Disposition comes from the title (shared pdfContentDisposition; fallback cover-letter.pdf).
+    - Logs only the stage and the error name.
+  - New `src/lib/pdf/render-cover-letter.ts` (+ test): prints `buildCoverLetterPdfHtml` in the same `launchPdfBrowser` Chromium as resumes, with a 30 s limit, on a US Letter page (612×792 pt).
+    - Rich fields are sanitized in the page with the editor's own sanitizer before the markup is set.
+    - JavaScript disabled, every request aborted, WebSockets closed, setContent only; fonts inlined on serverless.
+    - The print stylesheet:
+      - restores the base styles the old export inherited (border-box, zero paragraph margins);
+      - adds list markers ("•" as text, numbers for ol);
+      - adds a 64 px top margin on page 2 and later;
+      - lifts the template's min-height and bottom padding, so a full page 1 never spills onto an empty page 2.
+  - New `src/lib/pdf/render-slots.ts` (+ test): one limit of 2 concurrent renders, shared by the resume and cover-letter routes. The resume route uses it with unchanged 503 semantics (5/12).
+  - New `src/lib/rich-html-sanitizer.ts`: the editor sanitizer moved byte-for-byte; `html-utils` re-exports it as `sanitizeHtml` (9/80), so there is one self-contained body.
+  - New `src/lib/cover-letter-limits.ts` (+ test):
+    - the API field limits, unchanged values, now read by both cover-letter schemas (14/13 each);
+    - a separate, generous PDF resource guard: 20,000 characters per printed rich field, 2,000 per plain field, 50 body paragraphs, 200,000 total.
+  - `src/lib/cover-letter-pdf-html.ts` (25/5) + test: one shared `coverLetterBodyParagraphs` filter (non-strings skipped) and `formatCoverLetterPdfDate` (the same en-US date as before).
+  - New `src/lib/pdf/cover-letter-download-client.ts` (+ test) and `src/lib/hooks/use-cover-letter-pdf-download.ts`: the browser request and download. Anything that isn't a PDF is rejected; double clicks are guarded; 45 s timeout.
+  - `src/components/dashboard/cover-letter-card.tsx` (15/131): the ⋮ item uses the server PDF; the html2pdf path is removed; focus returns to ⋮ after the menu closes.
+  - `src/components/dashboard/cover-letter-editor.tsx` (98/1): a PDF button in the header, disabled with a spinner while busy.
+    - With unsaved changes it shows the localized "save first" notice and sends no request.
+    - Inline localized errors for a failure and for "too long"; the notice uses role="alert" and text-red-700 for failures.
+    - Focus returns to the button when a request ends, if focus was lost.
+  - Deleted `src/lib/html2canvas-color-fallback.ts` (+ test): the card was its only importer.
+  - `src/lib/pdf/filename.ts` (+ test), `download-client.ts`: an optional fallback name; defaults unchanged.
+  - `src/lib/pdf/browser.ts` (23/10): the header describes the cover-letter renderer's controls. `render-preview.ts` (5/2): type-only, adds a 'sanitize' stage.
+  - `next.config.js` (20/13): traces Chromium and fonts for the new route.
+  - `docs/engineering/pdf-export-runtime.md`, `docs/engineering/security-headers.md`: updated for two routes; the obsolete html2pdf CSP note retired.
+  - `src/locales/{fr,en,de,it}/common.json` (4/0 each).
+  - `e2e/cover-letter-pdf-export.spec.ts` (508/315): rewritten for the server PDF.
+- Not touched: migrations, package.json and pnpm-lock.yaml, resume templates. The html2pdf.js dependency is now unused and left in package.json (open decision below). No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted. Today's PDFs came from the temporary origin/main worktree (.claude/worktrees/before-main).
+
+Checks:
+- Earlier runs on earlier diffs were invalidated by the fixes below.
+  - The second run caught a regression from the sanitizer move: e2e/html-sanitizer.spec.ts injects `sanitizeHtml.toString()`, which became a wrapper around an import, so 18 cases failed. Fixed by re-exporting the self-contained function; the spec is unchanged.
+  - The third run's one e2e failure was resume-pdf-route.spec.ts:372 (the Preview-print text reference read letter-spaced headings as "S E N I O R"). The same test fails 1 time in 63 on origin/main f24a1d1 too (repeated ×3 in the temporary worktree), so it is pre-existing and flaky, not caused by this story.
+- Final run (this diff), all on the first pass:
+  - pnpm typecheck: PASS — 0 errors.
+  - pnpm test: PASS — 2772 passed, 5 skipped (2694 on origin/main eba78d1).
+  - pnpm test:integration: PASS — 4 files, 50 passed.
+  - pnpm test:e2e: PASS — 433 passed, 0 failed.
+  - pnpm build: PASS — 105/105 static pages. `route.js.nft.json` traces Chromium for both download-pdf routes.
+  - pnpm lint: PASS — 287 problems (219 errors, 68 warnings); unchanged, under the tracked 306 ceiling.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — e2e/cover-letter-pdf-export.spec.ts, fr and de:
+  - list and editor downloads: %PDF-/%%EOF, filename from the title, page size, 0 images, every part in order, italic and bold faces;
+  - a long letter: 2 pages;
+  - save-first: no request and no silent save;
+  - a forced 500: localized error, no file;
+  - another user's id: 404.
+  - Additional cases:
+    - a letter filling page 1 stays at 1 page with the signature last; one paragraph more gives 2 pages, neither empty;
+    - ul bullets are present in the extracted text;
+    - a hostile letter (img, @import, iframe, meta refresh, javascript: href, onerror, CSS url(), background-image, hostile sender) makes 0 requests to a loopback listener (a control request does reach it), its visible text prints, and the escaped markup prints as text;
+    - keyboard: after a 500, focus is back on the editor button and Enter retries and downloads; the list ⋮ keeps focus after a download.
+- Visual: NOT_APPLICABLE for resume rendering (no template changed; parity unchanged). The PDF before/after comparison is under Export.
+- Export: PASS — export-validation on a full letter and a long letter (fr text, lists, special characters), today's html2pdf export (origin/main) vs the new server PDF:
+  - Today's PDFs have 0 extractable characters (canvas images; 204 KB and 630 KB).
+  - The new PDFs:
+    - 561 and 2,066 characters, every part in order, nothing missing;
+    - "•" bullets and "1."/"2." numbers;
+    - the same page counts (1 and 2), 55 KB each;
+    - Content-Disposition carries the title.
+  - Rendered pages compared by ui-expert: the same proportions (left margin 7.9% → 7.8%, longest line 82.9% → 82.2%, signature at 73% → 73.5% of the page height), fonts, weights and section order.
+  - Intended differences: list markers, and a top margin on page 2 (today's export cut "Veuillez agréer…" at the page edge).
+- Database: NOT_APPLICABLE — no schema or policy change; read-only access through the user's session.
+- Security: PASS — security-review (skill procedure), 5 trust boundaries, 10/10 requirements, 0 critical/high/medium; re-check after the fixes PASS; vitest 124/124 on the affected files.
+  - XSS: escaping, the inert-document sanitizer before setContent, and JS disabled. SSRF and egress: every request aborted, WebSockets closed, no navigation.
+  - IDOR → 404. CSRF: JSON only, no CORS. Content-Disposition safe (a CRLF title is tested).
+  - SEC-012 (size) is resolved by the guard. The residual (inline font-size not clamped, bounded by the 30 s limit) is INFO.
+  - SEC-013 LOW: one user can hold both render slots; the PRD requires the shared pool.
+  - SEC-014 closed by the hostile-letter e2e.
+  - SEC-015 closed (browser.ts header).
+
+Agents:
+- senior-coder: implementation, then five fix rounds:
+  1. page-1 boundary, notice reset, shared body filter, hostile-letter e2e, size guard, docs;
+  2. the guard loosened so no previously exportable letter is refused;
+  3. the sanitizer re-export (html-sanitizer regression);
+  4. the error contrast;
+  5. focus return after a request.
+- code-reviewer:
+  - round 1: FAIL. Major: a letter filling page 1 could get an empty page 2, because the template's bottom padding plus the @page margin was untested.
+  - Later rounds: PASS on each fix: fixes; sanitizer re-export; contrast and focus return.
+- ui-expert:
+  - round 1: FAIL. Major: the error text was 4.36:1. Major, pre-existing: the editor header overflows at 375, so the new button needs sideways scrolling.
+  - round 2: PASS 7/7.
+    - Error text 5.87:1. Keyboard trace: focus is back on the button after a 500, and Enter retries.
+    - Mobile is not made worse beyond adding a button to a row that already overflowed; the list ⋮ is a working mobile path.
+
+Acceptance criteria:
+- AC-01 (list ⋮ and editor download a .pdf named after the title, no print dialog): PASS — e2e fr/de.
+- AC-02 (real PDF with extractable text): PASS — e2e (0 images, extracted text); export-validation.
+- AC-03 (every non-empty part, in order): PASS — e2e; export-validation.
+- AC-04 (layout matches today's export): PASS — ui-expert's proportion comparison; same builder and section order; intended differences listed above.
+- AC-05 (rich text keeps its meaning): PASS — e2e italic/bold faces, "•" and numbered lists.
+- AC-06 (a long letter flows without clipping): PASS — e2e 2 pages; boundary tests; page-2 top margin.
+- AC-07 (editor: the saved letter; save first; no silent save): PASS — e2e; the notice clears on save.
+- AC-08 (another user's letter refused, no file): PASS — unit + e2e 404.
+- AC-09 (a failure shows a localized error, no broken file): PASS — unit + e2e; the client rejects non-PDF answers.
+- FR-1, FR-3, FR-6, FR-7: PASS. FR-2, FR-4, FR-5: belong to US-002/US-003.
+- Regression constraints: PASS — resume PDF/DOCX e2e and parity unchanged; the editor specs green in the full run; e2e/cover-letter-pdf-export.spec.ts updated with its content assertions kept.
+- FAIL conditions: none met (no print dialog, no image-only PDF, no part missing, no cross-user download).
+
+Decision (implementer, accepted by code-reviewer and ui-expert): the page is US Letter (612×792 pt), not A4. The letter markup is 816 px wide, wider than A4's 794 px, and today's export has the same proportions.
+Decision: the print stylesheet changes listed above (base styles, list markers, page-2 margin, min-height and bottom padding lifted). They change no markup.
+Decision (orchestrator): the size guard is a resource bound, separate from the API input limits. The editor saves straight to Supabase without those limits, and the export must not refuse letters it accepted before.
+Decision: one render-slot pool of 2 for both PDF routes, as the PRD's shared-pool risk describes.
+
+Named limitations:
+- On the real deployment, the 2-page result for the long letter was checked with Windows Georgia; CI's fallback serif was not measured (the content is about 1.4 pages).
+- The date line uses the server clock and en-US (out of scope).
+
+Open owner decisions recorded by this story:
+- html2pdf.js is now unused in package.json; removing it changes only the lockfile. It had a vulnerable nested jspdf in the past.
+- ui-expert, pre-existing:
+  - the editor header overflows at 375 and its buttons are under 44 px (draft PRD cover-letter-editor-responsive);
+  - "Modifications non enregistrées" is 3.20:1 (text-amber-700 would fix it);
+  - the editor's live preview shows no list markers while the PDF does (CLAUDE.md §10);
+  - the global focus ring (`outline-ring/50`) is 1.93:1 against white, app-wide;
+  - the save-error banner uses the same 4.36:1 red as the fixed notice.
+- ui-expert, minor: a repeated identical error may not be re-announced by screen readers.
+- code-reviewer, minor:
+  - an edit made during an in-flight save is marked saved (pre-existing) and could make a PDF miss it;
+  - no Sentry capture on render failures (consistent with the resume route);
+  - the ⋮ toggle has no accessible name.
+- security-review: SEC-013 (per-user render cap); the residual inline font-size clamp.
+- e2e: resume-pdf-route.spec.ts:372 is flaky on origin/main too (1 in 63).
+
+Environment notes:
+- Windows 11, local Supabase stack, Playwright suites run one at a time; the final full run was green on the first pass.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 a cover letter downloads as a real PDF file
+FINAL: PASS
+
+## US-002: A cover letter downloads as a Word file
+Status: PASS
+Priority: 2
+Branch: ralph/cover-letter-export-translate
+Baseline HEAD: 45183d5 (US-001 commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; new files untracked):
+  - New `src/app/api/cover-letters/[id]/download-docx/route.ts` (+ route.test.ts): POST, JSON only.
+    - Same order of checks as the PDF route: 401 → 415 → uuid/ownership 404 → 500 on read error → 422 above the size guard → build → 422 above the Word caps.
+    - Responds with the DOCX MIME type, `private, no-store`, and `attachmentContentDisposition` from the title (fallback `cover-letter.docx`).
+    - Logs only error names and database codes.
+  - New `download-docx/cover-letter-docx.ts` (+ test): builds the `.docx` with the existing `docx` library from the shared `coverLetterParts()`.
+    - The page matches the PDF template: US Letter 12240×15840 twips, 64 px margins, same font and spacing.
+    - Lists are real Word numbering.
+    - `COVER_LETTER_DOCX_LIMITS` caps a letter at 1,000 paragraphs and 5,000 runs.
+    - One `clampFontSizePx` feeds both the run size and the line spacing.
+  - New `download-docx/rich-text-blocks.ts` (+ test): server-side rich text to paragraphs, list items and runs.
+    - Uses the editor sanitizer's allowlist (a drift test compares it with the sanitizer's array); other elements become text.
+    - Nesting is capped at 32 levels and the paragraph budget is enforced while parsing, so work is O(length × 32).
+    - Entity references to XML-invalid characters decode to nothing; windows-1252 &#128;–&#159; are mapped.
+  - `src/lib/cover-letter-pdf-html.ts` (129/49) + test (58/0): new `coverLetterParts()` is the one ordered list of parts and defaults, also giving the date and the "Re: Application for …" line. The PDF HTML builder now uses it; markup is unchanged apart from whitespace between tags. Also adds `COVER_LETTER_EXPORT_COLUMNS`, shared by both routes.
+  - `src/app/api/cover-letters/[id]/download-pdf/route.ts` (2/9): uses the shared columns; no behaviour change.
+  - New `src/lib/cover-letter-download-client.ts` (+ test) and `src/lib/hooks/use-cover-letter-download.ts`: one client and one hook for both formats. Any answer that isn't the requested type is rejected. They replace US-001's PDF-only `use-cover-letter-pdf-download.ts` and `pdf/cover-letter-download-client.ts` (+ test), which are deleted.
+  - `src/lib/pdf/filename.ts` (+ test): `attachmentContentDisposition(title, fallback, 'pdf' | 'docx')`; `pdfContentDisposition` delegates to it, so callers are unchanged.
+  - `src/components/dashboard/cover-letter-card.tsx` (54/22): "Télécharger Word" under "Télécharger PDF" in the ⋮ menu, with the same focus return and alert as PDF.
+  - `src/components/dashboard/cover-letter-editor.tsx` (97/45):
+    - a Word button next to PDF, with the same busy/disabled state, save-first notice, error, too-long message and focus return;
+    - one notice at a time (`#cover-letter-pdf-notice` / `#cover-letter-docx-notice`, role="alert");
+    - `whitespace-nowrap` on the header status labels.
+  - `src/lib/cover-letter-limits.ts` (7/1): doc comment; the size guard covers both formats, and Word has extra structural caps.
+  - `src/locales/{fr,en,de,it}/common.json` (5/0 each).
+  - New `e2e/cover-letter-docx-export.spec.ts` (9 tests).
+- Not touched: migrations, package.json/pnpm-lock.yaml (docx and jszip were already dependencies), resume DOCX/PDF generators. No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted.
+
+Checks:
+- Runs on earlier diffs were invalidated by the fixes below.
+- Two runs on the near-final diff hit environment trouble:
+  - One run took 51 min for e2e (normally about 15). 7 PDF downloads timed out waiting for the download event. Alone, `cover-letter-pdf-export`, `cover-letter-docx-export` and `resume-pdf-download-button` passed 41/41 in 3.5 min.
+  - During that run, code-reviewer briefly copied a file into src/components/dashboard and deleted it in the same command; nothing remained.
+- Final run (this diff):
+  - pnpm typecheck: PASS — 0 errors.
+  - pnpm test: PASS — 107 files, 2872 passed, 5 skipped (2772 after US-001).
+  - pnpm test:integration: PASS — 4 files, 50 passed.
+  - pnpm test:e2e: PASS — 442 passed, 0 failed (433 after US-001; +9 from cover-letter-docx-export).
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 287 problems (219 errors, 68 warnings), unchanged. Two unused `no-control-regex` disable directives the story had added (289) were removed.
+  - pnpm test:parity: PASS on the third attempt — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+    - First attempt: the web-server build could not reach fonts.googleapis.com (`next/font` Inter, ENOTFOUND).
+    - Second attempt: "collect · primary · professional" hit the login fixture timeout (page.fill #email, 15 s), and 32 rows that read its output failed with it.
+
+Specialized validation:
+- Browser: PASS — e2e/cover-letter-docx-export.spec.ts, fr and de:
+  - list and editor downloads: valid zip with `word/document.xml`, every part in order, accents and special characters intact;
+  - save-first sends no request;
+  - a forced 500: localized error, no file;
+  - another user's id: 404.
+- Visual: NOT_APPLICABLE for resume rendering (no template changed; parity unchanged).
+- Export: PASS — export-validation on the full and long fixture letters, files from POST /api/cover-letters/[id]/download-docx.
+  - Package checks (`docx-inspect`):
+    - PK zip; parts document, styles, numbering, settings, fontTable;
+    - no external relationship targets; 0 XML-invalid characters in every .xml/.rels;
+    - every part present and in order;
+    - 4 real Word list items (`w:numPr`); bold and italic runs where the letter has them;
+    - US Letter page size;
+    - Content-Disposition from the title, with the DOCX MIME type.
+  - Rendered in Microsoft Word for Microsoft 365 on this machine (COM automation, saved as PDF; producer metadata confirms Word):
+    - the full letter is 1 page and the long letter 2;
+    - layout matches our PDF of the same letter: name baseline 85 vs 80 px, signature 779 vs 776 px;
+    - margins, font, weights, grey date, bold "Re:" line, bold and italic phrases, special characters, bullets and numbers, and the page break all agree.
+- Database: NOT_APPLICABLE — read-only, through the user's session.
+- Security: PASS after one fix round — security-review, 5 trust boundaries, 10/10 requirements.
+  - Round 1 FAIL:
+    - SEC-016 MEDIUM: a letter within the size guard stalled the event loop 3.77 s (10 × `<p>x` floods, about 40k paragraphs).
+    - SEC-017 LOW: `&#1;`, `&#x1F;`, `&#xFFFE;` survived into document.xml, and an unclamped size produced `w:line="2.4375e+301"`.
+  - Round 2 PASS (independent probe):
+    - every hostile letter is refused (422) or built in ≤ 50 ms, longest stall 37 ms;
+    - no XML-invalid characters in any part;
+    - integer `w:line` and `w:sz` within Word's bounds.
+  - Injection probe: a sender containing `</w:t><w:fldSimple w:instr="INCLUDEPICTURE …">`, a DDE string, a crafted font-family, `<a href>` and `<img src>` produced no hyperlink, field, drawing or external target; the text stayed literal.
+  - SEC-018 LOW, pre-existing adjacent: the resume DOCX route puts the raw title into Content-Disposition (`src/app/api/resumes/[id]/download-docx/route.ts:259`).
+
+Agents:
+- senior-coder: implementation, then fixes:
+  - SEC-016 and SEC-017, plus a run cap of 5,000 found while re-measuring;
+  - the allowlist drift test;
+  - the doc comment and lint cleanup;
+  - the header label nowrap.
+- code-reviewer:
+  - round 1: PASS. Minors: the converter's "linear time" claim was false (fixed by the nesting cap) and the allowlist was duplicated (drift test added).
+  - Rounds 2 and 3: PASS. A "both formats or neither" comment was wrong; it was fixed.
+- ui-expert:
+  - round 1: BLOCKED — the 1366 header was unverified with the extra button.
+  - round 2: FAIL — at 1366 the unsaved-changes label split in two (fr and de), caused by the Word button's 93 px.
+  - round 3: BLOCKED — the keyboard trace was missing on the final code.
+  - final: PASS 7/7.
+    - At 1366 the label wraps whole under the title, with no horizontal scroll.
+    - 1440 and 375 are pixel-identical to round 1.
+    - Notice switching: PDF error → Word save-first, one at a time, role="alert".
+    - Keyboard: Tab reaches "Télécharger Word"; after a 500, focus is back on it; Enter downloads.
+
+Acceptance criteria:
+- AC-01 (list ⋮ and editor download a .docx named after the title): PASS — e2e fr/de; headers.
+- AC-02 (valid Word document, same parts and order, real paragraphs, bold/italic/lists): PASS — e2e and unit tests; docx-inspect; opened and rendered in Microsoft Word.
+- AC-03 (accents and special characters intact): PASS — e2e fixture (Jürgen Weiß, Größe & Söhne, j’ai, « sincère »); the Word rendering.
+- AC-04 (same saved-state, ownership and error rules as US-001): PASS — e2e save-first, 500 and 404; route tests for 401, 415, 404 and 422.
+- FR-2 (docx server-side): PASS. FR-3: PASS. FR-6 (no migration, no new dependency): PASS. FR-7: PASS (locale parity).
+- Regression constraints: PASS — US-001 PDF behaviour unchanged (its spec green alone and in the full run); resume exports and parity unchanged.
+- FAIL conditions: none met.
+
+Decision (implementer, accepted by code-reviewer): `coverLetterParts()` is the single source of parts, order and defaults for PDF and Word, so the two formats cannot drift.
+Decision: a dedicated converter, not the resume `parseHtmlToDocxRuns`. That one decodes `&lt;b&gt;` into a real tag and flattens a field into one paragraph, and it is shared by five resume templates.
+Decision: Word lists are real Word numbering, not "•" text, since the point is editing in Word.
+Decision: the route is POST + JSON like the PDF route. It has no render slot, because the build is in-process and bounded by the caps above.
+Decision: the guard keeps the name `isCoverLetterWithinPdfGuard` (it now covers both formats). Word adds its own structural caps, so a letter within the guard can export as PDF but get 422 as Word.
+
+Named limitations:
+- An undefined windows-1252 reference (e.g. &#x81;) stays as its C1 character, which XML 1.0 allows (security-review).
+- Formatting can be misplaced, never text lost, on hostile markup nested more than 32 deep with unclosed tags. The editor cannot produce it (code-reviewer).
+
+Open owner decisions recorded by this story:
+- ui-expert, optional: merge PDF and Word into one "Télécharger ▾" button, as TealHQ does; it would win back about 93 px of header width.
+- ui-expert, pre-existing:
+  - the 375 editor overflow (draft responsive PRD);
+  - the amber unsaved label at 3.20:1;
+  - no list markers in the live preview;
+  - the global focus ring at 1.93:1.
+- security-review: SEC-018 (resume DOCX Content-Disposition uses the raw title).
+- e2e environment: the login-fixture timeout recurs across specs (seen this story in parity collect); a single retry policy for that fixture would cut reruns.
+
+Environment notes:
+- Windows 11, local Supabase stack, Playwright suites run one at a time; Microsoft Word for Microsoft 365 available for the rendering check.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 a cover letter downloads as a Word file
+FINAL: PASS
+
+## US-003: A letter can be translated by flag into a new copy
+Status: PASS
+Priority: 3
+Branch: ralph/cover-letter-export-translate
+Baseline HEAD: 281088a (US-002 commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; new files untracked):
+  - New `src/components/ui/language-flags.tsx` (+ test): `FlagGB`, `FlagFR`, `FlagDE`, `FlagIT` moved unchanged from the grammar checker, plus the shared language list. The test pins each flag to its markup at 281088a and checks that no other component defines its own flags.
+  - `src/components/tools/grammar-checker-client.tsx` (3/64): imports the shared flags.
+  - New `src/app/api/cover-letters/[id]/translate/route.ts` (+ route.test.ts): POST { targetLanguage }, maxDuration 60.
+    - Checks, in order:
+      1. 401;
+      2. 415 (JSON only);
+      3. 400 (Zod: en/fr/de/it);
+      4. 404 for a bad uuid, a missing letter or another user's letter (session read plus explicit user_id);
+      5. 422 above the size guard;
+      6. 422 above the AI limits (120 segments, 12,000 characters);
+      7. 422 `{ error: 'empty' }` for a letter with no text;
+      8. only then `enforceAiRateLimit`.
+    - Errors and insert:
+      - a provider error gives 502;
+      - a provider rate limit gives 429;
+      - an incomplete rebuild (missing part, or any overflow) gives 502;
+      - otherwise one insert under the session user, title "<title> (XX)" cut to fit 255.
+    - It never writes the original letter or job_applications.
+  - New `translate/letter-segments.ts` (+ test): splits the stored letter into segments with US-002's DOM-free allowlist parser, each written in a mini-markup (`<b>`, `<i>`, `<u>`, `<br>`). Rebuilding the reply:
+    - the structure comes from the original, never from the reply;
+    - the reply is re-parsed with the allowlist;
+    - each run goes through `sanitizeUntrustedPlainText` with its own length as the limit (nothing is ever cut) and is escaped;
+    - each part must fit its column (rich parts 20,000 characters of escaped HTML, greeting and sign-off 255), or the translation is refused;
+    - the result then passes the final `sanitizeUntrustedRichText`.
+  - New `src/lib/ai/cover-letter-translation.ts` (+ test): one AI call per letter, with the same model and temperature 0.3 as `translateSummary`. A reply must have exactly one translation per segment.
+  - `src/lib/ai/prompts.ts` (68/15): the language table and tone rules are extracted into shared constants, and the letter-translation prompt is added. New `src/lib/ai/prompts.translation.test.ts` pins the full `buildTranslationPrompt` text (de) against 281088a; the resume-section prompt is identical in all 4 languages.
+  - `src/lib/ai/test-stub.ts` (24/0), `test-stub-contract.ts` (10/0), `test-stub.test.ts` (62/0): a stub translator (prefix "[DE] " and so on) with provider-error and rate-limited directives, behind the unchanged `isAiTestStubEnabled` guard.
+  - New `src/lib/cover-letter-translate-client.ts` (+ test): the browser request, with a 65 s timeout (above the route's 60 s, so the client can't report a failure for a copy the server then creates). Only a 201 with a uuid opens a letter.
+  - `src/components/dashboard/cover-letter-editor.tsx` (150/3): a row under the header with the "Traduire" label and the four flags.
+    - Flags: localized names; 44×44 below sm.
+    - Busy state: `aria-disabled` plus `aria-busy`, a spinner on the tapped flag, the busy name, and a role="status" text (sr-only below sm).
+    - Same save-first rule as the downloads.
+    - One notice at a time with PDF/Word (`#cover-letter-translate-notice`, role="alert"): red for failed and rate-limited, amber for save-first, empty and too-large.
+  - `src/locales/{fr,en,de,it}/common.json` (20/0 each).
+  - New `e2e/cover-letter-translate.spec.ts`.
+- Not touched: migrations, package.json and the lockfile, `language-flags` markup (moved byte for byte), the PDF/Word routes. No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-*.spec.ts) were generated after the checks and deleted. The "before" flag captures came from the temporary origin/main worktree.
+
+Checks:
+- Runs on earlier diffs were invalidated by the review fixes below.
+- Environment incidents on the final diff:
+  - One run failed almost entirely because Docker Desktop was not running, so the local Supabase stack was down ("Could not create E2E user: fetch failed"; integration tests 50 skipped). Docker Desktop and `supabase start` were started and the run was repeated.
+  - In the repeated run, `pnpm build` and the parity web server crashed early with "uncaughtException TypeError: Cannot read properties of undefined (reading 'length')". This reproduced in `.next` until that ignored build directory was deleted, so it was a corrupt build cache. `.next-parity` was cleared the same way. No code changed.
+- Final results (this diff):
+  - Cover-letter specs alone (translate, pdf, docx, editor-i18n, editor-spacing): 46 passed.
+  - pnpm typecheck: PASS — 0 errors.
+  - pnpm test: PASS — 113 files, 2970 passed, 5 skipped (2872 after US-002).
+  - pnpm test:integration: PASS — 4 files, 50 passed.
+  - pnpm test:e2e: PASS — 453 passed, 0 failed, first pass (442 after US-002).
+  - pnpm build: PASS — 105/105 static pages (after clearing `.next`).
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings); one fewer than before (`_router` in the editor is now used).
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (after clearing `.next-parity`).
+
+Specialized validation:
+- Browser: PASS — e2e/cover-letter-translate.spec.ts, on fr and de pages:
+  - localized names;
+  - busy state;
+  - DE on a French letter creates and opens "Lettre Zürich (DE)": the stored row has translated parts and kept columns, the original is unchanged, the application link is unchanged;
+  - keyboard: Tab to a flag, then Enter;
+  - failures (502, 429) show a localized error and create nothing;
+  - save-first sends no request;
+  - another user's id gives 404.
+- Visual: PASS — the grammar checker's language row was captured logged in, as an element, on origin/main f24a1d1 (worktree) and on the branch, in fr and de at 1440 and 375: a 0-byte pixel diff (172×33) and identical innerHTML (2,415 chars) for all four pairs. The first attempt captured the site's language switcher by mistake and was discarded. No resume template changed, so test:visual does not apply.
+- Export: NOT_APPLICABLE.
+- Database: NOT_APPLICABLE — one insert through the session (RLS), no schema change.
+- Security: PASS — security-review: 5 trust boundaries, 9/9 requirements, 0 critical/high/medium/low, 3 info.
+  - Hostile replies fed to the rebuild (`javascript:` links, onerror, onclick/style url(), script, iframe, svg onload, entity- and double-encoded tags, extra structure) produced only p/br/strong/em/u/ul/ol/li with no attributes.
+  - No ReDoS: a 30k flood took 1 ms; 1M-character replies took 36–87 ms and were refused.
+  - The rate limit comes after every cheap refusal.
+  - Re-check after the truncation fix: PASS; no sanitizing step weakened.
+  - SEC-019 INFO: the copy carries the source's resume_id and job_application_id; those can already be foreign through SEC-004.
+  - SEC-020 INFO: prompt injection can only shape the user's own copy, within the budget.
+  - SEC-021 INFO, pre-existing: `enforceJsonBodyLimit` trusts Content-Length.
+
+Agents:
+- senior-coder: implementation, then two fix rounds:
+  - truncation, empty message, client timeout and maxDuration, prompt pin;
+  - touch targets, status before label, notice colours.
+- code-reviewer:
+  - round 1: FAIL. Major: each translated run was cut at 2,000 characters without signalling, and the copy was still inserted. A 1,904-character paragraph translated to 3,424 characters was stored at 2,007, ending lost.
+  - round 2: PASS.
+  - round 3 (UI fixes): PASS.
+- ui-expert:
+  - round 1: FAIL. Major: on mobile the flags were about 36×25 px with 4 px gaps, and a mis-tap creates a letter and navigates away. Minors: the row jumped when busy text appeared; notice colours were inconsistent. The grammar checker was confirmed unchanged.
+  - round 2: first attempt stopped on an API connection error; a fresh ui-expert gave PASS 7/7.
+    - At 375 every flag is 44×44, scrollWidth is 375, and long German notices wrap cleanly.
+    - Contrast: red notice 5.87, amber notice 4.85, label 11.37, flag focus ring 3.45.
+    - Keyboard focus stays on the flag after a 502, and Enter retries.
+    - The new copy opens. The grammar checker is pixel-identical.
+
+Acceptance criteria:
+- AC-01 (four flags from one shared component, the same SVGs as the grammar checker): PASS — language-flags.tsx; unit test against 281088a markup.
+- AC-02 (the checker's flags identical before and after, by pixel comparison): PASS — 0-byte diff, fr/de × 1440/375.
+- AC-03 (localized accessible names, keyboard, localized busy state): PASS — e2e; captures; ui-expert. Below sm the busy text is sr-only and the tapped flag shows the spinner and its busy name.
+- AC-04 (a click creates and opens "<title> (DE)"; parts translated; recipient, company, sender, template, resume_id, job_application_id kept): PASS — e2e stored-row check; route tests.
+- AC-05 (the original is unchanged, the application's cover_letter_id still points to it): PASS — e2e; the route only inserts.
+- AC-06 (failure or rate limit shows a localized error and creates nothing): PASS — e2e and route tests (502, 429, incomplete).
+- AC-07 (translated text sanitized like cover-letter-from-job; bold, italic and lists kept): PASS — letter-segments tests; security-review hostile-reply probe.
+- AC-08 (another user's letter refused): PASS — route test and e2e 404.
+- FR-3, FR-4, FR-5, FR-6, FR-7: PASS.
+- Regression constraints: PASS. The grammar checker is unchanged (pixel and HTML). The editor sections, the AI modal and PDF/Word are unchanged (their specs are green). The resume-section translation prompt is pinned in full.
+- FAIL conditions: none met.
+
+Decision (implementer, accepted by code-reviewer): one AI call per letter, translating whole blocks in a mini-markup. The structure always comes from the original, so the reply cannot add, merge or split paragraphs.
+Decision: translation follows the same save-first rule as the downloads and always translates the saved row.
+Decision: the flags row sits under the header, not in it, because the header has no room left at 1366 after US-002.
+Decision: analysis score and results are not copied (they judged the original text).
+Decision: any overflow refuses the translation (502) instead of shortening it, so a copy is never stored with part of its text missing.
+Decision: the client times out at 65 s, above the route's 60 s maxDuration.
+
+Named limitations:
+- Inline font size, font family and alignment are not carried into the copy (the AI rich-text allowlist has no attributes).
+- Text a user typed with literal "<" or ">" loses those characters in the copy.
+- Translating a copy again stacks suffixes ("Lettre (DE) (FR)").
+
+Open owner decisions recorded by this story:
+- ui-expert, minor:
+  - from 640 px up (landscape phones, touch tablets) the flags return to about 36×25 px; a `pointer-fine:` or `lg:` breakpoint would keep 44 px targets on touch devices;
+  - the busy spinner widens the tapped flag by 8 px (the earlier flags shift; they are inert while busy).
+- ui-expert, owner note: every flag is offered even for the letter's own language.
+- code-reviewer, minor: `rich-text-blocks.ts` (under download-docx) is now imported by the translate route too; move it to src/lib later.
+- security-review: SEC-019/020/021 (INFO).
+
+Environment notes:
+- Windows 11. Docker Desktop had to be started and the local Supabase stack brought up. A corrupt `.next` and `.next-parity` build cache was cleared. Playwright suites ran one at a time.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 a letter can be translated by flag into a new copy
+FINAL: PASS
