@@ -1,5 +1,6 @@
 /**
- * The `Content-Disposition` header of a resume PDF download.
+ * The `Content-Disposition` header of a document download: a resume or cover
+ * letter PDF, or a cover letter's Word file.
  *
  * The resume title is user-controlled, so it reaches the header only after two
  * transformations, and the header carries it twice:
@@ -17,7 +18,7 @@
  * the quoted fallback well-formed: no quote or backslash can reach it.
  */
 
-/** Used when a title has nothing left once cleaned. */
+/** Used when a title has nothing left once cleaned, unless the caller names another. */
 const FALLBACK_BASENAME = 'resume'
 
 /**
@@ -41,7 +42,7 @@ const NON_PRINTABLE_ASCII = /[^\x20-\x7e]/g
  * The title as a file base name: unsafe characters replaced, whitespace
  * collapsed, Windows' trailing dots and spaces removed, length bounded.
  */
-export function cleanPdfBasename(title: string | null | undefined): string {
+export function cleanPdfBasename(title: string | null | undefined, fallback: string = FALLBACK_BASENAME): string {
   const cleaned = (title ?? '')
     .normalize('NFC')
     .replace(CONTROL_CHARS, ' ')
@@ -53,7 +54,7 @@ export function cleanPdfBasename(title: string | null | undefined): string {
   // surrogate pair into an unencodable lone half.
   const bounded = Array.from(cleaned).slice(0, MAX_BASENAME_LENGTH).join('')
   const trimmed = bounded.replace(/[\s.]+$/, '')
-  return trimmed.length > 0 ? trimmed : FALLBACK_BASENAME
+  return trimmed.length > 0 ? trimmed : fallback
 }
 
 /** RFC 5987 `value-chars`: `encodeURIComponent` leaves four characters the grammar does not allow. */
@@ -64,24 +65,44 @@ function encodeRfc5987(value: string): string {
   )
 }
 
-function asciiFallback(basename: string): string {
+function asciiFallback(basename: string, fallback: string): string {
   const ascii = basename
     .normalize('NFD')
     .replace(COMBINING_MARKS, '')
     .replace(NON_PRINTABLE_ASCII, '_')
     .trim()
-  return ascii.length > 0 ? ascii : FALLBACK_BASENAME
+  return ascii.length > 0 ? ascii : fallback
+}
+
+/** The file types a download is named with. */
+export type AttachmentExtension = 'pdf' | 'docx'
+
+/**
+ * `attachment; filename="<ascii>.<extension>"; filename*=UTF-8''<encoded>.<extension>`.
+ *
+ * An empty or entirely unusable title gives `<fallback>.<extension>` in both
+ * parameters. `fallback` must itself be printable ASCII with no character
+ * `cleanPdfBasename` replaces.
+ */
+export function attachmentContentDisposition(
+  title: string | null | undefined,
+  fallback: string,
+  extension: AttachmentExtension,
+): string {
+  const basename = cleanPdfBasename(title, fallback)
+  return (
+    `attachment; filename="${asciiFallback(basename, fallback)}.${extension}"; ` +
+    `filename*=UTF-8''${encodeRfc5987(`${basename}.${extension}`)}`
+  )
 }
 
 /**
- * `attachment; filename="<ascii>.pdf"; filename*=UTF-8''<encoded>.pdf`.
- *
- * An empty or entirely unusable title gives `resume.pdf` in both parameters.
+ * The PDF case of `attachmentContentDisposition`: `resume.pdf` unless the
+ * caller names another fallback base name.
  */
-export function pdfContentDisposition(title: string | null | undefined): string {
-  const basename = cleanPdfBasename(title)
-  return (
-    `attachment; filename="${asciiFallback(basename)}.pdf"; ` +
-    `filename*=UTF-8''${encodeRfc5987(`${basename}.pdf`)}`
-  )
+export function pdfContentDisposition(
+  title: string | null | undefined,
+  fallback: string = FALLBACK_BASENAME,
+): string {
+  return attachmentContentDisposition(title, fallback, 'pdf')
 }

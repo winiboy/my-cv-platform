@@ -339,10 +339,33 @@ Do not include explanations, comments, or additional text.
 **Transformed Achievements:**`
 }
 
+/** The languages the AI translation path translates into, and nothing else. */
+export const TRANSLATION_LANGUAGES = ['fr', 'de', 'en', 'it'] as const
+
+export type TranslationLanguage = (typeof TRANSLATION_LANGUAGES)[number]
+
+/**
+ * The language a translation prompt names. A fixed table: the caller's
+ * language code selects an entry and is never interpolated itself.
+ */
+const TRANSLATION_LANGUAGE_NAMES: Readonly<Record<TranslationLanguage, string>> = {
+  fr: 'French',
+  de: 'German',
+  en: 'English',
+  it: 'Italian',
+}
+
+const TRANSLATION_LANGUAGE_CONTEXT: Readonly<Record<TranslationLanguage, string>> = {
+  fr: 'Use professional French business language. Maintain formal tone.',
+  de: 'Use professional German business language. Maintain formal tone.',
+  en: 'Use professional English (US/UK) business language. Maintain formal tone.',
+  it: 'Use professional Italian business language. Maintain formal tone.',
+}
+
 export interface TranslateSummaryInput {
   summary: string
-  targetLanguage: 'fr' | 'de' | 'en' | 'it'
-  sourceLanguage?: 'fr' | 'de' | 'en' | 'it'
+  targetLanguage: TranslationLanguage
+  sourceLanguage?: TranslationLanguage
 }
 
 /**
@@ -351,19 +374,8 @@ export interface TranslateSummaryInput {
 export function buildTranslationPrompt(input: TranslateSummaryInput): string {
   const { summary, targetLanguage, sourceLanguage } = input
 
-  const languageNames = {
-    fr: 'French',
-    de: 'German',
-    en: 'English',
-    it: 'Italian',
-  }
-
-  const languageContext = {
-    fr: 'Use professional French business language. Maintain formal tone.',
-    de: 'Use professional German business language. Maintain formal tone.',
-    en: 'Use professional English (US/UK) business language. Maintain formal tone.',
-    it: 'Use professional Italian business language. Maintain formal tone.',
-  }
+  const languageNames = TRANSLATION_LANGUAGE_NAMES
+  const languageContext = TRANSLATION_LANGUAGE_CONTEXT
 
   return `You are a professional translator specializing in resume and CV translations.
 
@@ -415,6 +427,47 @@ Return ONLY the translated text, nothing else.
 IMPORTANT: Preserve ALL formatting, line breaks, and bullet points exactly as shown in the original.
 
 **Translated Summary (${languageNames[targetLanguage]}):**`
+}
+
+export interface CoverLetterTranslationInput {
+  /**
+   * The letter's text, one segment per greeting, paragraph, list item and
+   * sign-off, in order. A segment may hold `<b>`, `<i>`, `<u>` and `<br>`,
+   * and escapes `&`, `<` and `>` as `&amp;`, `&lt;` and `&gt;`.
+   */
+  segments: readonly string[]
+  targetLanguage: TranslationLanguage
+}
+
+/**
+ * The prompt translating a cover letter's segments in one request, with the
+ * summary translation's language table and tone rules.
+ *
+ * The segments travel as a JSON array, so the letter's text stays data inside
+ * the prompt and the reply can be matched to them one to one.
+ */
+export function buildCoverLetterTranslationPrompt(input: CoverLetterTranslationInput): string {
+  const languageName = TRANSLATION_LANGUAGE_NAMES[input.targetLanguage]
+
+  return `You are a professional translator specializing in cover letters.
+
+Translate every segment of the cover letter below to ${languageName}.
+
+**RULES:**
+1. **Maintain Professional Tone:** Keep the same level of professionalism and formality
+2. **Preserve Meaning:** Do not add or remove information
+3. **Natural Flow:** The translation should read naturally in ${languageName}, not like a word-for-word translation
+4. **Context:** The segments are, in order, the greeting, paragraphs, list items and sign-off of ONE letter. Translate each in the context of the whole letter
+5. **Inline Formatting:** A segment may contain the tags <b>, <i>, <u> and <br>. Keep every tag, around the translated words that carry the same emphasis. Never add any other tag or attribute
+6. **Escaping:** Keep &amp;, &lt; and &gt; escaped exactly as in the original
+7. **One to One:** Return exactly ${input.segments.length} translations, in the same order as the segments. Never merge or split segments
+8. **Format:** Return ONLY a JSON object of the form {"translations": ["...", "..."]}, with no Markdown and no explanation
+
+**Target Language Context:**
+${TRANSLATION_LANGUAGE_CONTEXT[input.targetLanguage]}
+
+**Segments (JSON array):**
+${JSON.stringify(input.segments)}`
 }
 
 export interface JobDescriptionToResumeInput {

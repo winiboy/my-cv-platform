@@ -102,17 +102,23 @@ environment is never touched.
   so they are not bundled and need no config entry.
 - Output tracing follows the package's JavaScript, but not its `bin/*.br`
   archives, which it opens by a computed path. `next.config.js`
-  `outputFileTracingIncludes` adds that folder to this route only, at its real
-  path in pnpm's store, which is where the traced JavaScript looks for it.
-  - The key is the picomatch glob `/api/resumes/*/download-pdf`. A literal
-    `[id]` would be read as a character class and match nothing.
-- To check after a build: `.next/server/app/api/resumes/[id]/download-pdf/route.js.nft.json`
-  must list `chromium.br`, `fonts.tar.br`, `swiftshader.tar.br` and
+  `outputFileTracingIncludes` adds that folder, at its real path in pnpm's
+  store (where the traced JavaScript looks for it), to the two routes that
+  launch this browser and to no other: the resume PDF and the cover-letter PDF.
+  Both entries come from one function, `pdfRendererTracedFiles()`, so they
+  cannot drift apart.
+  - The keys are the picomatch globs `/api/resumes/*/download-pdf` and
+    `/api/cover-letters/*/download-pdf`. A literal `[id]` would be read as a
+    character class and match nothing.
+- To check after a build, for each of
+  `.next/server/app/api/resumes/[id]/download-pdf/route.js.nft.json` and
+  `.next/server/app/api/cover-letters/[id]/download-pdf/route.js.nft.json`:
+  it must list `chromium.br`, `fonts.tar.br`, `swiftshader.tar.br` and
   `al2023.tar.br`, plus the substitute fonts' stylesheets and WOFF2 files
-  under `node_modules/@fontsource/` (see "Substitutes" below). The route's
-  function size is the sum of the files it
-  lists plus `route.js`. Vercel's limit is 250 MB uncompressed. No other route's
-  trace includes the archives.
+  under `node_modules/@fontsource/` (see "Substitutes" below). Each route's
+  function size is the sum of the files it lists plus its `route.js`.
+  Vercel's limit is 250 MB uncompressed. No other route's trace includes the
+  archives.
 
 ## Function limits (Vercel)
 
@@ -127,8 +133,8 @@ environment is never touched.
 - **Duration:** 60 s is accepted on every plan. Without Fluid compute it is
   the Hobby maximum; with Fluid compute every plan allows more.
 - **Memory:** the default (2 GB with Fluid compute) is assumed to be enough for
-  the route's two concurrent renders per instance
-  (`MAX_CONCURRENT_RENDERS`). It has not been measured on Vercel.
+  two concurrent renders per instance, shared by the resume and cover-letter
+  PDF routes (`MAX_CONCURRENT_PDF_RENDERS`, `src/lib/pdf/render-slots.ts`). It has not been measured on Vercel.
   - Hobby cannot change memory; Pro can, in the project's Functions settings.
   - No `vercel.json` is added, because with Fluid compute memory is a
     dashboard setting.

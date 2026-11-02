@@ -497,6 +497,9 @@
     "duplicate": "Duplizieren",
     "downloadPDF": "PDF herunterladen",
     "downloadPDFError": "Das PDF konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
+    "downloadPDFTooLarge": "Dieses Anschreiben ist zu lang für den Export. Kürzen Sie die Absätze und versuchen Sie es erneut.",
+    "downloadWord": "Word herunterladen",
+    "downloadWordError": "Die Word-Datei konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
     "confirmDelete": "Möchten Sie dieses Anschreiben wirklich löschen?",
     "jobAssociation": {
       "linkedJob": "Verknüpfte Stelle",
@@ -552,6 +555,32 @@
       "saveFailed": "Speichern fehlgeschlagen",
       "generate": "Generieren",
       "check": "Prüfen",
+      "downloadPdf": "PDF",
+      "downloadingPdf": "PDF wird erstellt...",
+      "saveBeforeDownload": "Speichern Sie zuerst Ihre Änderungen: Das PDF wird aus dem gespeicherten Anschreiben erstellt.",
+      "downloadWord": "Word",
+      "downloadingWord": "Word-Datei wird erstellt...",
+      "saveBeforeDownloadWord": "Speichern Sie zuerst Ihre Änderungen: Die Word-Datei wird aus dem gespeicherten Anschreiben erstellt.",
+      "translate": {
+        "label": "Übersetzen",
+        "to": {
+          "en": "Ins Englische übersetzen",
+          "fr": "Ins Französische übersetzen",
+          "de": "Ins Deutsche übersetzen",
+          "it": "Ins Italienische übersetzen"
+        },
+        "translating": {
+          "en": "Wird ins Englische übersetzt...",
+          "fr": "Wird ins Französische übersetzt...",
+          "de": "Wird ins Deutsche übersetzt...",
+          "it": "Wird ins Italienische übersetzt..."
+        },
+        "saveFirst": "Speichern Sie zuerst Ihre Änderungen: Die Übersetzung wird aus dem gespeicherten Anschreiben erstellt.",
+        "failed": "Das Anschreiben konnte nicht übersetzt werden. Es wurde kein neues Anschreiben erstellt. Bitte versuchen Sie es erneut.",
+        "rateLimited": "Zu viele KI-Anfragen in kurzer Zeit. Es wurde kein neues Anschreiben erstellt. Versuchen Sie es in einigen Minuten erneut.",
+        "tooLarge": "Dieses Anschreiben ist zu lang für eine Übersetzung. Kürzen Sie die Absätze und versuchen Sie es erneut.",
+        "empty": "Dieses Anschreiben enthält noch keinen Text zum Übersetzen. Schreiben und speichern Sie es, und versuchen Sie es dann erneut."
+      },
       "sections": {
         "recipient": "Empfänger",
         "opening": "Einleitung",

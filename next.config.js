@@ -90,9 +90,9 @@ const IMGLY_ASSET_ORIGIN = "https://staticimgly.com";
  *      server-side and the profile photo is a base64 data: URL, so style-src
  *      needs 'unsafe-inline' and img-src needs data:. Exercise window.print()
  *      on every one of the five templates.
- *   3. The cover-letter PDF export (html2pdf.js -> html2canvas + jsPDF).
- *      html2canvas clones the document into an about:blank iframe and jsPDF
- *      hands back a blob: URL; confirm frame-src and img-src cover it.
+ *   3. The cover-letter PDF export: printed server-side since
+ *      cover-letter-export-translate, so the page only saves a blob: download;
+ *      nothing of it renders under this policy any more.
  *   4. Profile-photo background removal. onnxruntime-web compiles WASM and
  *      spawns a worker from a blob: URL, and pulls model chunks from
  *      staticimgly.com. Confirm 'wasm-unsafe-eval' is sufficient and that no
@@ -261,6 +261,15 @@ function serverlessChromiumBinGlob() {
   return `./${path.relative(__dirname, path.join(packageDir, "bin")).split(path.sep).join("/")}/**`;
 }
 
+/** The files a PDF route's renderer opens at runtime by computed path. */
+function pdfRendererTracedFiles() {
+  return [
+    serverlessChromiumBinGlob(),
+    "./node_modules/@fontsource/{arimo,carlito,gelasio}/{400,400-italic,700,700-italic}.css",
+    "./node_modules/@fontsource/{arimo,carlito,gelasio}/files/*-{400,700}-{normal,italic}.woff2",
+  ];
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Build output directory. Overridable so the E2E suite can build into
@@ -270,23 +279,21 @@ const nextConfig = {
   // normal builds and deploys are unaffected.
   distDir: process.env.NEXT_DIST_DIR || ".next",
 
-  // The PDF route's packed Chromium, which tracing cannot see (see
-  // serverlessChromiumBinGlob). The key is a picomatch glob of the route, so
-  // `*` stands for the `[id]` segment, whose brackets would be read as a
-  // character class. `@sparticuz/chromium` and `playwright-core` themselves
+  // The PDF routes' packed Chromium, which tracing cannot see (see
+  // serverlessChromiumBinGlob): the resume PDF and the cover-letter PDF, which
+  // launch the same browser (src/lib/pdf/browser.ts). Each key is a picomatch
+  // glob of a route, so `*` stands for the `[id]` segment, whose brackets would
+  // be read as a character class. `@sparticuz/chromium` and `playwright-core` themselves
   // need no `serverExternalPackages` entry: Next already keeps both external.
   //
-  // Also the metric-compatible fonts that renderer registers in place of
+  // Also the metric-compatible fonts both renderers register in place of
   // Arial, Calibri and Georgia (src/lib/pdf/font-substitutes.ts, whose
   // FONT_SUBSTITUTES this package list must match): their 400 and 700,
   // regular and italic stylesheets and WOFF2 files, read at runtime from
   // `node_modules/@fontsource/<package>`, the path named here.
   outputFileTracingIncludes: {
-    "/api/resumes/*/download-pdf": [
-      serverlessChromiumBinGlob(),
-      "./node_modules/@fontsource/{arimo,carlito,gelasio}/{400,400-italic,700,700-italic}.css",
-      "./node_modules/@fontsource/{arimo,carlito,gelasio}/files/*-{400,700}-{normal,italic}.woff2",
-    ],
+    "/api/resumes/*/download-pdf": pdfRendererTracedFiles(),
+    "/api/cover-letters/*/download-pdf": pdfRendererTracedFiles(),
   },
 
   // NOTE: `swcMinify: false` used to sit here. Next 15 removed the option

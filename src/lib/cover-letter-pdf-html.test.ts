@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   buildCoverLetterPdfHtml,
+  coverLetterBodyParagraphs,
+  coverLetterParts,
   type CoverLetterPdfFields,
 } from './cover-letter-pdf-html'
 
@@ -159,5 +161,95 @@ describe('buildCoverLetterPdfHtml fallbacks and conditionals', () => {
     expect(html).not.toContain('Ignored without recipient or company')
     expect(html).not.toContain('Re: Application for')
     expect(html).not.toContain('text-align: justify')
+  })
+})
+
+describe('coverLetterParts: the one list of parts both exports print', () => {
+  it('lists every part in the letter order', () => {
+    expect(coverLetterParts(makeCoverLetter({ company_address: '1 Main Street\nTown' }), CURRENT_DATE)).toEqual([
+      { kind: 'sender', text: 'Jane Doe' },
+      { kind: 'date', text: CURRENT_DATE },
+      {
+        kind: 'recipient',
+        lines: [
+          { text: 'John Smith', multiline: false },
+          { text: 'Head of Talent', multiline: false },
+          { text: 'Acme', multiline: false },
+          { text: '1 Main Street\nTown', multiline: true },
+        ],
+      },
+      { kind: 'subject', text: 'Re: Application for Engineer' },
+      { kind: 'greeting', text: 'Dear John,' },
+      { kind: 'opening', html: 'Opening' },
+      { kind: 'body', html: 'Body one' },
+      { kind: 'body', html: 'Body two' },
+      { kind: 'closing', html: 'Closing' },
+      { kind: 'signOff', text: 'Best regards,' },
+      { kind: 'signature', text: 'Jane Doe' },
+    ])
+  })
+
+  it('leaves out empty optional parts and falls back to the default greeting and sign-off', () => {
+    const parts = coverLetterParts(
+      makeCoverLetter({
+        sender_name: '',
+        recipient_name: null,
+        company_name: null,
+        job_title: null,
+        greeting: '',
+        opening_paragraph: '',
+        body_paragraphs: [],
+        closing_paragraph: null,
+        sign_off: '',
+      }),
+      CURRENT_DATE,
+    )
+    expect(parts).toEqual([
+      { kind: 'date', text: CURRENT_DATE },
+      { kind: 'greeting', text: 'Dear Hiring Manager,' },
+      { kind: 'signOff', text: 'Sincerely,' },
+    ])
+  })
+
+  it('is what the PDF markup prints, in the same order', () => {
+    const html = build()
+    const order = ['Jane Doe', CURRENT_DATE, 'John Smith', 'Acme', 'Re: Application for Engineer', 'Dear John,', 'Opening', 'Body one', 'Body two', 'Closing', 'Best regards,']
+    const positions = order.map((text) => html.indexOf(text))
+    expect(positions.every((position) => position >= 0)).toBe(true)
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions)
+    expect(html.lastIndexOf('Jane Doe')).toBeGreaterThan(html.indexOf('Best regards,'))
+  })
+})
+
+describe('malformed body_paragraphs', () => {
+  it('keeps the string paragraphs, in order, and skips anything else', () => {
+    expect(coverLetterBodyParagraphs(['One', null, 3, { p: 'x' }, ['y'], 'Two', ''])).toEqual(['One', 'Two', ''])
+  })
+
+  it('treats a value that is not an array as no paragraphs', () => {
+    expect(coverLetterBodyParagraphs(null)).toEqual([])
+    expect(coverLetterBodyParagraphs('<p>One</p>')).toEqual([])
+    expect(coverLetterBodyParagraphs({ 0: 'One' })).toEqual([])
+  })
+
+  it('builds the letter from the string paragraphs only, never handing the sanitizer a non-string', () => {
+    const sanitizeRichText = vi.fn((html: string) => {
+      if (typeof html !== 'string') throw new Error('non-string reached the sanitizer')
+      return html
+    })
+    const html = buildCoverLetterPdfHtml(makeCoverLetter({ body_paragraphs: ['Body one', null, 42, 'Body two'] }), {
+      currentDate: CURRENT_DATE,
+      sanitizeRichText,
+    })
+    expect(html).toContain('Body one')
+    expect(html).toContain('Body two')
+    expect(html).not.toContain('42')
+    expect(html.indexOf('Body one')).toBeLessThan(html.indexOf('Body two'))
+  })
+
+  it('builds a letter whose body is not an array, with its other parts', () => {
+    const html = build({ body_paragraphs: { broken: true } })
+    expect(html).toContain('Opening')
+    expect(html).toContain('Closing')
   })
 })

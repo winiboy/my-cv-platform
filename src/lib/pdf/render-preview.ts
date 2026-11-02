@@ -63,8 +63,11 @@ export interface RenderPreviewPdfInput {
   timeoutMs: number
 }
 
-/** The step a render was on when it failed, so a log can say where without saying what. */
-export type PdfRenderStage = 'launch' | 'fonts' | 'context' | 'navigate' | 'settle' | 'print'
+/**
+ * The step a render was on when it failed, so a log can say where without saying
+ * what. `sanitize` is the cover-letter renderer's (`render-cover-letter.ts`).
+ */
+export type PdfRenderStage = 'launch' | 'fonts' | 'context' | 'navigate' | 'sanitize' | 'settle' | 'print'
 
 export class PdfRenderError extends Error {
   constructor(

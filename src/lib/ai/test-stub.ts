@@ -1,5 +1,6 @@
 import { AiCompletionError } from './client'
 import { generateCoverLetter, type CoverLetterGenerator } from './cover-letter-generation'
+import { translateCoverLetterSegments, type CoverLetterTranslator } from './cover-letter-translation'
 import type { JobDescriptionToResumeInput } from './prompts'
 import { generateResumeFromJobDescription } from './transformations'
 import {
@@ -15,6 +16,7 @@ import {
   AI_TEST_STUB_ENABLED_VALUE,
   AI_TEST_STUB_OFFER_PAGE_PARAM,
   AI_TEST_STUB_OFFER_PAGE_TIMEOUT,
+  aiTestStubTranslationPrefix,
 } from './test-stub-contract'
 
 export {
@@ -23,6 +25,7 @@ export {
   AI_TEST_STUB_ENABLED_VALUE,
   AI_TEST_STUB_OFFER_PAGE_PARAM,
   AI_TEST_STUB_OFFER_PAGE_TIMEOUT,
+  aiTestStubTranslationPrefix,
 }
 
 /**
@@ -339,4 +342,25 @@ export const stubCheckOfferPage: OfferPageChecker = async (jobUrl) => {
  */
 export function offerPageCheckerFor(request: AiTestStubRequest): OfferPageChecker {
   return isAiTestStubEnabled(process.env, request) ? stubCheckOfferPage : checkOfferPage
+}
+
+/**
+ * The stub's cover-letter translation (cover-letter-export-translate, US-003,
+ * FR-5): every segment with `aiTestStubTranslationPrefix` before it, markup
+ * untouched, as a provider that kept the tags would answer. Deterministic. A
+ * segment carrying a directive fails the whole translation as the provider
+ * would, so nothing is translated in part.
+ */
+export const translateStubCoverLetterSegments: CoverLetterTranslator = async ({ segments, targetLanguage }) => {
+  segments.forEach(throwRequestedProviderFailure)
+  const prefix = aiTestStubTranslationPrefix(targetLanguage)
+  return segments.map((segment) => `${prefix}${segment}`)
+}
+
+/**
+ * The cover-letter translator for this request: the stub when every guard
+ * condition holds, otherwise the real AI.
+ */
+export function coverLetterTranslatorFor(request: AiTestStubRequest): CoverLetterTranslator {
+  return isAiTestStubEnabled(process.env, request) ? translateStubCoverLetterSegments : translateCoverLetterSegments
 }

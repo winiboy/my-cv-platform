@@ -497,6 +497,9 @@
     "duplicate": "Dupliquer",
     "downloadPDF": "Télécharger PDF",
     "downloadPDFError": "Le PDF n'a pas pu être créé. Veuillez réessayer.",
+    "downloadPDFTooLarge": "Cette lettre est trop longue pour être exportée. Raccourcissez ses paragraphes et réessayez.",
+    "downloadWord": "Télécharger Word",
+    "downloadWordError": "Le fichier Word n'a pas pu être créé. Veuillez réessayer.",
     "confirmDelete": "Êtes-vous sûr de vouloir supprimer cette lettre de motivation ?",
     "jobAssociation": {
       "linkedJob": "Emploi lié",
@@ -552,6 +555,32 @@
       "saveFailed": "Échec de l'enregistrement",
       "generate": "Générer",
       "check": "Vérifier",
+      "downloadPdf": "PDF",
+      "downloadingPdf": "Création du PDF...",
+      "saveBeforeDownload": "Enregistrez d'abord vos modifications : le PDF est créé à partir de la lettre enregistrée.",
+      "downloadWord": "Word",
+      "downloadingWord": "Création du fichier Word...",
+      "saveBeforeDownloadWord": "Enregistrez d'abord vos modifications : le fichier Word est créé à partir de la lettre enregistrée.",
+      "translate": {
+        "label": "Traduire",
+        "to": {
+          "en": "Traduire en anglais",
+          "fr": "Traduire en français",
+          "de": "Traduire en allemand",
+          "it": "Traduire en italien"
+        },
+        "translating": {
+          "en": "Traduction en anglais...",
+          "fr": "Traduction en français...",
+          "de": "Traduction en allemand...",
+          "it": "Traduction en italien..."
+        },
+        "saveFirst": "Enregistrez d'abord vos modifications : la traduction est faite à partir de la lettre enregistrée.",
+        "failed": "La lettre n'a pas pu être traduite. Aucune nouvelle lettre n'a été créée. Veuillez réessayer.",
+        "rateLimited": "Trop de demandes IA en peu de temps. Aucune nouvelle lettre n'a été créée. Réessayez dans quelques minutes.",
+        "tooLarge": "Cette lettre est trop longue pour être traduite. Raccourcissez ses paragraphes et réessayez.",
+        "empty": "Cette lettre n'a pas encore de texte à traduire. Rédigez-la, enregistrez-la, puis réessayez."
+      },
       "sections": {
         "recipient": "Destinataire",
         "opening": "Accroche",

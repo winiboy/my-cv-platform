@@ -1,10 +1,12 @@
 import { chromium, type Browser, type LaunchOptions } from 'playwright-core'
 
 /**
- * Where the resume PDF renderer gets its Chromium from. The ONE place.
+ * Where the PDF renderers get their Chromium from. The ONE place, for both:
+ * the resume renderer (`render-preview.ts`) and the cover-letter renderer
+ * (`render-cover-letter.ts`).
  *
- * Everything else about the render — the page, the network policy, the print
- * options — lives in `render-preview.ts` and does not depend on which binary
+ * Everything else about a render — the page, the network policy, the print
+ * options — lives in those two modules and does not depend on which binary
  * runs it. Two binaries, chosen by `pdfBrowserRuntime`:
  *
  *   - LOCAL (developer machines, CI): the Chromium Playwright already installs
@@ -175,16 +177,27 @@ export function hardenServerlessArgs(args: readonly string[]): string[] {
  * (`/proc/<ppid>/environ`), and with it every deployment secret. The
  * compensating controls make that bug hard to reach, not harmless:
  *
- *   - the page renders only content this app produced: the stored resume or a
- *     draft for the same resume, through the Preview's own sanitizer, with
- *     client-supplied script never run;
- *   - the network policy and redirect refusal of `route-guard.ts`: only the
- *     app's own origin, read-only, and the Google Fonts endpoints, so neither
- *     attacker-hosted content nor an exfiltration channel is reachable;
+ *   - the page renders only content this app produced:
+ *       - resume: the stored resume or a draft for the same resume, through
+ *         the Preview's own sanitizer, with client-supplied script never run;
+ *       - cover letter: the stored letter only, its plain-text fields
+ *         HTML-escaped and its rich text through the editor's allowlist
+ *         sanitizer (`rich-html-sanitizer.ts`) before the markup exists, in a
+ *         page with JavaScript disabled, set with `setContent` rather than
+ *         navigated to, and refused before the browser starts when far
+ *         beyond any real letter (`COVER_LETTER_PDF_GUARD`);
+ *   - the network policy:
+ *       - resume: `route-guard.ts`, only the app's own origin, read-only, and
+ *         the Google Fonts endpoints, with every redirect refused;
+ *       - cover letter: every request aborted and every WebSocket closed;
+ *         its fonts are local or inlined as `data:` URLs;
+ *     so neither attacker-hosted content nor an exfiltration channel is
+ *     reachable;
  *   - what remains is Chromium's parsers and decoders fed by that content, so
  *     `@sparticuz/chromium` and `playwright-core` must be kept current
  *     (docs/engineering/pdf-export-runtime.md, "Version pin");
- *   - one fresh browser per request, closed in `finally`, and the function's
+ *   - one fresh browser per request, closed in `finally`, at most two at once
+ *     per instance across both routes (`render-slots.ts`), and the function's
  *     own isolation from other deployments.
  */
 export function serverlessLaunchOptions(executablePath: string, args: readonly string[]): LaunchOptions {

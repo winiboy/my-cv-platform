@@ -7,26 +7,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { z } from 'zod'
+import { COVER_LETTER_FIELD_LIMITS } from '@/lib/cover-letter-limits'
 
 /**
  * Zod schema for cover letter creation
  * Validates all fields that can be provided when creating a new cover letter
  */
 const coverLetterCreateSchema = z.object({
-  title: z.string().min(1).max(255).optional(),
+  title: z.string().min(1).max(COVER_LETTER_FIELD_LIMITS.title).optional(),
   resume_id: z.string().uuid().nullable().optional(),
-  recipient_name: z.string().max(255).nullable().optional(),
-  recipient_title: z.string().max(255).nullable().optional(),
-  company_name: z.string().max(255).nullable().optional(),
-  company_address: z.string().max(1000).nullable().optional(),
-  greeting: z.string().max(255).optional(),
-  opening_paragraph: z.string().max(5000).nullable().optional(),
-  body_paragraphs: z.array(z.string().max(5000)).optional(),
-  closing_paragraph: z.string().max(5000).nullable().optional(),
-  sign_off: z.string().max(255).optional(),
-  sender_name: z.string().max(255).nullable().optional(),
-  job_title: z.string().max(255).nullable().optional(),
-  job_description: z.string().max(50000).nullable().optional(),
+  recipient_name: z.string().max(COVER_LETTER_FIELD_LIMITS.recipient_name).nullable().optional(),
+  recipient_title: z.string().max(COVER_LETTER_FIELD_LIMITS.recipient_title).nullable().optional(),
+  company_name: z.string().max(COVER_LETTER_FIELD_LIMITS.company_name).nullable().optional(),
+  company_address: z.string().max(COVER_LETTER_FIELD_LIMITS.company_address).nullable().optional(),
+  greeting: z.string().max(COVER_LETTER_FIELD_LIMITS.greeting).optional(),
+  opening_paragraph: z.string().max(COVER_LETTER_FIELD_LIMITS.opening_paragraph).nullable().optional(),
+  body_paragraphs: z.array(z.string().max(COVER_LETTER_FIELD_LIMITS.body_paragraph)).optional(),
+  closing_paragraph: z.string().max(COVER_LETTER_FIELD_LIMITS.closing_paragraph).nullable().optional(),
+  sign_off: z.string().max(COVER_LETTER_FIELD_LIMITS.sign_off).optional(),
+  sender_name: z.string().max(COVER_LETTER_FIELD_LIMITS.sender_name).nullable().optional(),
+  job_title: z.string().max(COVER_LETTER_FIELD_LIMITS.job_title).nullable().optional(),
+  job_description: z.string().max(COVER_LETTER_FIELD_LIMITS.job_description).nullable().optional(),
   template: z.literal('modern').optional(),
 })
 

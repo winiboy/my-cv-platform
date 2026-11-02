@@ -75,11 +75,15 @@ function isJson(text: string): boolean {
  *
  * `filename*` (RFC 5987, the title itself) is preferred, then the ASCII
  * `filename` fallback, then `resume.pdf`. A parameter that cannot be decoded is
- * skipped rather than shown percent-encoded. The browser sanitizes whatever
+ * skipped rather than shown percent-encoded. `fallback` replaces `resume.pdf`
+ * for a document that is not a resume. The browser sanitizes whatever
  * reaches `<a download>` for its own file system; this only chooses the name.
  */
-export function filenameFromContentDisposition(header: string | null | undefined): string {
-  if (!header) return DEFAULT_PDF_FILENAME
+export function filenameFromContentDisposition(
+  header: string | null | undefined,
+  fallback: string = DEFAULT_PDF_FILENAME,
+): string {
+  if (!header) return fallback
 
   const extended = /(?:^|;)\s*filename\*\s*=\s*([^']*)'[^']*'([^;]+)/i.exec(header)
   if (extended) {
@@ -99,7 +103,7 @@ export function filenameFromContentDisposition(header: string | null | undefined
     if (value) return value
   }
 
-  return DEFAULT_PDF_FILENAME
+  return fallback
 }
 
 /** RFC 5987 `ext-value`; UTF-8 only, which is all the route emits and all `decodeURIComponent` reads. */

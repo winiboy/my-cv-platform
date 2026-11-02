@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AiCompletionError } from './client'
 import { generateCoverLetter } from './cover-letter-generation'
+import { translateCoverLetterSegments } from './cover-letter-translation'
 import { checkOfferPage } from '@/lib/cover-letter-from-job/offer-availability'
 import {
   AI_TEST_STUB_COVER_LETTER_TEXTS,
@@ -10,8 +11,11 @@ import {
   AI_TEST_STUB_ENABLED_VALUE,
   AI_TEST_STUB_OFFER_PAGE_PARAM,
   AI_TEST_STUB_OFFER_PAGE_TIMEOUT,
+  aiTestStubTranslationPrefix,
   coverLetterGeneratorFor,
+  coverLetterTranslatorFor,
   offerPageCheckerFor,
+  translateStubCoverLetterSegments,
   stubCheckOfferPage,
   generateStubCoverLetter,
   generateStubResumeFromJobDescription,
@@ -293,5 +297,63 @@ describe('offerPageCheckerFor', () => {
   it('picks the real check without the flag', () => {
     vi.stubEnv('AI_TEST_STUB', '')
     expect(offerPageCheckerFor(LOCAL_REQUEST)).toBe(checkOfferPage)
+  })
+})
+
+describe('translateStubCoverLetterSegments', () => {
+  const SEGMENTS = ['Madame, Monsieur,', 'Je postule avec <b>conviction</b> &amp; envie.', 'Cordialement,']
+
+  it('prefixes every segment with the language and keeps its markup untouched', async () => {
+    expect(await translateStubCoverLetterSegments({ segments: SEGMENTS, targetLanguage: 'de' })).toEqual([
+      '[DE] Madame, Monsieur,',
+      '[DE] Je postule avec <b>conviction</b> &amp; envie.',
+      '[DE] Cordialement,',
+    ])
+    expect(aiTestStubTranslationPrefix('it')).toBe('[IT] ')
+  })
+
+  it('is deterministic', async () => {
+    const input = { segments: SEGMENTS, targetLanguage: 'en' } as const
+    expect(await translateStubCoverLetterSegments(input)).toEqual(await translateStubCoverLetterSegments(input))
+  })
+
+  it('fails the whole translation as the provider would when any segment asks it to', async () => {
+    await expect(
+      translateStubCoverLetterSegments({
+        segments: [...SEGMENTS, `Corps ${AI_TEST_STUB_DIRECTIVES.providerError}`],
+        targetLanguage: 'de',
+      })
+    ).rejects.toMatchObject({ name: 'AiCompletionError', reason: 'provider_error', providerStatus: 500 })
+    await expect(
+      translateStubCoverLetterSegments({
+        segments: [`Corps ${AI_TEST_STUB_DIRECTIVES.rateLimited}`, ...SEGMENTS],
+        targetLanguage: 'fr',
+      })
+    ).rejects.toMatchObject({ name: 'AiCompletionError', reason: 'rate_limited', providerStatus: 429 })
+  })
+})
+
+describe('coverLetterTranslatorFor', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('picks the stub only when every guard condition holds', () => {
+    vi.stubEnv('AI_TEST_STUB', AI_TEST_STUB_ENABLED_VALUE)
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'http://127.0.0.1:54321')
+    vi.stubEnv('VERCEL', '')
+    vi.stubEnv('VERCEL_ENV', '')
+    expect(coverLetterTranslatorFor(LOCAL_REQUEST)).toBe(translateStubCoverLetterSegments)
+    expect(coverLetterTranslatorFor(request('https://cv.example.com/x', { host: 'cv.example.com' }))).toBe(
+      translateCoverLetterSegments
+    )
+
+    vi.stubEnv('VERCEL', '1')
+    expect(coverLetterTranslatorFor(LOCAL_REQUEST)).toBe(translateCoverLetterSegments)
+  })
+
+  it('picks the real AI without the flag', () => {
+    vi.stubEnv('AI_TEST_STUB', '')
+    expect(coverLetterTranslatorFor(LOCAL_REQUEST)).toBe(translateCoverLetterSegments)
   })
 })

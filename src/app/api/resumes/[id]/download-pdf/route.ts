@@ -6,6 +6,7 @@ import { pdfContentDisposition } from '@/lib/pdf/filename'
 import { MAX_PDF_REQUEST_BYTES, parsePdfRequestBody, readBoundedBody } from '@/lib/pdf/payload'
 import { resolveRenderOrigin, selectSessionCookies } from '@/lib/pdf/render-policy'
 import { PdfRenderError, renderPreviewPdf } from '@/lib/pdf/render-preview'
+import { tryAcquirePdfRenderSlot } from '@/lib/pdf/render-slots'
 
 /**
  * POST /api/resumes/[id]/download-pdf?locale=fr
@@ -31,13 +32,6 @@ export const maxDuration = 60
 
 /** The whole render, browser launch included. Under `maxDuration`, with room for the checks before it. */
 const RENDER_TIMEOUT_MS = 30_000
-
-/**
- * Renders one instance runs at once. Each is a Chromium process; a burst of
- * requests beyond this is told to retry rather than allowed to exhaust memory.
- */
-const MAX_CONCURRENT_RENDERS = 2
-let activeRenders = 0
 
 /**
  * The session must outlive the render by this much.
@@ -102,12 +96,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // cookie store then holds the new tokens, and those are what the page needs.
     const sessionCookies = selectSessionCookies((await cookies()).getAll())
 
-    // Checked and claimed with no await in between, so two requests cannot
-    // both take the last slot.
-    if (activeRenders >= MAX_CONCURRENT_RENDERS) {
+    // Shared with every other PDF route on this instance; see `render-slots.ts`.
+    const slot = tryAcquirePdfRenderSlot()
+    if (!slot) {
       return json('Too many PDF renders in progress', 503, { 'Retry-After': '5' })
     }
-    activeRenders++
     let pdf: Buffer
     try {
       pdf = await renderPreviewPdf({
@@ -124,7 +117,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       logRenderFailure(renderError, [...sessionCookies.map(({ value }) => value), protectionBypassSecret])
       return json('Failed to generate PDF', renderError instanceof PdfRenderError && renderError.stage === 'timeout' ? 504 : 500)
     } finally {
-      activeRenders--
+      slot.release()
     }
 
     return new NextResponse(new Uint8Array(pdf), {
