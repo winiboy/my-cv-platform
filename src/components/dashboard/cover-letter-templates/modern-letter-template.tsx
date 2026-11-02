@@ -1,24 +1,46 @@
 'use client'
 
+import { useMemo } from 'react'
 import type { CoverLetter } from '@/types/database'
+import type { Locale } from '@/lib/i18n'
 import { SanitizedHtml } from '@/components/sanitized-html'
+import { formatCoverLetterDate } from '@/lib/cover-letter-language'
+import { coverLetterLanguage, coverLetterParts, type CoverLetterPart } from '@/lib/cover-letter-pdf-html'
 
 interface ModernLetterTemplateProps {
   coverLetter: CoverLetter
   senderName?: string
+  /** The page's locale: the letter's language when its text cannot tell. */
+  locale: Locale
 }
 
-export function ModernLetterTemplate({ coverLetter, senderName }: ModernLetterTemplateProps) {
+type TextPartKind = 'date' | 'subject' | 'greeting' | 'signOff'
+
+/** The text of the letter's `kind` part, or `undefined` when the letter has none. */
+function partText(parts: readonly CoverLetterPart[], kind: TextPartKind): string | undefined {
+  for (const part of parts) {
+    if (part.kind === kind && 'text' in part) return part.text
+  }
+  return undefined
+}
+
+export function ModernLetterTemplate({ coverLetter, senderName, locale }: ModernLetterTemplateProps) {
   const bodyParagraphs = Array.isArray(coverLetter.body_paragraphs)
     ? coverLetter.body_paragraphs as string[]
     : []
 
-  // Format date
-  const currentDate = new Date().toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  })
+  // The date, subject, greeting and sign-off are read from the parts the PDF
+  // and Word exports print, in the language they resolve, so the preview
+  // cannot show other wording than the files. Only the language detection is
+  // memoized, on the paragraphs and the page; the date is formatted on each
+  // render, so a preview left open past midnight is dated like the PDF.
+  const { opening_paragraph, body_paragraphs, closing_paragraph } = coverLetter
+  const language = useMemo(
+    () => coverLetterLanguage({ opening_paragraph, body_paragraphs, closing_paragraph }, locale),
+    [opening_paragraph, body_paragraphs, closing_paragraph, locale],
+  )
+  const parts = coverLetterParts(coverLetter, formatCoverLetterDate(new Date(), language), language)
+  const subject = partText(parts, 'subject')
 
   return (
     <div className="w-[816px] min-h-[1056px] bg-white p-16 font-serif text-[14px] leading-relaxed text-gray-800">
@@ -33,7 +55,7 @@ export function ModernLetterTemplate({ coverLetter, senderName }: ModernLetterTe
 
       {/* Date */}
       <div className="mb-6 text-gray-600">
-        {currentDate}
+        {partText(parts, 'date')}
       </div>
 
       {/* Recipient info */}
@@ -55,15 +77,15 @@ export function ModernLetterTemplate({ coverLetter, senderName }: ModernLetterTe
       )}
 
       {/* Job reference */}
-      {coverLetter.job_title && (
+      {subject && (
         <div className="mb-6">
-          <strong>Re: Application for {coverLetter.job_title}</strong>
+          <strong>{subject}</strong>
         </div>
       )}
 
       {/* Greeting */}
       <div className="mb-4">
-        {coverLetter.greeting || 'Dear Hiring Manager,'}
+        {partText(parts, 'greeting')}
       </div>
 
       {/* Opening paragraph */}
@@ -83,7 +105,7 @@ export function ModernLetterTemplate({ coverLetter, senderName }: ModernLetterTe
 
       {/* Sign-off */}
       <div className="mt-8">
-        <div className="mb-8">{coverLetter.sign_off || 'Sincerely,'}</div>
+        <div className="mb-8">{partText(parts, 'signOff')}</div>
         {(coverLetter.sender_name || senderName) && (
           <div className="font-semibold">
             {coverLetter.sender_name || senderName}

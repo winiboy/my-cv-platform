@@ -1,5 +1,11 @@
 import type { CoverLetter } from '@/types/database'
 import { escapeHtml } from './escape-html'
+import {
+  COVER_LETTER_WORDING,
+  formatCoverLetterDate,
+  resolveCoverLetterLanguage,
+  type CoverLetterLanguage,
+} from './cover-letter-language'
 
 /** The cover letter fields rendered by the PDF export template. */
 export type CoverLetterPdfFields = Pick<
@@ -26,8 +32,10 @@ export const COVER_LETTER_EXPORT_COLUMNS =
   'title, sender_name, recipient_name, recipient_title, company_name, company_address, job_title, greeting, opening_paragraph, body_paragraphs, closing_paragraph, sign_off'
 
 export interface CoverLetterPdfHtmlOptions {
-  /** Pre-formatted date shown under the sender name. */
+  /** Pre-formatted date shown under the sender name (`formatCoverLetterDate`). */
   currentDate: string
+  /** The letter's display language (`coverLetterLanguage`). */
+  language: CoverLetterLanguage
   /** Sanitizer applied to rich-text paragraphs before interpolation. */
   sanitizeRichText: (html: string) => string
 }
@@ -45,19 +53,44 @@ export function coverLetterBodyParagraphs(bodyParagraphs: CoverLetterPdfFields['
 }
 
 /**
- * The date line as the letter export has always printed it: US English, long
- * month. Localizing it is a separate requirement (PRD
- * `tasks/prds/cover-letter-export-translate.md`, Out of Scope).
+ * THE resolver of a letter's display language, for the exports and the
+ * preview: detected from its opening, body and closing, the page's language
+ * otherwise (`resolveCoverLetterLanguage`).
  */
-export function formatCoverLetterPdfDate(date: Date): string {
-  return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+export function coverLetterLanguage(
+  coverLetter: Pick<CoverLetterPdfFields, 'opening_paragraph' | 'body_paragraphs' | 'closing_paragraph'>,
+  pageLanguage: CoverLetterLanguage,
+): CoverLetterLanguage {
+  return resolveCoverLetterLanguage(
+    [
+      coverLetter.opening_paragraph ?? '',
+      ...coverLetterBodyParagraphs(coverLetter.body_paragraphs),
+      coverLetter.closing_paragraph ?? '',
+    ],
+    pageLanguage,
+  )
 }
 
-/** The greeting printed when the letter has none. */
-const DEFAULT_GREETING = 'Dear Hiring Manager,'
+/**
+ * The most an export request body may hold. It carries only the page's
+ * `locale`, so anything near this is not a real request and is refused (413)
+ * rather than buffered.
+ */
+export const MAX_COVER_LETTER_EXPORT_REQUEST_BYTES = 1024
 
-/** The sign-off printed when the letter has none. */
-const DEFAULT_SIGN_OFF = 'Sincerely,'
+/**
+ * The language and date line an export prints, one call shared by the PDF
+ * and Word routes so the two files cannot drift: the letter's display language
+ * (`coverLetterLanguage`) and `now` formatted in it.
+ */
+export function coverLetterExportLanguage(
+  coverLetter: Pick<CoverLetterPdfFields, 'opening_paragraph' | 'body_paragraphs' | 'closing_paragraph'>,
+  pageLanguage: CoverLetterLanguage,
+  now: Date,
+): { language: CoverLetterLanguage; currentDate: string } {
+  const language = coverLetterLanguage(coverLetter, pageLanguage)
+  return { language, currentDate: formatCoverLetterDate(now, language) }
+}
 
 /** One line of the recipient block. The company address keeps its line breaks. */
 export interface CoverLetterRecipientLine {
@@ -80,13 +113,19 @@ export type CoverLetterPart =
  * paragraph; closing; sign-off; signature name.
  *
  * THE ONE SOURCE of what the letter's PDF and Word files contain, which parts
- * are left out when empty, the defaults, and the subject line's wording, so
- * the two formats cannot disagree. The recipient block exists only with a
- * recipient name or a company, as it always has. Body paragraphs are kept
+ * are left out when empty, the defaults, and the subject line's wording, in
+ * `language` (`COVER_LETTER_WORDING`), so the two formats cannot disagree.
+ * The recipient block exists only with a recipient name or a company, as it
+ * always has. Body paragraphs are kept
  * even when empty, as the PDF has always laid them out; a format that has no
  * use for an empty one leaves it out itself.
  */
-export function coverLetterParts(coverLetter: CoverLetterPdfFields, currentDate: string): CoverLetterPart[] {
+export function coverLetterParts(
+  coverLetter: CoverLetterPdfFields,
+  currentDate: string,
+  language: CoverLetterLanguage,
+): CoverLetterPart[] {
+  const wording = COVER_LETTER_WORDING[language]
   const parts: CoverLetterPart[] = []
 
   if (coverLetter.sender_name) parts.push({ kind: 'sender', text: coverLetter.sender_name })
@@ -101,8 +140,8 @@ export function coverLetterParts(coverLetter: CoverLetterPdfFields, currentDate:
     parts.push({ kind: 'recipient', lines })
   }
 
-  if (coverLetter.job_title) parts.push({ kind: 'subject', text: `Re: Application for ${coverLetter.job_title}` })
-  parts.push({ kind: 'greeting', text: coverLetter.greeting || DEFAULT_GREETING })
+  if (coverLetter.job_title) parts.push({ kind: 'subject', text: wording.subject(coverLetter.job_title) })
+  parts.push({ kind: 'greeting', text: coverLetter.greeting || wording.defaultGreeting })
 
   if (coverLetter.opening_paragraph) parts.push({ kind: 'opening', html: coverLetter.opening_paragraph })
   for (const paragraph of coverLetterBodyParagraphs(coverLetter.body_paragraphs)) {
@@ -110,7 +149,7 @@ export function coverLetterParts(coverLetter: CoverLetterPdfFields, currentDate:
   }
   if (coverLetter.closing_paragraph) parts.push({ kind: 'closing', html: coverLetter.closing_paragraph })
 
-  parts.push({ kind: 'signOff', text: coverLetter.sign_off || DEFAULT_SIGN_OFF })
+  parts.push({ kind: 'signOff', text: coverLetter.sign_off || wording.defaultSignOff })
   if (coverLetter.sender_name) parts.push({ kind: 'signature', text: coverLetter.sender_name })
 
   return parts
@@ -138,13 +177,13 @@ export function buildCoverLetterPdfHtml(
   coverLetter: CoverLetterPdfFields,
   options: CoverLetterPdfHtmlOptions,
 ): string {
-  const { currentDate, sanitizeRichText } = options
+  const { currentDate, language, sanitizeRichText } = options
 
   const letter: string[] = []
   // The sign-off and the signature share one block, spaced from the letter.
   const signature: string[] = []
 
-  for (const part of coverLetterParts(coverLetter, currentDate)) {
+  for (const part of coverLetterParts(coverLetter, currentDate, language)) {
     switch (part.kind) {
       case 'sender':
         letter.push(`<div style="font-size: 20px; font-weight: 600; color: #111827; margin-bottom: 4px;">${escapeHtml(part.text)}</div>`)

@@ -4,6 +4,7 @@ import {
   coverLetterBodyParagraphs,
   type CoverLetterPdfFields,
 } from '@/lib/cover-letter-pdf-html'
+import type { CoverLetterLanguage } from '@/lib/cover-letter-language'
 import { sanitizeRichHtml } from '@/lib/rich-html-sanitizer'
 import { launchPdfBrowser, pdfBrowserRuntime } from './browser'
 import { SUBSTITUTE_FAMILIES, serverlessFontSubstitutes, type SubstituteFontFace } from './font-substitutes'
@@ -40,8 +41,10 @@ import { PdfRenderError, type PdfRenderStage } from './render-preview'
 export interface RenderCoverLetterPdfInput {
   /** Already shown to exist and to belong to the signed-in user. */
   coverLetter: CoverLetterPdfFields
-  /** The date line, pre-formatted (`formatCoverLetterPdfDate`). */
+  /** The date line, pre-formatted (`formatCoverLetterDate`) in `language`. */
   currentDate: string
+  /** The letter's display language (`coverLetterLanguage`). */
+  language: CoverLetterLanguage
   timeoutMs: number
 }
 
@@ -204,6 +207,7 @@ async function printLetter(
     const sanitized = await sanitizeInPage(page, richTextFields(input.coverLetter))
     const letterHtml = buildCoverLetterPdfHtml(input.coverLetter, {
       currentDate: input.currentDate,
+      language: input.language,
       sanitizeRichText: sanitizedLookup(sanitized),
     })
 

@@ -102,10 +102,15 @@ export function CoverLetterEditor({
   const wordButtonRef = useRef<HTMLButtonElement>(null)
   // Set when a button starts a request, cleared once focus is handed back.
   const restoreFocusRef = useRef<Record<CoverLetterExportFormat, boolean>>({ pdf: false, docx: false })
-  const { download: downloadPdf, isDownloading: isDownloadingPdf } = useCoverLetterDownload(initialCoverLetter.id, 'pdf')
+  const { download: downloadPdf, isDownloading: isDownloadingPdf } = useCoverLetterDownload(
+    initialCoverLetter.id,
+    'pdf',
+    locale
+  )
   const { download: downloadWord, isDownloading: isDownloadingWord } = useCoverLetterDownload(
     initialCoverLetter.id,
-    'docx'
+    'docx',
+    locale
   )
 
   const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
@@ -828,6 +833,7 @@ export function CoverLetterEditor({
           <CoverLetterPreview
             coverLetter={coverLetter}
             senderName={coverLetter.sender_name || undefined}
+            locale={locale}
           />
         </div>
       </div>

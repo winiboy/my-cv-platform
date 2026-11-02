@@ -122,7 +122,7 @@ const LETTER: CoverLetterPdfFields = {
   sign_off: 'Sincerely,',
 }
 
-const INPUT = { coverLetter: LETTER, currentDate: 'October 25, 2026', timeoutMs: 5_000 }
+const INPUT = { coverLetter: LETTER, currentDate: 'October 25, 2026', language: 'en' as const, timeoutMs: 5_000 }
 
 beforeEach(() => {
   recorded.contextOptions = null

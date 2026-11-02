@@ -2,6 +2,7 @@ import JSZip from 'jszip'
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { COVER_LETTER_PDF_GUARD } from '@/lib/cover-letter-limits'
+import { MAX_COVER_LETTER_EXPORT_REQUEST_BYTES } from '@/lib/cover-letter-pdf-html'
 import type { CoverLetterDocxInput } from './cover-letter-docx'
 
 /**
@@ -90,13 +91,13 @@ function letterRow(overrides: Row = {}): Row {
   }
 }
 
-function request(contentType: string | null = 'application/json'): NextRequest {
+function request(contentType: string | null = 'application/json', body = '{}'): NextRequest {
   const headers: Record<string, string> = {}
   if (contentType) headers['content-type'] = contentType
   return new NextRequest(`http://localhost:3000/api/cover-letters/${LETTER_ID}/download-docx`, {
     method: 'POST',
     headers,
-    body: '{}',
+    body,
   })
 }
 
@@ -292,5 +293,78 @@ describe('POST /api/cover-letters/[id]/download-docx: failures', () => {
     expect(response.status).toBe(500)
     await expectNoFile(response)
     expectNoLetterContentLogged()
+  })
+})
+
+describe('POST /api/cover-letters/[id]/download-docx: the letter language', () => {
+  const GERMAN =
+    '<p>Mit großem Interesse habe ich Ihre Anzeige gelesen und bewerbe mich für die Stelle als Entwickler. In meiner bisherigen Erfahrung bei einer Firma habe ich die Aufgaben im Team mit Freude übernommen und bin sicher, dass ich auch Ihre Erwartungen erfülle.</p>'
+
+  async function documentXml(response: Response): Promise<string> {
+    const body = Buffer.from(await response.arrayBuffer())
+    return (await JSZip.loadAsync(body)).file('word/document.xml')!.async('string')
+  }
+
+  it('writes a letter detected as German in German, whatever the page locale', async () => {
+    state.row = letterRow({ opening_paragraph: GERMAN, greeting: '', sign_off: '' })
+    const response = await call(LETTER_ID, request('application/json', '{"locale":"fr"}'))
+    expect(response.status).toBe(200)
+    expect(buildCoverLetterDocx.mock.calls[0][0].language).toBe('de')
+    const xml = await documentXml(response)
+    expect(xml).toContain('Betreff: Bewerbung als Engineer')
+    expect(xml).toContain('Sehr geehrte Damen und Herren,')
+    expect(xml).toContain('Mit freundlichen Grüßen,')
+    expect(xml).not.toContain('Re: Application for')
+  })
+
+  it('follows the page locale for a letter too short to tell, keeping a stored greeting and sign-off', async () => {
+    const response = await call(LETTER_ID, request('application/json', '{"locale":"it"}'))
+    expect(response.status).toBe(200)
+    expect(buildCoverLetterDocx.mock.calls[0][0].language).toBe('it')
+    const xml = await documentXml(response)
+    expect(xml).toContain('Oggetto: Candidatura per la posizione di Engineer')
+    expect(xml).toContain('Dear team,')
+    expect(xml).toContain('Sincerely,')
+  })
+
+  it('writes in English for a short letter without a supported locale, as before', async () => {
+    const response = await call(LETTER_ID, request('application/json', '{"locale":"xx"}'))
+    expect(response.status).toBe(200)
+    expect(buildCoverLetterDocx.mock.calls[0][0].language).toBe('en')
+    expect(buildCoverLetterDocx.mock.calls[0][0].currentDate).toMatch(/^[A-Z][a-z]+ \d{1,2}, \d{4}$/)
+    expect(await documentXml(response)).toContain('Re: Application for Engineer')
+  })
+
+  it('refuses a body that is not JSON with 400 and builds nothing', async () => {
+    const response = await call(LETTER_ID, request('application/json', '{'))
+    expect(response.status).toBe(400)
+    await expectNoFile(response)
+    expect(state.filters).toEqual([])
+    expect(buildCoverLetterDocx).not.toHaveBeenCalled()
+  })
+
+  it('refuses a body over the cap with 413, before reading the letter, and accepts one exactly at it', async () => {
+    const padded = (bytes: number) => {
+      const shell = '{"locale":"it","pad":""}'
+      return `{"locale":"it","pad":"${'x'.repeat(bytes - shell.length)}"}`
+    }
+    expect(padded(MAX_COVER_LETTER_EXPORT_REQUEST_BYTES)).toHaveLength(MAX_COVER_LETTER_EXPORT_REQUEST_BYTES)
+
+    const over = await call(LETTER_ID, request('application/json', padded(MAX_COVER_LETTER_EXPORT_REQUEST_BYTES + 1)))
+    expect(over.status).toBe(413)
+    expect(await over.clone().json()).toEqual({ error: 'Payload too large' })
+    await expectNoFile(over)
+    expect(state.filters).toEqual([])
+    expect(buildCoverLetterDocx).not.toHaveBeenCalled()
+
+    expect((await call(LETTER_ID, request('application/json', padded(MAX_COVER_LETTER_EXPORT_REQUEST_BYTES)))).status).toBe(200)
+    expect(buildCoverLetterDocx.mock.calls[0][0].language).toBe('it')
+  })
+
+  it('checks the session and the content type before reading the body', async () => {
+    const oversized = 'x'.repeat(MAX_COVER_LETTER_EXPORT_REQUEST_BYTES + 1)
+    expect((await call(LETTER_ID, request('text/plain', oversized))).status).toBe(415)
+    state.user = null
+    expect((await call(LETTER_ID, request('application/json', oversized))).status).toBe(401)
   })
 })
