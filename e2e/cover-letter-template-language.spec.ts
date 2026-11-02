@@ -27,6 +27,13 @@ import de from '../src/locales/de/common.json'
  *     page, and a stored greeting is printed as stored.
  *   - An English letter opened under /fr: today's English wording, exactly.
  *   - The PDF and the Word file show the same text for these four parts.
+ *
+ * And for the editor preview (US-002):
+ *
+ *   - It shows these four parts as their own lines, in the same order, with
+ *     the very text the PDF prints.
+ *   - Typing a paragraph in another language, unsaved, switches them to that
+ *     language.
  */
 
 const SUPABASE_URL = process.env.TEST_SUPABASE_URL ?? LOCAL_SUPABASE_URL
@@ -189,6 +196,41 @@ async function wordParagraphs(docx: Buffer): Promise<string[]> {
 /** Whitespace removed: where pdf.js splits a line into items is not the letter's business. */
 const squash = (text: string) => text.replace(/\s+/g, '')
 
+/**
+ * The editor preview: the letter page inside `CoverLetterPreview`'s shadow, as
+ * `sanitized-html-direct-load.spec.ts` finds it. The editor pane beside it
+ * holds no sender name.
+ */
+const letterPreview = (page: Page) => page.locator('div.shadow-2xl').filter({ hasText: 'Zoë Lovelace' })
+
+/** The preview's rendered lines, trimmed. */
+async function previewLines(preview: Locator): Promise<string[]> {
+  return (await preview.innerText())
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+}
+
+/**
+ * The four parts the preview shows, read from its lines: the date line that
+ * is one of `dateLines`, then the subject, greeting and sign-off, each a line
+ * of its own, in this order.
+ */
+async function expectPreviewParts(
+  preview: Locator,
+  dateLines: string[],
+  expected: Pick<LetterCase['expected'], 'subject' | 'greeting' | 'signOff'>,
+): Promise<string[]> {
+  await expect(preview).toHaveCount(1)
+  await expect(preview).toContainText(expected.subject)
+  const lines = await previewLines(preview)
+  const parts = [dateLines.find((line) => lines.includes(line)) ?? dateLines[0], expected.subject, expected.greeting, expected.signOff]
+  const indexes = parts.map((part) => lines.indexOf(part))
+  expect(indexes.every((index) => index >= 0), `${parts.join(' | ')} in ${lines.join(' | ')}`).toBe(true)
+  expect([...indexes].sort((a, b) => a - b)).toEqual(indexes)
+  return parts
+}
+
 for (const { name, page: locale, letter, expected } of CASES) {
   test(name, async ({ page, authedUser }) => {
     const startedAt = new Date()
@@ -199,6 +241,12 @@ for (const { name, page: locale, letter, expected } of CASES) {
     const pdfButton = page.getByRole('button', { name: messages.downloadPDF, exact: true })
     const wordButton = page.getByRole('button', { name: messages.downloadWord, exact: true })
     await expect(pdfButton).toBeVisible()
+
+    const previewParts = await expectPreviewParts(
+      letterPreview(page),
+      [startedAt, new Date()].map((date) => dateLine(expected.dateLocale, date)),
+      expected,
+    )
 
     const pdf = await download(page, pdfButton)
     await test.info().attach('cover-letter.pdf', { body: pdf, contentType: 'application/pdf' })
@@ -235,6 +283,14 @@ for (const { name, page: locale, letter, expected } of CASES) {
       from = at + squash(part).length
     }
 
+    // The preview: the very four texts the PDF prints, in its order.
+    from = 0
+    for (const part of previewParts) {
+      const at = text.indexOf(squash(part), from)
+      expect(at, `the preview's "${part}" is missing, or out of order, in the PDF: ${text}`).toBeGreaterThanOrEqual(0)
+      from = at + squash(part).length
+    }
+
     // A localized letter carries no English part in either file.
     if (expected.signOff !== 'Sincerely,') {
       for (const english of ['Re:Applicationfor', 'DearHiringManager', 'Sincerely,']) {
@@ -244,3 +300,44 @@ for (const { name, page: locale, letter, expected } of CASES) {
     }
   })
 }
+
+test('the preview follows an unsaved paragraph typed in another language', async ({ page, authedUser }) => {
+  const startedAt = new Date()
+  const letterId = await insertLetter(authedUser.id, {
+    job_title: 'Software Engineer',
+    greeting: '',
+    sign_off: '',
+    opening_paragraph:
+      '<p>I am writing to apply for the position of software engineer at your company. With five years of experience in the field, I am confident that my skills will be an asset to your team.</p>',
+    body_paragraphs: [],
+    closing_paragraph: null,
+  })
+  const response = await page.goto(`/fr/dashboard/cover-letters/${letterId}/edit`)
+  expect(response?.status()).toBe(200)
+  const preview = letterPreview(page)
+  const dateLines = (dateLocale: string) => [startedAt, new Date()].map((date) => dateLine(dateLocale, date))
+
+  await expectPreviewParts(preview, dateLines('en-US'), {
+    subject: 'Re: Application for Software Engineer',
+    greeting: 'Dear Hiring Manager,',
+    signOff: 'Sincerely,',
+  })
+
+  await page.getByRole('button', { name: fr.coverLetters.editor.sections.opening, exact: true }).click()
+  await page
+    .locator('#opening-paragraph')
+    .fill(
+      'Mit großem Interesse habe ich Ihre Anzeige gelesen und bewerbe mich für die Stelle als Entwickler. In meiner bisherigen Erfahrung bei einer Firma habe ich die Aufgaben im Team mit Freude übernommen und bin sicher, dass ich auch Ihre Erwartungen erfülle.',
+    )
+
+  // Nothing is saved: the preview reads the editor's current content.
+  await expectPreviewParts(preview, dateLines('de-DE'), {
+    subject: 'Betreff: Bewerbung als Software Engineer',
+    greeting: 'Sehr geehrte Damen und Herren,',
+    signOff: 'Mit freundlichen Grüßen,',
+  })
+  const lines = await previewLines(preview)
+  for (const english of ['Re: Application for Software Engineer', 'Dear Hiring Manager,', 'Sincerely,']) {
+    expect(lines).not.toContain(english)
+  }
+})

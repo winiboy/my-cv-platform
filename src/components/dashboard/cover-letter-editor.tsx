@@ -833,6 +833,7 @@ export function CoverLetterEditor({
           <CoverLetterPreview
             coverLetter={coverLetter}
             senderName={coverLetter.sender_name || undefined}
+            locale={locale}
           />
         </div>
       </div>

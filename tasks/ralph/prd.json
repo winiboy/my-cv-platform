@@ -86,7 +86,7 @@
         "Out of scope: The public cover-letter generator tool."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

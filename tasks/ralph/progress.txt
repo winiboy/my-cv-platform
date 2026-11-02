@@ -93,3 +93,66 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 The exports show the date, subject and defaults in the letter's language
 FINAL: PASS
+
+## US-002: The editor preview shows exactly what the exports show
+Status: PASS
+Priority: 2
+Branch: ralph/cover-letter-template-language
+Baseline HEAD: 655ef0e (US-001)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; new file untracked):
+  - `src/components/dashboard/cover-letter-templates/modern-letter-template.tsx` (34/12):
+    - its own en-US date, "Re: Application for …", "Dear Hiring Manager," and "Sincerely," are removed;
+    - a required `locale` prop; the language is memoized (`coverLetterLanguage` on the opening, body, closing and the page locale); the date is formatted on each render with the shared `formatCoverLetterDate`; the four texts are read from `coverLetterParts(...)` (`partText`);
+    - JSX, classes, recipient block, paragraphs and signature unchanged; the subject still shows only with a job title.
+  - New `modern-letter-template.test.ts` (81 lines): renderToString with a fixed clock: a French letter under 'de' renders the four French parts and no German or English one; an English letter under 'fr' renders today's English parts exactly.
+  - `cover-letter-preview.tsx` (5/0) and `cover-letter-editor.tsx` (1/0): the page `locale` passed down; the preview still receives the editor's live state.
+  - `src/components/sanitized-html.test.ts` (1/1): the template's other caller passes `locale: 'en'`; assertions unchanged.
+  - `e2e/cover-letter-template-language.spec.ts` (97/0): the four cases also check the preview's four lines, in order, and that they equal the PDF text of the same letter; a new test types an unsaved German paragraph into an English letter under /fr and sees the preview switch to German.
+- Not touched: the export code (US-001), migrations, package.json, locales, stored data. No version change, no push or merge.
+- Temporary capture spec (e2e/zz-uiexp-tl2.spec.ts) generated after the checks, run alone, deleted (twice: before and after the review fix).
+
+Checks:
+- A first full run on the earlier diff passed (e2e 458) but was invalidated by the review fix below.
+- Final run (this diff):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 115 files, 3021 passed, 5 skipped.
+  - pnpm test:integration: PASS — 4 files, 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 458 passed, 0 failed (15.1 min), including cover-letter editor-i18n, editor-spacing, sanitized-html-direct-load and template-language.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — e2e/cover-letter-template-language.spec.ts (5 tests): preview parts for fr under /de, de under /fr, an undetectable letter under /de, en under /fr; preview text equal to the PDF text; unsaved language switch.
+- Visual: PASS — captures of the preview (production build) for a fr letter under /de, a de letter under /fr and an en letter under /fr and /de, at 1440 and 375, with per-block offsets, heights, fonts, sizes, weights and margins. Same block order, fonts and margins as the English reference; the localized strings on one line, nothing clipped; scrollWidth 1440 / 375. The captures after the fix are byte-identical in their block data to the ones before it.
+- Export: NOT_APPLICABLE — no export code changed; the US-001 export evidence (tl1-exports) was used for the preview ↔ PDF comparison.
+- Database: NOT_APPLICABLE — no schema, policy or data change.
+- Security: PASS (code-reviewer check) — the four parts are JSX text, no new HTML sink, no new input or route; rich text still goes through SanitizedHtml.
+
+Agents:
+- senior-coder: implementation, then one fix round (code-review minors 1-2 and a unit test).
+- ui-expert: PASS — first review on the earlier diff; re-validation on the final captures PASS; 7/7 conditions, 0 blocking.
+- code-reviewer: PASS — first pass PASS with 4 minors (1-2 fixed; 3 selector and 4 time zone left, see below); re-review on the final diff PASS.
+
+Acceptance criteria:
+- AC-01 (same parts and formatting, no second copy): PASS — the template reads coverLetterParts + formatCoverLetterDate; grep of the template for "Hiring|Sincerely|Re: |toLocaleDate|en-US": 0 matches.
+- AC-02 (preview text equals the PDF's): PASS — e2e compares the preview's four lines with the PDF of the same letter in 4 cases; ui-expert compared with the US-001 exports.
+- AC-03 (follows the editor content, saved or not): PASS — e2e unsaved German paragraph; language memo keyed on the live paragraphs.
+- AC-04 (otherwise looks the same): PASS — JSX and classes unchanged; captures and block data vs the English reference; editor-i18n and editor-spacing specs unchanged and green.
+- FR-1 to FR-5, regression constraints: PASS — one resolver and one source of parts used by the preview, PDF and Word; English unchanged; full e2e and parity green.
+
+Decision:
+- Only the language is memoized; the date is formatted on each render, so a preview left open past midnight shows the PDF's date.
+
+Open owner decisions:
+- French subject: no elision ("de Ingénieur" instead of "d'ingénieur"); German "Betreff:" is dated under DIN 5008 (ui-expert, low). Both are the PRD's literal wording.
+- The preview uses the browser's time zone, the export routes the server's (UTC on Vercel): between 00:00 and 01:00/02:00 Swiss time the preview can be one day ahead of the PDF. Pre-existing; the PRD keeps the runtime's time zone.
+- The e2e preview selector is `div.shadow-2xl` filtered by the sender name (a CSS class, not a test id); left as is to keep production code in scope.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 The editor preview shows exactly what the exports show
+FINAL: PASS

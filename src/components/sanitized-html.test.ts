@@ -114,7 +114,7 @@ describe('server rendering of rich HTML', () => {
   it('ModernLetterTemplate renders HTML paragraphs without touching the DOM or leaking the payload', () => {
     let html = ''
     expect(() => {
-      html = renderToString(createElement(ModernLetterTemplate, { coverLetter: COVER_LETTER }))
+      html = renderToString(createElement(ModernLetterTemplate, { coverLetter: COVER_LETTER, locale: 'en' }))
     }).not.toThrow()
 
     expectNoPayload(html)
