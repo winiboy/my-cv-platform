@@ -337,3 +337,96 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-003 The card shows the default title in the letter's language
 FINAL: PASS
+
+## US-004: New default titles are written in the letter's language
+Status: PASS
+Priority: 4
+Branch: ralph/cover-letter-preview-and-card-language
+Baseline HEAD: c28d94f (US-003)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix 4662a7d1354f4eee):
+  - `src/lib/cover-letter-title.ts` (29/0) + test (49/0): `buildNewDefaultCoverLetterTitle(language, jobTitle, company)`.
+    - Builds the FR-5 pattern within `COVER_LETTER_FIELD_LIMITS.title` (255).
+    - Over the limit: cut at 255 UTF-16 units (254 if a surrogate pair would split), then trailing whitespace trimmed. This is the rule `sanitizeUntrustedPlainText` applies to the from-job-application title.
+  - `src/app/[locale]/(dashboard)/dashboard/cover-letters/new/page.tsx` (13/1):
+    - The prefill is built on the server with `toLocale(locale)`, from the trimmed job title and company, and passed as `initialTitle`.
+    - The client form therefore does not import `@/lib/i18n`.
+    - An untouched prefill matches its own letter under FR-6, because both create paths store trimmed values.
+  - `src/components/dashboard/create-cover-letter-form.tsx` (7/3): the English literal is gone; the title starts from `initialTitle` and stays editable.
+  - `src/app/api/cover-letters/[id]/translate/letter-segments.ts` (20/0) + test (76/0): `translatedCopyTitle(original, target)`.
+    - It matches against the original's stored `job_title` and `company_name` (the US-003 matcher).
+    - A match gives the target-language default with no ` (XX)`; anything else gets the unchanged `translatedTitle`, the original plus ` (XX)`.
+    - Tests: every source language, with no suffix and each of the four suffixes, to every target; user titles (`(Copy)`, a double suffix, a case change, a trailing space, another job's default); a blank job title or company; the length limit.
+  - `src/app/api/cover-letters/[id]/translate/route.ts` (5/3) + test (27/1): the insert uses `translatedCopyTitle`. The route test covers four default-title originals and one user title.
+  - `e2e/cover-letter-from-job-application.spec.ts` (67/1), new test (n):
+    - Under en, fr, de and it, the prefill is the page locale's default, even from application values with surrounding whitespace.
+    - The field is editable, the request sends trimmed values, and the stored row has the title.
+    - Under fr, a typed title replaces the prefill.
+  - `e2e/cover-letter-translate.spec.ts` (42/1):
+    - DE under /fr on a French default gives the German default, with no suffix, in the database and in the editor.
+    - Via the API, an English default with ` (FR)` gives the German default, and `… (Copy)` gives `… (Copy) (DE)`.
+- Not touched: Duplicate, the card, the exports, the AI translation of the body, the flag (US-005), the database schema. No version change, no push or merge.
+- Temporary capture spec (e2e/zz-uiexp-t1) was run alone and deleted; it is not in the diff.
+
+Checks:
+- Final run (this diff, alone, started after the last edit; the diff hash is the same before and after each run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3254 passed, 5 skipped (US-003: 3151).
+  - pnpm test:integration: PASS — 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 478 passed, 0 failed (14.8 min), on a second full run.
+    - The first full run on this diff had 477 passed and 1 failed: `e2e/job-applications-i18n.spec.ts:492` (fr quick add; "Veuillez entrer une URL valide" not visible within 15 s). That page is not in this diff.
+    - The spec then passed 25/25 alone, and the whole suite was run again on the same diff hash.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus captures of the production build: scratchpad ux4, form-{en,fr,de,it}-{1440,375}.png. The prefill is correct in all four locales.
+- Visual: PASS — no markup or style change; only the field's value differs. Parity unchanged.
+- Export: NOT_APPLICABLE — no export code or output changed.
+- Database: NOT_APPLICABLE — no schema change. Only the value of the title the app already writes changes; the e2e checks the stored rows.
+- Security: PASS (code-reviewer's security assessment of the translate route):
+  - The title comes only from the owner's row, read with `.eq('user_id', user.id)` on top of RLS.
+  - The body adds only the zod-enum `targetLanguage`; AI output never reaches the title.
+  - No new output path, and the length is bounded.
+
+Agents:
+- senior-coder: implementation, with no fix rounds.
+- ui-expert: PASS, 5/7 conditions, the other 2 not applicable (no visual or interaction change).
+- code-reviewer: PASS, no Critical or Major findings; gated on the suite, now green.
+
+Acceptance criteria:
+- AC-01 (the prefill uses the page locale's default and stays editable): PASS — e2e (n) in 4 locales; captures.
+- AC-02 (a default title, with or without ` (XX)`, gives the target default with no suffix): PASS — unit, route and e2e tests.
+- AC-03 (a user title keeps today's original + ` (XX)`): PASS — unit, route and e2e tests.
+- AC-04 (the length limit): PASS — unit tests at, over and splitting at the limit.
+- FR-5, FR-6, FR-7: PASS. FR-7 adds no new UI string.
+- Regression constraints: PASS — Duplicate, card, exports and body translation unchanged; e2e and parity green.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- The prefill is built in the server page, not in the client form, so the form's bundle does not take on `@/lib/i18n`.
+- A default cut by the length limit no longer equals its pattern. FR-6 then treats it as a user title: shown as stored, and translated with ` (XX)`.
+- If the from-job-application route strips markup from a job title, the stored title can stop matching. It is then treated as a user title, which errs on the safe side.
+
+Open owner decisions:
+- None for this story.
+- ui-expert, out of scope (already on the page before this story):
+  - On `/cover-letters/new` in fr/de/it, the job-application banner reads "Creating cover letter for job application" (no `newDict.creatingForJob` text).
+  - "(optional)" is hardcoded in English.
+  - The back link reads "Back Cover Letters" / "Retour Lettres de motivation".
+  - A small i18n follow-up could fix all three.
+- code-reviewer, minor:
+  - `translatedTitle` cuts by code points and the new builder by UTF-16 units; both stay under the limit.
+  - Translating into the letter's own language keeps the same title, with no test pinning it; US-005's flag tells the two apart.
+  - A blank job title or company still gives a prefill with a double space. That predates this story and is treated as a user title.
+
+Environment notes:
+- One unrelated e2e failure in the first full run (above); it passed alone and in the second full run.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-004 New default titles are written in the letter's language
+FINAL: PASS

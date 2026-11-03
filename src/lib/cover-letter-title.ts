@@ -1,5 +1,6 @@
 import type { CoverLetter } from '@/types/database'
 import type { CoverLetterLanguage } from './cover-letter-language'
+import { COVER_LETTER_FIELD_LIMITS } from './cover-letter-limits'
 import { coverLetterLanguage } from './cover-letter-pdf-html'
 
 /**
@@ -32,6 +33,34 @@ export function buildDefaultCoverLetterTitle(
   company: string,
 ): string {
   return COVER_LETTER_DEFAULT_TITLES[language](jobTitle, company)
+}
+
+/**
+ * The default title a NEW letter is given (a letter created from a job
+ * application, or a translated copy), within the title limit
+ * (`COVER_LETTER_FIELD_LIMITS.title`, UTF-16 code units).
+ *
+ * A job title and a company may each be up to 255 characters, so the built
+ * pattern can exceed the limit. It is then cut at the limit, one code unit
+ * earlier when the cut would split a surrogate pair, and the trailing
+ * whitespace the cut exposes is removed. A cut title no longer equals its
+ * pattern, so it is a user title under FR-6 from then on: it is never
+ * rewritten, and a translation of it gets the ` (XX)` suffix.
+ */
+export function buildNewDefaultCoverLetterTitle(
+  language: CoverLetterLanguage,
+  jobTitle: string,
+  company: string,
+): string {
+  const title = buildDefaultCoverLetterTitle(language, jobTitle, company)
+  const limit = COVER_LETTER_FIELD_LIMITS.title
+  if (title.length <= limit) return title
+  const end = isHighSurrogate(title.charCodeAt(limit - 1)) ? limit - 1 : limit
+  return title.slice(0, end).trimEnd()
+}
+
+function isHighSurrogate(code: number): boolean {
+  return code >= 0xd800 && code <= 0xdbff
 }
 
 export interface DefaultCoverLetterTitleMatch {

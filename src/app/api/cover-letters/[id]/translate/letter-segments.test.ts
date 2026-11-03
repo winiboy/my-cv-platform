@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { COVER_LETTER_FIELD_LIMITS, COVER_LETTER_PDF_GUARD } from '@/lib/cover-letter-limits'
+import { buildDefaultCoverLetterTitle } from '@/lib/cover-letter-title'
 import {
   COVER_LETTER_TRANSLATION_LIMITS,
   CoverLetterTranslationTooLargeError,
   planLetterTranslation,
+  translatedCopyTitle,
   translatedTitle,
   type TranslatableLetter,
 } from './letter-segments'
@@ -230,5 +232,79 @@ describe('translatedTitle', () => {
     const title = translatedTitle('é'.repeat(254) + '😀', 'fr')
     expect(title.length).toBeLessThanOrEqual(255)
     expect(title.endsWith('é (FR)')).toBe(true)
+  })
+})
+
+describe('translatedCopyTitle', () => {
+  const JOB = 'Ingénieur logiciel'
+  const COMPANY = 'Größe & Söhne AG'
+  const LANGUAGES = ['fr', 'en', 'de', 'it'] as const
+  const SUFFIXES = ['', ' (EN)', ' (FR)', ' (DE)', ' (IT)'] as const
+  const fields = (title: string, job: string | null = JOB, company: string | null = COMPANY) => ({
+    title,
+    job_title: job,
+    company_name: company,
+  })
+
+  for (const from of LANGUAGES) {
+    for (const suffix of SUFFIXES) {
+      it.each(LANGUAGES)(`gives a ${from} default title${suffix ? ` with "${suffix}"` : ''} the %s default, unsuffixed`, (to) => {
+        const original = `${buildDefaultCoverLetterTitle(from, JOB, COMPANY)}${suffix}`
+        expect(translatedCopyTitle(fields(original), to)).toBe(buildDefaultCoverLetterTitle(to, JOB, COMPANY))
+      })
+    }
+  }
+
+  it('spells out the target wording (FR-5)', () => {
+    const original = fields(`Cover Letter - ${JOB} at ${COMPANY}`)
+    expect(translatedCopyTitle(original, 'fr')).toBe(`Lettre de motivation - ${JOB} chez ${COMPANY}`)
+    expect(translatedCopyTitle(original, 'de')).toBe(`Anschreiben - ${JOB} bei ${COMPANY}`)
+    expect(translatedCopyTitle(original, 'it')).toBe(`Lettera di presentazione - ${JOB} presso ${COMPANY}`)
+    expect(translatedCopyTitle(fields(`Anschreiben - ${JOB} bei ${COMPANY}`), 'en')).toBe(original.title)
+  })
+
+  it.each(LANGUAGES)('keeps a user title and adds the suffix, translating to %s', (to) => {
+    const suffix = ` (${to.toUpperCase()})`
+    const defaultTitle = buildDefaultCoverLetterTitle('fr', JOB, COMPANY)
+    for (const title of [
+      'Lettre Zürich',
+      `${defaultTitle} (Copy)`,
+      `${defaultTitle} (DE) (FR)`,
+      defaultTitle.toUpperCase(),
+      `${defaultTitle} `,
+      // Another letter's job title: not this letter's default.
+      buildDefaultCoverLetterTitle('fr', 'Designer', COMPANY),
+    ]) {
+      expect(translatedCopyTitle(fields(title), to)).toBe(translatedTitle(title, to))
+    }
+    expect(translatedCopyTitle(fields('Lettre Zürich'), to)).toBe(`Lettre Zürich${suffix}`)
+  })
+
+  it('treats a default-looking title as a user title when the job title or company is missing', () => {
+    const title = 'Cover Letter -  at '
+    expect(translatedCopyTitle(fields(title, '', ''), 'de')).toBe(translatedTitle(title, 'de'))
+    const looksDefault = buildDefaultCoverLetterTitle('en', JOB, COMPANY)
+    expect(translatedCopyTitle(fields(looksDefault, null, COMPANY), 'de')).toBe(`${looksDefault} (DE)`)
+    expect(translatedCopyTitle(fields(looksDefault, JOB, null), 'de')).toBe(`${looksDefault} (DE)`)
+  })
+
+  it('keeps the copy within the title limit: an over-long default is cut, with no suffix', () => {
+    const job = 'J'.repeat(COVER_LETTER_FIELD_LIMITS.job_title)
+    const company = 'C'.repeat(200)
+    // An English default that was cut to the limit when the letter was created.
+    const original = buildDefaultCoverLetterTitle('en', job, company).slice(0, COVER_LETTER_FIELD_LIMITS.title)
+    // A cut original is a user title (FR-6): suffixed and cut by translatedTitle.
+    expect(translatedCopyTitle(fields(original, job, company), 'it')).toBe(translatedTitle(original, 'it'))
+
+    // A whole default original whose target pattern is longer than the limit.
+    const shortJob = 'J'.repeat(100)
+    const longCompany = 'C'.repeat(130)
+    const whole = buildDefaultCoverLetterTitle('de', shortJob, longCompany)
+    expect(whole.length).toBeLessThanOrEqual(COVER_LETTER_FIELD_LIMITS.title)
+    const copy = translatedCopyTitle(fields(whole, shortJob, longCompany), 'it')
+    expect(buildDefaultCoverLetterTitle('it', shortJob, longCompany).length).toBeGreaterThan(COVER_LETTER_FIELD_LIMITS.title)
+    expect(copy).toHaveLength(COVER_LETTER_FIELD_LIMITS.title)
+    expect(copy).toBe(buildDefaultCoverLetterTitle('it', shortJob, longCompany).slice(0, COVER_LETTER_FIELD_LIMITS.title))
+    expect(copy).not.toMatch(/ \((EN|FR|DE|IT)\)$/)
   })
 })

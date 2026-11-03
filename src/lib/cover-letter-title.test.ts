@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { CoverLetterLanguage } from './cover-letter-language'
+import { COVER_LETTER_FIELD_LIMITS } from './cover-letter-limits'
 import {
   COVER_LETTER_DEFAULT_TITLES,
   buildDefaultCoverLetterTitle,
+  buildNewDefaultCoverLetterTitle,
   displayCoverLetterTitle,
   matchDefaultCoverLetterTitle,
   type CoverLetterTitleFields,
@@ -186,5 +188,52 @@ describe('displayCoverLetterTitle', () => {
     const snapshot = structuredClone(input)
     displayCoverLetterTitle(input, 'en')
     expect(input).toEqual(snapshot)
+  })
+})
+
+describe('buildNewDefaultCoverLetterTitle', () => {
+  const LIMIT = COVER_LETTER_FIELD_LIMITS.title
+
+  it.each(LANGUAGES)('builds the %s pattern unchanged when it fits the title limit', (language) => {
+    expect(buildNewDefaultCoverLetterTitle(language, JOB, COMPANY)).toBe(EXPECTED[language])
+  })
+
+  it.each(LANGUAGES)('a built %s title is a default title of its own letter (FR-6)', (language) => {
+    expect(matchDefaultCoverLetterTitle(buildNewDefaultCoverLetterTitle(language, JOB, COMPANY), JOB, COMPANY)).toEqual({
+      language,
+      suffix: null,
+    })
+  })
+
+  it('keeps a pattern exactly at the limit whole', () => {
+    // `Anschreiben - ` + job + ` bei ` + company, sized to LIMIT exactly.
+    const company = 'C'.repeat(LIMIT - 'Anschreiben - J bei '.length)
+    const title = buildNewDefaultCoverLetterTitle('de', 'J', company)
+    expect(title).toHaveLength(LIMIT)
+    expect(matchDefaultCoverLetterTitle(title, 'J', company)).toEqual({ language: 'de', suffix: null })
+  })
+
+  it.each(LANGUAGES)('cuts a %s pattern over the limit to the limit, and it is then a user title', (language) => {
+    const job = 'J'.repeat(COVER_LETTER_FIELD_LIMITS.job_title)
+    const company = 'C'.repeat(COVER_LETTER_FIELD_LIMITS.company_name)
+    const title = buildNewDefaultCoverLetterTitle(language, job, company)
+    expect(title).toBe(buildDefaultCoverLetterTitle(language, job, company).slice(0, LIMIT))
+    expect(matchDefaultCoverLetterTitle(title, job, company)).toBeNull()
+  })
+
+  it('never splits a surrogate pair at the cut, and drops the whitespace the cut exposes', () => {
+    const prefix = 'Cover Letter - '
+    // The emoji's high surrogate lands on the last allowed code unit.
+    const job = `${'j'.repeat(LIMIT - prefix.length - 1)}😀`
+    const cut = buildNewDefaultCoverLetterTitle('en', job, 'Acme')
+    expect(cut).toBe(`${prefix}${'j'.repeat(LIMIT - prefix.length - 1)}`)
+    expect(cut).toHaveLength(LIMIT - 1)
+
+    // The cut falls just before " at ".
+    const spaced = buildNewDefaultCoverLetterTitle('en', 'j'.repeat(LIMIT - prefix.length), 'Acme')
+    expect(spaced).toBe(`${prefix}${'j'.repeat(LIMIT - prefix.length)}`)
+    // The cut ends on a space of the job title: it is trimmed away.
+    const endsOnSpace = buildNewDefaultCoverLetterTitle('en', `${'j'.repeat(LIMIT - prefix.length - 1)} `, 'Acme')
+    expect(endsOnSpace).toBe(`${prefix}${'j'.repeat(LIMIT - prefix.length - 1)}`)
   })
 })

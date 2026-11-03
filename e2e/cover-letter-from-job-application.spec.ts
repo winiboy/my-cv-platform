@@ -52,7 +52,11 @@ import deCommon from '../src/locales/de/common.json'
  *     the final selection;
  * (l) an application with no CV, opened with `?resume_id=`, starts on that CV;
  * (m) an application whose `resume_id` is another user's CV starts empty,
- *     even with a `?resume_id=` naming one of the user's CVs (US-003).
+ *     even with a `?resume_id=` naming one of the user's CVs (US-003);
+ * (n) the title starts as the default title in the page's locale, built from
+ *     the trimmed job title and company, and an untouched submit stores it;
+ *     the user can still replace it (cover-letter-preview-and-card-language,
+ *     US-004).
  *
  * The offer-page check is stubbed under the same guard as the AI: a seeded
  * `job_url` names the status its page "answers" through
@@ -649,6 +653,68 @@ test.describe('Cover letter from a saved job application', () => {
       const [letter] = await lettersOf(authedUser.id)
       expect(letter).toMatchObject({ resume_id: null, sender_name: null })
     })
+  })
+})
+
+/** The FR-5 default titles, spelled out so a change to the patterns fails here. */
+const DEFAULT_TITLE = {
+  en: 'Cover Letter - Data Engineer at Beispiel AG',
+  fr: 'Lettre de motivation - Data Engineer chez Beispiel AG',
+  de: 'Anschreiben - Data Engineer bei Beispiel AG',
+  it: 'Lettera di presentazione - Data Engineer presso Beispiel AG',
+} as const
+
+test.describe("(n) the title starts as the default title in the page's locale", () => {
+  for (const locale of ['en', 'fr', 'de', 'it'] as const) {
+    test(`under /${locale}, and an untouched submit stores it`, async ({ page, authedUser }) => {
+      const applicationId = await seedApplication(authedUser.id, {
+        // Surrounding whitespace, as an application may hold it: the form
+        // submits the job title and company trimmed, and the title matches them.
+        jobTitle: '  Data Engineer ',
+        company: ' Beispiel AG  ',
+        description: GERMAN_OFFER,
+      })
+
+      await page.goto(`/${locale}/dashboard/cover-letters/new?jobApplicationId=${applicationId}`)
+      await expect(page.locator('#title')).toHaveValue(DEFAULT_TITLE[locale])
+      await expect(page.locator('#title')).toBeEditable()
+
+      const response = await submitAndWaitForRoute(page)
+      expect(response.status()).toBe(201)
+      expect(response.request().postDataJSON()).toMatchObject({
+        title: DEFAULT_TITLE[locale],
+        jobTitle: 'Data Engineer',
+        companyName: 'Beispiel AG',
+      })
+      await page.waitForURL(new RegExp(`/${locale}/dashboard/cover-letters/[0-9a-f-]+/edit`))
+
+      const [letter] = await lettersOf(authedUser.id)
+      expect(letter).toMatchObject({
+        title: DEFAULT_TITLE[locale],
+        job_title: 'Data Engineer',
+        company_name: 'Beispiel AG',
+      })
+    })
+  }
+
+  test('under /fr, a title the user types replaces it', async ({ page, authedUser }) => {
+    const applicationId = await seedApplication(authedUser.id, {
+      jobTitle: 'Data Engineer',
+      company: 'Beispiel AG',
+      description: GERMAN_OFFER,
+    })
+
+    await page.goto(`/fr/dashboard/cover-letters/new?jobApplicationId=${applicationId}`)
+    const title = page.locator('#title')
+    await expect(title).toHaveValue(DEFAULT_TITLE.fr)
+    await title.fill('Ma lettre pour Beispiel')
+
+    const response = await submitAndWaitForRoute(page)
+    expect(response.status()).toBe(201)
+    await page.waitForURL(/\/fr\/dashboard\/cover-letters\/[0-9a-f-]+\/edit/)
+
+    const [letter] = await lettersOf(authedUser.id)
+    expect(letter.title).toBe('Ma lettre pour Beispiel')
   })
 })
 

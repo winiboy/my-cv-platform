@@ -12,7 +12,7 @@ import type { CoverLetterInsert } from '@/types/database'
 import {
   CoverLetterTranslationTooLargeError,
   planLetterTranslation,
-  translatedTitle,
+  translatedCopyTitle,
   type LetterTranslationPlan,
 } from './letter-segments'
 
@@ -24,7 +24,9 @@ import {
  *
  * The greeting, opening, body paragraphs, closing and sign-off are translated
  * through the AI translation core (`coverLetterTranslatorFor`); every other
- * column is copied, and the title gets the language suffix, e.g. " (DE)".
+ * column is copied. A default title becomes the target language's default
+ * title; any other title gets the language suffix, e.g. " (DE)"
+ * (`translatedCopyTitle`).
  *
  * WHAT IS NEVER WRITTEN
  * The original row and `job_applications`. The copy keeps the original's
@@ -159,7 +161,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const copy: CoverLetterInsert = {
       // The session's user, never anything from the request or the row.
       user_id: user.id,
-      title: translatedTitle(original.title, targetLanguage),
+      title: translatedCopyTitle(original, targetLanguage),
       resume_id: original.resume_id,
       job_application_id: original.job_application_id,
       recipient_name: original.recipient_name,

@@ -10,7 +10,9 @@ import { COVER_LETTER_TRANSLATION_LIMITS } from './letter-segments'
  * (cover-letter-export-translate, US-003): authentication, the request,
  * ownership, the size bounds, the AI budget, AI failures creating nothing,
  * and the copy itself: columns kept, columns translated and sanitized, the
- * title suffix, and nothing but one insert written.
+ * title (a default title in the target language, any other with the suffix,
+ * cover-letter-preview-and-card-language US-004), and nothing but one insert
+ * written.
  *
  * Supabase is a recorder that answers reads like RLS plus the route's own
  * filters, and records every write. The translator is a fake chosen per test.
@@ -351,6 +353,30 @@ describe('POST /api/cover-letters/[id]/translate', () => {
     const response = await call(LETTER_ID, request({ targetLanguage: 'it', user_id: OTHER_USER_ID }))
     expect(response.status).toBe(201)
     expect(state.writes[0].payload).toMatchObject({ user_id: USER_ID, title: 'Lettre Zürich (IT)' })
+  })
+
+  it('gives the copy of a default-titled letter the target language default, unsuffixed', async () => {
+    for (const [title, target, expected] of [
+      ['Lettre de motivation - Ingénieur chez Größe & Söhne AG', 'de', 'Anschreiben - Ingénieur bei Größe & Söhne AG'],
+      ['Cover Letter - Ingénieur at Größe & Söhne AG (DE)', 'it', 'Lettera di presentazione - Ingénieur presso Größe & Söhne AG'],
+      ['Anschreiben - Ingénieur bei Größe & Söhne AG (DE)', 'en', 'Cover Letter - Ingénieur at Größe & Söhne AG'],
+      ['Lettera di presentazione - Ingénieur presso Größe & Söhne AG', 'fr', 'Lettre de motivation - Ingénieur chez Größe & Söhne AG'],
+    ] as const) {
+      state.row = letterRow({ title })
+      state.filters = []
+      state.writes = []
+      const response = await call(LETTER_ID, request({ targetLanguage: target }))
+      expect(response.status).toBe(201)
+      expect(state.writes).toHaveLength(1)
+      expect(state.writes[0].payload).toMatchObject({ title: expected, job_title: 'Ingénieur', company_name: 'Größe & Söhne AG' })
+    }
+  })
+
+  it("matches the title against the original's own job title and company", async () => {
+    // A default title of another job: a user title, suffixed as before.
+    state.row = letterRow({ title: 'Lettre de motivation - Designer chez Größe & Söhne AG' })
+    expect((await call()).status).toBe(201)
+    expect(state.writes[0].payload).toMatchObject({ title: 'Lettre de motivation - Designer chez Größe & Söhne AG (DE)' })
   })
 
   it('stores hostile AI output only as escaped text in allowed tags', async () => {
