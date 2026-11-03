@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures/auth'
 import { seedFixtureResume } from './fixtures/resume'
 import type { ResumeTemplate } from '../src/types/database'
+import { nextFontInterFallbackFamily } from '../src/lib/pdf/font-substitutes'
 
 /**
  * A resume PDF is `window.print()` over the Preview, so the Preview's geometry
@@ -41,6 +42,9 @@ for (const template of TEMPLATES) {
     const document = page.getByTestId('resume-document')
     await expect(document).toBeVisible()
     await page.evaluate(() => globalThis.document.fonts.ready)
+    // The serverless PDF renderer fails closed on this stack (Inter's hyphen supplement); a layout change must fail here, not in production.
+    const bodyFontFamily = await page.evaluate(() => getComputedStyle(globalThis.document.body).fontFamily)
+    expect(nextFontInterFallbackFamily(bodyFontFamily)).toBe('Inter Fallback')
 
     const measure = () =>
       document.evaluate((root): Box[] => {
