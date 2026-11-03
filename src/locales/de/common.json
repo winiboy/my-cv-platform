@@ -561,6 +561,10 @@
       "downloadWord": "Word",
       "downloadingWord": "Word-Datei wird erstellt...",
       "saveBeforeDownloadWord": "Speichern Sie zuerst Ihre Änderungen: Die Word-Datei wird aus dem gespeicherten Anschreiben erstellt.",
+      "preview": "Vorschau",
+      "previewTitle": "Briefvorschau",
+      "closePreview": "Vorschau schließen",
+      "previewScrollArea": "Brief, scrollbar",
       "translate": {
         "label": "Übersetzen",
         "to": {

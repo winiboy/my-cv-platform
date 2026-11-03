@@ -16,6 +16,7 @@ import {
   Link2,
   Briefcase,
   Download,
+  Eye,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -26,6 +27,7 @@ import type { CoverLetterExportFormat } from '@/lib/cover-letter-download-client
 import type { Locale } from '@/lib/i18n'
 import type { CoverLetter, Resume, CoverLetterAnalysis } from '@/types/database'
 import { CoverLetterPreview } from './cover-letter-preview'
+import { CoverLetterPreviewDialog } from './cover-letter-preview-dialog'
 import { ResumeAssociationSection } from './cover-letter-sections/resume-association-section'
 import { JobAssociationSection } from './cover-letter-sections/job-association-section'
 import { RecipientSection } from './cover-letter-sections/recipient-section'
@@ -95,9 +97,11 @@ export function CoverLetterEditor({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [showGenerationModal, setShowGenerationModal] = useState(false)
   const [showCheckerModal, setShowCheckerModal] = useState(false)
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false)
   const [downloadNotice, setDownloadNotice] = useState<DownloadNotice | null>(null)
   const [translatingTo, setTranslatingTo] = useState<FlagLanguage | null>(null)
   const [translateNotice, setTranslateNotice] = useState<TranslateNotice | null>(null)
+  const previewButtonRef = useRef<HTMLButtonElement>(null)
   const pdfButtonRef = useRef<HTMLButtonElement>(null)
   const wordButtonRef = useRef<HTMLButtonElement>(null)
   // Set when a button starts a request, cleared once focus is handed back.
@@ -293,6 +297,8 @@ export function CoverLetterEditor({
   })()
   // One notice at a time, named after the button it answers.
   const downloadNoticeId = downloadNotice ? `cover-letter-${downloadNotice.format}-notice` : undefined
+
+  const closePreviewDialog = useCallback(() => setShowPreviewDialog(false), [])
 
   const updateCoverLetter = useCallback((updates: Partial<CoverLetter>) => {
     setCoverLetter((prev) => ({ ...prev, ...updates }))
@@ -591,20 +597,33 @@ export function CoverLetterEditor({
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-        <div className="flex items-center gap-4">
+      {/*
+        One row while the title area's 13.5rem and the buttons fit beside each
+        other; the title then takes the rest. Narrower, the buttons move to
+        lines of their own, right-aligned, so they never cover the title and
+        every label stays visible.
+      */}
+      <div
+        data-testid="cover-letter-editor-header"
+        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+      >
+        {/*
+          The explicit min width sets the size the row wraps at: left to its
+          default, it would be the title input's own width, wider than 13.5rem.
+        */}
+        <div className="flex min-w-[13.5rem] grow basis-[13.5rem] items-center gap-4">
           <Link
             href={`/${locale}/dashboard/cover-letters`}
             className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div>
+          <div className="min-w-40 flex-1">
             <input
               type="text"
               value={coverLetter.title}
               onChange={(e) => handleFieldChange('title', e.target.value)}
-              className="text-xl font-semibold bg-transparent border-none focus:outline-none focus:ring-0 p-0"
+              className="max-w-full text-xl font-semibold bg-transparent border-none focus:outline-none focus:ring-0 p-0"
               placeholder={(editorDict.titlePlaceholder as string) || 'Untitled Cover Letter'}
             />
             {hasUnsavedChanges && (
@@ -620,7 +639,7 @@ export function CoverLetterEditor({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
           {/* AI Generate Button */}
           <button
             onClick={() => setShowGenerationModal(true)}
@@ -636,6 +655,16 @@ export function CoverLetterEditor({
           >
             <CheckCircle className="h-4 w-4" />
             {(editorDict.check as string) || 'Check'}
+          </button>
+          {/* Preview: the letter on screen, unsaved edits included, in a full-screen window */}
+          <button
+            ref={previewButtonRef}
+            type="button"
+            onClick={() => setShowPreviewDialog(true)}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors"
+          >
+            <Eye className="h-4 w-4" />
+            {(editorDict.preview as string) || 'Preview'}
           </button>
           {/* PDF download: the saved letter, generated by the server */}
           <button
@@ -839,6 +868,16 @@ export function CoverLetterEditor({
       </div>
 
       {/* Modals */}
+      {showPreviewDialog && (
+        <CoverLetterPreviewDialog
+          coverLetter={coverLetter}
+          locale={locale}
+          editorDict={editorDict}
+          onClose={closePreviewDialog}
+          returnFocusRef={previewButtonRef}
+        />
+      )}
+
       <CoverLetterGenerationModal
         isOpen={showGenerationModal}
         onClose={() => setShowGenerationModal(false)}

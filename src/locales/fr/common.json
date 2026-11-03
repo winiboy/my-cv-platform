@@ -561,6 +561,10 @@
       "downloadWord": "Word",
       "downloadingWord": "Création du fichier Word...",
       "saveBeforeDownloadWord": "Enregistrez d'abord vos modifications : le fichier Word est créé à partir de la lettre enregistrée.",
+      "preview": "Aperçu",
+      "previewTitle": "Aperçu de la lettre",
+      "closePreview": "Fermer l'aperçu",
+      "previewScrollArea": "Lettre, défilable",
       "translate": {
         "label": "Traduire",
         "to": {

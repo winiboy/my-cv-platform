@@ -4,3 +4,108 @@ Contract: tasks/ralph/prd.json (branch ralph/cover-letter-preview-and-card-langu
 PRD: tasks/prds/cover-letter-preview-and-card-language.md (Status: APPROVED 2026-11-03, written by the owner, who ran the approval command in their own terminal)
 Format: docs/engineering/progress-log-format.md
 Branch setup: from origin/main cdf91d9 (#119 merged). The first commit archives the merged pdf-missing-hyphen-glyph contract; the second adds this PRD and its contract.
+
+## US-001: A Preview button opens the letter in a full-screen window
+Status: PASS
+Priority: 1
+Branch: ralph/cover-letter-preview-and-card-language
+Baseline HEAD: 7bdf40d (origin/main cdf91d9 + archive and contract commits)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix f0698c979ac57b4b, over the tracked src diff plus the two new files):
+  - `src/components/dashboard/cover-letter-editor.tsx` (44/5):
+    - Preview button (Eye icon, the PDF/Word classes), immediately before PDF.
+    - The window opens with the editor's in-memory `coverLetter`, the object the pane already gets (FR-1).
+    - The header now wraps: the title side has `grow basis-[13.5rem] min-w-[13.5rem]` and the button group `ml-auto flex-wrap justify-end`. At 1280 the row stays single; below 1280 the buttons wrap under the title.
+    - `data-testid="cover-letter-editor-header"`.
+  - New `src/components/dashboard/cover-letter-preview-dialog.tsx` (145):
+    - `role="dialog"`, `aria-modal`, named by its h2; localized close button.
+    - Escape closes it; Tab and Shift+Tab stay inside; focus starts on the letter's focusable, labelled scroll area and returns to the Preview button on close.
+    - Renders `CoverLetterPreview` with `maxScale={1}` and `fitInsidePadding`.
+  - `src/components/dashboard/cover-letter-preview.tsx` (66/19):
+    - The scaled page sits in a frame sized to the scaled page (unscaled height from a ResizeObserver), so a scroll area ends at the last line.
+    - `scale` renamed `maxScale` (default 0.85; the editor never passed it).
+    - `fitInsidePadding`, off by default, fits the page inside the container's padding; only the window turns it on. The pane's formula is unchanged.
+    - Both measurements run in `useLayoutEffect` (React 19.3.0), so the page is never drawn at full size first.
+  - `src/locales/{en,fr,de,it}/common.json` (4/0 each): `coverLetters.editor.preview`, `previewTitle`, `closePreview`, `previewScrollArea` (FR-7).
+  - New `e2e/cover-letter-preview-window.spec.ts` (413), 4 tests:
+    - The window: the Preview button is immediately before PDF; dialog role, `aria-modal` and name; focus moves into the scroll area; a greeting typed and not saved is shown; PageDown reaches the end with the sender's name fully inside the area and under 120 px of blank space; PageUp, ArrowDown and the mouse wheel scroll it; Tab and Shift+Tab stay inside; Escape and the close button close it and focus returns to Preview; no non-GET request to `cover_letters`, the stored greeting unchanged, the unsaved indicator still shown.
+    - At 1280x800 in en/fr/de/it, with the seeded title and a long unsaved one: the six buttons are inside the header, on the back link's row, and cover neither the back link nor the title (at least 160 px); no horizontal page scroll.
+    - At 1024x768 and 768x1024 (de): the same containment and no-overlap checks with the buttons wrapped.
+    - At 768x1024 and 375x812: the window's page has at least 8 px of gutter on each side.
+- Not touched: zoom controls (US-002), the cards, titles and flags (US-003 to US-005), the exports, the templates, the database, the resume surfaces. No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-pv1 to pv5) were run alone and deleted; none is in the diff.
+
+Checks:
+- Earlier full runs on intermediate diffs are not evidence. One was stopped for code-review fixes (process tree killed with taskkill /T, port 3100 confirmed free). Its e2e had already failed for an environment reason: Chromium "Target crashed" on 41 tests after 59 passes.
+- Final run (this diff, alone, started after the last edit; the diff hash is the same before and after the run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3088 passed, 5 skipped.
+  - pnpm test:integration: PASS — 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 462 passed, 0 failed (13.2 min), including the 4 new tests.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus captures of the production e2e build in scratchpad ux1, ux1b, ux1b-before, ux1c and ux1d:
+  - the editor header at 1440 and 1280 in all four locales, and at 1024, 768 and 375 (de);
+  - the window at open and scrolled to the end, with the close button focused, after closing, and at 1440, 1024, 768 and 375 (de);
+  - "before" captures of origin/main cdf91d9 at the same widths, from the before-main worktree.
+- Visual: PASS (no-change evidence for the pane):
+  - At 1440 the pane matches origin/main: same page position, scale and text lines.
+  - Parity unchanged.
+- Export: NOT_APPLICABLE — no export code or output changed; parity is unchanged.
+- Database: NOT_APPLICABLE — no schema, policy or data change.
+- Security: NOT_APPLICABLE — no route, data access or untrusted-input path changed; the letter is rendered through the existing template.
+
+Agents:
+- senior-coder: implementation, then five fix rounds:
+  - the header pushed Save out of the card at 1280 (de);
+  - shrinking the title crushed it at 1024, so the header wraps instead;
+  - the one-row test's 1 px tolerance;
+  - the code-review findings: the window page touched both edges or overflowed at narrow widths, first paint at full size, scroll-key coverage, a header test id, the fallback text;
+  - a scroll-settle race in the test, then the 1280 row wrapping as a group, which the test now catches.
+- ui-expert:
+  - first pass BLOCKED: no widths below 1280 and no "before" capture;
+  - second pass PASS;
+  - re-validation after the fixes PASS, 7/7 conditions.
+- code-reviewer:
+  - first pass: PASS on the code, with the window overflow to measure;
+  - re-review on the final diff PASS, gated on the suite, now green.
+
+Acceptance criteria:
+- AC-01 (Preview button beside PDF and Word, same style, icon, localized label): PASS — e2e sibling check; captures in 4 locales.
+- AC-02 (full-screen window, same template, unsaved changes shown): PASS — e2e unsaved greeting; FR-1 same component and same object.
+- AC-03 (modal dialog with a name; focus moves in, stays in, returns): PASS — e2e.
+- AC-04 (closes with the close button and Escape): PASS — e2e.
+- AC-05 (no save, indicator unchanged): PASS — e2e: no write request, stored row unchanged, indicator shown.
+- AC-06 (a long letter scrolls until its last line is fully visible): PASS — e2e with PageDown, PageUp, ArrowDown and the wheel; captures scrolled to the end.
+- FR-1, FR-7: PASS. FR-2 to FR-6 concern later stories.
+- Regression constraints: PASS — the pane's starting size is unchanged (same formula; capture matches origin/main at 1440); PDF/Word, save, translation and the modals pass e2e; parity unchanged; resume and tools surfaces untouched.
+- FAIL and BLOCKER conditions: none triggered. The in-memory letter reaches the window without a second state.
+
+Decision:
+- The header wraps below 1280. Adding the Preview button pushed Save out of the card at 1280 (de); wrapping fixes that. Before this story the header already ran off-screen at 1024 and below (origin/main captures), so these widths now improve, as the PRD's out-of-scope exception allows ("keeping the new controls usable").
+- Focus starts on the letter's scroll area, not the close button, so the arrow and page keys scroll at once.
+
+Open owner decisions:
+- None for this story.
+- Carried to US-002, which reworks the same preview container and spec (code-reviewer, minor):
+  - The narrow-window test's `scrollWidth <= clientWidth` assertion targets the window's scroll area, not the preview's own container where the old overflow happened. The two gutter checks do catch it.
+  - That test finds the page with `div.shadow-2xl`; a test id would be sturdier.
+- ui-expert minor, out of this story:
+  - At 768 and 375, Preview can wrap onto a different line from PDF and Word.
+  - Touch targets on mobile are 36–38 px; they belong to the draft PRD cover-letter-editor-responsive.
+  - Dark mode cannot be shown, since nothing adds `.dark`.
+  - The `ring-teal-500` focus contrast is a project-wide convention.
+
+Environment notes:
+- On an intermediate diff, the unrelated `e2e/job-cv-template-picker.spec.ts` (768 px) failed once in a full run. It passed 6/6 alone and in the final run.
+- One single-spec run timed out at 10 min on `next build` with no other process running; the retry passed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 A Preview button opens the letter in a full-screen window
+FINAL: PASS

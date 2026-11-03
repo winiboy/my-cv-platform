@@ -561,6 +561,10 @@
       "downloadWord": "Word",
       "downloadingWord": "Creating Word file...",
       "saveBeforeDownloadWord": "Save your changes first: the Word file is made from the saved letter.",
+      "preview": "Preview",
+      "previewTitle": "Letter preview",
+      "closePreview": "Close preview",
+      "previewScrollArea": "Letter, scrollable",
       "translate": {
         "label": "Translate",
         "to": {
