@@ -1,11 +1,14 @@
-import type { APIResponse, Browser, BrowserContext, Page } from 'playwright-core'
+import type { APIResponse, Browser, BrowserContext, JSHandle, Page } from 'playwright-core'
 import type { Locale } from '@/lib/i18n'
 import { layoutCacheKey } from '@/lib/resume-layout-store'
 import { launchPdfBrowser, pdfBrowserRuntime } from './browser'
 import {
   SUBSTITUTE_FAMILIES,
+  nextFontInterFallbackFamily,
   registerFontSubstitutes,
   serverlessFontSubstitutes,
+  serverlessInterHyphenSupplements,
+  type HyphenSupplementFace,
   type SubstituteFontFace,
 } from './font-substitutes'
 import type { NamedCookie } from './render-policy'
@@ -31,7 +34,9 @@ import { createRendererRouteHandler } from './route-guard'
  *     script — never spliced into script source.
  *   - On a serverless host only, metric-compatible stand-ins for Arial,
  *     Calibri and Georgia, registered as font faces under those names
- *     (`font-substitutes.ts`), because that host has none of them.
+ *     (`font-substitutes.ts`), because that host has none of them; and the
+ *     hyphens next/font's Inter lacks, registered once the page has loaded
+ *     under the fallback family the page lists after Inter.
  *
  * WHAT IT MAY DO. Every request goes through `createRendererRouteHandler`:
  * GETs to the app's own origin and the font picker's font files, fetched with
@@ -96,14 +101,26 @@ const VIEWPORT = { width: 1280, height: 720 }
  */
 const PDF_OPTIONS = { preferCSSPageSize: true, displayHeaderFooter: false } as const
 
+/** The fonts the page is given on a serverless host, and nowhere else. */
+interface ServerlessFonts {
+  substitutes: readonly SubstituteFontFace[]
+  interHyphens: readonly HyphenSupplementFace[]
+}
+
+const NO_SERVERLESS_FONTS: ServerlessFonts = Object.freeze({ substitutes: [], interHyphens: [] })
+
 export async function renderPreviewPdf(input: RenderPreviewPdfInput): Promise<Buffer> {
   // The launch is the first thing on the clock, so its own limit is the whole
   // budget; the deadline below still bounds everything that follows it.
   const launching = launchPdfBrowser({ timeoutMs: input.timeoutMs })
   // Read alongside the launch, on the same clock. Only where the fonts they
-  // stand in for are absent: see `font-substitutes.ts`.
-  const fontSubstitutes: Promise<SubstituteFontFace[]> =
-    pdfBrowserRuntime(process.env) === 'serverless' ? serverlessFontSubstitutes() : Promise.resolve([])
+  // stand in for, or the glyphs they add, are absent: see `font-substitutes.ts`.
+  const fontSubstitutes: Promise<ServerlessFonts> =
+    pdfBrowserRuntime(process.env) === 'serverless'
+      ? Promise.all([serverlessFontSubstitutes(), serverlessInterHyphenSupplements()]).then(
+          ([substitutes, interHyphens]) => ({ substitutes, interHyphens }),
+        )
+      : Promise.resolve(NO_SERVERLESS_FONTS)
   // Its failure is reported once the browser is up; a launch failing first must
   // not leave this rejection unhandled.
   fontSubstitutes.catch(() => undefined)
@@ -140,14 +157,10 @@ export async function renderPreviewPdf(input: RenderPreviewPdfInput): Promise<Bu
   }
 }
 
-async function printPreview(
-  browser: Browser,
-  input: RenderPreviewPdfInput,
-  fonts: readonly SubstituteFontFace[],
-): Promise<Buffer> {
+async function printPreview(browser: Browser, input: RenderPreviewPdfInput, fonts: ServerlessFonts): Promise<Buffer> {
   let stage: PdfRenderStage = 'context'
   try {
-    const context = await openIsolatedContext(browser, input, fonts)
+    const context = await openIsolatedContext(browser, input, fonts.substitutes)
     const page = await context.newPage()
     page.on('dialog', (dialog) => {
       void dialog.dismiss().catch(() => undefined)
@@ -169,9 +182,15 @@ async function printPreview(
     }
 
     stage = 'settle'
+    // Before the settle, whose `fonts.ready` then also waits for any
+    // supplement the committed document uses. Registered before hydration and
+    // pagination, so the Preview's own measurements already use it.
+    const interHyphens =
+      fonts.interHyphens.length > 0 ? await registerInterHyphenSupplements(page, input.origin, fonts.interHyphens) : null
     await assertSeeded(page, seededEntries(input))
     await settlePreview(page, input.resumeId)
-    if (fonts.length > 0) await assertSubstitutesLoaded(page)
+    if (fonts.substitutes.length > 0) await assertSubstitutesLoaded(page)
+    if (interHyphens) await assertFacesLoaded(interHyphens)
 
     stage = 'print'
     await page.emulateMedia({ media: 'print' })
@@ -277,6 +296,42 @@ async function assertSubstitutesLoaded(page: Page): Promise<void> {
     SUBSTITUTE_FAMILIES,
   )
   if (failed > 0) throw new PdfRenderError('settle', 'A substitute font failed to load')
+}
+
+/**
+ * Registers Inter's hyphen supplements under the fallback family the loaded
+ * page lists after next/font's Inter (`nextFontInterFallbackFamily`), and
+ * returns a handle on the faces added, so that only those are checked later:
+ * the family also holds next/font's own `local("Arial")` face, which cannot
+ * load where Arial is absent and is never needed.
+ *
+ * After load rather than in an init script: the family is named by the app's
+ * CSS, which an init script runs before. Nothing but `document.fonts` is
+ * touched, as for the substitutes.
+ */
+export async function registerInterHyphenSupplements(
+  page: Pick<Page, 'evaluate' | 'evaluateHandle'>,
+  origin: string,
+  supplements: readonly HyphenSupplementFace[],
+): Promise<JSHandle<FontFace[]>> {
+  const bodyFontFamily = await page.evaluate(() => getComputedStyle(document.body).fontFamily)
+  const family = nextFontInterFallbackFamily(bodyFontFamily)
+  const faces: SubstituteFontFace[] = supplements.map((face) => ({ ...face, family }))
+  return page.evaluateHandle(registerFontSubstitutes, { origin, faces })
+}
+
+/**
+ * Fail rather than print with a supplement that did not load. The faces a
+ * handle holds are checked, every one registered: an empty list (a document
+ * of another origin) is a failure too, and so is an answer that is not a
+ * count, since the page's scripts run in the same world.
+ */
+export async function assertFacesLoaded(faces: Pick<JSHandle<FontFace[]>, 'evaluate'>): Promise<void> {
+  const failed: unknown = await faces.evaluate((added) =>
+    added.length === 0 ? 1 : added.filter((face) => face.status === 'error').length,
+  )
+  // Only an exact zero passes: a count above it, NaN, or anything not a number fails.
+  if (failed !== 0) throw new PdfRenderError('settle', "A supplement to the page's Inter failed to load")
 }
 
 /**

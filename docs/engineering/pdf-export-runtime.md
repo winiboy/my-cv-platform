@@ -204,7 +204,9 @@ The serverless Chromium has one system font: Open Sans, from the package's
 
 - Google Fonts families load over the network, as in the user's browser (the
   renderer's one network exception).
-- The app's own `next/font` Inter is served from the app's origin.
+- The app's own `next/font` Inter is served from the app's origin. It lacks
+  three hyphens, which a supplement adds (below, "Inter's hyphen
+  supplement").
 - **Metric-compatible substitutes** stand in for the system fonts the server
   lacks (owner decision, 2026-10-13). Metric-compatible means the same
   advance width for every glyph, so the text breaks into the same lines and
@@ -278,6 +280,71 @@ The serverless Chromium has one system font: Open Sans, from the package's
   (Courier New). Times New Roman and Cambria come after Georgia in
   `font-serif`, so they are never reached. Monospace text appears only in the
   layout controls, which do not print.
+
+### Inter's hyphen supplement
+
+Inter is not a substitute: next/font serves the real Inter to the headless
+page, and it prints. But its latin subset, like the substitutes', is
+registered for U+2000–206F without a glyph for U+2010, U+2011 and U+2012,
+and Open Sans has none either. A resume printed in Inter (Classic's body
+text, and Minimal's and Creative's when no font is chosen) showed the
+missing-glyph box for them (owner decision to include it, 2026-11-03).
+
+- **What:** the same `hyphenSupplement`, built from `@fontsource/inter`
+  (OFL-1.1, pinned at 5.3.0; the same Inter revision, 4.001, as the file
+  next/font served in the build of 2026-11-03). One per weight, 100 to
+  900, upright only (`INTER_FACE_STYLES` in `font-substitutes.ts`):
+  - Inter's hyphen widens with the weight, so each weight needs its own;
+  - next/font serves Inter upright only and the browser slants it for
+    italic text, so an italic hyphen is the slanted upright one.
+- **Only the hyphens:** only the latin subset's supplement is used. None of
+  Inter's own faces is registered or replaced, so nothing changes for any
+  other character.
+- **Under which family:** next/font writes the body's class as
+  `font-family: 'Inter', 'Inter Fallback'`, the second being a face with
+  `local("Arial")` and size overrides. Inter's faces claim the three
+  hyphens by `unicode-range` but have no glyph, so the browser takes them
+  from the next family of the list. The supplements are registered in that
+  fallback family, not in Inter's: they do not compete with Inter's own
+  faces. In the fallback family their range is limited to the three hyphens,
+  and the `local("Arial")` face cannot load where Arial is absent.
+- **How:** the resume renderer only (the cover letter has no Inter), on the
+  serverless runtime only. Once the Preview has loaded, it reads the body's
+  computed `font-family` and checks it starts with exactly that pair
+  (`nextFontInterFallbackFamily`). It then adds the faces to
+  `document.fonts`, with the same function and the same origin check as the
+  substitutes, before the settle, whose `fonts.ready` waits for any face
+  the document uses. Inline `data:` sources only, nothing fetched, nothing
+  else of the document touched. Every face added is checked after the
+  settle; one that failed to load fails the render at `settle`.
+- **Fails loudly:** a body whose `font-family` does not start with that
+  pair fails the render at `settle`, rather than registering the supplement
+  under a name no text uses. A unit test runs next/font's own PostCSS plugin
+  and checks the class it writes, so a Next.js change of the naming fails
+  there first.
+- **Limits:** next/font fetches Inter from Google Fonts at build time, while
+  the supplement comes from the pinned package. A unit test pins the
+  package's latin range and its gaps among the checked characters, but the
+  served file cannot be read in a unit test: a later Inter revision from
+  Google needs the check repeated on the serverless runtime.
+- **Limits, Inter chosen in the picker:** only Inter inherited from
+  `<body>` is covered (Classic's body text, Minimal's and Creative's
+  defaults). The font picker's "Inter" entry
+  (`src/components/ui/font-carousel-3d.tsx`) is `'Inter', sans-serif`,
+  which never reaches "Inter Fallback". There, `sans-serif` resolves to Open
+  Sans, which lacks the three hyphens, so a CV where the user picks Inter
+  still prints the missing-glyph box for U+2010–2012 on serverless. Covering
+  it would change the picker's stack, which is out of scope. The supplements
+  are not registered in the Inter family itself: a face there can displace
+  next/font's variable face.
+- **CI guard:** `e2e/resume-print-geometry.spec.ts` checks that the
+  Preview's body `font-family` is accepted by `nextFontInterFallbackFamily`,
+  so a layout change that would fail every serverless resume PDF at
+  `settle` fails the e2e suite first.
+- **Files:** `@fontsource/inter`'s nine stylesheets `100.css`…`900.css` and
+  latin WOFF files `files/inter-latin-<weight>-normal.woff`, traced for both
+  PDF routes by `next.config.js`. A unit test keeps that list equal to
+  `INTER_FACE_STYLES`.
 
 ### Evidence
 

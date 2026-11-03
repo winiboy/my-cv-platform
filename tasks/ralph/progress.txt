@@ -110,3 +110,96 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 The cover letter PDF prints every hyphen and punctuation mark
 FINAL: PASS
+
+## US-002: The resume PDF prints every hyphen and punctuation mark
+Status: PASS
+Priority: 2
+Branch: ralph/pdf-missing-hyphen-glyph
+Baseline HEAD: 1158fab (US-001)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix a3feadde30a7c872):
+  - `package.json` (1/0), `pnpm-lock.yaml` (8/0): `@fontsource/inter` 5.3.0, exact pin. The lock carries its integrity; the package has no dependencies and no install scripts.
+  - `src/lib/pdf/font-substitutes.ts` (227/52) + test (192/2):
+    - Inter hyphen supplements: one per weight, 100–900, upright only. Each is built with the US-001 `hyphenSupplement` from @fontsource/inter's latin `.woff` (Inter 4.001, the same revision and hyphen glyph 344 as next/font's file) and maps U+2010–2012 to Inter's own U+002D at that weight. The stylesheet reading is shared with the substitutes.
+    - `nextFontInterFallbackFamily` + `parseFontFamilyList`: reads the body's computed font-family. The value is length-bounded to 256 and parsed by a linear scanner (SEC-001). It must be next/font's `Inter, "Inter Fallback"`; a unit test pins that against next/font's own PostCSS plugin.
+    - FR-5: the coverage pins extend to Inter per weight.
+  - `src/lib/pdf/render-preview.ts` (67/12) + test (76/3): on serverless only, after the Preview loads and before settle, the supplements are registered under "Inter Fallback" through the same `registerFontSubstitutes` (origin check kept). The faces must then report exactly 0 failures (SEC-002). A body font stack of any other shape fails the render at `settle`.
+  - `e2e/resume-print-geometry.spec.ts` (4/0): CI guard. For each of the 5 templates, the Preview body's computed font-family must be accepted by `nextFontInterFallbackFamily`. This makes the coupling a CI failure instead of a production outage.
+  - `next.config.js` (5/1): both PDF routes trace Inter's 9 stylesheets and 9 latin `.woff` files.
+  - `docs/engineering/pdf-export-runtime.md` (68/1): Inter's hyphen supplement, its limits, and the CI guard.
+- Not touched: app and browser code (the user's Preview is byte-for-byte unaffected), templates, font picker, editor, Word export, stored data, the cover-letter renderer. No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-hg2.spec.ts, zz-uiexp-hg3.spec.ts) were generated after the code was final, run alone and deleted.
+
+Checks:
+- A full run on an earlier diff was stopped for the SEC-001/002 fixes. Its process tree was killed and checked, and port 3100 was confirmed free. It is not used as evidence.
+- Final run (this diff, alone, started after the last edit; the diff hash is the same before and after the run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 116 files, 3088 passed, 5 skipped.
+  - pnpm test:integration: PASS — 4 files, 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 458 passed, 0 failed (12.9 min), including the new body-font guard on 5 templates.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — the CI guard runs on the Preview of the 5 templates (local runtime).
+- Visual: PASS (no-change evidence):
+  - plain CVs are pixel-identical before and after on serverless;
+  - parity is unchanged;
+  - the local runtime registers nothing.
+- Export: PASS — serverless reproduction.
+  - Setup: the real `renderPreviewPdf`, bundled with rolldown (before = 53e3bf7 source 807ccca5…, after = final a7bfca24…), run in the public.ecr.aws/lambda/nodejs@sha256:f0fe9cf15479… image (AL2023) with VERCEL=1, @sparticuz/chromium 153.0.0 and the installed @fontsource packages. It printed against the e2e app server through host.docker.internal:3100, with a seeded test user's session. Harness: scratchpad sls/entry-resume.ts, make-hg2-capture.js.
+  - CVs with the FR-2 set in the summary and in one experience description: Arial, Helvetica, Calibri, Georgia (Professional), plus the Professional, Classic, Minimal, Creative and Modern defaults.
+    - Before: the separators extract as U+0000 (the box) in Calibri, Georgia, Classic, Minimal and Creative; in Arial/Helvetica/default the box appears only for U+2012 (US-001 evidence).
+    - After: U+2010 in every case; the U+002D separator stays U+002D; page and line counts are unchanged.
+    - The final-code pages are pixel-identical to the reviewed renders.
+    - Viewed: Classic default (classic-default.pdf b8eb863e… vs before 9d2f9adc…) and Arial show no box.
+    - Modern is the only template that renders the experience description; its 6 separators extract correctly.
+  - Plain CVs, one per template: page PNGs and extracted text are identical before and after.
+  - Run outcome: 14/14 CVs printed in both bundles, 0 failures.
+  - Word: the resume .docx through the editor's Word GET, for Modern (b9223fc9…) and Classic (85aef9d6…). document.xml holds every FR-2 character as written: Modern ×2 (summary and description), Classic ×1 (Classic does not print the description). Opened in Microsoft Word (2 pages each; d1c7dc82…, edecd19a…): no box.
+- Database: NOT_APPLICABLE — no schema, policy or data change.
+- Security: PASS — security-review, 4 trust boundaries, 8/8 requirements, 0 critical/high/medium, 1 low, 2 info.
+  - SEC-001 LOW (ReDoS on a page-read value): fixed with a length bound and a linear scanner, plus tests.
+  - SEC-002 INFO (non-number failure count): fixed; only an exact 0 passes, plus tests.
+  - SEC-003 INFO (dependency): exact pin with integrity.
+
+Agents:
+- senior-coder: implementation, then two fix rounds (SEC-001/002; code-review findings 1, 2, 4).
+- ui-expert: NOT_APPLICABLE — no rendered UI changed; the evidence is export artifacts.
+- code-reviewer: first pass FAIL (picker-Inter limitation undocumented, no CI guard for the body-font check); re-review on the final diff PASS, with the §14 suite as the gate, now green.
+
+Acceptance criteria:
+- AC-01 (no box in Arial, Helvetica, Calibri, Georgia, the Classic defaults and the template default): PASS — serverless renders above.
+- AC-02 ("decade‑long" with U+2010 and U+2011 shows a visible hyphen and extracts with one): PASS — every checked font.
+- AC-03 (a CV without FR-2 is identical on both runtimes; visual and parity unchanged): PASS — serverless pixel/text identical; local runtime unchanged code path; e2e and parity green.
+- AC-04 (the resume Word export keeps the characters, no box in Word): PASS.
+- FR-1 to FR-7: PASS.
+  - FR-1: by the owner decision of 2026-11-02.
+  - FR-3: each supplement uses Inter's own U+002D advance per weight.
+  - FR-5: Inter is pinned too.
+  - FR-6: the same `hyphenSupplement` and `registerFontSubstitutes`.
+  - FR-7: no Word or stored-data change.
+- Regression constraints, FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- Owner, 2026-11-03, in chat: include Inter in this initiative and accept a new dependency for it ("Oui, inclure Inter").
+  - Reason: Classic, Minimal and Creative print in the app's Inter when no font is chosen, and Inter (next/font) lacks U+2010–2012 as well.
+  - The static @fontsource/inter was used instead of the variable package because only the static one ships WOFF, which the US-001 mechanism reads without a WOFF2 decoder.
+- The supplements attach to next/font's unhashed "Inter Fallback" family, not to "Inter" itself, so they never compete with next/font's variable face.
+
+Open owner decisions:
+- Inter chosen explicitly in the font picker (`font-carousel-3d.tsx`, stack `'Inter', sans-serif`) never reaches "Inter Fallback". On serverless it still prints the box for U+2010–2012. Fixing it changes the picker's stack, which is out of scope here; it is documented in the code and the runtime doc.
+- docs/engineering/pdf-export-runtime.md's font table (an Inter row already on main before this initiative) says `'Inter'` is not the name next/font registers. In this Next.js version it is (code-reviewer, minor). Left for a later doc fix, so the suite does not need to run again.
+- next/font fetches Inter from Google at each build, unpinned. A newer Inter would need the serverless check repeated. This is documented, with no automated guard (code-reviewer, optional).
+- The supplements add inline TTF per render: 9 Inter faces on top of US-001's 12. A WOFF wrapper would roughly halve it (code-reviewer, optional).
+
+Environment notes:
+- During one capture, the before bundle (53e3bf7, code this story does not change) timed out once at 180 s on one CV. The next run printed 14/14 in both bundles.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 The resume PDF prints every hyphen and punctuation mark
+FINAL: PASS

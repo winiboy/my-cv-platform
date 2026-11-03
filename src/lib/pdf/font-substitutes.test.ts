@@ -2,8 +2,14 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { advanceWidth, dataUrlBytes, parseSfnt, woff2UntransformedTables } from '@/test/font-tables'
+import postcss from 'postcss'
+import postcssNextFontPlugin from 'next/dist/build/webpack/loaders/next-font-loader/postcss-next-font'
 import {
   FONT_SUBSTITUTES,
+  INTER_FACE_STYLES,
+  INTER_FONTSOURCE_PACKAGE,
+  MAX_FONT_FAMILY_LENGTH,
+  NEXT_FONT_INTER_FAMILY,
   SUBSTITUTE_FACE_STYLES,
   SUBSTITUTE_FAMILIES,
   SUPPLEMENTED_HYPHENS,
@@ -12,6 +18,9 @@ import {
   formatUnicodeRange,
   hyphenSupplement,
   loadFontSubstitutes,
+  loadInterHyphenSupplements,
+  nextFontInterFallbackFamily,
+  parseFontFamilyList,
   parseFontsourceStylesheet,
   parseUnicodeRange,
   registerFontSubstitutes,
@@ -59,6 +68,19 @@ describe('FONT_SUBSTITUTES', () => {
     expect(config).toContain(`./node_modules/@fontsource/{${packages}}/{400,400-italic,700,700-italic}.css`)
     expect(config).toContain(`./node_modules/@fontsource/{${packages}}/files/*-{400,700}-{normal,italic}.woff2`)
     expect(config).toContain(`./node_modules/@fontsource/{${packages}}/files/*-latin-{400,700}-{normal,italic}.woff`)
+  })
+
+  it("traces exactly the Inter stylesheets and latin WOFF files its supplements are built from", () => {
+    const config = readFileSync(path.join(process.cwd(), 'next.config.js'), 'utf8')
+    expect(INTER_FACE_STYLES.every(({ style }) => style === 'normal')).toBe(true)
+    const weights = INTER_FACE_STYLES.map(({ weight }) => weight).join(',')
+    expect(config).toContain(`./node_modules/@fontsource/${INTER_FONTSOURCE_PACKAGE}/{${weights}}.css`)
+    expect(config).toContain(`./node_modules/@fontsource/${INTER_FONTSOURCE_PACKAGE}/files/inter-latin-{${weights}}-normal.woff`)
+    for (const faceStyle of INTER_FACE_STYLES) {
+      const faces = parseFontsourceStylesheet(readStylesheet(INTER_FONTSOURCE_PACKAGE, fontsourceStylesheetName(faceStyle)))
+      const hyphenFaces = faces.filter((face) => unicodeRangeIncludes(face.unicodeRange, 0x2d))
+      expect(hyphenFaces.map(({ woff }) => woff)).toEqual([`files/inter-latin-${faceStyle.weight}-normal.woff`])
+    }
   })
 
   it('builds each hyphen supplement from a WOFF that trace list includes: the latin subset', () => {
@@ -470,6 +492,172 @@ describe('glyph coverage of the registered faces (FR-5), from the installed pack
   })
 })
 
+/**
+ * The latin subset's `unicode-range`, as next/font declares it for Inter's
+ * latin face in this app's build (`u+00??` there): the same subset the
+ * supplements are built from, so the same gaps.
+ */
+const INTER_LATIN_RANGE =
+  'U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,' +
+  'U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD'
+
+/**
+ * The FR-2 code points (and controls) Inter's latin subset claims but has no
+ * glyph for, for every weight; identical in the next/font file of the build
+ * (2026-11-03). The hyphens are the supplements'; Chromium draws the rest as
+ * for the substitutes (`DRAWN_BY_FALLBACK`). Pinned, so that a change of
+ * Inter's coverage, the hyphens or U+002D included, fails here.
+ */
+const INTER_UNDRAWN_FR2 = [0x00ad, 0x2010, 0x2011, 0x2012, 0x2015, 0x2020, 0x2021, 0x202f, 0x2030]
+
+describe("Inter's hyphen supplements, from the installed package", async () => {
+  const supplements = await loadInterHyphenSupplements(FONTSOURCE_ROOT)
+
+  function latinWoff2(weight: number): Map<string, Buffer> {
+    return woff2UntransformedTables(
+      readFileSync(path.join(FONTSOURCE_ROOT, INTER_FONTSOURCE_PACKAGE, 'files', `inter-latin-${weight}-normal.woff2`)),
+    )
+  }
+
+  it('builds one upright supplement for every weight of the variable Inter, 100 to 900', () => {
+    expect(INTER_FACE_STYLES).toEqual([100, 200, 300, 400, 500, 600, 700, 800, 900].map((weight) => ({ weight, style: 'normal' })))
+    expect(supplements.map(({ weight, style }) => ({ weight, style }))).toEqual(INTER_FACE_STYLES)
+    for (const face of supplements) {
+      expect(face).not.toHaveProperty('family')
+      expect(face.unicodeRange).toBe('U+2010-2012')
+      expect(face.source).toMatch(/^url\(data:font\/ttf;base64,AAEAA[A-Za-z0-9+/=]+\) format\('truetype'\)$/)
+    }
+  })
+
+  it('round-trips into a font whose only mappings are the three hyphens, on the U+002D glyph', () => {
+    for (const face of supplements) {
+      const parsed = parseSfnt(dataUrlBytes(face.source).data)
+      for (const { tag, data, checksum } of parsed.tables) expect(checksum, `${face.weight} ${tag}`).toBe(tableChecksum(tag, data))
+      const cmap = parsed.tables.find(({ tag }) => tag === 'cmap')?.data as Buffer
+      const hyphenGlyph = cmapGlyphId(latinWoff2(face.weight).get('cmap') as Buffer, HYPHEN_MINUS)
+      for (const codePoint of SUPPLEMENTED_HYPHENS) expect(cmapGlyphId(cmap, codePoint), `${face.weight}`).toBe(hyphenGlyph)
+      for (const codePoint of [HYPHEN_MINUS, 0x41, 0x2013, 0x2014]) expect(cmapGlyphId(cmap, codePoint)).toBe(0)
+    }
+  })
+
+  it("draws the hyphens with Inter's own U+002D glyph, advance and metrics, weight by weight", () => {
+    for (const face of supplements) {
+      const label = `Inter ${face.weight}`
+      const main = latinWoff2(face.weight)
+      const supplement = new Map(parseSfnt(dataUrlBytes(face.source).data).tables.map(({ tag, data }) => [tag, data]))
+      const hyphenGlyph = cmapGlyphId(main.get('cmap') as Buffer, HYPHEN_MINUS)
+      expect(hyphenGlyph, label).toBeGreaterThan(0)
+      expect(fontMetrics(supplement), label).toEqual(fontMetrics(main))
+      expect(main.has('hmtx'), label).toBe(true)
+      const ownAdvance = advanceWidth(main.get('hhea') as Buffer, main.get('hmtx') as Buffer, hyphenGlyph)
+      for (const codePoint of SUPPLEMENTED_HYPHENS) {
+        const glyphId = cmapGlyphId(supplement.get('cmap') as Buffer, codePoint)
+        expect(glyphId, label).toBe(hyphenGlyph)
+        expect(advanceWidth(supplement.get('hhea') as Buffer, supplement.get('hmtx') as Buffer, glyphId), label).toBe(ownAdvance)
+      }
+    }
+  })
+
+  it("pins the latin subset's range and its FR-2 gaps (FR-5): the three hyphens missing, U+002D present", () => {
+    for (const faceStyle of INTER_FACE_STYLES) {
+      const label = `Inter ${faceStyle.weight}`
+      const faces = parseFontsourceStylesheet(readStylesheet(INTER_FONTSOURCE_PACKAGE, fontsourceStylesheetName(faceStyle)))
+      const latin = faces.filter((face) => unicodeRangeIncludes(face.unicodeRange, HYPHEN_MINUS))
+      expect(latin.map(({ unicodeRange }) => unicodeRange), label).toEqual([INTER_LATIN_RANGE])
+
+      const cmap = latinWoff2(faceStyle.weight).get('cmap') as Buffer
+      const undrawn = [...VERIFICATION_SET, ...CONTROLS].filter((codePoint) => cmapGlyphId(cmap, codePoint) === 0)
+      expect(undrawn.sort((a, b) => a - b), label).toEqual(INTER_UNDRAWN_FR2)
+      expect(SUPPLEMENTED_HYPHENS.every((codePoint) => unicodeRangeIncludes(INTER_LATIN_RANGE, codePoint))).toBe(true)
+    }
+  })
+
+  it('fails when the package is missing, rather than printing without it', async () => {
+    await expect(loadInterHyphenSupplements(path.join(FONTSOURCE_ROOT, 'does-not-exist'))).rejects.toThrow()
+  })
+})
+
+describe("nextFontInterFallbackFamily: the family Inter's supplements are registered under", () => {
+  it("returns next/font's fallback family from the body's computed font-family", () => {
+    expect(nextFontInterFallbackFamily('Inter, "Inter Fallback"')).toBe('Inter Fallback')
+    expect(nextFontInterFallbackFamily("'Inter', 'Inter Fallback', sans-serif")).toBe('Inter Fallback')
+  })
+
+  it.each([
+    ['another font first', 'Arial, "Inter Fallback"'],
+    ['no fallback family', 'Inter'],
+    ['another fallback family', 'Inter, Arial'],
+    ['the pair in another order', '"Inter Fallback", Inter'],
+    ['a hashed family', '__Inter_d65c78, __Inter_Fallback_d65c78'],
+    ['nothing', ''],
+  ])('fails for a body with %s, rather than registering under a name no text uses', (_label, value) => {
+    expect(() => nextFontInterFallbackFamily(value)).toThrow('next/font')
+  })
+
+  it.each([
+    ['an unterminated quote', 'Inter, "Inter Fallback'],
+    ['text after a quoted name', 'Inter, "Inter Fallback"x'],
+    ['an empty entry', 'Inter,, "Inter Fallback"'],
+    ['a trailing comma', 'Inter, "Inter Fallback",'],
+    ['a value longer than the bound', `Inter, "Inter Fallback", ${'a'.repeat(MAX_FONT_FAMILY_LENGTH)}`],
+  ])('fails for a body with %s', (_label, value) => {
+    expect(() => nextFontInterFallbackFamily(value)).toThrow('next/font')
+  })
+
+  it.each([
+    ['spaces then an unterminated quote', `${' '.repeat(10_000)}"`],
+    ['Inter, then spaces and an unterminated quote', `Inter, ${' '.repeat(10_000)}"`],
+    ['an unterminated quote over spaces', `"${' '.repeat(10_000)}`],
+  ])('rejects %s, page-controlled and 10,000 long, in linear time (SEC-001)', (_label, value) => {
+    const started = performance.now()
+    expect(() => nextFontInterFallbackFamily(value)).toThrow('next/font')
+    // The parser itself, past the length bound, must be linear too.
+    expect(() => parseFontFamilyList(value)).toThrow()
+    expect(performance.now() - started).toBeLessThan(100)
+  })
+
+  it('accepts the stack at the length bound, and refuses it one character past', () => {
+    const atBound = `Inter, "Inter Fallback", ${'a'.repeat(MAX_FONT_FAMILY_LENGTH - 'Inter, "Inter Fallback", '.length)}`
+    expect(atBound).toHaveLength(MAX_FONT_FAMILY_LENGTH)
+    expect(nextFontInterFallbackFamily(atBound)).toBe('Inter Fallback')
+    expect(() => nextFontInterFallbackFamily(`${atBound}a`)).toThrow('next/font')
+  })
+
+  it('reads quoted, escaped and bare family names', () => {
+    expect(parseFontFamilyList(`Inter, "Inter Fallback", 'Open  Sans' , Open   Sans, "a\\"b", sans-serif`)).toEqual([
+      'Inter',
+      'Inter Fallback',
+      'Open  Sans',
+      'Open Sans',
+      'a"b',
+      'sans-serif',
+    ])
+  })
+
+  it("matches the class next/font's own postcss plugin writes for Inter, so a Next.js change of the naming fails here", async () => {
+    const exports: { name: string; value: { fontFamily: string } }[] = []
+    const result = await postcss([
+      postcssNextFontPlugin({
+        exports,
+        adjustFontFallback: { fallbackFont: 'Arial', sizeAdjust: '107.12%' },
+      }),
+    ]).process(`@font-face { font-family: '${NEXT_FONT_INTER_FAMILY}'; src: url(inter.woff2) format('woff2'); }`, {
+      from: undefined,
+    })
+    let classFontFamily = ''
+    result.root.walkRules('.className', (rule) => {
+      rule.walkDecls('font-family', (declaration) => {
+        classFontFamily = declaration.value
+      })
+    })
+    expect(classFontFamily).toBe("'Inter', 'Inter Fallback'")
+    expect(exports.find(({ name }) => name === 'style')?.value.fontFamily).toBe(classFontFamily)
+    expect(nextFontInterFallbackFamily(classFontFamily)).toBe('Inter Fallback')
+    // The fallback family is a face of its own, which the supplements join.
+    expect(result.css).toMatch(/@font-face\s*\{\s*font-family: 'Inter Fallback';\s*src: local\("Arial"\)/)
+  })
+})
+
 describe('registerFontSubstitutes, as the page runs it', () => {
   const ORIGIN = 'https://cv.example.test'
   const FACE: SubstituteFontFace = {
@@ -501,7 +689,9 @@ describe('registerFontSubstitutes, as the page runs it', () => {
 
   it("adds each face under the replaced font's name, with its weight, style and range", () => {
     const added = fakePage(ORIGIN)
-    registerFontSubstitutes({ origin: ORIGIN, faces: [FACE, { ...FACE, family: 'Georgia', weight: 400, style: 'normal' }] })
+    const returned = registerFontSubstitutes({ origin: ORIGIN, faces: [FACE, { ...FACE, family: 'Georgia', weight: 400, style: 'normal' }] })
+    // The faces added are returned, so a caller can check exactly those later.
+    expect(returned.map((face) => ({ ...face }))).toEqual(added)
     expect(added).toEqual([
       { family: 'Arial', source: FACE.source, descriptors: { weight: '700', style: 'italic', unicodeRange: 'U+0000-00FF' } },
       { family: 'Georgia', source: FACE.source, descriptors: { weight: '400', style: 'normal', unicodeRange: 'U+0000-00FF' } },
@@ -510,7 +700,7 @@ describe('registerFontSubstitutes, as the page runs it', () => {
 
   it.each(['null', 'https://evil.example.test'])('adds nothing to a document of another origin: %s', (origin) => {
     const added = fakePage(origin)
-    registerFontSubstitutes({ origin: ORIGIN, faces: [FACE] })
+    expect(registerFontSubstitutes({ origin: ORIGIN, faces: [FACE] })).toEqual([])
     expect(added).toEqual([])
   })
 })

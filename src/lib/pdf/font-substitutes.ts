@@ -57,6 +57,26 @@ import { buildCmap, cmapGlyphId, decodeWoff, encodeSfnt } from './sfnt'
  * Being a separate font run, it is not kerned against the letters beside it.
  * A font change `hyphenSupplement` rejects fails every serverless PDF at
  * stage `fonts`; the unit tests run it against the installed packages.
+ *
+ * INTER. Not a substitute: the app's own `next/font` Inter is served to the
+ * headless page as to the user, and prints. Its latin subset, too, claims
+ * U+2000–206F without drawing U+2010–2012, so a resume printed in Inter
+ * (Classic's body text, and Minimal's and Creative's when no font is chosen)
+ * showed the same box. Inter therefore gets the same supplement, built from
+ * `@fontsource/inter` (the same font revision as next/font's), but none of
+ * its own faces are registered or replaced. Because next/font names the
+ * family in the page's CSS, the resume renderer reads that name from the
+ * page and registers the supplements under the fallback family next/font
+ * lists right after Inter (`nextFontInterFallbackFamily`): the browser falls
+ * through to that family for a character Inter has no glyph for. Only the
+ * resume renderer: the cover letter prints in Georgia, Arial and Calibri.
+ *
+ * Only Inter inherited from `<body>` is covered. The font picker's own "Inter"
+ * entry (`'Inter', sans-serif`) never reaches that fallback family, so a CV
+ * where the user picks Inter still prints the box for U+2010–2012 there.
+ * Covering it would change the picker's stack, out of this scope; registering
+ * in the Inter family itself is not done, as a face there can displace
+ * next/font's variable face.
  */
 
 export interface FontSubstitute {
@@ -72,7 +92,10 @@ export const FONT_SUBSTITUTES: readonly FontSubstitute[] = Object.freeze([
   { family: 'Georgia', fontsourcePackage: 'gelasio' },
 ])
 
-export type SubstituteFaceStyle = { weight: 400 | 700; style: 'normal' | 'italic' }
+/** One weight and style of a Fontsource package: one stylesheet. */
+export type FontsourceFaceStyle = { weight: number; style: 'normal' | 'italic' }
+
+export type SubstituteFaceStyle = FontsourceFaceStyle & { weight: 400 | 700 }
 
 /** The four faces Arial, Calibri and Georgia each have. */
 export const SUBSTITUTE_FACE_STYLES: readonly SubstituteFaceStyle[] = Object.freeze([
@@ -133,7 +156,7 @@ export function parseFontsourceStylesheet(css: string): FontsourceFace[] {
 }
 
 /** The Fontsource stylesheet holding every subset of one weight and style. */
-export function fontsourceStylesheetName({ weight, style }: SubstituteFaceStyle): string {
+export function fontsourceStylesheetName({ weight, style }: FontsourceFaceStyle): string {
   return style === 'italic' ? `${weight}-italic.css` : `${weight}.css`
 }
 
@@ -149,20 +172,7 @@ export async function loadFontSubstitutes(fontsourceRoot: string): Promise<Subst
       const packageDir = path.join(fontsourceRoot, fontsourcePackage)
       const perStyle = await Promise.all(
         SUBSTITUTE_FACE_STYLES.map(async (faceStyle) => {
-          const stylesheet = `${fontsourcePackage} ${fontsourceStylesheetName(faceStyle)}`
-          const css = await readFile(path.join(packageDir, fontsourceStylesheetName(faceStyle)), 'utf8')
-          const faces = parseFontsourceStylesheet(css)
-          if (faces.length === 0) throw new Error(`No @font-face rule in ${stylesheet}`)
-          for (const face of faces) {
-            if (face.weight !== faceStyle.weight || face.style !== faceStyle.style) {
-              throw new Error(`${stylesheet} declares another weight or style`)
-            }
-          }
-
-          const hyphenFaces = faces.filter((face) => unicodeRangeIncludes(face.unicodeRange, HYPHEN_MINUS))
-          if (hyphenFaces.length !== 1) throw new Error(`${stylesheet} has ${hyphenFaces.length} subsets for U+002D, not one`)
-          const supplement = hyphenSupplement(await readFile(path.join(packageDir, hyphenFaces[0].woff)))
-
+          const { faces, supplement } = await readFontsourceFaceStyle(packageDir, fontsourcePackage, faceStyle)
           const subsets = await Promise.all(
             faces.map(async (face): Promise<SubstituteFontFace> => {
               const data = await readFile(path.join(packageDir, face.woff2))
@@ -176,22 +186,179 @@ export async function loadFontSubstitutes(fontsourceRoot: string): Promise<Subst
             }),
           )
           if (!supplement) return subsets
-          return [
-            ...subsets,
-            {
-              family,
-              weight: faceStyle.weight,
-              style: faceStyle.style,
-              unicodeRange: formatUnicodeRange(supplement.codePoints),
-              source: `url(data:font/ttf;base64,${supplement.font.toString('base64')}) format('truetype')`,
-            },
-          ]
+          return [...subsets, { family, ...supplementFace(faceStyle, supplement) }]
         }),
       )
       return perStyle.flat()
     }),
   )
   return perPackage.flat()
+}
+
+/**
+ * One stylesheet of a Fontsource package, checked, and the hyphen supplement
+ * of its subset holding U+002D. Shared by the substitutes and Inter, so both
+ * are read, checked and supplemented the same way.
+ */
+async function readFontsourceFaceStyle(
+  packageDir: string,
+  fontsourcePackage: string,
+  faceStyle: FontsourceFaceStyle,
+): Promise<{ faces: FontsourceFace[]; supplement: { codePoints: number[]; font: Buffer } | null }> {
+  const stylesheet = `${fontsourcePackage} ${fontsourceStylesheetName(faceStyle)}`
+  const css = await readFile(path.join(packageDir, fontsourceStylesheetName(faceStyle)), 'utf8')
+  const faces = parseFontsourceStylesheet(css)
+  if (faces.length === 0) throw new Error(`No @font-face rule in ${stylesheet}`)
+  for (const face of faces) {
+    if (face.weight !== faceStyle.weight || face.style !== faceStyle.style) {
+      throw new Error(`${stylesheet} declares another weight or style`)
+    }
+  }
+
+  const hyphenFaces = faces.filter((face) => unicodeRangeIncludes(face.unicodeRange, HYPHEN_MINUS))
+  if (hyphenFaces.length !== 1) throw new Error(`${stylesheet} has ${hyphenFaces.length} subsets for U+002D, not one`)
+  const supplement = hyphenSupplement(await readFile(path.join(packageDir, hyphenFaces[0].woff)))
+  return { faces, supplement }
+}
+
+/** A supplement as a face: registered for exactly the hyphens it maps, inline. */
+function supplementFace(
+  { weight, style }: FontsourceFaceStyle,
+  supplement: { codePoints: number[]; font: Buffer },
+): HyphenSupplementFace {
+  return {
+    weight,
+    style,
+    unicodeRange: formatUnicodeRange(supplement.codePoints),
+    source: `url(data:font/ttf;base64,${supplement.font.toString('base64')}) format('truetype')`,
+  }
+}
+
+/**
+ * A hyphen supplement for a font whose own faces the page already has, before
+ * the family it is registered under is known: the page names that family.
+ */
+export type HyphenSupplementFace = Omit<SubstituteFontFace, 'family'>
+
+/** The `@fontsource` package Inter's supplements are built from. */
+export const INTER_FONTSOURCE_PACKAGE = 'inter'
+
+/**
+ * Every weight of next/font's variable Inter (`font-weight: 100 900`), upright
+ * only. Inter's hyphen widens with the weight, so each weight a template can
+ * print in (light to black) needs its own; a static weight is a named
+ * instance of the variable font, with the same advances. No italic: next/font
+ * serves Inter upright only and the browser slants it for italic text, so an
+ * italic hyphen is the slanted upright one, which an upright supplement
+ * reproduces the same way. A real italic face would print another glyph.
+ */
+export const INTER_FACE_STYLES: readonly FontsourceFaceStyle[] = Object.freeze(
+  [100, 200, 300, 400, 500, 600, 700, 800, 900].map((weight) => ({ weight, style: 'normal' as const })),
+)
+
+/**
+ * Inter's hyphen supplements, one per weight, from the installed package. Only
+ * the supplement of the latin subset: Inter's own faces stay next/font's.
+ */
+export async function loadInterHyphenSupplements(fontsourceRoot: string): Promise<HyphenSupplementFace[]> {
+  const packageDir = path.join(fontsourceRoot, INTER_FONTSOURCE_PACKAGE)
+  const perStyle = await Promise.all(
+    INTER_FACE_STYLES.map(async (faceStyle) => {
+      const { supplement } = await readFontsourceFaceStyle(packageDir, INTER_FONTSOURCE_PACKAGE, faceStyle)
+      return supplement ? [supplementFace(faceStyle, supplement)] : []
+    }),
+  )
+  return perStyle.flat()
+}
+
+/** The family next/font gives Inter in this app's CSS (`@font-face` and `inter.className`). */
+export const NEXT_FONT_INTER_FAMILY = 'Inter'
+
+/**
+ * The fallback family next/font lists right after Inter, read from the
+ * computed `font-family` of the page's `<body>` (`inter.className`), which the
+ * resume inherits unless a font is chosen.
+ *
+ * next/font writes the class as `'<family>', '<family> Fallback'`, the second
+ * being an `@font-face` with `local("Arial")` and size overrides. Inter's own
+ * faces claim U+2010–2012 by `unicode-range` but have no glyph for them, so the
+ * browser takes those characters from the next family of the list: registered
+ * there, the supplement draws them, without competing with Inter's faces in
+ * Inter's own family.
+ *
+ * A body that does not start with exactly that pair is an error, not "no
+ * Inter": a Next.js change of how it names the families must fail the render
+ * loudly, not register the supplement under a name no text uses.
+ *
+ * The value comes from the page, whose scripts could make it anything, so it
+ * is bounded before it is parsed, and parsed in linear time.
+ */
+export function nextFontInterFallbackFamily(bodyFontFamily: string): string {
+  const fallback = `${NEXT_FONT_INTER_FAMILY} Fallback`
+  const error = new Error(`The page's font-family does not start with next/font's ${NEXT_FONT_INTER_FAMILY} and its fallback`)
+  if (bodyFontFamily.length > MAX_FONT_FAMILY_LENGTH) throw error
+  let families: string[]
+  try {
+    families = parseFontFamilyList(bodyFontFamily)
+  } catch (cause) {
+    throw new Error(error.message, { cause })
+  }
+  if (families[0] !== NEXT_FONT_INTER_FAMILY || families[1] !== fallback) throw error
+  return fallback
+}
+
+/**
+ * The longest page-read `font-family` value parsed. The body's is next/font's
+ * pair, about 25 characters; anything near this bound is not that stack.
+ */
+export const MAX_FONT_FAMILY_LENGTH = 256
+
+/**
+ * The family names of a CSS `font-family` value, unquoted: `Inter, "Inter
+ * Fallback"` (computed) and `'Inter', 'Inter Fallback'` (authored) alike. A
+ * character scanner, so its time is linear in the length of the value. A
+ * malformed value (an unterminated quote, text after a quoted name, an empty
+ * entry) is an error.
+ */
+export function parseFontFamilyList(value: string): string[] {
+  const families: string[] = []
+  const isSpace = (char: string) => char === ' ' || char === '\t' || char === '\n' || char === '\r' || char === '\f'
+  let index = 0
+  const skipSpaces = () => {
+    while (index < value.length && isSpace(value[index])) index++
+  }
+  while (true) {
+    skipSpaces()
+    let family = ''
+    const quote = value[index]
+    if (quote === '"' || quote === "'") {
+      index++
+      while (index < value.length && value[index] !== quote) {
+        if (value[index] === '\\') index++
+        if (index < value.length) family += value[index++]
+      }
+      if (index >= value.length) throw new Error('Unterminated quoted font family')
+      index++
+      skipSpaces()
+    } else {
+      let pendingSpace = false
+      while (index < value.length && value[index] !== ',') {
+        const char = value[index++]
+        if (char === '"' || char === "'") throw new Error('A quote inside an unquoted font family')
+        if (isSpace(char)) {
+          pendingSpace = family.length > 0
+        } else {
+          family += (pendingSpace ? ' ' : '') + (char === '\\' && index < value.length ? value[index++] : char)
+          pendingSpace = false
+        }
+      }
+      if (family === '') throw new Error('An empty font family')
+    }
+    families.push(family)
+    if (index >= value.length) return families
+    if (value[index] !== ',') throw new Error('Text after a quoted font family')
+    index++
+  }
 }
 
 const HYPHEN_MINUS = 0x2d
@@ -281,42 +448,50 @@ export function excludeFromUnicodeRange(unicodeRange: string, codePoints: readon
 }
 
 /**
- * The substitutes, read once per server instance. A failed read is forgotten,
- * so the next request tries again.
+ * A read done once per server instance. A failed read is forgotten, so the
+ * next request tries again.
  */
-let cached: Promise<SubstituteFontFace[]> | null = null
-
-export function serverlessFontSubstitutes(): Promise<SubstituteFontFace[]> {
-  // `process.cwd()` is the app's root under `next start` and in a Vercel
-  // function (/var/task), where the traced `node_modules` sits.
-  cached ??= loadFontSubstitutes(path.join(process.cwd(), 'node_modules', '@fontsource')).catch((error: unknown) => {
-    cached = null
-    throw error
-  })
-  return cached
+function readOncePerInstance<T>(read: (fontsourceRoot: string) => Promise<T>): () => Promise<T> {
+  let cached: Promise<T> | null = null
+  return () => {
+    // `process.cwd()` is the app's root under `next start` and in a Vercel
+    // function (/var/task), where the traced `node_modules` sits.
+    cached ??= read(path.join(process.cwd(), 'node_modules', '@fontsource')).catch((error: unknown) => {
+      cached = null
+      throw error
+    })
+    return cached
+  }
 }
 
+export const serverlessFontSubstitutes: () => Promise<SubstituteFontFace[]> = readOncePerInstance(loadFontSubstitutes)
+
+export const serverlessInterHyphenSupplements: () => Promise<HyphenSupplementFace[]> =
+  readOncePerInstance(loadInterHyphenSupplements)
+
 /**
- * Registers the faces in the page. Runs INSIDE the headless page as an init
- * script, before any of the page's own scripts, so it must not reference
- * anything outside its body. Only on the app's own documents.
+ * Registers the faces in the page and returns them. Runs INSIDE the headless
+ * page, so it must not reference anything outside its body: as an init script
+ * before any of the page's own scripts (the substitutes), or once the page has
+ * loaded (Inter's supplements, whose family the page names). Only on the
+ * app's own documents.
  *
  * `FontFace` + `document.fonts.add` rather than a `<style>` element, so the
  * document React hydrates is untouched. A `data:` source is fetched by no one
  * (`font-src` already allows `data:`), and is decoded lazily: only the faces
  * whose `unicode-range` the CV actually uses.
  */
-export function registerFontSubstitutes({ origin, faces }: { origin: string; faces: readonly SubstituteFontFace[] }): void {
-  if (window.location.origin !== origin) return
-  for (const face of faces) {
-    document.fonts.add(
-      new FontFace(face.family, face.source, {
-        weight: String(face.weight),
-        style: face.style,
-        unicodeRange: face.unicodeRange,
-      }),
-    )
-  }
+export function registerFontSubstitutes({ origin, faces }: { origin: string; faces: readonly SubstituteFontFace[] }): FontFace[] {
+  if (window.location.origin !== origin) return []
+  return faces.map((face) => {
+    const fontFace = new FontFace(face.family, face.source, {
+      weight: String(face.weight),
+      style: face.style,
+      unicodeRange: face.unicodeRange,
+    })
+    document.fonts.add(fontFace)
+    return fontFace
+  })
 }
 
 /** The families the page registers, to check after load that none failed. */
