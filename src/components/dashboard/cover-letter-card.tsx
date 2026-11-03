@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useCoverLetterDownload, type CoverLetterDownloadResult } from '@/lib/hooks/use-cover-letter-download'
 import { JobLinkBadge } from '@/components/dashboard/entity-link-badge'
+import { displayCoverLetterTitle } from '@/lib/cover-letter-title'
+import { toLocale } from '@/lib/i18n'
 
 const HOVER_DISMISS_DELAY_MS = 200
 
@@ -111,6 +113,13 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
     [dict.coverLetters]
   )
   const commonDict = (dict.common || {}) as Record<string, unknown>
+
+  // Memoised because a default title runs language detection over the
+  // letter's paragraphs, which need not repeat on every menu toggle.
+  const displayTitle = useMemo(
+    () => displayCoverLetterTitle(coverLetter, toLocale(locale)),
+    [coverLetter, locale]
+  )
 
   const handleDelete = async () => {
     const confirmMsg = (coverLettersDict.confirmDelete as string) || 'Are you sure you want to delete this cover letter?'
@@ -295,7 +304,7 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
             <FileText className="h-6 w-6 text-purple-600 dark:text-purple-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg mb-1 truncate">{coverLetter.title}</h3>
+            <h3 className="font-semibold text-lg mb-1 truncate">{displayTitle}</h3>
             {coverLetter.company_name && (
               <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
                 {coverLetter.company_name}

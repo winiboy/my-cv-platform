@@ -244,3 +244,96 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-002 Zoom controls in the preview window and the editor pane
 FINAL: PASS
+
+## US-003: The card shows the default title in the letter's language
+Status: PASS
+Priority: 3
+Branch: ralph/cover-letter-preview-and-card-language
+Baseline HEAD: 0d7fc6c (US-002)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix 1e093b287bd86fad, over the tracked src/e2e diff plus the three new files):
+  - New `src/lib/cover-letter-title.ts` (102):
+    - `COVER_LETTER_DEFAULT_TITLES`: the four FR-5 patterns as code constants, beside `COVER_LETTER_WORDING`, since they follow the letter's language, not the page's.
+    - `buildDefaultCoverLetterTitle(language, jobTitle, company)`.
+    - `matchDefaultCoverLetterTitle(title, jobTitle, company)` returns `{ language, suffix } | null`.
+    - `displayCoverLetterTitle(letter, fallbackLocale)`.
+    - FR-6 rule:
+      - exact equality with a pattern built from the letter's own job title and company: case-sensitive, nothing trimmed;
+      - at most one suffix: one space then `(EN|FR|DE|IT)` in capitals;
+      - the whole title is tried first, so a company named "Acme (DE)" is not read as a suffix;
+      - a blank job title or company means a user title.
+    - The language comes from `coverLetterLanguage` (`src/lib/cover-letter-pdf-html.ts`), the function the PDF route, the Word route and the editor preview use (FR-4). It falls back to `toLocale(locale)`, the value the card's own PDF download sends.
+  - New `src/lib/cover-letter-title.test.ts` (190, 54 tests): all four languages; every suffix; user titles untouched (whitespace, case, en-dash, ` (Copy)`, lowercase, doubled or unknown suffix, another job title); a blank job title or company; regex characters; the "Acme (DE)" company; a pure-function mutation check.
+  - `src/components/dashboard/cover-letter-card.tsx` (10/1): the `<h3>` shows a memoised `displayTitle`. Duplicate still copies the stored title plus ` (Copy)`.
+  - New `e2e/cover-letter-card-title.spec.ts` (182), one test per locale (fr, en, de, it). Each seeds 8 letters:
+    - English defaults on French, German, Italian and English letters, with ` (DE)`, ` (IT)` and ` (EN)` suffixes;
+    - a German default on a German letter;
+    - an empty letter, which falls back to the page locale;
+    - "Meine Bewerbung bei Acme";
+    - "Cover Letter - Designer at Acme SA", a pattern naming another job.
+    - It asserts every heading, no non-GET request to `/rest/v1/cover_letters` or `/api/cover-letters` while viewing, and every stored title unchanged.
+- Not touched: the creation form and the translate route (US-004), the flag (US-005), the preview, the exports, the database, the resume surfaces. No version change, no push or merge.
+- Temporary capture spec (e2e/zz-uiexp-c1) was run alone and deleted; it is not in the diff.
+
+Checks:
+- Final run (this diff, alone, started after the last edit; the diff hash is the same before and after the run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3151 passed, 5 skipped (US-002: 3097, plus the 54 new tests).
+  - pnpm test:integration: PASS — 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 471 passed, 0 failed (17.0 min), including the 4 new tests.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus full-page captures of the production build: scratchpad ux3, cards-{fr,en,de,it}-{1440,375}.png.
+- Visual: PASS — only the heading text changes. In the same capture, the user-title cards render with the same size, weight and spacing as the rewritten-title cards. Parity unchanged.
+- Export: NOT_APPLICABLE — no export code or output changed.
+- Database: NOT_APPLICABLE — nothing is written; the e2e proves the stored titles are unchanged.
+- Security: NOT_APPLICABLE — no route or data access changed; the title is still rendered as React text.
+
+Agents:
+- senior-coder: implementation, with no fix rounds.
+- ui-expert: PASS, 7/7 conditions.
+- code-reviewer: PASS, no Critical or Major findings; gated on the suite, now green.
+
+Acceptance criteria:
+- AC-01 (an English default, with or without ` (XX)`, is shown in the letter's language, suffix hidden): PASS — unit tests, e2e in 4 locales, captures.
+- AC-02 (a default already in the letter's language is shown unchanged): PASS — the German-on-German case.
+- AC-03 (a non-default title is shown exactly as stored): PASS — two user-title cases and the unit edge cases.
+- AC-04 (the language is the PDF's, with the page locale as fallback): PASS — the same `coverLetterLanguage` function; the empty-letter case shows each page locale.
+- AC-05 (never written back): PASS — e2e: no write request, stored titles unchanged.
+- FR-4, FR-5, FR-6, FR-7: PASS (FR-7: no new UI string; the patterns are letter wording, as FR-5 lists them).
+- Regression constraints: PASS — the card's menu, badges, date, link and Duplicate are unchanged; e2e and parity green.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- FR-6 reading (code-reviewer, finding 1): any FR-5 pattern, in any language and with or without a suffix, is shown as the pattern in the letter's language, without the suffix.
+  - So a French default on a German letter shows the German title.
+  - `Anschreiben - X bei Y (DE)` on a German letter shows without ` (DE)`.
+  - AC-01 names only the English pattern. FR-6 says "one of the FR-5 patterns", and US-004 creates non-English defaults, which the cards must handle the same way.
+- Exact matching (no trim, case-sensitive) keeps a user's own title from ever being rewritten. A default title whose job title or company was edited afterwards no longer matches and is shown as stored, which is the PRD Risks section's intent.
+
+Open owner decisions:
+- None for this story.
+- Carried to US-004 (code-reviewer):
+  - The creation form trims the title and the job title separately, so its prefill must be built from trimmed values or it will not match itself.
+  - `translatedTitle` cuts long titles, so a cut default title no longer matches; the title length limit needs a test there.
+- Carried to US-005 (code-reviewer): `displayCoverLetterTitle` computes the language internally. The flag needs the same language, so expose it or pass it in, so the title and the flag cannot disagree.
+- Optional (code-reviewer, minor):
+  - a redundant blank-field guard in `displayCoverLetterTitle`;
+  - the e2e pairs seeded rows by insert order;
+  - the card now imports `cover-letter-pdf-html.ts` for `coverLetterLanguage`, about 21 KB of source before minification; moving the function into `cover-letter-language.ts` would avoid that.
+- Out of scope, existing before (ui-expert):
+  - Truncation hides the job and company in long default titles; the subtitle line still shows them.
+  - A title that fills the row touches the kebab icon.
+
+Environment notes:
+- None.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 The card shows the default title in the letter's language
+FINAL: PASS
