@@ -595,7 +595,11 @@ export function CoverLetterEditor({
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col">
+    // The dashboard's <main> already spans the viewport below the header; it
+    // is filled rather than sized to the viewport again, which overflowed its
+    // padding and put the editor's bottom edge, and the preview pane's zoom
+    // controls with it, below the fold.
+    <div className="h-full flex flex-col">
       {/* Header */}
       {/*
         One row while the title area's 13.5rem and the buttons fit beside each
@@ -858,11 +862,16 @@ export function CoverLetterEditor({
         </div>
 
         {/* Preview pane */}
-        <div className="w-1/2 flex-shrink-0 border-l border-slate-200 dark:border-slate-700 overflow-hidden">
+        <div
+          data-testid="cover-letter-preview-pane"
+          className="w-1/2 flex-shrink-0 flex flex-col border-l border-slate-200 dark:border-slate-700 overflow-hidden"
+        >
           <CoverLetterPreview
             coverLetter={coverLetter}
             senderName={coverLetter.sender_name || undefined}
             locale={locale}
+            editorDict={editorDict}
+            variant="pane"
           />
         </div>
       </div>

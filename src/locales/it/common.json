@@ -565,6 +565,11 @@
       "previewTitle": "Anteprima della lettera",
       "closePreview": "Chiudi anteprima",
       "previewScrollArea": "Lettera, scorrevole",
+      "zoomControls": "Zoom",
+      "zoomOut": "Riduci",
+      "zoomIn": "Ingrandisci",
+      "zoomFit": "Mostra tutto",
+      "zoomLevel": "Livello di zoom: {percent}%",
       "translate": {
         "label": "Traduci",
         "to": {

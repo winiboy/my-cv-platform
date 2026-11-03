@@ -1,7 +1,6 @@
 import { test, expect } from './fixtures/auth'
 import type { Locator, Page } from '@playwright/test'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { LOCAL_SUPABASE_URL, LOCAL_SERVICE_KEY, assertLocalSupabase } from '../src/test/local-stack'
+import { admin, insertLetter, rect, SENDER_NAME, type Box } from './fixtures/cover-letter-preview'
 import en from '../src/locales/en/common.json'
 import fr from '../src/locales/fr/common.json'
 import de from '../src/locales/de/common.json'
@@ -34,7 +33,8 @@ import it from '../src/locales/it/common.json'
  *   - Opening and closing never saves the letter: no write to the
  *     `cover_letters` table, and the unsaved-changes indicator stays.
  *   - At 768x1024 and 375x812, the page fits the window's width with a
- *     gutter on both sides, and the window does not scroll sideways.
+ *     gutter on both sides, and the letter's scroll area (the one that
+ *     scrolls) does not scroll sideways.
  *
  * And for the editor header, which the Preview button made wider (a long
  * unsaved title is the widest the title side gets):
@@ -47,51 +47,9 @@ import it from '../src/locales/it/common.json'
  *     keeps at least 10rem, and the page does not scroll sideways.
  */
 
-const SUPABASE_URL = process.env.TEST_SUPABASE_URL ?? LOCAL_SUPABASE_URL
-const SERVICE_KEY = process.env.TEST_SUPABASE_SERVICE_KEY ?? LOCAL_SERVICE_KEY
-
-assertLocalSupabase(SUPABASE_URL, 'E2E cover letter preview window')
-
-function admin(): SupabaseClient {
-  return createClient(SUPABASE_URL, SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
-}
-
-const SENDER_NAME = 'Zoë Lovelace'
 const UNSAVED_GREETING = 'Dear Ms Unsaved Greeting,'
 
 const editorDict = en.coverLetters.editor
-
-/** Enough body text that the letter runs well past one window's height. */
-const LONG_BODY = Array.from(
-  { length: 12 },
-  (_, index) =>
-    `<p>Paragraph ${index + 1}: over several years I have led projects from their first sketch to their release, ` +
-    'working with designers, engineers and clients to ship reliable software on time and within budget, ' +
-    'and I would bring the same care and attention to detail to your team.</p>',
-)
-
-async function insertLetter(userId: string): Promise<string> {
-  const { data, error } = await admin()
-    .from('cover_letters')
-    .insert({
-      user_id: userId,
-      title: 'Preview window letter',
-      sender_name: SENDER_NAME,
-      company_name: 'Acme SA',
-      job_title: 'Software Engineer',
-      greeting: 'Dear Hiring Manager,',
-      opening_paragraph: '<p>I am writing to apply for the Software Engineer position at Acme SA.</p>',
-      body_paragraphs: LONG_BODY,
-      closing_paragraph: '<p>Thank you for your time and consideration.</p>',
-      sign_off: 'Sincerely,',
-    })
-    .select('id')
-    .single()
-  expect(error, error?.message).toBeNull()
-  return (data as { id: string }).id
-}
 
 /** Every write the browser sends to the `cover_letters` table: a save would be one. */
 function recordLetterWrites(page: Page): string[] {
@@ -102,14 +60,6 @@ function recordLetterWrites(page: Page): string[] {
     }
   })
   return writes
-}
-
-/** The element's visible rectangle, in viewport pixels. */
-async function rect(locator: Locator) {
-  return locator.evaluate((element) => {
-    const { top, bottom, left, right } = element.getBoundingClientRect()
-    return { top, bottom, left, right }
-  })
 }
 
 /**
@@ -264,8 +214,6 @@ type HeaderLocale = keyof typeof HEADER_LOCALES
 
 const LONG_TITLE = 'Cover Letter - Senior Full-Stack Software Engineer at Acme International Holdings SA'
 
-type Box = Awaited<ReturnType<typeof rect>>
-
 const intersects = (a: Box, b: Box) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
 
 /** The seeded title, as stored; or a long one typed and not saved, the widest the title side gets. */
@@ -391,7 +339,7 @@ test('in a narrow window the page fits its width, with a gutter on both sides', 
       const dialog = page.getByRole('dialog', { name: editorDict.previewTitle, exact: true })
       await expect(dialog).toBeVisible()
       const scrollArea = dialog.getByRole('region', { name: editorDict.previewScrollArea, exact: true })
-      const letterPage = dialog.locator('div.shadow-2xl')
+      const letterPage = dialog.getByTestId('cover-letter-preview-page')
       await expect(letterPage).toHaveCount(1)
 
       await expect(async () => {

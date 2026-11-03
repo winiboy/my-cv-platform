@@ -565,6 +565,11 @@
       "previewTitle": "Letter preview",
       "closePreview": "Close preview",
       "previewScrollArea": "Letter, scrollable",
+      "zoomControls": "Zoom",
+      "zoomOut": "Zoom out",
+      "zoomIn": "Zoom in",
+      "zoomFit": "Show all",
+      "zoomLevel": "Zoom level: {percent}%",
       "translate": {
         "label": "Translate",
         "to": {

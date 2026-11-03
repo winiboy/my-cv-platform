@@ -40,6 +40,7 @@ interface CoverLetterPreviewDialogProps {
  * dialog conventions (`CVAdaptationModal`, `LinkResumeDialog`): Escape closes,
  * Tab stays inside, and focus returns to the opener on close. Focus starts on
  * the letter's scroll area, so the arrow and page keys scroll it at once.
+ * The window opens at "show all", with its own zoom, apart from the pane's.
  */
 export function CoverLetterPreviewDialog({
   coverLetter,
@@ -125,21 +126,14 @@ export function CoverLetterPreviewDialog({
         </button>
       </div>
 
-      <div
-        ref={scrollAreaRef}
-        tabIndex={0}
-        role="region"
-        aria-label={(editorDict.previewScrollArea as string) || 'Letter, scrollable'}
-        className="flex-1 min-h-0 overflow-y-auto overscroll-contain focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-500"
-      >
-        <CoverLetterPreview
-          coverLetter={coverLetter}
-          senderName={coverLetter.sender_name || undefined}
-          locale={locale}
-          maxScale={1}
-          fitInsidePadding
-        />
-      </div>
+      <CoverLetterPreview
+        coverLetter={coverLetter}
+        senderName={coverLetter.sender_name || undefined}
+        locale={locale}
+        editorDict={editorDict}
+        variant="window"
+        scrollAreaRef={scrollAreaRef}
+      />
     </div>
   )
 }

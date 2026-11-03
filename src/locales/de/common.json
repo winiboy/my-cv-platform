@@ -565,6 +565,11 @@
       "previewTitle": "Briefvorschau",
       "closePreview": "Vorschau schließen",
       "previewScrollArea": "Brief, scrollbar",
+      "zoomControls": "Zoom",
+      "zoomOut": "Verkleinern",
+      "zoomIn": "Vergrößern",
+      "zoomFit": "Alles anzeigen",
+      "zoomLevel": "Zoomstufe: {percent} %",
       "translate": {
         "label": "Übersetzen",
         "to": {

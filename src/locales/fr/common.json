@@ -565,6 +565,11 @@
       "previewTitle": "Aperçu de la lettre",
       "closePreview": "Fermer l'aperçu",
       "previewScrollArea": "Lettre, défilable",
+      "zoomControls": "Zoom",
+      "zoomOut": "Zoom arrière",
+      "zoomIn": "Zoom avant",
+      "zoomFit": "Tout afficher",
+      "zoomLevel": "Niveau de zoom : {percent} %",
       "translate": {
         "label": "Traduire",
         "to": {

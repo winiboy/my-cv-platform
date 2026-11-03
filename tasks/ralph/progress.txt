@@ -109,3 +109,138 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 A Preview button opens the letter in a full-screen window
 FINAL: PASS
+
+## US-002: Zoom controls in the preview window and the editor pane
+Status: PASS
+Priority: 2
+Branch: ralph/cover-letter-preview-and-card-language
+Baseline HEAD: 720bee8 (US-001)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix 3c43d40ddcd576ef, over the tracked src/e2e diff plus the five new files):
+  - New `src/lib/cover-letter-preview-zoom.ts` (69) + test (100, 9 tests):
+    - FR-3 bounds 25%–200% and 10-point steps, taken from the whole percentage shown: 63% goes in to 70% and out to 60%.
+    - `canZoomIn` / `canZoomOut`.
+    - Fit to width, at most `maxScale`; "show all" fits 816x1056.
+  - New `src/components/dashboard/cover-letter-zoom-controls.tsx` (136): the one shared group (FR-2).
+    - Zoom out, the visible %, zoom in, "show all" (lucide `Shrink`).
+    - 32px buttons with a mouse, 44px on coarse pointers; the bound button is `aria-disabled`, so it keeps focus.
+    - An sr-only "Zoom level: N%" always follows the current level.
+    - The polite live region is filled only after a press; it is keyed, so a same-level press re-announces.
+  - `src/components/dashboard/cover-letter-preview.tsx` (221/55): each preview owns its scroll area and its own zoom (AC-7).
+    - Variant `pane`: fit to width, at most 0.85, following resizes until the user zooms. Variant `window`: opens at "show all".
+    - The page frame is centred with `mx-auto`, so a page wider than the area keeps its left edge at scrollLeft 0.
+    - A stable scrollbar gutter; the area is measured with getBoundingClientRect, rounded down.
+    - "Show all" scrolls back to the top-left once the new scale is applied (a layout effect on a press counter).
+    - `data-testid="cover-letter-preview-page"`.
+  - `src/components/dashboard/cover-letter-preview-dialog.tsx` (9/15): the window uses `variant="window"`; its own scroll area moved into the preview, and focus still lands on it.
+  - `src/components/dashboard/cover-letter-editor.tsx` (11/2):
+    - The pane wrapper is a flex column with `data-testid="cover-letter-preview-pane"`.
+    - The editor root changes from `h-[calc(100vh-4rem)]` to `h-full`.
+  - `src/locales/{en,fr,de,it}/common.json` (5/0 each): `zoomControls`, `zoomOut`, `zoomIn`, `zoomFit`, `zoomLevel` (FR-7).
+  - New `e2e/fixtures/cover-letter-preview.ts` (63): seeding and measuring helpers shared by both preview specs.
+  - `e2e/cover-letter-preview-window.spec.ts` (4/56): uses the shared helpers. US-001 carry-overs closed: the page is found by test id, and the no-sideways-scroll check targets the preview's own scroll area.
+  - New `e2e/cover-letter-preview-zoom.spec.ts` (531), 5 tests:
+    - window and pane, each:
+      - the group is at the bottom-right and stays put while scrolling;
+      - ±10 steps, with the page's width following;
+      - both bounds disable their button (click, Enter and Space at 200% change nothing);
+      - at 200% every edge and the last line can be reached, with no more blank space below than the padding;
+      - "show all" pressed when scrolled to the end brings back the top-left and the whole first page;
+      - keyboard use and the focus ring;
+      - the current level is exposed and the live region announces;
+    - the window opens at "show all"; the pane starts at fit to width, at most 0.85, measured against the pane element and the scrollbar width it actually reserves (recorded as an annotation);
+    - independence, both ways, and on reopen;
+    - names and announcements in all four locales;
+    - the live region stays silent on load and on a 1280→1440→1280 resize;
+    - the pane's group lies inside the viewport at 1280x800 and 1440x900.
+- Not touched: the cards, titles and flags (US-003 to US-005), the exports, the templates, the database, the resume surfaces. No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-z1 to z3) were run alone and deleted; none is in the diff.
+
+Checks:
+- Two full runs on intermediate diffs were stopped for review fixes (process trees killed with taskkill /T, port 3100 confirmed free). They are not evidence.
+- Final run (this diff, alone, started after the last edit; the diff hash is the same before and after the run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3097 passed, 5 skipped (US-001: 3088, plus the 9 zoom tests).
+  - pnpm test:integration: PASS — 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 467 passed, 0 failed (16.8 min).
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus captures of the production e2e build in scratchpad ux2, ux2b and ux2c:
+  - the pane at load, two steps in, scrolled to bottom-right, and at "show all" (fr/de at 1440/1280/1024);
+  - the window at "show all", one step in, at 200% and scrolled to bottom-right, at 25%, and with focus on a zoom button;
+  - "show all" pressed after scrolling to the end, in the pane and the window (de, 1440 and 1280);
+  - touch emulation at 768 and 375: the zoom-in button measured 44x44.
+- Visual: PASS.
+  - The pane starts with the same formula; the 2-point difference below is accepted by the owner.
+  - Parity unchanged.
+- Export: NOT_APPLICABLE — no export code or output changed; parity is unchanged.
+- Database: NOT_APPLICABLE.
+- Security: NOT_APPLICABLE — no route, data access or untrusted-input path changed.
+
+Agents:
+- senior-coder: implementation, then four fix rounds:
+  - The test read the visible width from `clientWidth`, which excludes the stable gutter; the test now measures where the browser stops.
+  - The pane's controls sat below the fold, because the editor root overflowed `<main>` by its padding.
+  - The ui-expert and code-review findings:
+    - "show all" kept the scroll position;
+    - 32px touch targets;
+    - an icon that read as "fullscreen";
+    - the pane test took its expectation from the box under test;
+    - the live region announced on every resize;
+    - fractional-pixel fits;
+    - no keyboard test at a bound.
+  - Screen readers could not read the current level, and a same-level press did not re-announce.
+- ui-expert:
+  - first pass FAIL: "show all" kept the scroll position, 32px touch targets, the fullscreen-looking icon, and the page-size question for the owner;
+  - re-validation PASS, 7/7 conditions;
+  - confirmed after the sr-only level text was added.
+- code-reviewer:
+  - first pass FAIL: the pane starting size, resize announcements, and stale evidence;
+  - second pass FAIL: the current level was not exposed, and the gutter decision was not owner-recorded;
+  - third pass PASS, gated on the suite (now green) and on this entry recording the owner's decision.
+
+Acceptance criteria:
+- AC-01 (a group at the bottom-right of the window and the pane, staying in place while scrolling): PASS — e2e, both surfaces; captures, with the pane's group inside the viewport at 1280 and 1440.
+- AC-02 (fixed steps within FR-3; the button at a bound is disabled): PASS — unit tests and e2e.
+- AC-03 ("show all" makes the whole first page visible in both dimensions): PASS — e2e, including after scrolling to the end; captures.
+- AC-04 (the full letter is reachable at any zoom; no blank space below beyond the padding): PASS — e2e at 200% and 25%.
+- AC-05 (the window opens at "show all"; the pane keeps fit to width, at most 85%): PASS — e2e; the pane's gutter difference is the owner-accepted decision below.
+- AC-06 (localized names, keyboard use, visible focus, polite announcement): PASS — e2e in four locales; focus capture; live region and level text tested.
+- AC-07 (pane and window zoom independently): PASS — e2e, both ways, and on reopen.
+- FR-1, FR-2, FR-3, FR-7: PASS.
+- Regression constraints: PASS, with the pane gutter accepted by the owner. PDF/Word, save, translation and the modals pass e2e; parity unchanged; resume and tools surfaces untouched.
+- FAIL and BLOCKER conditions: none triggered. "Show all" leaving part of the first page outside the area was fixed before PASS.
+
+Decision:
+- Owner, 2026-11-03, in chat (answer to the orchestrator's question): "show all" fits the whole first page, not the whole letter ("La première page seulement").
+  - The page is the template's own sheet, 816x1056 px (`w-[816px] min-h-[1056px]`, US Letter at 96 dpi, the size the PDF export prints).
+  - The PRD's word "A4" is left for the owner to correct.
+- Owner, 2026-11-03, in chat: the pane starts one scrollbar narrower than before ("Oui, j'accepte").
+  - Cause: the pane now scrolls and reserves a stable scrollbar gutter. The fit formula is unchanged, but the width it fits is narrower.
+  - Measured: about 15px on Windows with classic scrollbars (pane at 1440: about 70% before, 68% now); 0px in headless CI, which hides scrollbars.
+- The editor root changes from `h-[calc(100vh-4rem)]` to `h-full`.
+  - The old height was all of `<main>`, padding included, so the editor overflowed `<main>` by 48px from `sm` up (32px below) and pushed the pane's bottom-right below the fold. This had been so since the editor's first commit.
+  - Every editor column is now that much shorter, and each still scrolls on its own. It is needed for AC-01.
+- Bound buttons use `aria-disabled`, not `disabled`, so a keyboard user pressing up to a bound keeps focus on the button.
+
+Open owner decisions:
+- Correct "A4" in the PRD (FR-3, US-002) to the template's 816x1056 sheet, if wanted.
+- The editor at 375px: before this initiative the three-column editor was already wider than a phone (origin/main capture). The pane's zoom-out and "show all" are off-screen there; the window works at 375. This belongs to the draft PRD cover-letter-editor-responsive (ui-expert).
+- Focus-ring contrast: `ring-teal-500` is about 2.5:1 on white, a project-wide token (ui-expert, low).
+- Optional (code-reviewer, minor):
+  - After a press and a resize refit, the live region still holds the old level next to the current one.
+  - The e2e level check uses `toContain` on the group's snapshot. It is valid while the region is empty, which is the only place it is used.
+
+Environment notes:
+- Several single-spec builds took close to 10 minutes while a game (KSP_x64, about 5 GB) was running; three agent runs hit the 600s web-server timeout before any test ran. A later run with the machine idle passed.
+- The agents' Playwright runs were each made alone, with no other suite running.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 Zoom controls in the preview window and the editor pane
+FINAL: PASS
