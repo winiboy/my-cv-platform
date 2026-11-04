@@ -1,6 +1,6 @@
 # PRD: The cover letter editor works on phones and tablets
 
-**Status:** DRAFT
+**Status:** APPROVED 
 
 ## Objective
 
