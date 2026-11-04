@@ -4,3 +4,118 @@ Contract: tasks/ralph/prd.json (branch ralph/cover-letter-editor-mobile)
 PRD: tasks/prds/cover-letter-editor-mobile.md (Status: APPROVED 2026-11-04, written by the owner in GitHub's web editor, commits 2a1892f and e913567 on prd/cover-letter-editor-mobile)
 Format: docs/engineering/progress-log-format.md
 Branch setup: from origin/prd/cover-letter-editor-mobile e913567 (origin/main b2799d0, #120 merged, plus the PRD draft a186699 and the owner's two approval commits). The first commit archives the merged cover-letter-preview-and-card-language contract; the second adds this contract.
+
+## US-001: Below 1280px, an Édition / Aperçu toggle shows the form or the letter at full width
+Status: PASS
+Priority: 1
+Branch: ralph/cover-letter-editor-mobile
+Baseline HEAD: 895ff7e (contract commit; origin/main b2799d0 + the PRD commits)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix bd79c408c7ffbafa, over the tracked src/e2e diff plus the new spec):
+  - `src/components/dashboard/cover-letter-editor.tsx` (107/9):
+    - Below `xl`, a `role="radiogroup"` toggle with a localized name and two native radios, Édition and Aperçu. Each option is at least 44px, covered by an invisible radio, with a `has-focus-visible` ring. It opens on Édition.
+    - Forced colors: a 2px `Highlight`/`Canvas` border for selected/unselected, and a 2px `Highlight` outline on keyboard focus.
+    - The views switch with responsive classes only (`hidden` plus `xl:` variants), with no JavaScript media query.
+    - The form is hidden, not unmounted, so the section and the rich-text editors' state are kept.
+    - The single `CoverLetterPreview` pane is `display:none` in Édition, and `key={view}` remounts it so it fits the width when Aperçu opens; zoom goes back to fitted each time.
+    - The root changes from `h-full` to `min-h-full xl:h-full`. Below xl the header, nav and form scroll in `<main>`, and Aperçu fills the rest.
+    - Interim nav below xl, until US-002: a full-width row of wrapping 44px buttons above the form.
+    - At xl every class resolves to the old values: the 192px nav with its right border, the form, and the half-width pane.
+  - `src/locales/{en,fr,de,it}/common.json` (5/0 each): `coverLetters.editor.view.{label,edit,preview}`.
+    - en: Editor view / Edit / Preview
+    - fr: Vue de l'éditeur / Édition / Aperçu
+    - de: Editoransicht / Bearbeiten / Vorschau
+    - it: Vista dell'editor / Modifica / Anteprima
+  - New `e2e/cover-letter-editor-mobile.spec.ts` (511), 10 tests. At 320×640, 375×812, 768×1024 and 1024×768, in en and de:
+    - the toggle: role, name, checked state, opening on Édition, position under the header, 44px options;
+    - arrow keys, and a focus ring proven to come and go (focused vs blurred box shadow, plus `:focus-visible`, on a selected and an unselected option);
+    - the forced-colors border and outline;
+    - Édition: every input, textarea, select, button, link, label, text block and editable area of all 7 sections inside the viewport, including the add-paragraph button and hint, the toolbar font select and the sign-off select; no letter rendered;
+    - Aperçu: the pane at full width, the letter fitted (at most 85%), the zoom group and buttons in view, and the last line reachable;
+    - state kept: an unsaved greeting and opening survive both ways, Aperçu shows them, the section and the indicator stay, and nothing is written to `cover_letters`;
+    - no horizontal scroll of the page or of `<main>`;
+    - at 1280 and 1440: no toggle, the 192px nav, the form and the half-width pane;
+    - widening from Édition at 1024 to 1280: the pane's page is fitted.
+- Not touched: the header, the translate row, the notices, the Preview button (US-003), the exports, the database, the resume editor. No version change, no push or merge.
+- Temporary capture and diff specs (e2e/zz-uiexp-m1, zz-cap, zz-diff) were run alone and deleted; none is in the diff.
+
+Checks:
+- An earlier full run on an intermediate diff was stopped for the review fixes (process tree killed, port 3100 confirmed free). It is not evidence.
+- Final diff (hash bd79c408c7ffbafa, the same before and after every run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3270 passed, 5 skipped.
+  - pnpm test:integration: PASS — 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 492 passed, 0 failed (14.5 min), on the fourth full run.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+- Earlier full e2e runs on the same diff hash, each with one failure in a spec this diff does not touch, each of which passed in another run:
+  - Run 1: `resume-pdf-route.spec.ts:372` (classic).
+  - Run 2: `resume-pdf-route.spec.ts:372` (professional).
+  - Run 3: `cover-letter-editor-spacing.spec.ts:150` (`/it/tools/cover-letter-generator`), `page.fill` timeout of 15 s.
+- The `:372` failure is a PDF text-extraction mismatch on letter-spaced headings: the Preview print extracts "V I S U A L B A S E L I N E - C L A S S I C" and "S u m m a r y", the route PDF extracts "VISUAL BASELINE - CLASSIC".
+  - Alone on this diff, `resume-pdf-route.spec.ts` failed 2 of 21, the classic and creative cases.
+  - On origin/main b2799d0 (before-main worktree), the same spec passed its `:372` cases this time but failed `:239` ("401 without a session, and with a forged one"): 20 passed, 1 failed.
+  - In the previous initiative `:372` failed the same way twice and passed 34/34 alone.
+  - This diff changes only the cover-letter editor and its locales.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus captures of the production build:
+  - scratchpad m1: Édition and Aperçu in en and de at 375, 768 and 1024, and 1280/1440;
+  - scratchpad m1b: 320 and 375, and the keyboard focus on Aperçu at 320 and 375.
+- Visual: PASS.
+  - Captures at 1280 and 1440, en and de, on origin/main b2799d0 (`m1-before`) and on this diff (`m1b`), from the same seed, were compared pixel by pixel (`m1b/diff.txt`).
+  - They are identical except a 250×30 strip at y 0–29: the dev branch-indicator badge, which shows the branch name.
+  - Parity unchanged.
+- Export: NOT_APPLICABLE.
+- Database: NOT_APPLICABLE.
+- Security: NOT_APPLICABLE — no route or data change.
+
+Agents:
+- senior-coder: implementation.
+  - The first run failed at 320×640: the nav row took the space left under the unchanged header, so the root became `min-h-full` below xl.
+  - Then one fix round: the focus assertion that could not fail, forced colors, the scroll-position comment, and the widening test.
+- ui-expert:
+  - first pass BLOCKED: the visible-focus evidence could not fail, and there was no 320 capture;
+  - re-validation PASS, 7/7 conditions. Measured contrast: focus ring 3.45:1 on the track; selected label 9.47:1; unselected 10.16:1.
+- code-reviewer:
+  - first pass FAIL: the vacuous focus assertion, and no before/after captures at 1280/1440;
+  - re-review PASS, gated on the suite, now green.
+
+Acceptance criteria:
+- AC-01 (toggle: localized, single choice, group name, keyboard, visible focus, selected state exposed, 44px, opens on Édition): PASS — e2e at 4 widths in en and de; focus captures.
+- AC-02 (Édition: nav and form only, every field in view at 320/375/768/1024 in en and de, no preview): PASS — e2e over all 7 sections.
+- AC-03 (Aperçu: the existing pane, fitted, zoom controls in view, whole letter scrollable): PASS — e2e; captures.
+- AC-04 (state kept both ways; Aperçu shows unsaved edits; same section): PASS — e2e, with no write request.
+- AC-05 (no horizontal page scroll at 320/375/768/1024): PASS — e2e, document and `<main>`.
+- AC-06 (1280 and above unchanged; captures match before): PASS — e2e geometry and the pixel diff.
+- FR-1, FR-2, FR-5, FR-6, FR-7: PASS. FR-3 and FR-4 concern US-002 and US-003.
+- Regression constraints: PASS — the preview-window (incl. its 1024/768 header test), zoom, editor-i18n, sanitized-html and template-language specs pass unchanged; parity unchanged; resume editor untouched.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- A radiogroup of native radios, not a tablist: its panels would also be tab panels at 1280 and above, where there are no tabs. Radios also don't collide with the specs' `getByRole('button', { name: 'Preview' })` for the header's Preview button.
+- Hide, not unmount, so rich-text state survives. The preview remounts on entering Aperçu, so it fits at once; zoom therefore resets to fitted on each entry.
+- The scroll position is not kept across a switch: below xl `<main>` scrolls, and Édition starts from the top again. The PRD does not require it.
+
+Open owner decisions:
+- The recurring e2e flake `resume-pdf-route.spec.ts:372`:
+  - letter-spaced headings extract with spaces from the Preview print;
+  - it failed 4 times over two initiatives, alone too, while origin/main fails another case of the same spec;
+  - a follow-up to make that comparison robust would remove a recurring false failure.
+- Carried to US-002 (ui-expert, low): the toggle's 16px icons shrink with a long label (de "Bearbeiten" at 320). Add `shrink-0`; the section-nav icons have the same risk.
+- Carried to US-003:
+  - Below 1280 two controls are named "Preview"/"Vorschau" (the header's window button and the toggle).
+  - The toggle sits under the tall header and translate row; at 320×640 Aperçu has about 150px until the header is compacted.
+- ui-expert, optional: at 768 and 1024 the toggle spans the full width (each half about 205 and 335 px); consider a capped width when US-003 reworks the header.
+- code-reviewer, minor: the widening test proves the fitted end state, not the first frame after the resize.
+
+Environment notes:
+- Three full e2e runs on this diff each had one unrelated failure (above) before the fourth was green; the machine was otherwise idle (CPU about 12%).
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 Below 1280px, an Édition / Aperçu toggle shows the form or the letter at full width
+FINAL: PASS

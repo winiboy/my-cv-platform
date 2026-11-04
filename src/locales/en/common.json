@@ -576,6 +576,11 @@
       "zoomIn": "Zoom in",
       "zoomFit": "Show all",
       "zoomLevel": "Zoom level: {percent}%",
+      "view": {
+        "label": "Editor view",
+        "edit": "Edit",
+        "preview": "Preview"
+      },
       "translate": {
         "label": "Translate",
         "to": {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useId, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -17,6 +17,7 @@ import {
   Briefcase,
   Download,
   Eye,
+  Pencil,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -69,6 +70,13 @@ const TRANSLATE_NOTICE_ID = 'cover-letter-translate-notice'
 
 type SectionId = 'resume' | 'job' | 'recipient' | 'opening' | 'body' | 'closing' | 'signature'
 
+/**
+ * What the editor shows below `xl` (1280px), one at a time: the section nav
+ * and the form, or the letter. At `xl` and above both are shown and the
+ * choice has no effect.
+ */
+type EditorView = 'edit' | 'preview'
+
 const SECTIONS = [
   { id: 'resume' as const, label: 'Linked CV', icon: Link2 },
   { id: 'job' as const, label: 'Linked Job', icon: Briefcase },
@@ -91,6 +99,8 @@ export function CoverLetterEditor({
   const [coverLetter, setCoverLetter] = useState(initialCoverLetter)
   const [currentJobApplication, setCurrentJobApplication] = useState<JobApplicationData | null>(initialJobApplication)
   const [activeSection, setActiveSection] = useState<SectionId>('recipient')
+  const [view, setView] = useState<EditorView>('edit')
+  const viewRadioName = useId()
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
@@ -123,6 +133,11 @@ export function CoverLetterEditor({
   const translateDict = (editorDict.translate || {}) as Record<string, unknown>
   const translateToDict = (translateDict.to || {}) as Partial<Record<FlagLanguage, string>>
   const translatingDict = (translateDict.translating || {}) as Partial<Record<FlagLanguage, string>>
+  const viewDict = (editorDict.view || {}) as Partial<Record<'label' | EditorView, string>>
+  const viewOptions = [
+    { id: 'edit', label: viewDict.edit || 'Edit', icon: Pencil },
+    { id: 'preview', label: viewDict.preview || 'Preview', icon: Eye },
+  ] as const satisfies readonly { id: EditorView; label: string; icon: typeof Eye }[]
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -599,7 +614,12 @@ export function CoverLetterEditor({
     // is filled rather than sized to the viewport again, which overflowed its
     // padding and put the editor's bottom edge, and the preview pane's zoom
     // controls with it, below the fold.
-    <div className="h-full flex flex-col">
+    // Below xl it grows past that height instead: in the Édition view the
+    // header, nav and form scroll together in <main>, as the resume editor
+    // does below xl, since a phone leaves too little height under the header
+    // for a form with a scroller of its own. The Aperçu view adds no height,
+    // so the letter fills what is left and scrolls in its own area.
+    <div className="min-h-full xl:h-full flex flex-col">
       {/* Header */}
       {/*
         One row while the title area's 13.5rem and the buttons fit beside each
@@ -830,11 +850,73 @@ export function CoverLetterEditor({
         </div>
       )}
 
+      {/*
+        Below xl, the Édition / Aperçu toggle: native radios, so the group
+        keeps the platform's single-choice semantics and arrow-key behaviour.
+        Each radio covers its whole option, so a tap anywhere on it selects.
+      */}
+      <div
+        role="radiogroup"
+        aria-label={viewDict.label || 'Editor view'}
+        className="xl:hidden px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+      >
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-900">
+          {viewOptions.map(({ id, label, icon: Icon }) => {
+            const isSelected = view === id
+            return (
+              <label
+                key={id}
+                className={cn(
+                  'relative flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition-colors',
+                  'has-focus-visible:ring-2 has-focus-visible:ring-teal-500',
+                  // Forced colors drop box shadows and backgrounds, so the ring
+                  // and the selected look would vanish: focus becomes an
+                  // outline, and the selection a border every option reserves,
+                  // in the background colour when unselected, so none moves.
+                  'forced-colors:border-2 forced-colors:has-focus-visible:outline-2 forced-colors:has-focus-visible:outline-offset-2 forced-colors:has-focus-visible:outline-[color:Highlight]',
+                  isSelected
+                    ? 'bg-white text-teal-700 shadow-sm dark:bg-slate-800 dark:text-teal-400 forced-colors:border-[color:Highlight]'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white forced-colors:border-[color:Canvas]'
+                )}
+              >
+                <input
+                  type="radio"
+                  name={viewRadioName}
+                  value={id}
+                  checked={isSelected}
+                  onChange={() => setView(id)}
+                  className="absolute inset-0 m-0 cursor-pointer appearance-none rounded-md opacity-0"
+                />
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {label}
+              </label>
+            )
+          })}
+        </div>
+      </div>
+
       {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left sidebar - Section navigation */}
-        <div className="w-48 flex-shrink-0 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 overflow-y-auto">
-          <nav className="p-2 space-y-1">
+      {/*
+        Three columns at xl. Below it, one view at a time, at full width: the
+        other is hidden with CSS rather than unmounted, so the form keeps its
+        section and the rich-text editors' own state (their content, font
+        and size choices). Its scroll position is not kept: below xl the page
+        scrolls in <main>, and Aperçu, which adds no height, leaves <main> at
+        the top, where Édition then starts again.
+      */}
+      <div className="flex-1 flex flex-col xl:flex-row overflow-hidden">
+        {/*
+          Left sidebar - Section navigation. Below xl, an interim row of
+          wrapping buttons above the form, which the 192px column would squeeze
+          off-screen on a phone.
+        */}
+        <div
+          className={cn(
+            'flex-shrink-0 border-b xl:border-b-0 xl:border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 overflow-y-auto xl:block xl:w-48',
+            view === 'preview' && 'hidden'
+          )}
+        >
+          <nav className="p-2 flex flex-wrap gap-1 xl:block xl:space-y-1">
             {SECTIONS.map((section) => {
               const Icon = section.icon
               const isActive = activeSection === section.id
@@ -842,7 +924,7 @@ export function CoverLetterEditor({
                 <button
                   key={section.id}
                   onClick={() => setActiveSection(section.id)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  className={`min-h-11 xl:min-h-0 xl:w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
                     isActive
                       ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400'
                       : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
@@ -857,16 +939,32 @@ export function CoverLetterEditor({
         </div>
 
         {/* Editor pane */}
-        <div className="flex-1 overflow-y-auto p-6 bg-white dark:bg-slate-800">
+        <div
+          className={cn(
+            'flex-1 overflow-y-auto p-6 bg-white dark:bg-slate-800 xl:block',
+            view === 'preview' && 'hidden'
+          )}
+        >
           {renderSection()}
         </div>
 
         {/* Preview pane */}
         <div
           data-testid="cover-letter-preview-pane"
-          className="w-1/2 flex-shrink-0 flex flex-col border-l border-slate-200 dark:border-slate-700 overflow-hidden"
+          className={cn(
+            'flex-col border-slate-200 dark:border-slate-700 overflow-hidden xl:flex xl:flex-none xl:w-1/2 xl:border-l',
+            view === 'preview' ? 'flex flex-1' : 'hidden'
+          )}
         >
+          {/*
+            Keyed by the view: below xl the hidden pane measured an empty
+            area, so the preview is mounted afresh when Aperçu opens and its
+            layout effect fits the page to the width before the first paint.
+            At xl the toggle is hidden, the view never changes, and the
+            preview is never remounted.
+          */}
           <CoverLetterPreview
+            key={view}
             coverLetter={coverLetter}
             senderName={coverLetter.sender_name || undefined}
             locale={locale}

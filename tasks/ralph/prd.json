@@ -51,7 +51,7 @@
         "Out of scope: A \"Design\" tab (there is one letter template)."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

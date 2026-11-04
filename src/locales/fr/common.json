@@ -576,6 +576,11 @@
       "zoomIn": "Zoom avant",
       "zoomFit": "Tout afficher",
       "zoomLevel": "Niveau de zoom : {percent} %",
+      "view": {
+        "label": "Vue de l’éditeur",
+        "edit": "Édition",
+        "preview": "Aperçu"
+      },
       "translate": {
         "label": "Traduire",
         "to": {
