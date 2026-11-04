@@ -1,6 +1,6 @@
 # PRD: The cover letter editor works on phones and tablets
 
-**Status:** APPROVED 
+**Status:** APPROVED 2026-11-04
 
 ## Objective
 
