@@ -1,205 +1,528 @@
-# Ralph progress — pdf-missing-hyphen-glyph
+# Ralph progress — cover-letter-preview-and-card-language
 
-Contract: tasks/ralph/prd.json (branch ralph/pdf-missing-hyphen-glyph)
-PRD: tasks/prds/pdf-missing-hyphen-glyph.md (Status: APPROVED 2026-11-02, written by the owner, who ran the approval command in their own terminal)
+Contract: tasks/ralph/prd.json (branch ralph/cover-letter-preview-and-card-language)
+PRD: tasks/prds/cover-letter-preview-and-card-language.md (Status: APPROVED 2026-11-03, written by the owner, who ran the approval command in their own terminal)
 Format: docs/engineering/progress-log-format.md
-Branch setup: from origin/main 06f82ac (#118 merged). The first commit archives the merged cover-letter-template-language contract; the second adds this PRD and its contract.
+Branch setup: from origin/main cdf91d9 (#119 merged). The first commit archives the merged pdf-missing-hyphen-glyph contract; the second adds this PRD and its contract.
 
-## US-001: The cover letter PDF prints every hyphen and punctuation mark
+## US-001: A Preview button opens the letter in a full-screen window
 Status: PASS
 Priority: 1
-Branch: ralph/pdf-missing-hyphen-glyph
-Baseline HEAD: 53e3bf7 (origin/main 06f82ac + archive and contract commits)
+Branch: ralph/cover-letter-preview-and-card-language
+Baseline HEAD: 7bdf40d (origin/main cdf91d9 + archive and contract commits)
 
 Scope:
 - Scope check: PASS
-- Changed paths (git diff --numstat; story diff sha256 prefix 49fd10797aa730b5):
-  - New `src/lib/pdf/sfnt.ts` (234) + test (149):
-    - WOFF 1.0 decoder (zlib, inflation capped at each table's declared length — SEC-001), format-4 cmap reader/builder, sfnt writer (sorted directory, 4-byte padding, table checksums, head.checkSumAdjustment).
-    - Refuses non-WOFF, CFF, bad lengths and checksums.
-  - `src/lib/pdf/font-substitutes.ts` (141/10) + test (358/3):
-    - `hyphenSupplement`: per substitute face style, the latin subset's WOFF with a cmap mapping only the hyphens it lacks (U+2010/2011/2012) to its own U+002D glyph. Every other table is unchanged.
-    - Registered as an inline `data:font/ttf` face for exactly those code points. They are removed from the subsets' unicode-ranges (latin U+2000-206F → U+2000-200F,U+2013-206F; Arimo Hebrew U+200C-2010 → U+200C-200F). The text is never rewritten.
-    - FR-5: `UNDRAWN_SNAPSHOT` pins, per family, every code point a registered range claims and no claiming face draws, from all subsets of the installed files. Any coverage change, gained or lost, fails.
-  - New `src/test/font-tables.ts` (121): test-only sfnt/WOFF2 table readers.
-  - `next.config.js` (3/1): both PDF routes trace the 12 latin `.woff` files (the build's nft.json lists them — code-reviewer).
-  - `docs/engineering/pdf-export-runtime.md` (29/2): "Hyphen supplement".
-- Not touched: the renderers (render-cover-letter.ts, render-preview.ts), routes, editor, Preview, Word export, templates, font picker, stored data, package.json. No version change, no push or merge.
-- Temporary capture spec (e2e/zz-uiexp-hg1.spec.ts) generated after the checks, run alone, deleted.
+- Changed paths (git diff --numstat; story diff sha256 prefix f0698c979ac57b4b, over the tracked src diff plus the two new files):
+  - `src/components/dashboard/cover-letter-editor.tsx` (44/5):
+    - Preview button (Eye icon, the PDF/Word classes), immediately before PDF.
+    - The window opens with the editor's in-memory `coverLetter`, the object the pane already gets (FR-1).
+    - The header now wraps: the title side has `grow basis-[13.5rem] min-w-[13.5rem]` and the button group `ml-auto flex-wrap justify-end`. At 1280 the row stays single; below 1280 the buttons wrap under the title.
+    - `data-testid="cover-letter-editor-header"`.
+  - New `src/components/dashboard/cover-letter-preview-dialog.tsx` (145):
+    - `role="dialog"`, `aria-modal`, named by its h2; localized close button.
+    - Escape closes it; Tab and Shift+Tab stay inside; focus starts on the letter's focusable, labelled scroll area and returns to the Preview button on close.
+    - Renders `CoverLetterPreview` with `maxScale={1}` and `fitInsidePadding`.
+  - `src/components/dashboard/cover-letter-preview.tsx` (66/19):
+    - The scaled page sits in a frame sized to the scaled page (unscaled height from a ResizeObserver), so a scroll area ends at the last line.
+    - `scale` renamed `maxScale` (default 0.85; the editor never passed it).
+    - `fitInsidePadding`, off by default, fits the page inside the container's padding; only the window turns it on. The pane's formula is unchanged.
+    - Both measurements run in `useLayoutEffect` (React 19.3.0), so the page is never drawn at full size first.
+  - `src/locales/{en,fr,de,it}/common.json` (4/0 each): `coverLetters.editor.preview`, `previewTitle`, `closePreview`, `previewScrollArea` (FR-7).
+  - New `e2e/cover-letter-preview-window.spec.ts` (413), 4 tests:
+    - The window: the Preview button is immediately before PDF; dialog role, `aria-modal` and name; focus moves into the scroll area; a greeting typed and not saved is shown; PageDown reaches the end with the sender's name fully inside the area and under 120 px of blank space; PageUp, ArrowDown and the mouse wheel scroll it; Tab and Shift+Tab stay inside; Escape and the close button close it and focus returns to Preview; no non-GET request to `cover_letters`, the stored greeting unchanged, the unsaved indicator still shown.
+    - At 1280x800 in en/fr/de/it, with the seeded title and a long unsaved one: the six buttons are inside the header, on the back link's row, and cover neither the back link nor the title (at least 160 px); no horizontal page scroll.
+    - At 1024x768 and 768x1024 (de): the same containment and no-overlap checks with the buttons wrapped.
+    - At 768x1024 and 375x812: the window's page has at least 8 px of gutter on each side.
+- Not touched: zoom controls (US-002), the cards, titles and flags (US-003 to US-005), the exports, the templates, the database, the resume surfaces. No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-pv1 to pv5) were run alone and deleted; none is in the diff.
 
 Checks:
-- An earlier full run was stopped for the SEC-001 fix. Its inner script kept running and collided with the next run (port 3100, `.next-e2e`). Neither run is used as evidence.
-- A further e2e run (456 passed, 2 timeouts while the machine was under heavy unrelated load) was invalidated by the review fixes.
-- Final run (this diff, alone, started after the last source edit):
-  - pnpm typecheck: PASS — exit 0.
-  - pnpm test: PASS — 116 files, 3053 passed, 5 skipped.
-  - pnpm test:integration: PASS — 4 files, 50 passed.
-  - pnpm build: PASS — 105/105 static pages.
-  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
-  - pnpm test:e2e: PASS — 458 passed, 0 failed (14.2 min).
-  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
-
-Specialized validation:
-- Browser: NOT_APPLICABLE — no UI changes; the local runtime registers no substitute.
-- Visual: NOT_APPLICABLE — no layout changes. The no-FR-2 page is byte-identical on serverless (below), and parity is unchanged.
-- Export: PASS — serverless reproduction plus Word.
-  - Reproduction setup:
-    - the real `renderCoverLetterPdf`, bundled with rolldown;
-    - run in public.ecr.aws/lambda/nodejs@sha256:f0fe9cf1547929340bee4d1e64907d7fb3c4633e9e66a4063779ad… (AL2023);
-    - VERCEL=1, @sparticuz/chromium 153.0.0, playwright-core 1.63.0, and the installed @fontsource packages.
-    - Harness: scratchpad sls/ (entry.ts, bundle.mjs, app/harness.cjs 57f2e6eb…, fixtures de0f942b…).
-  - BEFORE (HEAD code), FR-2 letter:
-    - U+2010/2011/2012 print as the crossed box in Georgia regular/bold/italic and Calibri; U+2012 also in Arial. This matches the owner's screenshot.
-    - The "decade?long" separators extract as U+0000.
-    - Files: PDF 96496794…, page 6b5ab0f3….
-  - AFTER (final code):
-    - No box in any font or face.
-    - Separators extract as U+2010 (the U+002D one stays U+002D).
-    - U+2015/2020/2021/2030/2032/202F print, U+00AD stays invisible, and "long‑hyphenated" (U+2011) does not break.
-    - Files: PDF f25deca4…, page 111e67a0… (pixel-identical before and after the SEC-001 hardening).
-  - Closing carrying the FR-2 set: no box, separators U+2010 U+2010 U+002D, 1 page (PDF 0a91c353…, page f0a67982…).
-  - Letter without FR-2 characters: page PNG byte-identical before and after (db3d542e…), extracted text identical, 20 lines, 1 page.
-  - U+202F no-break sweep: 153 paragraphs (Georgia/Arial/Calibri, filler 60–110) ending "Bonjour<sep>:".
-    - With U+0020, 4 lines start with ':' (each font at least once).
-    - With U+202F, 0 lines start with ':' (PDFs 19bb87d4… and 7dc1bf6a…).
-  - Word: .docx of the FR-2 letter through the editor's Word button (87f1f145…). document.xml holds every FR-2 character as written (U+2010 ×5, U+2011 ×6, U+2012 ×5, U+2015 ×4, U+2020 ×4, U+2021 ×3, U+2030 ×5, U+2032 ×3, U+202F ×3, U+00AD ×3). Opened in Microsoft Word (COM, 1 page, 337f3375…): no box.
-- Database: NOT_APPLICABLE — no schema, policy or data changes.
-- Security: PASS — security-review, 2 trust boundaries, 9/9 requirements, 0 critical/high/medium/low, 2 info.
-  - SEC-001 (unbounded zlib inflation) fixed with maxOutputLength, plus a test.
-  - SEC-002 (cmap reads fail closed without explicit bounds checks) left as is.
-
-Agents:
-- senior-coder: implementation, then two fix rounds (SEC-001; code-review findings 2 and 5–7).
-- ui-expert: NOT_APPLICABLE — no rendered UI changes. The evidence is export artifacts.
-- code-reviewer:
-  - First pass FAIL (e2e not yet green, FR-5 too narrow, FR-1 scope, evidence not recorded, Arimo wording, JSDoc, wildcard parser, U+202F evidence).
-  - Re-review FAIL, with only the closing-paragraph evidence missing. That render is the stated condition for PASS and needs no code re-review, and it is recorded above. Verdict: PASS.
-
-Acceptance criteria:
-- AC-01 (no box in Georgia, Arial and Calibri; opening, body, closing): PASS — serverless renders after the fix.
-- AC-02 ("decade‑long" with U+2010/2011/002D shows a visible hyphen and extracts with one): PASS — page and text extraction.
-- AC-03 (no break after U+2011): PASS — NOBREAK paragraph. The character is unchanged, so its line-break class is kept.
-- AC-04 (U+00AD invisible on a line that does not break at it): PASS — renders.
-- AC-05 (letter without FR-2 identical on both runtimes): PASS — serverless page byte-identical. The local runtime registers nothing (unchanged code path), and e2e and parity are green.
-- AC-06 (Word export has the characters as written, no box in Word): PASS — the docx counts and the Word render above.
-- FR-1: PASS — by owner decision (below).
-- FR-2, FR-3, FR-4, FR-5, FR-6, FR-7: PASS.
-  - FR-3: same glyph and advance as U+002D (unit tests against the installed WOFF2 hmtx), with matching vertical metrics.
-  - FR-4: U+2011 and U+202F do not break, and U+00AD stays invisible.
-  - FR-5: snapshot test.
-  - FR-6: one `SubstituteFontFace[]` for both renderers.
-  - FR-7: stored text and the Word code are untouched.
-- Regression constraints, FAIL conditions, BLOCKER conditions: none triggered; isolation unchanged (inline data: sources from installed packages, no request).
-
-Decision:
-- No font on the serverless runtime has U+2010–2012: neither the substitutes' latin subsets nor @sparticuz/chromium's Open Sans (cmaps read from the installed files). So the substitute itself was extended with a cmap-only supplement, and the text was left alone. This keeps the BLOCKER about rewriting text unreached.
-
-Open owner decisions:
-- FR-1 scope — decided by the owner on 2026-11-02, in chat: "Oui, FR-2 suffit".
-  - Rare symbols that no serverless font draws (e.g. ‣ U+2023, ⁃ U+2043, ‖ U+2016, ‥ U+2025, ₿ U+20BF, Gelasio's IPA/Latin Extended-B) still print as boxes.
-  - They are pinned in UNDRAWN_SNAPSHOT and left to a later PRD.
-- Word shows U+00AD as a visible hyphen. This predates the change, and the Word export is out of scope.
-- The supplements are inline, uncompressed TTF: about 600 KB of base64 per serverless render. A WOFF wrapper would roughly halve that (code-reviewer, optional).
-- Minor doc wording (code-reviewer, non-blocking): the runtime doc says no serverless font could draw the three hyphens, but Arimo's Hebrew subset draws U+2010, as the same bullet says.
-
-Environment notes:
-- Docker could not reach the npm registry (TLS: unable to verify the first certificate). Certificate checks were not turned off; the browser packages were copied from the project's own node_modules instead.
-- The machine ran an unrelated VR racing sim during the checks. The final suite was green regardless.
-
-Commit:
-- Story commit: THIS_COMMIT
-- Commit message: ralph: US-001 The cover letter PDF prints every hyphen and punctuation mark
-FINAL: PASS
-
-## US-002: The resume PDF prints every hyphen and punctuation mark
-Status: PASS
-Priority: 2
-Branch: ralph/pdf-missing-hyphen-glyph
-Baseline HEAD: 1158fab (US-001)
-
-Scope:
-- Scope check: PASS
-- Changed paths (git diff --numstat; story diff sha256 prefix a3feadde30a7c872):
-  - `package.json` (1/0), `pnpm-lock.yaml` (8/0): `@fontsource/inter` 5.3.0, exact pin. The lock carries its integrity; the package has no dependencies and no install scripts.
-  - `src/lib/pdf/font-substitutes.ts` (227/52) + test (192/2):
-    - Inter hyphen supplements: one per weight, 100–900, upright only. Each is built with the US-001 `hyphenSupplement` from @fontsource/inter's latin `.woff` (Inter 4.001, the same revision and hyphen glyph 344 as next/font's file) and maps U+2010–2012 to Inter's own U+002D at that weight. The stylesheet reading is shared with the substitutes.
-    - `nextFontInterFallbackFamily` + `parseFontFamilyList`: reads the body's computed font-family. The value is length-bounded to 256 and parsed by a linear scanner (SEC-001). It must be next/font's `Inter, "Inter Fallback"`; a unit test pins that against next/font's own PostCSS plugin.
-    - FR-5: the coverage pins extend to Inter per weight.
-  - `src/lib/pdf/render-preview.ts` (67/12) + test (76/3): on serverless only, after the Preview loads and before settle, the supplements are registered under "Inter Fallback" through the same `registerFontSubstitutes` (origin check kept). The faces must then report exactly 0 failures (SEC-002). A body font stack of any other shape fails the render at `settle`.
-  - `e2e/resume-print-geometry.spec.ts` (4/0): CI guard. For each of the 5 templates, the Preview body's computed font-family must be accepted by `nextFontInterFallbackFamily`. This makes the coupling a CI failure instead of a production outage.
-  - `next.config.js` (5/1): both PDF routes trace Inter's 9 stylesheets and 9 latin `.woff` files.
-  - `docs/engineering/pdf-export-runtime.md` (68/1): Inter's hyphen supplement, its limits, and the CI guard.
-- Not touched: app and browser code (the user's Preview is byte-for-byte unaffected), templates, font picker, editor, Word export, stored data, the cover-letter renderer. No version change, no push or merge.
-- Temporary capture specs (e2e/zz-uiexp-hg2.spec.ts, zz-uiexp-hg3.spec.ts) were generated after the code was final, run alone and deleted.
-
-Checks:
-- A full run on an earlier diff was stopped for the SEC-001/002 fixes. Its process tree was killed and checked, and port 3100 was confirmed free. It is not used as evidence.
+- Earlier full runs on intermediate diffs are not evidence. One was stopped for code-review fixes (process tree killed with taskkill /T, port 3100 confirmed free). Its e2e had already failed for an environment reason: Chromium "Target crashed" on 41 tests after 59 passes.
 - Final run (this diff, alone, started after the last edit; the diff hash is the same before and after the run):
   - pnpm typecheck: PASS — exit 0.
-  - pnpm test: PASS — 116 files, 3088 passed, 5 skipped.
-  - pnpm test:integration: PASS — 4 files, 50 passed.
+  - pnpm test: PASS — 3088 passed, 5 skipped.
+  - pnpm test:integration: PASS — 50 passed.
   - pnpm build: PASS — 105/105 static pages.
   - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
-  - pnpm test:e2e: PASS — 458 passed, 0 failed (12.9 min), including the new body-font guard on 5 templates.
+  - pnpm test:e2e: PASS — 462 passed, 0 failed (13.2 min), including the 4 new tests.
   - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
 
 Specialized validation:
-- Browser: PASS — the CI guard runs on the Preview of the 5 templates (local runtime).
-- Visual: PASS (no-change evidence):
-  - plain CVs are pixel-identical before and after on serverless;
-  - parity is unchanged;
-  - the local runtime registers nothing.
-- Export: PASS — serverless reproduction.
-  - Setup: the real `renderPreviewPdf`, bundled with rolldown (before = 53e3bf7 source 807ccca5…, after = final a7bfca24…), run in the public.ecr.aws/lambda/nodejs@sha256:f0fe9cf15479… image (AL2023) with VERCEL=1, @sparticuz/chromium 153.0.0 and the installed @fontsource packages. It printed against the e2e app server through host.docker.internal:3100, with a seeded test user's session. Harness: scratchpad sls/entry-resume.ts, make-hg2-capture.js.
-  - CVs with the FR-2 set in the summary and in one experience description: Arial, Helvetica, Calibri, Georgia (Professional), plus the Professional, Classic, Minimal, Creative and Modern defaults.
-    - Before: the separators extract as U+0000 (the box) in Calibri, Georgia, Classic, Minimal and Creative; in Arial/Helvetica/default the box appears only for U+2012 (US-001 evidence).
-    - After: U+2010 in every case; the U+002D separator stays U+002D; page and line counts are unchanged.
-    - The final-code pages are pixel-identical to the reviewed renders.
-    - Viewed: Classic default (classic-default.pdf b8eb863e… vs before 9d2f9adc…) and Arial show no box.
-    - Modern is the only template that renders the experience description; its 6 separators extract correctly.
-  - Plain CVs, one per template: page PNGs and extracted text are identical before and after.
-  - Run outcome: 14/14 CVs printed in both bundles, 0 failures.
-  - Word: the resume .docx through the editor's Word GET, for Modern (b9223fc9…) and Classic (85aef9d6…). document.xml holds every FR-2 character as written: Modern ×2 (summary and description), Classic ×1 (Classic does not print the description). Opened in Microsoft Word (2 pages each; d1c7dc82…, edecd19a…): no box.
+- Browser: PASS — the e2e above, plus captures of the production e2e build in scratchpad ux1, ux1b, ux1b-before, ux1c and ux1d:
+  - the editor header at 1440 and 1280 in all four locales, and at 1024, 768 and 375 (de);
+  - the window at open and scrolled to the end, with the close button focused, after closing, and at 1440, 1024, 768 and 375 (de);
+  - "before" captures of origin/main cdf91d9 at the same widths, from the before-main worktree.
+- Visual: PASS (no-change evidence for the pane):
+  - At 1440 the pane matches origin/main: same page position, scale and text lines.
+  - Parity unchanged.
+- Export: NOT_APPLICABLE — no export code or output changed; parity is unchanged.
 - Database: NOT_APPLICABLE — no schema, policy or data change.
-- Security: PASS — security-review, 4 trust boundaries, 8/8 requirements, 0 critical/high/medium, 1 low, 2 info.
-  - SEC-001 LOW (ReDoS on a page-read value): fixed with a length bound and a linear scanner, plus tests.
-  - SEC-002 INFO (non-number failure count): fixed; only an exact 0 passes, plus tests.
-  - SEC-003 INFO (dependency): exact pin with integrity.
+- Security: NOT_APPLICABLE — no route, data access or untrusted-input path changed; the letter is rendered through the existing template.
 
 Agents:
-- senior-coder: implementation, then two fix rounds (SEC-001/002; code-review findings 1, 2, 4).
-- ui-expert: NOT_APPLICABLE — no rendered UI changed; the evidence is export artifacts.
-- code-reviewer: first pass FAIL (picker-Inter limitation undocumented, no CI guard for the body-font check); re-review on the final diff PASS, with the §14 suite as the gate, now green.
+- senior-coder: implementation, then five fix rounds:
+  - the header pushed Save out of the card at 1280 (de);
+  - shrinking the title crushed it at 1024, so the header wraps instead;
+  - the one-row test's 1 px tolerance;
+  - the code-review findings: the window page touched both edges or overflowed at narrow widths, first paint at full size, scroll-key coverage, a header test id, the fallback text;
+  - a scroll-settle race in the test, then the 1280 row wrapping as a group, which the test now catches.
+- ui-expert:
+  - first pass BLOCKED: no widths below 1280 and no "before" capture;
+  - second pass PASS;
+  - re-validation after the fixes PASS, 7/7 conditions.
+- code-reviewer:
+  - first pass: PASS on the code, with the window overflow to measure;
+  - re-review on the final diff PASS, gated on the suite, now green.
 
 Acceptance criteria:
-- AC-01 (no box in Arial, Helvetica, Calibri, Georgia, the Classic defaults and the template default): PASS — serverless renders above.
-- AC-02 ("decade‑long" with U+2010 and U+2011 shows a visible hyphen and extracts with one): PASS — every checked font.
-- AC-03 (a CV without FR-2 is identical on both runtimes; visual and parity unchanged): PASS — serverless pixel/text identical; local runtime unchanged code path; e2e and parity green.
-- AC-04 (the resume Word export keeps the characters, no box in Word): PASS.
-- FR-1 to FR-7: PASS.
-  - FR-1: by the owner decision of 2026-11-02.
-  - FR-3: each supplement uses Inter's own U+002D advance per weight.
-  - FR-5: Inter is pinned too.
-  - FR-6: the same `hyphenSupplement` and `registerFontSubstitutes`.
-  - FR-7: no Word or stored-data change.
-- Regression constraints, FAIL and BLOCKER conditions: none triggered.
+- AC-01 (Preview button beside PDF and Word, same style, icon, localized label): PASS — e2e sibling check; captures in 4 locales.
+- AC-02 (full-screen window, same template, unsaved changes shown): PASS — e2e unsaved greeting; FR-1 same component and same object.
+- AC-03 (modal dialog with a name; focus moves in, stays in, returns): PASS — e2e.
+- AC-04 (closes with the close button and Escape): PASS — e2e.
+- AC-05 (no save, indicator unchanged): PASS — e2e: no write request, stored row unchanged, indicator shown.
+- AC-06 (a long letter scrolls until its last line is fully visible): PASS — e2e with PageDown, PageUp, ArrowDown and the wheel; captures scrolled to the end.
+- FR-1, FR-7: PASS. FR-2 to FR-6 concern later stories.
+- Regression constraints: PASS — the pane's starting size is unchanged (same formula; capture matches origin/main at 1440); PDF/Word, save, translation and the modals pass e2e; parity unchanged; resume and tools surfaces untouched.
+- FAIL and BLOCKER conditions: none triggered. The in-memory letter reaches the window without a second state.
 
 Decision:
-- Owner, 2026-11-03, in chat: include Inter in this initiative and accept a new dependency for it ("Oui, inclure Inter").
-  - Reason: Classic, Minimal and Creative print in the app's Inter when no font is chosen, and Inter (next/font) lacks U+2010–2012 as well.
-  - The static @fontsource/inter was used instead of the variable package because only the static one ships WOFF, which the US-001 mechanism reads without a WOFF2 decoder.
-- The supplements attach to next/font's unhashed "Inter Fallback" family, not to "Inter" itself, so they never compete with next/font's variable face.
+- The header wraps below 1280. Adding the Preview button pushed Save out of the card at 1280 (de); wrapping fixes that. Before this story the header already ran off-screen at 1024 and below (origin/main captures), so these widths now improve, as the PRD's out-of-scope exception allows ("keeping the new controls usable").
+- Focus starts on the letter's scroll area, not the close button, so the arrow and page keys scroll at once.
 
 Open owner decisions:
-- Inter chosen explicitly in the font picker (`font-carousel-3d.tsx`, stack `'Inter', sans-serif`) never reaches "Inter Fallback". On serverless it still prints the box for U+2010–2012. Fixing it changes the picker's stack, which is out of scope here; it is documented in the code and the runtime doc.
-- docs/engineering/pdf-export-runtime.md's font table (an Inter row already on main before this initiative) says `'Inter'` is not the name next/font registers. In this Next.js version it is (code-reviewer, minor). Left for a later doc fix, so the suite does not need to run again.
-- next/font fetches Inter from Google at each build, unpinned. A newer Inter would need the serverless check repeated. This is documented, with no automated guard (code-reviewer, optional).
-- The supplements add inline TTF per render: 9 Inter faces on top of US-001's 12. A WOFF wrapper would roughly halve it (code-reviewer, optional).
+- None for this story.
+- Carried to US-002, which reworks the same preview container and spec (code-reviewer, minor):
+  - The narrow-window test's `scrollWidth <= clientWidth` assertion targets the window's scroll area, not the preview's own container where the old overflow happened. The two gutter checks do catch it.
+  - That test finds the page with `div.shadow-2xl`; a test id would be sturdier.
+- ui-expert minor, out of this story:
+  - At 768 and 375, Preview can wrap onto a different line from PDF and Word.
+  - Touch targets on mobile are 36–38 px; they belong to the draft PRD cover-letter-editor-responsive.
+  - Dark mode cannot be shown, since nothing adds `.dark`.
+  - The `ring-teal-500` focus contrast is a project-wide convention.
 
 Environment notes:
-- During one capture, the before bundle (53e3bf7, code this story does not change) timed out once at 180 s on one CV. The next run printed 14/14 in both bundles.
+- On an intermediate diff, the unrelated `e2e/job-cv-template-picker.spec.ts` (768 px) failed once in a full run. It passed 6/6 alone and in the final run.
+- One single-spec run timed out at 10 min on `next build` with no other process running; the retry passed.
 
 Commit:
 - Story commit: THIS_COMMIT
-- Commit message: ralph: US-002 The resume PDF prints every hyphen and punctuation mark
+- Commit message: ralph: US-001 A Preview button opens the letter in a full-screen window
+FINAL: PASS
+
+## US-002: Zoom controls in the preview window and the editor pane
+Status: PASS
+Priority: 2
+Branch: ralph/cover-letter-preview-and-card-language
+Baseline HEAD: 720bee8 (US-001)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix 3c43d40ddcd576ef, over the tracked src/e2e diff plus the five new files):
+  - New `src/lib/cover-letter-preview-zoom.ts` (69) + test (100, 9 tests):
+    - FR-3 bounds 25%–200% and 10-point steps, taken from the whole percentage shown: 63% goes in to 70% and out to 60%.
+    - `canZoomIn` / `canZoomOut`.
+    - Fit to width, at most `maxScale`; "show all" fits 816x1056.
+  - New `src/components/dashboard/cover-letter-zoom-controls.tsx` (136): the one shared group (FR-2).
+    - Zoom out, the visible %, zoom in, "show all" (lucide `Shrink`).
+    - 32px buttons with a mouse, 44px on coarse pointers; the bound button is `aria-disabled`, so it keeps focus.
+    - An sr-only "Zoom level: N%" always follows the current level.
+    - The polite live region is filled only after a press; it is keyed, so a same-level press re-announces.
+  - `src/components/dashboard/cover-letter-preview.tsx` (221/55): each preview owns its scroll area and its own zoom (AC-7).
+    - Variant `pane`: fit to width, at most 0.85, following resizes until the user zooms. Variant `window`: opens at "show all".
+    - The page frame is centred with `mx-auto`, so a page wider than the area keeps its left edge at scrollLeft 0.
+    - A stable scrollbar gutter; the area is measured with getBoundingClientRect, rounded down.
+    - "Show all" scrolls back to the top-left once the new scale is applied (a layout effect on a press counter).
+    - `data-testid="cover-letter-preview-page"`.
+  - `src/components/dashboard/cover-letter-preview-dialog.tsx` (9/15): the window uses `variant="window"`; its own scroll area moved into the preview, and focus still lands on it.
+  - `src/components/dashboard/cover-letter-editor.tsx` (11/2):
+    - The pane wrapper is a flex column with `data-testid="cover-letter-preview-pane"`.
+    - The editor root changes from `h-[calc(100vh-4rem)]` to `h-full`.
+  - `src/locales/{en,fr,de,it}/common.json` (5/0 each): `zoomControls`, `zoomOut`, `zoomIn`, `zoomFit`, `zoomLevel` (FR-7).
+  - New `e2e/fixtures/cover-letter-preview.ts` (63): seeding and measuring helpers shared by both preview specs.
+  - `e2e/cover-letter-preview-window.spec.ts` (4/56): uses the shared helpers. US-001 carry-overs closed: the page is found by test id, and the no-sideways-scroll check targets the preview's own scroll area.
+  - New `e2e/cover-letter-preview-zoom.spec.ts` (531), 5 tests:
+    - window and pane, each:
+      - the group is at the bottom-right and stays put while scrolling;
+      - ±10 steps, with the page's width following;
+      - both bounds disable their button (click, Enter and Space at 200% change nothing);
+      - at 200% every edge and the last line can be reached, with no more blank space below than the padding;
+      - "show all" pressed when scrolled to the end brings back the top-left and the whole first page;
+      - keyboard use and the focus ring;
+      - the current level is exposed and the live region announces;
+    - the window opens at "show all"; the pane starts at fit to width, at most 0.85, measured against the pane element and the scrollbar width it actually reserves (recorded as an annotation);
+    - independence, both ways, and on reopen;
+    - names and announcements in all four locales;
+    - the live region stays silent on load and on a 1280→1440→1280 resize;
+    - the pane's group lies inside the viewport at 1280x800 and 1440x900.
+- Not touched: the cards, titles and flags (US-003 to US-005), the exports, the templates, the database, the resume surfaces. No version change, no push or merge.
+- Temporary capture specs (e2e/zz-uiexp-z1 to z3) were run alone and deleted; none is in the diff.
+
+Checks:
+- Two full runs on intermediate diffs were stopped for review fixes (process trees killed with taskkill /T, port 3100 confirmed free). They are not evidence.
+- Final run (this diff, alone, started after the last edit; the diff hash is the same before and after the run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3097 passed, 5 skipped (US-001: 3088, plus the 9 zoom tests).
+  - pnpm test:integration: PASS — 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 467 passed, 0 failed (16.8 min).
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus captures of the production e2e build in scratchpad ux2, ux2b and ux2c:
+  - the pane at load, two steps in, scrolled to bottom-right, and at "show all" (fr/de at 1440/1280/1024);
+  - the window at "show all", one step in, at 200% and scrolled to bottom-right, at 25%, and with focus on a zoom button;
+  - "show all" pressed after scrolling to the end, in the pane and the window (de, 1440 and 1280);
+  - touch emulation at 768 and 375: the zoom-in button measured 44x44.
+- Visual: PASS.
+  - The pane starts with the same formula; the 2-point difference below is accepted by the owner.
+  - Parity unchanged.
+- Export: NOT_APPLICABLE — no export code or output changed; parity is unchanged.
+- Database: NOT_APPLICABLE.
+- Security: NOT_APPLICABLE — no route, data access or untrusted-input path changed.
+
+Agents:
+- senior-coder: implementation, then four fix rounds:
+  - The test read the visible width from `clientWidth`, which excludes the stable gutter; the test now measures where the browser stops.
+  - The pane's controls sat below the fold, because the editor root overflowed `<main>` by its padding.
+  - The ui-expert and code-review findings:
+    - "show all" kept the scroll position;
+    - 32px touch targets;
+    - an icon that read as "fullscreen";
+    - the pane test took its expectation from the box under test;
+    - the live region announced on every resize;
+    - fractional-pixel fits;
+    - no keyboard test at a bound.
+  - Screen readers could not read the current level, and a same-level press did not re-announce.
+- ui-expert:
+  - first pass FAIL: "show all" kept the scroll position, 32px touch targets, the fullscreen-looking icon, and the page-size question for the owner;
+  - re-validation PASS, 7/7 conditions;
+  - confirmed after the sr-only level text was added.
+- code-reviewer:
+  - first pass FAIL: the pane starting size, resize announcements, and stale evidence;
+  - second pass FAIL: the current level was not exposed, and the gutter decision was not owner-recorded;
+  - third pass PASS, gated on the suite (now green) and on this entry recording the owner's decision.
+
+Acceptance criteria:
+- AC-01 (a group at the bottom-right of the window and the pane, staying in place while scrolling): PASS — e2e, both surfaces; captures, with the pane's group inside the viewport at 1280 and 1440.
+- AC-02 (fixed steps within FR-3; the button at a bound is disabled): PASS — unit tests and e2e.
+- AC-03 ("show all" makes the whole first page visible in both dimensions): PASS — e2e, including after scrolling to the end; captures.
+- AC-04 (the full letter is reachable at any zoom; no blank space below beyond the padding): PASS — e2e at 200% and 25%.
+- AC-05 (the window opens at "show all"; the pane keeps fit to width, at most 85%): PASS — e2e; the pane's gutter difference is the owner-accepted decision below.
+- AC-06 (localized names, keyboard use, visible focus, polite announcement): PASS — e2e in four locales; focus capture; live region and level text tested.
+- AC-07 (pane and window zoom independently): PASS — e2e, both ways, and on reopen.
+- FR-1, FR-2, FR-3, FR-7: PASS.
+- Regression constraints: PASS, with the pane gutter accepted by the owner. PDF/Word, save, translation and the modals pass e2e; parity unchanged; resume and tools surfaces untouched.
+- FAIL and BLOCKER conditions: none triggered. "Show all" leaving part of the first page outside the area was fixed before PASS.
+
+Decision:
+- Owner, 2026-11-03, in chat (answer to the orchestrator's question): "show all" fits the whole first page, not the whole letter ("La première page seulement").
+  - The page is the template's own sheet, 816x1056 px (`w-[816px] min-h-[1056px]`, US Letter at 96 dpi, the size the PDF export prints).
+  - The PRD's word "A4" is left for the owner to correct.
+- Owner, 2026-11-03, in chat: the pane starts one scrollbar narrower than before ("Oui, j'accepte").
+  - Cause: the pane now scrolls and reserves a stable scrollbar gutter. The fit formula is unchanged, but the width it fits is narrower.
+  - Measured: about 15px on Windows with classic scrollbars (pane at 1440: about 70% before, 68% now); 0px in headless CI, which hides scrollbars.
+- The editor root changes from `h-[calc(100vh-4rem)]` to `h-full`.
+  - The old height was all of `<main>`, padding included, so the editor overflowed `<main>` by 48px from `sm` up (32px below) and pushed the pane's bottom-right below the fold. This had been so since the editor's first commit.
+  - Every editor column is now that much shorter, and each still scrolls on its own. It is needed for AC-01.
+- Bound buttons use `aria-disabled`, not `disabled`, so a keyboard user pressing up to a bound keeps focus on the button.
+
+Open owner decisions:
+- Correct "A4" in the PRD (FR-3, US-002) to the template's 816x1056 sheet, if wanted.
+- The editor at 375px: before this initiative the three-column editor was already wider than a phone (origin/main capture). The pane's zoom-out and "show all" are off-screen there; the window works at 375. This belongs to the draft PRD cover-letter-editor-responsive (ui-expert).
+- Focus-ring contrast: `ring-teal-500` is about 2.5:1 on white, a project-wide token (ui-expert, low).
+- Optional (code-reviewer, minor):
+  - After a press and a resize refit, the live region still holds the old level next to the current one.
+  - The e2e level check uses `toContain` on the group's snapshot. It is valid while the region is empty, which is the only place it is used.
+
+Environment notes:
+- Several single-spec builds took close to 10 minutes while a game (KSP_x64, about 5 GB) was running; three agent runs hit the 600s web-server timeout before any test ran. A later run with the machine idle passed.
+- The agents' Playwright runs were each made alone, with no other suite running.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 Zoom controls in the preview window and the editor pane
+FINAL: PASS
+
+## US-003: The card shows the default title in the letter's language
+Status: PASS
+Priority: 3
+Branch: ralph/cover-letter-preview-and-card-language
+Baseline HEAD: 0d7fc6c (US-002)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix 1e093b287bd86fad, over the tracked src/e2e diff plus the three new files):
+  - New `src/lib/cover-letter-title.ts` (102):
+    - `COVER_LETTER_DEFAULT_TITLES`: the four FR-5 patterns as code constants, beside `COVER_LETTER_WORDING`, since they follow the letter's language, not the page's.
+    - `buildDefaultCoverLetterTitle(language, jobTitle, company)`.
+    - `matchDefaultCoverLetterTitle(title, jobTitle, company)` returns `{ language, suffix } | null`.
+    - `displayCoverLetterTitle(letter, fallbackLocale)`.
+    - FR-6 rule:
+      - exact equality with a pattern built from the letter's own job title and company: case-sensitive, nothing trimmed;
+      - at most one suffix: one space then `(EN|FR|DE|IT)` in capitals;
+      - the whole title is tried first, so a company named "Acme (DE)" is not read as a suffix;
+      - a blank job title or company means a user title.
+    - The language comes from `coverLetterLanguage` (`src/lib/cover-letter-pdf-html.ts`), the function the PDF route, the Word route and the editor preview use (FR-4). It falls back to `toLocale(locale)`, the value the card's own PDF download sends.
+  - New `src/lib/cover-letter-title.test.ts` (190, 54 tests): all four languages; every suffix; user titles untouched (whitespace, case, en-dash, ` (Copy)`, lowercase, doubled or unknown suffix, another job title); a blank job title or company; regex characters; the "Acme (DE)" company; a pure-function mutation check.
+  - `src/components/dashboard/cover-letter-card.tsx` (10/1): the `<h3>` shows a memoised `displayTitle`. Duplicate still copies the stored title plus ` (Copy)`.
+  - New `e2e/cover-letter-card-title.spec.ts` (182), one test per locale (fr, en, de, it). Each seeds 8 letters:
+    - English defaults on French, German, Italian and English letters, with ` (DE)`, ` (IT)` and ` (EN)` suffixes;
+    - a German default on a German letter;
+    - an empty letter, which falls back to the page locale;
+    - "Meine Bewerbung bei Acme";
+    - "Cover Letter - Designer at Acme SA", a pattern naming another job.
+    - It asserts every heading, no non-GET request to `/rest/v1/cover_letters` or `/api/cover-letters` while viewing, and every stored title unchanged.
+- Not touched: the creation form and the translate route (US-004), the flag (US-005), the preview, the exports, the database, the resume surfaces. No version change, no push or merge.
+- Temporary capture spec (e2e/zz-uiexp-c1) was run alone and deleted; it is not in the diff.
+
+Checks:
+- Final run (this diff, alone, started after the last edit; the diff hash is the same before and after the run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3151 passed, 5 skipped (US-002: 3097, plus the 54 new tests).
+  - pnpm test:integration: PASS — 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 471 passed, 0 failed (17.0 min), including the 4 new tests.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus full-page captures of the production build: scratchpad ux3, cards-{fr,en,de,it}-{1440,375}.png.
+- Visual: PASS — only the heading text changes. In the same capture, the user-title cards render with the same size, weight and spacing as the rewritten-title cards. Parity unchanged.
+- Export: NOT_APPLICABLE — no export code or output changed.
+- Database: NOT_APPLICABLE — nothing is written; the e2e proves the stored titles are unchanged.
+- Security: NOT_APPLICABLE — no route or data access changed; the title is still rendered as React text.
+
+Agents:
+- senior-coder: implementation, with no fix rounds.
+- ui-expert: PASS, 7/7 conditions.
+- code-reviewer: PASS, no Critical or Major findings; gated on the suite, now green.
+
+Acceptance criteria:
+- AC-01 (an English default, with or without ` (XX)`, is shown in the letter's language, suffix hidden): PASS — unit tests, e2e in 4 locales, captures.
+- AC-02 (a default already in the letter's language is shown unchanged): PASS — the German-on-German case.
+- AC-03 (a non-default title is shown exactly as stored): PASS — two user-title cases and the unit edge cases.
+- AC-04 (the language is the PDF's, with the page locale as fallback): PASS — the same `coverLetterLanguage` function; the empty-letter case shows each page locale.
+- AC-05 (never written back): PASS — e2e: no write request, stored titles unchanged.
+- FR-4, FR-5, FR-6, FR-7: PASS (FR-7: no new UI string; the patterns are letter wording, as FR-5 lists them).
+- Regression constraints: PASS — the card's menu, badges, date, link and Duplicate are unchanged; e2e and parity green.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- FR-6 reading (code-reviewer, finding 1): any FR-5 pattern, in any language and with or without a suffix, is shown as the pattern in the letter's language, without the suffix.
+  - So a French default on a German letter shows the German title.
+  - `Anschreiben - X bei Y (DE)` on a German letter shows without ` (DE)`.
+  - AC-01 names only the English pattern. FR-6 says "one of the FR-5 patterns", and US-004 creates non-English defaults, which the cards must handle the same way.
+- Exact matching (no trim, case-sensitive) keeps a user's own title from ever being rewritten. A default title whose job title or company was edited afterwards no longer matches and is shown as stored, which is the PRD Risks section's intent.
+
+Open owner decisions:
+- None for this story.
+- Carried to US-004 (code-reviewer):
+  - The creation form trims the title and the job title separately, so its prefill must be built from trimmed values or it will not match itself.
+  - `translatedTitle` cuts long titles, so a cut default title no longer matches; the title length limit needs a test there.
+- Carried to US-005 (code-reviewer): `displayCoverLetterTitle` computes the language internally. The flag needs the same language, so expose it or pass it in, so the title and the flag cannot disagree.
+- Optional (code-reviewer, minor):
+  - a redundant blank-field guard in `displayCoverLetterTitle`;
+  - the e2e pairs seeded rows by insert order;
+  - the card now imports `cover-letter-pdf-html.ts` for `coverLetterLanguage`, about 21 KB of source before minification; moving the function into `cover-letter-language.ts` would avoid that.
+- Out of scope, existing before (ui-expert):
+  - Truncation hides the job and company in long default titles; the subtitle line still shows them.
+  - A title that fills the row touches the kebab icon.
+
+Environment notes:
+- None.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 The card shows the default title in the letter's language
+FINAL: PASS
+
+## US-004: New default titles are written in the letter's language
+Status: PASS
+Priority: 4
+Branch: ralph/cover-letter-preview-and-card-language
+Baseline HEAD: c28d94f (US-003)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix 4662a7d1354f4eee):
+  - `src/lib/cover-letter-title.ts` (29/0) + test (49/0): `buildNewDefaultCoverLetterTitle(language, jobTitle, company)`.
+    - Builds the FR-5 pattern within `COVER_LETTER_FIELD_LIMITS.title` (255).
+    - Over the limit: cut at 255 UTF-16 units (254 if a surrogate pair would split), then trailing whitespace trimmed. This is the rule `sanitizeUntrustedPlainText` applies to the from-job-application title.
+  - `src/app/[locale]/(dashboard)/dashboard/cover-letters/new/page.tsx` (13/1):
+    - The prefill is built on the server with `toLocale(locale)`, from the trimmed job title and company, and passed as `initialTitle`.
+    - The client form therefore does not import `@/lib/i18n`.
+    - An untouched prefill matches its own letter under FR-6, because both create paths store trimmed values.
+  - `src/components/dashboard/create-cover-letter-form.tsx` (7/3): the English literal is gone; the title starts from `initialTitle` and stays editable.
+  - `src/app/api/cover-letters/[id]/translate/letter-segments.ts` (20/0) + test (76/0): `translatedCopyTitle(original, target)`.
+    - It matches against the original's stored `job_title` and `company_name` (the US-003 matcher).
+    - A match gives the target-language default with no ` (XX)`; anything else gets the unchanged `translatedTitle`, the original plus ` (XX)`.
+    - Tests: every source language, with no suffix and each of the four suffixes, to every target; user titles (`(Copy)`, a double suffix, a case change, a trailing space, another job's default); a blank job title or company; the length limit.
+  - `src/app/api/cover-letters/[id]/translate/route.ts` (5/3) + test (27/1): the insert uses `translatedCopyTitle`. The route test covers four default-title originals and one user title.
+  - `e2e/cover-letter-from-job-application.spec.ts` (67/1), new test (n):
+    - Under en, fr, de and it, the prefill is the page locale's default, even from application values with surrounding whitespace.
+    - The field is editable, the request sends trimmed values, and the stored row has the title.
+    - Under fr, a typed title replaces the prefill.
+  - `e2e/cover-letter-translate.spec.ts` (42/1):
+    - DE under /fr on a French default gives the German default, with no suffix, in the database and in the editor.
+    - Via the API, an English default with ` (FR)` gives the German default, and `… (Copy)` gives `… (Copy) (DE)`.
+- Not touched: Duplicate, the card, the exports, the AI translation of the body, the flag (US-005), the database schema. No version change, no push or merge.
+- Temporary capture spec (e2e/zz-uiexp-t1) was run alone and deleted; it is not in the diff.
+
+Checks:
+- Final run (this diff, alone, started after the last edit; the diff hash is the same before and after each run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3254 passed, 5 skipped (US-003: 3151).
+  - pnpm test:integration: PASS — 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 478 passed, 0 failed (14.8 min), on a second full run.
+    - The first full run on this diff had 477 passed and 1 failed: `e2e/job-applications-i18n.spec.ts:492` (fr quick add; "Veuillez entrer une URL valide" not visible within 15 s). That page is not in this diff.
+    - The spec then passed 25/25 alone, and the whole suite was run again on the same diff hash.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus captures of the production build: scratchpad ux4, form-{en,fr,de,it}-{1440,375}.png. The prefill is correct in all four locales.
+- Visual: PASS — no markup or style change; only the field's value differs. Parity unchanged.
+- Export: NOT_APPLICABLE — no export code or output changed.
+- Database: NOT_APPLICABLE — no schema change. Only the value of the title the app already writes changes; the e2e checks the stored rows.
+- Security: PASS (code-reviewer's security assessment of the translate route):
+  - The title comes only from the owner's row, read with `.eq('user_id', user.id)` on top of RLS.
+  - The body adds only the zod-enum `targetLanguage`; AI output never reaches the title.
+  - No new output path, and the length is bounded.
+
+Agents:
+- senior-coder: implementation, with no fix rounds.
+- ui-expert: PASS, 5/7 conditions, the other 2 not applicable (no visual or interaction change).
+- code-reviewer: PASS, no Critical or Major findings; gated on the suite, now green.
+
+Acceptance criteria:
+- AC-01 (the prefill uses the page locale's default and stays editable): PASS — e2e (n) in 4 locales; captures.
+- AC-02 (a default title, with or without ` (XX)`, gives the target default with no suffix): PASS — unit, route and e2e tests.
+- AC-03 (a user title keeps today's original + ` (XX)`): PASS — unit, route and e2e tests.
+- AC-04 (the length limit): PASS — unit tests at, over and splitting at the limit.
+- FR-5, FR-6, FR-7: PASS. FR-7 adds no new UI string.
+- Regression constraints: PASS — Duplicate, card, exports and body translation unchanged; e2e and parity green.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- The prefill is built in the server page, not in the client form, so the form's bundle does not take on `@/lib/i18n`.
+- A default cut by the length limit no longer equals its pattern. FR-6 then treats it as a user title: shown as stored, and translated with ` (XX)`.
+- If the from-job-application route strips markup from a job title, the stored title can stop matching. It is then treated as a user title, which errs on the safe side.
+
+Open owner decisions:
+- None for this story.
+- ui-expert, out of scope (already on the page before this story):
+  - On `/cover-letters/new` in fr/de/it, the job-application banner reads "Creating cover letter for job application" (no `newDict.creatingForJob` text).
+  - "(optional)" is hardcoded in English.
+  - The back link reads "Back Cover Letters" / "Retour Lettres de motivation".
+  - A small i18n follow-up could fix all three.
+- code-reviewer, minor:
+  - `translatedTitle` cuts by code points and the new builder by UTF-16 units; both stay under the limit.
+  - Translating into the letter's own language keeps the same title, with no test pinning it; US-005's flag tells the two apart.
+  - A blank job title or company still gives a prefill with a double space. That predates this story and is treated as a user title.
+
+Environment notes:
+- One unrelated e2e failure in the first full run (above); it passed alone and in the second full run.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-004 New default titles are written in the letter's language
+FINAL: PASS
+
+## US-005: Each card shows a flag of the letter's language at its bottom-right
+Status: PASS
+Priority: 5
+Branch: ralph/cover-letter-preview-and-card-language
+Baseline HEAD: aa629ee (US-004)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix b60eda0cd74fa287, over the tracked src/e2e diff plus the new spec):
+  - `src/lib/cover-letter-title.ts` (22/10) + test (61/10):
+    - `coverLetterCardLanguage(letter, fallbackLocale)` wraps the PDF's `coverLetterLanguage` (FR-4).
+    - `displayCoverLetterTitle(letter, language)` now takes the language already resolved; its only caller is the card.
+    - The US-003 cases now resolve the language once, as the card does, with the same expectations.
+  - `src/components/dashboard/cover-letter-card.tsx` (36/6):
+    - One `useMemo` gives `letterLanguage`, read by both the title and the flag, so they cannot disagree.
+    - The flag is the `LANGUAGE_FLAG_OPTIONS` Flag for that code, inside a `role="img"` span.
+    - The span has an `aria-label`, a matching `title`, `data-language` and `data-testid="cover-letter-card-flag"`; the SVG stays `aria-hidden`.
+    - It is `absolute bottom-6 right-6`. The grid stretches every card in a row to the tallest one, so a flex row with the date would leave the flag above the bottom of a stretched card.
+    - The date row gets `pr-8`, so a long date cannot run under the flag. The kebab menu (`z-10`) paints over the flag.
+  - `src/locales/{en,fr,de,it}/common.json` (6/0 each): `coverLetters.cardLanguage.{en,fr,de,it}`, for example fr "Langue : allemand", en "Language: German", de "Sprache: Deutsch", it "Lingua: tedesco" (FR-7).
+  - New `e2e/cover-letter-card-flag.spec.ts` (268). Under /fr, /en, /de and /it, with fr/en/de/it letters, an empty letter and a user title on a German letter:
+    - exactly one flag per card, with the right `data-language`, and the title in the same language;
+    - the SVG's `outerHTML` equals the editor's translation button for that code, and GB contains `#012169`;
+    - the localized name and tooltip;
+    - at 1440, 1024, 768 and 375: inside the card's bottom-right padding, overlapping neither the title, the date, the kebab nor the badges row (seeded with a score);
+    - the open menu covers the flag, and Escape returns focus.
+- Not touched: the preview, the exports, the database, the resume surfaces, the creation form, the translate route. No version change, no push or merge.
+- Temporary capture spec (e2e/zz-uiexp-f1) was run alone and deleted; it is not in the diff.
+
+Checks:
+- Final evidence (this diff; the diff hash b60eda0cd74fa287 is the same before and after every run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3270 passed, 5 skipped (US-004: 3254).
+  - pnpm test:integration: PASS — 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 482 passed, 0 failed (13.7 min), on the third full run.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0, on the second run.
+- Earlier runs on the same diff hash:
+  - Full run 1:
+    - e2e 481/1: `cover-letter-translate.spec.ts:240` (de keyboard) timed out at login (`waitForURL` 30 s).
+    - parity 5 failed: `collect · font-not-chosen · professional` timed out loading `/en/login` (60 s), and its 3 rows and the report depended on it.
+  - Full e2e run 2: 480/2, both in `resume-pdf-route.spec.ts`:
+    - `:333` timed out on `page.fill` (15 s);
+    - `:372`, creative, extracted "V I S U A L" instead of "VISUAL" from the Preview print, most likely a font that had not loaded yet.
+  - None of these specs or surfaces is in this diff. `resume-pdf-route` and `cover-letter-translate` then passed 34/34 alone, before the green full run 3.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus captures of the production build in scratchpad ux5:
+  - cards-{fr,en,de,it}-{1440,1024,375}.png;
+  - hover-it-{1440,1024,375}.png;
+  - menu-open-fr-1440.png.
+- Visual: PASS.
+  - Card heights and positions match the US-003 captures (ux3) pixel for pixel; the flag is absolutely positioned and moves nothing.
+  - Parity unchanged.
+- Export: NOT_APPLICABLE.
+- Database: NOT_APPLICABLE.
+- Security: NOT_APPLICABLE — no route or data access changed; the flag is static markup.
+
+Agents:
+- senior-coder: implementation. One layout fix before handover, found by its own e2e: an inline flag sat above the bottom of stretched cards.
+- ui-expert: PASS, 7/7 conditions.
+- code-reviewer: PASS, no Critical or Major findings; gated on the suite, now green.
+
+Acceptance criteria:
+- AC-01 (exactly one flag at the bottom-right, the translation buttons' SVG for that language): PASS — e2e count, `data-language` and `outerHTML` identity; captures.
+- AC-02 (the same language as US-003): PASS — computed once in the card; e2e pairs the title text with the flag in every case.
+- AC-03 (a localized accessible name and a matching tooltip): PASS — e2e per locale (`getByRole('img', { name })` and `title`). The native tooltip does not appear in screenshots, so the e2e attribute check is the evidence.
+- AC-04 (no overlap with the title, badges, date or menu, 375 px included): PASS — e2e geometry at 4 widths; captures.
+- FR-4, FR-7: PASS.
+- Regression constraints: PASS — the menu, Escape, badges, date, title link and Duplicate are unchanged; e2e and parity green.
+- FAIL and BLOCKER conditions: none triggered. The flag comes from `language-flags.tsx`, and its language is the one the PDF prints in.
+
+Decision:
+- The flag is positioned absolutely, not in a flex row with the date, because the grid stretches cards to the tallest in their row.
+- A card with a user title now runs language detection too, which it skipped in US-003; the flag needs the language either way.
+
+Open owner decisions:
+- None for this story.
+- code-reviewer observation, not this story's defect: the kebab toggle has no accessible name. It predates this branch. Whether the PRD-wide condition "Any control lacks a localized accessible name" covers controls that existed before the PRD is the owner's call.
+- Optional (code-reviewer, minor):
+  - make the flag lookup exhaustive at compile time (`Record<CoverLetterLanguage, …>`);
+  - an e2e case with a long linked-resume badge;
+  - the e2e test's DOM-order selectors.
+- ui-expert, observations:
+  - The tooltip is native `title`, so it never appears in a capture.
+  - No capture shows a card with badges; the e2e geometry covers it.
+
+Environment notes:
+- The e2e and parity failures on the same diff are listed under Checks. They were login or page-load timeouts and one PDF text extraction taken before the font loaded, all in specs this diff does not touch, while full runs took about 14 minutes.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-005 Each card shows a flag of the letter's language at its bottom-right
 FINAL: PASS

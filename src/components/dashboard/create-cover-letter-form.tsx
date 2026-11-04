@@ -13,6 +13,12 @@ interface CreateCoverLetterFormProps {
   resumes: { id: string; title: string }[]
   jobApplication?: JobApplication | null
   initialResumeId?: string
+  /**
+   * The title the form starts with: for a job application, the default title
+   * in the page's locale, built on the server (`buildNewDefaultCoverLetterTitle`)
+   * so this client bundle does not load the language helpers. Editable.
+   */
+  initialTitle: string
 }
 
 export function CreateCoverLetterForm({
@@ -21,6 +27,7 @@ export function CreateCoverLetterForm({
   resumes,
   jobApplication,
   initialResumeId: initialResumeIdProp,
+  initialTitle,
 }: CreateCoverLetterFormProps) {
   const router = useRouter()
 
@@ -33,9 +40,6 @@ export function CreateCoverLetterForm({
   // Pre-fill from job application if provided
   const initialCompany = jobApplication?.company_name || ''
   const initialJobTitle = jobApplication?.job_title || ''
-  const initialTitle = jobApplication
-    ? `Cover Letter - ${initialJobTitle} at ${initialCompany}`
-    : ''
 
   const [title, setTitle] = useState(initialTitle)
   const [companyName, setCompanyName] = useState(initialCompany)

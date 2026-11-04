@@ -31,7 +31,10 @@ import de from '../src/locales/de/common.json'
  *     create no letter.
  *   - Keyboard: Tab reaches the flags in order, Enter translates.
  *
- * And, once: another user's letter id answers 404 and creates nothing.
+ * And, once: another user's letter id answers 404 and creates nothing; and a
+ * letter whose title is a default title (FR-6) gives a copy titled with the
+ * German default, without the "(DE)" suffix, while a user title keeps the
+ * suffix (cover-letter-preview-and-card-language, US-004).
  */
 
 const SUPABASE_URL = process.env.TEST_SUPABASE_URL ?? LOCAL_SUPABASE_URL
@@ -314,4 +317,42 @@ test("another user's letter id is refused with 404 and creates nothing", async (
   } finally {
     await deleteTestUser(other.id)
   }
+})
+
+test.describe('the translated copy of a default-titled letter', () => {
+  const FRENCH_DEFAULT = `Lettre de motivation - ${FRENCH_LETTER.job_title} chez ${FRENCH_LETTER.company_name}`
+  const GERMAN_DEFAULT = `Anschreiben - ${FRENCH_LETTER.job_title} bei ${FRENCH_LETTER.company_name}`
+
+  test('clicking DE under /fr gives the German default title, with no suffix', async ({ page, authedUser }) => {
+    const seeded = await seedLinkedLetter(authedUser.id, { title: FRENCH_DEFAULT })
+    await openEditor(page, 'fr', seeded.letterId)
+
+    await flag(page, 'fr', 'de').click()
+    await page.waitForURL((url) => /\/dashboard\/cover-letters\/[^/]+\/edit$/.test(url.pathname) && !url.pathname.includes(seeded.letterId))
+
+    const copy = (await lettersOf(authedUser.id)).find((row) => row.id !== seeded.letterId)!
+    expect(copy).toMatchObject({
+      title: GERMAN_DEFAULT,
+      job_title: FRENCH_LETTER.job_title,
+      company_name: FRENCH_LETTER.company_name,
+    })
+    expect((await letter(seeded.letterId)).title).toBe(FRENCH_DEFAULT)
+    await expect(page.getByPlaceholder(fr.coverLetters.editor.titlePlaceholder)).toHaveValue(GERMAN_DEFAULT)
+  })
+
+  test('a suffixed English default gives the German default; a user title keeps the suffix', async ({ page, authedUser }) => {
+    const english = await seedLinkedLetter(authedUser.id, {
+      title: `Cover Letter - ${FRENCH_LETTER.job_title} at ${FRENCH_LETTER.company_name} (FR)`,
+    })
+    const response = await requestTranslation(page, english.letterId)
+    expect(response.status()).toBe(201)
+    const { coverLetterId } = (await response.json()) as { coverLetterId: string }
+    expect((await letter(coverLetterId)).title).toBe(GERMAN_DEFAULT)
+
+    const user = await seedLinkedLetter(authedUser.id, { title: `${FRENCH_DEFAULT} (Copy)` })
+    const userResponse = await requestTranslation(page, user.letterId)
+    expect(userResponse.status()).toBe(201)
+    const { coverLetterId: userCopyId } = (await userResponse.json()) as { coverLetterId: string }
+    expect((await letter(userCopyId)).title).toBe(`${FRENCH_DEFAULT} (Copy) (DE)`)
+  })
 })

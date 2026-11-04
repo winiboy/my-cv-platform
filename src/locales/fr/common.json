@@ -501,6 +501,12 @@
     "downloadWord": "Télécharger Word",
     "downloadWordError": "Le fichier Word n'a pas pu être créé. Veuillez réessayer.",
     "confirmDelete": "Êtes-vous sûr de vouloir supprimer cette lettre de motivation ?",
+    "cardLanguage": {
+      "en": "Langue : anglais",
+      "fr": "Langue : français",
+      "de": "Langue : allemand",
+      "it": "Langue : italien"
+    },
     "jobAssociation": {
       "linkedJob": "Emploi lié",
       "viewJob": "Voir l'emploi",
@@ -561,6 +567,15 @@
       "downloadWord": "Word",
       "downloadingWord": "Création du fichier Word...",
       "saveBeforeDownloadWord": "Enregistrez d'abord vos modifications : le fichier Word est créé à partir de la lettre enregistrée.",
+      "preview": "Aperçu",
+      "previewTitle": "Aperçu de la lettre",
+      "closePreview": "Fermer l'aperçu",
+      "previewScrollArea": "Lettre, défilable",
+      "zoomControls": "Zoom",
+      "zoomOut": "Zoom arrière",
+      "zoomIn": "Zoom avant",
+      "zoomFit": "Tout afficher",
+      "zoomLevel": "Niveau de zoom : {percent} %",
       "translate": {
         "label": "Traduire",
         "to": {

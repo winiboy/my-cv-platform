@@ -3,7 +3,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { ArrowLeft, Briefcase } from 'lucide-react'
 import Link from 'next/link'
-import { getTranslations, type Locale } from '@/lib/i18n'
+import { getTranslations, toLocale, type Locale } from '@/lib/i18n'
+import { buildNewDefaultCoverLetterTitle } from '@/lib/cover-letter-title'
 import type { JobApplication } from '@/types/database'
 
 interface NewCoverLetterPageProps {
@@ -48,6 +49,16 @@ export default async function NewCoverLetterPage({
     .select('id, title')
     .eq('user_id', user.id)
     .order('updated_at', { ascending: false })
+
+  // Built from the trimmed job title and company, which is what the form
+  // submits for them, so an untouched title stays a default title (FR-6).
+  const initialTitle = jobApplication
+    ? buildNewDefaultCoverLetterTitle(
+        toLocale(locale),
+        jobApplication.job_title?.trim() ?? '',
+        jobApplication.company_name?.trim() ?? ''
+      )
+    : ''
 
   const coverLettersDict = (dict.coverLetters || {}) as Record<string, unknown>
   const newDict = (coverLettersDict.new || {}) as Record<string, unknown>
@@ -96,6 +107,7 @@ export default async function NewCoverLetterPage({
         resumes={resumes || []}
         jobApplication={jobApplication}
         initialResumeId={resume_id}
+        initialTitle={initialTitle}
       />
     </div>
   )

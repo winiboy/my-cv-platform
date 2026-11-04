@@ -501,6 +501,12 @@
     "downloadWord": "Word herunterladen",
     "downloadWordError": "Die Word-Datei konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
     "confirmDelete": "Möchten Sie dieses Anschreiben wirklich löschen?",
+    "cardLanguage": {
+      "en": "Sprache: Englisch",
+      "fr": "Sprache: Französisch",
+      "de": "Sprache: Deutsch",
+      "it": "Sprache: Italienisch"
+    },
     "jobAssociation": {
       "linkedJob": "Verknüpfte Stelle",
       "viewJob": "Stelle anzeigen",
@@ -561,6 +567,15 @@
       "downloadWord": "Word",
       "downloadingWord": "Word-Datei wird erstellt...",
       "saveBeforeDownloadWord": "Speichern Sie zuerst Ihre Änderungen: Die Word-Datei wird aus dem gespeicherten Anschreiben erstellt.",
+      "preview": "Vorschau",
+      "previewTitle": "Briefvorschau",
+      "closePreview": "Vorschau schließen",
+      "previewScrollArea": "Brief, scrollbar",
+      "zoomControls": "Zoom",
+      "zoomOut": "Verkleinern",
+      "zoomIn": "Vergrößern",
+      "zoomFit": "Alles anzeigen",
+      "zoomLevel": "Zoomstufe: {percent} %",
       "translate": {
         "label": "Übersetzen",
         "to": {

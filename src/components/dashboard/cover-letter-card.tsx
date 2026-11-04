@@ -8,6 +8,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useCoverLetterDownload, type CoverLetterDownloadResult } from '@/lib/hooks/use-cover-letter-download'
 import { JobLinkBadge } from '@/components/dashboard/entity-link-badge'
+import { coverLetterCardLanguage, displayCoverLetterTitle } from '@/lib/cover-letter-title'
+import { toLocale } from '@/lib/i18n'
+import { LANGUAGE_FLAG_OPTIONS } from '@/components/ui/language-flags'
 
 const HOVER_DISMISS_DELAY_MS = 200
 
@@ -111,6 +114,22 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
     [dict.coverLetters]
   )
   const commonDict = (dict.common || {}) as Record<string, unknown>
+
+  // Resolved once and shared by the title and the flag, so the two cannot
+  // disagree. Memoised because it runs language detection over the letter's
+  // paragraphs, which need not repeat on every menu toggle.
+  const letterLanguage = useMemo(
+    () => coverLetterCardLanguage(coverLetter, toLocale(locale)),
+    [coverLetter, locale]
+  )
+  const displayTitle = useMemo(
+    () => displayCoverLetterTitle(coverLetter, letterLanguage),
+    [coverLetter, letterLanguage]
+  )
+  const LanguageFlag = LANGUAGE_FLAG_OPTIONS.find(({ code }) => code === letterLanguage)?.Flag
+  const languageLabel =
+    ((coverLettersDict.cardLanguage as Record<string, string> | undefined)?.[letterLanguage]) ||
+    `Language: ${letterLanguage.toUpperCase()}`
 
   const handleDelete = async () => {
     const confirmMsg = (coverLettersDict.confirmDelete as string) || 'Are you sure you want to delete this cover letter?'
@@ -295,7 +314,7 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
             <FileText className="h-6 w-6 text-purple-600 dark:text-purple-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-lg mb-1 truncate">{coverLetter.title}</h3>
+            <h3 className="font-semibold text-lg mb-1 truncate">{displayTitle}</h3>
             {coverLetter.company_name && (
               <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
                 {coverLetter.company_name}
@@ -343,9 +362,29 @@ export function CoverLetterCard({ coverLetter, locale, dict, linkedResumeName, l
         </div>
       )}
 
-      <div className="text-xs text-slate-500 dark:text-slate-500">
+      {/* pr-8 reserves the flag's corner, so a long date never runs under it. */}
+      <div className="pr-8 text-xs text-slate-500 dark:text-slate-500">
         {(coverLettersDict.updated as string) || 'Updated'} {formatDate(coverLetter.updated_at)}
       </div>
+
+      {/*
+        Anchored to the card, not to the content flow: the grid stretches the
+        cards of a row to one height, so the last content row is not always at
+        the card's bottom. h-4 is the date's line height, so the flag sits on
+        the date's line when the card is not stretched.
+      */}
+      {LanguageFlag && (
+        <span
+          role="img"
+          aria-label={languageLabel}
+          title={languageLabel}
+          data-language={letterLanguage}
+          data-testid="cover-letter-card-flag"
+          className="absolute bottom-6 right-6 flex h-4 items-center"
+        >
+          <LanguageFlag />
+        </span>
+      )}
     </div>
   )
 }

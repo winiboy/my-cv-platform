@@ -501,6 +501,12 @@
     "downloadWord": "Scarica Word",
     "downloadWordError": "Non è stato possibile creare il file Word. Riprova.",
     "confirmDelete": "Sei sicuro di voler eliminare questa lettera di presentazione?",
+    "cardLanguage": {
+      "en": "Lingua: inglese",
+      "fr": "Lingua: francese",
+      "de": "Lingua: tedesco",
+      "it": "Lingua: italiano"
+    },
     "jobAssociation": {
       "linkedJob": "Lavoro collegato",
       "viewJob": "Visualizza lavoro",
@@ -561,6 +567,15 @@
       "downloadWord": "Word",
       "downloadingWord": "Creazione del file Word...",
       "saveBeforeDownloadWord": "Salva prima le modifiche: il file Word viene creato dalla lettera salvata.",
+      "preview": "Anteprima",
+      "previewTitle": "Anteprima della lettera",
+      "closePreview": "Chiudi anteprima",
+      "previewScrollArea": "Lettera, scorrevole",
+      "zoomControls": "Zoom",
+      "zoomOut": "Riduci",
+      "zoomIn": "Ingrandisci",
+      "zoomFit": "Mostra tutto",
+      "zoomLevel": "Livello di zoom: {percent}%",
       "translate": {
         "label": "Traduci",
         "to": {

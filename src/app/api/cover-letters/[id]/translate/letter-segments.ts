@@ -1,6 +1,8 @@
 import type { TranslationLanguage } from '@/lib/ai/prompts'
+import type { CoverLetter } from '@/types/database'
 import { coverLetterBodyParagraphs, type CoverLetterPdfFields } from '@/lib/cover-letter-pdf-html'
 import { COVER_LETTER_FIELD_LIMITS, COVER_LETTER_PDF_GUARD } from '@/lib/cover-letter-limits'
+import { buildNewDefaultCoverLetterTitle, matchDefaultCoverLetterTitle } from '@/lib/cover-letter-title'
 import { escapeHtml } from '@/lib/escape-html'
 import { sanitizeUntrustedPlainText, sanitizeUntrustedRichText } from '@/lib/resume-from-job/untrusted-text'
 import {
@@ -323,4 +325,22 @@ export function translatedTitle(title: string, targetLanguage: TranslationLangua
     .slice(0, COVER_LETTER_FIELD_LIMITS.title - suffix.length)
     .join('')
   return `${base}${suffix}`.trim()
+}
+
+/** The original's columns a translated copy's title is derived from. */
+export type TranslatedCopyTitleFields = Pick<CoverLetter, 'title' | 'job_title' | 'company_name'>
+
+/**
+ * The title of a translated copy (PRD `cover-letter-preview-and-card-language`,
+ * US-004). An original whose title is a default title (FR-6, matched against
+ * its own stored job title and company, in any language, with or without a
+ * ` (XX)` suffix) gives the default title in the target language, with no
+ * suffix. Any other title is the user's: it keeps today's `translatedTitle`.
+ */
+export function translatedCopyTitle(original: TranslatedCopyTitleFields, targetLanguage: TranslationLanguage): string {
+  const { title, job_title: jobTitle, company_name: company } = original
+  if (jobTitle && company && matchDefaultCoverLetterTitle(title, jobTitle, company)) {
+    return buildNewDefaultCoverLetterTitle(targetLanguage, jobTitle, company)
+  }
+  return translatedTitle(title, targetLanguage)
 }
