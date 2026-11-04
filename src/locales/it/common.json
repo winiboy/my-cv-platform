@@ -501,6 +501,12 @@
     "downloadWord": "Scarica Word",
     "downloadWordError": "Non è stato possibile creare il file Word. Riprova.",
     "confirmDelete": "Sei sicuro di voler eliminare questa lettera di presentazione?",
+    "cardLanguage": {
+      "en": "Lingua: inglese",
+      "fr": "Lingua: francese",
+      "de": "Lingua: tedesco",
+      "it": "Lingua: italiano"
+    },
     "jobAssociation": {
       "linkedJob": "Lavoro collegato",
       "viewJob": "Visualizza lavoro",

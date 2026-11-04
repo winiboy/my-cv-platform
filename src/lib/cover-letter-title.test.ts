@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { CoverLetterLanguage } from './cover-letter-language'
 import { COVER_LETTER_FIELD_LIMITS } from './cover-letter-limits'
+import { coverLetterLanguage } from './cover-letter-pdf-html'
 import {
   COVER_LETTER_DEFAULT_TITLES,
   buildDefaultCoverLetterTitle,
   buildNewDefaultCoverLetterTitle,
+  coverLetterCardLanguage,
   displayCoverLetterTitle,
   matchDefaultCoverLetterTitle,
   type CoverLetterTitleFields,
@@ -41,6 +43,55 @@ function letter(overrides: Partial<CoverLetterTitleFields>): CoverLetterTitleFie
     ...overrides,
   }
 }
+
+/** The title a card shows: its language resolved once, as the card does. */
+function cardTitle(input: CoverLetterTitleFields, page: CoverLetterLanguage): string {
+  return displayCoverLetterTitle(input, coverLetterCardLanguage(input, page))
+}
+
+describe('coverLetterCardLanguage', () => {
+  it.each(LANGUAGES)('resolves a %s letter to its language, whatever the page locale', (language) => {
+    for (const page of LANGUAGES) {
+      expect(coverLetterCardLanguage(letter({ opening_paragraph: PARAGRAPH[language] }), page)).toBe(language)
+    }
+  })
+
+  it('reads the body and the closing too', () => {
+    expect(coverLetterCardLanguage(letter({ body_paragraphs: [PARAGRAPH.de] }), 'fr')).toBe('de')
+    expect(coverLetterCardLanguage(letter({ closing_paragraph: PARAGRAPH.it }), 'en')).toBe('it')
+  })
+
+  it.each(LANGUAGES)("falls back to the %s page's locale when the letter has no text", (page) => {
+    expect(coverLetterCardLanguage(letter({}), page)).toBe(page)
+  })
+
+  it('is the language the PDF and Word exports use', () => {
+    for (const language of LANGUAGES) {
+      for (const page of LANGUAGES) {
+        for (const input of [letter({ opening_paragraph: PARAGRAPH[language] }), letter({})]) {
+          expect(coverLetterCardLanguage(input, page)).toBe(coverLetterLanguage(input, page))
+        }
+      }
+    }
+  })
+
+  it('does not depend on the title, so a user title gets a flag too', () => {
+    const input = letter({ title: 'Meine Bewerbung', opening_paragraph: PARAGRAPH.de })
+    expect(coverLetterCardLanguage(input, 'en')).toBe('de')
+  })
+})
+
+describe('displayCoverLetterTitle with a resolved language', () => {
+  it.each(LANGUAGES)('builds a default title in the %s language it is given', (language) => {
+    expect(displayCoverLetterTitle(letter({ title: `${EXPECTED.en} (DE)` }), language)).toBe(EXPECTED[language])
+  })
+
+  it('returns a user title as stored, whatever the language', () => {
+    for (const language of LANGUAGES) {
+      expect(displayCoverLetterTitle(letter({ title: 'My letter' }), language)).toBe('My letter')
+    }
+  })
+})
 
 describe('buildDefaultCoverLetterTitle', () => {
   it.each(LANGUAGES)('builds the FR-5 pattern in %s', (language) => {
@@ -138,7 +189,7 @@ describe('matchDefaultCoverLetterTitle', () => {
 describe('displayCoverLetterTitle', () => {
   it.each(LANGUAGES)('shows the English default title of a %s letter in that language', (language) => {
     for (const page of LANGUAGES) {
-      expect(displayCoverLetterTitle(letter({ opening_paragraph: PARAGRAPH[language] }), page)).toBe(
+      expect(cardTitle(letter({ opening_paragraph: PARAGRAPH[language] }), page)).toBe(
         EXPECTED[language],
       )
     }
@@ -146,13 +197,13 @@ describe('displayCoverLetterTitle', () => {
 
   it.each(LANGUAGES)('drops a translation suffix from a %s letter', (language) => {
     const title = `${EXPECTED.en} (${language.toUpperCase()})`
-    expect(displayCoverLetterTitle(letter({ title, body_paragraphs: [PARAGRAPH[language]] }), 'en')).toBe(
+    expect(cardTitle(letter({ title, body_paragraphs: [PARAGRAPH[language]] }), 'en')).toBe(
       EXPECTED[language],
     )
   })
 
   it.each(LANGUAGES)('keeps a default title already in the %s letter language', (language) => {
-    const shown = displayCoverLetterTitle(
+    const shown = cardTitle(
       letter({ title: EXPECTED[language], closing_paragraph: PARAGRAPH[language] }),
       'en',
     )
@@ -160,33 +211,33 @@ describe('displayCoverLetterTitle', () => {
   })
 
   it('reads the opening, the body and the closing, as the PDF does', () => {
-    expect(displayCoverLetterTitle(letter({ body_paragraphs: [PARAGRAPH.de] }), 'fr')).toBe(EXPECTED.de)
-    expect(displayCoverLetterTitle(letter({ closing_paragraph: PARAGRAPH.it }), 'fr')).toBe(EXPECTED.it)
+    expect(cardTitle(letter({ body_paragraphs: [PARAGRAPH.de] }), 'fr')).toBe(EXPECTED.de)
+    expect(cardTitle(letter({ closing_paragraph: PARAGRAPH.it }), 'fr')).toBe(EXPECTED.it)
   })
 
   it.each(LANGUAGES)("falls back to the %s page's locale when the letter has no text", (page) => {
-    expect(displayCoverLetterTitle(letter({}), page)).toBe(EXPECTED[page])
+    expect(cardTitle(letter({}), page)).toBe(EXPECTED[page])
   })
 
   it.each(LANGUAGES)('shows a user title exactly as stored, for a %s letter', (language) => {
     for (const title of ['Ma lettre pour Acme', `${EXPECTED.en} `, `${EXPECTED.en} (Copy)`, '']) {
-      expect(displayCoverLetterTitle(letter({ title, opening_paragraph: PARAGRAPH[language] }), 'en')).toBe(title)
+      expect(cardTitle(letter({ title, opening_paragraph: PARAGRAPH[language] }), 'en')).toBe(title)
     }
   })
 
   it('shows the stored title when the job title or company is missing', () => {
     expect(
-      displayCoverLetterTitle(letter({ job_title: null, opening_paragraph: PARAGRAPH.de }), 'en'),
+      cardTitle(letter({ job_title: null, opening_paragraph: PARAGRAPH.de }), 'en'),
     ).toBe(EXPECTED.en)
     expect(
-      displayCoverLetterTitle(letter({ company_name: '', opening_paragraph: PARAGRAPH.de }), 'en'),
+      cardTitle(letter({ company_name: '', opening_paragraph: PARAGRAPH.de }), 'en'),
     ).toBe(EXPECTED.en)
   })
 
   it('does not change the letter it is given', () => {
     const input = letter({ title: `${EXPECTED.en} (DE)`, opening_paragraph: PARAGRAPH.de })
     const snapshot = structuredClone(input)
-    displayCoverLetterTitle(input, 'en')
+    cardTitle(input, 'en')
     expect(input).toEqual(snapshot)
   })
 })

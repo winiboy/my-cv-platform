@@ -501,6 +501,12 @@
     "downloadWord": "Word herunterladen",
     "downloadWordError": "Die Word-Datei konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
     "confirmDelete": "Möchten Sie dieses Anschreiben wirklich löschen?",
+    "cardLanguage": {
+      "en": "Sprache: Englisch",
+      "fr": "Sprache: Französisch",
+      "de": "Sprache: Deutsch",
+      "it": "Sprache: Italienisch"
+    },
     "jobAssociation": {
       "linkedJob": "Verknüpfte Stelle",
       "viewJob": "Stelle anzeigen",

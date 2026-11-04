@@ -261,7 +261,7 @@
         "Out of scope: Remembering the zoom level between visits."
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

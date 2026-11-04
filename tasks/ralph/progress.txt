@@ -430,3 +430,99 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-004 New default titles are written in the letter's language
 FINAL: PASS
+
+## US-005: Each card shows a flag of the letter's language at its bottom-right
+Status: PASS
+Priority: 5
+Branch: ralph/cover-letter-preview-and-card-language
+Baseline HEAD: aa629ee (US-004)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix b60eda0cd74fa287, over the tracked src/e2e diff plus the new spec):
+  - `src/lib/cover-letter-title.ts` (22/10) + test (61/10):
+    - `coverLetterCardLanguage(letter, fallbackLocale)` wraps the PDF's `coverLetterLanguage` (FR-4).
+    - `displayCoverLetterTitle(letter, language)` now takes the language already resolved; its only caller is the card.
+    - The US-003 cases now resolve the language once, as the card does, with the same expectations.
+  - `src/components/dashboard/cover-letter-card.tsx` (36/6):
+    - One `useMemo` gives `letterLanguage`, read by both the title and the flag, so they cannot disagree.
+    - The flag is the `LANGUAGE_FLAG_OPTIONS` Flag for that code, inside a `role="img"` span.
+    - The span has an `aria-label`, a matching `title`, `data-language` and `data-testid="cover-letter-card-flag"`; the SVG stays `aria-hidden`.
+    - It is `absolute bottom-6 right-6`. The grid stretches every card in a row to the tallest one, so a flex row with the date would leave the flag above the bottom of a stretched card.
+    - The date row gets `pr-8`, so a long date cannot run under the flag. The kebab menu (`z-10`) paints over the flag.
+  - `src/locales/{en,fr,de,it}/common.json` (6/0 each): `coverLetters.cardLanguage.{en,fr,de,it}`, for example fr "Langue : allemand", en "Language: German", de "Sprache: Deutsch", it "Lingua: tedesco" (FR-7).
+  - New `e2e/cover-letter-card-flag.spec.ts` (268). Under /fr, /en, /de and /it, with fr/en/de/it letters, an empty letter and a user title on a German letter:
+    - exactly one flag per card, with the right `data-language`, and the title in the same language;
+    - the SVG's `outerHTML` equals the editor's translation button for that code, and GB contains `#012169`;
+    - the localized name and tooltip;
+    - at 1440, 1024, 768 and 375: inside the card's bottom-right padding, overlapping neither the title, the date, the kebab nor the badges row (seeded with a score);
+    - the open menu covers the flag, and Escape returns focus.
+- Not touched: the preview, the exports, the database, the resume surfaces, the creation form, the translate route. No version change, no push or merge.
+- Temporary capture spec (e2e/zz-uiexp-f1) was run alone and deleted; it is not in the diff.
+
+Checks:
+- Final evidence (this diff; the diff hash b60eda0cd74fa287 is the same before and after every run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3270 passed, 5 skipped (US-004: 3254).
+  - pnpm test:integration: PASS — 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 482 passed, 0 failed (13.7 min), on the third full run.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0, on the second run.
+- Earlier runs on the same diff hash:
+  - Full run 1:
+    - e2e 481/1: `cover-letter-translate.spec.ts:240` (de keyboard) timed out at login (`waitForURL` 30 s).
+    - parity 5 failed: `collect · font-not-chosen · professional` timed out loading `/en/login` (60 s), and its 3 rows and the report depended on it.
+  - Full e2e run 2: 480/2, both in `resume-pdf-route.spec.ts`:
+    - `:333` timed out on `page.fill` (15 s);
+    - `:372`, creative, extracted "V I S U A L" instead of "VISUAL" from the Preview print, most likely a font that had not loaded yet.
+  - None of these specs or surfaces is in this diff. `resume-pdf-route` and `cover-letter-translate` then passed 34/34 alone, before the green full run 3.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus captures of the production build in scratchpad ux5:
+  - cards-{fr,en,de,it}-{1440,1024,375}.png;
+  - hover-it-{1440,1024,375}.png;
+  - menu-open-fr-1440.png.
+- Visual: PASS.
+  - Card heights and positions match the US-003 captures (ux3) pixel for pixel; the flag is absolutely positioned and moves nothing.
+  - Parity unchanged.
+- Export: NOT_APPLICABLE.
+- Database: NOT_APPLICABLE.
+- Security: NOT_APPLICABLE — no route or data access changed; the flag is static markup.
+
+Agents:
+- senior-coder: implementation. One layout fix before handover, found by its own e2e: an inline flag sat above the bottom of stretched cards.
+- ui-expert: PASS, 7/7 conditions.
+- code-reviewer: PASS, no Critical or Major findings; gated on the suite, now green.
+
+Acceptance criteria:
+- AC-01 (exactly one flag at the bottom-right, the translation buttons' SVG for that language): PASS — e2e count, `data-language` and `outerHTML` identity; captures.
+- AC-02 (the same language as US-003): PASS — computed once in the card; e2e pairs the title text with the flag in every case.
+- AC-03 (a localized accessible name and a matching tooltip): PASS — e2e per locale (`getByRole('img', { name })` and `title`). The native tooltip does not appear in screenshots, so the e2e attribute check is the evidence.
+- AC-04 (no overlap with the title, badges, date or menu, 375 px included): PASS — e2e geometry at 4 widths; captures.
+- FR-4, FR-7: PASS.
+- Regression constraints: PASS — the menu, Escape, badges, date, title link and Duplicate are unchanged; e2e and parity green.
+- FAIL and BLOCKER conditions: none triggered. The flag comes from `language-flags.tsx`, and its language is the one the PDF prints in.
+
+Decision:
+- The flag is positioned absolutely, not in a flex row with the date, because the grid stretches cards to the tallest in their row.
+- A card with a user title now runs language detection too, which it skipped in US-003; the flag needs the language either way.
+
+Open owner decisions:
+- None for this story.
+- code-reviewer observation, not this story's defect: the kebab toggle has no accessible name. It predates this branch. Whether the PRD-wide condition "Any control lacks a localized accessible name" covers controls that existed before the PRD is the owner's call.
+- Optional (code-reviewer, minor):
+  - make the flag lookup exhaustive at compile time (`Record<CoverLetterLanguage, …>`);
+  - an e2e case with a long linked-resume badge;
+  - the e2e test's DOM-order selectors.
+- ui-expert, observations:
+  - The tooltip is native `title`, so it never appears in a capture.
+  - No capture shows a card with badges; the e2e geometry covers it.
+
+Environment notes:
+- The e2e and parity failures on the same diff are listed under Checks. They were login or page-load timeouts and one PDF text extraction taken before the font loaded, all in specs this diff does not touch, while full runs took about 14 minutes.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-005 Each card shows a flag of the letter's language at its bottom-right
+FINAL: PASS

@@ -501,6 +501,12 @@
     "downloadWord": "Download Word",
     "downloadWordError": "The Word file could not be created. Please try again.",
     "confirmDelete": "Are you sure you want to delete this cover letter?",
+    "cardLanguage": {
+      "en": "Language: English",
+      "fr": "Language: French",
+      "de": "Language: German",
+      "it": "Language: Italian"
+    },
     "jobAssociation": {
       "linkedJob": "Linked Job",
       "viewJob": "View Job",

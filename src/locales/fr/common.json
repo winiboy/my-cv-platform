@@ -501,6 +501,12 @@
     "downloadWord": "Télécharger Word",
     "downloadWordError": "Le fichier Word n'a pas pu être créé. Veuillez réessayer.",
     "confirmDelete": "Êtes-vous sûr de vouloir supprimer cette lettre de motivation ?",
+    "cardLanguage": {
+      "en": "Langue : anglais",
+      "fr": "Langue : français",
+      "de": "Langue : allemand",
+      "it": "Langue : italien"
+    },
     "jobAssociation": {
       "linkedJob": "Emploi lié",
       "viewJob": "Voir l'emploi",

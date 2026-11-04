@@ -106,26 +106,38 @@ export function matchDefaultCoverLetterTitle(
   return null
 }
 
-/** The fields a card's displayed title is derived from. */
+/** The fields a card's displayed title and language flag are derived from. */
 export type CoverLetterTitleFields = Pick<
   CoverLetter,
   'title' | 'job_title' | 'company_name' | 'opening_paragraph' | 'body_paragraphs' | 'closing_paragraph'
 >
 
 /**
- * The title a cover-letter card shows. A default title (FR-6) is shown in the
- * letter's language, without any translation suffix; the language is
- * `coverLetterLanguage`, the same resolver the PDF and Word exports and the
- * editor preview use, with the page's locale as the fallback. Any other title
- * is returned exactly as stored. Display only: nothing is written back.
+ * The language a cover-letter card stands for (FR-4): `coverLetterLanguage`,
+ * the same resolver the PDF and Word exports and the editor preview use, with
+ * the page's locale as the fallback. A card resolves it once and passes it to
+ * both its title (`displayCoverLetterTitle`) and its flag, so the two cannot
+ * disagree.
+ */
+export function coverLetterCardLanguage(
+  letter: Pick<CoverLetterTitleFields, 'opening_paragraph' | 'body_paragraphs' | 'closing_paragraph'>,
+  fallbackLocale: CoverLetterLanguage,
+): CoverLetterLanguage {
+  return coverLetterLanguage(letter, fallbackLocale)
+}
+
+/**
+ * The title a cover-letter card shows. A default title (FR-6) is shown in
+ * `language`, the card's language (`coverLetterCardLanguage`), without any
+ * translation suffix. Any other title is returned exactly as stored. Display
+ * only: nothing is written back.
  */
 export function displayCoverLetterTitle(
-  letter: CoverLetterTitleFields,
-  fallbackLocale: CoverLetterLanguage,
+  letter: Pick<CoverLetterTitleFields, 'title' | 'job_title' | 'company_name'>,
+  language: CoverLetterLanguage,
 ): string {
   const { title, job_title: jobTitle, company_name: company } = letter
   if (!jobTitle || !company) return title
-  // Language detection runs only for a default title; a user title needs none.
   if (!matchDefaultCoverLetterTitle(title, jobTitle, company)) return title
-  return buildDefaultCoverLetterTitle(coverLetterLanguage(letter, fallbackLocale), jobTitle, company)
+  return buildDefaultCoverLetterTitle(language, jobTitle, company)
 }
