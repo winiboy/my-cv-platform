@@ -426,6 +426,7 @@
     "deleting": "Wird gelöscht...",
     "confirm": "Bestätigen",
     "back": "Zurück",
+    "moreActions": "Weitere Aktionen",
     "notLoggedIn": "Sie müssen angemeldet sein, um diese Aktion auszuführen",
     "at": "bei"
   },
@@ -576,6 +577,11 @@
       "zoomIn": "Vergrößern",
       "zoomFit": "Alles anzeigen",
       "zoomLevel": "Zoomstufe: {percent} %",
+      "view": {
+        "label": "Editoransicht",
+        "edit": "Bearbeiten",
+        "preview": "Vorschau"
+      },
       "translate": {
         "label": "Übersetzen",
         "to": {

@@ -426,6 +426,7 @@
     "deleting": "Eliminazione...",
     "confirm": "Conferma",
     "back": "Indietro",
+    "moreActions": "Altre azioni",
     "notLoggedIn": "Devi effettuare l'accesso per eseguire questa azione",
     "at": "presso"
   },
@@ -576,6 +577,11 @@
       "zoomIn": "Ingrandisci",
       "zoomFit": "Mostra tutto",
       "zoomLevel": "Livello di zoom: {percent}%",
+      "view": {
+        "label": "Vista dell’editor",
+        "edit": "Modifica",
+        "preview": "Anteprima"
+      },
       "translate": {
         "label": "Traduci",
         "to": {

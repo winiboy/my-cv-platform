@@ -1,528 +1,342 @@
-# Ralph progress — cover-letter-preview-and-card-language
+# Ralph progress — cover-letter-editor-mobile
 
-Contract: tasks/ralph/prd.json (branch ralph/cover-letter-preview-and-card-language)
-PRD: tasks/prds/cover-letter-preview-and-card-language.md (Status: APPROVED 2026-11-03, written by the owner, who ran the approval command in their own terminal)
+Contract: tasks/ralph/prd.json (branch ralph/cover-letter-editor-mobile)
+PRD: tasks/prds/cover-letter-editor-mobile.md (Status: APPROVED 2026-11-04, written by the owner in GitHub's web editor, commits 2a1892f and e913567 on prd/cover-letter-editor-mobile)
 Format: docs/engineering/progress-log-format.md
-Branch setup: from origin/main cdf91d9 (#119 merged). The first commit archives the merged pdf-missing-hyphen-glyph contract; the second adds this PRD and its contract.
+Branch setup: from origin/prd/cover-letter-editor-mobile e913567 (origin/main b2799d0, #120 merged, plus the PRD draft a186699 and the owner's two approval commits). The first commit archives the merged cover-letter-preview-and-card-language contract; the second adds this contract.
 
-## US-001: A Preview button opens the letter in a full-screen window
+## US-001: Below 1280px, an Édition / Aperçu toggle shows the form or the letter at full width
 Status: PASS
 Priority: 1
-Branch: ralph/cover-letter-preview-and-card-language
-Baseline HEAD: 7bdf40d (origin/main cdf91d9 + archive and contract commits)
+Branch: ralph/cover-letter-editor-mobile
+Baseline HEAD: 895ff7e (contract commit; origin/main b2799d0 + the PRD commits)
 
 Scope:
 - Scope check: PASS
-- Changed paths (git diff --numstat; story diff sha256 prefix f0698c979ac57b4b, over the tracked src diff plus the two new files):
-  - `src/components/dashboard/cover-letter-editor.tsx` (44/5):
-    - Preview button (Eye icon, the PDF/Word classes), immediately before PDF.
-    - The window opens with the editor's in-memory `coverLetter`, the object the pane already gets (FR-1).
-    - The header now wraps: the title side has `grow basis-[13.5rem] min-w-[13.5rem]` and the button group `ml-auto flex-wrap justify-end`. At 1280 the row stays single; below 1280 the buttons wrap under the title.
-    - `data-testid="cover-letter-editor-header"`.
-  - New `src/components/dashboard/cover-letter-preview-dialog.tsx` (145):
-    - `role="dialog"`, `aria-modal`, named by its h2; localized close button.
-    - Escape closes it; Tab and Shift+Tab stay inside; focus starts on the letter's focusable, labelled scroll area and returns to the Preview button on close.
-    - Renders `CoverLetterPreview` with `maxScale={1}` and `fitInsidePadding`.
-  - `src/components/dashboard/cover-letter-preview.tsx` (66/19):
-    - The scaled page sits in a frame sized to the scaled page (unscaled height from a ResizeObserver), so a scroll area ends at the last line.
-    - `scale` renamed `maxScale` (default 0.85; the editor never passed it).
-    - `fitInsidePadding`, off by default, fits the page inside the container's padding; only the window turns it on. The pane's formula is unchanged.
-    - Both measurements run in `useLayoutEffect` (React 19.3.0), so the page is never drawn at full size first.
-  - `src/locales/{en,fr,de,it}/common.json` (4/0 each): `coverLetters.editor.preview`, `previewTitle`, `closePreview`, `previewScrollArea` (FR-7).
-  - New `e2e/cover-letter-preview-window.spec.ts` (413), 4 tests:
-    - The window: the Preview button is immediately before PDF; dialog role, `aria-modal` and name; focus moves into the scroll area; a greeting typed and not saved is shown; PageDown reaches the end with the sender's name fully inside the area and under 120 px of blank space; PageUp, ArrowDown and the mouse wheel scroll it; Tab and Shift+Tab stay inside; Escape and the close button close it and focus returns to Preview; no non-GET request to `cover_letters`, the stored greeting unchanged, the unsaved indicator still shown.
-    - At 1280x800 in en/fr/de/it, with the seeded title and a long unsaved one: the six buttons are inside the header, on the back link's row, and cover neither the back link nor the title (at least 160 px); no horizontal page scroll.
-    - At 1024x768 and 768x1024 (de): the same containment and no-overlap checks with the buttons wrapped.
-    - At 768x1024 and 375x812: the window's page has at least 8 px of gutter on each side.
-- Not touched: zoom controls (US-002), the cards, titles and flags (US-003 to US-005), the exports, the templates, the database, the resume surfaces. No version change, no push or merge.
-- Temporary capture specs (e2e/zz-uiexp-pv1 to pv5) were run alone and deleted; none is in the diff.
+- Changed paths (git diff --numstat; story diff sha256 prefix bd79c408c7ffbafa, over the tracked src/e2e diff plus the new spec):
+  - `src/components/dashboard/cover-letter-editor.tsx` (107/9):
+    - Below `xl`, a `role="radiogroup"` toggle with a localized name and two native radios, Édition and Aperçu. Each option is at least 44px, covered by an invisible radio, with a `has-focus-visible` ring. It opens on Édition.
+    - Forced colors: a 2px `Highlight`/`Canvas` border for selected/unselected, and a 2px `Highlight` outline on keyboard focus.
+    - The views switch with responsive classes only (`hidden` plus `xl:` variants), with no JavaScript media query.
+    - The form is hidden, not unmounted, so the section and the rich-text editors' state are kept.
+    - The single `CoverLetterPreview` pane is `display:none` in Édition, and `key={view}` remounts it so it fits the width when Aperçu opens; zoom goes back to fitted each time.
+    - The root changes from `h-full` to `min-h-full xl:h-full`. Below xl the header, nav and form scroll in `<main>`, and Aperçu fills the rest.
+    - Interim nav below xl, until US-002: a full-width row of wrapping 44px buttons above the form.
+    - At xl every class resolves to the old values: the 192px nav with its right border, the form, and the half-width pane.
+  - `src/locales/{en,fr,de,it}/common.json` (5/0 each): `coverLetters.editor.view.{label,edit,preview}`.
+    - en: Editor view / Edit / Preview
+    - fr: Vue de l'éditeur / Édition / Aperçu
+    - de: Editoransicht / Bearbeiten / Vorschau
+    - it: Vista dell'editor / Modifica / Anteprima
+  - New `e2e/cover-letter-editor-mobile.spec.ts` (511), 10 tests. At 320×640, 375×812, 768×1024 and 1024×768, in en and de:
+    - the toggle: role, name, checked state, opening on Édition, position under the header, 44px options;
+    - arrow keys, and a focus ring proven to come and go (focused vs blurred box shadow, plus `:focus-visible`, on a selected and an unselected option);
+    - the forced-colors border and outline;
+    - Édition: every input, textarea, select, button, link, label, text block and editable area of all 7 sections inside the viewport, including the add-paragraph button and hint, the toolbar font select and the sign-off select; no letter rendered;
+    - Aperçu: the pane at full width, the letter fitted (at most 85%), the zoom group and buttons in view, and the last line reachable;
+    - state kept: an unsaved greeting and opening survive both ways, Aperçu shows them, the section and the indicator stay, and nothing is written to `cover_letters`;
+    - no horizontal scroll of the page or of `<main>`;
+    - at 1280 and 1440: no toggle, the 192px nav, the form and the half-width pane;
+    - widening from Édition at 1024 to 1280: the pane's page is fitted.
+- Not touched: the header, the translate row, the notices, the Preview button (US-003), the exports, the database, the resume editor. No version change, no push or merge.
+- Temporary capture and diff specs (e2e/zz-uiexp-m1, zz-cap, zz-diff) were run alone and deleted; none is in the diff.
 
 Checks:
-- Earlier full runs on intermediate diffs are not evidence. One was stopped for code-review fixes (process tree killed with taskkill /T, port 3100 confirmed free). Its e2e had already failed for an environment reason: Chromium "Target crashed" on 41 tests after 59 passes.
-- Final run (this diff, alone, started after the last edit; the diff hash is the same before and after the run):
+- An earlier full run on an intermediate diff was stopped for the review fixes (process tree killed, port 3100 confirmed free). It is not evidence.
+- Final diff (hash bd79c408c7ffbafa, the same before and after every run):
   - pnpm typecheck: PASS — exit 0.
-  - pnpm test: PASS — 3088 passed, 5 skipped.
+  - pnpm test: PASS — 3270 passed, 5 skipped.
   - pnpm test:integration: PASS — 50 passed.
   - pnpm build: PASS — 105/105 static pages.
   - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
-  - pnpm test:e2e: PASS — 462 passed, 0 failed (13.2 min), including the 4 new tests.
+  - pnpm test:e2e: PASS — 492 passed, 0 failed (14.5 min), on the fourth full run.
   - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+- Earlier full e2e runs on the same diff hash, each with one failure in a spec this diff does not touch, each of which passed in another run:
+  - Run 1: `resume-pdf-route.spec.ts:372` (classic).
+  - Run 2: `resume-pdf-route.spec.ts:372` (professional).
+  - Run 3: `cover-letter-editor-spacing.spec.ts:150` (`/it/tools/cover-letter-generator`), `page.fill` timeout of 15 s.
+- The `:372` failure is a PDF text-extraction mismatch on letter-spaced headings: the Preview print extracts "V I S U A L B A S E L I N E - C L A S S I C" and "S u m m a r y", the route PDF extracts "VISUAL BASELINE - CLASSIC".
+  - Alone on this diff, `resume-pdf-route.spec.ts` failed 2 of 21, the classic and creative cases.
+  - On origin/main b2799d0 (before-main worktree), the same spec passed its `:372` cases this time but failed `:239` ("401 without a session, and with a forged one"): 20 passed, 1 failed.
+  - In the previous initiative `:372` failed the same way twice and passed 34/34 alone.
+  - This diff changes only the cover-letter editor and its locales.
 
 Specialized validation:
-- Browser: PASS — the e2e above, plus captures of the production e2e build in scratchpad ux1, ux1b, ux1b-before, ux1c and ux1d:
-  - the editor header at 1440 and 1280 in all four locales, and at 1024, 768 and 375 (de);
-  - the window at open and scrolled to the end, with the close button focused, after closing, and at 1440, 1024, 768 and 375 (de);
-  - "before" captures of origin/main cdf91d9 at the same widths, from the before-main worktree.
-- Visual: PASS (no-change evidence for the pane):
-  - At 1440 the pane matches origin/main: same page position, scale and text lines.
-  - Parity unchanged.
-- Export: NOT_APPLICABLE — no export code or output changed; parity is unchanged.
-- Database: NOT_APPLICABLE — no schema, policy or data change.
-- Security: NOT_APPLICABLE — no route, data access or untrusted-input path changed; the letter is rendered through the existing template.
-
-Agents:
-- senior-coder: implementation, then five fix rounds:
-  - the header pushed Save out of the card at 1280 (de);
-  - shrinking the title crushed it at 1024, so the header wraps instead;
-  - the one-row test's 1 px tolerance;
-  - the code-review findings: the window page touched both edges or overflowed at narrow widths, first paint at full size, scroll-key coverage, a header test id, the fallback text;
-  - a scroll-settle race in the test, then the 1280 row wrapping as a group, which the test now catches.
-- ui-expert:
-  - first pass BLOCKED: no widths below 1280 and no "before" capture;
-  - second pass PASS;
-  - re-validation after the fixes PASS, 7/7 conditions.
-- code-reviewer:
-  - first pass: PASS on the code, with the window overflow to measure;
-  - re-review on the final diff PASS, gated on the suite, now green.
-
-Acceptance criteria:
-- AC-01 (Preview button beside PDF and Word, same style, icon, localized label): PASS — e2e sibling check; captures in 4 locales.
-- AC-02 (full-screen window, same template, unsaved changes shown): PASS — e2e unsaved greeting; FR-1 same component and same object.
-- AC-03 (modal dialog with a name; focus moves in, stays in, returns): PASS — e2e.
-- AC-04 (closes with the close button and Escape): PASS — e2e.
-- AC-05 (no save, indicator unchanged): PASS — e2e: no write request, stored row unchanged, indicator shown.
-- AC-06 (a long letter scrolls until its last line is fully visible): PASS — e2e with PageDown, PageUp, ArrowDown and the wheel; captures scrolled to the end.
-- FR-1, FR-7: PASS. FR-2 to FR-6 concern later stories.
-- Regression constraints: PASS — the pane's starting size is unchanged (same formula; capture matches origin/main at 1440); PDF/Word, save, translation and the modals pass e2e; parity unchanged; resume and tools surfaces untouched.
-- FAIL and BLOCKER conditions: none triggered. The in-memory letter reaches the window without a second state.
-
-Decision:
-- The header wraps below 1280. Adding the Preview button pushed Save out of the card at 1280 (de); wrapping fixes that. Before this story the header already ran off-screen at 1024 and below (origin/main captures), so these widths now improve, as the PRD's out-of-scope exception allows ("keeping the new controls usable").
-- Focus starts on the letter's scroll area, not the close button, so the arrow and page keys scroll at once.
-
-Open owner decisions:
-- None for this story.
-- Carried to US-002, which reworks the same preview container and spec (code-reviewer, minor):
-  - The narrow-window test's `scrollWidth <= clientWidth` assertion targets the window's scroll area, not the preview's own container where the old overflow happened. The two gutter checks do catch it.
-  - That test finds the page with `div.shadow-2xl`; a test id would be sturdier.
-- ui-expert minor, out of this story:
-  - At 768 and 375, Preview can wrap onto a different line from PDF and Word.
-  - Touch targets on mobile are 36–38 px; they belong to the draft PRD cover-letter-editor-responsive.
-  - Dark mode cannot be shown, since nothing adds `.dark`.
-  - The `ring-teal-500` focus contrast is a project-wide convention.
-
-Environment notes:
-- On an intermediate diff, the unrelated `e2e/job-cv-template-picker.spec.ts` (768 px) failed once in a full run. It passed 6/6 alone and in the final run.
-- One single-spec run timed out at 10 min on `next build` with no other process running; the retry passed.
-
-Commit:
-- Story commit: THIS_COMMIT
-- Commit message: ralph: US-001 A Preview button opens the letter in a full-screen window
-FINAL: PASS
-
-## US-002: Zoom controls in the preview window and the editor pane
-Status: PASS
-Priority: 2
-Branch: ralph/cover-letter-preview-and-card-language
-Baseline HEAD: 720bee8 (US-001)
-
-Scope:
-- Scope check: PASS
-- Changed paths (git diff --numstat; story diff sha256 prefix 3c43d40ddcd576ef, over the tracked src/e2e diff plus the five new files):
-  - New `src/lib/cover-letter-preview-zoom.ts` (69) + test (100, 9 tests):
-    - FR-3 bounds 25%–200% and 10-point steps, taken from the whole percentage shown: 63% goes in to 70% and out to 60%.
-    - `canZoomIn` / `canZoomOut`.
-    - Fit to width, at most `maxScale`; "show all" fits 816x1056.
-  - New `src/components/dashboard/cover-letter-zoom-controls.tsx` (136): the one shared group (FR-2).
-    - Zoom out, the visible %, zoom in, "show all" (lucide `Shrink`).
-    - 32px buttons with a mouse, 44px on coarse pointers; the bound button is `aria-disabled`, so it keeps focus.
-    - An sr-only "Zoom level: N%" always follows the current level.
-    - The polite live region is filled only after a press; it is keyed, so a same-level press re-announces.
-  - `src/components/dashboard/cover-letter-preview.tsx` (221/55): each preview owns its scroll area and its own zoom (AC-7).
-    - Variant `pane`: fit to width, at most 0.85, following resizes until the user zooms. Variant `window`: opens at "show all".
-    - The page frame is centred with `mx-auto`, so a page wider than the area keeps its left edge at scrollLeft 0.
-    - A stable scrollbar gutter; the area is measured with getBoundingClientRect, rounded down.
-    - "Show all" scrolls back to the top-left once the new scale is applied (a layout effect on a press counter).
-    - `data-testid="cover-letter-preview-page"`.
-  - `src/components/dashboard/cover-letter-preview-dialog.tsx` (9/15): the window uses `variant="window"`; its own scroll area moved into the preview, and focus still lands on it.
-  - `src/components/dashboard/cover-letter-editor.tsx` (11/2):
-    - The pane wrapper is a flex column with `data-testid="cover-letter-preview-pane"`.
-    - The editor root changes from `h-[calc(100vh-4rem)]` to `h-full`.
-  - `src/locales/{en,fr,de,it}/common.json` (5/0 each): `zoomControls`, `zoomOut`, `zoomIn`, `zoomFit`, `zoomLevel` (FR-7).
-  - New `e2e/fixtures/cover-letter-preview.ts` (63): seeding and measuring helpers shared by both preview specs.
-  - `e2e/cover-letter-preview-window.spec.ts` (4/56): uses the shared helpers. US-001 carry-overs closed: the page is found by test id, and the no-sideways-scroll check targets the preview's own scroll area.
-  - New `e2e/cover-letter-preview-zoom.spec.ts` (531), 5 tests:
-    - window and pane, each:
-      - the group is at the bottom-right and stays put while scrolling;
-      - ±10 steps, with the page's width following;
-      - both bounds disable their button (click, Enter and Space at 200% change nothing);
-      - at 200% every edge and the last line can be reached, with no more blank space below than the padding;
-      - "show all" pressed when scrolled to the end brings back the top-left and the whole first page;
-      - keyboard use and the focus ring;
-      - the current level is exposed and the live region announces;
-    - the window opens at "show all"; the pane starts at fit to width, at most 0.85, measured against the pane element and the scrollbar width it actually reserves (recorded as an annotation);
-    - independence, both ways, and on reopen;
-    - names and announcements in all four locales;
-    - the live region stays silent on load and on a 1280→1440→1280 resize;
-    - the pane's group lies inside the viewport at 1280x800 and 1440x900.
-- Not touched: the cards, titles and flags (US-003 to US-005), the exports, the templates, the database, the resume surfaces. No version change, no push or merge.
-- Temporary capture specs (e2e/zz-uiexp-z1 to z3) were run alone and deleted; none is in the diff.
-
-Checks:
-- Two full runs on intermediate diffs were stopped for review fixes (process trees killed with taskkill /T, port 3100 confirmed free). They are not evidence.
-- Final run (this diff, alone, started after the last edit; the diff hash is the same before and after the run):
-  - pnpm typecheck: PASS — exit 0.
-  - pnpm test: PASS — 3097 passed, 5 skipped (US-001: 3088, plus the 9 zoom tests).
-  - pnpm test:integration: PASS — 50 passed.
-  - pnpm build: PASS — 105/105 static pages.
-  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
-  - pnpm test:e2e: PASS — 467 passed, 0 failed (16.8 min).
-  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
-
-Specialized validation:
-- Browser: PASS — the e2e above, plus captures of the production e2e build in scratchpad ux2, ux2b and ux2c:
-  - the pane at load, two steps in, scrolled to bottom-right, and at "show all" (fr/de at 1440/1280/1024);
-  - the window at "show all", one step in, at 200% and scrolled to bottom-right, at 25%, and with focus on a zoom button;
-  - "show all" pressed after scrolling to the end, in the pane and the window (de, 1440 and 1280);
-  - touch emulation at 768 and 375: the zoom-in button measured 44x44.
+- Browser: PASS — the e2e above, plus captures of the production build:
+  - scratchpad m1: Édition and Aperçu in en and de at 375, 768 and 1024, and 1280/1440;
+  - scratchpad m1b: 320 and 375, and the keyboard focus on Aperçu at 320 and 375.
 - Visual: PASS.
-  - The pane starts with the same formula; the 2-point difference below is accepted by the owner.
-  - Parity unchanged.
-- Export: NOT_APPLICABLE — no export code or output changed; parity is unchanged.
-- Database: NOT_APPLICABLE.
-- Security: NOT_APPLICABLE — no route, data access or untrusted-input path changed.
-
-Agents:
-- senior-coder: implementation, then four fix rounds:
-  - The test read the visible width from `clientWidth`, which excludes the stable gutter; the test now measures where the browser stops.
-  - The pane's controls sat below the fold, because the editor root overflowed `<main>` by its padding.
-  - The ui-expert and code-review findings:
-    - "show all" kept the scroll position;
-    - 32px touch targets;
-    - an icon that read as "fullscreen";
-    - the pane test took its expectation from the box under test;
-    - the live region announced on every resize;
-    - fractional-pixel fits;
-    - no keyboard test at a bound.
-  - Screen readers could not read the current level, and a same-level press did not re-announce.
-- ui-expert:
-  - first pass FAIL: "show all" kept the scroll position, 32px touch targets, the fullscreen-looking icon, and the page-size question for the owner;
-  - re-validation PASS, 7/7 conditions;
-  - confirmed after the sr-only level text was added.
-- code-reviewer:
-  - first pass FAIL: the pane starting size, resize announcements, and stale evidence;
-  - second pass FAIL: the current level was not exposed, and the gutter decision was not owner-recorded;
-  - third pass PASS, gated on the suite (now green) and on this entry recording the owner's decision.
-
-Acceptance criteria:
-- AC-01 (a group at the bottom-right of the window and the pane, staying in place while scrolling): PASS — e2e, both surfaces; captures, with the pane's group inside the viewport at 1280 and 1440.
-- AC-02 (fixed steps within FR-3; the button at a bound is disabled): PASS — unit tests and e2e.
-- AC-03 ("show all" makes the whole first page visible in both dimensions): PASS — e2e, including after scrolling to the end; captures.
-- AC-04 (the full letter is reachable at any zoom; no blank space below beyond the padding): PASS — e2e at 200% and 25%.
-- AC-05 (the window opens at "show all"; the pane keeps fit to width, at most 85%): PASS — e2e; the pane's gutter difference is the owner-accepted decision below.
-- AC-06 (localized names, keyboard use, visible focus, polite announcement): PASS — e2e in four locales; focus capture; live region and level text tested.
-- AC-07 (pane and window zoom independently): PASS — e2e, both ways, and on reopen.
-- FR-1, FR-2, FR-3, FR-7: PASS.
-- Regression constraints: PASS, with the pane gutter accepted by the owner. PDF/Word, save, translation and the modals pass e2e; parity unchanged; resume and tools surfaces untouched.
-- FAIL and BLOCKER conditions: none triggered. "Show all" leaving part of the first page outside the area was fixed before PASS.
-
-Decision:
-- Owner, 2026-11-03, in chat (answer to the orchestrator's question): "show all" fits the whole first page, not the whole letter ("La première page seulement").
-  - The page is the template's own sheet, 816x1056 px (`w-[816px] min-h-[1056px]`, US Letter at 96 dpi, the size the PDF export prints).
-  - The PRD's word "A4" is left for the owner to correct.
-- Owner, 2026-11-03, in chat: the pane starts one scrollbar narrower than before ("Oui, j'accepte").
-  - Cause: the pane now scrolls and reserves a stable scrollbar gutter. The fit formula is unchanged, but the width it fits is narrower.
-  - Measured: about 15px on Windows with classic scrollbars (pane at 1440: about 70% before, 68% now); 0px in headless CI, which hides scrollbars.
-- The editor root changes from `h-[calc(100vh-4rem)]` to `h-full`.
-  - The old height was all of `<main>`, padding included, so the editor overflowed `<main>` by 48px from `sm` up (32px below) and pushed the pane's bottom-right below the fold. This had been so since the editor's first commit.
-  - Every editor column is now that much shorter, and each still scrolls on its own. It is needed for AC-01.
-- Bound buttons use `aria-disabled`, not `disabled`, so a keyboard user pressing up to a bound keeps focus on the button.
-
-Open owner decisions:
-- Correct "A4" in the PRD (FR-3, US-002) to the template's 816x1056 sheet, if wanted.
-- The editor at 375px: before this initiative the three-column editor was already wider than a phone (origin/main capture). The pane's zoom-out and "show all" are off-screen there; the window works at 375. This belongs to the draft PRD cover-letter-editor-responsive (ui-expert).
-- Focus-ring contrast: `ring-teal-500` is about 2.5:1 on white, a project-wide token (ui-expert, low).
-- Optional (code-reviewer, minor):
-  - After a press and a resize refit, the live region still holds the old level next to the current one.
-  - The e2e level check uses `toContain` on the group's snapshot. It is valid while the region is empty, which is the only place it is used.
-
-Environment notes:
-- Several single-spec builds took close to 10 minutes while a game (KSP_x64, about 5 GB) was running; three agent runs hit the 600s web-server timeout before any test ran. A later run with the machine idle passed.
-- The agents' Playwright runs were each made alone, with no other suite running.
-
-Commit:
-- Story commit: THIS_COMMIT
-- Commit message: ralph: US-002 Zoom controls in the preview window and the editor pane
-FINAL: PASS
-
-## US-003: The card shows the default title in the letter's language
-Status: PASS
-Priority: 3
-Branch: ralph/cover-letter-preview-and-card-language
-Baseline HEAD: 0d7fc6c (US-002)
-
-Scope:
-- Scope check: PASS
-- Changed paths (git diff --numstat; story diff sha256 prefix 1e093b287bd86fad, over the tracked src/e2e diff plus the three new files):
-  - New `src/lib/cover-letter-title.ts` (102):
-    - `COVER_LETTER_DEFAULT_TITLES`: the four FR-5 patterns as code constants, beside `COVER_LETTER_WORDING`, since they follow the letter's language, not the page's.
-    - `buildDefaultCoverLetterTitle(language, jobTitle, company)`.
-    - `matchDefaultCoverLetterTitle(title, jobTitle, company)` returns `{ language, suffix } | null`.
-    - `displayCoverLetterTitle(letter, fallbackLocale)`.
-    - FR-6 rule:
-      - exact equality with a pattern built from the letter's own job title and company: case-sensitive, nothing trimmed;
-      - at most one suffix: one space then `(EN|FR|DE|IT)` in capitals;
-      - the whole title is tried first, so a company named "Acme (DE)" is not read as a suffix;
-      - a blank job title or company means a user title.
-    - The language comes from `coverLetterLanguage` (`src/lib/cover-letter-pdf-html.ts`), the function the PDF route, the Word route and the editor preview use (FR-4). It falls back to `toLocale(locale)`, the value the card's own PDF download sends.
-  - New `src/lib/cover-letter-title.test.ts` (190, 54 tests): all four languages; every suffix; user titles untouched (whitespace, case, en-dash, ` (Copy)`, lowercase, doubled or unknown suffix, another job title); a blank job title or company; regex characters; the "Acme (DE)" company; a pure-function mutation check.
-  - `src/components/dashboard/cover-letter-card.tsx` (10/1): the `<h3>` shows a memoised `displayTitle`. Duplicate still copies the stored title plus ` (Copy)`.
-  - New `e2e/cover-letter-card-title.spec.ts` (182), one test per locale (fr, en, de, it). Each seeds 8 letters:
-    - English defaults on French, German, Italian and English letters, with ` (DE)`, ` (IT)` and ` (EN)` suffixes;
-    - a German default on a German letter;
-    - an empty letter, which falls back to the page locale;
-    - "Meine Bewerbung bei Acme";
-    - "Cover Letter - Designer at Acme SA", a pattern naming another job.
-    - It asserts every heading, no non-GET request to `/rest/v1/cover_letters` or `/api/cover-letters` while viewing, and every stored title unchanged.
-- Not touched: the creation form and the translate route (US-004), the flag (US-005), the preview, the exports, the database, the resume surfaces. No version change, no push or merge.
-- Temporary capture spec (e2e/zz-uiexp-c1) was run alone and deleted; it is not in the diff.
-
-Checks:
-- Final run (this diff, alone, started after the last edit; the diff hash is the same before and after the run):
-  - pnpm typecheck: PASS — exit 0.
-  - pnpm test: PASS — 3151 passed, 5 skipped (US-002: 3097, plus the 54 new tests).
-  - pnpm test:integration: PASS — 50 passed.
-  - pnpm build: PASS — 105/105 static pages.
-  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
-  - pnpm test:e2e: PASS — 471 passed, 0 failed (17.0 min), including the 4 new tests.
-  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
-
-Specialized validation:
-- Browser: PASS — the e2e above, plus full-page captures of the production build: scratchpad ux3, cards-{fr,en,de,it}-{1440,375}.png.
-- Visual: PASS — only the heading text changes. In the same capture, the user-title cards render with the same size, weight and spacing as the rewritten-title cards. Parity unchanged.
-- Export: NOT_APPLICABLE — no export code or output changed.
-- Database: NOT_APPLICABLE — nothing is written; the e2e proves the stored titles are unchanged.
-- Security: NOT_APPLICABLE — no route or data access changed; the title is still rendered as React text.
-
-Agents:
-- senior-coder: implementation, with no fix rounds.
-- ui-expert: PASS, 7/7 conditions.
-- code-reviewer: PASS, no Critical or Major findings; gated on the suite, now green.
-
-Acceptance criteria:
-- AC-01 (an English default, with or without ` (XX)`, is shown in the letter's language, suffix hidden): PASS — unit tests, e2e in 4 locales, captures.
-- AC-02 (a default already in the letter's language is shown unchanged): PASS — the German-on-German case.
-- AC-03 (a non-default title is shown exactly as stored): PASS — two user-title cases and the unit edge cases.
-- AC-04 (the language is the PDF's, with the page locale as fallback): PASS — the same `coverLetterLanguage` function; the empty-letter case shows each page locale.
-- AC-05 (never written back): PASS — e2e: no write request, stored titles unchanged.
-- FR-4, FR-5, FR-6, FR-7: PASS (FR-7: no new UI string; the patterns are letter wording, as FR-5 lists them).
-- Regression constraints: PASS — the card's menu, badges, date, link and Duplicate are unchanged; e2e and parity green.
-- FAIL and BLOCKER conditions: none triggered.
-
-Decision:
-- FR-6 reading (code-reviewer, finding 1): any FR-5 pattern, in any language and with or without a suffix, is shown as the pattern in the letter's language, without the suffix.
-  - So a French default on a German letter shows the German title.
-  - `Anschreiben - X bei Y (DE)` on a German letter shows without ` (DE)`.
-  - AC-01 names only the English pattern. FR-6 says "one of the FR-5 patterns", and US-004 creates non-English defaults, which the cards must handle the same way.
-- Exact matching (no trim, case-sensitive) keeps a user's own title from ever being rewritten. A default title whose job title or company was edited afterwards no longer matches and is shown as stored, which is the PRD Risks section's intent.
-
-Open owner decisions:
-- None for this story.
-- Carried to US-004 (code-reviewer):
-  - The creation form trims the title and the job title separately, so its prefill must be built from trimmed values or it will not match itself.
-  - `translatedTitle` cuts long titles, so a cut default title no longer matches; the title length limit needs a test there.
-- Carried to US-005 (code-reviewer): `displayCoverLetterTitle` computes the language internally. The flag needs the same language, so expose it or pass it in, so the title and the flag cannot disagree.
-- Optional (code-reviewer, minor):
-  - a redundant blank-field guard in `displayCoverLetterTitle`;
-  - the e2e pairs seeded rows by insert order;
-  - the card now imports `cover-letter-pdf-html.ts` for `coverLetterLanguage`, about 21 KB of source before minification; moving the function into `cover-letter-language.ts` would avoid that.
-- Out of scope, existing before (ui-expert):
-  - Truncation hides the job and company in long default titles; the subtitle line still shows them.
-  - A title that fills the row touches the kebab icon.
-
-Environment notes:
-- None.
-
-Commit:
-- Story commit: THIS_COMMIT
-- Commit message: ralph: US-003 The card shows the default title in the letter's language
-FINAL: PASS
-
-## US-004: New default titles are written in the letter's language
-Status: PASS
-Priority: 4
-Branch: ralph/cover-letter-preview-and-card-language
-Baseline HEAD: c28d94f (US-003)
-
-Scope:
-- Scope check: PASS
-- Changed paths (git diff --numstat; story diff sha256 prefix 4662a7d1354f4eee):
-  - `src/lib/cover-letter-title.ts` (29/0) + test (49/0): `buildNewDefaultCoverLetterTitle(language, jobTitle, company)`.
-    - Builds the FR-5 pattern within `COVER_LETTER_FIELD_LIMITS.title` (255).
-    - Over the limit: cut at 255 UTF-16 units (254 if a surrogate pair would split), then trailing whitespace trimmed. This is the rule `sanitizeUntrustedPlainText` applies to the from-job-application title.
-  - `src/app/[locale]/(dashboard)/dashboard/cover-letters/new/page.tsx` (13/1):
-    - The prefill is built on the server with `toLocale(locale)`, from the trimmed job title and company, and passed as `initialTitle`.
-    - The client form therefore does not import `@/lib/i18n`.
-    - An untouched prefill matches its own letter under FR-6, because both create paths store trimmed values.
-  - `src/components/dashboard/create-cover-letter-form.tsx` (7/3): the English literal is gone; the title starts from `initialTitle` and stays editable.
-  - `src/app/api/cover-letters/[id]/translate/letter-segments.ts` (20/0) + test (76/0): `translatedCopyTitle(original, target)`.
-    - It matches against the original's stored `job_title` and `company_name` (the US-003 matcher).
-    - A match gives the target-language default with no ` (XX)`; anything else gets the unchanged `translatedTitle`, the original plus ` (XX)`.
-    - Tests: every source language, with no suffix and each of the four suffixes, to every target; user titles (`(Copy)`, a double suffix, a case change, a trailing space, another job's default); a blank job title or company; the length limit.
-  - `src/app/api/cover-letters/[id]/translate/route.ts` (5/3) + test (27/1): the insert uses `translatedCopyTitle`. The route test covers four default-title originals and one user title.
-  - `e2e/cover-letter-from-job-application.spec.ts` (67/1), new test (n):
-    - Under en, fr, de and it, the prefill is the page locale's default, even from application values with surrounding whitespace.
-    - The field is editable, the request sends trimmed values, and the stored row has the title.
-    - Under fr, a typed title replaces the prefill.
-  - `e2e/cover-letter-translate.spec.ts` (42/1):
-    - DE under /fr on a French default gives the German default, with no suffix, in the database and in the editor.
-    - Via the API, an English default with ` (FR)` gives the German default, and `… (Copy)` gives `… (Copy) (DE)`.
-- Not touched: Duplicate, the card, the exports, the AI translation of the body, the flag (US-005), the database schema. No version change, no push or merge.
-- Temporary capture spec (e2e/zz-uiexp-t1) was run alone and deleted; it is not in the diff.
-
-Checks:
-- Final run (this diff, alone, started after the last edit; the diff hash is the same before and after each run):
-  - pnpm typecheck: PASS — exit 0.
-  - pnpm test: PASS — 3254 passed, 5 skipped (US-003: 3151).
-  - pnpm test:integration: PASS — 50 passed.
-  - pnpm build: PASS — 105/105 static pages.
-  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
-  - pnpm test:e2e: PASS — 478 passed, 0 failed (14.8 min), on a second full run.
-    - The first full run on this diff had 477 passed and 1 failed: `e2e/job-applications-i18n.spec.ts:492` (fr quick add; "Veuillez entrer une URL valide" not visible within 15 s). That page is not in this diff.
-    - The spec then passed 25/25 alone, and the whole suite was run again on the same diff hash.
-  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
-
-Specialized validation:
-- Browser: PASS — the e2e above, plus captures of the production build: scratchpad ux4, form-{en,fr,de,it}-{1440,375}.png. The prefill is correct in all four locales.
-- Visual: PASS — no markup or style change; only the field's value differs. Parity unchanged.
-- Export: NOT_APPLICABLE — no export code or output changed.
-- Database: NOT_APPLICABLE — no schema change. Only the value of the title the app already writes changes; the e2e checks the stored rows.
-- Security: PASS (code-reviewer's security assessment of the translate route):
-  - The title comes only from the owner's row, read with `.eq('user_id', user.id)` on top of RLS.
-  - The body adds only the zod-enum `targetLanguage`; AI output never reaches the title.
-  - No new output path, and the length is bounded.
-
-Agents:
-- senior-coder: implementation, with no fix rounds.
-- ui-expert: PASS, 5/7 conditions, the other 2 not applicable (no visual or interaction change).
-- code-reviewer: PASS, no Critical or Major findings; gated on the suite, now green.
-
-Acceptance criteria:
-- AC-01 (the prefill uses the page locale's default and stays editable): PASS — e2e (n) in 4 locales; captures.
-- AC-02 (a default title, with or without ` (XX)`, gives the target default with no suffix): PASS — unit, route and e2e tests.
-- AC-03 (a user title keeps today's original + ` (XX)`): PASS — unit, route and e2e tests.
-- AC-04 (the length limit): PASS — unit tests at, over and splitting at the limit.
-- FR-5, FR-6, FR-7: PASS. FR-7 adds no new UI string.
-- Regression constraints: PASS — Duplicate, card, exports and body translation unchanged; e2e and parity green.
-- FAIL and BLOCKER conditions: none triggered.
-
-Decision:
-- The prefill is built in the server page, not in the client form, so the form's bundle does not take on `@/lib/i18n`.
-- A default cut by the length limit no longer equals its pattern. FR-6 then treats it as a user title: shown as stored, and translated with ` (XX)`.
-- If the from-job-application route strips markup from a job title, the stored title can stop matching. It is then treated as a user title, which errs on the safe side.
-
-Open owner decisions:
-- None for this story.
-- ui-expert, out of scope (already on the page before this story):
-  - On `/cover-letters/new` in fr/de/it, the job-application banner reads "Creating cover letter for job application" (no `newDict.creatingForJob` text).
-  - "(optional)" is hardcoded in English.
-  - The back link reads "Back Cover Letters" / "Retour Lettres de motivation".
-  - A small i18n follow-up could fix all three.
-- code-reviewer, minor:
-  - `translatedTitle` cuts by code points and the new builder by UTF-16 units; both stay under the limit.
-  - Translating into the letter's own language keeps the same title, with no test pinning it; US-005's flag tells the two apart.
-  - A blank job title or company still gives a prefill with a double space. That predates this story and is treated as a user title.
-
-Environment notes:
-- One unrelated e2e failure in the first full run (above); it passed alone and in the second full run.
-
-Commit:
-- Story commit: THIS_COMMIT
-- Commit message: ralph: US-004 New default titles are written in the letter's language
-FINAL: PASS
-
-## US-005: Each card shows a flag of the letter's language at its bottom-right
-Status: PASS
-Priority: 5
-Branch: ralph/cover-letter-preview-and-card-language
-Baseline HEAD: aa629ee (US-004)
-
-Scope:
-- Scope check: PASS
-- Changed paths (git diff --numstat; story diff sha256 prefix b60eda0cd74fa287, over the tracked src/e2e diff plus the new spec):
-  - `src/lib/cover-letter-title.ts` (22/10) + test (61/10):
-    - `coverLetterCardLanguage(letter, fallbackLocale)` wraps the PDF's `coverLetterLanguage` (FR-4).
-    - `displayCoverLetterTitle(letter, language)` now takes the language already resolved; its only caller is the card.
-    - The US-003 cases now resolve the language once, as the card does, with the same expectations.
-  - `src/components/dashboard/cover-letter-card.tsx` (36/6):
-    - One `useMemo` gives `letterLanguage`, read by both the title and the flag, so they cannot disagree.
-    - The flag is the `LANGUAGE_FLAG_OPTIONS` Flag for that code, inside a `role="img"` span.
-    - The span has an `aria-label`, a matching `title`, `data-language` and `data-testid="cover-letter-card-flag"`; the SVG stays `aria-hidden`.
-    - It is `absolute bottom-6 right-6`. The grid stretches every card in a row to the tallest one, so a flex row with the date would leave the flag above the bottom of a stretched card.
-    - The date row gets `pr-8`, so a long date cannot run under the flag. The kebab menu (`z-10`) paints over the flag.
-  - `src/locales/{en,fr,de,it}/common.json` (6/0 each): `coverLetters.cardLanguage.{en,fr,de,it}`, for example fr "Langue : allemand", en "Language: German", de "Sprache: Deutsch", it "Lingua: tedesco" (FR-7).
-  - New `e2e/cover-letter-card-flag.spec.ts` (268). Under /fr, /en, /de and /it, with fr/en/de/it letters, an empty letter and a user title on a German letter:
-    - exactly one flag per card, with the right `data-language`, and the title in the same language;
-    - the SVG's `outerHTML` equals the editor's translation button for that code, and GB contains `#012169`;
-    - the localized name and tooltip;
-    - at 1440, 1024, 768 and 375: inside the card's bottom-right padding, overlapping neither the title, the date, the kebab nor the badges row (seeded with a score);
-    - the open menu covers the flag, and Escape returns focus.
-- Not touched: the preview, the exports, the database, the resume surfaces, the creation form, the translate route. No version change, no push or merge.
-- Temporary capture spec (e2e/zz-uiexp-f1) was run alone and deleted; it is not in the diff.
-
-Checks:
-- Final evidence (this diff; the diff hash b60eda0cd74fa287 is the same before and after every run):
-  - pnpm typecheck: PASS — exit 0.
-  - pnpm test: PASS — 3270 passed, 5 skipped (US-004: 3254).
-  - pnpm test:integration: PASS — 50 passed.
-  - pnpm build: PASS — 105/105 static pages.
-  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
-  - pnpm test:e2e: PASS — 482 passed, 0 failed (13.7 min), on the third full run.
-  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0, on the second run.
-- Earlier runs on the same diff hash:
-  - Full run 1:
-    - e2e 481/1: `cover-letter-translate.spec.ts:240` (de keyboard) timed out at login (`waitForURL` 30 s).
-    - parity 5 failed: `collect · font-not-chosen · professional` timed out loading `/en/login` (60 s), and its 3 rows and the report depended on it.
-  - Full e2e run 2: 480/2, both in `resume-pdf-route.spec.ts`:
-    - `:333` timed out on `page.fill` (15 s);
-    - `:372`, creative, extracted "V I S U A L" instead of "VISUAL" from the Preview print, most likely a font that had not loaded yet.
-  - None of these specs or surfaces is in this diff. `resume-pdf-route` and `cover-letter-translate` then passed 34/34 alone, before the green full run 3.
-
-Specialized validation:
-- Browser: PASS — the e2e above, plus captures of the production build in scratchpad ux5:
-  - cards-{fr,en,de,it}-{1440,1024,375}.png;
-  - hover-it-{1440,1024,375}.png;
-  - menu-open-fr-1440.png.
-- Visual: PASS.
-  - Card heights and positions match the US-003 captures (ux3) pixel for pixel; the flag is absolutely positioned and moves nothing.
+  - Captures at 1280 and 1440, en and de, on origin/main b2799d0 (`m1-before`) and on this diff (`m1b`), from the same seed, were compared pixel by pixel (`m1b/diff.txt`).
+  - They are identical except a 250×30 strip at y 0–29: the dev branch-indicator badge, which shows the branch name.
   - Parity unchanged.
 - Export: NOT_APPLICABLE.
 - Database: NOT_APPLICABLE.
-- Security: NOT_APPLICABLE — no route or data access changed; the flag is static markup.
+- Security: NOT_APPLICABLE — no route or data change.
 
 Agents:
-- senior-coder: implementation. One layout fix before handover, found by its own e2e: an inline flag sat above the bottom of stretched cards.
-- ui-expert: PASS, 7/7 conditions.
-- code-reviewer: PASS, no Critical or Major findings; gated on the suite, now green.
+- senior-coder: implementation.
+  - The first run failed at 320×640: the nav row took the space left under the unchanged header, so the root became `min-h-full` below xl.
+  - Then one fix round: the focus assertion that could not fail, forced colors, the scroll-position comment, and the widening test.
+- ui-expert:
+  - first pass BLOCKED: the visible-focus evidence could not fail, and there was no 320 capture;
+  - re-validation PASS, 7/7 conditions. Measured contrast: focus ring 3.45:1 on the track; selected label 9.47:1; unselected 10.16:1.
+- code-reviewer:
+  - first pass FAIL: the vacuous focus assertion, and no before/after captures at 1280/1440;
+  - re-review PASS, gated on the suite, now green.
 
 Acceptance criteria:
-- AC-01 (exactly one flag at the bottom-right, the translation buttons' SVG for that language): PASS — e2e count, `data-language` and `outerHTML` identity; captures.
-- AC-02 (the same language as US-003): PASS — computed once in the card; e2e pairs the title text with the flag in every case.
-- AC-03 (a localized accessible name and a matching tooltip): PASS — e2e per locale (`getByRole('img', { name })` and `title`). The native tooltip does not appear in screenshots, so the e2e attribute check is the evidence.
-- AC-04 (no overlap with the title, badges, date or menu, 375 px included): PASS — e2e geometry at 4 widths; captures.
-- FR-4, FR-7: PASS.
-- Regression constraints: PASS — the menu, Escape, badges, date, title link and Duplicate are unchanged; e2e and parity green.
-- FAIL and BLOCKER conditions: none triggered. The flag comes from `language-flags.tsx`, and its language is the one the PDF prints in.
+- AC-01 (toggle: localized, single choice, group name, keyboard, visible focus, selected state exposed, 44px, opens on Édition): PASS — e2e at 4 widths in en and de; focus captures.
+- AC-02 (Édition: nav and form only, every field in view at 320/375/768/1024 in en and de, no preview): PASS — e2e over all 7 sections.
+- AC-03 (Aperçu: the existing pane, fitted, zoom controls in view, whole letter scrollable): PASS — e2e; captures.
+- AC-04 (state kept both ways; Aperçu shows unsaved edits; same section): PASS — e2e, with no write request.
+- AC-05 (no horizontal page scroll at 320/375/768/1024): PASS — e2e, document and `<main>`.
+- AC-06 (1280 and above unchanged; captures match before): PASS — e2e geometry and the pixel diff.
+- FR-1, FR-2, FR-5, FR-6, FR-7: PASS. FR-3 and FR-4 concern US-002 and US-003.
+- Regression constraints: PASS — the preview-window (incl. its 1024/768 header test), zoom, editor-i18n, sanitized-html and template-language specs pass unchanged; parity unchanged; resume editor untouched.
+- FAIL and BLOCKER conditions: none triggered.
 
 Decision:
-- The flag is positioned absolutely, not in a flex row with the date, because the grid stretches cards to the tallest in their row.
-- A card with a user title now runs language detection too, which it skipped in US-003; the flag needs the language either way.
+- A radiogroup of native radios, not a tablist: its panels would also be tab panels at 1280 and above, where there are no tabs. Radios also don't collide with the specs' `getByRole('button', { name: 'Preview' })` for the header's Preview button.
+- Hide, not unmount, so rich-text state survives. The preview remounts on entering Aperçu, so it fits at once; zoom therefore resets to fitted on each entry.
+- The scroll position is not kept across a switch: below xl `<main>` scrolls, and Édition starts from the top again. The PRD does not require it.
 
 Open owner decisions:
-- None for this story.
-- code-reviewer observation, not this story's defect: the kebab toggle has no accessible name. It predates this branch. Whether the PRD-wide condition "Any control lacks a localized accessible name" covers controls that existed before the PRD is the owner's call.
-- Optional (code-reviewer, minor):
-  - make the flag lookup exhaustive at compile time (`Record<CoverLetterLanguage, …>`);
-  - an e2e case with a long linked-resume badge;
-  - the e2e test's DOM-order selectors.
-- ui-expert, observations:
-  - The tooltip is native `title`, so it never appears in a capture.
-  - No capture shows a card with badges; the e2e geometry covers it.
+- The recurring e2e flake `resume-pdf-route.spec.ts:372`:
+  - letter-spaced headings extract with spaces from the Preview print;
+  - it failed 4 times over two initiatives, alone too, while origin/main fails another case of the same spec;
+  - a follow-up to make that comparison robust would remove a recurring false failure.
+- Carried to US-002 (ui-expert, low): the toggle's 16px icons shrink with a long label (de "Bearbeiten" at 320). Add `shrink-0`; the section-nav icons have the same risk.
+- Carried to US-003:
+  - Below 1280 two controls are named "Preview"/"Vorschau" (the header's window button and the toggle).
+  - The toggle sits under the tall header and translate row; at 320×640 Aperçu has about 150px until the header is compacted.
+- ui-expert, optional: at 768 and 1024 the toggle spans the full width (each half about 205 and 335 px); consider a capped width when US-003 reworks the header.
+- code-reviewer, minor: the widening test proves the fitted end state, not the first frame after the resize.
 
 Environment notes:
-- The e2e and parity failures on the same diff are listed under Checks. They were login or page-load timeouts and one PDF text extraction taken before the font loaded, all in specs this diff does not touch, while full runs took about 14 minutes.
+- Three full e2e runs on this diff each had one unrelated failure (above) before the fourth was green; the machine was otherwise idle (CPU about 12%).
 
 Commit:
 - Story commit: THIS_COMMIT
-- Commit message: ralph: US-005 Each card shows a flag of the letter's language at its bottom-right
+- Commit message: ralph: US-001 Below 1280px, an Édition / Aperçu toggle shows the form or the letter at full width
+FINAL: PASS
+
+## US-002: Below 1280px, the section nav is a horizontally scrolling tab strip
+Status: PASS
+Priority: 2
+Branch: ralph/cover-letter-editor-mobile
+Baseline HEAD: c2c16c9 (US-001)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix 4c7c06fcee4c4e69, over the tracked src/e2e diff plus the new component):
+  - New `src/components/dashboard/editor-section-tabs.tsx` (114): `EditorSectionTabs<Id>` owns the whole strip (FR-4).
+    - The scroll-into-view effect, moved unchanged from the resume editor and keyed on `activeId`.
+    - `aria-current`, the fade mask, the hidden scrollbar, the tab markup and the amber "modified" marker.
+    - The resume editor's exact element types, class strings and attribute order.
+    - Per-editor props: `tabs`, `activeId`, `onSelect`, `xlPadding` (`xl:p-2` or `xl:p-4`), and optional `tabClassName` / `activeTabClassName` / `inactiveTabClassName`, appended only when given.
+  - `src/components/dashboard/resume-editor.tsx` (12/55): the inline `<nav>`, its effect and `sectionNavRef` are replaced by `<EditorSectionTabs … xlPadding="xl:p-4" />`. The outer `resume-editor-section-nav` div is unchanged.
+  - `src/components/dashboard/cover-letter-editor.tsx` (21/29):
+    - The interim wrapping nav is replaced by the shared component.
+    - The xl-only additions (`xl:gap-2 xl:font-normal`, `xl:text-teal-700`, and its previous `dark:` classes) bring back the 192px vertical nav at 1280 and above.
+    - `sectionTabs` replaces `getSectionLabel`, which only the nav used.
+    - The toggle's icons get `shrink-0` (carried from US-001).
+  - `e2e/cover-letter-editor-mobile.spec.ts` (135/1): one new test per locale. At 320/375/768/1024, in en and de:
+    - one row above the form, scrolling sideways (always overflowing at 320 and 375);
+    - the 7 labels in order;
+    - each tab at least 44px tall and one line high;
+    - a single `aria-current`;
+    - the last tab, selected while partly hidden, scrolls clear of the fade and shows its section, with no horizontal page scroll; the first tab scrolls back;
+    - Tab and Enter with `:focus-visible`;
+    - after Aperçu and back, the tab is still current and in view;
+    - at 1280 and 1440, the active tab in the vertical nav is current.
+- Not touched: the header, the menu, the Save bar (US-003), the exports, the database. No version change, no push or merge.
+- Temporary dump, capture and diff specs (e2e/zz-tabs-dump, zz-cap, zz-diff) were run alone and deleted; none is in the diff.
+
+Checks:
+- Final diff (hash 4c7c06fcee4c4e69, the same before and after every run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3270 passed, 5 skipped.
+  - pnpm test:integration: PASS — 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 494 passed, 0 failed (15.0 min), on the fourth full run.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+- Earlier full e2e runs on the same diff hash, each 493 passed and 1 failed, in specs this diff does not touch:
+  - Runs 1 and 3: `job-applications-i18n.spec.ts:1142` ("it: drag and drop is announced in the page language"). It read the pick-up announcement ("Hai preso … dalla colonna Candidato.") instead of the drop announcement. The spec then passed 50/50 alone with `--repeat-each=2`.
+  - Run 2: `resume-pdf-route.spec.ts:372` (classic), the letter-spaced text-extraction mismatch recorded under US-001.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus captures of the production build: scratchpad m2, Édition at 320/375/768/1024/1280/1440 in en and de, and Aperçu with keyboard focus on the toggle at 320/375/768/1024.
+- Visual: PASS.
+  - Resume editor: the strip's `outerHTML` and screenshots at 320/768/1024/1280, in 3 states (on load, after selecting a far tab, with a modified section), on HEAD and on this diff with a fresh seeded resume per width. Those 24 files are byte-identical, and the scroll positions after the far-tab select are equal (35, 0, 508, 420).
+  - Cover letter: the nav column and the full page at 1280 and 1440, in en and de, are byte-identical across the same pair (8 files), 32 files in all (scratchpad tabs-before2 against tabs-after2; ui-expert re-checked them with `cmp`).
+  - The cover letter at 1280 and 1440 against origin/main (`m1-before`) is pixel-identical except the 250×30 dev branch badge (`m2/diff.txt`).
+  - Parity unchanged.
+- Export: NOT_APPLICABLE.
+- Database: NOT_APPLICABLE.
+- Security: NOT_APPLICABLE.
+
+Agents:
+- senior-coder: implementation, with no fix rounds.
+  - Its first before/after dump differed because of the dump script itself: a draft autosaved at one width marked Summary as modified at the next.
+  - It reseeded a resume per width and regenerated the before set from HEAD's source.
+- ui-expert: PASS, 7/7 conditions.
+  - Contrast, computed from token values: active about 8.6:1, inactive about 10:1.
+  - The strip takes one row of about 60px, against the interim wrap of about 200px at 375.
+- code-reviewer: PASS, no Critical or Major findings.
+  - It compiled the classes with tailwindcss 4.1: every `xl:` addition is ordered after its base class, so appending them gives the old xl look.
+
+Acceptance criteria:
+- AC-01 (below 1280 the 7 sections are a horizontally scrolling strip above the form, like the resume's; 44px tabs; `aria-current`; scrolled into view; one-line labels, de included): PASS — e2e at 4 widths in en and de; captures.
+- AC-02 (one shared component; the resume strip's DOM, classes and captures at 320/768/1024/1280 unchanged): PASS — the byte-identical before/after set.
+- AC-03 (at 1280 and above the cover letter keeps its vertical 192px nav): PASS — e2e geometry; the pixel diff against origin/main.
+- FR-1, FR-4, FR-5, FR-6, FR-7: PASS.
+- Regression constraints: PASS — `resume-editor-responsive` passes with its assertions unchanged, as do `resume-editor-page-breaks` and `cover-letter-editor-i18n`; parity unchanged.
+- FAIL and BLOCKER conditions: none triggered. Extracting the strip kept the resume rendering identical.
+
+Decision:
+- The cover letter's 192px xl look is restored by appending `xl:` classes to the shared markup rather than forking the component, so the strip's logic exists once.
+- `shrink-0` is not added to the tab icons: in the resume strip it would change its class strings, which AC-02 forbids. Below xl the cover letter's tabs do not wrap, so it is not needed there.
+
+Open owner decisions:
+- The two e2e specs that fail now and then, each failing about once per full run on this branch:
+  - `job-applications-i18n.spec.ts:1142`: the drag-announcement timing;
+  - `resume-pdf-route.spec.ts:372`: letter-spaced PDF text extraction.
+  - Each costs an extra full run per story. A follow-up to make them deterministic is proposed.
+- code-reviewer, minor:
+  - The cover letter passes `dark:` classes without `xl:`, so its strip below 1280 would differ from the resume's in dark mode. Dark mode is never enabled in the app today.
+  - The rule that added classes must carry an `xl:` or `dark:` prefix lives only in a comment.
+  - The strip's `<nav>` has no accessible name; it is inherited from the resume editor, and adding one would change the resume DOM.
+- ui-expert, low:
+  - A tab scrolled out to the left is cut without a fade, the same as in the resume strip; a left fade, if wanted, belongs in the shared component.
+  - At 1280 in de "Verknüpfter Lebenslauf" wraps onto two centred lines in the 192px column, as it does on origin/main.
+
+Environment notes:
+- The first two Playwright builds of the implementer's runs failed with `uncaughtException [TypeError: Cannot read properties of undefined (reading 'length')]` before any code change. A direct `next build` then succeeded, and every later build passed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 Below 1280px, the section nav is a horizontally scrolling tab strip
+FINAL: PASS
+
+## US-003: Below 1280px, a compact header, a "•••" menu, and Save in a bottom bar
+Status: PASS
+Priority: 3
+Branch: ralph/cover-letter-editor-mobile
+Baseline HEAD: f217d6e (US-002)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix 1ca13379eac9f149, over the tracked src/e2e diff plus the new menu):
+  - New `src/components/dashboard/cover-letter-actions-menu.tsx` (241): the WAI-ARIA menu button.
+    - The trigger has `aria-haspopup="menu"`, `aria-expanded` and `aria-controls`.
+    - `role="menu"` holds a group of 4 actions, a separator, and a "Translate" group of 4 items.
+    - Keys: arrows (wrapping), Home and End move a single tab stop; ArrowDown or ArrowUp on the trigger opens on the first or last item.
+    - Items are at least 44px. Busy items get `aria-busy`, `aria-disabled` and a spinner.
+    - Escape, choosing an item, and Tab return focus to "•••". After an outside press, focus returns to "•••" only if focus was lost (`activeElement` null or body); the timer lives in a ref cleared only on unmount.
+    - It closes when the viewport crosses to 1280 or wider (`useMediaQuery(BREAKPOINTS.xl)`), adjusted during render.
+    - It only lays out and moves through items: every action comes from the editor.
+  - `src/components/dashboard/cover-letter-editor.tsx` (207/58), below xl:
+    - **Header:** one row of 61px. Back is a 44×44 link named from `common.back`. The title is flexible (at least 6rem). The save status sits beside the title or under it; at 320 in de it ends in an ellipsis, with the full text for screen readers.
+    - **Hidden below xl:** the six desktop buttons, the translate row and the full-screen Preview button are not rendered (`hidden xl:flex`).
+    - **Menu wiring:** items call `setShowGenerationModal`, `setShowCheckerModal`, `handleDownload(format, origin)` and `handleTranslate` (FR-3).
+      - The busy and idle labels and `saveDisabled` are computed once and shared with the desktop controls.
+      - Downloads remember the element that started them, in place of `pdfButtonRef`/`wordButtonRef`, so focus returns to "•••" and never to a hidden button. At 1280 and above the origin is the same button the refs pointed to.
+    - **Bottom bar:** sticky, holding the only Save below xl.
+      - Below 1024 it is pulled through `<main>`'s bottom padding (`max-lg:-bottom-4 -mb-4`, `sm:max-lg:-bottom-6 -mb-6`), so it is flush with the screen edge.
+      - At 1024–1279 it sits fully visible, and its white background extends below it (`lg:after:` pseudo-element), so the strip shows neither form nor grey.
+      - Its padding includes `env(safe-area-inset-bottom)`. Form controls get a matching `scroll-mb`.
+    - **Notices:** save error, translation and download notices are keyed by content and scroll into view when they appear.
+    - **Screen-reader status:** an sr-only status below xl announces translation and download busy labels.
+    - Every new class is below-xl only or hidden at xl.
+  - `src/locales/{en,fr,de,it}/common.json` (1/0 each): `common.moreActions` ("More actions", "Plus d'actions", "Weitere Aktionen", "Altre azioni"). The Translate group reuses `translate.label`.
+  - `e2e/cover-letter-editor-mobile.spec.ts` (688/2). At 320/375/768/1024, in en and de:
+    - **Header:** at most 64px; Back 44×44 with its name; the title not overflowing; the desktop controls absent.
+    - **Menu structure:** items, names, flags and sizes; ARIA and keyboard use.
+    - **Menu closing:** Escape, Tab and outside click, with focus return. Pressing the disabled bottom-bar Save focuses "•••"; pressing the title keeps focus there. The menu closes after crossing to 1280.
+    - **Requests:** each menu item's request (method, path, body) equals the desktop button's at 1280.
+    - **Busy states and notices:** busy states for PDF, Word and translation; failure notices in view; the save-first notice with no request; a translation from the menu opens the new letter (at 320 and 1024).
+    - **Bottom bar:** in view while scrolling, with the last element above it at the end of every section and the letter's end above it in Aperçu.
+    - **Bar edge, below 1024:** the bar's bottom is within 1px of the viewport and of `<main>`'s bottom, and `elementFromPoint` 2px above the edge lands in the bar (mid-scroll, at the end, in Aperçu).
+    - **Bar edge, at 1024:** the bar is fully on screen, and only the bar or the gutter is under the edge.
+    - **Save:** disabled until an edit, busy while saving, stored; a failed save's notice scrolls into view.
+    - **At 1280 and 1440:** no "•••", one Save, the six header buttons and the four flags.
+  - `e2e/cover-letter-preview-window.spec.ts` (61/7), two narrow tests:
+    - "below 1280 px the header buttons wrap without covering the title" is rewritten as "below 1280 px the header is one row, with the buttons in the "•••" menu", as the PRD Context provides. It still runs in de at 1024 and 768 with the long title, and asserts "•••" present, the six buttons absent, Back, title and "•••" on one row without overlap, the title at least 96px, and no horizontal scroll.
+    - "in a narrow window the page fits its width…" opens the window at 1280 and narrows the browser to 768 and 375, since the Preview button no longer exists below xl. Its gutter and no-sideways-scroll assertions are unchanged. This is a setup change beyond the header exception the PRD names.
+    - The 1280 tests are untouched.
+- Not touched: the dashboard shell, the exports, the database, the resume editor, the preview window's own behaviour. No version change, no push or merge.
+- Temporary capture and diff specs (e2e/zz-m3, zz-m3b, zz-cap, zz-diff) were run alone and deleted; none is in the diff.
+
+Checks:
+- An earlier full run on an intermediate diff was stopped for the review fixes (process tree killed, port 3100 confirmed free). It is not evidence.
+- Final run (this diff, alone, started after the last edit; the diff hash is the same before and after the run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3270 passed, 5 skipped.
+  - pnpm test:integration: PASS — 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 507 passed, 0 failed (19.7 min).
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus captures of the production build with touch emulation (`isMobile`, `hasTouch`):
+  - scratchpad m3 and m3b: initial, mid-scroll, menu open, scrolled to the end after an edit, and Aperçu, in en and de at 320, 375, 768 and 1024;
+  - the wide widths 1280 and 1440.
+- Visual: PASS.
+  - 1280 and 1440, en and de, compared with origin/main b2799d0 (`m1-before`) in `m3b/diff2.txt`: identical except the dev branch badge (y < 30) and a 28×8 area that is the letter's date line ("November 4" in the before captures of 2026-11-04, "November 5" now).
+  - ui-expert's pixel scans of the bottom 90 rows: the bar is white to the screen edge at 320, 375 and 768, and the strip under it at 1024 is white.
+  - Parity unchanged.
+- Export: NOT_APPLICABLE.
+- Database: NOT_APPLICABLE.
+- Security: NOT_APPLICABLE — no route or data change; the menu calls the existing handlers.
+
+Agents:
+- senior-coder: implementation, then two fix rounds.
+  - Review findings: outside-click focus could fall to `<body>` (disabled controls, buttons on iOS Safari); the bar did not reach the screen edge; `saveDisabled` was written twice; notices did not re-mount; download busy state was not announced below xl; the menu stayed open across the breakpoint; the title minimum in the rewritten test.
+  - While making the bar flush it found the dashboard-shell defect, and implemented option B (decision below).
+  - Its own runs also fixed a focus-return bug: the close was cancelling its own focus timer.
+- ui-expert:
+  - first pass FAIL: at 320 the form showed under the bar, and at 375–1024 there was a 15–24px gap;
+  - re-validation PASS, 7/7 conditions, accepting the 1024–1279 treatment.
+- code-reviewer:
+  - first pass FAIL: the outside-click focus finding;
+  - re-review PASS, no Critical or Major findings; gated on the suite, now green.
+
+Acceptance criteria:
+- AC-01 (header one row; Back 44×44 named; title flexible; status; "•••" named; at most 64px at 320 and 375 in en and de): PASS — e2e; captures.
+- AC-02 (menu: the four actions and the four flagged translate items, 44px, ARIA, keyboard, Escape and outside click with focus return, same behaviour as desktop): PASS — e2e, request equality with the desktop controls.
+- AC-03 (translate row and Preview button not shown below 1280): PASS — e2e; captures.
+- AC-04 (bottom bar: Save, same states, visible while scrolling, never covering the last field or the letter's end, safe area): PASS — e2e at 4 widths; pixel scans. The safe area is the decision below.
+- AC-05 (notices appear, are announced, and are fully visible at 320 and 375; a translation from the menu opens the new letter): PASS — e2e.
+- AC-06 (1280 and above unchanged; US-001's 1280 header assertions pass; captures match): PASS — the pixel diff; the preview-window 1280 tests untouched and green.
+- FR-1, FR-2, FR-3, FR-5, FR-6, FR-7: PASS.
+- Regression constraints: PASS — the full e2e is green, including every cover-letter spec, `resume-editor-responsive` and parity.
+- FAIL and BLOCKER conditions: none triggered. Every menu action uses the desktop handler, and no control is clipped.
+
+Decision:
+- **The bottom bar at 1024–1279 (option B, orchestrator's call within the PRD).**
+  - The dashboard shell sizes the content area as `h-[calc(100vh-64px)]` (`src/app/[locale]/(dashboard)/layout.tsx`), but the header is taller: from 1024 up `<main>` ends 17px below the viewport, and 1px below 1024. This is also so on origin/main.
+  - A flush bar there would clip Save, which is a FAIL condition. So at 1024–1279 the bar sits fully visible 7px above the edge, with its own background filling the strip.
+  - The PRD's criteria (visible, never covering the last field, never clipped) are met. Fixing the shell is out of this PRD's scope; it is listed below.
+- **Safe area:** the app sets no `viewport-fit=cover`, so `env(safe-area-inset-bottom)` resolves to 0 and the browser already keeps the page out of unsafe areas. The padding is a safeguard for a future `cover`.
+- **Back's `aria-label`** is set at every width, with `aria-hidden` on its icon. This is a deliberate change to the accessibility tree at 1280 and above (FR-5). It changes nothing visible; the pixel diff proves it.
+- **Outside clicks:** focus is restored only when it was actually lost, so a tapped field keeps its focus.
+
+Open owner decisions:
+- **Dashboard-shell defect (new follow-up):** `h-[calc(100vh-64px)]` against the real header height. It makes every dashboard page 17px taller than the screen from 1024 up. Once fixed, the bar can be flush at 1024–1279 and its `after:` strip removed. The bar's negative offsets copy `<main>`'s padding and must change with it.
+- **Two e2e specs that keep failing on this branch** (see US-001 and US-002): `resume-pdf-route.spec.ts:372` and `job-applications-i18n.spec.ts:1142`.
+- **ui-expert, pre-existing:** the amber "Unsaved changes" text is 3.18:1 on white, below AA (same class at desktop on origin/main). Change it to `text-amber-700`.
+- **code-reviewer, minor:**
+  - At 1024–1279 the controls' `scroll-mb` (4rem) is about 21px smaller than the bar's height above the scrollport edge. `scrollIntoView({block:'nearest'})` or caret scrolling could leave a control's bottom under the bar; Chrome's `focus()` centres, so the test does not exercise it.
+  - The same notice twice in a row keeps its key and does not scroll into view again.
+- **Not verifiable in Playwright** (PRD Risks): the on-screen keyboard over the bar and the runtime safe-area inset. Check on one real iOS and one real Android device before release.
+- **ui-expert, minor:** at 320 the de save status ends in an ellipsis.
+
+Environment notes:
+- None. The final full run was green on its first attempt.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 Below 1280px, a compact header, a "•••" menu, and Save in a bottom bar
 FINAL: PASS

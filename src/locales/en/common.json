@@ -426,6 +426,7 @@
     "deleting": "Deleting...",
     "confirm": "Confirm",
     "back": "Back",
+    "moreActions": "More actions",
     "notLoggedIn": "You must be logged in to perform this action",
     "at": "at"
   },
@@ -576,6 +577,11 @@
       "zoomIn": "Zoom in",
       "zoomFit": "Show all",
       "zoomLevel": "Zoom level: {percent}%",
+      "view": {
+        "label": "Editor view",
+        "edit": "Edit",
+        "preview": "Preview"
+      },
       "translate": {
         "label": "Translate",
         "to": {
