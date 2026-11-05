@@ -1,6 +1,6 @@
 # PRD: Cover letters follow the Swiss professional letter format
 
-**Status:** DRAFT
+**Status:** APPROVED 2026-11-05
 
 ## Objective
 
