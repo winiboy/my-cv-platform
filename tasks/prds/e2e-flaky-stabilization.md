@@ -1,6 +1,6 @@
 # PRD: Two flaky e2e specs pass deterministically
 
-**Status:** DRAFT
+**Status:** APPROVED 2026-11-05
 
 ## Objective
 
