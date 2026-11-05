@@ -426,6 +426,7 @@
     "deleting": "Suppression...",
     "confirm": "Confirmer",
     "back": "Retour",
+    "moreActions": "Plus d'actions",
     "notLoggedIn": "Vous devez être connecté pour effectuer cette action",
     "at": "chez"
   },

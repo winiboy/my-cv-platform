@@ -218,3 +218,125 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-002 Below 1280px, the section nav is a horizontally scrolling tab strip
 FINAL: PASS
+
+## US-003: Below 1280px, a compact header, a "•••" menu, and Save in a bottom bar
+Status: PASS
+Priority: 3
+Branch: ralph/cover-letter-editor-mobile
+Baseline HEAD: f217d6e (US-002)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix 1ca13379eac9f149, over the tracked src/e2e diff plus the new menu):
+  - New `src/components/dashboard/cover-letter-actions-menu.tsx` (241): the WAI-ARIA menu button.
+    - The trigger has `aria-haspopup="menu"`, `aria-expanded` and `aria-controls`.
+    - `role="menu"` holds a group of 4 actions, a separator, and a "Translate" group of 4 items.
+    - Keys: arrows (wrapping), Home and End move a single tab stop; ArrowDown or ArrowUp on the trigger opens on the first or last item.
+    - Items are at least 44px. Busy items get `aria-busy`, `aria-disabled` and a spinner.
+    - Escape, choosing an item, and Tab return focus to "•••". After an outside press, focus returns to "•••" only if focus was lost (`activeElement` null or body); the timer lives in a ref cleared only on unmount.
+    - It closes when the viewport crosses to 1280 or wider (`useMediaQuery(BREAKPOINTS.xl)`), adjusted during render.
+    - It only lays out and moves through items: every action comes from the editor.
+  - `src/components/dashboard/cover-letter-editor.tsx` (207/58), below xl:
+    - **Header:** one row of 61px. Back is a 44×44 link named from `common.back`. The title is flexible (at least 6rem). The save status sits beside the title or under it; at 320 in de it ends in an ellipsis, with the full text for screen readers.
+    - **Hidden below xl:** the six desktop buttons, the translate row and the full-screen Preview button are not rendered (`hidden xl:flex`).
+    - **Menu wiring:** items call `setShowGenerationModal`, `setShowCheckerModal`, `handleDownload(format, origin)` and `handleTranslate` (FR-3).
+      - The busy and idle labels and `saveDisabled` are computed once and shared with the desktop controls.
+      - Downloads remember the element that started them, in place of `pdfButtonRef`/`wordButtonRef`, so focus returns to "•••" and never to a hidden button. At 1280 and above the origin is the same button the refs pointed to.
+    - **Bottom bar:** sticky, holding the only Save below xl.
+      - Below 1024 it is pulled through `<main>`'s bottom padding (`max-lg:-bottom-4 -mb-4`, `sm:max-lg:-bottom-6 -mb-6`), so it is flush with the screen edge.
+      - At 1024–1279 it sits fully visible, and its white background extends below it (`lg:after:` pseudo-element), so the strip shows neither form nor grey.
+      - Its padding includes `env(safe-area-inset-bottom)`. Form controls get a matching `scroll-mb`.
+    - **Notices:** save error, translation and download notices are keyed by content and scroll into view when they appear.
+    - **Screen-reader status:** an sr-only status below xl announces translation and download busy labels.
+    - Every new class is below-xl only or hidden at xl.
+  - `src/locales/{en,fr,de,it}/common.json` (1/0 each): `common.moreActions` ("More actions", "Plus d'actions", "Weitere Aktionen", "Altre azioni"). The Translate group reuses `translate.label`.
+  - `e2e/cover-letter-editor-mobile.spec.ts` (688/2). At 320/375/768/1024, in en and de:
+    - **Header:** at most 64px; Back 44×44 with its name; the title not overflowing; the desktop controls absent.
+    - **Menu structure:** items, names, flags and sizes; ARIA and keyboard use.
+    - **Menu closing:** Escape, Tab and outside click, with focus return. Pressing the disabled bottom-bar Save focuses "•••"; pressing the title keeps focus there. The menu closes after crossing to 1280.
+    - **Requests:** each menu item's request (method, path, body) equals the desktop button's at 1280.
+    - **Busy states and notices:** busy states for PDF, Word and translation; failure notices in view; the save-first notice with no request; a translation from the menu opens the new letter (at 320 and 1024).
+    - **Bottom bar:** in view while scrolling, with the last element above it at the end of every section and the letter's end above it in Aperçu.
+    - **Bar edge, below 1024:** the bar's bottom is within 1px of the viewport and of `<main>`'s bottom, and `elementFromPoint` 2px above the edge lands in the bar (mid-scroll, at the end, in Aperçu).
+    - **Bar edge, at 1024:** the bar is fully on screen, and only the bar or the gutter is under the edge.
+    - **Save:** disabled until an edit, busy while saving, stored; a failed save's notice scrolls into view.
+    - **At 1280 and 1440:** no "•••", one Save, the six header buttons and the four flags.
+  - `e2e/cover-letter-preview-window.spec.ts` (61/7), two narrow tests:
+    - "below 1280 px the header buttons wrap without covering the title" is rewritten as "below 1280 px the header is one row, with the buttons in the "•••" menu", as the PRD Context provides. It still runs in de at 1024 and 768 with the long title, and asserts "•••" present, the six buttons absent, Back, title and "•••" on one row without overlap, the title at least 96px, and no horizontal scroll.
+    - "in a narrow window the page fits its width…" opens the window at 1280 and narrows the browser to 768 and 375, since the Preview button no longer exists below xl. Its gutter and no-sideways-scroll assertions are unchanged. This is a setup change beyond the header exception the PRD names.
+    - The 1280 tests are untouched.
+- Not touched: the dashboard shell, the exports, the database, the resume editor, the preview window's own behaviour. No version change, no push or merge.
+- Temporary capture and diff specs (e2e/zz-m3, zz-m3b, zz-cap, zz-diff) were run alone and deleted; none is in the diff.
+
+Checks:
+- An earlier full run on an intermediate diff was stopped for the review fixes (process tree killed, port 3100 confirmed free). It is not evidence.
+- Final run (this diff, alone, started after the last edit; the diff hash is the same before and after the run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3270 passed, 5 skipped.
+  - pnpm test:integration: PASS — 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 507 passed, 0 failed (19.7 min).
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus captures of the production build with touch emulation (`isMobile`, `hasTouch`):
+  - scratchpad m3 and m3b: initial, mid-scroll, menu open, scrolled to the end after an edit, and Aperçu, in en and de at 320, 375, 768 and 1024;
+  - the wide widths 1280 and 1440.
+- Visual: PASS.
+  - 1280 and 1440, en and de, compared with origin/main b2799d0 (`m1-before`) in `m3b/diff2.txt`: identical except the dev branch badge (y < 30) and a 28×8 area that is the letter's date line ("November 4" in the before captures of 2026-11-04, "November 5" now).
+  - ui-expert's pixel scans of the bottom 90 rows: the bar is white to the screen edge at 320, 375 and 768, and the strip under it at 1024 is white.
+  - Parity unchanged.
+- Export: NOT_APPLICABLE.
+- Database: NOT_APPLICABLE.
+- Security: NOT_APPLICABLE — no route or data change; the menu calls the existing handlers.
+
+Agents:
+- senior-coder: implementation, then two fix rounds.
+  - Review findings: outside-click focus could fall to `<body>` (disabled controls, buttons on iOS Safari); the bar did not reach the screen edge; `saveDisabled` was written twice; notices did not re-mount; download busy state was not announced below xl; the menu stayed open across the breakpoint; the title minimum in the rewritten test.
+  - While making the bar flush it found the dashboard-shell defect, and implemented option B (decision below).
+  - Its own runs also fixed a focus-return bug: the close was cancelling its own focus timer.
+- ui-expert:
+  - first pass FAIL: at 320 the form showed under the bar, and at 375–1024 there was a 15–24px gap;
+  - re-validation PASS, 7/7 conditions, accepting the 1024–1279 treatment.
+- code-reviewer:
+  - first pass FAIL: the outside-click focus finding;
+  - re-review PASS, no Critical or Major findings; gated on the suite, now green.
+
+Acceptance criteria:
+- AC-01 (header one row; Back 44×44 named; title flexible; status; "•••" named; at most 64px at 320 and 375 in en and de): PASS — e2e; captures.
+- AC-02 (menu: the four actions and the four flagged translate items, 44px, ARIA, keyboard, Escape and outside click with focus return, same behaviour as desktop): PASS — e2e, request equality with the desktop controls.
+- AC-03 (translate row and Preview button not shown below 1280): PASS — e2e; captures.
+- AC-04 (bottom bar: Save, same states, visible while scrolling, never covering the last field or the letter's end, safe area): PASS — e2e at 4 widths; pixel scans. The safe area is the decision below.
+- AC-05 (notices appear, are announced, and are fully visible at 320 and 375; a translation from the menu opens the new letter): PASS — e2e.
+- AC-06 (1280 and above unchanged; US-001's 1280 header assertions pass; captures match): PASS — the pixel diff; the preview-window 1280 tests untouched and green.
+- FR-1, FR-2, FR-3, FR-5, FR-6, FR-7: PASS.
+- Regression constraints: PASS — the full e2e is green, including every cover-letter spec, `resume-editor-responsive` and parity.
+- FAIL and BLOCKER conditions: none triggered. Every menu action uses the desktop handler, and no control is clipped.
+
+Decision:
+- **The bottom bar at 1024–1279 (option B, orchestrator's call within the PRD).**
+  - The dashboard shell sizes the content area as `h-[calc(100vh-64px)]` (`src/app/[locale]/(dashboard)/layout.tsx`), but the header is taller: from 1024 up `<main>` ends 17px below the viewport, and 1px below 1024. This is also so on origin/main.
+  - A flush bar there would clip Save, which is a FAIL condition. So at 1024–1279 the bar sits fully visible 7px above the edge, with its own background filling the strip.
+  - The PRD's criteria (visible, never covering the last field, never clipped) are met. Fixing the shell is out of this PRD's scope; it is listed below.
+- **Safe area:** the app sets no `viewport-fit=cover`, so `env(safe-area-inset-bottom)` resolves to 0 and the browser already keeps the page out of unsafe areas. The padding is a safeguard for a future `cover`.
+- **Back's `aria-label`** is set at every width, with `aria-hidden` on its icon. This is a deliberate change to the accessibility tree at 1280 and above (FR-5). It changes nothing visible; the pixel diff proves it.
+- **Outside clicks:** focus is restored only when it was actually lost, so a tapped field keeps its focus.
+
+Open owner decisions:
+- **Dashboard-shell defect (new follow-up):** `h-[calc(100vh-64px)]` against the real header height. It makes every dashboard page 17px taller than the screen from 1024 up. Once fixed, the bar can be flush at 1024–1279 and its `after:` strip removed. The bar's negative offsets copy `<main>`'s padding and must change with it.
+- **Two e2e specs that keep failing on this branch** (see US-001 and US-002): `resume-pdf-route.spec.ts:372` and `job-applications-i18n.spec.ts:1142`.
+- **ui-expert, pre-existing:** the amber "Unsaved changes" text is 3.18:1 on white, below AA (same class at desktop on origin/main). Change it to `text-amber-700`.
+- **code-reviewer, minor:**
+  - At 1024–1279 the controls' `scroll-mb` (4rem) is about 21px smaller than the bar's height above the scrollport edge. `scrollIntoView({block:'nearest'})` or caret scrolling could leave a control's bottom under the bar; Chrome's `focus()` centres, so the test does not exercise it.
+  - The same notice twice in a row keeps its key and does not scroll into view again.
+- **Not verifiable in Playwright** (PRD Risks): the on-screen keyboard over the bar and the runtime safe-area inset. Check on one real iOS and one real Android device before release.
+- **ui-expert, minor:** at 320 the de save status ends in an ellipsis.
+
+Environment notes:
+- None. The final full run was green on its first attempt.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 Below 1280px, a compact header, a "•••" menu, and Save in a bottom bar
+FINAL: PASS

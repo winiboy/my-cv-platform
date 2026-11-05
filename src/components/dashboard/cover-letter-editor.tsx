@@ -27,6 +27,7 @@ import { useCoverLetterDownload } from '@/lib/hooks/use-cover-letter-download'
 import type { CoverLetterExportFormat } from '@/lib/cover-letter-download-client'
 import type { Locale } from '@/lib/i18n'
 import type { CoverLetter, Resume, CoverLetterAnalysis } from '@/types/database'
+import { CoverLetterActionsMenu, type ActionsMenuGroup } from './cover-letter-actions-menu'
 import { CoverLetterPreview } from './cover-letter-preview'
 import { CoverLetterPreviewDialog } from './cover-letter-preview-dialog'
 import { EditorSectionTabs } from './editor-section-tabs'
@@ -113,10 +114,10 @@ export function CoverLetterEditor({
   const [translatingTo, setTranslatingTo] = useState<FlagLanguage | null>(null)
   const [translateNotice, setTranslateNotice] = useState<TranslateNotice | null>(null)
   const previewButtonRef = useRef<HTMLButtonElement>(null)
-  const pdfButtonRef = useRef<HTMLButtonElement>(null)
-  const wordButtonRef = useRef<HTMLButtonElement>(null)
-  // Set when a button starts a request, cleared once focus is handed back.
-  const restoreFocusRef = useRef<Record<CoverLetterExportFormat, boolean>>({ pdf: false, docx: false })
+  const actionsMenuButtonRef = useRef<HTMLButtonElement>(null)
+  // The control that started a request (a header button, or the "•••" menu's
+  // trigger below xl), set when it starts and cleared once focus is handed back.
+  const restoreFocusRef = useRef<Record<CoverLetterExportFormat, HTMLElement | null>>({ pdf: null, docx: null })
   const { download: downloadPdf, isDownloading: isDownloadingPdf } = useCoverLetterDownload(
     initialCoverLetter.id,
     'pdf',
@@ -195,7 +196,7 @@ export function CoverLetterEditor({
    * the letter on screen, so the user is asked to save first; saving on their
    * behalf would commit edits they have not chosen to keep.
    */
-  const handleDownload = async (format: CoverLetterExportFormat) => {
+  const handleDownload = async (format: CoverLetterExportFormat, origin: HTMLElement | null) => {
     // One notice at a time.
     setTranslateNotice(null)
     // No request and no busy state here, so the button keeps its focus.
@@ -204,7 +205,7 @@ export function CoverLetterEditor({
       return
     }
     setDownloadNotice(null)
-    restoreFocusRef.current[format] = true
+    restoreFocusRef.current[format] = origin
     const result = await (format === 'pdf' ? downloadPdf : downloadWord)()
     if (result === 'failed' || result === 'too-large') setDownloadNotice({ format, reason: result })
   }
@@ -276,19 +277,22 @@ export function CoverLetterEditor({
   // with Enter. Once it is usable again, focus returns to it, but only if
   // focus is still lost, never taken from where the user moved it since. The
   // notice keeps `role="alert"`, so the outcome is still announced.
-  const restoreFocus = useCallback((format: CoverLetterExportFormat, button: HTMLButtonElement | null) => {
-    if (!restoreFocusRef.current[format]) return
-    restoreFocusRef.current[format] = false
+  // The "•••" trigger is never disabled and keeps focus itself; it is handed
+  // focus back only the same way, if focus was lost meanwhile.
+  const restoreFocus = useCallback((format: CoverLetterExportFormat) => {
+    const origin = restoreFocusRef.current[format]
+    if (!origin) return
+    restoreFocusRef.current[format] = null
     const focusWasLost = document.activeElement === null || document.activeElement === document.body
-    if (focusWasLost) button?.focus()
+    if (focusWasLost) origin.focus()
   }, [])
 
   useEffect(() => {
-    if (!isDownloadingPdf) restoreFocus('pdf', pdfButtonRef.current)
+    if (!isDownloadingPdf) restoreFocus('pdf')
   }, [isDownloadingPdf, restoreFocus])
 
   useEffect(() => {
-    if (!isDownloadingWord) restoreFocus('docx', wordButtonRef.current)
+    if (!isDownloadingWord) restoreFocus('docx')
   }, [isDownloadingWord, restoreFocus])
 
   const downloadNoticeMessage = (() => {
@@ -313,6 +317,101 @@ export function CoverLetterEditor({
   })()
   // One notice at a time, named after the button it answers.
   const downloadNoticeId = downloadNotice ? `cover-letter-${downloadNotice.format}-notice` : undefined
+
+  // The header's controls and their "•••" menu items below xl say the same.
+  const pdfLabel = isDownloadingPdf
+    ? (editorDict.downloadingPdf as string) || 'Creating PDF...'
+    : (coverLettersDict.downloadPDF as string) || 'Download PDF'
+  const wordLabel = isDownloadingWord
+    ? (editorDict.downloadingWord as string) || 'Creating Word file...'
+    : (coverLettersDict.downloadWord as string) || 'Download Word'
+  const translateLabel = (code: FlagLanguage) =>
+    translatingTo === code
+      ? translatingDict[code] || `Translating into ${code.toUpperCase()}...`
+      : translateToDict[code] || `Translate into ${code.toUpperCase()}`
+  const translateStatus = translatingTo ? translateLabel(translatingTo) : ''
+  // Below xl a request started from the "•••" menu has no button of its own
+  // left on screen to carry its busy label, so the label is announced.
+  const compactBusyStatus =
+    translateStatus || (isDownloadingPdf ? pdfLabel : isDownloadingWord ? wordLabel : '')
+  const saveDisabled = isSaving || !hasUnsavedChanges
+  const generateLabel = (editorDict.generate as string) || 'Generate'
+  const checkLabel = (editorDict.check as string) || 'Check'
+  const saveContent = (
+    <>
+      {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+      {isSaving ? (commonDict.saving as string) || 'Saving...' : (commonDict.save as string) || 'Save'}
+    </>
+  )
+
+  /**
+   * Below xl the header's secondary actions, through the very handlers of the
+   * header buttons they replace there. A request started here hands focus
+   * back to the menu's trigger, which stays on screen, never to a hidden button.
+   */
+  const actionsMenuGroups: ActionsMenuGroup[] = [
+    {
+      id: 'actions',
+      items: [
+        {
+          id: 'generate',
+          label: generateLabel,
+          icon: <Sparkles className="h-4 w-4" />,
+          onSelect: () => setShowGenerationModal(true),
+        },
+        {
+          id: 'check',
+          label: checkLabel,
+          icon: <CheckCircle className="h-4 w-4" />,
+          onSelect: () => setShowCheckerModal(true),
+        },
+        {
+          id: 'pdf',
+          label: pdfLabel,
+          icon: isDownloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />,
+          onSelect: () => handleDownload('pdf', actionsMenuButtonRef.current),
+          busy: isDownloadingPdf,
+          describedBy: downloadNotice?.format === 'pdf' ? downloadNoticeId : undefined,
+        },
+        {
+          id: 'docx',
+          label: wordLabel,
+          icon: isDownloadingWord ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />,
+          onSelect: () => handleDownload('docx', actionsMenuButtonRef.current),
+          busy: isDownloadingWord,
+          describedBy: downloadNotice?.format === 'docx' ? downloadNoticeId : undefined,
+        },
+      ],
+    },
+    {
+      id: 'translate',
+      label: (translateDict.label as string) || 'Translate',
+      items: LANGUAGE_FLAG_OPTIONS.map(({ code, Flag }) => ({
+        id: `translate-${code}`,
+        label: translateLabel(code),
+        icon: (
+          <>
+            <Flag />
+            {translatingTo === code && <Loader2 className="h-3 w-3 animate-spin" />}
+          </>
+        ),
+        onSelect: () => handleTranslate(code),
+        busy: translatingTo === code,
+        unavailable: translatingTo !== null,
+        describedBy: translateNotice ? TRANSLATE_NOTICE_ID : undefined,
+      })),
+    },
+  ]
+  const isActionRunning = isDownloadingPdf || isDownloadingWord || translatingTo !== null
+
+  // Below xl the page scrolls, so a notice can appear above the fold, out of
+  // sight of the bottom bar's Save; it is scrolled into view as it appears.
+  // Each notice is keyed by what it says, so a different notice in the same
+  // place is a new element and is revealed again. At xl it is always in
+  // view, and `nearest` leaves the page where it is.
+  const revealNotice = useCallback((notice: HTMLDivElement | null) => {
+    notice?.scrollIntoView({ block: 'nearest' })
+  }, [])
 
   const closePreviewDialog = useCallback(() => setShowPreviewDialog(false), [])
 
@@ -624,55 +723,81 @@ export function CoverLetterEditor({
     <div className="min-h-full xl:h-full flex flex-col">
       {/* Header */}
       {/*
-        One row while the title area's 13.5rem and the buttons fit beside each
-        other; the title then takes the rest. Narrower, the buttons move to
-        lines of their own, right-aligned, so they never cover the title and
-        every label stays visible.
+        At xl, one row while the title area's 13.5rem and the buttons fit
+        beside each other; the title then takes the rest. Narrower, the
+        buttons move to lines of their own, right-aligned, so they never
+        cover the title and every label stays visible.
+        Below xl, always one row: Back, the title and its save status, and the
+        "•••" menu, which holds the buttons but Save (in the bottom bar) and
+        Preview (the Aperçu view replaces it).
       */}
       <div
         data-testid="cover-letter-editor-header"
-        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 max-xl:flex-nowrap max-xl:gap-x-2 max-xl:px-2 max-xl:py-2"
       >
         {/*
           The explicit min width sets the size the row wraps at: left to its
           default, it would be the title input's own width, wider than 13.5rem.
+          Below xl the row never wraps, so the group shrinks to what is left.
         */}
-        <div className="flex min-w-[13.5rem] grow basis-[13.5rem] items-center gap-4">
+        <div className="flex min-w-[13.5rem] grow basis-[13.5rem] items-center gap-4 max-xl:min-w-0 max-xl:gap-2">
           <Link
             href={`/${locale}/dashboard/cover-letters`}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+            aria-label={(commonDict.back as string) || 'Back'}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors max-xl:flex max-xl:size-11 max-xl:shrink-0 max-xl:items-center max-xl:justify-center max-xl:p-0"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5" aria-hidden="true" />
           </Link>
-          <div className="min-w-40 flex-1">
+          {/*
+            Below xl the save status follows the title on its line while both
+            fit, and moves under it otherwise: the title keeps at least 6rem,
+            within the 44px row. Where even its own line is too narrow (the
+            longest locales at 320px) it ends in an ellipsis rather than run
+            under the menu; its full text is still what is announced.
+          */}
+          <div className="min-w-40 flex-1 max-xl:flex max-xl:min-w-0 max-xl:flex-wrap max-xl:items-center max-xl:gap-x-2">
             <input
               type="text"
               value={coverLetter.title}
               onChange={(e) => handleFieldChange('title', e.target.value)}
-              className="max-w-full text-xl font-semibold bg-transparent border-none focus:outline-none focus:ring-0 p-0"
+              className="max-w-full text-xl font-semibold bg-transparent border-none focus:outline-none focus:ring-0 p-0 max-xl:min-w-24 max-xl:flex-1 max-xl:basis-24"
               placeholder={(editorDict.titlePlaceholder as string) || 'Untitled Cover Letter'}
             />
             {hasUnsavedChanges && (
-              <span className="text-xs text-amber-600 dark:text-amber-400 ml-2 whitespace-nowrap">
+              <span className="text-xs text-amber-600 dark:text-amber-400 ml-2 whitespace-nowrap max-xl:ml-0 max-xl:max-w-full max-xl:truncate">
                 {(editorDict.unsavedChanges as string) || 'Unsaved changes'}
               </span>
             )}
             {lastSaved && !hasUnsavedChanges && (
-              <span className="text-xs text-slate-500 ml-2 whitespace-nowrap">
+              <span className="text-xs text-slate-500 ml-2 whitespace-nowrap max-xl:ml-0 max-xl:max-w-full max-xl:truncate">
                 {(editorDict.lastSaved as string) || 'Saved'}{' '}
                 {lastSaved.toLocaleTimeString()}
               </span>
             )}
           </div>
         </div>
-        <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+        <CoverLetterActionsMenu
+          label={(commonDict.moreActions as string) || 'More actions'}
+          groups={actionsMenuGroups}
+          triggerRef={actionsMenuButtonRef}
+          busy={isActionRunning}
+          className="shrink-0 xl:hidden"
+        />
+        {/*
+          Below xl the translate row is hidden with its status, so the busy
+          state of a translation or a download is announced from here instead.
+        */}
+        <span role="status" className="sr-only xl:hidden">
+          {compactBusyStatus}
+        </span>
+        <div className="ml-auto hidden min-w-0 flex-wrap items-center justify-end gap-2 xl:flex">
           {/* AI Generate Button */}
           <button
             onClick={() => setShowGenerationModal(true)}
             className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
           >
             <Sparkles className="h-4 w-4" />
-            {(editorDict.generate as string) || 'Generate'}
+            {generateLabel}
           </button>
           {/* Check Button */}
           <button
@@ -680,7 +805,7 @@ export function CoverLetterEditor({
             className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors"
           >
             <CheckCircle className="h-4 w-4" />
-            {(editorDict.check as string) || 'Check'}
+            {checkLabel}
           </button>
           {/* Preview: the letter on screen, unsaved edits included, in a full-screen window */}
           <button
@@ -694,16 +819,11 @@ export function CoverLetterEditor({
           </button>
           {/* PDF download: the saved letter, generated by the server */}
           <button
-            ref={pdfButtonRef}
             type="button"
-            onClick={() => handleDownload('pdf')}
+            onClick={(event) => handleDownload('pdf', event.currentTarget)}
             disabled={isDownloadingPdf}
             aria-busy={isDownloadingPdf}
-            aria-label={
-              isDownloadingPdf
-                ? (editorDict.downloadingPdf as string) || 'Creating PDF...'
-                : (coverLettersDict.downloadPDF as string) || 'Download PDF'
-            }
+            aria-label={pdfLabel}
             aria-describedby={downloadNotice?.format === 'pdf' ? downloadNoticeId : undefined}
             className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors disabled:cursor-wait disabled:opacity-80"
           >
@@ -716,16 +836,11 @@ export function CoverLetterEditor({
           </button>
           {/* Word download: the saved letter, generated by the server */}
           <button
-            ref={wordButtonRef}
             type="button"
-            onClick={() => handleDownload('docx')}
+            onClick={(event) => handleDownload('docx', event.currentTarget)}
             disabled={isDownloadingWord}
             aria-busy={isDownloadingWord}
-            aria-label={
-              isDownloadingWord
-                ? (editorDict.downloadingWord as string) || 'Creating Word file...'
-                : (coverLettersDict.downloadWord as string) || 'Download Word'
-            }
+            aria-label={wordLabel}
             aria-describedby={downloadNotice?.format === 'docx' ? downloadNoticeId : undefined}
             className="inline-flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-lg transition-colors disabled:cursor-wait disabled:opacity-80"
           >
@@ -739,30 +854,28 @@ export function CoverLetterEditor({
           {/* Save Button */}
           <button
             onClick={handleSave}
-            disabled={isSaving || !hasUnsavedChanges}
+            disabled={saveDisabled}
             className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            {isSaving
-              ? ((commonDict.saving as string) || 'Saving...')
-              : ((commonDict.save as string) || 'Save')}
+            {saveContent}
           </button>
         </div>
       </div>
 
       {/* Error message */}
       {saveError && (
-        <div className="px-4 py-2 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
+        <div
+          key={saveError}
+          ref={revealNotice}
+          className="px-4 py-2 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800"
+        >
           <p className="text-sm text-red-600 dark:text-red-400">{saveError}</p>
         </div>
       )}
 
       {/* Translation: a translated copy of the saved letter, opened once created */}
-      <div className="flex items-center justify-end gap-2 px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+      {/* Below xl the four targets are in the "•••" menu instead. */}
+      <div className="hidden items-center justify-end gap-2 px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 xl:flex">
         {/*
           Before the flags, so busy text grows to the left and the flags never
           move. Always in the DOM, so it is announced when it fills. Below sm
@@ -770,7 +883,7 @@ export function CoverLetterEditor({
           spinner in the tapped flag shows the busy state there.
         */}
         <span role="status" className="sr-only sm:not-sr-only text-sm text-slate-600 dark:text-slate-300">
-          {translatingTo ? translatingDict[translatingTo] || `Translating into ${translatingTo.toUpperCase()}...` : ''}
+          {translateStatus}
         </span>
         {/* Label and flags stay together; on a screen too narrow for one line, the label sits above the flags. */}
         <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
@@ -787,11 +900,7 @@ export function CoverLetterEditor({
                   onClick={() => handleTranslate(code)}
                   aria-disabled={translatingTo !== null}
                   aria-busy={isBusy}
-                  aria-label={
-                    isBusy
-                      ? translatingDict[code] || `Translating into ${code.toUpperCase()}...`
-                      : translateToDict[code] || `Translate into ${code.toUpperCase()}`
-                  }
+                  aria-label={translateLabel(code)}
                   aria-describedby={translateNotice ? TRANSLATE_NOTICE_ID : undefined}
                   className={cn(
                     // 44 px touch targets on phones: a mis-tap creates a letter and leaves the page.
@@ -813,6 +922,8 @@ export function CoverLetterEditor({
       {/* Translation notice: red for a failure, amber for what the user can fix, as the download notice */}
       {translateNotice && (
         <div
+          key={translateNotice}
+          ref={revealNotice}
           className={
             isTranslateFailure
               ? 'px-4 py-2 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800'
@@ -832,6 +943,8 @@ export function CoverLetterEditor({
       {/* PDF or Word download notice */}
       {downloadNotice && (
         <div
+          key={`${downloadNotice.format}-${downloadNotice.reason}`}
+          ref={revealNotice}
           className={
             downloadNotice.reason === 'failed'
               ? 'px-4 py-2 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800'
@@ -931,9 +1044,14 @@ export function CoverLetterEditor({
         </div>
 
         {/* Editor pane */}
+        {/*
+          Below xl the bottom bar overlays the form as it scrolls: a control
+          scrolled to, or focused, stops above the bar rather than under it.
+        */}
         <div
           className={cn(
             'flex-1 overflow-y-auto p-6 bg-white dark:bg-slate-800 xl:block',
+            'max-xl:[&_:is(input,textarea,select,button,a,[contenteditable])]:scroll-mb-[calc(4rem+env(safe-area-inset-bottom))]',
             view === 'preview' && 'hidden'
           )}
         >
@@ -964,6 +1082,37 @@ export function CoverLetterEditor({
             variant="pane"
           />
         </div>
+      </div>
+
+      {/*
+        Below xl, Save in a bar at the bottom, within thumb reach. Sticky in
+        <main>, which scrolls the Édition view: it stays at the bottom of the
+        screen while the form scrolls under it, and rests below the form's
+        end, so the last field can always be scrolled above it. In Aperçu
+        nothing scrolls past it, and the letter's own area ends above it.
+        Sticking stops at <main>'s padding, so below lg the bar is pulled
+        through <main>'s bottom padding (p-4, sm:p-6 in the dashboard layout)
+        by the same amount, as an offset while stuck and as a margin at rest,
+        to sit on the screen's edge with nothing painted under it.
+        From lg it is not: the dashboard layout sizes its content area as
+        `h-[calc(100vh-64px)]`, but from lg the site header is taller than
+        64px, so <main> ends 17px below the viewport. A bar pulled to
+        <main>'s edge would be cut by that much; resting on the padding, it
+        stays whole, 7px above the screen's edge. (Below lg the header is
+        65px, so <main> ends 1px below it.) The defect is the shell's.
+        The form scrolls through <main>'s padding too, so from lg the bar's
+        background is extended through that padding (sm:p-6, 1.5rem): the
+        strip under the bar shows the bar, never the form scrolling under it.
+      */}
+      <div className="sticky bottom-0 z-10 flex justify-end border-t border-slate-200 bg-white px-4 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] max-lg:-bottom-4 max-lg:-mb-4 sm:max-lg:-bottom-6 sm:max-lg:-mb-6 lg:after:absolute lg:after:inset-x-0 lg:after:top-full lg:after:h-6 lg:after:bg-white xl:hidden dark:border-slate-700 dark:bg-slate-800 dark:lg:after:bg-slate-800">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saveDisabled}
+          className="inline-flex min-h-11 w-full items-center justify-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
+        >
+          {saveContent}
+        </button>
       </div>
 
       {/* Modals */}

@@ -150,7 +150,7 @@
         "Out of scope: A \"Design\" tab (there is one letter template)."
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

@@ -34,7 +34,9 @@ import it from '../src/locales/it/common.json'
  *     `cover_letters` table, and the unsaved-changes indicator stays.
  *   - At 768x1024 and 375x812, the page fits the window's width with a
  *     gutter on both sides, and the letter's scroll area (the one that
- *     scrolls) does not scroll sideways.
+ *     scrolls) does not scroll sideways. Below 1280 the Preview button is
+ *     not shown (the Aperçu view replaces it, cover-letter-editor-mobile
+ *     US-003), so the window is opened at 1280 and the browser then narrowed.
  *
  * And for the editor header, which the Preview button made wider (a long
  * unsaved title is the widest the title side gets):
@@ -42,9 +44,11 @@ import it from '../src/locales/it/common.json'
  *   - At 1280x800, in en/fr/de/it, with the stored short title and with a
  *     long unsaved one, the six action buttons lie inside the header on the
  *     title's row, and the page does not scroll sideways.
- *   - At 1024x768 and 768x1024, in de, the buttons wrap instead: they stay
- *     inside the header, never cover the back link or the title, which
- *     keeps at least 10rem, and the page does not scroll sideways.
+ *   - At 1024x768 and 768x1024, in de, with the long unsaved title, the
+ *     header is one row instead (cover-letter-editor-mobile, US-003): the
+ *     back link, the title (at least 6rem wide) and the "•••" menu side by
+ *     side inside it, none covering another; the six buttons are not shown,
+ *     and the page does not scroll sideways.
  */
 
 const UNSAVED_GREETING = 'Dear Ms Unsaved Greeting,'
@@ -309,8 +313,10 @@ test('at 1280 px the header holds all six action buttons on one row in every loc
   }
 })
 
-test('below 1280 px the header buttons wrap without covering the title', async ({ page, authedUser }) => {
+test('below 1280 px the header is one row, with the buttons in the "•••" menu', async ({ page, authedUser }) => {
   const letterId = await insertLetter(authedUser.id)
+  const messages = HEADER_LOCALES.de
+  const dict = messages.coverLetters.editor
 
   for (const viewport of [
     { width: 1024, height: 768 },
@@ -318,7 +324,52 @@ test('below 1280 px the header buttons wrap without covering the title', async (
   ]) {
     await test.step(`de at ${viewport.width}x${viewport.height}`, async () => {
       await page.setViewportSize(viewport)
-      await checkHeader(page, letterId, 'de', 'long')
+      const response = await page.goto(`/de/dashboard/cover-letters/${letterId}/edit`)
+      expect(response?.status()).toBe(200)
+
+      const header = page.getByTestId('cover-letter-editor-header')
+      const title = header.getByRole('textbox')
+      await title.fill(LONG_TITLE)
+      await expect(page.getByText(dict.unsavedChanges, { exact: true })).toBeVisible()
+
+      const more = header.getByRole('button', { name: messages.common.moreActions, exact: true })
+      await expect(more).toBeVisible()
+      for (const name of [
+        dict.generate,
+        dict.check,
+        dict.preview,
+        messages.coverLetters.downloadPDF,
+        messages.coverLetters.downloadWord,
+        messages.common.save,
+      ]) {
+        await expect(header.getByRole('button', { name, exact: true }), `"${name}" in the header`).toHaveCount(0)
+      }
+
+      const headerBox = await rect(header)
+      const boxes = {
+        back: await rect(header.getByRole('link', { name: messages.common.back, exact: true })),
+        title: await rect(title),
+        more: await rect(more),
+      }
+      for (const [name, box] of Object.entries(boxes)) {
+        expect(box.left, `${name} left`).toBeGreaterThanOrEqual(headerBox.left)
+        expect(box.right, `${name} right`).toBeLessThanOrEqual(headerBox.right)
+        expect(box.top, `${name} top`).toBeGreaterThanOrEqual(headerBox.top)
+        expect(box.bottom, `${name} bottom`).toBeLessThanOrEqual(headerBox.bottom)
+      }
+      expect(boxes.title.width, 'the title keeps at least 6rem').toBeGreaterThanOrEqual(96)
+      expect(intersects(boxes.back, boxes.title), 'the back link covers the title').toBe(false)
+      expect(intersects(boxes.more, boxes.title), '"•••" covers the title').toBe(false)
+      expect(intersects(boxes.more, boxes.back), '"•••" covers the back link').toBe(false)
+      // One row: the back link and "•••" share their vertical centre.
+      const centre = (box: Box) => (box.top + box.bottom) / 2
+      expect(Math.abs(centre(boxes.back) - centre(boxes.more)), 'one row').toBeLessThanOrEqual(1)
+
+      const overflow = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        innerWidth: window.innerWidth,
+      }))
+      expect(overflow.scrollWidth, 'horizontal scroll').toBeLessThanOrEqual(overflow.innerWidth)
     })
   }
 })
@@ -331,13 +382,16 @@ test('in a narrow window the page fits its width, with a gutter on both sides', 
     { width: 375, height: 812 },
   ]) {
     await test.step(`${viewport.width}x${viewport.height}`, async () => {
-      await page.setViewportSize(viewport)
+      // Opened where its button is shown, then narrowed: the window is what
+      // is measured, and it does not depend on how it was opened.
+      await page.setViewportSize({ width: 1280, height: 800 })
       const response = await page.goto(`/en/dashboard/cover-letters/${letterId}/edit`)
       expect(response?.status()).toBe(200)
 
       await page.getByRole('button', { name: editorDict.preview, exact: true }).click()
       const dialog = page.getByRole('dialog', { name: editorDict.previewTitle, exact: true })
       await expect(dialog).toBeVisible()
+      await page.setViewportSize(viewport)
       const scrollArea = dialog.getByRole('region', { name: editorDict.previewScrollArea, exact: true })
       const letterPage = dialog.getByTestId('cover-letter-preview-page')
       await expect(letterPage).toHaveCount(1)

@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures/auth'
 import type { Locator, Page } from '@playwright/test'
-import { insertLetter, rect, SENDER_NAME } from './fixtures/cover-letter-preview'
+import { admin, insertLetter, rect, SENDER_NAME, type Box } from './fixtures/cover-letter-preview'
 import en from '../src/locales/en/common.json'
 import de from '../src/locales/de/common.json'
 
@@ -39,8 +39,38 @@ import de from '../src/locales/de/common.json'
  *     the selected tab stays current and in view after Aperçu and back.
  *   - No horizontal scroll of the page or of the dashboard's <main>.
  *
+ * And the compact header, the "•••" menu and the bottom bar (US-003), at the
+ * same widths and locales:
+ *
+ *   - The header is one row of at most 64px: Back, a 44x44 link named
+ *     `common.back`; the title, inside the header and clear of its
+ *     neighbours, with the save status whole; and the "•••" trigger, 44x44,
+ *     named in the locale. The six desktop buttons, the translate row and
+ *     the Preview button are not rendered.
+ *   - The menu: a `menu` named like its trigger (`aria-haspopup`,
+ *     `aria-expanded`, `aria-controls`), holding Generate, Check, Download
+ *     PDF and Download Word, then a Translate group of the four targets with
+ *     today's names and the very flags of the desktop row; every item at
+ *     least 44px tall and on screen. Arrow keys, Home and End move a visible
+ *     focus; Escape, Tab and a click outside close it, Escape and the click
+ *     handing focus back to the trigger.
+ *   - Each item does what its desktop control does: Generate and Check open
+ *     their modals; PDF and Word send the desktop's request (method, path,
+ *     body, as recorded at 1280), show the busy state on the trigger and the
+ *     item, and the desktop's notice on failure, in view, focus on the
+ *     trigger; with unsaved edits they ask to save first and send nothing; a
+ *     translation is announced busy, then opens the new letter, and a failed
+ *     one shows its notice in view.
+ *   - The bottom bar's Save: the only Save, at least 44px tall; disabled
+ *     until an edit, busy while saving, then saved (stored), and a failed
+ *     save's notice is scrolled into view; on screen while the form scrolls;
+ *     at the end of every section the form's last element, and at the end of
+ *     the letter its last line, lie above the bar.
+ *
  * And at 1280 and 1440: no toggle, and the nav, form and pane side by side,
- * the nav still the vertical 192px column with the active tab current.
+ * the nav still the vertical 192px column with the active tab current; no
+ * "•••" trigger and no bottom bar, the six header buttons, the translate row
+ * and the Preview button as before.
  */
 
 const TOUCH_TARGET = 44
@@ -607,6 +637,19 @@ test('widening from Édition at 1024 to 1280 px shows the pane fitted to its wid
   }).toPass({ timeout: 10_000 })
 })
 
+test('a menu left open while widening to 1280 px is closed when the window narrows again', async ({ page, authedUser }) => {
+  const letterId = await insertLetter(authedUser.id)
+  await openEditor(page, 'en', letterId, { width: 1024, height: 768 })
+  const actions = actionsOf(page, en)
+  await openMenu(actions)
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await expect(actions.trigger).toHaveCount(0)
+  await page.setViewportSize({ width: 1024, height: 768 })
+  await expect(actions.trigger).toBeVisible()
+  await expect(actions.menu).toHaveCount(0)
+  await expect(actions.trigger).toHaveAttribute('aria-expanded', 'false')
+})
+
 test('at 1280 and 1440 px there is no toggle and the three columns sit side by side', async ({ page, authedUser }) => {
   const letterId = await insertLetter(authedUser.id)
   for (const locale of Object.keys(LOCALES) as LocaleCode[]) {
@@ -638,8 +681,651 @@ test('at 1280 and 1440 px there is no toggle and the three columns sit side by s
         const tops = await Promise.all(buttons.map(async (button) => (await rect(button)).top))
         expect(new Set(tops).size, `${label}: one nav button per row`).toBe(SECTIONS.length)
         await expectCurrentTab(ui, LOCALES[locale].coverLetters.editor.sections.recipient, label)
+
+        // US-003: nothing of the compact layout, and the desktop controls as before.
+        const dict = LOCALES[locale]
+        const actions = actionsOf(page, dict)
+        await expect(actions.trigger, `${label}: no "•••"`).toHaveCount(0)
+        await expect(page.getByRole('button', { name: dict.common.save, exact: true }), `${label}: one Save`).toHaveCount(1)
+        for (const name of desktopButtonNames(dict)) {
+          await expect(ui.header.getByRole('button', { name, exact: true }), `${label}: "${name}"`).toBeVisible()
+        }
+        const flags = page.getByRole('group', { name: dict.coverLetters.editor.translate.label, exact: true }).getByRole('button')
+        await expect(flags, `${label}: translate row`).toHaveCount(4)
+        for (const flag of await flags.all()) await expect(flag).toBeVisible()
         await expectNoHorizontalScroll(page, label)
       })
     }
   }
 })
+
+// ---------------------------------------------------------------------------
+// US-003: the compact header, the "•••" menu and the bottom bar
+// ---------------------------------------------------------------------------
+
+const intersects = (a: Box, b: Box) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+
+const HEADER_MAX_HEIGHT = 64
+const LONG_TITLE = 'Cover Letter - Senior Full-Stack Software Engineer at Acme International Holdings SA'
+const PDF_ROUTE = '**/api/cover-letters/*/download-pdf'
+const WORD_ROUTE = '**/api/cover-letters/*/download-docx'
+const TRANSLATE_ROUTE = '**/api/cover-letters/*/translate'
+const LETTER_WRITE_ROUTE = '**/rest/v1/cover_letters**'
+
+/** The six header buttons at 1280 and above, by their accessible names. */
+function desktopButtonNames(dict: Dict): string[] {
+  const editorDict = dict.coverLetters.editor
+  return [
+    editorDict.generate,
+    editorDict.check,
+    editorDict.preview,
+    dict.coverLetters.downloadPDF,
+    dict.coverLetters.downloadWord,
+    dict.common.save,
+  ]
+}
+
+interface Actions {
+  trigger: Locator
+  menu: Locator
+  items: Locator
+  translateGroup: Locator
+  item: (name: string) => Locator
+  save: Locator
+  bar: Locator
+}
+
+function actionsOf(page: Page, dict: Dict): Actions {
+  const menu = page.getByRole('menu', { name: dict.common.moreActions, exact: true })
+  const save = page.getByRole('button', { name: dict.common.save, exact: true })
+  return {
+    trigger: page.getByRole('button', { name: dict.common.moreActions, exact: true }),
+    menu,
+    items: menu.getByRole('menuitem'),
+    translateGroup: menu.getByRole('group', { name: dict.coverLetters.editor.translate.label, exact: true }),
+    item: (name: string) => menu.getByRole('menuitem', { name, exact: true }),
+    save,
+    bar: save.locator('xpath=..'),
+  }
+}
+
+/** The menu's items in order, by name: the actions, then the four translation targets. */
+function menuItemNames(dict: Dict): string[] {
+  const to = dict.coverLetters.editor.translate.to
+  return [
+    dict.coverLetters.editor.generate,
+    dict.coverLetters.editor.check,
+    dict.coverLetters.downloadPDF,
+    dict.coverLetters.downloadWord,
+    to.en,
+    to.fr,
+    to.de,
+    to.it,
+  ]
+}
+
+async function openMenu(actions: Actions) {
+  await actions.trigger.click()
+  await expect(actions.menu).toBeVisible()
+  await expect(actions.trigger).toHaveAttribute('aria-expanded', 'true')
+}
+
+/** Scrolls the dashboard's <main>, which scrolls the page below xl, and settles. */
+function scrollMain(page: Page, to: 'top' | 'middle' | 'bottom') {
+  return page.evaluate((where) => {
+    const main = document.querySelector('main')!
+    const max = main.scrollHeight - main.clientHeight
+    const top = where === 'top' ? 0 : where === 'middle' ? Math.floor(max / 2) : max
+    main.scrollTo({ top, behavior: 'instant' })
+    return { max, top: main.scrollTop }
+  }, to)
+}
+
+/** The lowest edge of anything rendered in the form: its last field, button or text. */
+function formContentBottom(form: Locator): Promise<number> {
+  return form.evaluate((element) => {
+    let bottom = -Infinity
+    for (const child of Array.from(
+      element.querySelectorAll<HTMLElement>('input, textarea, select, button, a, label, p, h3, [contenteditable="true"]'),
+    )) {
+      if (child.getClientRects().length === 0) continue
+      bottom = Math.max(bottom, child.getBoundingClientRect().bottom)
+    }
+    return bottom
+  })
+}
+
+/** A route held until released, answering with `fulfil` or passing through. */
+function holdRoute(page: Page, pattern: string, answer: 'continue' | { status: number; body: string }, method?: string) {
+  let release!: () => void
+  const held = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const requests: { method: string; path: string; body: string | null }[] = []
+  const ready = page.route(pattern, async (route) => {
+    const request = route.request()
+    if (method && request.method() !== method) return route.continue()
+    requests.push({ method: request.method(), path: new URL(request.url()).pathname, body: request.postData() })
+    await held
+    if (answer === 'continue') return route.continue()
+    return route.fulfill({ status: answer.status, contentType: 'application/json', body: answer.body })
+  })
+  return { ready, release, requests }
+}
+
+for (const locale of Object.keys(LOCALES) as LocaleCode[]) {
+  const dict = LOCALES[locale]
+  const editorDict = dict.coverLetters.editor
+
+  test.describe(`below 1280 px, the compact header, the menu and the bottom bar, ${locale}`, () => {
+    test(`the header is one row of at most 64 px with Back, the title and "•••" (${locale})`, async ({
+      page,
+      authedUser,
+    }) => {
+      const letterId = await insertLetter(authedUser.id)
+      for (const viewport of NARROW_VIEWPORTS) {
+        for (const titleCase of ['short', 'long'] as const) {
+          const label = `${locale} ${viewport.width}x${viewport.height}, ${titleCase} title`
+          await test.step(label, async () => {
+            const ui = await openEditor(page, locale, letterId, viewport)
+            const actions = actionsOf(page, dict)
+            const title = ui.header.getByRole('textbox')
+            const status = ui.header.getByText(editorDict.unsavedChanges, { exact: true })
+            if (titleCase === 'long') {
+              await title.fill(LONG_TITLE)
+              await expect(status).toBeVisible()
+            }
+
+            const header = await rect(ui.header)
+            expect(header.height, `${label}: header height`).toBeLessThanOrEqual(HEADER_MAX_HEIGHT)
+
+            const back = ui.header.getByRole('link', { name: dict.common.back, exact: true })
+            const backBox = await rect(back)
+            expect(Math.round(backBox.width), `${label}: Back width`).toBeGreaterThanOrEqual(TOUCH_TARGET)
+            expect(Math.round(backBox.height), `${label}: Back height`).toBeGreaterThanOrEqual(TOUCH_TARGET)
+
+            await expect(actions.trigger).toBeVisible()
+            await expect(actions.trigger).toHaveAttribute('aria-haspopup', 'menu')
+            await expect(actions.trigger).toHaveAttribute('aria-expanded', 'false')
+            const triggerBox = await rect(actions.trigger)
+            expect(Math.round(triggerBox.width), `${label}: "•••" width`).toBeGreaterThanOrEqual(TOUCH_TARGET)
+            expect(Math.round(triggerBox.height), `${label}: "•••" height`).toBeGreaterThanOrEqual(TOUCH_TARGET)
+
+            // One row: Back, the title and "•••" side by side, inside the header.
+            const titleBox = await rect(title)
+            expect(backBox.right, `${label}: title after Back`).toBeLessThanOrEqual(titleBox.left + TOLERANCE)
+            expect(titleBox.right, `${label}: "•••" after the title`).toBeLessThanOrEqual(triggerBox.left + TOLERANCE)
+            for (const [name, box] of [
+              ['Back', backBox],
+              ['title', titleBox],
+              ['"•••"', triggerBox],
+            ] as const) {
+              expect(box.left, `${label}: ${name} left`).toBeGreaterThanOrEqual(header.left)
+              expect(box.right, `${label}: ${name} right`).toBeLessThanOrEqual(header.right)
+              expect(box.top, `${label}: ${name} top`).toBeGreaterThanOrEqual(header.top)
+              expect(box.bottom, `${label}: ${name} bottom`).toBeLessThanOrEqual(header.bottom)
+            }
+            const centre = (box: Box) => (box.top + box.bottom) / 2
+            expect(Math.abs(centre(backBox) - centre(triggerBox)), `${label}: Back and "•••" on one row`).toBeLessThanOrEqual(
+              TOLERANCE,
+            )
+            // A usable title: the field keeps a width of its own.
+            expect(titleBox.width, `${label}: title width`).toBeGreaterThanOrEqual(96 - TOLERANCE)
+
+            if (titleCase === 'long') {
+              // The status is inside the header and covers nothing. It is whole
+              // wherever its line has room; where it has not (de at 320) it is
+              // cut with an ellipsis inside its column, never run under "•••".
+              const statusBox = await rect(status)
+              const fits = await status.evaluate((element) => element.scrollWidth <= element.clientWidth)
+              if (!fits) {
+                expect(
+                  await status.evaluate((element) => window.getComputedStyle(element).textOverflow),
+                  `${label}: a cut status ends in an ellipsis`,
+                ).toBe('ellipsis')
+              }
+              if (viewport.width >= 375 || locale === 'en') expect(fits, `${label}: status whole`).toBe(true)
+              expect(statusBox.right, `${label}: status before "•••"`).toBeLessThanOrEqual(triggerBox.left + TOLERANCE)
+              expect(statusBox.left, `${label}: status left`).toBeGreaterThanOrEqual(header.left)
+              expect(statusBox.bottom, `${label}: status bottom`).toBeLessThanOrEqual(header.bottom)
+              expect(intersects(statusBox, triggerBox), `${label}: status under "•••"`).toBe(false)
+              expect(intersects(statusBox, titleBox), `${label}: status over the title`).toBe(false)
+            }
+
+            // The desktop controls are not rendered: six buttons, flags, Preview.
+            for (const name of desktopButtonNames(dict)) {
+              await expect(ui.header.getByRole('button', { name, exact: true }), `${label}: header "${name}"`).toHaveCount(0)
+            }
+            await expect(
+              page.getByRole('group', { name: editorDict.translate.label, exact: true }),
+              `${label}: translate row`,
+            ).toHaveCount(0)
+            await expect(page.getByRole('button', { name: editorDict.preview, exact: true }), `${label}: Preview`).toHaveCount(0)
+            await expectNoHorizontalScroll(page, label)
+          })
+        }
+      }
+    })
+
+    test(`the "•••" menu lists the actions and works with the keyboard and the pointer (${locale})`, async ({
+      page,
+      authedUser,
+    }) => {
+      const letterId = await insertLetter(authedUser.id)
+      for (const viewport of NARROW_VIEWPORTS) {
+        const label = `${locale} ${viewport.width}x${viewport.height}`
+        await test.step(label, async () => {
+          const ui = await openEditor(page, locale, letterId, viewport)
+          const actions = actionsOf(page, dict)
+
+          await openMenu(actions)
+          const menuId = await actions.menu.getAttribute('id')
+          await expect(actions.trigger).toHaveAttribute('aria-controls', menuId!)
+          await expect(actions.items).toHaveText(menuItemNames(dict))
+          for (const [index, item] of (await actions.items.all()).entries()) {
+            const box = await rect(item)
+            expect(box.height, `${label}: item ${index} height`).toBeGreaterThanOrEqual(TOUCH_TARGET)
+            await expectInside(page, item, `${label}: item ${index}`)
+          }
+
+          // The Translate group: the four targets, each with today's flag.
+          const targets = actions.translateGroup.getByRole('menuitem')
+          await expect(targets).toHaveText(menuItemNames(dict).slice(4))
+          for (const code of ['en', 'fr', 'de', 'it'] as const) {
+            const name = editorDict.translate.to[code]
+            const menuFlag = await actions.item(name).locator('svg').evaluate((svg) => svg.outerHTML)
+            // The desktop flag, in the DOM though not rendered below xl.
+            const desktopFlag = await page
+              .locator(`button[aria-label="${name}"]:not([role]) svg`)
+              .evaluate((svg) => svg.outerHTML)
+            expect(menuFlag, `${label}: ${code} flag`).toBe(desktopFlag)
+          }
+
+          // Keyboard: the first item is focused, the arrows, Home and End move.
+          await expect(actions.items.first()).toBeFocused()
+          await page.keyboard.press('ArrowDown')
+          await expect(actions.items.nth(1)).toBeFocused()
+          expect(
+            await actions.items.nth(1).evaluate((element) => element.matches(':focus-visible')),
+            `${label}: item focus visible`,
+          ).toBe(true)
+          await page.keyboard.press('End')
+          await expect(actions.items.last()).toBeFocused()
+          await page.keyboard.press('ArrowDown')
+          await expect(actions.items.first(), `${label}: ArrowDown wraps`).toBeFocused()
+          await page.keyboard.press('ArrowUp')
+          await expect(actions.items.last(), `${label}: ArrowUp wraps`).toBeFocused()
+          await page.keyboard.press('Home')
+          await expect(actions.items.first()).toBeFocused()
+          // One tab stop: the focused item alone.
+          await expect(actions.menu.locator('[tabindex="0"]')).toHaveCount(1)
+
+          // Escape closes, focus back on "•••".
+          await page.keyboard.press('Escape')
+          await expect(actions.menu).toHaveCount(0)
+          await expect(actions.trigger).toBeFocused()
+          await expect(actions.trigger).toHaveAttribute('aria-expanded', 'false')
+
+          // From the keyboard: Enter opens on the first item, ArrowUp on the last.
+          await page.keyboard.press('Enter')
+          await expect(actions.items.first()).toBeFocused()
+          await page.keyboard.press('Escape')
+          await page.keyboard.press('ArrowUp')
+          await expect(actions.items.last()).toBeFocused()
+          // Tab leaves the menu and closes it.
+          await page.keyboard.press('Tab')
+          await expect(actions.menu).toHaveCount(0)
+
+          // A click outside closes it, focus back on "•••".
+          // Pressed beside the menu, at its height: the menu is right-aligned
+          // and covers the form under it, so the press lands in <main>'s gutter.
+          await openMenu(actions)
+          const menuBox = await rect(actions.menu)
+          expect(menuBox.left, `${label}: room beside the menu`).toBeGreaterThan(8)
+          await page.mouse.click(4, (menuBox.top + menuBox.bottom) / 2)
+          await expect(actions.menu).toHaveCount(0)
+          await expect(actions.trigger).toBeFocused()
+
+          // A press on a control that takes no focus (the bottom bar's Save,
+          // disabled with nothing to save) closes it, focus back on "•••".
+          await openMenu(actions)
+          await expect(actions.save).toBeDisabled()
+          // Forced: Playwright will not press a disabled button otherwise.
+          await actions.save.click({ force: true })
+          await expect(actions.menu).toHaveCount(0)
+          await expect(actions.trigger, `${label}: focus after pressing a disabled control`).toBeFocused()
+
+          // A press on a field closes it too, and the field keeps the focus.
+          await openMenu(actions)
+          const title = ui.header.getByRole('textbox')
+          await title.click()
+          await expect(actions.menu).toHaveCount(0)
+          await expect(title).toBeFocused()
+
+          // The trigger toggles it.
+          await openMenu(actions)
+          await actions.trigger.click()
+          await expect(actions.menu).toHaveCount(0)
+          await expectNoHorizontalScroll(page, label)
+        })
+      }
+    })
+
+    test(`each menu item does what its desktop control does (${locale})`, async ({ page, authedUser }) => {
+      const letterId = await insertLetter(authedUser.id)
+
+      // The desktop's requests, recorded at 1280 through the header buttons.
+      await openEditor(page, locale, letterId, { width: 1280, height: 800 })
+      const desktop: Record<'pdf' | 'docx', { method: string; path: string; body: string | null }[]> = { pdf: [], docx: [] }
+      for (const [format, pattern, name] of [
+        ['pdf', PDF_ROUTE, dict.coverLetters.downloadPDF],
+        ['docx', WORD_ROUTE, dict.coverLetters.downloadWord],
+      ] as const) {
+        const held = holdRoute(page, pattern, { status: 500, body: '{"error":"stubbed"}' })
+        await held.ready
+        held.release()
+        await page.getByRole('button', { name, exact: true }).click()
+        await expect(page.locator(`#cover-letter-${format}-notice`)).toBeVisible()
+        desktop[format] = held.requests
+        await page.unroute(pattern)
+      }
+      expect(desktop.pdf).toHaveLength(1)
+      expect(desktop.docx).toHaveLength(1)
+
+      for (const viewport of NARROW_VIEWPORTS) {
+        const label = `${locale} ${viewport.width}x${viewport.height}`
+        await test.step(label, async () => {
+          const actions = actionsOf(page, dict)
+
+          // Generate and Check open their modals.
+          for (const [name, heading] of [
+            [editorDict.generate, dict.coverLetters.generation.title],
+            [editorDict.check, dict.coverLetters.checker.title],
+          ] as const) {
+            await openEditor(page, locale, letterId, viewport)
+            await openMenu(actions)
+            await actions.item(name).click()
+            await expect(actions.menu).toHaveCount(0)
+            await expect(page.getByRole('heading', { level: 2, name: heading, exact: true }), `${label}: ${name}`).toBeVisible()
+          }
+
+          // PDF and Word: the desktop's request, the busy state, the notice.
+          for (const [format, pattern, idle, busy, failure] of [
+            ['pdf', PDF_ROUTE, dict.coverLetters.downloadPDF, editorDict.downloadingPdf, dict.coverLetters.downloadPDFError],
+            ['docx', WORD_ROUTE, dict.coverLetters.downloadWord, editorDict.downloadingWord, dict.coverLetters.downloadWordError],
+          ] as const) {
+            await openEditor(page, locale, letterId, viewport)
+            const held = holdRoute(page, pattern, { status: 500, body: '{"error":"stubbed"}' })
+            await held.ready
+            await openMenu(actions)
+            await actions.item(idle).click()
+            await expect(actions.menu).toHaveCount(0)
+            await expect(actions.trigger, `${label}: ${format} busy on "•••"`).toHaveAttribute('aria-busy', 'true')
+            await expect(actions.trigger).toBeFocused()
+            await expect.poll(() => held.requests.length).toBe(1)
+            expect(held.requests, `${label}: ${format} request`).toEqual(desktop[format])
+
+            // Reopened while busy: the item is busy and cannot be chosen again.
+            await openMenu(actions)
+            const busyItem = actions.item(busy)
+            await expect(busyItem).toHaveAttribute('aria-busy', 'true')
+            await expect(busyItem).toHaveAttribute('aria-disabled', 'true')
+            // Dispatched: Playwright will not click an `aria-disabled` element.
+            await busyItem.dispatchEvent('click')
+            await expect(actions.menu, `${label}: a busy item keeps the menu open`).toBeVisible()
+            await page.keyboard.press('Escape')
+            expect(held.requests).toHaveLength(1)
+
+            held.release()
+            const notice = page.locator(`#cover-letter-${format}-notice`)
+            await expect(notice).toHaveText(failure)
+            await expect(notice).toHaveAttribute('role', 'alert')
+            await expectInViewport(page, notice, `${label}: ${format} notice`)
+            await expect(actions.trigger).toHaveAttribute('aria-busy', 'false')
+            await expect(actions.trigger, `${label}: focus stays on "•••"`).toBeFocused()
+            await openMenu(actions)
+            await expect(actions.item(idle)).toHaveAttribute('aria-describedby', `cover-letter-${format}-notice`)
+            await page.keyboard.press('Escape')
+            await page.unroute(pattern)
+          }
+
+          // With unsaved edits: save first, and no request.
+          await openEditor(page, locale, letterId, viewport)
+          const sent: string[] = []
+          const watch = (request: { url: () => string }) => {
+            if (/\/download-(pdf|docx)$/.test(request.url())) sent.push(request.url())
+          }
+          page.on('request', watch)
+          await editorHeader(page).getByRole('textbox').fill('Edited title')
+          await openMenu(actions)
+          await actions.item(dict.coverLetters.downloadPDF).click()
+          await expect(page.locator('#cover-letter-pdf-notice')).toHaveText(editorDict.saveBeforeDownload)
+          await openMenu(actions)
+          await actions.item(dict.coverLetters.downloadWord).click()
+          await expect(page.locator('#cover-letter-docx-notice')).toHaveText(editorDict.saveBeforeDownloadWord)
+          await expectInViewport(page, page.locator('#cover-letter-docx-notice'), `${label}: save-first notice`)
+          page.off('request', watch)
+          expect(sent, `${label}: nothing sent with unsaved edits`).toEqual([])
+
+          // A failed translation: the desktop's notice, in view.
+          await openEditor(page, locale, letterId, viewport)
+          const failing = holdRoute(page, TRANSLATE_ROUTE, { status: 500, body: '{"error":"stubbed"}' })
+          await failing.ready
+          await openMenu(actions)
+          await actions.item(editorDict.translate.to.fr).click()
+          await expect(actions.trigger).toHaveAttribute('aria-busy', 'true')
+          await expect(page.getByRole('status').filter({ hasText: editorDict.translate.translating.fr })).toHaveCount(1)
+          await openMenu(actions)
+          await expect(actions.item(editorDict.translate.translating.fr)).toHaveAttribute('aria-busy', 'true')
+          for (const code of ['en', 'de', 'it'] as const) {
+            await expect(actions.item(editorDict.translate.to[code])).toHaveAttribute('aria-disabled', 'true')
+          }
+          await page.keyboard.press('Escape')
+          failing.release()
+          const translateNotice = page.locator('#cover-letter-translate-notice')
+          await expect(translateNotice).toHaveText(editorDict.translate.failed)
+          await expect(translateNotice).toHaveAttribute('role', 'alert')
+          await expectInViewport(page, translateNotice, `${label}: translation notice`)
+          expect(failing.requests.map((request) => `${request.method} ${request.path}`)).toEqual([
+            `POST /api/cover-letters/${letterId}/translate`,
+          ])
+          await page.unroute(TRANSLATE_ROUTE)
+          await expectNoHorizontalScroll(page, label)
+        })
+      }
+    })
+
+    test(`a translation started from the menu opens the new letter (${locale})`, async ({ page, authedUser }) => {
+      for (const viewport of [NARROW_VIEWPORTS[0], NARROW_VIEWPORTS[3]]) {
+        await test.step(`${locale} ${viewport.width}x${viewport.height}`, async () => {
+          const letterId = await insertLetter(authedUser.id)
+          await openEditor(page, locale, letterId, viewport)
+          const actions = actionsOf(page, dict)
+          const held = holdRoute(page, TRANSLATE_ROUTE, 'continue')
+          await held.ready
+          await openMenu(actions)
+          await actions.item(editorDict.translate.to.de).click()
+          await expect(actions.trigger).toHaveAttribute('aria-busy', 'true')
+          await expect(page.getByRole('status').filter({ hasText: editorDict.translate.translating.de })).toHaveCount(1)
+          held.release()
+          await page.waitForURL((url) => /\/dashboard\/cover-letters\/[^/]+\/edit$/.test(url.pathname) && !url.pathname.includes(letterId))
+          await expect(editorHeader(page).getByRole('textbox')).toHaveValue('Preview window letter (DE)')
+          await page.unroute(TRANSLATE_ROUTE)
+        })
+      }
+    })
+
+    test(`the bottom bar holds Save, stays in view and never covers the form or the letter (${locale})`, async ({
+      page,
+      authedUser,
+    }) => {
+      const letterId = await insertLetter(authedUser.id)
+      for (const viewport of NARROW_VIEWPORTS) {
+        const label = `${locale} ${viewport.width}x${viewport.height}`
+        await test.step(label, async () => {
+          const ui = await openEditor(page, locale, letterId, viewport)
+          const actions = actionsOf(page, dict)
+          await expect(actions.save, `${label}: one Save`).toHaveCount(1)
+          await expect(actions.save).toBeVisible()
+          await expect(actions.save, `${label}: nothing to save`).toBeDisabled()
+          const saveBox = await rect(actions.save)
+          expect(saveBox.height, `${label}: Save height`).toBeGreaterThanOrEqual(TOUCH_TARGET)
+          expect(saveBox.width, `${label}: Save width`).toBeGreaterThanOrEqual(TOUCH_TARGET)
+          await expectFullWidth(ui, actions.bar, `${label}: bar`)
+
+          // In view while the form scrolls: halfway down a long section.
+          await ui.nav.getByRole('button', { name: editorDict.sections.body, exact: true }).click()
+          const { max } = await scrollMain(page, 'middle')
+          expect(max, `${label}: the Body section scrolls`).toBeGreaterThan(0)
+          await expectBarOnScreenEdge(page, actions.bar, `${label}: mid-scroll`)
+
+          // At the end of every section, its last element is above the bar.
+          for (const section of SECTIONS) {
+            await scrollMain(page, 'top')
+            await ui.nav.getByRole('button', { name: editorDict.sections[section], exact: true }).click()
+            await scrollMain(page, 'bottom')
+            const bar = await rect(actions.bar)
+            expect(await formContentBottom(ui.form), `${label}, ${section}: last element above the bar`).toBeLessThanOrEqual(
+              bar.top + TOLERANCE,
+            )
+            await expectBarOnScreenEdge(page, actions.bar, `${label}, ${section}: end of scroll`)
+          }
+
+          // A field focused near the bottom stops above the bar.
+          await scrollMain(page, 'top')
+          await ui.nav.getByRole('button', { name: editorDict.sections.body, exact: true }).click()
+          const addParagraph = ui.form.getByRole('button', { name: editorDict.body.addParagraph, exact: true })
+          await addParagraph.focus()
+          const focused = await rect(addParagraph)
+          expect(focused.bottom, `${label}: focused control above the bar`).toBeLessThanOrEqual(
+            (await rect(actions.bar)).top + TOLERANCE,
+          )
+
+          // Aperçu: the bar stays, and the end of the letter scrolls above it.
+          await scrollMain(page, 'top')
+          await ui.previewRadio.click()
+          await expectBarOnScreenEdge(page, actions.bar, `${label}: Aperçu`)
+          await ui.scrollArea.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: 'instant' }))
+          const lastLine = ui.letterPage.getByText(SENDER_NAME, { exact: true }).last()
+          await expect(async () => {
+            const line = await rect(lastLine)
+            const bar = await rect(actions.bar)
+            expect(line.bottom, `${label}: the letter's end above the bar`).toBeLessThanOrEqual(bar.top + TOLERANCE)
+            expect(line.top, `${label}: the letter's end in view`).toBeGreaterThanOrEqual(0)
+          }).toPass({ timeout: 10_000 })
+          await expectNoHorizontalScroll(page, label)
+        })
+      }
+    })
+
+    test(`the bottom bar's Save is disabled until an edit, busy while saving, and saves (${locale})`, async ({
+      page,
+      authedUser,
+    }) => {
+      for (const viewport of NARROW_VIEWPORTS) {
+        const label = `${locale} ${viewport.width}x${viewport.height}`
+        await test.step(label, async () => {
+          const letterId = await insertLetter(authedUser.id)
+          const ui = await openEditor(page, locale, letterId, viewport)
+          const actions = actionsOf(page, dict)
+          await expect(actions.save).toBeDisabled()
+
+          const greeting = `Dear Ms Bottom Bar ${viewport.width},`
+          await ui.nav.getByRole('button', { name: editorDict.sections.opening, exact: true }).click()
+          await ui.form.locator('input[type="text"]').first().fill(greeting)
+          await expect(actions.save, `${label}: enabled by an edit`).toBeEnabled()
+
+          const held = holdRoute(page, LETTER_WRITE_ROUTE, 'continue', 'PATCH')
+          await held.ready
+          await actions.save.click()
+          const saving = page.getByRole('button', { name: dict.common.saving, exact: true })
+          await expect(saving, `${label}: busy`).toBeDisabled()
+          held.release()
+          await expect(actions.save, `${label}: saved, nothing left to save`).toBeDisabled()
+          await expect(ui.header.getByText(new RegExp(`^${editorDict.lastSaved} `))).toBeVisible()
+          expect(held.requests).toHaveLength(1)
+          await page.unroute(LETTER_WRITE_ROUTE)
+          const { data } = await admin().from('cover_letters').select('greeting').eq('id', letterId).single()
+          expect((data as { greeting: string }).greeting, `${label}: stored`).toBe(greeting)
+
+          // A failed save, started at the bottom of a long section: its
+          // notice is scrolled into view.
+          await ui.nav.getByRole('button', { name: editorDict.sections.body, exact: true }).click()
+          await ui.form.getByRole('button', { name: editorDict.body.addParagraph, exact: true }).click()
+          await scrollMain(page, 'bottom')
+          const failing = holdRoute(page, LETTER_WRITE_ROUTE, { status: 500, body: '{"message":"stubbed"}' }, 'PATCH')
+          await failing.ready
+          failing.release()
+          await actions.save.click()
+          const error = page.getByText(editorDict.saveFailed, { exact: true })
+          await expect(error).toBeVisible()
+          await expectInViewport(page, error, `${label}: save error`)
+          await expect(actions.save, `${label}: still unsaved`).toBeEnabled()
+          await page.unroute(LETTER_WRITE_ROUTE)
+        })
+      }
+    })
+  })
+}
+
+/** The editor's header, on whichever letter the page shows now. */
+function editorHeader(page: Page): Locator {
+  return page.getByTestId('cover-letter-editor-header')
+}
+
+/**
+ * Where the bar sits at the bottom of the screen.
+ *
+ * Below 1024 it is on the screen's edge, with nothing painted under it: its
+ * bottom is that of <main>, the area that scrolls, and the viewport's, and
+ * the last pixel rows belong to the bar. <main> itself ends 1px below the
+ * viewport there: the site header is 65px tall while the dashboard layout
+ * sizes the area under it as `h-[calc(100vh-64px)]`, hence the 1px allowed.
+ *
+ * From 1024 that header is taller still and <main> ends 17px below the
+ * viewport, a defect of the dashboard shell, outside this editor. The bar
+ * then rests on <main>'s bottom padding instead, so it is whole: it lies
+ * inside the viewport. The form scrolls through that padding, so the bar's
+ * background reaches down over it: what shows under the bar is the bar (or
+ * the page's gutter), never the form or the letter.
+ */
+async function expectBarOnScreenEdge(page: Page, bar: Locator, label: string) {
+  const { width, height } = page.viewportSize()!
+  const box = await rect(bar)
+  expect(box.top, `${label}: bar top`).toBeGreaterThanOrEqual(0)
+  if (width < 1024) {
+    const mainBottom = await page.evaluate(() => document.querySelector('main')!.getBoundingClientRect().bottom)
+    expect(Math.abs(box.bottom - mainBottom), `${label}: bar bottom ${box.bottom}, <main> ${mainBottom}`).toBeLessThanOrEqual(
+      0.5,
+    )
+    expect(Math.abs(box.bottom - height), `${label}: bar bottom ${box.bottom}, viewport ${height}`).toBeLessThanOrEqual(1)
+  } else {
+    expect(box.bottom, `${label}: bar bottom ${box.bottom}, viewport ${height}`).toBeLessThanOrEqual(height)
+  }
+  // At the bottom edge: the bar below 1024; from 1024, the bar or the
+  // gutter, never anything else of the editor. A pseudo-element is hit as
+  // the element it belongs to, so the bar's extended background is the bar.
+  const hits = await bar.evaluate((element) => {
+    const editorRoot = document.querySelector('[data-testid="cover-letter-editor-header"]')!.parentElement!
+    const { left, right } = element.getBoundingClientRect()
+    return [left + 2, (left + right) / 2, right - 2].map((x) => {
+      const hit = document.elementFromPoint(x, window.innerHeight - 2)
+      if (hit !== null && element.contains(hit)) return 'bar'
+      if (hit !== null && editorRoot.contains(hit)) return `editor ${hit.tagName.toLowerCase()}`
+      return 'gutter'
+    })
+  })
+  const expected = width < 1024 ? ['bar', 'bar', 'bar'] : hits.map((hit) => (hit === 'bar' ? 'bar' : 'gutter'))
+  expect(hits, `${label}: what is painted at the bottom edge`).toEqual(expected)
+}
+
+/** Fully inside the viewport where it is, without scrolling to it. */
+async function expectInViewport(page: Page, locator: Locator, label: string) {
+  const { width, height } = page.viewportSize()!
+  const box = await rect(locator)
+  expect(box.width, `${label}: width`).toBeGreaterThan(0)
+  expect(box.left, `${label}: left`).toBeGreaterThanOrEqual(-0.5)
+  expect(box.right, `${label}: right`).toBeLessThanOrEqual(width + 0.5)
+  expect(box.top, `${label}: top`).toBeGreaterThanOrEqual(-0.5)
+  expect(box.bottom, `${label}: bottom`).toBeLessThanOrEqual(height + 0.5)
+}
