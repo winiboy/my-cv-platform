@@ -31,9 +31,16 @@ import de from '../src/locales/de/common.json'
  *   - Switching keeps an unsaved greeting and paragraph, the unsaved-changes
  *     indicator and the selected section, shows the unsaved greeting in the
  *     letter, and never saves.
+ *   - The section nav is the resume editor's tab strip (US-002): one row
+ *     above the form that scrolls sideways (always at 320 and 375), seven
+ *     tabs of one line each, at least 44px tall; only the active tab carries
+ *     `aria-current`; selecting a tab partly off the strip scrolls it into
+ *     view and shows its section; Tab and Enter work, with a visible focus;
+ *     the selected tab stays current and in view after Aperçu and back.
  *   - No horizontal scroll of the page or of the dashboard's <main>.
  *
- * And at 1280 and 1440: no toggle, and the nav, form and pane side by side.
+ * And at 1280 and 1440: no toggle, and the nav, form and pane side by side,
+ * the nav still the vertical 192px column with the active tab current.
  */
 
 const TOUCH_TARGET = 44
@@ -331,6 +338,96 @@ for (const locale of Object.keys(LOCALES) as LocaleCode[]) {
       }
     })
 
+    test(`the section nav is a horizontally scrolling tab strip above the form (${locale})`, async ({
+      page,
+      authedUser,
+    }) => {
+      const letterId = await insertLetter(authedUser.id)
+      const labels = SECTIONS.map((section) => editorDict.sections[section])
+      for (const viewport of NARROW_VIEWPORTS) {
+        const label = `${locale} ${viewport.width}x${viewport.height}`
+        await test.step(label, async () => {
+          const ui = await openEditor(page, locale, letterId, viewport)
+          const tabs = ui.nav.getByRole('button')
+          await expect(tabs).toHaveText(labels)
+
+          // A strip: one row above the form, scrolling sideways on a phone.
+          const strip = await stripGeometry(ui.nav)
+          expect(strip.overflowX, `${label}: strip scrolls sideways`).toBe('auto')
+          expect(new Set(strip.tabTops).size, `${label}: tabs in one row`).toBe(1)
+          const nav = await rect(ui.nav)
+          const form = await rect(ui.form)
+          expect(nav.bottom, `${label}: strip above the form`).toBeLessThanOrEqual(form.top + TOLERANCE)
+          if (viewport.width < 768) {
+            expect(strip.scrollWidth, `${label}: more tabs than fit`).toBeGreaterThan(strip.clientWidth)
+          }
+
+          // At least 44px tall, and exactly the one-line height: a wrapped
+          // label would make its tab taller than the others.
+          for (const [index, height] of strip.tabHeights.entries()) {
+            expect(height, `${label}: ${labels[index]} height`).toBeGreaterThanOrEqual(TOUCH_TARGET)
+            expect(height, `${label}: ${labels[index]} on one line`).toBeLessThanOrEqual(TOUCH_TARGET + TOLERANCE)
+          }
+
+          // The section the editor opens on is the current one, and only it.
+          await expectCurrentTab(ui, editorDict.sections.recipient, label)
+
+          if (strip.scrollWidth > strip.clientWidth) {
+            // Selecting a tab partly off the strip scrolls the strip, and only
+            // the strip, until the tab clears the fade. Dispatched rather than
+            // clicked: Playwright's click scrolls the tab into view itself.
+            const last = tabs.last()
+            expect(await tabVisibility(ui.nav, last), `${label}: last tab starts off the strip`).toBe('clipped')
+            await last.dispatchEvent('click')
+            await expectCurrentTab(ui, editorDict.sections.signature, label)
+            await expect(sectionHeading(ui)).toHaveText(editorDict.signature.title)
+            await expect
+              .poll(() => tabVisibility(ui.nav, last), { message: `${label}: last tab scrolled into view` })
+              .toBe('visible')
+            await expectNoHorizontalScroll(page, `${label}, last tab`)
+
+            // Back to the start: the first tab, scrolled out, scrolls back in.
+            const first = tabs.first()
+            if (viewport.width < 768) {
+              expect(await tabVisibility(ui.nav, first), `${label}: first tab scrolled out`).toBe('clipped')
+            }
+            await first.dispatchEvent('click')
+            await expectCurrentTab(ui, editorDict.sections.resume, label)
+            await expect(sectionHeading(ui)).not.toHaveText(editorDict.signature.title)
+            await expect
+              .poll(() => tabVisibility(ui.nav, first), { message: `${label}: first tab scrolled back` })
+              .toBe('visible')
+          }
+
+          // Keyboard: Tab moves along the strip with a visible focus, Enter selects.
+          await tabs.nth(2).focus()
+          await page.keyboard.press('Tab')
+          await expect(tabs.nth(3)).toBeFocused()
+          expect(
+            await tabs.nth(3).evaluate((element) => element.matches(':focus-visible')),
+            `${label}: focus visible`,
+          ).toBe(true)
+          await page.keyboard.press('Enter')
+          await expectCurrentTab(ui, editorDict.sections.opening, label)
+          await expect(sectionHeading(ui)).toHaveText(editorDict.opening.title)
+          await expect
+            .poll(() => tabVisibility(ui.nav, tabs.nth(3)), { message: `${label}: selected tab in view` })
+            .toBe('visible')
+
+          // Aperçu and back keeps the selected tab current and in view.
+          await tabs.last().dispatchEvent('click')
+          await expectCurrentTab(ui, editorDict.sections.signature, label)
+          await ui.previewRadio.click()
+          await ui.editRadio.click()
+          await expectCurrentTab(ui, editorDict.sections.signature, `${label}, back from Aperçu`)
+          await expect
+            .poll(() => tabVisibility(ui.nav, tabs.last()), { message: `${label}: selected tab in view after Aperçu` })
+            .toBe('visible')
+          await expectNoHorizontalScroll(page, label)
+        })
+      }
+    })
+
     test(`in Aperçu only the letter is shown, fitted to the full width (${locale})`, async ({ page, authedUser }) => {
       const letterId = await insertLetter(authedUser.id)
       for (const viewport of NARROW_VIEWPORTS) {
@@ -429,6 +526,42 @@ for (const locale of Object.keys(LOCALES) as LocaleCode[]) {
   })
 }
 
+/** The strip's scroll extent, and each tab's top and height. */
+function stripGeometry(nav: Locator) {
+  return nav.evaluate((element) => {
+    const tabs = Array.from(element.querySelectorAll('button')).map((tab) => tab.getBoundingClientRect())
+    return {
+      overflowX: window.getComputedStyle(element).overflowX,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+      tabTops: tabs.map((box) => Math.round(box.top)),
+      tabHeights: tabs.map((box) => box.height),
+    }
+  })
+}
+
+/**
+ * Whether the tab lies wholly in the strip's visible part: inside its left
+ * edge, and clear of the fade over its end padding.
+ */
+async function tabVisibility(nav: Locator, tab: Locator): Promise<'visible' | 'clipped'> {
+  const strip = await nav.evaluate((element) => {
+    const { left, right } = element.getBoundingClientRect()
+    return { left, visibleRight: right - parseFloat(window.getComputedStyle(element).paddingRight) }
+  })
+  const box = await rect(tab)
+  return box.left >= strip.left - 0.5 && box.right <= strip.visibleRight + 0.5 ? 'visible' : 'clipped'
+}
+
+/** The named tab, and no other, is marked current. */
+async function expectCurrentTab(ui: Editor, name: string, label: string) {
+  await expect(ui.nav.locator('[aria-current]'), `${label}: one current tab`).toHaveCount(1)
+  await expect(ui.nav.getByRole('button', { name, exact: true }), `${label}: ${name} current`).toHaveAttribute(
+    'aria-current',
+    'true',
+  )
+}
+
 async function expectInside(page: Page, locator: Locator, label: string) {
   const { width, height } = page.viewportSize()!
   await locator.scrollIntoViewIfNeeded()
@@ -504,6 +637,7 @@ test('at 1280 and 1440 px there is no toggle and the three columns sit side by s
         const buttons = await ui.nav.getByRole('button').all()
         const tops = await Promise.all(buttons.map(async (button) => (await rect(button)).top))
         expect(new Set(tops).size, `${label}: one nav button per row`).toBe(SECTIONS.length)
+        await expectCurrentTab(ui, LOCALES[locale].coverLetters.editor.sections.recipient, label)
         await expectNoHorizontalScroll(page, label)
       })
     }

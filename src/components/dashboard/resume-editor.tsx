@@ -32,6 +32,7 @@ import {
 } from '@/lib/layout-settings'
 import { useResumeLayout } from '@/lib/hooks/use-resume-layout'
 import { PAGE_WIDTH_PX } from '@/lib/resume-page-size'
+import { EditorSectionTabs } from './editor-section-tabs'
 import { ContactSection } from './resume-sections/contact-section'
 import { SummarySection } from './resume-sections/summary-section'
 import { ExperienceSection } from './resume-sections/experience-section'
@@ -512,7 +513,6 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
   const [previewDocHeight, setPreviewDocHeight] = useState<number | null>(null)
   const previewContainerRef = useRef<HTMLDivElement>(null)
   const previewDocumentRef = useRef<HTMLDivElement>(null)
-  const sectionNavRef = useRef<HTMLElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const handleSave = async () => {
@@ -965,27 +965,6 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
     return () => resizeObserver.disconnect()
   }, [])
 
-  // Keep the active tab visible in the horizontally scrolling section strip.
-  // Only the strip itself is scrolled: scrollIntoView would also scroll the
-  // page, and on the vertical (xl) list there is nothing to scroll at all.
-  useEffect(() => {
-    const nav = sectionNavRef.current
-    if (!nav || nav.scrollWidth <= nav.clientWidth) return
-    const active = nav.querySelector<HTMLElement>('[aria-current="true"]')
-    if (!active) return
-
-    const navRect = nav.getBoundingClientRect()
-    const activeRect = active.getBoundingClientRect()
-    // The strip's end padding is covered by the fade, so keep the tab clear of it.
-    const visibleRight = navRect.right - parseFloat(window.getComputedStyle(nav).paddingRight)
-
-    if (activeRect.left < navRect.left) {
-      nav.scrollLeft -= navRect.left - activeRect.left
-    } else if (activeRect.right > visibleRight) {
-      nav.scrollLeft += activeRect.right - visibleRight
-    }
-  }, [shownSection])
-
   // Load draft from localStorage on mount
   useEffect(() => {
     const draft = localStorage.getItem(`resume_draft_${resume.id}`)
@@ -1220,39 +1199,17 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
           data-testid="resume-editor-section-nav"
           className="border-b border-slate-200 bg-slate-50 xl:w-64 xl:border-b-0 xl:border-r"
         >
-          {/*
-            Below xl the strip scrolls sideways without a scrollbar; the right-edge
-            fade signals more tabs, and the end padding lets the last tab clear it.
-          */}
-          <nav
-            ref={sectionNavRef}
-            className="flex gap-1 overflow-x-auto p-2 pr-8 [mask-image:linear-gradient(to_left,transparent,black_2rem)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:block xl:space-y-1 xl:overflow-visible xl:p-4 xl:[mask-image:none]"
-          >
-            {visibleSections.map((section) => {
-              const Icon = section.icon
-              const isActive = shownSection === section.id
-              const isModified = modifiedSections.has(section.id)
-
-              return (
-                <button
-                  key={section.id}
-                  onClick={() => setActiveSection(section.id)}
-                  aria-current={isActive ? 'true' : undefined}
-                  className={`relative flex min-h-11 shrink-0 items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors xl:min-h-0 xl:w-full xl:whitespace-normal ${
-                    isActive
-                      ? 'bg-teal-100 text-teal-900'
-                      : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                  } ${isModified ? 'border-l-4 border-amber-500 pl-2' : ''}`}
-                >
-                  {isModified && (
-                    <span className="absolute left-1 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-amber-500"></span>
-                  )}
-                  <Icon className={`h-4 w-4 ${isModified ? 'ml-3' : ''}`} />
-                  {dict.resumes?.editor?.sections?.[section.id] || section.label}
-                </button>
-              )
-            })}
-          </nav>
+          <EditorSectionTabs
+            tabs={visibleSections.map((section) => ({
+              id: section.id,
+              label: dict.resumes?.editor?.sections?.[section.id] || section.label,
+              icon: section.icon,
+              isModified: modifiedSections.has(section.id),
+            }))}
+            activeId={shownSection}
+            onSelect={setActiveSection}
+            xlPadding="xl:p-4"
+          />
         </div>
 
         {/* Split Content Area: Editor (Left) + Live Preview (Right) */}

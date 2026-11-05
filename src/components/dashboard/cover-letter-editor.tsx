@@ -29,6 +29,7 @@ import type { Locale } from '@/lib/i18n'
 import type { CoverLetter, Resume, CoverLetterAnalysis } from '@/types/database'
 import { CoverLetterPreview } from './cover-letter-preview'
 import { CoverLetterPreviewDialog } from './cover-letter-preview-dialog'
+import { EditorSectionTabs } from './editor-section-tabs'
 import { ResumeAssociationSection } from './cover-letter-sections/resume-association-section'
 import { JobAssociationSection } from './cover-letter-sections/job-association-section'
 import { RecipientSection } from './cover-letter-sections/recipient-section'
@@ -603,11 +604,12 @@ export function CoverLetterEditor({
     }
   }
 
-  // Get section labels from dict
-  const getSectionLabel = (sectionId: SectionId) => {
-    const sectionsDict = (editorDict.sections || {}) as Record<string, string>
-    return sectionsDict[sectionId] || SECTIONS.find((s) => s.id === sectionId)?.label || sectionId
-  }
+  const sectionsDict = (editorDict.sections || {}) as Partial<Record<SectionId, string>>
+  const sectionTabs = SECTIONS.map((section) => ({
+    id: section.id,
+    label: sectionsDict[section.id] || section.label,
+    icon: section.icon,
+  }))
 
   return (
     // The dashboard's <main> already spans the viewport below the header; it
@@ -887,7 +889,7 @@ export function CoverLetterEditor({
                   onChange={() => setView(id)}
                   className="absolute inset-0 m-0 cursor-pointer appearance-none rounded-md opacity-0"
                 />
-                <Icon className="h-4 w-4" aria-hidden="true" />
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                 {label}
               </label>
             )
@@ -906,9 +908,10 @@ export function CoverLetterEditor({
       */}
       <div className="flex-1 flex flex-col xl:flex-row overflow-hidden">
         {/*
-          Left sidebar - Section navigation. Below xl, an interim row of
-          wrapping buttons above the form, which the 192px column would squeeze
-          off-screen on a phone.
+          Left sidebar - Section navigation: the resume editor's tab strip
+          below xl, above the form, and the 192px column from xl up. The xl
+          classes restore this editor's own column look: its gap, weight and
+          colours differ from the resume editor's list.
         */}
         <div
           className={cn(
@@ -916,26 +919,15 @@ export function CoverLetterEditor({
             view === 'preview' && 'hidden'
           )}
         >
-          <nav className="p-2 flex flex-wrap gap-1 xl:block xl:space-y-1">
-            {SECTIONS.map((section) => {
-              const Icon = section.icon
-              const isActive = activeSection === section.id
-              return (
-                <button
-                  key={section.id}
-                  onClick={() => setActiveSection(section.id)}
-                  className={`min-h-11 xl:min-h-0 xl:w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                    isActive
-                      ? 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400'
-                      : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {getSectionLabel(section.id)}
-                </button>
-              )
-            })}
-          </nav>
+          <EditorSectionTabs
+            tabs={sectionTabs}
+            activeId={activeSection}
+            onSelect={setActiveSection}
+            xlPadding="xl:p-2"
+            tabClassName="xl:gap-2 xl:font-normal"
+            activeTabClassName="xl:text-teal-700 dark:bg-teal-900/30 dark:text-teal-400"
+            inactiveTabClassName="xl:hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          />
         </div>
 
         {/* Editor pane */}

@@ -99,7 +99,7 @@
         "Out of scope: A \"Design\" tab (there is one letter template)."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

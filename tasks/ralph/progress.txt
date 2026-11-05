@@ -119,3 +119,102 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 Below 1280px, an Édition / Aperçu toggle shows the form or the letter at full width
 FINAL: PASS
+
+## US-002: Below 1280px, the section nav is a horizontally scrolling tab strip
+Status: PASS
+Priority: 2
+Branch: ralph/cover-letter-editor-mobile
+Baseline HEAD: c2c16c9 (US-001)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix 4c7c06fcee4c4e69, over the tracked src/e2e diff plus the new component):
+  - New `src/components/dashboard/editor-section-tabs.tsx` (114): `EditorSectionTabs<Id>` owns the whole strip (FR-4).
+    - The scroll-into-view effect, moved unchanged from the resume editor and keyed on `activeId`.
+    - `aria-current`, the fade mask, the hidden scrollbar, the tab markup and the amber "modified" marker.
+    - The resume editor's exact element types, class strings and attribute order.
+    - Per-editor props: `tabs`, `activeId`, `onSelect`, `xlPadding` (`xl:p-2` or `xl:p-4`), and optional `tabClassName` / `activeTabClassName` / `inactiveTabClassName`, appended only when given.
+  - `src/components/dashboard/resume-editor.tsx` (12/55): the inline `<nav>`, its effect and `sectionNavRef` are replaced by `<EditorSectionTabs … xlPadding="xl:p-4" />`. The outer `resume-editor-section-nav` div is unchanged.
+  - `src/components/dashboard/cover-letter-editor.tsx` (21/29):
+    - The interim wrapping nav is replaced by the shared component.
+    - The xl-only additions (`xl:gap-2 xl:font-normal`, `xl:text-teal-700`, and its previous `dark:` classes) bring back the 192px vertical nav at 1280 and above.
+    - `sectionTabs` replaces `getSectionLabel`, which only the nav used.
+    - The toggle's icons get `shrink-0` (carried from US-001).
+  - `e2e/cover-letter-editor-mobile.spec.ts` (135/1): one new test per locale. At 320/375/768/1024, in en and de:
+    - one row above the form, scrolling sideways (always overflowing at 320 and 375);
+    - the 7 labels in order;
+    - each tab at least 44px tall and one line high;
+    - a single `aria-current`;
+    - the last tab, selected while partly hidden, scrolls clear of the fade and shows its section, with no horizontal page scroll; the first tab scrolls back;
+    - Tab and Enter with `:focus-visible`;
+    - after Aperçu and back, the tab is still current and in view;
+    - at 1280 and 1440, the active tab in the vertical nav is current.
+- Not touched: the header, the menu, the Save bar (US-003), the exports, the database. No version change, no push or merge.
+- Temporary dump, capture and diff specs (e2e/zz-tabs-dump, zz-cap, zz-diff) were run alone and deleted; none is in the diff.
+
+Checks:
+- Final diff (hash 4c7c06fcee4c4e69, the same before and after every run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3270 passed, 5 skipped.
+  - pnpm test:integration: PASS — 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 494 passed, 0 failed (15.0 min), on the fourth full run.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+- Earlier full e2e runs on the same diff hash, each 493 passed and 1 failed, in specs this diff does not touch:
+  - Runs 1 and 3: `job-applications-i18n.spec.ts:1142` ("it: drag and drop is announced in the page language"). It read the pick-up announcement ("Hai preso … dalla colonna Candidato.") instead of the drop announcement. The spec then passed 50/50 alone with `--repeat-each=2`.
+  - Run 2: `resume-pdf-route.spec.ts:372` (classic), the letter-spaced text-extraction mismatch recorded under US-001.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus captures of the production build: scratchpad m2, Édition at 320/375/768/1024/1280/1440 in en and de, and Aperçu with keyboard focus on the toggle at 320/375/768/1024.
+- Visual: PASS.
+  - Resume editor: the strip's `outerHTML` and screenshots at 320/768/1024/1280, in 3 states (on load, after selecting a far tab, with a modified section), on HEAD and on this diff with a fresh seeded resume per width. Those 24 files are byte-identical, and the scroll positions after the far-tab select are equal (35, 0, 508, 420).
+  - Cover letter: the nav column and the full page at 1280 and 1440, in en and de, are byte-identical across the same pair (8 files), 32 files in all (scratchpad tabs-before2 against tabs-after2; ui-expert re-checked them with `cmp`).
+  - The cover letter at 1280 and 1440 against origin/main (`m1-before`) is pixel-identical except the 250×30 dev branch badge (`m2/diff.txt`).
+  - Parity unchanged.
+- Export: NOT_APPLICABLE.
+- Database: NOT_APPLICABLE.
+- Security: NOT_APPLICABLE.
+
+Agents:
+- senior-coder: implementation, with no fix rounds.
+  - Its first before/after dump differed because of the dump script itself: a draft autosaved at one width marked Summary as modified at the next.
+  - It reseeded a resume per width and regenerated the before set from HEAD's source.
+- ui-expert: PASS, 7/7 conditions.
+  - Contrast, computed from token values: active about 8.6:1, inactive about 10:1.
+  - The strip takes one row of about 60px, against the interim wrap of about 200px at 375.
+- code-reviewer: PASS, no Critical or Major findings.
+  - It compiled the classes with tailwindcss 4.1: every `xl:` addition is ordered after its base class, so appending them gives the old xl look.
+
+Acceptance criteria:
+- AC-01 (below 1280 the 7 sections are a horizontally scrolling strip above the form, like the resume's; 44px tabs; `aria-current`; scrolled into view; one-line labels, de included): PASS — e2e at 4 widths in en and de; captures.
+- AC-02 (one shared component; the resume strip's DOM, classes and captures at 320/768/1024/1280 unchanged): PASS — the byte-identical before/after set.
+- AC-03 (at 1280 and above the cover letter keeps its vertical 192px nav): PASS — e2e geometry; the pixel diff against origin/main.
+- FR-1, FR-4, FR-5, FR-6, FR-7: PASS.
+- Regression constraints: PASS — `resume-editor-responsive` passes with its assertions unchanged, as do `resume-editor-page-breaks` and `cover-letter-editor-i18n`; parity unchanged.
+- FAIL and BLOCKER conditions: none triggered. Extracting the strip kept the resume rendering identical.
+
+Decision:
+- The cover letter's 192px xl look is restored by appending `xl:` classes to the shared markup rather than forking the component, so the strip's logic exists once.
+- `shrink-0` is not added to the tab icons: in the resume strip it would change its class strings, which AC-02 forbids. Below xl the cover letter's tabs do not wrap, so it is not needed there.
+
+Open owner decisions:
+- The two e2e specs that fail now and then, each failing about once per full run on this branch:
+  - `job-applications-i18n.spec.ts:1142`: the drag-announcement timing;
+  - `resume-pdf-route.spec.ts:372`: letter-spaced PDF text extraction.
+  - Each costs an extra full run per story. A follow-up to make them deterministic is proposed.
+- code-reviewer, minor:
+  - The cover letter passes `dark:` classes without `xl:`, so its strip below 1280 would differ from the resume's in dark mode. Dark mode is never enabled in the app today.
+  - The rule that added classes must carry an `xl:` or `dark:` prefix lives only in a comment.
+  - The strip's `<nav>` has no accessible name; it is inherited from the resume editor, and adding one would change the resume DOM.
+- ui-expert, low:
+  - A tab scrolled out to the left is cut without a fade, the same as in the resume strip; a left fade, if wanted, belongs in the shared component.
+  - At 1280 in de "Verknüpfter Lebenslauf" wraps onto two centred lines in the 192px column, as it does on origin/main.
+
+Environment notes:
+- The first two Playwright builds of the implementer's runs failed with `uncaughtException [TypeError: Cannot read properties of undefined (reading 'length')]` before any code change. A direct `next build` then succeeded, and every later build passed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 Below 1280px, the section nav is a horizontally scrolling tab strip
+FINAL: PASS
