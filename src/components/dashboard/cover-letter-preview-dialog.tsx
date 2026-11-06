@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Locale } from '@/lib/i18n'
 import type { CoverLetter } from '@/types/database'
+import type { CoverLetterSenderDetails } from '@/lib/cover-letter-sender'
 import { CoverLetterPreview } from './cover-letter-preview'
 
 const TABBABLE_CANDIDATES = 'a[href], button, input, select, textarea, [tabindex]'
@@ -22,6 +23,8 @@ function tabbableElements(root: HTMLElement): HTMLElement[] {
 interface CoverLetterPreviewDialogProps {
   /** The editor's in-memory letter, unsaved edits included: the same object its preview pane shows. */
   coverLetter: CoverLetter
+  /** The sender details as printed, as the editor's pane shows them. */
+  senderDetails: CoverLetterSenderDetails
   locale: Locale
   /** The `coverLetters.editor` dictionary. */
   editorDict: Record<string, unknown>
@@ -44,6 +47,7 @@ interface CoverLetterPreviewDialogProps {
  */
 export function CoverLetterPreviewDialog({
   coverLetter,
+  senderDetails,
   locale,
   editorDict,
   onClose,
@@ -128,7 +132,7 @@ export function CoverLetterPreviewDialog({
 
       <CoverLetterPreview
         coverLetter={coverLetter}
-        senderName={coverLetter.sender_name || undefined}
+        senderDetails={senderDetails}
         locale={locale}
         editorDict={editorDict}
         variant="window"

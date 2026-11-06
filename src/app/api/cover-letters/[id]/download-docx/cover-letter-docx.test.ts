@@ -95,7 +95,7 @@ describe('buildCoverLetterDocx: every part, in order, each a real paragraph', ()
       'Leiter Entwicklung',
       'Größe & Söhne AG',
       'Bahnhofstraße 1\n8001 Zürich',
-      'Re: Application for Ingénieur logiciel',
+      'Application for Ingénieur logiciel',
       'Sehr geehrter Herr Weiß,',
       'Je postule avec conviction et un réel intérêt – « vraiment ».',
       'Première raison',
@@ -113,7 +113,7 @@ describe('buildCoverLetterDocx: every part, in order, each a real paragraph', ()
   it('keeps the sender and the subject bold, as the PDF does', async () => {
     const { paragraphs } = await readDocx(await build(FULL_LETTER))
     expect(paragraphs[0].runs.every((run) => run.bold)).toBe(true)
-    expect(paragraphs.find((paragraph) => paragraph.text.startsWith('Re: '))!.runs.every((run) => run.bold)).toBe(true)
+    expect(paragraphs.find((paragraph) => paragraph.text.startsWith('Application for '))!.runs.every((run) => run.bold)).toBe(true)
     expect(paragraphs[paragraphs.length - 1].runs.every((run) => run.bold)).toBe(true)
   })
 
@@ -313,7 +313,7 @@ describe('buildCoverLetterDocx: empty parts are left out', () => {
     const { paragraphs } = await readDocx(await build({ ...FULL_LETTER, greeting: '', sign_off: '' }))
     const texts = paragraphs.map((paragraph) => paragraph.text)
     expect(texts).toContain('Dear Hiring Manager,')
-    expect(texts).toContain('Sincerely,')
+    expect(texts).toContain('Kind regards')
   })
 
   it('collapses whitespace in plain parts as the PDF does, but keeps the address lines', async () => {

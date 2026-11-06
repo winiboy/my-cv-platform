@@ -112,9 +112,13 @@ export type CoverLetterPart =
  * recipient and company block; subject; greeting; opening; each body
  * paragraph; closing; sign-off; signature name.
  *
- * THE ONE SOURCE of what the letter's PDF and Word files contain, which parts
- * are left out when empty, the defaults, and the subject line's wording, in
- * `language` (`COVER_LETTER_WORDING`), so the two formats cannot disagree.
+ * TRANSITIONAL: the part list of the PDF and Word exports only, until US-003
+ * and US-004 (cover-letter-swiss-format) switch them to `swissLetterParts`
+ * (`cover-letter-swiss-letter.ts`), after which it is deleted. The editor
+ * preview already renders from `swissLetterParts`. Until then it defines what
+ * the two files contain, which parts are left out when empty, the defaults,
+ * and the subject line's wording, in `language` (`COVER_LETTER_WORDING`), so
+ * the two formats cannot disagree.
  * The recipient block exists only with a recipient name or a company, as it
  * always has. Body paragraphs are kept
  * even when empty, as the PDF has always laid them out; a format that has no

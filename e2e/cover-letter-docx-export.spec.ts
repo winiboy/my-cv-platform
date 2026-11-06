@@ -80,8 +80,8 @@ const FULL_LETTER = {
  * be told, so they follow the page (cover-letter-template-language, US-001).
  */
 const PAGE_LANGUAGE_PARTS: Readonly<Record<TestLocale, { date: RegExp; subject: string }>> = {
-  fr: { date: /^\d{1,2} [a-zéû]+ \d{4}$/, subject: 'Objet : Candidature au poste de Ingénieur logiciel' },
-  de: { date: /^\d{1,2}\. [A-ZÄ][a-zä]+ \d{4}$/, subject: 'Betreff: Bewerbung als Ingénieur logiciel' },
+  fr: { date: /^\d{1,2} [a-zéû]+ \d{4}$/, subject: 'Candidature au poste de Ingénieur logiciel' },
+  de: { date: /^\d{1,2}\. [A-ZÄ][a-zä]+ \d{4}$/, subject: 'Bewerbung als Ingénieur logiciel' },
 }
 
 /** Every paragraph of FULL_LETTER's Word file, in order, opened under `locale`. */

@@ -119,12 +119,13 @@ describe('server rendering of rich HTML', () => {
   it('ModernLetterTemplate renders HTML paragraphs without touching the DOM or leaking the payload', () => {
     let html = ''
     expect(() => {
-      html = renderToString(createElement(ModernLetterTemplate, { coverLetter: COVER_LETTER, locale: 'en' }))
+      html = renderToString(
+        createElement(ModernLetterTemplate, { coverLetter: COVER_LETTER, senderDetails: COVER_LETTER, locale: 'en' }),
+      )
     }).not.toThrow()
 
     expectNoPayload(html)
-    // Opening + two body paragraphs share one class; the closing has its own.
-    expectEmptyWrappers(html, 'mb-4 text-justify', 3)
-    expectEmptyWrappers(html, 'mb-6 text-justify', 1)
+    // Opening, two body paragraphs and closing: one empty wrapper each.
+    expectEmptyWrappers(html, 'text-left', 4)
   })
 })

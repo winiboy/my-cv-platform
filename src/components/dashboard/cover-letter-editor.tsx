@@ -1148,7 +1148,7 @@ export function CoverLetterEditor({
           <CoverLetterPreview
             key={view}
             coverLetter={coverLetter}
-            senderName={coverLetter.sender_name || undefined}
+            senderDetails={senderDetails}
             locale={locale}
             editorDict={editorDict}
             variant="pane"
@@ -1191,6 +1191,7 @@ export function CoverLetterEditor({
       {showPreviewDialog && (
         <CoverLetterPreviewDialog
           coverLetter={coverLetter}
+          senderDetails={senderDetails}
           locale={locale}
           editorDict={editorDict}
           onClose={closePreviewDialog}

@@ -189,7 +189,7 @@ describe('POST /api/cover-letters/[id]/download-pdf: the file', () => {
     expect(renderCoverLetterPdf).toHaveBeenCalledTimes(1)
     const input = renderCoverLetterPdf.mock.calls[0][0]
     expect(input.coverLetter).toMatchObject({ opening_paragraph: `<p>${SECRET_SENTENCE}</p>`, sender_name: 'Ada Lovelace' })
-    expect(input.currentDate).toMatch(/^[A-Z][a-z]+ \d{1,2}, \d{4}$/)
+    expect(input.currentDate).toMatch(/^\d{1,2} [A-Z][a-z]+ \d{4}$/)
     expect(input.timeoutMs).toBe(30_000)
   })
 
@@ -342,7 +342,7 @@ describe('POST /api/cover-letters/[id]/download-pdf: the letter language', () =>
       renderCoverLetterPdf.mockClear()
       expect((await call(LETTER_ID, request('application/json', body))).status).toBe(200)
       expect(renderedWith().language).toBe('en')
-      expect(renderedWith().currentDate).toMatch(/^[A-Z][a-z]+ \d{1,2}, \d{4}$/)
+      expect(renderedWith().currentDate).toMatch(/^\d{1,2} [A-Z][a-z]+ \d{4}$/)
     }
   })
 

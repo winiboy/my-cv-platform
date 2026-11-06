@@ -146,7 +146,7 @@ describe('buildCoverLetterPdfHtml fallbacks and conditionals', () => {
     const html = build({ greeting: '', sign_off: '' })
 
     expect(html).toContain('<div style="margin-bottom: 16px;">Dear Hiring Manager,</div>')
-    expect(html).toContain('<div style="margin-bottom: 32px;">Sincerely,</div>')
+    expect(html).toContain('<div style="margin-bottom: 32px;">Kind regards</div>')
   })
 
   it('omits optional blocks when their values are empty or null', () => {
@@ -164,7 +164,7 @@ describe('buildCoverLetterPdfHtml fallbacks and conditionals', () => {
 
     expect(html).not.toContain('font-weight: 600')
     expect(html).not.toContain('Ignored without recipient or company')
-    expect(html).not.toContain('Re: Application for')
+    expect(html).not.toContain('Application for')
     expect(html).not.toContain('text-align: justify')
   })
 })
@@ -183,7 +183,7 @@ describe('coverLetterParts: the one list of parts both exports print', () => {
           { text: '1 Main Street\nTown', multiline: true },
         ],
       },
-      { kind: 'subject', text: 'Re: Application for Engineer' },
+      { kind: 'subject', text: 'Application for Engineer' },
       { kind: 'greeting', text: 'Dear John,' },
       { kind: 'opening', html: 'Opening' },
       { kind: 'body', html: 'Body one' },
@@ -213,15 +213,15 @@ describe('coverLetterParts: the one list of parts both exports print', () => {
     expect(parts).toEqual([
       { kind: 'date', text: CURRENT_DATE },
       { kind: 'greeting', text: 'Dear Hiring Manager,' },
-      { kind: 'signOff', text: 'Sincerely,' },
+      { kind: 'signOff', text: 'Kind regards' },
     ])
   })
 
   it.each([
-    ['fr', 'Objet : Candidature au poste de Engineer', 'Madame, Monsieur,', 'Veuillez agréer mes salutations distinguées,'],
-    ['de', 'Betreff: Bewerbung als Engineer', 'Sehr geehrte Damen und Herren,', 'Mit freundlichen Grüßen,'],
-    ['it', 'Oggetto: Candidatura per la posizione di Engineer', 'Gentili Signore e Signori,', 'Cordiali saluti,'],
-    ['en', 'Re: Application for Engineer', 'Dear Hiring Manager,', 'Sincerely,'],
+    ['fr', 'Candidature au poste de Engineer', 'Madame, Monsieur,', 'Meilleures salutations'],
+    ['de', 'Bewerbung als Engineer', 'Sehr geehrte Damen und Herren,', 'Freundliche Grüsse'],
+    ['it', 'Candidatura per la posizione di Engineer', 'Gentili Signore e Signori,', 'Distinti saluti'],
+    ['en', 'Application for Engineer', 'Dear Hiring Manager,', 'Kind regards'],
   ] as const)('words the subject and the empty greeting and sign-off in %s', (language, subject, greeting, signOff) => {
     const parts = coverLetterParts(makeCoverLetter({ greeting: '', sign_off: '' }), CURRENT_DATE, language)
     expect(parts.find((part) => part.kind === 'subject')).toEqual({ kind: 'subject', text: subject })
@@ -247,15 +247,15 @@ describe('coverLetterParts: the one list of parts both exports print', () => {
       sanitizeRichText: passthrough,
     })
     expect(html).toContain('2. November 2026')
-    expect(html).toContain('<strong>Betreff: Bewerbung als Engineer</strong>')
+    expect(html).toContain('<strong>Bewerbung als Engineer</strong>')
     expect(html).toContain('Sehr geehrte Damen und Herren,')
-    expect(html).toContain('Mit freundlichen Grüßen,')
-    expect(html).not.toContain('Re: Application for')
+    expect(html).toContain('Freundliche Grüsse')
+    expect(html).not.toContain('Application for')
   })
 
   it('is what the PDF markup prints, in the same order', () => {
     const html = build()
-    const order = ['Jane Doe', CURRENT_DATE, 'John Smith', 'Acme', 'Re: Application for Engineer', 'Dear John,', 'Opening', 'Body one', 'Body two', 'Closing', 'Best regards,']
+    const order = ['Jane Doe', CURRENT_DATE, 'John Smith', 'Acme', 'Application for Engineer', 'Dear John,', 'Opening', 'Body one', 'Body two', 'Closing', 'Best regards,']
     const positions = order.map((text) => html.indexOf(text))
     expect(positions.every((position) => position >= 0)).toBe(true)
     expect([...positions].sort((a, b) => a - b)).toEqual(positions)

@@ -102,13 +102,13 @@ const FULL_LETTER = {
 /** Every part of FULL_LETTER, in the order the letter prints them. */
 const FULL_LETTER_PARTS: (string | RegExp)[] = [
   'Ada Lovelace',
-  /[A-Z][a-z]+\d{1,2},\d{4}/,
+  /\d{1,2}[A-Z][a-z]+\d{4}/,
   'Charles Babbage',
   'Head of Engineering',
   'Analytical Engines SA',
   '12 Rue du Calcul',
   '1003 Lausanne',
-  'Re: Application for Senior Software Engineer',
+  'Application for Senior Software Engineer',
   'Dear Mr. Babbage,',
   'I am writing to apply with strong conviction and genuine interest.',
   '1.',

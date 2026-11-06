@@ -202,7 +202,7 @@ describe('POST /api/cover-letters/[id]/download-docx: the file', () => {
 
     const xml = await (await JSZip.loadAsync(body)).file('word/document.xml')!.async('string')
     expect(xml).toContain(SECRET_SENTENCE)
-    expect(xml).toContain('Re: Application for Engineer')
+    expect(xml).toContain('Application for Engineer')
   })
 
   it('builds the stored row, with the date line the PDF prints', async () => {
@@ -210,7 +210,7 @@ describe('POST /api/cover-letters/[id]/download-docx: the file', () => {
     expect(buildCoverLetterDocx).toHaveBeenCalledTimes(1)
     const input = buildCoverLetterDocx.mock.calls[0][0]
     expect(input.coverLetter).toMatchObject({ opening_paragraph: `<p>${SECRET_SENTENCE}</p>`, sender_name: 'Ada Lovelace' })
-    expect(input.currentDate).toMatch(/^[A-Z][a-z]+ \d{1,2}, \d{4}$/)
+    expect(input.currentDate).toMatch(/^\d{1,2} [A-Z][a-z]+ \d{4}$/)
   })
 
   it('names the file after the title, with an encoded UTF-8 name and an ASCII fallback', async () => {
@@ -311,10 +311,10 @@ describe('POST /api/cover-letters/[id]/download-docx: the letter language', () =
     expect(response.status).toBe(200)
     expect(buildCoverLetterDocx.mock.calls[0][0].language).toBe('de')
     const xml = await documentXml(response)
-    expect(xml).toContain('Betreff: Bewerbung als Engineer')
+    expect(xml).toContain('Bewerbung als Engineer')
     expect(xml).toContain('Sehr geehrte Damen und Herren,')
-    expect(xml).toContain('Mit freundlichen Grüßen,')
-    expect(xml).not.toContain('Re: Application for')
+    expect(xml).toContain('Freundliche Grüsse')
+    expect(xml).not.toContain('Application for')
   })
 
   it('follows the page locale for a letter too short to tell, keeping a stored greeting and sign-off', async () => {
@@ -322,7 +322,7 @@ describe('POST /api/cover-letters/[id]/download-docx: the letter language', () =
     expect(response.status).toBe(200)
     expect(buildCoverLetterDocx.mock.calls[0][0].language).toBe('it')
     const xml = await documentXml(response)
-    expect(xml).toContain('Oggetto: Candidatura per la posizione di Engineer')
+    expect(xml).toContain('Candidatura per la posizione di Engineer')
     expect(xml).toContain('Dear team,')
     expect(xml).toContain('Sincerely,')
   })
@@ -331,8 +331,8 @@ describe('POST /api/cover-letters/[id]/download-docx: the letter language', () =
     const response = await call(LETTER_ID, request('application/json', '{"locale":"xx"}'))
     expect(response.status).toBe(200)
     expect(buildCoverLetterDocx.mock.calls[0][0].language).toBe('en')
-    expect(buildCoverLetterDocx.mock.calls[0][0].currentDate).toMatch(/^[A-Z][a-z]+ \d{1,2}, \d{4}$/)
-    expect(await documentXml(response)).toContain('Re: Application for Engineer')
+    expect(buildCoverLetterDocx.mock.calls[0][0].currentDate).toMatch(/^\d{1,2} [A-Z][a-z]+ \d{4}$/)
+    expect(await documentXml(response)).toContain('Application for Engineer')
   })
 
   it('refuses a body that is not JSON with 400 and builds nothing', async () => {

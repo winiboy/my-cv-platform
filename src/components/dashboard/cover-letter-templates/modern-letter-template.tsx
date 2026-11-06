@@ -1,117 +1,142 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 import type { CoverLetter } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
 import { SanitizedHtml } from '@/components/sanitized-html'
 import { formatCoverLetterDate } from '@/lib/cover-letter-language'
-import { coverLetterLanguage, coverLetterParts, type CoverLetterPart } from '@/lib/cover-letter-pdf-html'
+import { coverLetterLanguage } from '@/lib/cover-letter-pdf-html'
+import type { CoverLetterSenderDetails } from '@/lib/cover-letter-sender'
+import {
+  SWISS_LETTER_LAYOUT_PX,
+  swissLetterParts,
+  swissLetterSpaceBeforePx,
+  type SwissLetterPart,
+} from '@/lib/cover-letter-swiss-letter'
 
 interface ModernLetterTemplateProps {
   coverLetter: CoverLetter
-  senderName?: string
+  /** The sender details as printed: `effectiveSenderDetails(letter, linked CV contact)`. */
+  senderDetails: CoverLetterSenderDetails
   /** The page's locale: the letter's language when its text cannot tell. */
   locale: Locale
 }
 
-type TextPartKind = 'date' | 'subject' | 'greeting' | 'signOff'
+const layout = SWISS_LETTER_LAYOUT_PX
 
-/** The text of the letter's `kind` part, or `undefined` when the letter has none. */
-function partText(parts: readonly CoverLetterPart[], kind: TextPartKind): string | undefined {
-  for (const part of parts) {
-    if (part.kind === kind && 'text' in part) return part.text
-  }
-  return undefined
+const PAGE_STYLE: CSSProperties = {
+  width: layout.page.width,
+  minHeight: layout.page.height,
+  padding: `${layout.padding.top}px ${layout.padding.right}px ${layout.padding.bottom}px ${layout.padding.left}px`,
+  fontSize: layout.fontSize,
+  lineHeight: `${layout.lineHeight}px`,
 }
 
-export function ModernLetterTemplate({ coverLetter, senderName, locale }: ModernLetterTemplateProps) {
-  const bodyParagraphs = Array.isArray(coverLetter.body_paragraphs)
-    ? coverLetter.body_paragraphs as string[]
-    : []
+/**
+ * The sender block and the window zone share one grid cell, so the
+ * place-and-date line starts below whichever ends lower: the window zone
+ * (`window.top + window.height`), or a recipient block longer than it.
+ */
+const HEADER_STYLE: CSSProperties = { display: 'grid', minHeight: layout.window.top + layout.window.height }
 
-  // The date, subject, greeting and sign-off are read from the parts the PDF
-  // and Word exports print, in the language they resolve, so the preview
-  // cannot show other wording than the files. Only the language detection is
-  // memoized, on the paragraphs and the page; the date is formatted on each
-  // render, so a preview left open past midnight is dated like the PDF.
+const SENDER_STYLE: CSSProperties = { gridArea: '1 / 1', alignSelf: 'start', width: layout.senderWidth }
+
+const RECIPIENT_STYLE: CSSProperties = {
+  gridArea: '1 / 1',
+  alignSelf: 'start',
+  marginTop: layout.window.top,
+  marginLeft: layout.window.left,
+  width: layout.window.width,
+}
+
+type FlowPart = Exclude<SwissLetterPart, { kind: 'sender' | 'recipient' }>
+
+function FlowPartView({ part }: { part: FlowPart }) {
+  const style: CSSProperties = { marginTop: swissLetterSpaceBeforePx(part.kind) }
+  switch (part.kind) {
+    case 'opening':
+    case 'body':
+    case 'closing':
+      return (
+        <div data-letter-part={part.kind} style={style}>
+          <SanitizedHtml className="text-left" html={part.html} />
+        </div>
+      )
+    case 'annexes':
+      return (
+        <div data-letter-part="annexes" style={style}>
+          <div>{part.label}</div>
+          <div className="whitespace-pre-line">{part.text}</div>
+        </div>
+      )
+    case 'subject':
+      return (
+        <div data-letter-part="subject" style={style}>
+          <strong>{part.text}</strong>
+        </div>
+      )
+    default:
+      return (
+        <div data-letter-part={part.kind} style={style}>
+          {part.text}
+        </div>
+      )
+  }
+}
+
+/**
+ * The editor preview's letter: an A4 page drawn from the Swiss letter's
+ * canonical description (`swissLetterParts`, `SWISS_LETTER_LAYOUT_PX`), the
+ * one the PDF and Word exports print, in the letter's language.
+ */
+export function ModernLetterTemplate({ coverLetter, senderDetails, locale }: ModernLetterTemplateProps) {
+  // Only the language detection is memoized, on the paragraphs and the page;
+  // the date is formatted on each render, so a preview left open past
+  // midnight is dated like the PDF.
   const { opening_paragraph, body_paragraphs, closing_paragraph } = coverLetter
   const language = useMemo(
     () => coverLetterLanguage({ opening_paragraph, body_paragraphs, closing_paragraph }, locale),
     [opening_paragraph, body_paragraphs, closing_paragraph, locale],
   )
-  const parts = coverLetterParts(coverLetter, formatCoverLetterDate(new Date(), language), language)
-  const subject = partText(parts, 'subject')
+  const parts = swissLetterParts(coverLetter, {
+    senderDetails,
+    date: formatCoverLetterDate(new Date(), language),
+    language,
+  })
+
+  let sender: Extract<SwissLetterPart, { kind: 'sender' }> | undefined
+  let recipient: Extract<SwissLetterPart, { kind: 'recipient' }> | undefined
+  const flow: FlowPart[] = []
+  for (const part of parts) {
+    if (part.kind === 'sender') sender = part
+    else if (part.kind === 'recipient') recipient = part
+    else flow.push(part)
+  }
 
   return (
-    <div className="w-[816px] min-h-[1056px] bg-white p-16 font-serif text-[14px] leading-relaxed text-gray-800">
-      {/* Header with sender info */}
-      <div className="mb-8">
-        {senderName && (
-          <div className="text-xl font-semibold text-gray-900 mb-1">
-            {senderName}
+    <div className="bg-white text-left font-serif text-gray-800" style={PAGE_STYLE}>
+      <div style={HEADER_STYLE}>
+        {sender && (
+          <div data-letter-part="sender" className="break-words" style={SENDER_STYLE}>
+            {sender.lines.map((line, index) => (
+              <div key={index}>{line}</div>
+            ))}
+          </div>
+        )}
+        {recipient && (
+          <div data-letter-part="recipient" className="break-words" style={RECIPIENT_STYLE}>
+            {recipient.lines.map((line, index) => (
+              <div key={index} className={line.multiline ? 'whitespace-pre-line' : undefined}>
+                {line.text}
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Date */}
-      <div className="mb-6 text-gray-600">
-        {partText(parts, 'date')}
-      </div>
-
-      {/* Recipient info */}
-      {(coverLetter.recipient_name || coverLetter.company_name) && (
-        <div className="mb-6">
-          {coverLetter.recipient_name && (
-            <div>{coverLetter.recipient_name}</div>
-          )}
-          {coverLetter.recipient_title && (
-            <div>{coverLetter.recipient_title}</div>
-          )}
-          {coverLetter.company_name && (
-            <div>{coverLetter.company_name}</div>
-          )}
-          {coverLetter.company_address && (
-            <div className="whitespace-pre-line">{coverLetter.company_address}</div>
-          )}
-        </div>
-      )}
-
-      {/* Job reference */}
-      {subject && (
-        <div className="mb-6">
-          <strong>{subject}</strong>
-        </div>
-      )}
-
-      {/* Greeting */}
-      <div className="mb-4">
-        {partText(parts, 'greeting')}
-      </div>
-
-      {/* Opening paragraph */}
-      {coverLetter.opening_paragraph && (
-        <SanitizedHtml className="mb-4 text-justify" html={coverLetter.opening_paragraph} />
-      )}
-
-      {/* Body paragraphs */}
-      {bodyParagraphs.map((paragraph, index) => (
-        <SanitizedHtml key={index} className="mb-4 text-justify" html={paragraph} />
+      {flow.map((part, index) => (
+        <FlowPartView key={`${part.kind}-${index}`} part={part} />
       ))}
-
-      {/* Closing paragraph */}
-      {coverLetter.closing_paragraph && (
-        <SanitizedHtml className="mb-6 text-justify" html={coverLetter.closing_paragraph} />
-      )}
-
-      {/* Sign-off */}
-      <div className="mt-8">
-        <div className="mb-8">{partText(parts, 'signOff')}</div>
-        {(coverLetter.sender_name || senderName) && (
-          <div className="font-semibold">
-            {coverLetter.sender_name || senderName}
-          </div>
-        )}
-      </div>
     </div>
   )
 }

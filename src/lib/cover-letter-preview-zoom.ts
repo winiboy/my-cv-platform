@@ -7,14 +7,15 @@
  * always moves from the number they read: 63% goes in to 70% and out to 60%.
  */
 
+import { SWISS_LETTER_PAGE_PX } from './cover-letter-swiss-letter'
+
 /**
- * The letter template's page at 96dpi, as `ModernLetterTemplate` draws it
- * (`w-[816px] min-h-[1056px]`): 8.5in x 11in, the US Letter sheet the PDF
- * export prints on. "Show all" fits this first page; a longer letter
- * continues below it on the same sheet.
+ * The letter template's page at 96dpi, as `ModernLetterTemplate` draws it:
+ * the A4 sheet of the Swiss letter (`SWISS_LETTER_PAGE_PX`). "Show all" fits
+ * this first page; a longer letter continues below it on the same sheet.
  */
-export const PAGE_WIDTH_PX = 816
-export const PAGE_HEIGHT_PX = 1056
+export const PAGE_WIDTH_PX = SWISS_LETTER_PAGE_PX.width
+export const PAGE_HEIGHT_PX = SWISS_LETTER_PAGE_PX.height
 
 export const MIN_ZOOM_PERCENT = 25
 export const MAX_ZOOM_PERCENT = 200

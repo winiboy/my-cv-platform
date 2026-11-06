@@ -142,3 +142,122 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 A letter stores the sender's details and its annexes, editable in the editor
 FINAL: PASS
+
+## US-002: The editor preview shows the letter in the Swiss format on A4
+Status: PASS
+Priority: 2
+Branch: ralph/cover-letter-swiss-format
+Baseline HEAD: 71314cd (US-001)
+
+Scope:
+- Scope check: PASS
+- Changed paths: story diff sha256 prefix 3af6a967438198d0, over the tracked src/e2e diff (366/204, 22 files) plus three new files (917 lines).
+  - New `src/lib/cover-letter-swiss-letter.ts` + test (29 tests): the canonical Swiss letter description (FR-1), with no React, DOM or server-only imports.
+    - **FR-2 constants in mm:**
+      - A4 210 × 297;
+      - margins: top 18, right 20, left 25, bottom 15;
+      - window: left 110, top 50, max width 85, 6 lines;
+      - 11 pt, line height 1.3.
+    - **Pixel layout:** `SWISS_LETTER_LAYOUT_PX` derives it from those constants (page 794 × 1123 px).
+    - **Spacing:** above each part, in lines (signature space 2.5).
+    - **Parts:** `swissLetterParts(letter, { senderDetails, date, language })` returns them in the AC order.
+      - Whitespace-only sender and recipient lines are omitted.
+      - Annexes: null or whitespace-only prints the default list; "" prints no block; any other value prints as stored.
+    - **FR-3:** `swissLetterPlace` removes a leading four-digit postcode; if nothing remains, the date prints alone.
+  - `src/lib/cover-letter-language.ts` + test: `COVER_LETTER_WORDING` with the FR-4 wording.
+    - Subjects without a label.
+    - Default sign-offs without a comma: "Kind regards", "Meilleures salutations", "Freundliche Grüsse", "Distinti saluti".
+    - Per language: an annexes label, a default list, and the place-and-date format.
+    - Default greetings unchanged; no default wording contains "ß".
+    - The en date locale moves from en-US to en-GB (day first).
+  - `src/components/dashboard/cover-letter-templates/modern-letter-template.tsx` + test:
+    - renders from the canonical module, left-aligned at 11 pt on A4;
+    - each part carries a `data-letter-part` attribute;
+    - the `senderName` prop is replaced by `senderDetails`.
+  - `cover-letter-preview.tsx`, `cover-letter-preview-dialog.tsx` and `cover-letter-editor.tsx`: the effective sender details (`effectiveSenderDetails(coverLetter, linkedContact)`, computed once) go to the pane and the window.
+  - `src/lib/cover-letter-preview-zoom.ts` + test: the page size comes from the canonical module (794 × 1123); "show all" fits A4.
+  - `src/lib/cover-letter-pdf-html.ts`: the `coverLetterParts` doc comment marked TRANSITIONAL (comments only).
+  - New `e2e/cover-letter-swiss-preview.spec.ts` (3 tests, at 1440 × 900):
+    - fr: block positions within 1.5 page px; the order; the bold subject; 11 pt left-aligned paragraphs; a 252-word typical letter on one page at 1123 px, with 67 px to spare above the bottom margin;
+    - de: the CV fallback gives "Zürich, …" and "Freundliche Grüsse", with no "ß" and no "Betreff";
+    - annexes "" prints no block, and a stored list is printed last.
+  - Existing test expectations updated (only those expectations; see Decision):
+    - the old subject, sign-off and en date strings in the language, pdf-html, docx and both download-route unit tests, and in the template-language, pdf-export and docx-export e2e specs;
+    - 816/1056 → 794/1123 in the zoom spec, and 816 → 794 in the mobile spec;
+    - `.text-justify` selectors → `data-letter-part` in `sanitized-html.test.ts` and `sanitized-html-direct-load.spec.ts`;
+    - the fixture data change in `e2e/fixtures/cover-letter-preview.ts` (Decision).
+- Not touched: the PDF and Word layout (US-003/US-004), the database, the APIs. No version change, no push or merge.
+- Temporary specs (`e2e/zz-swiss-shot`, `zz-s2`) were run alone and deleted; none is in the diff.
+
+Checks:
+- An intermediate full run was stopped for the comment fix (process tree killed). It is not evidence.
+- Final run (this diff, alone, started after the last edit; the diff hash is the same before and after the run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3356 passed, 5 skipped.
+  - pnpm test:integration: PASS — 63 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 523 passed, 0 failed (17.5 min), on the first full run.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus captures of the production build:
+  - scratchpad s2, the preview window at "show all" in fr/de/it/en at 1440;
+  - the editor pane in each language;
+  - mobile Aperçu (fr, de) at 375;
+  - `swiss-fr.png`, a typical 252-word letter.
+- Visual: PASS.
+  - ui-expert measured on `window-fr`: sender at 25.0 mm, recipient at 110 mm and about 50 mm, place-and-date at about 87 mm.
+  - Parity unchanged. No resume file is in the diff.
+- Export: NOT_APPLICABLE for layout — the PDF and Word keep their layout until US-003/US-004. Their wording change is covered by the pdf-export and docx-export specs.
+- Database: NOT_APPLICABLE.
+- Security: NOT_APPLICABLE — no new input or route. The preview renders as before (React text and `SanitizedHtml` for paragraphs).
+
+Agents:
+- senior-coder: implementation, then one comments-only fix (the two FR-1 doc comments).
+- ui-expert: PASS, 7/7 conditions; text contrast 14.7:1.
+- code-reviewer: PASS on condition that the comments are corrected (done) and findings 1–5 are recorded here.
+
+Acceptance criteria:
+- AC-01 (A4 page; "show all" fits it): PASS — the zoom constants; unit and e2e tests.
+- AC-02 (order and placement: sender, window recipient, place-and-date, subject, greeting, paragraphs, sign-off and signature space and name, Annexes): PASS — unit order tests; the e2e position checks; ui-expert's measurements.
+- AC-03 (left-aligned, 25/20 mm margins, 11 pt): PASS — e2e.
+- AC-04 (place-and-date per language, the date alone without a locality; FR-4 wording; user text as written): PASS — unit tests in every language; captures.
+- AC-05 (a typical letter fits one page): PASS for fr — 252 words, 67 px spare (see Open owner decisions).
+- FR-2, FR-3, FR-4, FR-5, FR-6, FR-7: PASS.
+- FR-1: PASS as a transitional state (see Decision).
+- Carried from US-001: rendering through `effectiveSenderDetails`, whitespace-only lines as empty: PASS.
+- Regression constraints: PASS — the full e2e suite is green, including the PDF/Word export specs (layout unchanged), zoom, window, mobile and template-language; parity unchanged.
+- FAIL and BLOCKER conditions: none triggered for the preview. The preview and the exports differ until US-003/US-004, as the PRD sequences it.
+
+Decision:
+- **FR-1 transitional.**
+  - Only the editor preview (pane and window) renders from `swissLetterParts` today.
+  - The PDF and Word still use `coverLetterParts` and their own builders: US Letter, date under the sender, recipient on the left, no street/phone/e-mail/Annexes/place.
+  - They do read the same `COVER_LETTER_WORDING`, so their subject, default sign-off and en date already follow FR-4.
+  - US-003 and US-004 move them to `swissLetterParts` and delete `coverLetterParts`. The doc comments of both modules now say this.
+- **en date → en-GB (implementer's interpretation).** The PRD's en example "Lausanne, 5 November 2026" needs day-first. FR-5's "formatted as today" is read as "with `formatCoverLetterDate`", which is still used. The PDF/Word en date line is therefore "2 November 2026" now, ahead of US-003/US-004.
+- **Window width 80 mm.** min(85 mm, 210 − 20 − 110) keeps the window inside the 20 mm right margin, within FR-2's "at most 85 mm".
+- **Fixture data change.** `e2e/fixtures/cover-letter-preview.ts` seeds `annexes: ''`, so the sender's name stays the letter's last line for the five specs that use it (card-flag, card-title, mobile, window, zoom). Otherwise the window spec's "space after the last line < 120 px" would measure the Annexes block. This changes input data, not an assertion.
+- **Owner decisions in chat, 2026-11-06, answering the code-reviewer's findings 2 and 3:**
+  - **"Avertir dans l'éditeur":** a recipient block over the 6-line window zone prints as written (no truncation), and the editor shows a warning near the Recipient fields. To be added to US-003 by a PRD amendment.
+  - **"Oui, dans cette initiative":** new letters are created with an empty greeting and sign-off, so the Swiss defaults show in the letter's language. Existing letters are untouched. To be added as US-005 by a PRD amendment, with re-approval by the owner.
+
+Open owner decisions:
+- The PRD amendment for the two rulings above (US-003 warning, new US-005) needs the owner's re-approval before US-003 starts.
+- **code-reviewer, minor:**
+  - The canonical module imports `coverLetterBodyParagraphs` and `CoverLetterRecipientLine` from `cover-letter-pdf-html.ts`; move them when US-003 retires `coverLetterParts`.
+  - The greeting and sign-off fall back with `||`, so a whitespace-only value prints an empty line, and a whitespace-only `job_title` gives a subject without a job. This is old behaviour, but inconsistent with the whitespace-only = empty rule.
+  - The one-page proof is fr only; a German typical letter has no one-page check.
+- **ui-expert, optional (for US-003, so the PDF gets them too):**
+  - `lining-nums` for addresses (Georgia's old-style digits);
+  - a signature space of 3.5 lines instead of 2.5;
+  - the recipient line order: Swiss Post puts the company first. That is an owner decision on FR-1's order.
+
+Environment notes:
+- None. The full run was green on its first attempt after the e2e stabilization (#122) was merged in.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 The editor preview shows the letter in the Swiss format on A4
+FINAL: PASS
