@@ -31,11 +31,37 @@ interface PdfPageProxy {
   getTextContent(): Promise<{ items: { str: string }[] }>
 }
 
+/**
+ * Every e2e call to `pdf-parse` goes through here, so that pdf.js is always
+ * handed a plain `Uint8Array` with its own ArrayBuffer, never a Node Buffer.
+ * The options are passed through unchanged.
+ *
+ * Why: pdf.js's in-process worker copies a Buffer with
+ * `new value.constructor(value)`, that is `new Buffer(buffer)`. Under
+ * Playwright's `Buffer.poolSize`, that copy of a PDF under 32 KB is drawn from
+ * Node's shared Buffer pool. With a Buffer, the parse intermittently throws
+ * "bad XRef entry" on valid bytes; with a plain `Uint8Array`, which pdf.js
+ * copies with `new Uint8Array(value)` and never from the pool, it does not.
+ * Which allocation corrupts the pooled copy is not identified. The bytes
+ * themselves are not changed, only the type that carries them.
+ * Measured; see `tasks/prds/e2e-pdf-parse-buffer.md`.
+ */
+export function parsePdf(pdf: Uint8Array, options?: Parameters<typeof pdfParse>[1]): ReturnType<typeof pdfParse> {
+  // `new Uint8Array(typedArray)` copies the elements into a fresh ArrayBuffer,
+  // so a Buffer that is a view into the shared pool yields exactly its bytes.
+  const bytes = new Uint8Array(pdf)
+  // pdf-parse is declared (`src/types/pdf-parse.d.ts`) as taking a Buffer, but
+  // at runtime it hands its argument to pdf.js's `getDocument`, which takes any
+  // Uint8Array. The plain Uint8Array is the point, so the type is cast here, at
+  // the one call, rather than changing a declaration the product code shares.
+  return pdfParse(bytes as Buffer, options)
+}
+
 export async function readPdf(pdf: Buffer): Promise<ReadPdf> {
   const pages: PdfPage[] = []
   // pdf-parse renders pages one after another, awaiting each, so the order of
   // the calls is the order of the pages.
-  await pdfParse(pdf, {
+  await parsePdf(pdf, {
     version: `v${PDFJS_VERSION}`,
     pagerender: async (pageData: unknown) => {
       const proxy = pageData as PdfPageProxy

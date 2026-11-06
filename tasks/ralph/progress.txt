@@ -4,3 +4,84 @@ Contract: tasks/ralph/prd.json (branch ralph/e2e-pdf-parse-buffer)
 PRD: tasks/prds/e2e-pdf-parse-buffer.md (Status: APPROVED 2026-11-06, written by the owner in GitHub's web editor, commit 57da2f7 on prd/e2e-pdf-parse-buffer)
 Format: docs/engineering/progress-log-format.md
 Previous contract (e2e-flaky-stabilization) archived in tasks/ralph/archive/2026-11-06-e2e-flaky-stabilization/ (f4de94f).
+
+## US-001: A valid PDF parses on the first try in every e2e test
+Status: PASS
+Priority: 1
+Branch: ralph/e2e-pdf-parse-buffer
+Baseline HEAD: b86d5f1 (origin/main 75a350b + PRD a4ca7bf, owner approval 57da2f7, archive f4de94f, contract 183c013, amendment 1 b6b85b7, owner re-approval of amendment 1 981f165, contract amendment 1 b86d5f1)
+Worktree: .claude/worktrees/us3-ab. The main checkout holds uncommitted US-004 work of cover-letter-swiss-format, which must not be disturbed. The before/after measurement ran in a second worktree, .claude/worktrees/flake-ab: ce945fe on a local scratch branch scratch/flake-ab-after, never pushed (amendment 1).
+
+Scope:
+- Scope check: PASS
+- Changed paths:
+  - e2e/fixtures/pdf.ts — new `parsePdf(pdf, options)`, the one call to pdf-parse, handing it `new Uint8Array(pdf)`; `readPdf` uses it.
+  - e2e/parity/surfaces.ts, e2e/modern-long-sidebar-print.spec.ts, e2e/pdf-font-substitutes.spec.ts, e2e/resume-page-break-pdf-count.spec.ts, e2e/resume-preview-page-breaks.spec.ts — import and call `parsePdf` instead of `pdfParse`, options unchanged, one comment line each.
+  - tasks/ralph/prd.json (US-001 passes), tasks/ralph/progress.txt (this entry).
+- Six call sites, not the PRD's seven: `readPdfTextItems` exists only on ralph/cover-letter-swiss-format (added by its US-003). It must switch to `parsePdf` when origin/main is merged there; that is a one-line change in the same file.
+- Not touched: git diff -- src empty; no dependency or package.json change; no config, Playwright, vitest or Node setting; no assertion, expected value, timeout, option or test changed; `src/types/pdf-parse.d.ts` untouched (the Buffer-typed declaration is cast once, inside `parsePdf`). No version change, no push or merge by this story.
+- Search: `pdfParse(` in e2e/ finds only the call inside `parsePdf`; no other file imports pdf-parse.
+- Final diff (git diff -- e2e src) sha256 prefix 170cb1270478c587, the same before and after every check below.
+
+Checks (on the final diff, run alone, in order):
+- pnpm typecheck: PASS — exit 0.
+- pnpm test: PASS — 3277 passed, 5 skipped (3282).
+- pnpm test:integration: PASS — 50/50.
+- pnpm build: PASS — 105/105 static pages.
+- pnpm lint: PASS by comparison — 286 problems (219 errors, 67 warnings) = the ceiling of 286; 286 before the change too.
+- pnpm test:e2e, run 1: FAIL — 506 passed, 1 failed: job-applications-i18n.spec.ts:1202 "it: drag and drop is announced in the page language", TimeoutError in `loginAs` (e2e/fixtures/auth.ts:153), the login page's #email not found within 15 s, before the test's own steps. No PDF is read in that spec, and the diff touches no login code. See Environment notes.
+- pnpm test:e2e job-applications-i18n --repeat-each=5: PASS — 125/125.
+- pnpm test:e2e, run 2: PASS — 507/507.
+- pnpm test:e2e cover-letter-template-language --repeat-each=30 (this branch): PASS — 150/150, "bad XRef entry" 0 times.
+- --repeat-each=5, this branch: cover-letter-pdf-export 85/85; resume-pdf-download-button 75/75; modern-long-sidebar-print 5/5; pdf-font-substitutes 15/15; resume-page-break-pdf-count 50/50; resume-preview-page-breaks 40/40.
+- --repeat-each=5, cover-letter-swiss-pdf on ce945fe + this change (it does not exist on main): 25/25.
+- pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0, LIMITATION 11, FINDING 3, DECISION 16. Before the change (origin/main 75a350b): MATCH 211, KNOWN 3, NEW 0, 283 passed.
+- pnpm test:visual: PASS — 10/10.
+
+Before/after (amendment 1), cover-letter-template-language --repeat-each=30:
+- origin/main 75a350b, unchanged: 150/150, 0 "bad XRef entry". Its PDFs are 37872 to 42793 bytes, above the 32768 under which Node draws a Buffer copy from its pool (Buffer.poolSize 65536 in the Playwright worker), so the case does not reproduce there.
+- ce945fe, unchanged: 5 failed of 150, each "UnknownErrorException: bad XRef entry" (the Swiss letter's PDF is 31258 bytes).
+- ce945fe + this change (scratch branch, with `readPdfTextItems` switched too): 150/150, 0 "bad XRef entry".
+
+Specialized validation:
+- Browser: NOT_APPLICABLE — no UI change; only how the e2e tests read PDFs.
+- Visual: PASS — pnpm test:visual 10/10, baselines unchanged.
+- Export: NOT_APPLICABLE — no export code changed; the changed code reads PDFs, it does not produce them, and the specs reading them pass.
+- Database: NOT_APPLICABLE — no schema or data change.
+- Security: NOT_APPLICABLE — test code only; no input, auth or server path changed.
+
+Agents:
+- senior-coder: implemented `parsePdf` and the call-site switches; then, on code review findings 1–2, reworded its doc comment only.
+- ui-expert: NOT_APPLICABLE — no UI change.
+- code-reviewer: PASS. No blocking finding. Non-blocking, all handled:
+  1. The comment stated the cause more firmly than the evidence. Fixed: it now says which allocation corrupts the pooled copy is not identified.
+  2. The comment repeated run counts. Fixed: it points to the PRD.
+  3. progress.txt cited only the first approval. Addressed in this entry's Baseline HEAD (981f165 re-approved amendment 1).
+  4. A merge into the Swiss branch could keep a direct `pdfParse(` call in `readPdfTextItems`. Recorded under Scope and Open owner decisions.
+  5. Six call sites versus the PRD's seven. Recorded under Scope.
+  The comment edit came after a check run had started; that run was stopped, its process tree killed, port 3100 confirmed free, and every check re-run on the final diff.
+
+Acceptance criteria:
+- AC-01: PASS — every pdf-parse call in e2e/ goes through `parsePdf` (e2e/fixtures/pdf.ts), which hands `new Uint8Array(pdf)` (own ArrayBuffer, exact bytes, constructor Uint8Array); the search finds no other `pdfParse(` call.
+- AC-02: PASS — on ce945fe with this change, cover-letter-template-language --repeat-each=30: 150/150; without it first: 5 failed of 150.
+- AC-03: PASS — on this branch, the same run: 150/150.
+- AC-04: PASS — the other specs ×5 as listed under Checks, all passed (cover-letter-swiss-pdf on ce945fe + this change, as it does not exist here).
+- AC-05: PASS — the diff changes the import, the call name and adds comments; options objects and assertions are unchanged (code-reviewer checked each file).
+- AC-06: PASS — parity MATCH 211 / KNOWN 3 / NEW 0 before and after.
+
+Decision (AC-01): a wrapper `parsePdf(pdf, options)` rather than a function that only converts the bytes. With the wrapper, e2e/fixtures/pdf.ts is the only importer of pdf-parse, so a spec cannot hand it a Buffer by skipping the conversion. The doc comment at `parsePdf` records the measured cause.
+
+Open owner decisions recorded by this story:
+- Mixed pdf.js versions (PRD Risks, out of scope): three call sites pass no `version`, and pdf-parse keeps whichever pdf.js build loads first in a process, so which build a spec uses can depend on test order. To decide before any work that relies on a specific pdf.js build in e2e.
+- When origin/main is merged into ralph/cover-letter-swiss-format, its `readPdfTextItems` must call `parsePdf`, and the `pdfParse(` search must again find only the helper. To do in that merge, before its US-004 commit.
+
+Environment notes:
+- The first check run was stopped to apply the comment fix; the stopped run's inner bash (PID 31604) and next build (PID 8480) were killed by tree, and the process list and port 3100 checked empty before the re-run.
+- The session ended during the re-run's 30-repetition step. Results up to the first full e2e were kept, nothing was left running, the diff hash was unchanged (170cb1270478c587), and the remaining checks were re-run from the 30-repetition step.
+- The e2e run-1 failure was a 15 s login timeout in a spec that reads no PDF; it passed 125/125 alone ×5 and 507/507 in full run 2. It is counted as a failure in run 1, not discarded.
+- The before/after runs used the same machine and local Supabase stack. Which allocation corrupts pdf.js's pooled copy is not identified; the evidence shows the type handed to pdf.js decides the outcome.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 A valid PDF parses on the first try in every e2e test
+FINAL: PASS

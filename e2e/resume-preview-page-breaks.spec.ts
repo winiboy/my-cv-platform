@@ -1,5 +1,5 @@
-import pdfParse from 'pdf-parse'
 import { test, expect } from './fixtures/auth'
+import { parsePdf } from './fixtures/pdf'
 import {
   fixtureResumeContent,
   seedFixtureResume,
@@ -198,7 +198,8 @@ async function printPdf(page: Page): Promise<{ pages: number; texts: string[] }>
   await page.emulateMedia({ media: 'screen' })
 
   const texts: string[] = []
-  const parsed = await pdfParse(pdf, {
+  // Through `parsePdf`, never pdf-parse directly: a Buffer can fail to parse (see `e2e/fixtures/pdf.ts`).
+  const parsed = await parsePdf(pdf, {
     pagerender: async (pageData: unknown) => {
       const content = await (
         pageData as { getTextContent(): Promise<{ items: { str: string }[] }> }

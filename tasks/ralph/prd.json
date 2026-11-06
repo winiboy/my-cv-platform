@@ -41,7 +41,7 @@
         "Out of scope: The `cover-letter-swiss-format` stories; US-004 is committed after this merges."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]
