@@ -20,6 +20,10 @@
  * sufficient — but it means these tests cannot detect RLS being weakened. The
  * policy layer has its own evidence in supabase/tests/rls-audit.sql. Neither
  * suite substitutes for the other.
+ *
+ * The one exception is the RLS test of the sender-details block, which goes
+ * through the users' own clients rather than a route; it does fail with RLS
+ * disabled on `cover_letters` (verified by experiment on the local stack).
  */
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -39,6 +43,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { COVER_LETTER_FIELD_LIMITS } from '@/lib/cover-letter-limits'
 import { GET, POST } from './route'
 import {
   GET as GET_BY_ID,
@@ -234,6 +239,120 @@ describe('cover-letters API', () => {
         ctx(id)
       )
       expect(gone.status).toBe(404)
+    })
+  })
+
+  describe('sender details and annexes (cover-letter-swiss-format US-001)', () => {
+    const DETAILS = {
+      sender_street: 'Rue de Bourg 12',
+      sender_postal_locality: '1003 Lausanne',
+      sender_phone: '+41 21 555 01 42',
+      sender_email: 'alice@example.ch',
+      annexes: 'CV, certificats de travail, diplômes',
+    }
+    const COLUMNS = 'sender_street, sender_postal_locality, sender_phone, sender_email, annexes'
+
+    async function create(body: Record<string, unknown>) {
+      actAs(alice)
+      const res = await POST(postRequest({ title: 'sender details', ...body }))
+      expect(res.status).toBe(201)
+      return (await res.json()).coverLetter as Record<string, unknown>
+    }
+
+    it('creates a letter with the five fields, and stores them as sent', async () => {
+      const coverLetter = await create(DETAILS)
+      expect(coverLetter).toMatchObject(DETAILS)
+    })
+
+    it('leaves the five fields null when they are not sent', async () => {
+      const coverLetter = await create({})
+      for (const column of Object.keys(DETAILS)) expect(coverLetter[column], column).toBeNull()
+    })
+
+    it('keeps an empty annexes apart from a null one, on create and on update', async () => {
+      const cleared = await create({ annexes: '' })
+      expect(cleared.annexes).toBe('')
+      const unset = await create({ annexes: null })
+      expect(unset.annexes).toBeNull()
+
+      const toDefault = await PATCH_BY_ID(patchRequest({ annexes: null }), ctx(cleared.id as string))
+      expect((await toDefault.json()).coverLetter.annexes).toBeNull()
+      const toNone = await PATCH_BY_ID(patchRequest({ annexes: '' }), ctx(unset.id as string))
+      expect((await toNone.json()).coverLetter.annexes).toBe('')
+    })
+
+    it('keeps an empty sender detail empty: a field cleared on purpose, not one never set', async () => {
+      const coverLetter = await create({ sender_phone: '', sender_email: '' })
+      expect(coverLetter).toMatchObject({ sender_phone: '', sender_email: '', sender_street: null })
+    })
+
+    it('stores whitespace-only annexes as null (the default list), and trims a list', async () => {
+      const blank = await create({ annexes: '  \n ' })
+      expect(blank.annexes).toBeNull()
+      const patched = await PATCH_BY_ID(patchRequest({ annexes: '  CV, diplômes  ' }), ctx(blank.id as string))
+      expect((await patched.json()).coverLetter.annexes).toBe('CV, diplômes')
+      const cleared = await PATCH_BY_ID(patchRequest({ annexes: ' ' }), ctx(blank.id as string))
+      expect((await cleared.json()).coverLetter.annexes).toBeNull()
+    })
+
+    it('updates the five fields and leaves the others alone', async () => {
+      const coverLetter = await create({ sender_name: 'Alice' })
+      const res = await PATCH_BY_ID(patchRequest(DETAILS), ctx(coverLetter.id as string))
+      expect(res.status).toBe(200)
+      const updated = (await res.json()).coverLetter
+      expect(updated).toMatchObject({ ...DETAILS, sender_name: 'Alice', title: 'sender details' })
+    })
+
+    it.each(Object.keys(DETAILS) as (keyof typeof DETAILS)[])(
+      'answers 400 to %s over its limit, on create and on update, and stores nothing',
+      async (field) => {
+        const limit = COVER_LETTER_FIELD_LIMITS[field]
+        const value =
+          field === 'sender_email' ? `${'a'.repeat(limit)}@example.ch` : 'x'.repeat(limit + 1)
+        actAs(alice)
+        const created = await POST(postRequest({ title: 'over the limit', [field]: value }))
+        expect(created.status).toBe(400)
+
+        const coverLetter = await create({})
+        const updated = await PATCH_BY_ID(patchRequest({ [field]: value }), ctx(coverLetter.id as string))
+        expect(updated.status).toBe(400)
+        const read = await GET_BY_ID(new NextRequest('http://localhost/api/cover-letters/x'), ctx(coverLetter.id as string))
+        expect((await read.json()).coverLetter[field]).toBeNull()
+      }
+    )
+
+    it('answers 400 to an e-mail that is not an address, and accepts an empty one', async () => {
+      actAs(alice)
+      expect((await POST(postRequest({ title: 'bad e-mail', sender_email: 'alice at example' }))).status).toBe(400)
+      const coverLetter = await create({ sender_email: 'alice@example.ch' })
+      const bad = await PATCH_BY_ID(patchRequest({ sender_email: 'not-an-email' }), ctx(coverLetter.id as string))
+      expect(bad.status).toBe(400)
+      const cleared = await PATCH_BY_ID(patchRequest({ sender_email: '' }), ctx(coverLetter.id as string))
+      expect(cleared.status).toBe(200)
+      expect((await cleared.json()).coverLetter.sender_email).toBe('')
+    })
+
+    // Straight through the users' own clients, past the routes' user_id
+    // filters, so that what is asserted is the RLS policy itself.
+    it("RLS: another user can neither read nor change the new columns of a letter", async () => {
+      const coverLetter = await create(DETAILS)
+      const id = coverLetter.id as string
+
+      const { data: seen, error: readError } = await bob.client.from('cover_letters').select(COLUMNS).eq('id', id)
+      expect(readError).toBeNull()
+      expect(seen).toEqual([])
+
+      const { data: changed, error: updateError } = await bob.client
+        .from('cover_letters')
+        .update({ sender_email: 'bob@example.ch', annexes: '' })
+        .eq('id', id)
+        .select('id')
+      expect(updateError).toBeNull()
+      expect(changed).toEqual([])
+
+      const { data: own, error: ownError } = await alice.client.from('cover_letters').select(COLUMNS).eq('id', id).single()
+      expect(ownError).toBeNull()
+      expect(own).toEqual(DETAILS)
     })
   })
 })

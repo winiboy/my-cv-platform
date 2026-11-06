@@ -667,7 +667,24 @@
           "withAppreciation": "Mit herzlichem Dank"
         },
         "nameLabel": "Ihr Name",
-        "namePlaceholder": "Ihr vollständiger Name"
+        "namePlaceholder": "Ihr vollständiger Name",
+        "streetLabel": "Strasse und Nummer",
+        "streetPlaceholder": "z.B. Bahnhofstrasse 1",
+        "postalLocalityLabel": "PLZ und Ort",
+        "postalLocalityPlaceholder": "z.B. 8001 Zürich",
+        "phoneLabel": "Telefon",
+        "phonePlaceholder": "z.B. +41 44 555 01 42",
+        "emailLabel": "E-Mail",
+        "emailPlaceholder": "z.B. name@beispiel.ch",
+        "annexesLabel": "Beilagen",
+        "annexesPlaceholder": "z.B. Lebenslauf, Arbeitszeugnisse, Diplome",
+        "annexesHint": "Leer lassen, um die Standardliste in der Sprache des Briefs zu drucken.",
+        "noAnnexesHint": "Es werden keine Beilagen gedruckt.",
+        "noAnnexesLabel": "Ohne Beilagen-Block",
+        "errors": {
+          "invalidEmail": "Geben Sie eine gültige E-Mail-Adresse ein oder lassen Sie das Feld leer.",
+          "tooLong": "Höchstens {max} Zeichen."
+        }
       }
     },
     "generation": {

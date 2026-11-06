@@ -667,7 +667,24 @@
           "withAppreciation": "Con gratitudine,"
         },
         "nameLabel": "Il tuo nome",
-        "namePlaceholder": "Il tuo nome completo"
+        "namePlaceholder": "Il tuo nome completo",
+        "streetLabel": "Via e numero",
+        "streetPlaceholder": "es. Via Nassa 5",
+        "postalLocalityLabel": "NPA e località",
+        "postalLocalityPlaceholder": "es. 6900 Lugano",
+        "phoneLabel": "Telefono",
+        "phonePlaceholder": "es. +41 91 555 01 42",
+        "emailLabel": "E-mail",
+        "emailPlaceholder": "es. nome@esempio.ch",
+        "annexesLabel": "Allegati",
+        "annexesPlaceholder": "es. CV, certificati di lavoro, diplomi",
+        "annexesHint": "Lascia vuoto per stampare l'elenco predefinito, nella lingua della lettera.",
+        "noAnnexesHint": "Non verrà stampato alcun allegato.",
+        "noAnnexesLabel": "Nessun blocco Allegati",
+        "errors": {
+          "invalidEmail": "Inserisci un indirizzo e-mail valido, o lascia il campo vuoto.",
+          "tooLong": "Al massimo {max} caratteri."
+        }
       }
     },
     "generation": {

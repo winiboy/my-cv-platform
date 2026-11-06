@@ -5,3 +5,140 @@ PRD: tasks/prds/cover-letter-swiss-format.md (Status: APPROVED 2026-11-05, writt
 Format: docs/engineering/progress-log-format.md
 Branch setup: from origin/prd/cover-letter-swiss-format 2aed76d (origin/main 1a9df4b, #121 merged, plus the PRD draft 24d5b40 and the owner's approval commit). The first commit archives the merged cover-letter-editor-mobile contract; the second adds this contract.
 Contract note: prd2json folded the FR-4 Markdown table with a stray separator row; that row and the header wording were cleaned by hand in all four stories, with the table's content unchanged.
+
+## US-001: A letter stores the sender's details and its annexes, editable in the editor
+Status: PASS
+Priority: 1
+Branch: ralph/cover-letter-swiss-format
+Baseline HEAD: ac77b03 (contract commit). Merged with origin/main 75a350b (#122) in ed03350 before the final checks.
+
+Scope:
+- Scope check: PASS
+- Changed paths: story diff sha256 prefix cecbb4793e84f2a6, over the tracked src/e2e/supabase diff (611/10) plus the four new files.
+  - New `supabase/migrations/010_cover_letter_sender_details.sql` (67):
+    - `ALTER TABLE public.cover_letters ADD COLUMN IF NOT EXISTS` × 5, each nullable TEXT: `sender_street`, `sender_postal_locality`, `sender_phone`, `sender_email`, `annexes`.
+    - Column comments; no defaults, no backfill, no policy change, no CHECK constraints.
+    - The header records the null (never set, falls back to the CV) vs "" (cleared) convention and the editor-save debt.
+  - New `src/lib/cover-letter-sender.ts` (153) + test (256): shared helpers.
+    - `coverLetterSenderFieldsShape`: the zod shape POST, PATCH and the editor share.
+    - `validateCoverLetterSenderFields`.
+    - `senderDetailsFromContact`: CV values through `sanitizeUntrustedPlainText`; an invalid e-mail is dropped.
+    - `effectiveSenderDetails(letter, contact)`: a stored non-null value as stored; "" stays empty; null takes the CV value; street is stored only.
+    - `normalizeAnnexes`: "" is kept, other values are trimmed, whitespace-only becomes null.
+    - `COVER_LETTER_NO_ANNEXES`.
+  - `src/types/supabase.ts` (15/0): the five fields in Row, Insert and Update.
+  - `src/lib/cover-letter-limits.ts` (6/0) + test: limits — street and locality 255, phone 50, e-mail 254, annexes 1000.
+  - APIs:
+    - `src/app/api/cover-letters/route.ts` (POST, 16/0): the five fields with zod; `?? null`, so "" is kept; `normalizeAnnexes`.
+    - `[id]/route.ts` (PATCH, 7/0): the same validation.
+    - `[id]/translate/route.ts` (8/1): the select list and the copy carry the five fields.
+    - `from-job-application/route.ts` (3/0): phone, e-mail and locality come from the CV through `senderDetailsFromContact`.
+  - Components:
+    - `cover-letter-card.tsx` (5/0): Duplicate carries the five fields.
+    - `cover-letter-editor.tsx` (74/2):
+      - the CV fallback is shown at render time without marking the letter unsaved;
+      - the save payload stores what the fields show;
+      - `validateCoverLetterSenderFields` runs before the direct RLS write, with a localized error, `aria-invalid` and `aria-describedby`, and focus moved to the field.
+    - `cover-letter-sections/signature-section.tsx` (150/0):
+      - five fields under the sender name, with labels and Swiss examples in fr/en/de/it;
+      - an annexes textarea with a persistent helper text;
+      - a "No enclosures block" checkbox (stores "") in a 44px label row.
+  - `src/locales/{fr,en,de,it}/common.json` (18/1 each): labels, placeholders, hints and errors, the same keys in all four.
+  - Tests:
+    - `cover-letters.integration.test.ts` (119/0): the 400s; "" vs null; whitespace-only annexes; RLS select and update denied to another user.
+    - translate and from-job-application route tests.
+    - `e2e/cover-letter-sender-details.spec.ts` (467), new.
+    - `e2e/cover-letter-translate.spec.ts` (28/1): the copy carries the five fields.
+    - `e2e/cover-letter-from-job-application.spec.ts` (9/0).
+    - Row fixtures in `modern-letter-template.test.ts` and `sanitized-html.test.ts`.
+- Not touched: the letter's rendering in the preview, PDF and Word (US-002 to US-004). No version change, no push or merge.
+- Temporary capture specs (e2e/zz-s1, zz-s1b) were run alone and deleted; none is in the diff.
+
+Checks:
+- Final diff (hash cecbb4793e84f2a6, the same before and after every run). After the merge with origin/main 75a350b:
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3322 passed, 5 skipped.
+  - pnpm test:integration: PASS — 63 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 520 passed, 0 failed (16.7 min), on the second full run after the merge.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+- Earlier full e2e runs on the same diff hash:
+  - Before the merge: 519 passed and 1 failed, three times. Twice `resume-pdf-route.spec.ts:372` (professional, creative), once `layout-persistence.spec.ts:172`.
+  - These led the owner to stabilize the flaky specs first (e2e-flaky-stabilization, #122).
+  - After the merge, the first run: 519 passed and 1 failed in `cover-letter-preview-zoom.spec.ts:435`, at the shared login fixture before the test body (`page.fill('#email')` timed out after 15 s on `/en/login`). It passed in the next full run.
+- Two intermediate full runs were stopped for review fixes (process trees killed, port 3100 confirmed free). They are not evidence.
+
+Specialized validation:
+- Browser: PASS — the e2e above, plus captures of the production build: scratchpad s1 and s1b, the Signature section in en/de/fr at 1280, 768 and 375; checkbox ticked; invalid e-mail refused.
+- Visual: NOT_APPLICABLE — the letter's rendering is unchanged in this story; `pnpm test:parity` is unchanged.
+- Export: NOT_APPLICABLE — the PDF and Word are unchanged until US-003 and US-004.
+- Database: PASS (database-migration skill).
+  - Local apply with `supabase migration up --local`; the history matched the repo (001–009) before, and 010 is applied after.
+  - 3 rows before and after; a hash of every pre-existing column across all rows is unchanged (b2dcfab32d61f2ddbe27953b7ac9d785).
+  - Post-check: five nullable text columns with no default; RLS on; the four owner policies unchanged.
+  - The RLS integration test fails when RLS is disabled for a moment, so it really exercises the policies.
+  - Production applied: NO.
+- Security: PASS (security-review, twice, the second on the final diff).
+  - 6 trust boundaries, 9/9 requirements, 0 critical/high/medium/low, 2 info.
+  - An RLS probe as another user, in a rolled-back transaction: select 0 rows, update 0 rows, insert with another user's id rejected.
+
+Agents:
+- senior-coder: implementation, then one fix round implementing the owner's two rulings and the review findings.
+- ui-expert:
+  - first pass FAIL: the letter opened as unsaved and blocked Download/Translate; a clipped annexes placeholder; the checkbox tap target; the German wording;
+  - re-validation PASS, 7/7 conditions.
+- code-reviewer:
+  - first pass FAIL: the unsaved-on-open regression; client-only validation; a race when linking a CV; minor items;
+  - re-review PASS, gated on the suite (now green) and on this entry recording the rulings.
+- security-review: PASS twice (above).
+
+Acceptance criteria:
+- AC-01 (migration 010; five nullable text columns; types updated; existing rows unchanged; RLS unchanged and owner-only): PASS — DB evidence above; the integration RLS tests.
+- AC-02 (POST and PATCH accept the five fields with zod limits and e-mail format; over-limit returns 400): PASS — integration tests.
+- AC-03 (the Signature section's five fields with labels in fr/en/de/it; save and reopen): PASS — e2e; captures.
+- AC-04 (the prefill from the linked CV; never overwrites): PASS under the owner's ruling (below).
+  - Empty fields show the CV's phone, e-mail and locality and are stored on the next save.
+  - A filled field is never replaced.
+  - This is e2e-tested, including a field typed while a CV link is written.
+- AC-05 (annexes null prints the default; "" prints no block): PASS for storage.
+  - Null and "" are kept distinct through the editor, POST, PATCH, translate and Duplicate; whitespace-only becomes null.
+  - Printing is US-002 to US-004.
+- AC-06 (copies carry the five fields; from-job-application takes them from the CV): PASS — route tests and e2e.
+- FR-6, FR-7: PASS. FR-1 to FR-5 belong to the rendering stories.
+- Regression constraints: PASS — the unsaved indicator, Download and Translate behave as before (an e2e test opens a CV-linked letter with all fields null: not unsaved, PDF downloads without saving); the full e2e suite and parity are green.
+- FAIL and BLOCKER conditions: none triggered. No prefill overwrites, and no copy loses a field.
+
+Decision (owner, chat, 2026-11-05, answering the orchestrator's questions):
+- "Repli automatique sur le CV."
+  - A letter whose phone, e-mail or locality is null takes the linked CV's value, in the editor now and in the preview, PDF and Word later. All of them go through `effectiveSenderDetails`, with the server loading the linked CV's contact filtered by its owner.
+  - Opening such a letter does not mark it unsaved; the values are stored on the next real save.
+  - A field the user clears is stored as "" and is not refilled.
+  - This replaces the PRD's US-001 wording "On a letter whose sender fields are all empty": the fallback works field by field.
+- "Contrôle dans l'éditeur + dette notée."
+  - The editor validates the five fields with the API's zod shape before its direct RLS write.
+  - **Debt:** the editor's save still writes directly through the Supabase client, not through PATCH, for every cover-letter field. A later PRD should move it to the API so validation is server-side on every path (`CLAUDE.md` §12–13).
+- No CHECK constraints in migration 010; no other text column of this table has one. The limits are in the APIs and the editor.
+
+Open owner decisions:
+- **Correct the PRD wording:** US-001's prefill criterion still reads "all empty"; the ruling is field by field.
+- **Carried to US-002 to US-004:**
+  - render the sender details through `effectiveSenderDetails`;
+  - treat whitespace-only sender fields as empty;
+  - escape every new field in the PDF HTML;
+  - add the five fields to the PDF guard (`PRINTED_PLAIN_TEXT_FIELDS`);
+  - load the linked CV's contact with an owner filter (security-review SEC-002).
+- **Side effect:** clearing a field while no CV is linked stores "", so that field does not take a CV value later. No control turns "" back into null.
+- **ui-expert, low:**
+  - the ticked checkbox renders browser blue, so add `accent-teal-600`;
+  - the red invalid border is hidden under the teal focus ring;
+  - the existing de label "Grußformel" uses ß.
+- **The login page is slow under load:** the shared `loginAs` fixture timed out on `/en/login` (15 s) once here. The same kind of `page.fill` timeout appeared earlier in other specs. Worth a look if it recurs.
+
+Environment notes:
+- The local Supabase stack has migration 010 applied. It is shared with the before-main worktree, which ran the e2e-flaky-stabilization initiative while this story was paused (2026-11-05 to 2026-11-06).
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 A letter stores the sender's details and its annexes, editable in the editor
+FINAL: PASS

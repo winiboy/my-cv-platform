@@ -19,6 +19,12 @@ export const COVER_LETTER_FIELD_LIMITS = Object.freeze({
   closing_paragraph: 5_000,
   sign_off: 255,
   sender_name: 255,
+  sender_street: 255,
+  sender_postal_locality: 255,
+  sender_phone: 50,
+  /** The longest address SMTP can carry (RFC 5321, as amended by errata 1690). */
+  sender_email: 254,
+  annexes: 1_000,
   job_title: 255,
   job_description: 50_000,
 })

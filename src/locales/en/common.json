@@ -667,7 +667,24 @@
           "withAppreciation": "With appreciation,"
         },
         "nameLabel": "Your Name",
-        "namePlaceholder": "Your full name"
+        "namePlaceholder": "Your full name",
+        "streetLabel": "Street and number",
+        "streetPlaceholder": "e.g., Rue de Bourg 12",
+        "postalLocalityLabel": "Postcode and locality",
+        "postalLocalityPlaceholder": "e.g., 1003 Lausanne",
+        "phoneLabel": "Phone",
+        "phonePlaceholder": "e.g., +41 21 555 01 42",
+        "emailLabel": "Email",
+        "emailPlaceholder": "e.g., name@example.ch",
+        "annexesLabel": "Enclosures",
+        "annexesPlaceholder": "e.g., CV, references, diplomas",
+        "annexesHint": "Leave empty to print the default list, in the letter's language.",
+        "noAnnexesHint": "No enclosures will be printed.",
+        "noAnnexesLabel": "No enclosures block",
+        "errors": {
+          "invalidEmail": "Enter a valid email address, or leave the field empty.",
+          "tooLong": "At most {max} characters."
+        }
       }
     },
     "generation": {

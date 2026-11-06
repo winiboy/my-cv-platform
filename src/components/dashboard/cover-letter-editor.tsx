@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useId, useRef } from 'react'
+import { useState, useCallback, useEffect, useId, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -23,6 +23,14 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { LANGUAGE_FLAG_OPTIONS, type FlagLanguage } from '@/components/ui/language-flags'
 import { requestCoverLetterTranslation } from '@/lib/cover-letter-translate-client'
+import {
+  COVER_LETTER_SENDER_FIELDS,
+  effectiveSenderDetails,
+  normalizeAnnexes,
+  validateCoverLetterSenderFields,
+  type CoverLetterSenderField,
+  type CoverLetterSenderFieldError,
+} from '@/lib/cover-letter-sender'
 import { useCoverLetterDownload } from '@/lib/hooks/use-cover-letter-download'
 import type { CoverLetterExportFormat } from '@/lib/cover-letter-download-client'
 import type { Locale } from '@/lib/i18n'
@@ -107,6 +115,11 @@ export function CoverLetterEditor({
   const [saveError, setSaveError] = useState('')
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [senderErrors, setSenderErrors] = useState<
+    Partial<Record<CoverLetterSenderField, CoverLetterSenderFieldError>>
+  >({})
+  // The invalid field the Signature section moves focus to, once it is shown.
+  const [senderFocusField, setSenderFocusField] = useState<CoverLetterSenderField | null>(null)
   const [showGenerationModal, setShowGenerationModal] = useState(false)
   const [showCheckerModal, setShowCheckerModal] = useState(false)
   const [showPreviewDialog, setShowPreviewDialog] = useState(false)
@@ -141,7 +154,34 @@ export function CoverLetterEditor({
     { id: 'preview', label: viewDict.preview || 'Preview', icon: Eye },
   ] as const satisfies readonly { id: EditorView; label: string; icon: typeof Eye }[]
 
+  // The linked CV's contact: the fallback of the sender details the letter
+  // has never set (`effectiveSenderDetails`). What the fields show is what
+  // Save stores, so a CV value is stored by the next save, without the
+  // letter counting as changed until then.
+  const linkedContact = useMemo(
+    () => resumes.find((r) => r.id === coverLetter.resume_id)?.contact ?? null,
+    [resumes, coverLetter.resume_id]
+  )
+  const senderDetails = useMemo(
+    () => effectiveSenderDetails(coverLetter, linkedContact),
+    [coverLetter, linkedContact]
+  )
+
   const handleSave = async () => {
+    // The editor writes to the table directly, not through the API, so it
+    // refuses here what the API's schema would refuse
+    // (`coverLetterSenderFieldsShape`), before anything is written.
+    const senderValues = { ...senderDetails, annexes: normalizeAnnexes(coverLetter.annexes) }
+    const errors = validateCoverLetterSenderFields(senderValues)
+    const firstInvalid = COVER_LETTER_SENDER_FIELDS.find((field) => errors[field])
+    setSenderErrors(errors)
+    if (firstInvalid) {
+      setActiveSection('signature')
+      setView('edit')
+      setSenderFocusField(firstInvalid)
+      return
+    }
+
     setIsSaving(true)
     setSaveError('')
 
@@ -162,6 +202,7 @@ export function CoverLetterEditor({
           closing_paragraph: coverLetter.closing_paragraph,
           sign_off: coverLetter.sign_off,
           sender_name: coverLetter.sender_name,
+          ...senderValues,
           job_title: coverLetter.job_title,
           job_description: coverLetter.job_description,
           template: coverLetter.template,
@@ -178,6 +219,17 @@ export function CoverLetterEditor({
       } else {
         setLastSaved(new Date())
         setHasUnsavedChanges(false)
+        // The letter now holds what was stored: a CV value saved in a field
+        // never set is the letter's own from here on. A field edited while
+        // the save ran keeps its edit.
+        setCoverLetter((prev) => {
+          const stored = { ...prev }
+          for (const field of COVER_LETTER_SENDER_FIELDS) {
+            const unchanged = field === 'annexes' ? prev.annexes === coverLetter.annexes : prev[field] === null
+            if (unchanged) stored[field] = senderValues[field]
+          }
+          return stored
+        })
         // Saving is the only way unsaved changes end, and it answers every
         // notice: the letter is saved, and a new click is a new attempt.
         setDownloadNotice(null)
@@ -426,6 +478,21 @@ export function CoverLetterEditor({
     },
     [updateCoverLetter]
   )
+
+  const handleSenderFieldChange = useCallback(
+    (field: string, value: string | null) => {
+      setSenderErrors((prev) => {
+        if (!(field in prev)) return prev
+        const rest = { ...prev }
+        delete rest[field as CoverLetterSenderField]
+        return rest
+      })
+      handleFieldChange(field, value)
+    },
+    [handleFieldChange]
+  )
+
+  const clearSenderFocusField = useCallback(() => setSenderFocusField(null), [])
 
   const handleBodyParagraphsChange = useCallback(
     (paragraphs: string[]) => {
@@ -694,7 +761,12 @@ export function CoverLetterEditor({
           <SignatureSection
             signOff={coverLetter.sign_off}
             senderName={coverLetter.sender_name}
-            onChange={handleFieldChange}
+            senderDetails={senderDetails}
+            annexes={coverLetter.annexes}
+            errors={senderErrors}
+            focusField={senderFocusField}
+            onFocusHandled={clearSenderFocusField}
+            onChange={handleSenderFieldChange}
             dict={dict}
           />
         )

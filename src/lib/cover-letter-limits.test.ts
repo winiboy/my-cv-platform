@@ -36,6 +36,11 @@ describe('COVER_LETTER_FIELD_LIMITS', () => {
       closing_paragraph: 5000,
       sign_off: 255,
       sender_name: 255,
+      sender_street: 255,
+      sender_postal_locality: 255,
+      sender_phone: 50,
+      sender_email: 254,
+      annexes: 1000,
       job_title: 255,
       job_description: 50000,
     })

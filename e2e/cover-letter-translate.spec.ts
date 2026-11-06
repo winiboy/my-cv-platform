@@ -31,7 +31,9 @@ import de from '../src/locales/de/common.json'
  *     create no letter.
  *   - Keyboard: Tab reaches the flags in order, Enter translates.
  *
- * And, once: another user's letter id answers 404 and creates nothing; and a
+ * And, once: the copy carries the sender details and annexes as they are
+ * (cover-letter-swiss-format, US-001); another user's letter id answers 404
+ * and creates nothing; and a
  * letter whose title is a default title (FR-6) gives a copy titled with the
  * German default, without the "(DE)" suffix, while a user title keeps the
  * suffix (cover-letter-preview-and-card-language, US-004).
@@ -91,6 +93,11 @@ const KEPT_COLUMNS = [
   'company_name',
   'company_address',
   'sender_name',
+  'sender_street',
+  'sender_postal_locality',
+  'sender_phone',
+  'sender_email',
+  'annexes',
   'job_title',
   'job_description',
   'template',
@@ -297,6 +304,26 @@ for (const locale of Object.keys(LOCALES) as TestLocale[]) {
     })
   })
 }
+
+test('the translated copy carries the sender details and annexes unchanged, untranslated', async ({
+  page,
+  authedUser,
+}) => {
+  const details = {
+    sender_street: 'Rue de Bourg 12',
+    sender_postal_locality: '1003 Lausanne',
+    sender_phone: '+41 21 555 01 42',
+    sender_email: 'zoe@example.ch',
+    // The empty string, "no Annexes block", must not become null.
+    annexes: '',
+  }
+  const seeded = await seedLinkedLetter(authedUser.id, details)
+
+  const response = await requestTranslation(page, seeded.letterId)
+  expect(response.status()).toBe(201)
+  const { coverLetterId } = (await response.json()) as { coverLetterId: string }
+  expect(await letter(coverLetterId)).toMatchObject(details)
+})
 
 test("another user's letter id is refused with 404 and creates nothing", async ({ page, authedUser }) => {
   const other = await createTestUser()

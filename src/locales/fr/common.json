@@ -667,7 +667,24 @@
           "withAppreciation": "Avec mes remerciements,"
         },
         "nameLabel": "Votre nom",
-        "namePlaceholder": "Votre nom complet"
+        "namePlaceholder": "Votre nom complet",
+        "streetLabel": "Rue et numéro",
+        "streetPlaceholder": "ex. : Rue de Bourg 12",
+        "postalLocalityLabel": "NPA et localité",
+        "postalLocalityPlaceholder": "ex. : 1003 Lausanne",
+        "phoneLabel": "Téléphone",
+        "phonePlaceholder": "ex. : +41 21 555 01 42",
+        "emailLabel": "E-mail",
+        "emailPlaceholder": "ex. : nom@exemple.ch",
+        "annexesLabel": "Annexes",
+        "annexesPlaceholder": "ex. : CV, certificats de travail, diplômes",
+        "annexesHint": "Laissez vide pour imprimer la liste par défaut, dans la langue de la lettre.",
+        "noAnnexesHint": "Aucune annexe ne sera imprimée.",
+        "noAnnexesLabel": "Pas de bloc Annexes",
+        "errors": {
+          "invalidEmail": "Saisissez une adresse e-mail valide, ou laissez le champ vide.",
+          "tooLong": "{max} caractères au maximum."
+        }
       }
     },
     "generation": {
