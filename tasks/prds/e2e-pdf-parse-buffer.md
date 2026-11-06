@@ -1,6 +1,6 @@
 # PRD: The e2e PDF reader parses every valid PDF on the first try
 
-**Status:** DRAFT
+**Status:** APPROVED 2026-11-06
 
 ## Objective
 
