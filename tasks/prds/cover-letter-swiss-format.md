@@ -1,6 +1,6 @@
 # PRD: Cover letters follow the Swiss professional letter format
 
-**Status:** DRAFT
+**Status:** APPROVED 2026-11-06
 
 Amendment 1 (2026-11-06) is awaiting the owner's re-approval. It adds the window warning to US-003 and a new US-005, following the owner's decisions in chat on 2026-11-06. The rest of this PRD was approved on 2026-11-05.
 
