@@ -1,6 +1,8 @@
 # PRD: Cover letters follow the Swiss professional letter format
 
-**Status:** APPROVED 2026-11-05
+**Status:** DRAFT
+
+Amendment 1 (2026-11-06) is awaiting the owner's re-approval. It adds the window warning to US-003 and a new US-005, following the owner's decisions in chat on 2026-11-06. The rest of this PRD was approved on 2026-11-05.
 
 ## Objective
 
@@ -156,6 +158,9 @@ As a user, I want the downloaded PDF to be a Swiss A4 letter identical to the pr
 - [ ] The recipient block lies inside the right-hand window zone of FR-2, measured on the rendered PDF page.
 - [ ] Text extraction of the PDF contains the sender block, the place-and-date line, the subject without a label, the paragraphs, the sign-off, the sender name and the Annexes block, in that order.
 - [ ] User-entered text in the new fields is escaped: markup typed in any of them prints as text and never as markup.
+- [ ] *(Amendment 1)* **Window warning.** When the recipient block would need more than the 6 lines of the FR-2 window zone (counting wrapped lines at the window width), the editor shows a localized warning next to the Recipient fields, in fr/en/de/it, e.g. fr "L'adresse dépasse la fenêtre de l'enveloppe (6 lignes)".
+  - The letter still prints as written. Nothing is truncated, so the block may run below the window zone.
+  - The warning disappears once the block fits.
 
 ### US-004: The Word export produces the same Swiss A4 letter
 
@@ -170,6 +175,20 @@ As a user, I want the downloaded Word file to be the same Swiss A4 letter, so th
   - The Annexes block is at the end.
 - [ ] Opened in Microsoft Word, it is one A4 page for the typical letter of US-002, with no blank second page.
 - [ ] Unicode text in the new fields ("Zürich", "1003 Lausanne", "+41 21 555 01 42") is kept exactly.
+
+### US-005: New letters start with the Swiss greeting and sign-off in their language *(Amendment 1)*
+
+**Description:**
+As a user creating a letter, I want its greeting and sign-off to follow the letter's language and the Swiss format, so that a French or German letter does not start with "Dear Hiring Manager," and end with "Sincerely,".
+
+**Acceptance Criteria:**
+
+- [ ] A letter created from the creation form stores an empty greeting and an empty sign-off. Today it stores "Dear Hiring Manager," and "Sincerely,". The same holds for `POST /api/cover-letters` when no greeting or sign-off is sent.
+  - A letter created from a job application stores an empty greeting and sign-off unless the AI generation provides them.
+- [ ] Such a letter prints the default greeting and the FR-4 default sign-off of its language, in the preview, the PDF and Word. For example: fr "Madame, Monsieur," / "Meilleures salutations"; de "Sehr geehrte Damen und Herren," / "Freundliche Grüsse".
+- [ ] The editor's greeting and sign-off fields stay editable. A value the user types or picks is stored and printed as written.
+- [ ] Existing letters are untouched: no migration, no rewrite of stored greetings or sign-offs.
+- [ ] Duplicate and translation keep their current behaviour for the greeting and sign-off.
 
 ## Functional Requirements
 
