@@ -628,7 +628,8 @@
         "companyLabel": "Nom de l'entreprise",
         "companyPlaceholder": "ex. : Acme SA",
         "addressLabel": "Adresse de l'entreprise",
-        "addressPlaceholder": "Rue du Lac 12\n1000 Lausanne"
+        "addressPlaceholder": "Rue du Lac 12\n1000 Lausanne",
+        "windowOverflow": "L'adresse dépasse la fenêtre de l'enveloppe ({lines} lignes)"
       },
       "opening": {
         "title": "Accroche",

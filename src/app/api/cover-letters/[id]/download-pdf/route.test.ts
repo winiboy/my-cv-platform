@@ -18,6 +18,7 @@ import { MAX_COVER_LETTER_EXPORT_REQUEST_BYTES } from '@/lib/cover-letter-pdf-ht
 const USER_ID = '11111111-1111-4111-8111-111111111111'
 const OTHER_USER_ID = '99999999-9999-4999-8999-999999999999'
 const LETTER_ID = '44444444-4444-4444-8444-444444444444'
+const RESUME_ID = '55555555-5555-4555-8555-555555555555'
 
 type Row = Record<string, unknown>
 
@@ -27,12 +28,50 @@ const state: {
   readError: { code: string } | null
   filters: Array<[string, unknown]>
   columns: string | null
-} = { user: null, row: null, readError: null, filters: [], columns: null }
+  /** The CVs table: rows, a read error or a thrown failure, and what the route asked for. */
+  resumes: Row[]
+  resumeReadError: { code: string } | null
+  resumeReadThrows: boolean
+  resumeFilters: Array<[string, unknown]>
+  resumeColumns: string | null
+} = {
+  user: null,
+  row: null,
+  readError: null,
+  filters: [],
+  columns: null,
+  resumes: [],
+  resumeReadError: null,
+  resumeReadThrows: false,
+  resumeFilters: [],
+  resumeColumns: null,
+}
+
+function fakeResumes() {
+  const builder = {
+    select(columns: string) {
+      state.resumeColumns = columns
+      return builder
+    },
+    eq(column: string, value: unknown) {
+      state.resumeFilters.push([column, value])
+      return builder
+    },
+    async maybeSingle() {
+      if (state.resumeReadThrows) throw new TypeError('fetch failed')
+      if (state.resumeReadError) return { data: null, error: state.resumeReadError }
+      const visible = state.resumes.find((row) => state.resumeFilters.every(([column, value]) => row[column] === value))
+      return { data: visible ?? null, error: null }
+    },
+  }
+  return builder
+}
 
 function fakeSupabase() {
   return {
     auth: { getUser: async () => ({ data: { user: state.user }, error: null }) },
     from(table: string) {
+      if (table === 'resumes') return fakeResumes()
       expect(table).toBe('cover_letters')
       const builder = {
         select(columns: string) {
@@ -54,11 +93,19 @@ function fakeSupabase() {
   }
 }
 
-const renderCoverLetterPdf = vi.fn<(input: { coverLetter: Row; currentDate: string; language: string; timeoutMs: number }) => Promise<Buffer>>()
+interface RenderInput {
+  coverLetter: Row
+  senderDetails: Row
+  currentDate: string
+  language: string
+  timeoutMs: number
+}
+
+const renderCoverLetterPdf = vi.fn<(input: RenderInput) => Promise<Buffer>>()
 
 vi.mock('@/lib/supabase/server', () => ({ createServerSupabaseClient: async () => fakeSupabase() }))
 vi.mock('@/lib/pdf/render-cover-letter', () => ({
-  renderCoverLetterPdf: (input: { coverLetter: Row; currentDate: string; language: string; timeoutMs: number }) => renderCoverLetterPdf(input),
+  renderCoverLetterPdf: (input: RenderInput) => renderCoverLetterPdf(input),
 }))
 
 const { POST } = await import('./route')
@@ -81,6 +128,12 @@ function letterRow(overrides: Row = {}): Row {
     body_paragraphs: ['<p>Body</p>'],
     closing_paragraph: '<p>Closing</p>',
     sign_off: 'Sincerely,',
+    resume_id: null,
+    sender_street: 'Rue de Bourg 12',
+    sender_postal_locality: null,
+    sender_phone: null,
+    sender_email: '',
+    annexes: null,
     ...overrides,
   }
 }
@@ -105,6 +158,11 @@ beforeEach(() => {
   state.readError = null
   state.filters = []
   state.columns = null
+  state.resumes = []
+  state.resumeReadError = null
+  state.resumeReadThrows = false
+  state.resumeFilters = []
+  state.resumeColumns = null
   renderCoverLetterPdf.mockReset()
   renderCoverLetterPdf.mockResolvedValue(Buffer.from('%PDF-1.7 test'))
   consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
@@ -171,6 +229,73 @@ describe('POST /api/cover-letters/[id]/download-pdf: access', () => {
     expect(state.columns).not.toContain('*')
     expect(state.columns).not.toContain('job_description')
     expect(state.columns).toContain('title')
+    for (const column of ['resume_id', 'sender_street', 'sender_postal_locality', 'sender_phone', 'sender_email', 'annexes']) {
+      expect(state.columns).toContain(column)
+    }
+  })
+})
+
+describe('POST /api/cover-letters/[id]/download-pdf: the sender details', () => {
+  const CONTACT = { email: 'ada.cv@example.ch', phone: '+41 44 555 01 99', location: '8001 Zürich' }
+
+  it('falls back to the linked CV, read with an explicit owner filter, for the details never set', async () => {
+    state.row = letterRow({ resume_id: RESUME_ID })
+    state.resumes = [{ id: RESUME_ID, user_id: USER_ID, contact: CONTACT }]
+    expect((await call()).status).toBe(200)
+    expect(state.resumeColumns).toBe('contact')
+    expect(state.resumeFilters).toEqual([
+      ['id', RESUME_ID],
+      ['user_id', USER_ID],
+    ])
+    // Street stored; locality and phone never set (null) take the CV's; the
+    // e-mail cleared on purpose ('') stays empty.
+    expect(renderCoverLetterPdf.mock.calls[0][0].senderDetails).toEqual({
+      sender_street: 'Rue de Bourg 12',
+      sender_postal_locality: '8001 Zürich',
+      sender_phone: '+41 44 555 01 99',
+      sender_email: '',
+    })
+  })
+
+  it("never prints another user's CV: the owner filter finds nothing, and the stored details print", async () => {
+    state.row = letterRow({ resume_id: RESUME_ID })
+    state.resumes = [{ id: RESUME_ID, user_id: OTHER_USER_ID, contact: CONTACT }]
+    expect((await call()).status).toBe(200)
+    expect(renderCoverLetterPdf.mock.calls[0][0].senderDetails).toEqual({
+      sender_street: 'Rue de Bourg 12',
+      sender_postal_locality: null,
+      sender_phone: null,
+      sender_email: '',
+    })
+  })
+
+  it.each([
+    ['the CV is gone', () => undefined],
+    ['the CV cannot be read', () => {
+      state.resumeReadError = { code: '08006' }
+    }],
+    ['the read throws', () => {
+      state.resumeReadThrows = true
+    }],
+  ])('still prints, with the stored details only, when %s', async (_case, arrange) => {
+    state.row = letterRow({ resume_id: RESUME_ID })
+    arrange()
+    const response = await call()
+    expect(response.status).toBe(200)
+    expect(renderCoverLetterPdf).toHaveBeenCalledTimes(1)
+    expect(renderCoverLetterPdf.mock.calls[0][0].senderDetails).toEqual({
+      sender_street: 'Rue de Bourg 12',
+      sender_postal_locality: null,
+      sender_phone: null,
+      sender_email: '',
+    })
+    expectNoLetterContentLogged()
+  })
+
+  it('reads no CV for a letter without one', async () => {
+    expect((await call()).status).toBe(200)
+    expect(state.resumeFilters).toEqual([])
+    expect(state.resumeColumns).toBeNull()
   })
 })
 
@@ -227,6 +352,8 @@ describe('POST /api/cover-letters/[id]/download-pdf: render guard', () => {
     ['a body paragraph one over the rich-text guard', { body_paragraphs: [over(guard.richTextField)] }],
     ['a sender name one over the plain-text guard', { sender_name: over(guard.plainTextField) }],
     ['a company address one over the plain-text guard', { company_address: over(guard.plainTextField) }],
+    ['a street one over the plain-text guard', { sender_street: over(guard.plainTextField) }],
+    ['an annexes list one over the plain-text guard', { annexes: over(guard.plainTextField) }],
     ['one body paragraph over the count', { body_paragraphs: Array.from({ length: guard.bodyParagraphs + 1 }, () => '<p>p</p>') }],
     [
       'everything printed over the total, every field under its own guard',

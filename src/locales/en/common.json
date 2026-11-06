@@ -628,7 +628,8 @@
         "companyLabel": "Company Name",
         "companyPlaceholder": "e.g., Acme Corp",
         "addressLabel": "Company Address",
-        "addressPlaceholder": "123 Main St\nCity, State 12345"
+        "addressPlaceholder": "123 Main St\nCity, State 12345",
+        "windowOverflow": "The address does not fit the envelope window ({lines} lines)"
       },
       "opening": {
         "title": "Opening",

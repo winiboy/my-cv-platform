@@ -8,6 +8,7 @@ import { formatCoverLetterDate } from '@/lib/cover-letter-language'
 import { coverLetterLanguage } from '@/lib/cover-letter-pdf-html'
 import type { CoverLetterSenderDetails } from '@/lib/cover-letter-sender'
 import {
+  SWISS_LETTER_FONT_FAMILY,
   SWISS_LETTER_LAYOUT_PX,
   swissLetterParts,
   swissLetterSpaceBeforePx,
@@ -28,6 +29,7 @@ const PAGE_STYLE: CSSProperties = {
   width: layout.page.width,
   minHeight: layout.page.height,
   padding: `${layout.padding.top}px ${layout.padding.right}px ${layout.padding.bottom}px ${layout.padding.left}px`,
+  fontFamily: SWISS_LETTER_FONT_FAMILY,
   fontSize: layout.fontSize,
   lineHeight: `${layout.lineHeight}px`,
 }
@@ -114,7 +116,7 @@ export function ModernLetterTemplate({ coverLetter, senderDetails, locale }: Mod
   }
 
   return (
-    <div className="bg-white text-left font-serif text-gray-800" style={PAGE_STYLE}>
+    <div className="bg-white text-left text-gray-800" style={PAGE_STYLE}>
       <div style={HEADER_STYLE}>
         {sender && (
           <div data-letter-part="sender" className="break-words" style={SENDER_STYLE}>

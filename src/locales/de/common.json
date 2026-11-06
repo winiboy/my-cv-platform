@@ -628,7 +628,8 @@
         "companyLabel": "Firmenname",
         "companyPlaceholder": "z.B. Muster GmbH",
         "addressLabel": "Firmenadresse",
-        "addressPlaceholder": "Musterstraße 123\n12345 Musterstadt"
+        "addressPlaceholder": "Musterstraße 123\n12345 Musterstadt",
+        "windowOverflow": "Die Adresse ist länger als das Fenster des Briefumschlags ({lines} Zeilen)"
       },
       "opening": {
         "title": "Einleitung",

@@ -261,3 +261,164 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-002 The editor preview shows the letter in the Swiss format on A4
 FINAL: PASS
+
+## US-003: The PDF export prints the same Swiss A4 letter
+Status: PASS
+Priority: 3
+Branch: ralph/cover-letter-swiss-format
+Baseline HEAD: 8a43ed9 (contract, amendment 1)
+
+Scope:
+- Scope check: PASS
+- Changed paths: story diff sha256 prefix 47b5c7d88356899a. The hash covers `git diff -- src e2e` (22 files, 842/176) followed by the content of each untracked file under src/ and e2e/, each prefixed with "== <path>". Plain `git diff | sha256sum` gives a different value.
+  - **New files:**
+    - `src/lib/cover-letter-body-paragraphs.ts` (19): `coverLetterBodyParagraphs` moved out of `cover-letter-pdf-html.ts`, which re-exports it. This breaks a runtime import cycle: pdf-html → swiss-letter → sender → limits → pdf-html.
+    - `e2e/cover-letter-swiss-pdf.spec.ts` (452).
+    - `e2e/fixtures/swiss-letter.ts` (16): the US-002 typical-letter text, now shared by the preview and PDF specs.
+  - **`src/lib/cover-letter-swiss-letter.ts`:**
+    - `swissLetterRecipientLines`: the one rule for which recipient lines print, used by `swissLetterParts` and by the editor warning.
+    - `SWISS_LETTER_FONT_FAMILY = 'Georgia, serif'`.
+    - Doc comments: the PDF now renders from this module.
+  - **`src/lib/cover-letter-pdf-html.ts`:**
+    - `buildCoverLetterPdfHtml` takes `senderDetails` and renders `swissLetterParts` with the preview's layout: A4, FR-2 padding, the shared sender/window cell, spacing per part, 11 pt, left-aligned, `data-letter-part` markers.
+    - Every plain-text part goes through `escapeHtml`. Rich text goes through the injected sanitizer, as before.
+    - `CoverLetterPdfFields` and `COVER_LETTER_EXPORT_COLUMNS` gain the five new columns, plus `resume_id` in the columns.
+    - `coverLetterParts` stays as TRANSITIONAL for the Word export only, until US-004.
+  - **`src/lib/pdf/render-cover-letter.ts`:**
+    - `@page` is 210mm × 297mm, with 18 mm / 15 mm continuation margins from the canonical geometry; the viewport is 794 × 1123.
+    - The input gains `senderDetails`.
+    - Unchanged: scripts off, every request aborted, rich text sanitized in-page before the markup exists.
+  - **`src/app/api/cover-letters/[id]/download-pdf/route.ts`:**
+    - After the 422 guard and before a render slot is taken, it reads the linked CV's `contact` with `.eq('id', resume_id).eq('user_id', user.id)`.
+    - A read error, an exception or a missing CV gives a `null` contact; only the error code or name is logged.
+    - The sender details come from `effectiveSenderDetails`.
+    - Status codes, check order, slot, file name and cache headers are unchanged.
+  - **`src/lib/cover-letter-limits.ts`:** the five new fields are added to `PRINTED_PLAIN_TEXT_FIELDS`.
+  - **`src/components/dashboard/cover-letter-sections/recipient-section.tsx`:** the window warning (Amendment 1).
+    - A zero-height, `aria-hidden` measurer draws the recipient lines at the window width with the letter's font, size and line height. A `ResizeObserver` turns its height into a line count.
+    - The warning shows when the count exceeds `SWISS_LETTER_WINDOW_MAX_LINES`. It is an always-mounted `role="status"` under the address field. While it shows, all four recipient fields carry `aria-describedby` pointing to it.
+    - Nothing is truncated.
+  - **`modern-letter-template.tsx`:** the page's font comes from `SWISS_LETTER_FONT_FAMILY`, replacing Tailwind `font-serif`. Preview, PDF and measurer now use one font source (FR-1).
+  - **`src/locales/{fr,en,de,it}/common.json`:** `coverLetters.editor.recipient.windowOverflow`, with `{lines}`.
+    - fr: "L'adresse dépasse la fenêtre de l'enveloppe (6 lignes)".
+    - A U+00A0 sits before the "(".
+    - No ß in de; the keys are identical in all four files.
+  - **Word export, comments only:** `download-docx/cover-letter-docx.ts` and `route.ts` now say Word keeps the old layout until US-004. Its output is unchanged.
+  - **Tests:**
+    - `cover-letter-pdf-html.test.ts`: escaping of every new field and the CV fallback; part order equal to `swissLetterParts` in four languages; geometry.
+    - `render-cover-letter.test.ts`: A4 page CSS and viewport.
+    - `download-pdf/route.test.ts`: the new columns; the owner-scoped CV read; another user's CV is never used; fallback on a gone CV, a read error or an exception; no CV query without a link; the 422 guard on the new fields.
+    - `cover-letter-limits.test.ts`, `cover-letter-swiss-letter.test.ts`.
+    - `cover-letter-docx.test.ts`: the five fields added as null to the fixture; no assertion changed.
+    - `e2e/fixtures/pdf.ts`: `readPdfTextItems`.
+    - `e2e/cover-letter-pdf-export.spec.ts`: A4 within 1 pt and the Swiss part order; the page-boundary letters seed `annexes: ''` (Decision).
+    - `e2e/cover-letter-swiss-preview.spec.ts`: imports the shared fixture text.
+- Not touched:
+  - the Word output (US-004);
+  - the marketing PDF (`cover-letter-pdf-layout.ts`);
+  - resumes;
+  - the database;
+  - creation defaults (US-005).
+- No version change, no push or merge.
+- Temporary capture specs (`e2e/zz-s3-export`, `zz-s3-gap`) were each run alone and deleted; neither is in the diff.
+
+Checks:
+- Final run: this diff, alone, started after the last edit, with the hash 47b5c7d88356899a identical before and after.
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3396 passed, 5 skipped.
+  - pnpm test:integration: PASS — 63 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 528 passed, 0 failed (17.2 min).
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+  - pnpm test:visual: PASS — 10 passed.
+- Earlier runs, not evidence for this diff:
+  - Diff 632bdab76549a2fa, before the review fixes: all green, e2e 528/0 on the first run.
+  - Diff 05399adac7c8253a: stopped during lint for the N1 comment fix.
+  - The next run on 47b5c7d88356899a is void: the stopped run's inner script kept going and held port 3100, so that run's e2e could not start ("port 3100 is already used"), and its parity and visual overlapped the orphan.
+  - The orphan tree was killed and the process list was checked for leftovers before the final run (Environment notes).
+
+Specialized validation:
+- Browser: PASS.
+  - The e2e spec above.
+  - Captures of the production build: the PDF page and the preview in fr/de/it/en at 1440; the warning in fr at 1440 and it at 375; the Recipient section in the fit and warning states at 1440 and 375, after the gap fix.
+- Visual: PASS — `pnpm test:visual` 10/10, baselines unchanged. Parity unchanged; no resume file in the diff.
+- Export: PASS (export-validation), SAVED letters through the real route on the production build.
+  - Every PDF in fr, de, it and en:
+    - is 594.96 × 841.92 pt (A4 595.28 × 841.89; within 1 pt) and one page;
+    - has its recipient items with left edge at 311.8 pt (110.0 mm), top at 141.3 pt, right edge at most 425.5 pt (190 mm = 538.6 pt);
+    - extracts its text in the AC order;
+    - shows the same parts and text as the preview's `data-letter-part` list.
+  - The fr typical letter (252 words): lowest baseline at 745.5 of 842 pt.
+  - de text: no ß, no "Betreff".
+  - Artifacts: scratchpad `s3/` (letter-*.pdf, pdf-*.png, preview-*.png, report.txt).
+  - Not covered: Word, which is US-004.
+- Database: NOT_APPLICABLE — no schema change. The new read is a select on `resumes`, under RLS and an owner filter.
+- Security: PASS (security-review, 9/9, 0 critical/high/medium/low, 1 info).
+  - The info item asked for a rendered-PDF escaping proof. The e2e test "markup typed in a new field prints as text" passed in the final run.
+
+Agents:
+- senior-coder:
+  - implementation;
+  - one fix: the preview font from the canonical constant;
+  - one review round: the measurer gap, two comments, the settled-measurement wait in the no-warning e2e checks, the de FR-1 comparison, U+00A0;
+  - one comment fix (N1).
+- ui-expert:
+  - first pass BLOCKED only for want of the visual result; PASS 7/7 once given it;
+  - re-validation after the review fixes: PASS 7/7.
+- code-reviewer:
+  - PASS with 5 minor findings, then FAIL on N1 (the reworded font comment claimed a warning is never missed), then PASS.
+  - All findings resolved.
+
+Acceptance criteria:
+- AC-01 (A4, 595 × 842 pt within 1 pt): PASS — e2e in two specs; export capture in four languages.
+- AC-02 (same blocks, order and text as the preview, FR-1): PASS — unit part-order test in four languages; the e2e preview-versus-PDF comparison in fr and de; the export capture in four languages.
+- AC-03 (recipient inside the FR-2 window, measured on the PDF): PASS — e2e item positions in fr and de; the capture in four languages.
+- AC-04 (text extraction order): PASS — e2e in fr and de; the capture in four languages.
+- AC-05 (markup in the new fields printed as text): PASS — unit tests on all five fields and the CV fallback; e2e on a real PDF.
+- AC-06 (window warning, Amendment 1): PASS — e2e in fr at 1440 and de at 375:
+  - absent at 4 and exactly 6 lines, after a settled measurement;
+  - shown at 7 lines and for a line that wraps past 6;
+  - announced on the fields;
+  - nothing cut;
+  - gone once the block fits.
+  - Strings in fr/en/de/it; captures.
+- FR-1, FR-2, FR-6, FR-7: PASS.
+- Carried from US-001/US-002:
+  - effectiveSenderDetails in the PDF: PASS.
+  - Whitespace-only lines treated as empty: PASS.
+  - Every new field escaped: PASS.
+  - PRINTED_PLAIN_TEXT_FIELDS: PASS.
+  - Owner-scoped CV read: PASS.
+  - Body-paragraph helper moved: PASS.
+  - `CoverLetterRecipientLine` stays a type-only import until US-004.
+- Regression constraints: PASS — the full e2e suite is green; the download routes' authentication, ownership, guard and file names are unchanged; the marketing PDF and resumes are untouched; parity and visual are at baseline; Word output is unchanged.
+- FAIL and BLOCKER conditions: none triggered for the PDF. The Word export still differs from the preview until US-004, as the PRD sequences it.
+
+Decision:
+- **`coverLetterParts` kept until US-004.** The Word export still uses it. FR-1 holds for the preview and the PDF now, and for Word after US-004, which deletes it.
+- **PDF page width.** The PDF page box is exactly 210 mm (793.70 px); the preview is 794 px. Markup wider than the printed page would make Chromium shrink it. The text column differs by 0.3 px.
+- **One font constant.** The preview's font changed from Tailwind `font-serif` to `SWISS_LETTER_FONT_FAMILY` (Georgia), so that Safari's `font-serif` (New York) cannot wrap differently from the print.
+- **Guard and Word.** The 422 guard now counts the five new fields, and the Word route shares it. No letter saved through the API can newly fail it, because those fields are capped at 1,000 or less against 2,000. The carried item required this.
+- **Recipient title alone.** A title with no name or company now prints in the PDF, as `swissLetterParts` and the preview already did. The old PDF dropped it; one old unit expectation was updated.
+- **Fixture data change.** The page-boundary letters in `cover-letter-pdf-export.spec.ts` seed `annexes: ''`. This keeps their "the signature is the last line" geometry, which the default Annexes block would otherwise fill. It changes input data, not an assertion.
+
+Open owner decisions:
+- **ui-expert, low:**
+  - The address textarea is a fixed 3 rows (pre-existing). With a long address, the lines the warning refers to scroll out of view. Suggestion: let it grow with its content, or about 6 rows.
+  - At 1440 the fr warning still wraps as "(6" / "lignes)". A U+00A0 between `{lines}` and the unit word would keep the count together.
+- **Known limitation** (recorded in the `SWISS_LETTER_FONT_FAMILY` comment): the warning counts the printed lines only where Georgia is installed (Windows, macOS, iOS). On Linux or Android a wider fallback serif can warn early, and a narrower Times-metric one can miss a warning.
+- **Still open from US-002:**
+  - the recipient line order (Swiss Post puts the company first);
+  - `lining-nums`: the preview shows old-style numerals, the PDF lining ones;
+  - a 3.5-line signature space;
+  - the greeting and sign-off `||` fallback for whitespace-only values.
+
+Environment notes:
+- On Windows, stopping a background check run with TaskStop left its inner script running. Port 3100 was still free when checked, but the orphan's e2e started minutes later and held it.
+- The process list (`run-checks`, Playwright, `next start`) was checked and the orphan tree killed before the final run.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 The PDF export prints the same Swiss A4 letter
+FINAL: PASS

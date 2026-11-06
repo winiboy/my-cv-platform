@@ -1,6 +1,7 @@
 import type { CoverLetter } from '@/types/database'
 import { COVER_LETTER_WORDING, type CoverLetterLanguage } from './cover-letter-language'
-import { coverLetterBodyParagraphs, type CoverLetterRecipientLine } from './cover-letter-pdf-html'
+import { coverLetterBodyParagraphs } from './cover-letter-body-paragraphs'
+import type { CoverLetterRecipientLine } from './cover-letter-pdf-html'
 import { COVER_LETTER_NO_ANNEXES, normalizeAnnexes, type CoverLetterSenderDetails } from './cover-letter-sender'
 
 /**
@@ -8,10 +9,10 @@ import { COVER_LETTER_NO_ANNEXES, normalizeAnnexes, type CoverLetterSenderDetail
  * FR-1 and FR-2): which parts it prints, in which order, with which wording,
  * and where they sit on the A4 page (`CLAUDE.md` §10).
  *
- * Today only the editor preview (its pane and the preview window) renders
- * from it. The PDF (US-003) and the Word export (US-004) move to it next,
- * after which `coverLetterParts` is removed; from then on no rendering can
- * add, drop or reorder a part, or place one elsewhere.
+ * The editor preview (its pane and the preview window) and the PDF export
+ * (`buildCoverLetterPdfHtml`) render from it. The Word export (US-004) moves
+ * to it next, after which `coverLetterParts` is removed; from then on no
+ * rendering can add, drop or reorder a part, or place one elsewhere.
  *
  * Pure: no React, no DOM, nothing server-only, so the editor preview, the
  * server's PDF markup and the Word builder can all import it.
@@ -45,6 +46,22 @@ export const SWISS_LETTER_WINDOW_MAX_LINES = 6
 
 /** FR-2: the letter's font size. */
 export const SWISS_LETTER_FONT_SIZE_PT = 11
+
+/**
+ * The letter's font, in the preview, the PDF and the envelope-window check:
+ * Georgia. The PDF renderer has it locally, or on a serverless host the
+ * metric-compatible Gelasio under the same name (`font-substitutes.ts`).
+ *
+ * KNOWN LIMITATION. The window check measures in the editor's browser, so it
+ * counts the lines the print has only where Georgia is installed (Windows,
+ * macOS, iOS). Elsewhere (Linux, Android) the browser falls back to another
+ * serif, and the count can differ from the print's: a wider serif can show
+ * the warning for a block that still fits the printed window (an early
+ * warning), while a narrower one, such as a Times-metric serif (Liberation
+ * Serif, Times New Roman), can count six lines where the print wraps to seven
+ * and miss the warning.
+ */
+export const SWISS_LETTER_FONT_FAMILY = 'Georgia, serif'
 
 /** Line height, as a multiple of the font size. */
 export const SWISS_LETTER_LINE_HEIGHT = 1.3
@@ -183,6 +200,23 @@ export function swissLetterPlace(postalLocality: string | null | undefined): str
 }
 
 /**
+ * The recipient block's lines, as the letter prints them in the window zone:
+ * name, title, company, then the address with its line breaks. A line with no
+ * text (whitespace only counts as none) is left out. Empty when none is left,
+ * and then the letter has no recipient block.
+ */
+export function swissLetterRecipientLines(
+  letter: Pick<SwissLetterFields, 'recipient_name' | 'recipient_title' | 'company_name' | 'company_address'>,
+): CoverLetterRecipientLine[] {
+  return [
+    { text: letter.recipient_name, multiline: false },
+    { text: letter.recipient_title, multiline: false },
+    { text: letter.company_name, multiline: false },
+    { text: letter.company_address, multiline: true },
+  ].filter((line): line is CoverLetterRecipientLine => hasText(line.text))
+}
+
+/**
  * The parts of a Swiss letter, top to bottom: sender block; recipient block
  * (in the window zone); place-and-date line; subject; greeting; opening; each
  * body paragraph; closing; sign-off; signature (the sender's name, below the
@@ -211,12 +245,7 @@ export function swissLetterParts(letter: SwissLetterFields, options: SwissLetter
   ].filter(hasText)
   if (senderLines.length > 0) parts.push({ kind: 'sender', lines: senderLines })
 
-  const recipientLines = [
-    { text: letter.recipient_name, multiline: false },
-    { text: letter.recipient_title, multiline: false },
-    { text: letter.company_name, multiline: false },
-    { text: letter.company_address, multiline: true },
-  ].filter((line): line is CoverLetterRecipientLine => hasText(line.text))
+  const recipientLines = swissLetterRecipientLines(letter)
   if (recipientLines.length > 0) parts.push({ kind: 'recipient', lines: recipientLines })
 
   parts.push({

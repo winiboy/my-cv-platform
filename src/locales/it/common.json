@@ -628,7 +628,8 @@
         "companyLabel": "Nome azienda",
         "companyPlaceholder": "es. Acme Srl",
         "addressLabel": "Indirizzo azienda",
-        "addressPlaceholder": "Via Roma 123\n00100 Roma"
+        "addressPlaceholder": "Via Roma 123\n00100 Roma",
+        "windowOverflow": "L'indirizzo supera la finestra della busta ({lines} righe)"
       },
       "opening": {
         "title": "Apertura",

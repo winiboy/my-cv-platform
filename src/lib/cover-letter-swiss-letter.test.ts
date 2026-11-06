@@ -13,6 +13,7 @@ import {
   ptToPx,
   swissLetterParts,
   swissLetterPlace,
+  swissLetterRecipientLines,
   swissLetterSpaceBeforePx,
   type SwissLetterFields,
   type SwissLetterPart,
@@ -295,5 +296,28 @@ describe('FR-2: positions on the A4 page', () => {
   it('starts the place-and-date line one line below the window zone', () => {
     expect(SWISS_LETTER_SPACE_BEFORE_LINES.placeDate).toBe(1)
     expect(swissLetterSpaceBeforePx('placeDate')).toBeCloseTo(SWISS_LETTER_LAYOUT_PX.lineHeight)
+  })
+})
+
+describe('swissLetterRecipientLines: the recipient block the window holds', () => {
+  it('lists the lines with text, in print order, the address keeping its line breaks', () => {
+    expect(
+      swissLetterRecipientLines({
+        recipient_name: 'Madame Claire Dupont',
+        recipient_title: '   ',
+        company_name: 'Acme SA',
+        company_address: 'Avenue de la Gare 10\n1000 Lausanne',
+      }),
+    ).toEqual([
+      { text: 'Madame Claire Dupont', multiline: false },
+      { text: 'Acme SA', multiline: false },
+      { text: 'Avenue de la Gare 10\n1000 Lausanne', multiline: true },
+    ])
+  })
+
+  it('is empty when no line has text', () => {
+    expect(
+      swissLetterRecipientLines({ recipient_name: null, recipient_title: '', company_name: ' ', company_address: null }),
+    ).toEqual([])
   })
 })

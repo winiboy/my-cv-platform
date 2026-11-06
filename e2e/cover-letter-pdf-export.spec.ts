@@ -8,7 +8,7 @@ import {
   LOCAL_SERVICE_KEY,
   assertLocalSupabase,
 } from '../src/test/local-stack'
-import { readPdf, type ReadPdf } from './fixtures/pdf'
+import { A4_PT, readPdf, type ReadPdf } from './fixtures/pdf'
 import fr from '../src/locales/fr/common.json'
 import de from '../src/locales/de/common.json'
 
@@ -27,12 +27,12 @@ import de from '../src/locales/de/common.json'
  * WHAT IS ASSERTED, in fr and de
  *
  *   - The download is a complete PDF (`%PDF-` ... `%%EOF`) named after the
- *     letter's title, at the cover letter's own 816 x 1056 px (612 x 792 pt)
- *     page, and no dialog opens on the way.
+ *     letter's title, on an A4 page (595 x 842 pt, cover-letter-swiss-format
+ *     US-003), and no dialog opens on the way.
  *   - It is a TEXT PDF, not a picture: no image is embedded, and its extracted
- *     text holds every part of the letter in order — sender, date, recipient
- *     block, subject, greeting, opening, each body paragraph, closing,
- *     sign-off, signature name.
+ *     text holds every part of the Swiss letter in order — sender, recipient
+ *     block, date line, subject, greeting, opening, each body paragraph,
+ *     closing, sign-off, signature name, Annexes block.
  *   - Rich text keeps its meaning: bold and italic faces are embedded, and an
  *     ordered list keeps its numbers.
  *   - A long letter flows onto exactly two pages with nothing missing.
@@ -46,9 +46,12 @@ import de from '../src/locales/de/common.json'
  *   - Page boundary: a letter that ends just above the bottom of page 1 is one
  *     page with its last line on it; one paragraph more is two pages, neither
  *     of them empty. Both letters are built from one-line paragraphs, whose
- *     height is set by the template's line-height rather than by the width of
+ *     height is set by the letter's line-height rather than by the width of
  *     whichever serif the machine has, so the boundary holds on every machine.
- *     Measured: the one-page letter ends 9.5 px above page 1's bottom margin.
+ *     They have no Annexes block, so the signature stays their last line.
+ *     Computed from the Swiss layout: the one-page letter ends about 20 px
+ *     above page 1's bottom margin, and one paragraph more (38 px) overflows
+ *     it by about 18 px.
  *   - `ul` items keep their "•" bullet, as text beside the item.
  *   - A hostile letter (images, an @import, a frame, a meta refresh, a
  *     javascript: link, an onerror handler, CSS backgrounds, all aimed at a
@@ -70,8 +73,8 @@ function admin(): SupabaseClient {
 const LOCALES = { fr, de } as const
 type TestLocale = keyof typeof LOCALES
 
-/** US Letter in points: the cover letter's 816 x 1056 CSS px page. */
-const LETTER_PAGE_PT = { width: 612, height: 792 }
+/** Within this many points of A4 (595.28 x 841.89 pt). */
+const PAGE_SIZE_TOLERANCE_PT = 1
 
 /** Accented on purpose: the name travels RFC 5987-encoded and must come back intact. */
 const LETTER_TITLE = 'Lettre PDF Zürich'
@@ -99,15 +102,15 @@ const FULL_LETTER = {
   sign_off: 'Sincerely,',
 }
 
-/** Every part of FULL_LETTER, in the order the letter prints them. */
+/** Every part of FULL_LETTER, in the order the Swiss letter prints them. */
 const FULL_LETTER_PARTS: (string | RegExp)[] = [
   'Ada Lovelace',
-  /\d{1,2}[A-Z][a-z]+\d{4}/,
   'Charles Babbage',
   'Head of Engineering',
   'Analytical Engines SA',
   '12 Rue du Calcul',
   '1003 Lausanne',
+  /\d{1,2}[A-Z][a-z]+\d{4}/,
   'Application for Senior Software Engineer',
   'Dear Mr. Babbage,',
   'I am writing to apply with strong conviction and genuine interest.',
@@ -119,6 +122,9 @@ const FULL_LETTER_PARTS: (string | RegExp)[] = [
   'Thank you for your time and consideration.',
   'Sincerely,',
   'Ada Lovelace',
+  // Annexes never set: the default list in the letter's language.
+  'Enclosures',
+  'CV, references, diplomas',
 ]
 
 /**
@@ -136,13 +142,17 @@ const LONG_BODY = Array.from(
 /** A one-line body paragraph: it never wraps, whatever the font's widths. */
 const SHORT_LINES = (count: number) => Array.from({ length: count }, (_, i) => `<p>Short line ${i + 1}.</p>`)
 
-/** The page-boundary letters' fixed parts: one-line paragraphs and a two-item `ul`. */
+/**
+ * The page-boundary letters' fixed parts: one-line paragraphs and a two-item
+ * `ul`, and no Annexes block, so the signature is the letter's last line.
+ */
 const BOUNDARY_LETTER = {
   opening_paragraph: '<p>Opening line.</p><ul><li>Bullet alpha</li><li>Bullet beta</li></ul>',
   closing_paragraph: '<p>Thank you.</p>',
+  annexes: '',
 }
 
-/** Body paragraphs that end the letter 9.5 px above page 1's bottom margin. */
+/** Body paragraphs that end the letter about 20 px above page 1's bottom margin. */
 const LINES_FILLING_PAGE_ONE = 10
 
 async function insertLetter(userId: string, fields: Record<string, unknown> = {}): Promise<string> {
@@ -243,15 +253,15 @@ function expectPartsInOrder(text: string, parts: readonly (string | RegExp)[]): 
   }
 }
 
-/** A complete text PDF at the cover letter's page size. */
+/** A complete text PDF on A4 pages. */
 async function expectTextPdf(pdf: Buffer): Promise<ReadPdf> {
   expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-')
   expect(pdf.toString('latin1').trimEnd().endsWith('%%EOF')).toBe(true)
   const read = await readPdf(pdf)
   expect(read.images, 'the letter must be text, not a picture of the page').toBe(0)
   for (const page of read.pages) {
-    expect(Math.round(page.widthPt)).toBe(LETTER_PAGE_PT.width)
-    expect(Math.round(page.heightPt)).toBe(LETTER_PAGE_PT.height)
+    expect(Math.abs(page.widthPt - A4_PT.width), `page width ${page.widthPt} pt`).toBeLessThanOrEqual(PAGE_SIZE_TOLERANCE_PT)
+    expect(Math.abs(page.heightPt - A4_PT.height), `page height ${page.heightPt} pt`).toBeLessThanOrEqual(PAGE_SIZE_TOLERANCE_PT)
   }
   return read
 }

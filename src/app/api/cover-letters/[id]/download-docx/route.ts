@@ -16,7 +16,7 @@ import { CoverLetterDocxTooLargeError, buildCoverLetterDocx } from './cover-lett
  * POST /api/cover-letters/[id]/download-docx
  *
  * The SAVED cover letter as a Word file, built server-side with the `docx`
- * library from the same parts as its PDF (see `cover-letter-docx.ts`). The
+ * library (see `cover-letter-docx.ts`). The
  * request carries the id and, in its JSON body, the page's `locale`, as the
  * PDF's does: the letter is read from the database with the user's session, so
  * an unsaved edit in the browser is never what is exported.
@@ -81,8 +81,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     if (!coverLetter) return json('Cover letter not found', 404)
 
-    // The PDF's resource bound: the Word file holds the same parts, so a row
-    // the PDF refuses is refused here too, before any work.
+    // The PDF's resource bound: a row the PDF refuses is refused here too,
+    // before any work.
     if (!isCoverLetterWithinPdfGuard(coverLetter)) return json('Cover letter too large to export', 422)
 
     const { language, currentDate } = coverLetterExportLanguage(coverLetter, pageLanguage, new Date())

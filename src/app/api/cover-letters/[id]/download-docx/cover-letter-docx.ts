@@ -25,14 +25,15 @@ import {
 
 /**
  * A cover letter as a Word document, built server-side with the `docx`
- * library from the same parts, in the same order, as its PDF
- * (`coverLetterParts`): sender; date; recipient and company block; subject;
- * greeting; opening; each body paragraph; closing; sign-off; signature name.
+ * library from `coverLetterParts`: sender; date; recipient and company block;
+ * subject; greeting; opening; each body paragraph; closing; sign-off;
+ * signature name.
  *
- * The layout follows the PDF's template (`buildCoverLetterPdfHtml` with the
- * print stylesheet of `src/lib/pdf/render-cover-letter.ts`): a US Letter page
- * with 64 px margins, Georgia 14 px at a 1.625 line height, the same colors,
- * weights and gaps. Every part is a real paragraph; rich text keeps its bold,
+ * TRANSITIONAL (cover-letter-swiss-format): the layout is the US Letter
+ * template the PDF printed before it moved to the Swiss A4 letter in US-003,
+ * kept as it was until US-004 moves this file to `swissLetterParts` too: a US
+ * Letter page with 64 px margins, Georgia 14 px at a 1.625 line height, its
+ * colors, weights and gaps. Every part is a real paragraph; rich text keeps its bold,
  * italic, underline, inline sizes and fonts, its alignment, and its lists as
  * Word lists, numbered or bulleted.
  *
@@ -82,7 +83,7 @@ export interface CoverLetterDocxInput {
   language: CoverLetterLanguage
 }
 
-/** The template's metrics, in CSS px, as `buildCoverLetterPdfHtml` draws them. */
+/** The US Letter template's metrics, in CSS px, as the PDF drew them before US-003. */
 const TEMPLATE = {
   pageWidthPx: 816,
   pageHeightPx: 1056,

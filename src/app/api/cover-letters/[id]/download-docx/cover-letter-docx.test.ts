@@ -6,11 +6,20 @@ import { COVER_LETTER_DOCX_LIMITS, CoverLetterDocxTooLargeError, buildCoverLette
 /**
  * The cover letter's Word file (cover-letter-export-translate, US-002), read
  * back the way Word reads it: `word/document.xml` out of the zip. Every part
- * is a paragraph, in the PDF's order; rich text keeps bold, italic and Word
+ * is a paragraph, in `coverLetterParts` order; rich text keeps bold, italic and Word
  * list numbering; accents survive; empty parts are left out.
  */
 
 const CURRENT_DATE = 'October 25, 2026'
+
+/** Printed by the PDF only, until US-004 moves the Word file to the Swiss letter. */
+const SWISS_ONLY_FIELDS = {
+  sender_street: null,
+  sender_postal_locality: null,
+  sender_phone: null,
+  sender_email: null,
+  annexes: null,
+} as const
 
 const FULL_LETTER: CoverLetterPdfFields = {
   sender_name: 'Zoë Müller',
@@ -26,6 +35,7 @@ const FULL_LETTER: CoverLetterPdfFields = {
   body_paragraphs: ['<p>Corps un : l’équipe.</p>', '<div>Corps deux</div><ul><li>Puce</li></ul>', '<p>Corps trois</p>'],
   closing_paragraph: '<p>Merci de votre attention.</p>',
   sign_off: 'Mit freundlichen Grüßen,',
+  ...SWISS_ONLY_FIELDS,
 }
 
 interface ReadParagraph {
@@ -75,7 +85,7 @@ describe('buildCoverLetterDocx: a valid Word file', () => {
     }
   })
 
-  it("is laid out on the PDF's US Letter page with its 64 px margins, in Georgia", async () => {
+  it('is laid out on the US Letter page with its 64 px margins, in Georgia', async () => {
     const zip = await JSZip.loadAsync(await build(FULL_LETTER))
     const xml = await zip.file('word/document.xml')!.async('string')
     expect(xml).toMatch(/<w:pgSz w:w="12240" w:h="15840"/)
@@ -304,6 +314,7 @@ describe('buildCoverLetterDocx: empty parts are left out', () => {
         body_paragraphs: ['', '<div><br></div>', '<p>Only body</p>', 42, null] as unknown as CoverLetterPdfFields['body_paragraphs'],
         closing_paragraph: null,
         sign_off: 'Bye,',
+        ...SWISS_ONLY_FIELDS,
       }),
     )
     expect(paragraphs.map((paragraph) => paragraph.text)).toEqual([CURRENT_DATE, 'Hello,', 'Only body', 'Bye,'])

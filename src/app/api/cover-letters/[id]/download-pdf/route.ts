@@ -8,6 +8,7 @@ import {
 } from '@/lib/cover-letter-pdf-html'
 import { coverLetterRequestLanguage } from '@/lib/cover-letter-language'
 import { isCoverLetterWithinPdfGuard } from '@/lib/cover-letter-limits'
+import { effectiveSenderDetails } from '@/lib/cover-letter-sender'
 import { pdfContentDisposition } from '@/lib/pdf/filename'
 import { readBoundedBody } from '@/lib/pdf/payload'
 import { renderCoverLetterPdf } from '@/lib/pdf/render-cover-letter'
@@ -23,7 +24,9 @@ import { tryAcquirePdfRenderSlot } from '@/lib/pdf/render-slots'
  * the database with the user's session, so an unsaved edit in the browser is
  * never what is printed. The locale only chooses the wording of the date,
  * subject and default formulas when the letter's own language cannot be told
- * (`coverLetterLanguage`).
+ * (`coverLetterLanguage`). The sender details are the stored ones with the
+ * linked CV's contact as fallback (`effectiveSenderDetails`), the CV read with
+ * the same session and owner filter as the letter.
  *
  * Order of checks, cheapest and least revealing first: session (401), JSON
  * content type (415), a body within `MAX_COVER_LETTER_EXPORT_REQUEST_BYTES`
@@ -95,6 +98,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // rule: see `COVER_LETTER_PDF_GUARD`.
     if (!isCoverLetterWithinPdfGuard(coverLetter)) return json('Cover letter too large to export', 422)
 
+    // Read before a slot is taken, so no slot waits on the database.
+    const senderDetails = effectiveSenderDetails(
+      coverLetter,
+      await linkedResumeContact(supabase, coverLetter.resume_id, user.id),
+    )
+
     const slot = tryAcquirePdfRenderSlot()
     if (!slot) return json('Too many PDF renders in progress', 503, { 'Retry-After': '5' })
     const { language, currentDate } = coverLetterExportLanguage(coverLetter, pageLanguage, new Date())
@@ -102,6 +111,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     try {
       pdf = await renderCoverLetterPdf({
         coverLetter,
+        senderDetails,
         currentDate,
         language,
         timeoutMs: RENDER_TIMEOUT_MS,
@@ -125,6 +135,37 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   } catch (error) {
     console.error('Cover letter PDF route failed:', error instanceof Error ? error.name : 'unknown error')
     return json('Failed to generate PDF', 500)
+  }
+}
+
+/**
+ * The `contact` of the CV linked to the letter, the sender details' fallback;
+ * `null` when the letter has no CV, the CV is gone, or it cannot be read. The
+ * export never fails for want of it: the letter then prints its stored
+ * details only. RLS hides other users' CVs; the explicit owner filter does
+ * not rely on it.
+ */
+async function linkedResumeContact(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  resumeId: string | null,
+  userId: string,
+): Promise<unknown> {
+  if (!resumeId) return null
+  try {
+    const { data, error } = await supabase
+      .from('resumes')
+      .select('contact')
+      .eq('id', resumeId)
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (error) {
+      console.error('Cover letter PDF route: reading the linked CV failed:', error.code ?? 'unknown code')
+      return null
+    }
+    return data?.contact ?? null
+  } catch (readError) {
+    console.error('Cover letter PDF route: reading the linked CV failed:', readError instanceof Error ? readError.name : 'unknown error')
+    return null
   }
 }
 
