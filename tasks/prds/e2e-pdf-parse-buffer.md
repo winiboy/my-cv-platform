@@ -1,6 +1,6 @@
 # PRD: The e2e PDF reader parses every valid PDF on the first try
 
-**Status:** DRAFT
+**Status:** APPROVED 2026-11-06
 
 Amendment 1 (2026-11-06) is awaiting the owner's re-approval. The failure does not reproduce on `origin/main` (150 of 150 passed), because main's PDFs for this case are too large to take the faulty path, so the before/after measurement moves to the Swiss branch, where it does. This follows the owner's decision in chat on 2026-11-06 ("Amend the PRD"). The rest of this PRD was approved on 2026-11-06.
 
