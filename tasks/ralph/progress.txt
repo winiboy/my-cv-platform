@@ -79,3 +79,89 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 The resume PDF fidelity tests compare content, not pdf.js spacing
 FINAL: PASS
+
+## US-002: The job-applications i18n spec waits for what it asserts
+Status: PASS
+Priority: 2
+Branch: ralph/e2e-flaky-stabilization (before-main worktree)
+Baseline HEAD: ad98c27 (US-001)
+
+Scope:
+- Scope check: PASS
+- Changed paths (git diff --numstat; story diff sha256 prefix d9349cfd1ac5d0d6): `e2e/job-applications-i18n.spec.ts` (83/23) only.
+  - **New `afterQueuedTimers(page)`:** queues a 10 ms timer in the page and awaits it.
+    - It is an ordering barrier, not a sleep. Under the HTML timer rules it runs after any timer already queued with a delay of 10 ms or less.
+    - It is used only where the app finishes an action from a zero-delay timer that nothing on screen shows, after an assertion that proves that timer has been queued.
+  - **Quick add:**
+    - the test waits until the title is focused after the modal opens;
+    - `settleInvalidSubmitFocus(title)` runs after each failed submit;
+    - new `toHaveValue` checks after the fills make text in the wrong field fail at the fill;
+    - every "required", "too long" and invalid-URL message and every no-English scan is unchanged, in fr, de and en.
+  - **Drags:** `pointerPickUpAndMove` and `mouseDrag` take the origin column and wait (`expectOver`) for the origin to show as "over" before moving, and for the target before releasing.
+  - **Keyboard drag:** `expectColumnsMeasured` is renamed `expectReadyForArrowKeys` and adds `afterQueuedTimers`.
+  - **Announcement logs:** three one-shot reads (the keyboard move, the cancel, the mouse move's pick-up) use `expect.poll` with the same exact expected arrays.
+- Not touched: product code (FR-3 not applicable), every other spec, the PDF fixtures. No version change, no push or merge.
+- The temporary diagnosis spec `e2e/tmp-quick-add-repro.spec.ts` and its results were deleted; none is in the diff.
+
+Checks:
+- Final run (this diff, alone in the worktree, started after the last edit; the diff hash is the same before and after the run):
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3277 passed, 5 skipped.
+  - pnpm test:integration: PASS — 50 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e, run 1: PASS — 507 passed, 0 failed (16.0 min).
+  - pnpm test:e2e, run 2: PASS — 507 passed, 0 failed (15.7 min).
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+  - pnpm test:visual: PASS — 10 passed.
+- Story-specific: `e2e/job-applications-i18n.spec.ts --repeat-each=10`, run alone.
+  - First run: 249 passed, 1 failed. In de, the cancel run (L1139) received the pick-up text: a lost ArrowRight, cause 3 below.
+  - On the final diff: 250 passed, 0 failed (9.2 min).
+
+Specialized validation:
+- Browser: NOT_APPLICABLE — test-only change; the e2e runs above exercise it.
+- Visual: PASS — unchanged.
+- Export, Database, Security: NOT_APPLICABLE.
+
+Agents:
+- senior-coder: diagnosis and implementation, then one fix round (cause 3, found by its own repeat run).
+- ui-expert: NOT_APPLICABLE — no UI change.
+- code-reviewer: PASS, no Critical or Major findings.
+  - It checked the cited library code: react-hook-form 7.89.0 `index.esm.mjs` L3320–3322, and `@dnd-kit/core` 6.3.1 `core.esm.js` L1155–1160 and L3121–3170.
+  - It confirmed that `afterQueuedTimers` is an ordering barrier.
+  - It confirmed no assertion was loosened: the expected values are byte-identical, and six `toHaveValue` checks were added.
+
+Acceptance criteria:
+- AC-01 (the quick-add cause diagnosed and recorded; a product fix only for a product defect): PASS — test timing, no product defect (see Decision).
+- AC-02 (every required, too-long and invalid-URL message and the no-English scan still asserted, in every locale): PASS — unchanged assertions, plus value checks.
+- AC-03 (each announcement assertion waits for the expected text, with the exact localized wording): PASS — polls and web-first waits with the same expected text.
+- AC-04 (`job-applications-i18n.spec.ts` passes `--repeat-each=10` alone): PASS — 250/0 on the final diff.
+- FR-1 (no retries, no raised global timeouts, no skip or fixme): PASS. The `toPass({timeout:20_000})` at L262–263 and `waitForTimeout(800)` at L1140 were already in HEAD.
+- FR-2 (no assertion removed or loosened): PASS. FR-3 (no product change): PASS.
+- Regression constraints: PASS — two full e2e runs green; parity and visual unchanged.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision (the diagnosis):
+- **Cause 1, quick add.** Playwright's `fill` focuses the field, then inserts the text in a separate step (playwright-core 1.63). Two timers can move focus to the title between those steps:
+  - the modal's 50 ms `setFocus('job_title')` after opening (`quick-add-modal.tsx` L99–107);
+  - react-hook-form's post-submit `_focusError(); setTimeout(_focusError)`.
+  - Forcing that focus move reproduced both CI symptoms of PR #121: the company field left empty, showing "obligatoire" instead of "too long"; and "not a url" typed into the title.
+  - The form's validation is correct: all three messages come from one pass, 36/36, including under CPU throttling ×6 and ×12.
+- **Cause 2, mouse drag.** dnd-kit's end handler needs `sensorContext.current.active`, which is set in a layout effect after the drag start commits. A release handled before that dispatches DragEnd with no event, so no drop announcement and no PATCH: the `:1142` symptom.
+- **Cause 3, keyboard drag.** The keyboard sensor adds its keydown listener from a zero-delay timer queued at pick-up, so an ArrowRight pressed before it runs is lost.
+- The CI trace artifacts of run 41999923969 were not downloaded (downloads need the owner's approval), so it is not proven which quick-add timer fired in CI. Both are now covered.
+
+Open owner decisions:
+- **Existing UX quirk** (code-reviewer, out of scope under FR-3): a keyboard user who opens quick add and types within 50 ms can lose the first keystrokes. A user who clicks into company within 50 ms gets focus pulled back to the title.
+- Optional (code-reviewer, minor):
+  - The `afterQueuedTimers` docblock could state that the caller must first prove, with an assertion, that the target timer has been queued.
+  - The `expect.poll` around the full-log equality checks is redundant after the `lastAnnouncement` poll.
+- **Other one-off failures** listed in the PRD's Context stay out of scope: `layout-persistence:172`, `modern-print-sidebar-full-page:365`, `cover-letter-editor-spacing:150`, `resume-pdf-route:333`. None recurred in the 4 full runs of this initiative.
+
+Environment notes:
+- The checks ran in the before-main worktree, sharing the local Supabase stack with the paused cover-letter-swiss-format work (migration 010 applied locally; unused here).
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 The job-applications i18n spec waits for what it asserts
+FINAL: PASS
