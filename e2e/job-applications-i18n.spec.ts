@@ -264,9 +264,9 @@ async function openCardTooltip(page: Page, card: Locator): Promise<Locator> {
   return tooltip
 }
 
-/** Drags `handle` into `target` with the mouse, past the board's 8px activation distance. */
-async function mouseDrag(page: Page, handle: Locator, target: Locator): Promise<void> {
-  await pointerPickUpAndMove(page, handle, target)
+/** Drags `handle` from its `origin` column into `target` with the mouse, past the board's 8px activation distance. */
+async function mouseDrag(page: Page, handle: Locator, origin: Locator, target: Locator): Promise<void> {
+  await pointerPickUpAndMove(page, handle, origin, target)
   await page.mouse.up()
 }
 
@@ -278,6 +278,33 @@ function recordDialogs(page: Page): string[] {
     void dialog.accept()
   })
   return messages
+}
+
+/**
+ * Resolves once every timer the page queued before this call with a delay of
+ * at most 10ms has run: the HTML timer rules run a timer queued later with a
+ * delay at least as long after an earlier one. For the places where a
+ * component finishes an action from a zero-delay timer, which no rendered
+ * state shows.
+ */
+async function afterQueuedTimers(page: Page): Promise<void> {
+  await page.evaluate(() => new Promise<void>((resolve) => setTimeout(resolve, 10)))
+}
+
+/**
+ * Waits until the quick-add form has finished moving focus after a failed
+ * submit, so the next `fill` types where it is aimed.
+ *
+ * react-hook-form focuses the first invalid field (the title), then again from
+ * a zero-delay timer. Playwright's `fill` focuses its field and types in two
+ * steps; if that timer runs between them, the text lands in the title. That
+ * gives both of CI's symptoms: the company left empty after its fill (so
+ * "required", never "too long"), or "not a url" typed into the title (so the
+ * URL keeps "too long" and the invalid-URL message never appears).
+ */
+async function settleInvalidSubmitFocus(title: Locator): Promise<void> {
+  await expect(title).toBeFocused()
+  await afterQueuedTimers(title.page())
 }
 
 /**
@@ -338,25 +365,36 @@ async function walkBoard(page: Page, locale: TestLocale, userId: string): Promis
   const company = modal.getByLabel(c.kanban.quickAdd.companyLabel)
   const url = modal.getByLabel(c.kanban.quickAdd.jobUrlLabel)
   const save = modal.getByRole('button', { name: c.kanban.quickAdd.save, exact: true })
+  // The modal focuses the title from a timer after it opens; it is the only
+  // thing that focuses it before the first submit.
+  await expect(title).toBeFocused()
 
   await save.click()
   await expect(modal.getByText(c.kanban.quickAdd.jobTitleRequired, { exact: true })).toBeVisible()
   await expect(modal.getByText(c.kanban.quickAdd.companyRequired, { exact: true })).toBeVisible()
   if (scan) await expectNoEnglish(modal, `${locale} quick add, empty`)
+  await settleInvalidSubmitFocus(title)
 
+  const tooLongUrl = `https://example.test/${'c'.repeat(2000)}`
   await title.fill('a'.repeat(256))
   await company.fill('b'.repeat(256))
-  await url.fill(`https://example.test/${'c'.repeat(2000)}`)
+  await url.fill(tooLongUrl)
+  await expect(title).toHaveValue('a'.repeat(256))
+  await expect(company).toHaveValue('b'.repeat(256))
+  await expect(url).toHaveValue(tooLongUrl)
   await save.click()
   await expect(modal.getByText(c.kanban.quickAdd.jobTitleTooLong, { exact: true })).toBeVisible()
   await expect(modal.getByText(c.kanban.quickAdd.companyTooLong, { exact: true })).toBeVisible()
   await expect(modal.getByText(c.kanban.quickAdd.urlTooLong, { exact: true })).toBeVisible()
   if (scan) await expectNoEnglish(modal, `${locale} quick add, too long`)
+  await settleInvalidSubmitFocus(title)
 
   // After a submit the form revalidates on change, which is how an invalid URL
   // reaches the schema: on submit, the browser's own check for type="url"
   // stops the form first.
   await url.fill('not a url')
+  await expect(url).toHaveValue('not a url')
+  await expect(title).toHaveValue('a'.repeat(256))
   await expect(modal.getByText(c.kanban.quickAdd.invalidUrl, { exact: true })).toBeVisible()
   if (scan) await expectNoEnglish(modal, `${locale} quick add, invalid URL`)
 
@@ -403,7 +441,12 @@ async function walkBoard(page: Page, locale: TestLocale, userId: string): Promis
       return method === 'PATCH' || method === 'DELETE' ? route.fulfill({ status: 500, json: {} }) : route.continue()
     },
   )
-  await mouseDrag(page, card.getByRole('button', { name: c.kanban.card.dragToMove, exact: true }), column(page, 'applied'))
+  await mouseDrag(
+    page,
+    card.getByRole('button', { name: c.kanban.card.dragToMove, exact: true }),
+    column(page, 'saved'),
+    column(page, 'applied'),
+  )
   await expect(toast(page, c.kanban.board.statusUpdateError)).toBeVisible()
   if (scan) await expectNoEnglish(toast(page, c.kanban.board.statusUpdateError).locator('p'), `${locale} status toast`)
   // Rolled back, and the row was not touched.
@@ -941,15 +984,29 @@ async function clearAnnouncements(page: Page): Promise<void> {
 /**
  * Presses the mouse on `handle` and moves it past the 8px activation distance,
  * then over `target`, leaving the button down.
+ *
+ * dnd-kit reads the drag from state it commits after the activating move: a
+ * pointerup handled before that commit ends the drag with no `onDragEnd` and
+ * no drop announcement, and one handled before the target is measured drops
+ * on the origin column. So each move waits for the column the page shows as
+ * "over": the origin once the drag is live, then the target.
  */
-async function pointerPickUpAndMove(page: Page, handle: Locator, target: Locator): Promise<void> {
+async function pointerPickUpAndMove(page: Page, handle: Locator, origin: Locator, target: Locator): Promise<void> {
   const from = await handle.boundingBox()
-  const to = await target.boundingBox()
-  if (!from || !to) throw new Error('Drag handle or target column has no box')
+  if (!from) throw new Error('Drag handle has no box')
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
   await page.mouse.down()
   await page.mouse.move(from.x + from.width / 2 + 20, from.y + from.height / 2, { steps: 4 })
+  await expectOver(origin)
+  const to = await target.boundingBox()
+  if (!to) throw new Error('Target column has no box')
   await page.mouse.move(to.x + to.width / 2, to.y + 120, { steps: 12 })
+  await expectOver(target)
+}
+
+/** The column dnd-kit has committed as the one the card is over: the page highlights it. */
+async function expectOver(group: Locator): Promise<void> {
+  await expect(group).toHaveClass(/\bborder-teal-500\b/)
 }
 
 /**
@@ -975,12 +1032,18 @@ async function tabToHandle(card: Locator, handle: Locator): Promise<void> {
 }
 
 /**
+ * Waits until an arrow key pressed now moves the held card.
+ *
  * dnd-kit measures the columns just after a pick-up; an arrow pressed before
  * that has no column to move to. The origin column's "over" highlight is the
- * page's sign that the measuring is done.
+ * page's sign that the measuring is done. Its keyboard sensor also starts
+ * listening for keys only from a zero-delay timer queued at the pick-up
+ * (`KeyboardSensor.attach`); an arrow pressed before that timer runs is lost,
+ * highlight or not.
  */
-async function expectColumnsMeasured(origin: Locator): Promise<void> {
-  await expect(origin).toHaveClass(/\bborder-teal-500\b/)
+async function expectReadyForArrowKeys(origin: Locator): Promise<void> {
+  await expectOver(origin)
+  await afterQueuedTimers(origin.page())
 }
 
 /**
@@ -1055,20 +1118,19 @@ async function walkDragAndDrop(page: Page, locale: DndLocale, userId: string): P
   await expect.poll(lastAnnouncement).toBe(dndText(locale, 'pickedUp', row, 'saved'))
   await expectHandleFocused(handle, `${locale} after Space`)
   await expect(menu).toHaveCount(0)
-  await expectColumnsMeasured(column(page, 'saved'))
+  await expectReadyForArrowKeys(column(page, 'saved'))
   await page.keyboard.press('ArrowRight')
   await expect.poll(lastAnnouncement).toBe(dndText(locale, 'movedOver', row, 'applied'))
   await expectHandleFocused(handle, `${locale} after ArrowRight`)
   if (scan) await expectNoEnglish(liveRegion(page), `${locale} live region while dragging`)
   await page.keyboard.press('Space')
   await expect.poll(lastAnnouncement).toBe(dndText(locale, 'dropped', row, 'applied'))
-  const moveLog = await announcements(page)
-  expect(moveLog).toEqual([
+  await expect.poll(() => announcements(page)).toEqual([
     dndText(locale, 'pickedUp', row, 'saved'),
     dndText(locale, 'movedOver', row, 'applied'),
     dndText(locale, 'dropped', row, 'applied'),
   ])
-  checkLog(moveLog, `${locale} keyboard move`)
+  checkLog(await announcements(page), `${locale} keyboard move`)
   await expect(cardIn('applied')).toBeVisible()
   await expect(menu).toHaveCount(0)
   // dnd-kit returns focus to the handle, now in its new column, and the
@@ -1088,19 +1150,18 @@ async function walkDragAndDrop(page: Page, locale: DndLocale, userId: string): P
   await page.keyboard.press('Space')
   await expect.poll(lastAnnouncement).toBe(dndText(locale, 'pickedUp', row, 'applied'))
   await expectHandleFocused(handleIn('applied'), `${locale} cancel run, after Space`)
-  await expectColumnsMeasured(column(page, 'applied'))
+  await expectReadyForArrowKeys(column(page, 'applied'))
   await page.keyboard.press('ArrowRight')
   await expect.poll(lastAnnouncement).toBe(dndText(locale, 'movedOver', row, 'interviewing'))
   await expectHandleFocused(handleIn('applied'), `${locale} cancel run, after ArrowRight`)
   await page.keyboard.press('Escape')
   await expect.poll(lastAnnouncement).toBe(dndText(locale, 'cancelled', row, 'applied'))
-  const cancelLog = await announcements(page)
-  expect(cancelLog).toEqual([
+  await expect.poll(() => announcements(page)).toEqual([
     dndText(locale, 'pickedUp', row, 'applied'),
     dndText(locale, 'movedOver', row, 'interviewing'),
     dndText(locale, 'cancelled', row, 'applied'),
   ])
-  checkLog(cancelLog, `${locale} keyboard cancel`)
+  checkLog(await announcements(page), `${locale} keyboard cancel`)
   await expect(cardIn('applied')).toBeVisible()
   expect(patches, 'PATCH requests after the cancel').toEqual([{ id: ids.firstId, body: { status: 'applied' } }])
   expect(await statusOf(ids.firstId)).toBe('applied')
@@ -1110,11 +1171,10 @@ async function walkDragAndDrop(page: Page, locale: DndLocale, userId: string): P
   // The drag overlay's copy of the card is gone once the cancel's drop
   // animation has finished; a drag started before that does not begin.
   await expect(page.getByRole('button', { name: cardLabel(locale, row), exact: true })).toHaveCount(1)
-  await mouseDrag(page, handleIn('applied'), column(page, 'saved'))
+  await mouseDrag(page, handleIn('applied'), column(page, 'applied'), column(page, 'saved'))
   await expect.poll(lastAnnouncement).toBe(dndText(locale, 'dropped', row, 'saved'))
-  const mouseLog = await announcements(page)
-  expect(mouseLog[0]).toBe(dndText(locale, 'pickedUp', row, 'applied'))
-  checkLog(mouseLog, `${locale} mouse move`)
+  await expect.poll(async () => (await announcements(page))[0]).toBe(dndText(locale, 'pickedUp', row, 'applied'))
+  checkLog(await announcements(page), `${locale} mouse move`)
   await expect(cardIn('saved')).toBeVisible()
   await expect.poll(() => statusOf(ids.firstId)).toBe('saved')
   expect(patches).toEqual([

@@ -8,6 +8,7 @@ import { test, expect, createTestUser, deleteTestUser } from './fixtures/auth'
 import { FIXTURE_CONTACT, FIXTURE_SUMMARY, seedFixtureResume, type FixtureContentOverrides } from './fixtures/resume'
 import { LONG_EXPERIENCE } from './fixtures/page-breaks'
 import { A4_PT, rasteriseColumns, readPdf, type ReadPdf, type Rgb } from './fixtures/pdf'
+import { comparablePageText } from './fixtures/pdf-text'
 import { LOCAL_SUPABASE_URL, LOCAL_SERVICE_KEY, assertLocalSupabase } from '../src/test/local-stack'
 import { resolveLayoutModel } from '../src/lib/layout-settings'
 import { layoutCacheKey } from '../src/lib/resume-layout-store'
@@ -24,7 +25,7 @@ import type { ResumeTemplate } from '../src/types/database'
  * Preview page prints in this test's own browser — print media, the page's
  * `@page` size, the controls toggle in its shipped state — which is how the
  * parity and print suites reproduce a user's print. Page count, page size and
- * the text of every page must be identical.
+ * the text of every page must be identical, whitespace aside.
  *
  * WHAT IS NOT MOCKED. Two real users, the real login, the real route, the real
  * headless Chromium behind it, the real local Supabase stack.
@@ -128,7 +129,8 @@ async function printPreview(page: Page, resumeId: string, storage: Record<string
  * A document's text with all whitespace removed and case folded, for "does the
  * PDF say this" checks: pdf.js splits a line into runs wherever the PDF
  * positions glyphs separately (`SOFTW ARE`), and templates may upper-case a
- * heading. Page-by-page equality between two PDFs is still exact.
+ * heading. Page-by-page equality between two PDFs keeps case and ignores only
+ * whitespace (`expectSamePdf`).
  */
 const flat = (text: string) => text.replace(/\s+/g, '').toLowerCase()
 const pdfText = (pdf: ReadPdf) => flat(pdf.pages.map((p) => p.text).join(''))
@@ -150,12 +152,20 @@ async function okPdf(response: APIResponse): Promise<Buffer> {
   return body
 }
 
-/** Same pages, same page size (A4), same text on every page. */
+/**
+ * Same pages, same page size (A4), same text on every page. The text is
+ * compared without whitespace, which pdf.js inserts between glyph items of
+ * letter-spaced runs differently in two prints of the same page; every other
+ * character and its order must match (see `comparablePageText`).
+ */
 function expectSamePdf(route: ReadPdf, preview: ReadPdf): void {
   expect(route.pages.length, 'page count: route vs Preview print').toBe(preview.pages.length)
   route.pages.forEach((routePage, index) => {
     const previewPage = preview.pages[index]
-    expect(routePage.text, `page ${index + 1} text: route vs Preview print`).toBe(previewPage.text)
+    expect(
+      comparablePageText(routePage.text),
+      `page ${index + 1} text, whitespace ignored: route vs Preview print`,
+    ).toBe(comparablePageText(previewPage.text))
     expect([routePage.widthPt, routePage.heightPt], `page ${index + 1} size: route vs Preview print`).toEqual([
       previewPage.widthPt,
       previewPage.heightPt,
