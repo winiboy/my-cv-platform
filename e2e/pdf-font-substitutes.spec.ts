@@ -1,5 +1,4 @@
 import path from 'node:path'
-import pdfParse from 'pdf-parse'
 import type { Browser } from '@playwright/test'
 import { test, expect } from '@playwright/test'
 import {
@@ -8,6 +7,7 @@ import {
   registerFontSubstitutes,
   type SubstituteFontFace,
 } from '../src/lib/pdf/font-substitutes'
+import { parsePdf } from './fixtures/pdf'
 
 /**
  * US-003 (resume-pdf-direct-download): the serverless renderer's substitute
@@ -112,7 +112,8 @@ interface PdfLine {
 /** Every page of the PDF as its lines of text: the sidebar's top to bottom, then the main column's. */
 async function pdfLines(pdf: Buffer): Promise<PdfLine[][]> {
   const pages: PdfLine[][] = []
-  await pdfParse(pdf, {
+  // Through `parsePdf`, never pdf-parse directly: a Buffer can fail to parse (see `e2e/fixtures/pdf.ts`).
+  await parsePdf(pdf, {
     version: 'v2.0.550',
     pagerender: async (pageData: unknown) => {
       const content = await (pageData as { getTextContent(): Promise<{ items: { str: string; transform: number[] }[] }> }).getTextContent()
