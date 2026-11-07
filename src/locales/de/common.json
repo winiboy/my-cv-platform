@@ -634,7 +634,6 @@
       "opening": {
         "title": "Einleitung",
         "greetingLabel": "Anrede",
-        "greetingPlaceholder": "Sehr geehrte Damen und Herren,",
         "paragraphLabel": "Einleitungsabsatz",
         "paragraphHint": "Stellen Sie sich vor und erklären Sie, warum Sie schreiben. Erwähnen Sie die Position und wie Sie davon erfahren haben.",
         "paragraphPlaceholder": "Schreiben Sie Ihren Einleitungsabsatz..."
@@ -667,6 +666,7 @@
           "respectfully": "Mit vorzüglicher Hochachtung",
           "withAppreciation": "Mit herzlichem Dank"
         },
+        "signOffDefaultHint": "Die erste Grussformel ist die Standardformel für die Sprache des Briefs.",
         "nameLabel": "Ihr Name",
         "namePlaceholder": "Ihr vollständiger Name",
         "streetLabel": "Strasse und Nummer",

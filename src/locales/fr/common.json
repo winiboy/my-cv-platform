@@ -634,7 +634,6 @@
       "opening": {
         "title": "Accroche",
         "greetingLabel": "Formule d'appel",
-        "greetingPlaceholder": "Madame, Monsieur,",
         "paragraphLabel": "Paragraphe d'introduction",
         "paragraphHint": "Présentez-vous et expliquez l'objet de votre lettre. Mentionnez le poste visé et comment vous en avez eu connaissance.",
         "paragraphPlaceholder": "Rédigez votre paragraphe d'introduction..."
@@ -667,6 +666,7 @@
           "respectfully": "Respectueusement,",
           "withAppreciation": "Avec mes remerciements,"
         },
+        "signOffDefaultHint": "La première formule est celle par défaut pour la langue de la lettre.",
         "nameLabel": "Votre nom",
         "namePlaceholder": "Votre nom complet",
         "streetLabel": "Rue et numéro",

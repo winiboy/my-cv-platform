@@ -132,8 +132,9 @@ describe('cover-letters API', () => {
       const { coverLetter } = await res.json()
       expect(coverLetter.user_id).toBe(alice.id)
       expect(coverLetter.title).toBe('Alice letter')
-      expect(coverLetter.greeting).toBe('Dear Hiring Manager,')
-      expect(coverLetter.sign_off).toBe('Sincerely,')
+      // Empty: printed as the letter language's default greeting and sign-off.
+      expect(coverLetter.greeting).toBe('')
+      expect(coverLetter.sign_off).toBe('')
       expect(coverLetter.template).toBe('modern')
       expect(coverLetter.body_paragraphs).toEqual([])
     })

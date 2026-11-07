@@ -124,11 +124,13 @@ export async function POST(request: NextRequest) {
         recipient_title: recipient_title || null,
         company_name: company_name || null,
         company_address: company_address || null,
-        greeting: greeting || 'Dear Hiring Manager,',
+        // Empty, not omitted: the columns' database default is English. An
+        // empty greeting and sign-off print the letter language's defaults.
+        greeting: greeting ?? '',
         opening_paragraph: opening_paragraph || null,
         body_paragraphs: body_paragraphs || [],
         closing_paragraph: closing_paragraph || null,
-        sign_off: sign_off || 'Sincerely,',
+        sign_off: sign_off ?? '',
         sender_name: sender_name || null,
         // Not `|| null`: an empty sender detail is one the user cleared, and
         // stays empty, where null falls back to the linked CV

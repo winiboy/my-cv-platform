@@ -634,7 +634,6 @@
       "opening": {
         "title": "Opening",
         "greetingLabel": "Greeting",
-        "greetingPlaceholder": "Dear Hiring Manager,",
         "paragraphLabel": "Opening Paragraph",
         "paragraphHint": "Introduce yourself and explain why you are writing. Mention the position and how you learned about it.",
         "paragraphPlaceholder": "Write your opening paragraph..."
@@ -667,6 +666,7 @@
           "respectfully": "Respectfully,",
           "withAppreciation": "With appreciation,"
         },
+        "signOffDefaultHint": "The first sign-off is the default for the letter's language.",
         "nameLabel": "Your Name",
         "namePlaceholder": "Your full name",
         "streetLabel": "Street and number",

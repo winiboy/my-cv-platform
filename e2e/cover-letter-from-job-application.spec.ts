@@ -377,11 +377,11 @@ test.describe('Cover letter from a saved job application', () => {
       title: 'Lettre vide',
       resume_id: null,
       job_application_id: null,
-      greeting: 'Dear Hiring Manager,',
+      greeting: '',
       opening_paragraph: null,
       body_paragraphs: [],
       closing_paragraph: null,
-      sign_off: 'Sincerely,',
+      sign_off: '',
       sender_name: null,
     })
     expect(routeCalls).toBe(0)

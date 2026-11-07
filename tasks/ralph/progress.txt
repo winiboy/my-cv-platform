@@ -525,3 +525,114 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-004 The Word export produces the same Swiss A4 letter
 FINAL: PASS
+
+## US-005: New letters start with the Swiss greeting and sign-off in their language *(Amendment 1)*
+Status: PASS
+Priority: 5
+Branch: ralph/cover-letter-swiss-format
+Baseline HEAD: da62b5e (US-004)
+
+Scope:
+- Scope check: PASS
+- Changed paths: story diff sha256 prefix 437ed6b13663110a.
+  - The hash covers `git diff -- src e2e` (15 files, 167/35), then each of the two untracked files prefixed with "== <path>": `e2e/cover-letter-swiss-greeting.spec.ts` (151) and `src/app/api/cover-letters/route.test.ts` (74).
+  - **Creation paths:**
+    - `create-cover-letter-form.tsx` inserts `greeting: ''` and `sign_off: ''`, replacing "Dear Hiring Manager," and "Sincerely,".
+    - `POST /api/cover-letters` (`route.ts`) stores `greeting ?? ''` and `sign_off ?? ''`; values that are sent are stored as written.
+    - Empty is `''`, not null: both columns are `TEXT NOT NULL` with an English database default (migration 003), so leaving them out would store English.
+  - **Editor:**
+    - `cover-letter-editor.tsx` resolves the letter's language with `coverLetterLanguage` (same inputs and locale as the preview) and passes `COVER_LETTER_WORDING[language]`'s defaults to the two sections.
+    - `opening-section.tsx`: the greeting placeholder is that default greeting; the English fallback is removed.
+    - `signature-section.tsx`: the first option (`''`) is labelled with the plain default sign-off. A hint under the select is linked by `aria-describedby`.
+  - **`src/lib/cover-letter-sign-off.ts`:** `signOffOptionsFor(localized, stored, defaultSignOff)` returns `''` first. It drops the localized option equal to the default, ignoring a trailing comma, case and ß versus ss. A stored value not in the resulting list is still kept, as written, right after the default.
+  - **Locales (fr/en/de/it):** `coverLetters.editor.signature.signOffDefaultHint` added. `coverLetters.editor.opening.greetingPlaceholder` removed; nothing reads it any more, and it was wrong for it.
+  - **Tests:**
+    - `route.test.ts` (new): empty and absent values stored as `''`; sent values stored as written.
+    - `cover-letter-sign-off.test.ts`: the fr comma case, the de ß case, a stored legacy value, a single `''`, and six options per real dictionary with the default once.
+    - `cover-letters.integration.test.ts`: the two default expectations change from English to `''`.
+    - `e2e/cover-letter-swiss-greeting.spec.ts` (new), fr and de:
+      - the stored row is empty after creation through the form;
+      - the preview shows the defaults; the placeholder, the option list and the hint are checked;
+      - a typed greeting and a picked sign-off are stored and printed, before and after reload;
+      - the default picked again stores `''` and prints the default.
+    - `e2e/cover-letter-from-job-application.spec.ts` test (e): a letter created without an application now expects `''`.
+    - `e2e/cover-letter-editor-i18n.spec.ts` and `e2e/cover-letter-preview-window.spec.ts`: the greeting is located by `COVER_LETTER_WORDING[...].defaultGreeting`, and the exact option lists start with the default. Only what follows from the change.
+- Not touched:
+  - the job-application route, which stores only an AI-provided greeting and sign-off or answers 502;
+  - Duplicate and translation;
+  - existing letters (no migration);
+  - the exports, which already print `''` as the language default;
+  - resumes and the marketing PDF.
+- No version change, no push or merge.
+- The temporary capture spec (`e2e/zz-s5-cap.spec.ts`) was run alone and deleted; it is not in the diff.
+
+Checks:
+- Final run on this diff, alone, started after the last edit; the hash 437ed6b13663110a was the same before and after.
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3419 passed, 5 skipped.
+  - pnpm test:integration: PASS — 63 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 530 passed, 0 failed (15.8 min).
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+  - pnpm test:visual: PASS — 10 passed.
+- Earlier runs, not evidence for this diff:
+  - The first run was stopped after code review round 1 failed. Its e2e had already crashed: 53 Playwright workers exited with 0xC0000142, a Windows process-start failure, while a review agent was also running. The run's tree was killed and port 3100 checked free.
+  - Diff 986afef02f1475aa (after review round 2) was all green with e2e 530/0. It was superseded by the ui-expert fix.
+
+Specialized validation:
+- Browser: PASS — the e2e above. Captures of the production build: fresh letters in fr, de, it and en at 1280 and 375, covering the Opening and Signature sections, the option lists, the hint, a keyboard trace and the preview text (scratchpad `s5ux2/`).
+- Visual: PASS — `pnpm test:visual` 10/10, baselines unchanged. Parity unchanged.
+- Export: NOT_APPLICABLE — no export code changed. The PDF and Word print an empty greeting or sign-off as the language default: `swissLetterParts` unit tests in four languages, `e2e/cover-letter-swiss-pdf.spec.ts` (letters seeded with `''`), and US-004's Word tests.
+- Database: NOT_APPLICABLE — no schema change and no rewrite of stored rows; only the value the app inserts for new letters changes.
+- Security: NOT_APPLICABLE — no new input, route or output path. The POST schema and its limits are unchanged, and the new UI text comes from the dictionaries.
+
+Agents:
+- senior-coder: implementation; fix round 1 (code-reviewer findings 1 and 3); fix round 2 (ui-expert findings 1 and 2).
+- ui-expert:
+  - round 1: FAIL. The closed select cut its "(default)" label (fr at 1280 and 375, de at 1280); de offered "Freundliche Grüsse (Standard)" next to "Freundliche Grüße".
+  - round 2: PASS 7/7. Full labels at both widths; hint contrast about 6:1; aria-describedby; keyboard trace.
+- code-reviewer:
+  - round 1: FAIL. Major: the default sign-off could not be picked again. Minor: specs located the greeting by a dictionary key no longer read.
+  - round 2: PASS.
+  - round 3, after the ui-expert fix: PASS. A stored dropped option (e.g. "Freundliche Grüße") still shows selected and as written; the normalization compares whole strings only.
+
+Acceptance criteria:
+- AC-01 (form and POST store `''`; job application stores only AI-provided values): PASS.
+  - Route unit tests, the integration test, and the e2e reading the stored row in fr and de.
+  - The job-application route answers 502 and stores nothing when the AI omits them (`stored-letter.ts`; route test).
+- AC-02 (prints the language defaults in preview, PDF and Word): PASS.
+  - The e2e preview in fr and de; captures in four languages.
+  - PDF and Word through `swissLetterParts`, tested in four languages, plus the existing PDF e2e with `''`.
+- AC-03 (fields stay editable; typed and picked values stored and printed as written): PASS — the e2e in fr and de, including reload and picking the default again; a unit test for a stored legacy value.
+- AC-04 (existing letters untouched): PASS — no migration; the i18n spec checks that opening the editor does not rewrite a stored "Sincerely,".
+- AC-05 (Duplicate and translation unchanged): PASS — no change to `cover-letter-card.tsx` or the translate route. An empty value is copied as `''` and prints the target language's default.
+- FR-1 (one canonical description): PASS. FR-4 (no ß in default wording): PASS. FR-6 (new string in four dictionaries with parity): PASS. FR-7 (no dependency): PASS.
+- Regression constraints: PASS — e2e, parity and visual green; user text is never rewritten.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Empty is `''`.** The columns cannot hold null, and their database default is English.
+- **The default is the first sign-off option, in plain text.** The localized option equal to it is not listed twice. A "(default)" label was truncated in fr and de (ui-expert round 1), so a hint under the select carries that meaning instead.
+- **`greetingPlaceholder` removed.** The placeholder now follows the letter's language, which is what prints. The dictionary key was unread, and wrong in it.
+
+Open owner decisions:
+- **The editor's Generate button** (`src/app/api/ai/generate-cover-letter/route.ts` L167, L173) still falls back to "Dear Hiring Manager," / "Sincerely," when the AI omits a greeting or sign-off. It is not a creation path, so it is out of this story's AC. Changing the fallback to `''` would be two lines; that is the owner's scope call.
+- **Out of scope (ui-expert, pre-existing):**
+  - Input placeholder contrast is 3.95:1, below AA 4.5:1 (shared input style). The empty greeting now relies on it more.
+  - The German sign-off options and the "Grußformel" label use ß.
+  - The other sign-off options end with a comma, which a Swiss letter would not print.
+  - At 375 the sticky save bar covers the lower fields, and the section tab strip is cut off at both edges.
+- **Minor, not done:**
+  - The de greeting placeholder is clipped at 1280 (the full text shows in the preview beside it).
+  - An e2e for a seeded legacy dropped-option sign-off (covered by a unit test only).
+  - The letter language is computed in the editor and in the preview template with the same function and inputs.
+- **The PRD's line 5** still says Amendment 1 is "awaiting the owner's re-approval", although the status line reads APPROVED 2026-11-06. Only the owner changes that text.
+
+Environment notes:
+- The first check run's e2e failed with Windows process-start errors (0xC0000142) while a review agent ran at the same time. Later runs were started only with nothing else running and passed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-005 New letters start with the Swiss greeting and sign-off in their language
+FINAL: PASS

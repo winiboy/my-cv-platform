@@ -281,7 +281,7 @@
         "Out of scope: Multi-page layout rules beyond what the template already does."
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

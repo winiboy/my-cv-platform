@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useId } from 'react'
-import { localizedSignOffOptions, signOffOptionsFor } from '@/lib/cover-letter-sign-off'
+import { DEFAULT_SIGN_OFF_OPTION, localizedSignOffOptions, signOffOptionsFor } from '@/lib/cover-letter-sign-off'
 import { COVER_LETTER_FIELD_LIMITS } from '@/lib/cover-letter-limits'
 import {
   COVER_LETTER_NO_ANNEXES,
@@ -13,6 +13,8 @@ import {
 
 interface SignatureSectionProps {
   signOff: string
+  /** Printed when the sign-off is empty: the default of the letter's language. */
+  defaultSignOff: string
   senderName: string | null
   /** What the sender fields show: the stored details, with the linked CV as fallback. */
   senderDetails: CoverLetterSenderDetails
@@ -56,6 +58,7 @@ const FIELD_ID_SUFFIX: Record<CoverLetterSenderField, string> = {
 
 export function SignatureSection({
   signOff,
+  defaultSignOff,
   senderName,
   senderDetails,
   annexes,
@@ -74,7 +77,11 @@ export function SignatureSection({
   const signOffOptions = signOffOptionsFor(
     localizedSignOffOptions((signatureDict.signOffOptions || {}) as Record<string, unknown>),
     signOff,
+    defaultSignOff,
   )
+  // The empty sign-off option reads as the default it prints, not blank.
+  const signOffOptionLabel = (option: string) => (option === DEFAULT_SIGN_OFF_OPTION ? defaultSignOff : option)
+  const signOffHintId = `${idPrefix}-sign-off-hint`
 
   const fieldId = (field: CoverLetterSenderField) => `${idPrefix}-${FIELD_ID_SUFFIX[field]}`
   const errorId = (field: CoverLetterSenderField) => `${fieldId(field)}-error`
@@ -119,14 +126,18 @@ export function SignatureSection({
           <select
             value={signOff}
             onChange={(e) => onChange('sign_off', e.target.value)}
+            aria-describedby={signOffHintId}
             className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-slate-800"
           >
             {signOffOptions.map((option) => (
               <option key={option} value={option}>
-                {option}
+                {signOffOptionLabel(option)}
               </option>
             ))}
           </select>
+          <p id={signOffHintId} className="mt-1 text-xs text-slate-500">
+            {text('signOffDefaultHint', "The first sign-off is the default for the letter's language.")}
+          </p>
         </div>
 
         <div>

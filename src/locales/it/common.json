@@ -634,7 +634,6 @@
       "opening": {
         "title": "Apertura",
         "greetingLabel": "Saluto",
-        "greetingPlaceholder": "Gentile Responsabile,",
         "paragraphLabel": "Paragrafo di apertura",
         "paragraphHint": "Presentati e spiega perché scrivi. Menziona la posizione e come ne sei venuto a conoscenza.",
         "paragraphPlaceholder": "Scrivi il tuo paragrafo di apertura..."
@@ -667,6 +666,7 @@
           "respectfully": "Con osservanza,",
           "withAppreciation": "Con gratitudine,"
         },
+        "signOffDefaultHint": "La prima formula è quella predefinita per la lingua della lettera.",
         "nameLabel": "Il tuo nome",
         "namePlaceholder": "Il tuo nome completo",
         "streetLabel": "Via e numero",

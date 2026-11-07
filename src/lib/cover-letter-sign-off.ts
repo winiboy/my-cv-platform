@@ -23,15 +23,41 @@ export function localizedSignOffOptions(optionsDict: Record<string, unknown>): s
 }
 
 /**
- * The options the select renders for a letter whose stored sign-off is `stored`.
+ * The option value of the language default: an empty sign-off, which the
+ * letter prints as its language's default (`COVER_LETTER_WORDING`).
+ */
+export const DEFAULT_SIGN_OFF_OPTION = ''
+
+/**
+ * A sign-off reduced to what tells two closings apart: no trailing comma, no
+ * case, and Swiss "ss" for "ß", so "Freundliche Grüße" is "Freundliche Grüsse".
+ */
+function closingKey(signOff: string): string {
+  return signOff.trim().replace(/,$/, '').trim().toLocaleLowerCase().replace(/ß/g, 'ss')
+}
+
+/**
+ * The options the select renders for a letter whose stored sign-off is
+ * `stored`, in a letter whose language prints `defaultSignOff` for an empty one.
+ *
+ * The language default comes first, always, so it can be picked again after
+ * another sign-off. A localized option that is the same closing as the
+ * default (`closingKey`) is left out, so the list never offers it twice.
  *
  * A stored sign-off is user content: it may be from another language (letters
  * created with the English default, or written by the AI in the letter's
  * language) or from an older option list. A `<select>` whose value matches no
- * option displays its first option instead, so the stored value is prepended
- * when absent — otherwise the editor would show one sign-off while the letter
- * keeps another.
+ * option displays its first option instead, so the stored value is added
+ * after the default when absent — otherwise the editor would show one
+ * sign-off while the letter keeps another.
  */
-export function signOffOptionsFor(localized: readonly string[], stored: string): string[] {
-  return localized.includes(stored) ? [...localized] : [stored, ...localized]
+export function signOffOptionsFor(
+  localized: readonly string[],
+  stored: string,
+  defaultSignOff: string,
+): string[] {
+  const defaultKey = closingKey(defaultSignOff)
+  const offered = localized.filter((option) => closingKey(option) !== defaultKey)
+  const kept = stored === DEFAULT_SIGN_OFF_OPTION || offered.includes(stored) ? [] : [stored]
+  return [DEFAULT_SIGN_OFF_OPTION, ...kept, ...offered]
 }

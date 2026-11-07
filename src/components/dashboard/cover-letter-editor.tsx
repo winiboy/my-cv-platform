@@ -31,6 +31,8 @@ import {
   type CoverLetterSenderField,
   type CoverLetterSenderFieldError,
 } from '@/lib/cover-letter-sender'
+import { COVER_LETTER_WORDING } from '@/lib/cover-letter-language'
+import { coverLetterLanguage } from '@/lib/cover-letter-pdf-html'
 import { useCoverLetterDownload } from '@/lib/hooks/use-cover-letter-download'
 import type { CoverLetterExportFormat } from '@/lib/cover-letter-download-client'
 import type { Locale } from '@/lib/i18n'
@@ -165,6 +167,14 @@ export function CoverLetterEditor({
   const senderDetails = useMemo(
     () => effectiveSenderDetails(coverLetter, linkedContact),
     [coverLetter, linkedContact]
+  )
+
+  // What an empty greeting or sign-off prints: the default of the letter's
+  // language, as the preview and the exports detect it (`swissLetterParts`).
+  const { opening_paragraph, body_paragraphs, closing_paragraph } = coverLetter
+  const letterWording = useMemo(
+    () => COVER_LETTER_WORDING[coverLetterLanguage({ opening_paragraph, body_paragraphs, closing_paragraph }, locale)],
+    [opening_paragraph, body_paragraphs, closing_paragraph, locale]
   )
 
   const handleSave = async () => {
@@ -735,6 +745,7 @@ export function CoverLetterEditor({
         return (
           <OpeningSection
             greeting={coverLetter.greeting}
+            defaultGreeting={letterWording.defaultGreeting}
             openingParagraph={coverLetter.opening_paragraph}
             onChange={handleFieldChange}
             dict={dict}
@@ -760,6 +771,7 @@ export function CoverLetterEditor({
         return (
           <SignatureSection
             signOff={coverLetter.sign_off}
+            defaultSignOff={letterWording.defaultSignOff}
             senderName={coverLetter.sender_name}
             senderDetails={senderDetails}
             annexes={coverLetter.annexes}

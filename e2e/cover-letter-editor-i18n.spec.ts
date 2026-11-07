@@ -9,6 +9,7 @@ import {
 import en from '../src/locales/en/common.json'
 import fr from '../src/locales/fr/common.json'
 import de from '../src/locales/de/common.json'
+import { COVER_LETTER_WORDING } from '../src/lib/cover-letter-language'
 
 /**
  * The cover-letter editor's recipient, opening, body, closing and signature
@@ -223,11 +224,34 @@ async function expectSystemFontLabel(pane: Locator, dict: Dict, label: string): 
   }
 }
 
-function signOffOptions(dict: Dict): string[] {
-  return Object.values(dict.coverLetters.editor.signature.signOffOptions)
-}
+/**
+ * The select's options for the letter's stored English sign-off: the language
+ * default (the empty sign-off) first, then the stored value, then the
+ * localized list without the option that is the default's closing
+ * ("Meilleures salutations,", "Freundliche Grüße").
+ */
+const SIGN_OFF_OPTIONS = {
+  fr: [
+    'Meilleures salutations',
+    STORED_SIGN_OFF,
+    'Cordialement,',
+    'Bien à vous,',
+    'Salutations distinguées,',
+    'Respectueusement,',
+    'Avec mes remerciements,',
+  ],
+  de: [
+    'Freundliche Grüsse',
+    STORED_SIGN_OFF,
+    'Mit freundlichen Grüßen',
+    'Beste Grüße',
+    'Hochachtungsvoll',
+    'Mit vorzüglicher Hochachtung',
+    'Mit herzlichem Dank',
+  ],
+} as const satisfies Record<keyof typeof LOCALES, readonly string[]>
 
-for (const [locale, dict] of Object.entries(LOCALES)) {
+for (const [locale, dict] of Object.entries(LOCALES) as Array<[keyof typeof LOCALES, Dict]>) {
   test(`the cover letter editor shows no English in ${locale}`, async ({
     page,
     authedUser,
@@ -267,7 +291,8 @@ for (const [locale, dict] of Object.entries(LOCALES)) {
     await expectLocalized(pane, 'opening', editor, [
       opening.title,
       opening.greetingLabel,
-      opening.greetingPlaceholder,
+      // The letter has no paragraphs, so its language is the page's.
+      COVER_LETTER_WORDING[locale].defaultGreeting,
       opening.paragraphLabel,
       opening.paragraphHint,
       opening.paragraphPlaceholder,
@@ -316,10 +341,12 @@ for (const [locale, dict] of Object.entries(LOCALES)) {
       signature.namePlaceholder,
     ])
 
-    // The stored English sign-off stays selected, ahead of the localized list.
+    // The stored English sign-off stays selected, after the language default
+    // and ahead of the localized list.
     const select = pane.locator('select')
     await expect(select).toHaveValue(STORED_SIGN_OFF)
-    await expect(select.locator('option')).toHaveText([STORED_SIGN_OFF, ...signOffOptions(dict)])
+    await expect(select.locator('option')).toHaveText([...SIGN_OFF_OPTIONS[locale]])
+    await expect(pane.getByText(signature.signOffDefaultHint, { exact: true })).toBeVisible()
 
     // Rendering the editor does not rewrite the stored sign-off.
     const { data, error } = await admin()
@@ -349,9 +376,9 @@ test('the cover letter editor keeps the English nav labels, font label and sign-
   const select = pane.locator('select')
   await expect(select).toHaveValue(STORED_SIGN_OFF)
   await expect(select.locator('option')).toHaveText([
+    COVER_LETTER_WORDING.en.defaultSignOff,
     'Sincerely,',
     'Best regards,',
-    'Kind regards,',
     'Yours faithfully,',
     'Respectfully,',
     'With appreciation,',

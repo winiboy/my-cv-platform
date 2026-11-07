@@ -4,6 +4,8 @@ import { RichTextEditor } from '../rich-text-editor'
 
 interface OpeningSectionProps {
   greeting: string
+  /** Printed when the greeting is empty: the default of the letter's language. */
+  defaultGreeting: string
   openingParagraph: string | null
   onChange: (field: string, value: string | null) => void
   dict: Record<string, unknown>
@@ -11,6 +13,7 @@ interface OpeningSectionProps {
 
 export function OpeningSection({
   greeting,
+  defaultGreeting,
   openingParagraph,
   onChange,
   dict,
@@ -33,7 +36,9 @@ export function OpeningSection({
             type="text"
             value={greeting}
             onChange={(e) => onChange('greeting', e.target.value)}
-            placeholder={(openingDict.greetingPlaceholder as string) || 'Dear Hiring Manager,'}
+            // What an empty greeting prints, so the placeholder is never in
+            // another language than the letter.
+            placeholder={defaultGreeting}
             className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 dark:bg-slate-800"
           />
         </div>
