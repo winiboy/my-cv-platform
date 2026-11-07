@@ -1,5 +1,5 @@
-import pdfParse from 'pdf-parse'
 import { test, expect } from './fixtures/auth'
+import { parsePdf } from './fixtures/pdf'
 import { seedFixtureResume, type FixtureContentOverrides } from './fixtures/resume'
 import {
   LONG_EXPERIENCE,
@@ -82,7 +82,8 @@ async function printPdf(page: Page): Promise<{ pages: number; printHeight: numbe
     .evaluate((element) => (element as HTMLElement).offsetHeight)
   const pdf = await page.pdf({ preferCSSPageSize: true })
   await page.emulateMedia({ media: 'screen' })
-  const parsed = await pdfParse(pdf)
+  // Through `parsePdf`, never pdf-parse directly: a Buffer can fail to parse (see `e2e/fixtures/pdf.ts`).
+  const parsed = await parsePdf(pdf)
   return { pages: parsed.numpages, printHeight }
 }
 

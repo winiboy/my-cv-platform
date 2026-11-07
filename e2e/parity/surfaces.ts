@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect, type Page } from '@playwright/test'
 import JSZip from 'jszip'
-import pdfParse from 'pdf-parse'
 import type { ResumeLayoutModel } from '../../src/lib/layout-settings'
 import type { ResumeTemplate } from '../../src/types/database'
+import { parsePdf } from '../fixtures/pdf'
 import { coloursAgree, isBlendOf } from './colour'
 import {
   BODY_MARKER,
@@ -710,7 +710,8 @@ export async function measurePdf(buffer: Buffer, probe: SurfaceProbe): Promise<P
   const pageTops: number[] = []
   const fontNames = new Map<string, string>()
   let pagesRendered = 0
-  const parsed = await pdfParse(buffer, {
+  // Through `parsePdf`, never pdf-parse directly: a Buffer can fail to parse (see `e2e/fixtures/pdf.ts`).
+  const parsed = await parsePdf(buffer, {
     version: `v${PDFJS_VERSION}`,
     // pdf-parse renders pages one at a time, in order, awaiting each.
     pagerender: async (pageData: unknown) => {
