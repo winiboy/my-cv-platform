@@ -628,12 +628,12 @@
         "companyLabel": "Nom de l'entreprise",
         "companyPlaceholder": "ex. : Acme SA",
         "addressLabel": "Adresse de l'entreprise",
-        "addressPlaceholder": "Rue du Lac 12\n1000 Lausanne"
+        "addressPlaceholder": "Rue du Lac 12\n1000 Lausanne",
+        "windowOverflow": "L'adresse dépasse la fenêtre de l'enveloppe ({lines} lignes)"
       },
       "opening": {
         "title": "Accroche",
         "greetingLabel": "Formule d'appel",
-        "greetingPlaceholder": "Madame, Monsieur,",
         "paragraphLabel": "Paragraphe d'introduction",
         "paragraphHint": "Présentez-vous et expliquez l'objet de votre lettre. Mentionnez le poste visé et comment vous en avez eu connaissance.",
         "paragraphPlaceholder": "Rédigez votre paragraphe d'introduction..."
@@ -666,8 +666,26 @@
           "respectfully": "Respectueusement,",
           "withAppreciation": "Avec mes remerciements,"
         },
+        "signOffDefaultHint": "La première formule est celle par défaut pour la langue de la lettre.",
         "nameLabel": "Votre nom",
-        "namePlaceholder": "Votre nom complet"
+        "namePlaceholder": "Votre nom complet",
+        "streetLabel": "Rue et numéro",
+        "streetPlaceholder": "ex. : Rue de Bourg 12",
+        "postalLocalityLabel": "NPA et localité",
+        "postalLocalityPlaceholder": "ex. : 1003 Lausanne",
+        "phoneLabel": "Téléphone",
+        "phonePlaceholder": "ex. : +41 21 555 01 42",
+        "emailLabel": "E-mail",
+        "emailPlaceholder": "ex. : nom@exemple.ch",
+        "annexesLabel": "Annexes",
+        "annexesPlaceholder": "ex. : CV, certificats de travail, diplômes",
+        "annexesHint": "Laissez vide pour imprimer la liste par défaut, dans la langue de la lettre.",
+        "noAnnexesHint": "Aucune annexe ne sera imprimée.",
+        "noAnnexesLabel": "Pas de bloc Annexes",
+        "errors": {
+          "invalidEmail": "Saisissez une adresse e-mail valide, ou laissez le champ vide.",
+          "tooLong": "{max} caractères au maximum."
+        }
       }
     },
     "generation": {

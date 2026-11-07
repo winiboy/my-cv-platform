@@ -628,12 +628,12 @@
         "companyLabel": "Company Name",
         "companyPlaceholder": "e.g., Acme Corp",
         "addressLabel": "Company Address",
-        "addressPlaceholder": "123 Main St\nCity, State 12345"
+        "addressPlaceholder": "123 Main St\nCity, State 12345",
+        "windowOverflow": "The address does not fit the envelope window ({lines} lines)"
       },
       "opening": {
         "title": "Opening",
         "greetingLabel": "Greeting",
-        "greetingPlaceholder": "Dear Hiring Manager,",
         "paragraphLabel": "Opening Paragraph",
         "paragraphHint": "Introduce yourself and explain why you are writing. Mention the position and how you learned about it.",
         "paragraphPlaceholder": "Write your opening paragraph..."
@@ -666,8 +666,26 @@
           "respectfully": "Respectfully,",
           "withAppreciation": "With appreciation,"
         },
+        "signOffDefaultHint": "The first sign-off is the default for the letter's language.",
         "nameLabel": "Your Name",
-        "namePlaceholder": "Your full name"
+        "namePlaceholder": "Your full name",
+        "streetLabel": "Street and number",
+        "streetPlaceholder": "e.g., Rue de Bourg 12",
+        "postalLocalityLabel": "Postcode and locality",
+        "postalLocalityPlaceholder": "e.g., 1003 Lausanne",
+        "phoneLabel": "Phone",
+        "phonePlaceholder": "e.g., +41 21 555 01 42",
+        "emailLabel": "Email",
+        "emailPlaceholder": "e.g., name@example.ch",
+        "annexesLabel": "Enclosures",
+        "annexesPlaceholder": "e.g., CV, references, diplomas",
+        "annexesHint": "Leave empty to print the default list, in the letter's language.",
+        "noAnnexesHint": "No enclosures will be printed.",
+        "noAnnexesLabel": "No enclosures block",
+        "errors": {
+          "invalidEmail": "Enter a valid email address, or leave the field empty.",
+          "tooLong": "At most {max} characters."
+        }
       }
     },
     "generation": {

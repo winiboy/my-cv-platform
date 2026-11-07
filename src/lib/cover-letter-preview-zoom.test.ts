@@ -83,6 +83,10 @@ describe('cover-letter preview zoom (FR-3)', () => {
     expect(fitWidthScale(100, 0.85)).toBe(0.25)
   })
 
+  it('fits the A4 page at 96 dpi, 794 x 1123 px', () => {
+    expect([PAGE_WIDTH_PX, PAGE_HEIGHT_PX]).toEqual([794, 1123])
+  })
+
   it('fits the whole first page in both dimensions', () => {
     const heightBound = fitPageScale(1000, 700)
     expect(heightBound).toBeCloseTo(700 / PAGE_HEIGHT_PX)

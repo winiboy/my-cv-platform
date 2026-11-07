@@ -628,12 +628,12 @@
         "companyLabel": "Firmenname",
         "companyPlaceholder": "z.B. Muster GmbH",
         "addressLabel": "Firmenadresse",
-        "addressPlaceholder": "Musterstraße 123\n12345 Musterstadt"
+        "addressPlaceholder": "Musterstraße 123\n12345 Musterstadt",
+        "windowOverflow": "Die Adresse ist länger als das Fenster des Briefumschlags ({lines} Zeilen)"
       },
       "opening": {
         "title": "Einleitung",
         "greetingLabel": "Anrede",
-        "greetingPlaceholder": "Sehr geehrte Damen und Herren,",
         "paragraphLabel": "Einleitungsabsatz",
         "paragraphHint": "Stellen Sie sich vor und erklären Sie, warum Sie schreiben. Erwähnen Sie die Position und wie Sie davon erfahren haben.",
         "paragraphPlaceholder": "Schreiben Sie Ihren Einleitungsabsatz..."
@@ -666,8 +666,26 @@
           "respectfully": "Mit vorzüglicher Hochachtung",
           "withAppreciation": "Mit herzlichem Dank"
         },
+        "signOffDefaultHint": "Die erste Grussformel ist die Standardformel für die Sprache des Briefs.",
         "nameLabel": "Ihr Name",
-        "namePlaceholder": "Ihr vollständiger Name"
+        "namePlaceholder": "Ihr vollständiger Name",
+        "streetLabel": "Strasse und Nummer",
+        "streetPlaceholder": "z.B. Bahnhofstrasse 1",
+        "postalLocalityLabel": "PLZ und Ort",
+        "postalLocalityPlaceholder": "z.B. 8001 Zürich",
+        "phoneLabel": "Telefon",
+        "phonePlaceholder": "z.B. +41 44 555 01 42",
+        "emailLabel": "E-Mail",
+        "emailPlaceholder": "z.B. name@beispiel.ch",
+        "annexesLabel": "Beilagen",
+        "annexesPlaceholder": "z.B. Lebenslauf, Arbeitszeugnisse, Diplome",
+        "annexesHint": "Leer lassen, um die Standardliste in der Sprache des Briefs zu drucken.",
+        "noAnnexesHint": "Es werden keine Beilagen gedruckt.",
+        "noAnnexesLabel": "Ohne Beilagen-Block",
+        "errors": {
+          "invalidEmail": "Geben Sie eine gültige E-Mail-Adresse ein oder lassen Sie das Feld leer.",
+          "tooLong": "Höchstens {max} Zeichen."
+        }
       }
     },
     "generation": {

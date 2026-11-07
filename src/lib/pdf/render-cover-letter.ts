@@ -5,6 +5,8 @@ import {
   type CoverLetterPdfFields,
 } from '@/lib/cover-letter-pdf-html'
 import type { CoverLetterLanguage } from '@/lib/cover-letter-language'
+import type { CoverLetterSenderDetails } from '@/lib/cover-letter-sender'
+import { SWISS_LETTER_GEOMETRY_MM, SWISS_LETTER_PAGE_PX } from '@/lib/cover-letter-swiss-letter'
 import { sanitizeRichHtml } from '@/lib/rich-html-sanitizer'
 import { launchPdfBrowser, pdfBrowserRuntime } from './browser'
 import { SUBSTITUTE_FAMILIES, serverlessFontSubstitutes, type SubstituteFontFace } from './font-substitutes'
@@ -13,9 +15,9 @@ import { PdfRenderError, type PdfRenderStage } from './render-preview'
 /**
  * Print a cover letter to a PDF in a headless Chromium.
  *
- * ONE LAYOUT. The page is the markup of `buildCoverLetterPdfHtml`, the builder
- * the letters list exported with before this renderer existed, so the PDF has
- * the same template and section order; Chromium prints it as text, with its
+ * ONE LAYOUT. The page is the markup of `buildCoverLetterPdfHtml`: the Swiss
+ * A4 letter of `swissLetterParts`, laid out as the editor preview lays it out
+ * (cover-letter-swiss-format, US-003). Chromium prints it as text, with its
  * fonts embedded, instead of a picture of it.
  *
  * WHAT THE PAGE IS. A document set with `page.setContent`, never navigated to:
@@ -41,7 +43,9 @@ import { PdfRenderError, type PdfRenderStage } from './render-preview'
 export interface RenderCoverLetterPdfInput {
   /** Already shown to exist and to belong to the signed-in user. */
   coverLetter: CoverLetterPdfFields
-  /** The date line, pre-formatted (`formatCoverLetterDate`) in `language`. */
+  /** The sender details as printed: `effectiveSenderDetails(letter, linked CV contact)`. */
+  senderDetails: CoverLetterSenderDetails
+  /** The date of the place-and-date line, pre-formatted (`formatCoverLetterDate`) in `language`. */
   currentDate: string
   /** The letter's display language (`coverLetterLanguage`). */
   language: CoverLetterLanguage
@@ -49,26 +53,34 @@ export interface RenderCoverLetterPdfInput {
 }
 
 /**
- * The geometry the letter's markup is drawn for (816 x 1056 CSS px, 8.5 x 11
- * in) and that the export has always had: the cover letter was deliberately
- * kept out of the resumes' move to A4.
+ * The page the letter is printed on: A4, 210 x 297 mm (595.28 x 841.89 pt),
+ * from the Swiss letter's canonical geometry (`SWISS_LETTER_GEOMETRY_MM`).
+ * The viewport is the same page in CSS pixels, as the preview draws it.
  */
-export const COVER_LETTER_PAGE = { widthPx: 816, heightPx: 1056 } as const
+export const COVER_LETTER_PAGE = {
+  widthMm: SWISS_LETTER_GEOMETRY_MM.pageWidth,
+  heightMm: SWISS_LETTER_GEOMETRY_MM.pageHeight,
+  widthPx: SWISS_LETTER_PAGE_PX.width,
+  heightPx: SWISS_LETTER_PAGE_PX.height,
+} as const
 
 /**
- * The letter's top and bottom margin on a continuation page: the template's
- * own padding, which the first page gets from the markup.
+ * The letter's top and bottom margins on a continuation page: the FR-2
+ * margins, which the first page's top gets from the markup's padding.
  */
-const CONTINUATION_MARGIN_PX = 64
+const CONTINUATION_MARGIN_MM = {
+  top: SWISS_LETTER_GEOMETRY_MM.marginTop,
+  bottom: SWISS_LETTER_GEOMETRY_MM.marginBottom,
+} as const
 
 /**
  * The stylesheet the letter is printed with.
  *
- * The builder's markup was written for the dashboard page, which carries
- * Tailwind's preflight: border-box sizing (without it the 816 px letter with
- * its 64 px padding would be 944 px wide) and zero paragraph margins (the
- * builder spaces paragraphs with its own wrappers). Those two are restored
- * here, so the spacing is the export's.
+ * The builder's markup mirrors the editor preview, which carries Tailwind's
+ * preflight: border-box sizing (without it the A4-wide letter would be wider
+ * by its margins) and zero paragraph margins (the builder spaces parts with
+ * their own `margin-top`). Those two are restored here, so the spacing is the
+ * preview's.
  *
  * Lists get their markers back as the editor shows them, a disc for `ul` and
  * a number for `ol`: preflight removed them, and a list without markers no
@@ -76,14 +88,14 @@ const CONTINUATION_MARGIN_PX = 64
  * shape, so it is part of the PDF's text: copied, searched and read by an
  * applicant-tracking parser along with the item it marks.
  *
- * Paging: the template's `min-height` filled exactly one canvas page, and
- * would push a short letter onto a blank second page once the page has a
- * bottom margin, so it is lifted. The first page keeps the template's own top
- * padding; every page gets the bottom margin from `@page`, and continuation
- * pages their top margin, so a long letter flows on with a margin instead of
- * being cut at the page edge. The template's bottom padding is removed for
- * the same reason: on top of the `@page` margin it would add nothing visible
- * but could spill alone onto an otherwise empty last page.
+ * Paging: the markup's `min-height` fills exactly one page, and would push a
+ * short letter onto a blank second page once the page has a bottom margin, so
+ * it is lifted. The first page keeps the markup's own top padding (the FR-2
+ * top margin); every page gets the FR-2 bottom margin from `@page`, and
+ * continuation pages the top margin, so a long letter flows on with a margin
+ * instead of being cut at the page edge. The markup's bottom padding is
+ * removed for the same reason: on top of the `@page` margin it would add
+ * nothing visible but could spill alone onto an otherwise empty last page.
  */
 export const COVER_LETTER_PRINT_CSS = [
   '*, ::before, ::after { box-sizing: border-box; }',
@@ -93,7 +105,7 @@ export const COVER_LETTER_PRINT_CSS = [
   // A bullet and two no-break spaces, as the marker's own text (CSS escapes).
   "ul { list-style-type: '\\2022\\00a0\\00a0'; }",
   'ol { list-style-type: decimal; }',
-  `@page { size: ${COVER_LETTER_PAGE.widthPx}px ${COVER_LETTER_PAGE.heightPx}px; margin: ${CONTINUATION_MARGIN_PX}px 0; }`,
+  `@page { size: ${COVER_LETTER_PAGE.widthMm}mm ${COVER_LETTER_PAGE.heightMm}mm; margin: ${CONTINUATION_MARGIN_MM.top}mm 0 ${CONTINUATION_MARGIN_MM.bottom}mm; }`,
   '@page :first { margin-top: 0; }',
   'body > div:first-child { min-height: 0 !important; padding-bottom: 0 !important; }',
 ].join('\n')
@@ -126,14 +138,20 @@ export function buildCoverLetterPdfDocument(letterHtml: string, faces: readonly 
   )
 }
 
-/** The rich-text fields the builder interpolates, each to be sanitized once. */
+/**
+ * The rich-text fields the builder may interpolate, each to be sanitized
+ * once: every string among the opening, body paragraphs and closing. The
+ * builder prints a subset of them (`swissLetterParts` leaves out an empty
+ * paragraph), so its lookup never misses one.
+ */
 export function richTextFields(coverLetter: CoverLetterPdfFields): string[] {
   const fields = [
     coverLetter.opening_paragraph,
     ...coverLetterBodyParagraphs(coverLetter.body_paragraphs),
     coverLetter.closing_paragraph,
   ]
-  // Empty strings stay: the builder interpolates an empty body paragraph too.
+  // Empty strings stay: harmless to sanitize, and the set stays a superset
+  // of what any rendering of the parts prints.
   return Array.from(new Set(fields.filter((field): field is string => typeof field === 'string')))
 }
 
@@ -206,6 +224,7 @@ async function printLetter(
     await page.setContent(BLANK_DOCUMENT, { waitUntil: 'load' })
     const sanitized = await sanitizeInPage(page, richTextFields(input.coverLetter))
     const letterHtml = buildCoverLetterPdfHtml(input.coverLetter, {
+      senderDetails: input.senderDetails,
       currentDate: input.currentDate,
       language: input.language,
       sanitizeRichText: sanitizedLookup(sanitized),

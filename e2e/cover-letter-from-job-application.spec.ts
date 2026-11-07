@@ -103,6 +103,10 @@ interface StoredLetter {
   closing_paragraph: string | null
   sign_off: string
   sender_name: string | null
+  sender_street: string | null
+  sender_postal_locality: string | null
+  sender_phone: string | null
+  sender_email: string | null
 }
 
 async function seedApplication(
@@ -223,6 +227,11 @@ test.describe('Cover letter from a saved job application', () => {
       closing_paragraph: `<p>${german.closing}</p>`,
       sign_off: german.signOff,
       sender_name: 'Anna Muster',
+      // The sender details the CV has, as for sender_name (cover-letter-swiss-format US-001).
+      sender_email: 'test@example.test',
+      sender_phone: null,
+      sender_postal_locality: null,
+      sender_street: null,
     })
     expect(await linkedCoverLetterId(applicationId)).toBe(letter.id)
     expect(page.url()).toContain(`/fr/dashboard/cover-letters/${letter.id}/edit`)
@@ -368,11 +377,11 @@ test.describe('Cover letter from a saved job application', () => {
       title: 'Lettre vide',
       resume_id: null,
       job_application_id: null,
-      greeting: 'Dear Hiring Manager,',
+      greeting: '',
       opening_paragraph: null,
       body_paragraphs: [],
       closing_paragraph: null,
-      sign_off: 'Sincerely,',
+      sign_off: '',
       sender_name: null,
     })
     expect(routeCalls).toBe(0)

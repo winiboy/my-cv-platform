@@ -11,6 +11,7 @@ import type { CoverLetterUpdate } from '@/types/database'
 import type { Json } from '@/types/supabase'
 import { z } from 'zod'
 import { COVER_LETTER_FIELD_LIMITS } from '@/lib/cover-letter-limits'
+import { coverLetterSenderFieldsShape, normalizeAnnexes } from '@/lib/cover-letter-sender'
 
 /**
  * Zod schema for cover letter updates
@@ -29,6 +30,7 @@ const coverLetterUpdateSchema = z.object({
   closing_paragraph: z.string().max(COVER_LETTER_FIELD_LIMITS.closing_paragraph).nullable().optional(),
   sign_off: z.string().max(COVER_LETTER_FIELD_LIMITS.sign_off).optional(),
   sender_name: z.string().max(COVER_LETTER_FIELD_LIMITS.sender_name).nullable().optional(),
+  ...coverLetterSenderFieldsShape,
   job_title: z.string().max(COVER_LETTER_FIELD_LIMITS.job_title).nullable().optional(),
   job_description: z.string().max(COVER_LETTER_FIELD_LIMITS.job_description).nullable().optional(),
   template: z.literal('modern').optional(),
@@ -128,6 +130,11 @@ export async function PATCH(
     if ('closing_paragraph' in validatedData) updateData.closing_paragraph = validatedData.closing_paragraph
     if ('sign_off' in validatedData) updateData.sign_off = validatedData.sign_off
     if ('sender_name' in validatedData) updateData.sender_name = validatedData.sender_name
+    if ('sender_street' in validatedData) updateData.sender_street = validatedData.sender_street
+    if ('sender_postal_locality' in validatedData) updateData.sender_postal_locality = validatedData.sender_postal_locality
+    if ('sender_phone' in validatedData) updateData.sender_phone = validatedData.sender_phone
+    if ('sender_email' in validatedData) updateData.sender_email = validatedData.sender_email
+    if ('annexes' in validatedData) updateData.annexes = normalizeAnnexes(validatedData.annexes ?? null)
     if ('job_title' in validatedData) updateData.job_title = validatedData.job_title
     if ('job_description' in validatedData) updateData.job_description = validatedData.job_description
     if ('template' in validatedData) updateData.template = validatedData.template

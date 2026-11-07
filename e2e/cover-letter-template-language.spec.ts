@@ -86,9 +86,9 @@ const CASES: LetterCase[] = [
     },
     expected: {
       dateLocale: 'fr-FR',
-      subject: 'Objet : Candidature au poste de Ingénieur logiciel',
+      subject: 'Candidature au poste de Ingénieur logiciel',
       greeting: 'Madame, Monsieur,',
-      signOff: 'Veuillez agréer mes salutations distinguées,',
+      signOff: 'Meilleures salutations',
     },
   },
   {
@@ -107,9 +107,9 @@ const CASES: LetterCase[] = [
     },
     expected: {
       dateLocale: 'de-DE',
-      subject: 'Betreff: Bewerbung als Softwareentwickler',
+      subject: 'Bewerbung als Softwareentwickler',
       greeting: 'Sehr geehrte Damen und Herren,',
-      signOff: 'Mit freundlichen Grüßen,',
+      signOff: 'Freundliche Grüsse',
     },
   },
   {
@@ -125,9 +125,9 @@ const CASES: LetterCase[] = [
     },
     expected: {
       dateLocale: 'de-DE',
-      subject: 'Betreff: Bewerbung als Designer',
+      subject: 'Bewerbung als Designer',
       greeting: 'Bonjour Madame,',
-      signOff: 'Mit freundlichen Grüßen,',
+      signOff: 'Freundliche Grüsse',
     },
   },
   {
@@ -143,10 +143,10 @@ const CASES: LetterCase[] = [
       closing_paragraph: '<p>Thank you for your time and consideration.</p>',
     },
     expected: {
-      dateLocale: 'en-US',
-      subject: 'Re: Application for Software Engineer',
+      dateLocale: 'en-GB',
+      subject: 'Application for Software Engineer',
       greeting: 'Dear Hiring Manager,',
-      signOff: 'Sincerely,',
+      signOff: 'Kind regards',
     },
   },
 ]
@@ -292,8 +292,8 @@ for (const { name, page: locale, letter, expected } of CASES) {
     }
 
     // A localized letter carries no English part in either file.
-    if (expected.signOff !== 'Sincerely,') {
-      for (const english of ['Re:Applicationfor', 'DearHiringManager', 'Sincerely,']) {
+    if (expected.signOff !== 'Kind regards') {
+      for (const english of ['Applicationfor', 'DearHiringManager', 'Kindregards']) {
         expect(text).not.toContain(english)
         expect(squash(paragraphs.join(' '))).not.toContain(english)
       }
@@ -317,10 +317,10 @@ test('the preview follows an unsaved paragraph typed in another language', async
   const preview = letterPreview(page)
   const dateLines = (dateLocale: string) => [startedAt, new Date()].map((date) => dateLine(dateLocale, date))
 
-  await expectPreviewParts(preview, dateLines('en-US'), {
-    subject: 'Re: Application for Software Engineer',
+  await expectPreviewParts(preview, dateLines('en-GB'), {
+    subject: 'Application for Software Engineer',
     greeting: 'Dear Hiring Manager,',
-    signOff: 'Sincerely,',
+    signOff: 'Kind regards',
   })
 
   await page.getByRole('button', { name: fr.coverLetters.editor.sections.opening, exact: true }).click()
@@ -332,12 +332,12 @@ test('the preview follows an unsaved paragraph typed in another language', async
 
   // Nothing is saved: the preview reads the editor's current content.
   await expectPreviewParts(preview, dateLines('de-DE'), {
-    subject: 'Betreff: Bewerbung als Software Engineer',
+    subject: 'Bewerbung als Software Engineer',
     greeting: 'Sehr geehrte Damen und Herren,',
-    signOff: 'Mit freundlichen Grüßen,',
+    signOff: 'Freundliche Grüsse',
   })
   const lines = await previewLines(preview)
-  for (const english of ['Re: Application for Software Engineer', 'Dear Hiring Manager,', 'Sincerely,']) {
+  for (const english of ['Application for Software Engineer', 'Dear Hiring Manager,', 'Kind regards']) {
     expect(lines).not.toContain(english)
   }
 })

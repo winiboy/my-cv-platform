@@ -2,8 +2,8 @@ import { defaultLocale, toLocale, type Locale } from '@/lib/i18n'
 import { detectOfferLanguage } from '@/lib/resume-from-job/detect-offer-language'
 
 /**
- * The language a cover letter's date line, subject line and default greeting
- * and sign-off are printed in (PRD
+ * The language a cover letter's date line, subject line, default greeting and
+ * sign-off and Annexes block are printed in (PRD
  * `tasks/prds/cover-letter-template-language.md`, FR-1 and FR-2).
  *
  * No column stores a letter's language, so it is detected from the letter's
@@ -18,45 +18,71 @@ export type CoverLetterLanguage = Locale
 export interface CoverLetterWording {
   /** `Intl.DateTimeFormat` locale of the date line. */
   dateLocale: string
-  /** The subject line, from the letter's job title. */
+  /**
+   * The place-and-date line: the sender's locality, then the formatted date
+   * (`formatCoverLetterDate`). Without a place, the date alone.
+   */
+  placeDate: (place: string | null, date: string) => string
+  /** The subject line, from the letter's job title. Swiss letters print it bold, without a label. */
   subject: (jobTitle: string) => string
   /** Printed when the letter has no greeting. */
   defaultGreeting: string
   /** Printed when the letter has no sign-off. */
   defaultSignOff: string
+  /** The heading of the Annexes block. */
+  annexesLabel: string
+  /** The Annexes block's list when the letter has never set one (`annexes` is `null`). */
+  defaultAnnexes: string
 }
 
+/** "Place, date", the comma-separated form German, Italian and English letters use. */
+const placeCommaDate = (place: string | null, date: string) => (place ? `${place}, ${date}` : date)
+
 /**
- * Each language's business-letter wording. The date locales are the
- * languages' main-country ones (fr-FR, de-DE, it-IT): for a long date they
- * print the same as the Swiss variants, and do not depend on a regional
- * convention the letter's reader may not share. English stays en-US, the
- * format every letter export has printed so far.
+ * Each language's Swiss business-letter wording (cover-letter-swiss-format,
+ * FR-4): subjects without a label, Swiss closing formulas without a trailing
+ * comma, and Swiss German spelling, so no default contains "ß".
+ *
+ * The date locales are the languages' main-country ones (fr-FR, de-DE,
+ * it-IT): for a long date they print the same as the Swiss variants. English
+ * is en-GB, day before month ("5 November 2026"), as a Swiss letter is dated.
  */
 export const COVER_LETTER_WORDING: Readonly<Record<CoverLetterLanguage, CoverLetterWording>> = Object.freeze({
   en: {
-    dateLocale: 'en-US',
-    subject: (jobTitle: string) => `Re: Application for ${jobTitle}`,
+    dateLocale: 'en-GB',
+    placeDate: placeCommaDate,
+    subject: (jobTitle: string) => `Application for ${jobTitle}`,
     defaultGreeting: 'Dear Hiring Manager,',
-    defaultSignOff: 'Sincerely,',
+    defaultSignOff: 'Kind regards',
+    annexesLabel: 'Enclosures',
+    defaultAnnexes: 'CV, references, diplomas',
   },
   fr: {
     dateLocale: 'fr-FR',
-    subject: (jobTitle: string) => `Objet : Candidature au poste de ${jobTitle}`,
+    placeDate: (place: string | null, date: string) => (place ? `${place}, le ${date}` : date),
+    subject: (jobTitle: string) => `Candidature au poste de ${jobTitle}`,
     defaultGreeting: 'Madame, Monsieur,',
-    defaultSignOff: 'Veuillez agréer mes salutations distinguées,',
+    defaultSignOff: 'Meilleures salutations',
+    annexesLabel: 'Annexes',
+    defaultAnnexes: 'CV, certificats de travail, diplômes',
   },
   de: {
     dateLocale: 'de-DE',
-    subject: (jobTitle: string) => `Betreff: Bewerbung als ${jobTitle}`,
+    placeDate: placeCommaDate,
+    subject: (jobTitle: string) => `Bewerbung als ${jobTitle}`,
     defaultGreeting: 'Sehr geehrte Damen und Herren,',
-    defaultSignOff: 'Mit freundlichen Grüßen,',
+    defaultSignOff: 'Freundliche Grüsse',
+    annexesLabel: 'Beilagen',
+    defaultAnnexes: 'Lebenslauf, Arbeitszeugnisse, Diplome',
   },
   it: {
     dateLocale: 'it-IT',
-    subject: (jobTitle: string) => `Oggetto: Candidatura per la posizione di ${jobTitle}`,
+    placeDate: placeCommaDate,
+    subject: (jobTitle: string) => `Candidatura per la posizione di ${jobTitle}`,
     defaultGreeting: 'Gentili Signore e Signori,',
-    defaultSignOff: 'Cordiali saluti,',
+    defaultSignOff: 'Distinti saluti',
+    annexesLabel: 'Allegati',
+    defaultAnnexes: 'CV, certificati di lavoro, diplomi',
   },
 })
 
@@ -72,7 +98,7 @@ export function coverLetterRequestLanguage(body: unknown): CoverLetterLanguage {
 }
 
 /**
- * The date line in the letter's language, long month, e.g. "November 2, 2026"
+ * The date line in the letter's language, long month, e.g. "2 November 2026"
  * or "2. November 2026". In the runtime's time zone, as the date line has
  * always been formatted.
  */

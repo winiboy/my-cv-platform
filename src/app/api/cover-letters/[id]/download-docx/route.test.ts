@@ -9,7 +9,9 @@ import type { CoverLetterDocxInput } from './cover-letter-docx'
  * Unit coverage for `POST /api/cover-letters/[id]/download-docx`
  * (cover-letter-export-translate, US-002): authentication, the request type,
  * ownership, the size guard, a build failure mapped to a clean error with no
- * file, and a file name derived safely from the title.
+ * file, and a file name derived safely from the title; and the sender details
+ * of the Swiss letter (cover-letter-swiss-format, US-004), with the linked
+ * CV's contact read under the same owner filter as the PDF's.
  *
  * Supabase is a recorder that answers like RLS plus the route's own filters.
  * The builder is the real one, wrapped so a test can make it fail.
@@ -18,6 +20,7 @@ import type { CoverLetterDocxInput } from './cover-letter-docx'
 const USER_ID = '11111111-1111-4111-8111-111111111111'
 const OTHER_USER_ID = '99999999-9999-4999-8999-999999999999'
 const LETTER_ID = '44444444-4444-4444-8444-444444444444'
+const RESUME_ID = '55555555-5555-4555-8555-555555555555'
 
 const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
@@ -29,12 +32,54 @@ const state: {
   readError: { code: string } | null
   filters: Array<[string, unknown]>
   columns: string | null
-} = { user: null, row: null, readError: null, filters: [], columns: null }
+  /** The CVs table: rows, a read error or a thrown failure, and what the route asked for. */
+  resumes: Row[]
+  resumeReadError: { code: string } | null
+  resumeReadThrows: boolean
+  resumeFilters: Array<[string, unknown]>
+  resumeColumns: string | null
+  /** The tables read, in order. */
+  tables: string[]
+} = {
+  user: null,
+  row: null,
+  readError: null,
+  filters: [],
+  columns: null,
+  resumes: [],
+  resumeReadError: null,
+  resumeReadThrows: false,
+  resumeFilters: [],
+  resumeColumns: null,
+  tables: [],
+}
+
+function fakeResumes() {
+  const builder = {
+    select(columns: string) {
+      state.resumeColumns = columns
+      return builder
+    },
+    eq(column: string, value: unknown) {
+      state.resumeFilters.push([column, value])
+      return builder
+    },
+    async maybeSingle() {
+      if (state.resumeReadThrows) throw new TypeError('fetch failed')
+      if (state.resumeReadError) return { data: null, error: state.resumeReadError }
+      const visible = state.resumes.find((row) => state.resumeFilters.every(([column, value]) => row[column] === value))
+      return { data: visible ?? null, error: null }
+    },
+  }
+  return builder
+}
 
 function fakeSupabase() {
   return {
     auth: { getUser: async () => ({ data: { user: state.user }, error: null }) },
     from(table: string) {
+      state.tables.push(table)
+      if (table === 'resumes') return fakeResumes()
       expect(table).toBe('cover_letters')
       const builder = {
         select(columns: string) {
@@ -87,6 +132,12 @@ function letterRow(overrides: Row = {}): Row {
     body_paragraphs: ['<p>Body</p>'],
     closing_paragraph: '<p>Closing</p>',
     sign_off: 'Sincerely,',
+    resume_id: null,
+    sender_street: 'Rue de Bourg 12',
+    sender_postal_locality: null,
+    sender_phone: null,
+    sender_email: '',
+    annexes: null,
     ...overrides,
   }
 }
@@ -111,6 +162,12 @@ beforeEach(() => {
   state.readError = null
   state.filters = []
   state.columns = null
+  state.resumes = []
+  state.resumeReadError = null
+  state.resumeReadThrows = false
+  state.resumeFilters = []
+  state.resumeColumns = null
+  state.tables = []
   buildCoverLetterDocx.mockReset()
   buildCoverLetterDocx.mockImplementation((input) => realBuild.current!(input))
   consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
@@ -188,6 +245,102 @@ describe('POST /api/cover-letters/[id]/download-docx: access', () => {
     expect(state.columns).not.toContain('*')
     expect(state.columns).not.toContain('job_description')
     expect(state.columns).toContain('title')
+    for (const column of ['resume_id', 'sender_street', 'sender_postal_locality', 'sender_phone', 'sender_email', 'annexes']) {
+      expect(state.columns).toContain(column)
+    }
+  })
+})
+
+describe('POST /api/cover-letters/[id]/download-docx: the sender details', () => {
+  const CONTACT = { email: 'ada.cv@example.ch', phone: '+41 21 555 01 42', location: '1003 Lausanne' }
+
+  async function documentXml(response: Response): Promise<string> {
+    const body = Buffer.from(await response.arrayBuffer())
+    return (await JSZip.loadAsync(body)).file('word/document.xml')!.async('string')
+  }
+
+  it('fills the details never set from the linked CV, read with an explicit owner filter', async () => {
+    state.row = letterRow({ resume_id: RESUME_ID })
+    state.resumes = [{ id: RESUME_ID, user_id: USER_ID, contact: CONTACT }]
+    const response = await call()
+    expect(response.status).toBe(200)
+    expect(state.resumeColumns).toBe('contact')
+    expect(state.resumeFilters).toEqual([
+      ['id', RESUME_ID],
+      ['user_id', USER_ID],
+    ])
+    // Street stored; locality and phone never set (null) take the CV's; the
+    // e-mail cleared on purpose ('') stays empty.
+    expect(buildCoverLetterDocx.mock.calls[0][0].senderDetails).toEqual({
+      sender_street: 'Rue de Bourg 12',
+      sender_postal_locality: '1003 Lausanne',
+      sender_phone: '+41 21 555 01 42',
+      sender_email: '',
+    })
+    const xml = await documentXml(response)
+    expect(xml).toContain('>1003 Lausanne<')
+    expect(xml).toContain('>+41 21 555 01 42<')
+    expect(xml).not.toContain('ada.cv@example.ch')
+  })
+
+  it("never prints another user's CV: the owner filter finds nothing, and the stored details print", async () => {
+    state.row = letterRow({ resume_id: RESUME_ID })
+    state.resumes = [{ id: RESUME_ID, user_id: OTHER_USER_ID, contact: CONTACT }]
+    const response = await call()
+    expect(response.status).toBe(200)
+    expect(state.resumeFilters).toContainEqual(['user_id', USER_ID])
+    expect(buildCoverLetterDocx.mock.calls[0][0].senderDetails).toEqual({
+      sender_street: 'Rue de Bourg 12',
+      sender_postal_locality: null,
+      sender_phone: null,
+      sender_email: '',
+    })
+    expect(await documentXml(response)).not.toContain('+41 21 555 01 42')
+  })
+
+  it.each([
+    ['the CV is gone', () => undefined],
+    ['the CV cannot be read', () => {
+      state.resumeReadError = { code: '08006' }
+    }],
+    ['the read throws', () => {
+      state.resumeReadThrows = true
+    }],
+  ])('still exports, with the stored details only, when %s', async (_case, arrange) => {
+    state.row = letterRow({ resume_id: RESUME_ID })
+    arrange()
+    const response = await call()
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe(DOCX_TYPE)
+    expect(buildCoverLetterDocx.mock.calls[0][0].senderDetails).toEqual({
+      sender_street: 'Rue de Bourg 12',
+      sender_postal_locality: null,
+      sender_phone: null,
+      sender_email: '',
+    })
+    expectNoLetterContentLogged()
+  })
+
+  it('reads no CV for a letter without one', async () => {
+    expect((await call()).status).toBe(200)
+    expect(state.resumeFilters).toEqual([])
+    expect(state.resumeColumns).toBeNull()
+  })
+
+  it('reads the CV only after the letter passed the ownership and size checks', async () => {
+    state.row = letterRow({ resume_id: RESUME_ID, user_id: OTHER_USER_ID })
+    expect((await call()).status).toBe(404)
+    expect(state.tables).toEqual(['cover_letters'])
+
+    state.tables = []
+    state.row = letterRow({ resume_id: RESUME_ID, opening_paragraph: 'x'.repeat(COVER_LETTER_PDF_GUARD.richTextField + 1) })
+    expect((await call()).status).toBe(422)
+    expect(state.tables).toEqual(['cover_letters'])
+
+    state.tables = []
+    state.row = letterRow({ resume_id: RESUME_ID })
+    expect((await call()).status).toBe(200)
+    expect(state.tables).toEqual(['cover_letters', 'resumes'])
   })
 })
 
@@ -202,7 +355,7 @@ describe('POST /api/cover-letters/[id]/download-docx: the file', () => {
 
     const xml = await (await JSZip.loadAsync(body)).file('word/document.xml')!.async('string')
     expect(xml).toContain(SECRET_SENTENCE)
-    expect(xml).toContain('Re: Application for Engineer')
+    expect(xml).toContain('Application for Engineer')
   })
 
   it('builds the stored row, with the date line the PDF prints', async () => {
@@ -210,7 +363,7 @@ describe('POST /api/cover-letters/[id]/download-docx: the file', () => {
     expect(buildCoverLetterDocx).toHaveBeenCalledTimes(1)
     const input = buildCoverLetterDocx.mock.calls[0][0]
     expect(input.coverLetter).toMatchObject({ opening_paragraph: `<p>${SECRET_SENTENCE}</p>`, sender_name: 'Ada Lovelace' })
-    expect(input.currentDate).toMatch(/^[A-Z][a-z]+ \d{1,2}, \d{4}$/)
+    expect(input.currentDate).toMatch(/^\d{1,2} [A-Z][a-z]+ \d{4}$/)
   })
 
   it('names the file after the title, with an encoded UTF-8 name and an ASCII fallback', async () => {
@@ -311,10 +464,10 @@ describe('POST /api/cover-letters/[id]/download-docx: the letter language', () =
     expect(response.status).toBe(200)
     expect(buildCoverLetterDocx.mock.calls[0][0].language).toBe('de')
     const xml = await documentXml(response)
-    expect(xml).toContain('Betreff: Bewerbung als Engineer')
+    expect(xml).toContain('Bewerbung als Engineer')
     expect(xml).toContain('Sehr geehrte Damen und Herren,')
-    expect(xml).toContain('Mit freundlichen Grüßen,')
-    expect(xml).not.toContain('Re: Application for')
+    expect(xml).toContain('Freundliche Grüsse')
+    expect(xml).not.toContain('Application for')
   })
 
   it('follows the page locale for a letter too short to tell, keeping a stored greeting and sign-off', async () => {
@@ -322,7 +475,7 @@ describe('POST /api/cover-letters/[id]/download-docx: the letter language', () =
     expect(response.status).toBe(200)
     expect(buildCoverLetterDocx.mock.calls[0][0].language).toBe('it')
     const xml = await documentXml(response)
-    expect(xml).toContain('Oggetto: Candidatura per la posizione di Engineer')
+    expect(xml).toContain('Candidatura per la posizione di Engineer')
     expect(xml).toContain('Dear team,')
     expect(xml).toContain('Sincerely,')
   })
@@ -331,8 +484,8 @@ describe('POST /api/cover-letters/[id]/download-docx: the letter language', () =
     const response = await call(LETTER_ID, request('application/json', '{"locale":"xx"}'))
     expect(response.status).toBe(200)
     expect(buildCoverLetterDocx.mock.calls[0][0].language).toBe('en')
-    expect(buildCoverLetterDocx.mock.calls[0][0].currentDate).toMatch(/^[A-Z][a-z]+ \d{1,2}, \d{4}$/)
-    expect(await documentXml(response)).toContain('Re: Application for Engineer')
+    expect(buildCoverLetterDocx.mock.calls[0][0].currentDate).toMatch(/^\d{1,2} [A-Z][a-z]+ \d{4}$/)
+    expect(await documentXml(response)).toContain('Application for Engineer')
   })
 
   it('refuses a body that is not JSON with 400 and builds nothing', async () => {

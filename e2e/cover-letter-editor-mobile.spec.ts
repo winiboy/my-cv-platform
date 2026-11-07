@@ -74,7 +74,7 @@ import de from '../src/locales/de/common.json'
  */
 
 const TOUCH_TARGET = 44
-const PAGE_WIDTH = 816
+const PAGE_WIDTH = 794
 /** The pane variant's starting scale is fitted to the width, never above 85%. */
 const PANE_MAX_SCALE = 0.85
 /** Sub-pixel rounding between layout boxes. */

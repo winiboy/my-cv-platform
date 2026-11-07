@@ -176,9 +176,9 @@ test('a cover letter with HTML paragraphs loads directly and renders them saniti
   const letter = page.locator('div.shadow-2xl').filter({ hasText: LETTER_OPENING_BOLD })
   await expect(letter).toHaveCount(1)
 
-  const opening = letter.locator('.mb-4.text-justify').filter({ hasText: LETTER_OPENING_BOLD })
-  const body = letter.locator('.mb-4.text-justify').filter({ hasText: LETTER_BODY_BOLD })
-  const closing = letter.locator('.mb-6.text-justify').filter({ hasText: LETTER_CLOSING_BOLD })
+  const opening = letter.locator('[data-letter-part="opening"]').filter({ hasText: LETTER_OPENING_BOLD })
+  const body = letter.locator('[data-letter-part="body"]').filter({ hasText: LETTER_BODY_BOLD })
+  const closing = letter.locator('[data-letter-part="closing"]').filter({ hasText: LETTER_CLOSING_BOLD })
 
   for (const [paragraph, boldText] of [
     [opening, LETTER_OPENING_BOLD],

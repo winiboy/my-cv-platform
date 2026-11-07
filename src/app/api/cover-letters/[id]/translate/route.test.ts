@@ -40,8 +40,9 @@ const state: {
   insertError: { code: string } | null
   filters: Array<[string, unknown]>
   tables: string[]
+  selects: Array<string | undefined>
   writes: Write[]
-} = { user: null, row: null, readError: null, insertError: null, filters: [], tables: [], writes: [] }
+} = { user: null, row: null, readError: null, insertError: null, filters: [], tables: [], selects: [], writes: [] }
 
 function fakeSupabase() {
   return {
@@ -53,7 +54,10 @@ function fakeSupabase() {
         return builder
       }
       const builder = {
-        select: () => builder,
+        select(columns?: string) {
+          state.selects.push(columns)
+          return builder
+        },
         eq(column: string, value: unknown) {
           state.filters.push([column, value])
           return builder
@@ -105,6 +109,11 @@ function letterRow(overrides: Row = {}): Row {
     closing_paragraph: '<p>Merci.</p>',
     sign_off: 'Cordialement,',
     sender_name: 'Zoë Lovelace',
+    sender_street: 'Rue de Bourg 12',
+    sender_postal_locality: '1003 Lausanne',
+    sender_phone: '+41 21 555 01 42',
+    sender_email: 'zoe@example.ch',
+    annexes: 'CV, certificats',
     job_title: 'Ingénieur',
     job_description: 'Offre',
     template: 'modern',
@@ -138,6 +147,7 @@ beforeEach(() => {
   state.insertError = null
   state.filters = []
   state.tables = []
+  state.selects = []
   state.writes = []
   translator.mockReset()
   translator.mockImplementation(prefixing)
@@ -338,6 +348,11 @@ describe('POST /api/cover-letters/[id]/translate', () => {
       company_name: 'Größe & Söhne AG',
       company_address: 'Bahnhofstraße 1',
       sender_name: 'Zoë Lovelace',
+      sender_street: 'Rue de Bourg 12',
+      sender_postal_locality: '1003 Lausanne',
+      sender_phone: '+41 21 555 01 42',
+      sender_email: 'zoe@example.ch',
+      annexes: 'CV, certificats',
       job_title: 'Ingénieur',
       job_description: 'Offre',
       template: 'modern',
@@ -347,6 +362,28 @@ describe('POST /api/cover-letters/[id]/translate', () => {
       closing_paragraph: '<p>[DE] Merci.</p>',
       sign_off: '[DE] Cordialement,',
     })
+  })
+
+  it('reads the five sender and annexes columns, and copies them untranslated', async () => {
+    expect((await call()).status).toBe(201)
+    const read = state.selects[0] ?? ''
+    for (const column of ['sender_street', 'sender_postal_locality', 'sender_phone', 'sender_email', 'annexes']) {
+      expect(read.split(/,\s*/), column).toContain(column)
+    }
+    // None of them is sent to the AI.
+    const segments = translator.mock.calls[0][0].segments.join('\n')
+    for (const value of ['Rue de Bourg 12', '1003 Lausanne', '+41 21 555 01 42', 'zoe@example.ch', 'CV, certificats']) {
+      expect(segments).not.toContain(value)
+    }
+  })
+
+  it.each([
+    ['an empty annexes (no Annexes block)', ''],
+    ['a null annexes (the default list)', null],
+  ])('keeps %s as it is in the copy', async (_label, annexes) => {
+    state.row = letterRow({ annexes })
+    expect((await call()).status).toBe(201)
+    expect((state.writes[0].payload as Row).annexes).toBe(annexes)
   })
 
   it('stores the copy under the session user, whatever the row or the body say', async () => {

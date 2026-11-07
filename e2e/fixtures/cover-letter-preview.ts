@@ -45,6 +45,8 @@ export async function insertLetter(userId: string): Promise<string> {
       body_paragraphs: LONG_BODY,
       closing_paragraph: '<p>Thank you for your time and consideration.</p>',
       sign_off: 'Sincerely,',
+      // No Annexes block, so the sender's name stays the letter's last line.
+      annexes: '',
     })
     .select('id')
     .single()

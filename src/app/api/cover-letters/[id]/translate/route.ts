@@ -65,7 +65,7 @@ const requestSchema = z.object({
 
 /** The columns a translation reads: what it translates and what it copies. */
 const TRANSLATE_COLUMNS =
-  'title, resume_id, job_application_id, recipient_name, recipient_title, company_name, company_address, greeting, opening_paragraph, body_paragraphs, closing_paragraph, sign_off, sender_name, job_title, job_description, template'
+  'title, resume_id, job_application_id, recipient_name, recipient_title, company_name, company_address, greeting, opening_paragraph, body_paragraphs, closing_paragraph, sign_off, sender_name, sender_street, sender_postal_locality, sender_phone, sender_email, annexes, job_title, job_description, template'
 
 const json = (error: string, status: number) => NextResponse.json({ error }, { status })
 
@@ -169,6 +169,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       company_name: original.company_name,
       company_address: original.company_address,
       sender_name: original.sender_name,
+      // Copied as they are: never translated, and the annexes' null and empty
+      // string keep their distinct meanings.
+      sender_street: original.sender_street,
+      sender_postal_locality: original.sender_postal_locality,
+      sender_phone: original.sender_phone,
+      sender_email: original.sender_email,
+      annexes: original.annexes,
       job_title: original.job_title,
       job_description: original.job_description,
       template: original.template,
