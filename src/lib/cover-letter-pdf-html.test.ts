@@ -4,7 +4,6 @@ import {
   coverLetterBodyParagraphs,
   coverLetterExportLanguage,
   coverLetterLanguage,
-  coverLetterParts,
   type CoverLetterPdfFields,
 } from './cover-letter-pdf-html'
 import { effectiveSenderDetails } from './cover-letter-sender'
@@ -250,77 +249,7 @@ describe('buildCoverLetterPdfHtml fallbacks and conditionals', () => {
   })
 })
 
-describe('coverLetterParts: the one list of parts both exports print', () => {
-  it('lists every part in the letter order', () => {
-    expect(coverLetterParts(makeCoverLetter({ company_address: '1 Main Street\nTown' }), CURRENT_DATE, 'en')).toEqual([
-      { kind: 'sender', text: 'Jane Doe' },
-      { kind: 'date', text: CURRENT_DATE },
-      {
-        kind: 'recipient',
-        lines: [
-          { text: 'John Smith', multiline: false },
-          { text: 'Head of Talent', multiline: false },
-          { text: 'Acme', multiline: false },
-          { text: '1 Main Street\nTown', multiline: true },
-        ],
-      },
-      { kind: 'subject', text: 'Application for Engineer' },
-      { kind: 'greeting', text: 'Dear John,' },
-      { kind: 'opening', html: 'Opening' },
-      { kind: 'body', html: 'Body one' },
-      { kind: 'body', html: 'Body two' },
-      { kind: 'closing', html: 'Closing' },
-      { kind: 'signOff', text: 'Best regards,' },
-      { kind: 'signature', text: 'Jane Doe' },
-    ])
-  })
-
-  it('leaves out empty optional parts and falls back to the default greeting and sign-off', () => {
-    const parts = coverLetterParts(
-      makeCoverLetter({
-        sender_name: '',
-        recipient_name: null,
-        company_name: null,
-        job_title: null,
-        greeting: '',
-        opening_paragraph: '',
-        body_paragraphs: [],
-        closing_paragraph: null,
-        sign_off: '',
-      }),
-      CURRENT_DATE,
-      'en',
-    )
-    expect(parts).toEqual([
-      { kind: 'date', text: CURRENT_DATE },
-      { kind: 'greeting', text: 'Dear Hiring Manager,' },
-      { kind: 'signOff', text: 'Kind regards' },
-    ])
-  })
-
-  it.each([
-    ['fr', 'Candidature au poste de Engineer', 'Madame, Monsieur,', 'Meilleures salutations'],
-    ['de', 'Bewerbung als Engineer', 'Sehr geehrte Damen und Herren,', 'Freundliche Grüsse'],
-    ['it', 'Candidatura per la posizione di Engineer', 'Gentili Signore e Signori,', 'Distinti saluti'],
-    ['en', 'Application for Engineer', 'Dear Hiring Manager,', 'Kind regards'],
-  ] as const)('words the subject and the empty greeting and sign-off in %s', (language, subject, greeting, signOff) => {
-    const parts = coverLetterParts(makeCoverLetter({ greeting: '', sign_off: '' }), CURRENT_DATE, language)
-    expect(parts.find((part) => part.kind === 'subject')).toEqual({ kind: 'subject', text: subject })
-    expect(parts.find((part) => part.kind === 'greeting')).toEqual({ kind: 'greeting', text: greeting })
-    expect(parts.find((part) => part.kind === 'signOff')).toEqual({ kind: 'signOff', text: signOff })
-    expect(parts.find((part) => part.kind === 'date')).toEqual({ kind: 'date', text: CURRENT_DATE })
-  })
-
-  it.each(['fr', 'de', 'it', 'en'] as const)('prints a stored greeting and sign-off as stored, in %s', (language) => {
-    const parts = coverLetterParts(
-      makeCoverLetter({ greeting: 'Dear John,', sign_off: 'Best regards,' }),
-      CURRENT_DATE,
-      language,
-    )
-    expect(parts.find((part) => part.kind === 'greeting')).toEqual({ kind: 'greeting', text: 'Dear John,' })
-    expect(parts.find((part) => part.kind === 'signOff')).toEqual({ kind: 'signOff', text: 'Best regards,' })
-  })
-
+describe('buildCoverLetterPdfHtml: the letter language', () => {
   it('prints the localized parts in the PDF markup', () => {
     const html = buildCoverLetterPdfHtml(makeCoverLetter({ greeting: '', sign_off: '' }), {
       senderDetails: storedDetails(makeCoverLetter()),

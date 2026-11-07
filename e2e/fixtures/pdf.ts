@@ -102,7 +102,8 @@ interface PositionedTextProxy {
  */
 export async function readPdfTextItems(pdf: Buffer): Promise<PdfTextItem[][]> {
   const pages: PdfTextItem[][] = []
-  await pdfParse(pdf, {
+  // Through `parsePdf`, never pdf-parse directly: a Buffer can fail to parse (see `parsePdf` above).
+  await parsePdf(pdf, {
     version: `v${PDFJS_VERSION}`,
     pagerender: async (pageData: unknown) => {
       const proxy = pageData as PositionedTextProxy

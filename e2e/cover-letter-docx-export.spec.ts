@@ -20,9 +20,11 @@ import de from '../src/locales/de/common.json'
  *
  *   - The download is a valid Word package (a zip holding
  *     `word/document.xml`) named after the letter's title, and no dialog opens.
- *   - Its text holds every part of the letter, in order — sender, date,
- *     recipient block, subject, greeting, opening, each body paragraph,
- *     closing, sign-off, signature name — each part a paragraph of its own.
+ *   - It is the Swiss A4 letter (cover-letter-swiss-format, US-004): an A4
+ *     page, and its text holds every part of `swissLetterParts`, in order —
+ *     sender block, recipient block, place and date, subject, greeting,
+ *     opening, each body paragraph, closing, sign-off, signature name,
+ *     Annexes label and list — each block a paragraph of its own.
  *   - Accents and typographic characters (é, ü, ß, ’, « ») arrive intact.
  *   - Bold and italic runs, and the numbered list as a Word list.
  *   - The editor refuses with unsaved changes, telling the user to save first,
@@ -72,26 +74,38 @@ const FULL_LETTER = {
   body_paragraphs: BODY_PARAGRAPHS.map((text) => `<p>${text}</p>`),
   closing_paragraph: '<p>Merci pour votre temps et votre considération.</p>',
   sign_off: 'Mit freundlichen Grüßen,',
+  sender_street: 'Avenue de Rumine 7',
+  sender_postal_locality: '1003 Lausanne',
+  sender_phone: '+41 21 555 01 42',
+  sender_email: 'zoe.lovelace@example.ch',
+  // Set on purpose, so the Annexes block's text is known in every locale.
+  annexes: 'CV\nCertificats de travail, Zürich',
 }
 
 /**
- * The date line and the subject FULL_LETTER prints under each page locale.
- * Its paragraphs mix French, German and English too thinly for a language to
- * be told, so they follow the page (cover-letter-template-language, US-001).
+ * The place-and-date line, the subject and the Annexes label FULL_LETTER
+ * prints under each page locale. Its paragraphs mix French, German and
+ * English too thinly for a language to be told, so they follow the page
+ * (cover-letter-template-language, US-001).
  */
-const PAGE_LANGUAGE_PARTS: Readonly<Record<TestLocale, { date: RegExp; subject: string }>> = {
-  fr: { date: /^\d{1,2} [a-zéû]+ \d{4}$/, subject: 'Candidature au poste de Ingénieur logiciel' },
-  de: { date: /^\d{1,2}\. [A-ZÄ][a-zä]+ \d{4}$/, subject: 'Bewerbung als Ingénieur logiciel' },
+const PAGE_LANGUAGE_PARTS: Readonly<Record<TestLocale, { placeDate: RegExp; subject: string; annexesLabel: string }>> = {
+  fr: {
+    placeDate: /^Lausanne, le \d{1,2} [a-zéû]+ \d{4}$/,
+    subject: 'Candidature au poste de Ingénieur logiciel',
+    annexesLabel: 'Annexes',
+  },
+  de: {
+    placeDate: /^Lausanne, \d{1,2}\. [A-ZÄ][a-zä]+ \d{4}$/,
+    subject: 'Bewerbung als Ingénieur logiciel',
+    annexesLabel: 'Beilagen',
+  },
 }
 
 /** Every paragraph of FULL_LETTER's Word file, in order, opened under `locale`. */
 const fullLetterParagraphs = (locale: TestLocale): (string | RegExp)[] => [
-  'Zoë Lovelace',
-  PAGE_LANGUAGE_PARTS[locale].date,
-  'Jürgen Weiß',
-  'Leiter Entwicklung',
-  'Größe & Söhne AG',
-  'Bahnhofstraße 1\n8001 Zürich',
+  'Zoë Lovelace\nAvenue de Rumine 7\n1003 Lausanne\n+41 21 555 01 42\nzoe.lovelace@example.ch',
+  'Jürgen Weiß\nLeiter Entwicklung\nGröße & Söhne AG\nBahnhofstraße 1\n8001 Zürich',
+  PAGE_LANGUAGE_PARTS[locale].placeDate,
   PAGE_LANGUAGE_PARTS[locale].subject,
   'Sehr geehrter Herr Weiß,',
   'Je postule avec une conviction forte et un réel intérêt « sincère ».',
@@ -101,6 +115,8 @@ const fullLetterParagraphs = (locale: TestLocale): (string | RegExp)[] => [
   'Merci pour votre temps et votre considération.',
   'Mit freundlichen Grüßen,',
   'Zoë Lovelace',
+  PAGE_LANGUAGE_PARTS[locale].annexesLabel,
+  'CV\nCertificats de travail, Zürich',
 ]
 
 async function insertLetter(userId: string, fields: Record<string, unknown> = {}): Promise<string> {
@@ -180,13 +196,17 @@ interface WordParagraph {
   numbered: boolean
 }
 
-/** The paragraphs of `word/document.xml`, as Word reads them. */
-async function readWordParagraphs(docx: Buffer): Promise<WordParagraph[]> {
+/** `word/document.xml` of a downloaded file. */
+async function documentXml(docx: Buffer): Promise<string> {
   expect(docx.subarray(0, 2).toString('latin1'), 'a .docx is a zip').toBe('PK')
   const zip = await JSZip.loadAsync(docx)
   const document = zip.file('word/document.xml')
   expect(document, 'word/document.xml').not.toBeNull()
-  const xml = await document!.async('string')
+  return document!.async('string')
+}
+
+/** The paragraphs of `word/document.xml`, as Word reads them. */
+function readWordParagraphs(xml: string): WordParagraph[] {
   return [...xml.matchAll(/<w:p>([\s\S]*?)<\/w:p>/g)].map(([, body]) => {
     const runs = [...body.matchAll(/<w:r>([\s\S]*?)<\/w:r>/g)].map(([, run]) => ({
       text: [...run.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>|<w:br\/>/g)]
@@ -203,7 +223,11 @@ async function expectFullLetter(docx: Buffer, download: Download, locale: TestLo
   await test.info().attach('cover-letter.docx', { body: docx, contentType: DOCX_TYPE })
   expect(download.suggestedFilename()).toBe(`${LETTER_TITLE}.docx`)
 
-  const paragraphs = await readWordParagraphs(docx)
+  const xml = await documentXml(docx)
+  // A4 (210 × 297 mm), not US Letter.
+  expect(xml).toMatch(/<w:pgSz w:w="11906" w:h="16838"/)
+
+  const paragraphs = readWordParagraphs(xml)
   const texts = paragraphs.map((paragraph) => paragraph.text)
   // Every part, in order, each a paragraph of its own: nothing more, nothing less.
   const expectedParagraphs = fullLetterParagraphs(locale)

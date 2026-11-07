@@ -9,10 +9,10 @@ import { COVER_LETTER_NO_ANNEXES, normalizeAnnexes, type CoverLetterSenderDetail
  * FR-1 and FR-2): which parts it prints, in which order, with which wording,
  * and where they sit on the A4 page (`CLAUDE.md` §10).
  *
- * The editor preview (its pane and the preview window) and the PDF export
- * (`buildCoverLetterPdfHtml`) render from it. The Word export (US-004) moves
- * to it next, after which `coverLetterParts` is removed; from then on no
- * rendering can add, drop or reorder a part, or place one elsewhere.
+ * The editor preview (its pane and the preview window), the PDF export
+ * (`buildCoverLetterPdfHtml`) and the Word export (`coverLetterDocxParagraphs`)
+ * all render from it, so no rendering can add, drop or reorder a part, or
+ * place one elsewhere.
  *
  * Pure: no React, no DOM, nothing server-only, so the editor preview, the
  * server's PDF markup and the Word builder can all import it.

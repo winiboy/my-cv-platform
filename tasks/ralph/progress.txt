@@ -422,3 +422,106 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-003 The PDF export prints the same Swiss A4 letter
 FINAL: PASS
+
+## US-004: The Word export produces the same Swiss A4 letter
+Status: PASS
+Priority: 4
+Branch: ralph/cover-letter-swiss-format
+Baseline HEAD: ce945fe (US-003). origin/main ff5a6c4 (#123, e2e-pdf-parse-buffer) merged in bb673cb before the final checks.
+
+Scope:
+- Scope check: PASS
+- Changed paths: story diff sha256 prefix 4eb86d9820429545. The hash covers `git diff -- src e2e` against bb673cb (10 files, 837/416) followed by the content of the one untracked file, `src/lib/cover-letter-linked-contact.ts`, with no separator.
+  - **`src/app/api/cover-letters/[id]/download-docx/cover-letter-docx.ts`:** rebuilt from `swissLetterParts`, the canonical description the preview and the PDF already use (FR-1).
+    - The input gains `senderDetails`.
+    - Exports `COVER_LETTER_DOCX_GEOMETRY_TWIPS` and `COVER_LETTER_DOCX_LINE_TWIPS`, derived from `SWISS_LETTER_GEOMETRY_MM`: page 11906 × 16838; margins 1020 / 1134 / 850 / 1417 (top / right / bottom / left).
+    - Georgia 11 pt, colour 1F2937, line spacing at least 286 twips; text left-aligned; list margins 120 twips, nested lists included.
+    - The sender block is in the flow at the top margin, with a right indent of 4819 twips.
+    - The recipient block is a page-anchored frame: x 6236 (110 mm), y 2835 (50 mm), width 4536 (80 mm), wrap "through".
+    - The place-and-date line is spaced below whichever ends lower, the window or the recipient. With no sender, the recipient is the first paragraph, indented 4819.
+    - The SEC-016/017 size limits are kept. The header comment records the positions and the deliberate differences from the PDF.
+  - **New `src/lib/cover-letter-linked-contact.ts` (44):** `linkedResumeContact(supabase, resumeId, userId, logLabel)`.
+    - Reads the linked CV's `contact` with `.eq('id', …).eq('user_id', …)`.
+    - Returns `null` on an error, an exception or a missing CV, and logs only the error code or name.
+    - Shared by the PDF route (moved out of it) and the Word route.
+  - **`download-docx/route.ts`:** reads the linked contact after the 422 guard and passes `effectiveSenderDetails`. Status codes, check order, file name and headers are unchanged.
+  - **`download-pdf/route.ts`:** uses `linkedResumeContact`; behaviour unchanged.
+  - **`src/lib/cover-letter-pdf-html.ts`:** `coverLetterParts` and `CoverLetterPart` are deleted with their TRANSITIONAL comments. Nothing used them after the Word export moved.
+  - **`src/lib/cover-letter-swiss-letter.ts`:** doc comments only; all three renderings now use it.
+  - **Tests:**
+    - `cover-letter-docx.test.ts` rewritten (39 tests): page size, margins, recipient frame, part order and text in four languages, Unicode, user text kept, the limits.
+    - `download-docx/route.test.ts`: the CV fallback, the owner filter, another user's CV never used, failure paths.
+    - `cover-letter-pdf-html.test.ts`: the `coverLetterParts` describe removed with the function.
+    - `e2e/cover-letter-docx-export.spec.ts`: sender fields, annexes, the new part order and the A4 `w:pgSz`.
+    - `e2e/fixtures/pdf.ts`: `readPdfTextItems` calls `parsePdf` (from #123), one line plus one comment. A search for `pdfParse(` in `e2e/` finds only the call inside `parsePdf`.
+- Not touched:
+  - the preview and the PDF output;
+  - the marketing PDF (`cover-letter-pdf-layout.ts`);
+  - resumes;
+  - the database;
+  - creation defaults (US-005).
+- No version change, no push or merge.
+
+Checks:
+- Final run on this diff, alone, started after the last edit; the hash 4eb86d9820429545 was the same before and after.
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3408 passed, 5 skipped.
+  - pnpm test:integration: PASS — 63 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 528 passed, 0 failed (16.2 min).
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+  - pnpm test:visual: PASS — 10 passed.
+- Earlier run, not evidence for this diff: diff 6ed438f13e7d249f (before the merge of #123). e2e failed only in `cover-letter-template-language` with "bad XRef entry". That flake was diagnosed and fixed separately as e2e-pdf-parse-buffer (#123), which this branch now includes.
+
+Specialized validation:
+- Browser: NOT_APPLICABLE — no UI change. The preview is the reference for the export comparison below.
+- Visual: PASS — `pnpm test:visual` 10/10, baselines unchanged. Parity unchanged.
+- Export: PASS (export-validation). SAVED typical letters were exported through the real Word and PDF routes on the production build in fr, de, it and en. The capture ran after the last source edit (scratchpad `s4b/`).
+  - Microsoft Word 16.0, via COM:
+    - one page in all four languages;
+    - page 595.3 × 841.9 pt (A4);
+    - margins 51 / 56.7 / 42.5 / 70.85 pt (18 / 20 / 15 / 25 mm).
+  - From Word's own PDF:
+    - recipient left edge at 312.4 pt (110.2 mm), top 142.6 pt, inside the window;
+    - place-and-date baseline 253.7 pt (89.5 mm), at the left margin;
+    - font 11 pt; lowest baseline 747.7 pt (fr, the longest).
+  - Block text: sender, recipient and flow text in the .docx equal the route PDF and the preview's `data-letter-part` list, in order, in all four languages (`word-order.txt`).
+    - Word's PDF extracts the floating recipient frame last. That is extraction order, not document order.
+  - Unicode kept ("Zürich", "1003 Lausanne", "+41 21 555 01 42", "Zoë"). The de default wording has no ß; the user's own "Grüße aus der Straße" is kept as written.
+- Database: NOT_APPLICABLE — no schema change. The new read in the Word route is a select on `resumes` under RLS and an owner filter.
+- Security: PASS (security-review): the Word route's new CV read is owner-scoped and fails closed to `null`; plain text only reaches `docx` text runs; the size limits are unchanged.
+
+Agents:
+- senior-coder: implementation and review fixes.
+- ui-expert: NOT_APPLICABLE — no UI change; the Word layout was measured in Word itself (above).
+- code-reviewer: PASS.
+
+Acceptance criteria:
+- AC-01 (A4 11906 × 16838 twips, FR-2 margins): PASS — unit test on `w:pgSz` and `w:pgMar`; the e2e reads `w:pgSz` from a real download; Word reports 595.3 × 841.9 pt and the four margins.
+- AC-02 (same blocks, order and text as the preview; recipient positioned by a frame in the window zone; Annexes at the end): PASS — unit part-order tests in four languages; the Word/PDF/preview block comparison in four languages; recipient frame measured in Word at 110.2 mm × 142.6 pt.
+- AC-03 (one A4 page in Word for the typical letter, no blank second page): PASS — Word page count 1 in fr, de, it and en.
+- AC-04 (Unicode in the new fields kept exactly): PASS — unit test, and the Word text above.
+- FR-1, FR-2, FR-3, FR-4, FR-5, FR-7: PASS. FR-6: no new UI string.
+- Regression constraints: PASS — e2e green; the download routes' authentication, ownership, guard, size limits and file names unchanged; the marketing PDF and resumes untouched; parity and visual at baseline; user text not rewritten.
+- FAIL and BLOCKER conditions: none triggered. With this story, the three renderings share one description and are all A4.
+
+Decision:
+- **Recipient as a page-anchored frame.** With the sender in a frame instead, Word dropped the space-before of the first flow paragraph and printed the recipient at the top margin. With wrap "notBeside" Word added an extra offset. A page-anchored frame with wrap "through", and the place-and-date space computed from the window bottom, gives the measured positions.
+- **Window width 80 mm in Word.** FR-2 allows at most 85 mm. The frame uses 80 mm, the width the PDF's text column uses in practice.
+- **`linkedResumeContact` shared.** The PDF route's CV read moved into one helper, so the two exports cannot choose a different sender fallback.
+
+Open owner decisions:
+- **Known limits of the Word layout:**
+  - A sender line that wraps pushes the Word letter down, because the sender is in the flow and the place-and-date space is computed for unwrapped lines.
+  - More than 6 printed recipient lines can overlap the place-and-date line in Word; the editor's window warning (US-003) already flags this case.
+- **Still open from US-002/US-003:** the recipient line order, `lining-nums`, the signature space, the `||` fallback, the address textarea height.
+
+Environment notes:
+- The first check run on this story (diff 6ed438f13e7d249f) was held back by the pdf-parse flake; the story stayed uncommitted until #123 merged and the full suite was re-run on the merged branch.
+- The Word edge-case documents in scratchpad `s4w/` predate the last generator edit and are not evidence for this diff.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-004 The Word export produces the same Swiss A4 letter
+FINAL: PASS

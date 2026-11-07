@@ -1,7 +1,6 @@
 import type { CoverLetter } from '@/types/database'
 import { escapeHtml } from './escape-html'
 import {
-  COVER_LETTER_WORDING,
   formatCoverLetterDate,
   resolveCoverLetterLanguage,
   type CoverLetterLanguage,
@@ -21,10 +20,9 @@ import {
 export { coverLetterBodyParagraphs }
 
 /**
- * The cover letter fields a letter export prints: the PDF's Swiss letter
- * (`swissLetterParts`, its sender details through `effectiveSenderDetails`)
- * and, until US-004, the Word file's `coverLetterParts`, which reads a subset
- * of them.
+ * The cover letter fields a letter export prints: the Swiss letter of
+ * `swissLetterParts`, its sender details through `effectiveSenderDetails`,
+ * in the PDF and in the Word file alike.
  */
 export type CoverLetterPdfFields = Pick<
   CoverLetter,
@@ -110,66 +108,6 @@ export function coverLetterExportLanguage(
 export interface CoverLetterRecipientLine {
   text: string
   multiline: boolean
-}
-
-/**
- * One part of a printed letter. `text` is plain text, to be escaped by
- * whoever draws it; `html` is the stored rich text, still to be sanitized.
- */
-export type CoverLetterPart =
-  | { kind: 'sender' | 'date' | 'subject' | 'greeting' | 'signOff' | 'signature'; text: string }
-  | { kind: 'recipient'; lines: CoverLetterRecipientLine[] }
-  | { kind: 'opening' | 'body' | 'closing'; html: string }
-
-/**
- * The parts of a letter export, in the order it prints them: sender; date;
- * recipient and company block; subject; greeting; opening; each body
- * paragraph; closing; sign-off; signature name.
- *
- * TRANSITIONAL: the part list of the Word export only, until US-004
- * (cover-letter-swiss-format) switches it to `swissLetterParts`
- * (`cover-letter-swiss-letter.ts`), after which it is deleted. The editor
- * preview and the PDF already render from `swissLetterParts`. Until then it
- * defines what the Word file contains, which parts are left out when empty,
- * the defaults, and the subject line's wording, in `language`
- * (`COVER_LETTER_WORDING`).
- * The recipient block exists only with a recipient name or a company, as it
- * always has. Body paragraphs are kept even when empty; the Word builder
- * leaves out an empty one itself.
- */
-export function coverLetterParts(
-  coverLetter: CoverLetterPdfFields,
-  currentDate: string,
-  language: CoverLetterLanguage,
-): CoverLetterPart[] {
-  const wording = COVER_LETTER_WORDING[language]
-  const parts: CoverLetterPart[] = []
-
-  if (coverLetter.sender_name) parts.push({ kind: 'sender', text: coverLetter.sender_name })
-  parts.push({ kind: 'date', text: currentDate })
-
-  if (coverLetter.recipient_name || coverLetter.company_name) {
-    const lines: CoverLetterRecipientLine[] = []
-    if (coverLetter.recipient_name) lines.push({ text: coverLetter.recipient_name, multiline: false })
-    if (coverLetter.recipient_title) lines.push({ text: coverLetter.recipient_title, multiline: false })
-    if (coverLetter.company_name) lines.push({ text: coverLetter.company_name, multiline: false })
-    if (coverLetter.company_address) lines.push({ text: coverLetter.company_address, multiline: true })
-    parts.push({ kind: 'recipient', lines })
-  }
-
-  if (coverLetter.job_title) parts.push({ kind: 'subject', text: wording.subject(coverLetter.job_title) })
-  parts.push({ kind: 'greeting', text: coverLetter.greeting || wording.defaultGreeting })
-
-  if (coverLetter.opening_paragraph) parts.push({ kind: 'opening', html: coverLetter.opening_paragraph })
-  for (const paragraph of coverLetterBodyParagraphs(coverLetter.body_paragraphs)) {
-    parts.push({ kind: 'body', html: paragraph })
-  }
-  if (coverLetter.closing_paragraph) parts.push({ kind: 'closing', html: coverLetter.closing_paragraph })
-
-  parts.push({ kind: 'signOff', text: coverLetter.sign_off || wording.defaultSignOff })
-  if (coverLetter.sender_name) parts.push({ kind: 'signature', text: coverLetter.sender_name })
-
-  return parts
 }
 
 /** A length in CSS pixels, rounded to a thousandth so the markup stays readable. */

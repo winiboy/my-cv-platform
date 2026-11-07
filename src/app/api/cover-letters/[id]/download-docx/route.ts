@@ -8,6 +8,8 @@ import {
 } from '@/lib/cover-letter-pdf-html'
 import { coverLetterRequestLanguage } from '@/lib/cover-letter-language'
 import { isCoverLetterWithinPdfGuard } from '@/lib/cover-letter-limits'
+import { linkedResumeContact } from '@/lib/cover-letter-linked-contact'
+import { effectiveSenderDetails } from '@/lib/cover-letter-sender'
 import { attachmentContentDisposition } from '@/lib/pdf/filename'
 import { readBoundedBody } from '@/lib/pdf/payload'
 import { CoverLetterDocxTooLargeError, buildCoverLetterDocx } from './cover-letter-docx'
@@ -19,7 +21,11 @@ import { CoverLetterDocxTooLargeError, buildCoverLetterDocx } from './cover-lett
  * library (see `cover-letter-docx.ts`). The
  * request carries the id and, in its JSON body, the page's `locale`, as the
  * PDF's does: the letter is read from the database with the user's session, so
- * an unsaved edit in the browser is never what is exported.
+ * an unsaved edit in the browser is never what is exported. The document is
+ * the Swiss A4 letter of `swissLetterParts`, as the preview and the PDF print
+ * it, with the same sender details: the stored ones with the linked CV's
+ * contact as fallback (`effectiveSenderDetails`), the CV read with the same
+ * session and owner filter as the letter (`linkedResumeContact`).
  *
  * The checks of the PDF route, in the same order: session (401), JSON content
  * type (415, so a cross-site form cannot trigger it), a body within
@@ -85,10 +91,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // before any work.
     if (!isCoverLetterWithinPdfGuard(coverLetter)) return json('Cover letter too large to export', 422)
 
+    const senderDetails = effectiveSenderDetails(
+      coverLetter,
+      await linkedResumeContact(supabase, coverLetter.resume_id, user.id, 'Cover letter DOCX route'),
+    )
+
     const { language, currentDate } = coverLetterExportLanguage(coverLetter, pageLanguage, new Date())
     let docx: Buffer
     try {
-      docx = await buildCoverLetterDocx({ coverLetter, currentDate, language })
+      docx = await buildCoverLetterDocx({ coverLetter, senderDetails, currentDate, language })
     } catch (buildError) {
       // The Word-specific bound, met while the letter is read and before any
       // paragraph is built: the same answer as the size guard.
