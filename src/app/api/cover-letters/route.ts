@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 import { COVER_LETTER_FIELD_LIMITS } from '@/lib/cover-letter-limits'
+import { coverLetterSenderFieldsShape, normalizeAnnexes } from '@/lib/cover-letter-sender'
 
 /**
  * Zod schema for cover letter creation
@@ -26,6 +27,7 @@ const coverLetterCreateSchema = z.object({
   closing_paragraph: z.string().max(COVER_LETTER_FIELD_LIMITS.closing_paragraph).nullable().optional(),
   sign_off: z.string().max(COVER_LETTER_FIELD_LIMITS.sign_off).optional(),
   sender_name: z.string().max(COVER_LETTER_FIELD_LIMITS.sender_name).nullable().optional(),
+  ...coverLetterSenderFieldsShape,
   job_title: z.string().max(COVER_LETTER_FIELD_LIMITS.job_title).nullable().optional(),
   job_description: z.string().max(COVER_LETTER_FIELD_LIMITS.job_description).nullable().optional(),
   template: z.literal('modern').optional(),
@@ -102,6 +104,11 @@ export async function POST(request: NextRequest) {
       closing_paragraph,
       sign_off,
       sender_name,
+      sender_street,
+      sender_postal_locality,
+      sender_phone,
+      sender_email,
+      annexes,
       job_title,
       job_description,
       template,
@@ -117,12 +124,23 @@ export async function POST(request: NextRequest) {
         recipient_title: recipient_title || null,
         company_name: company_name || null,
         company_address: company_address || null,
-        greeting: greeting || 'Dear Hiring Manager,',
+        // Empty, not omitted: the columns' database default is English. An
+        // empty greeting and sign-off print the letter language's defaults.
+        greeting: greeting ?? '',
         opening_paragraph: opening_paragraph || null,
         body_paragraphs: body_paragraphs || [],
         closing_paragraph: closing_paragraph || null,
-        sign_off: sign_off || 'Sincerely,',
+        sign_off: sign_off ?? '',
         sender_name: sender_name || null,
+        // Not `|| null`: an empty sender detail is one the user cleared, and
+        // stays empty, where null falls back to the linked CV
+        // (`effectiveSenderDetails`); an empty annexes is a letter without an
+        // Annexes block, where null prints the default list.
+        sender_street: sender_street ?? null,
+        sender_postal_locality: sender_postal_locality ?? null,
+        sender_phone: sender_phone ?? null,
+        sender_email: sender_email ?? null,
+        annexes: normalizeAnnexes(annexes ?? null),
         job_title: job_title || null,
         job_description: job_description || null,
         template: template || 'modern',

@@ -120,9 +120,27 @@ const LETTER: CoverLetterPdfFields = {
   body_paragraphs: ['<p>Body one</p>', '<p>Body two</p>'],
   closing_paragraph: '<p>Closing</p>',
   sign_off: 'Sincerely,',
+  sender_street: null,
+  sender_postal_locality: null,
+  sender_phone: null,
+  sender_email: null,
+  annexes: null,
 }
 
-const INPUT = { coverLetter: LETTER, currentDate: 'October 25, 2026', language: 'en' as const, timeoutMs: 5_000 }
+const SENDER_DETAILS = {
+  sender_street: 'Rue de Bourg 12',
+  sender_postal_locality: '1003 Lausanne',
+  sender_phone: '+41 21 555 01 42',
+  sender_email: 'ada@example.ch',
+}
+
+const INPUT = {
+  coverLetter: LETTER,
+  senderDetails: SENDER_DETAILS,
+  currentDate: 'October 25, 2026',
+  language: 'en' as const,
+  timeoutMs: 5_000,
+}
 
 beforeEach(() => {
   recorded.contextOptions = null
@@ -209,6 +227,13 @@ describe('renderCoverLetterPdf: sanitizing', () => {
     expect(recorded.contents[1]).toContain('&lt;img src=x onerror=y()&gt;')
     expect(recorded.contents[1]).not.toContain('<img src=x')
   })
+
+  it('prints the sender details it is given, escaped', async () => {
+    await renderCoverLetterPdf({ ...INPUT, senderDetails: { ...SENDER_DETAILS, sender_street: '<b>x</b>' } })
+    expect(recorded.contents[1]).toContain('<div>&lt;b&gt;x&lt;/b&gt;</div>')
+    expect(recorded.contents[1]).toContain('<div>+41 21 555 01 42</div>')
+    expect(recorded.contents[1]).toContain('Lausanne, October 25, 2026')
+  })
 })
 
 describe('renderCoverLetterPdf: output and failures', () => {
@@ -217,6 +242,11 @@ describe('renderCoverLetterPdf: output and failures', () => {
     expect(pdf.toString()).toBe('%PDF-1.4 fake')
     expect(recorded.pdfOptions).toMatchObject({ preferCSSPageSize: true })
     expect(close).toHaveBeenCalledTimes(1)
+  })
+
+  it('lays the letter out in an A4 viewport, the page the preview draws', async () => {
+    await renderCoverLetterPdf(INPUT)
+    expect(recorded.contextOptions).toMatchObject({ viewport: { width: 794, height: 1123 } })
   })
 
   it('fails at launch when the browser does not start', async () => {
@@ -284,7 +314,8 @@ describe('the printed document', () => {
     expect(doc).toMatch(/^<!doctype html>/)
     expect(doc).toContain(COVER_LETTER_PRINT_CSS)
     expect(doc).toContain('<body><div>letter</div></body>')
-    expect(COVER_LETTER_PRINT_CSS).toContain('@page { size: 816px 1056px;')
+    // A4, with the FR-2 top and bottom margins on continuation pages.
+    expect(COVER_LETTER_PRINT_CSS).toContain('@page { size: 210mm 297mm; margin: 18mm 0 15mm; }')
     expect(COVER_LETTER_PRINT_CSS).toContain('box-sizing: border-box')
     // The bullet is text (U+2022), so it is extractable with its item.
     expect(COVER_LETTER_PRINT_CSS).toContain("ul { list-style-type: '\\2022\\00a0\\00a0'; }")

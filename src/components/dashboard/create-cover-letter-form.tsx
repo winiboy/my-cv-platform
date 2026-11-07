@@ -192,11 +192,13 @@ export function CreateCoverLetterForm({
         company_name: companyName.trim() || null,
         job_title: jobTitle.trim() || null,
         job_description: null,
-        greeting: 'Dear Hiring Manager,',
+        // Empty, not omitted: the columns' database default is English. An
+        // empty greeting and sign-off print the letter language's defaults.
+        greeting: '',
         opening_paragraph: null,
         body_paragraphs: [],
         closing_paragraph: null,
-        sign_off: 'Sincerely,',
+        sign_off: '',
         sender_name: null,
         template: 'modern',
       }

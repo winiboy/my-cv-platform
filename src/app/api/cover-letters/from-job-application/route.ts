@@ -20,6 +20,7 @@ import { locales, type Locale } from '@/lib/i18n'
 import { detectOfferLanguage } from '@/lib/resume-from-job/detect-offer-language'
 import type { ResumeContentLanguage } from '@/lib/resume-from-job/sample-values'
 import { sanitizeUntrustedPlainText } from '@/lib/resume-from-job/untrusted-text'
+import { senderDetailsFromContact } from '@/lib/cover-letter-sender'
 import type { CoverLetterInsert, ResumeContact } from '@/types/database'
 
 /**
@@ -250,6 +251,8 @@ export async function POST(request: NextRequest) {
       job_description: application.job_description,
       ...content,
       sender_name: resume ? senderNameOf(resume.contact) : null,
+      // The phone, e-mail and locality the CV has, as the editor prefills them.
+      ...(resume ? senderDetailsFromContact(resume.contact) : {}),
       template: 'modern',
     }
 

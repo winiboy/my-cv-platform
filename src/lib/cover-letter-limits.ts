@@ -1,4 +1,5 @@
-import { coverLetterBodyParagraphs, type CoverLetterPdfFields } from './cover-letter-pdf-html'
+import { coverLetterBodyParagraphs } from './cover-letter-body-paragraphs'
+import type { CoverLetterPdfFields } from './cover-letter-pdf-html'
 
 /**
  * The length limits of a cover letter's text fields, in UTF-16 code units
@@ -19,6 +20,12 @@ export const COVER_LETTER_FIELD_LIMITS = Object.freeze({
   closing_paragraph: 5_000,
   sign_off: 255,
   sender_name: 255,
+  sender_street: 255,
+  sender_postal_locality: 255,
+  sender_phone: 50,
+  /** The longest address SMTP can carry (RFC 5321, as amended by errata 1690). */
+  sender_email: 254,
+  annexes: 1_000,
   job_title: 255,
   job_description: 50_000,
 })
@@ -41,7 +48,10 @@ export const COVER_LETTER_FIELD_LIMITS = Object.freeze({
 export const COVER_LETTER_PDF_GUARD = Object.freeze({
   /** Each printed rich-text field: the opening, the closing and each body paragraph. */
   richTextField: 20_000,
-  /** Each printed plain-text field (sender, recipient block, subject, greeting, sign-off). */
+  /**
+   * Each printed plain-text field (the sender's name and details, the
+   * recipient block, subject, greeting, sign-off, annexes).
+   */
   plainTextField: 2_000,
   /**
    * Body paragraphs. No API caps the count, and
@@ -55,6 +65,10 @@ export const COVER_LETTER_PDF_GUARD = Object.freeze({
 
 const PRINTED_PLAIN_TEXT_FIELDS = [
   'sender_name',
+  'sender_street',
+  'sender_postal_locality',
+  'sender_phone',
+  'sender_email',
   'recipient_name',
   'recipient_title',
   'company_name',
@@ -62,6 +76,7 @@ const PRINTED_PLAIN_TEXT_FIELDS = [
   'job_title',
   'greeting',
   'sign_off',
+  'annexes',
 ] as const satisfies readonly (keyof CoverLetterPdfFields)[]
 
 const PRINTED_RICH_TEXT_FIELDS = ['opening_paragraph', 'closing_paragraph'] as const satisfies readonly (keyof CoverLetterPdfFields)[]

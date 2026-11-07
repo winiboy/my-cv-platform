@@ -50,9 +50,9 @@ import it from '../src/locales/it/common.json'
 
 const editorDict = en.coverLetters.editor
 
-/** The template's first page: 816 x 1056 CSS pixels at 100%. */
-const PAGE_WIDTH = 816
-const PAGE_HEIGHT = 1056
+/** The template's first page: A4, 794 x 1123 CSS pixels at 100%. */
+const PAGE_WIDTH = 794
+const PAGE_HEIGHT = 1123
 
 /** Sub-pixel layout and rounding. */
 const TOLERANCE = 1.5

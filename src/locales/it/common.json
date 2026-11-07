@@ -628,12 +628,12 @@
         "companyLabel": "Nome azienda",
         "companyPlaceholder": "es. Acme Srl",
         "addressLabel": "Indirizzo azienda",
-        "addressPlaceholder": "Via Roma 123\n00100 Roma"
+        "addressPlaceholder": "Via Roma 123\n00100 Roma",
+        "windowOverflow": "L'indirizzo supera la finestra della busta ({lines} righe)"
       },
       "opening": {
         "title": "Apertura",
         "greetingLabel": "Saluto",
-        "greetingPlaceholder": "Gentile Responsabile,",
         "paragraphLabel": "Paragrafo di apertura",
         "paragraphHint": "Presentati e spiega perché scrivi. Menziona la posizione e come ne sei venuto a conoscenza.",
         "paragraphPlaceholder": "Scrivi il tuo paragrafo di apertura..."
@@ -666,8 +666,26 @@
           "respectfully": "Con osservanza,",
           "withAppreciation": "Con gratitudine,"
         },
+        "signOffDefaultHint": "La prima formula è quella predefinita per la lingua della lettera.",
         "nameLabel": "Il tuo nome",
-        "namePlaceholder": "Il tuo nome completo"
+        "namePlaceholder": "Il tuo nome completo",
+        "streetLabel": "Via e numero",
+        "streetPlaceholder": "es. Via Nassa 5",
+        "postalLocalityLabel": "NPA e località",
+        "postalLocalityPlaceholder": "es. 6900 Lugano",
+        "phoneLabel": "Telefono",
+        "phonePlaceholder": "es. +41 91 555 01 42",
+        "emailLabel": "E-mail",
+        "emailPlaceholder": "es. nome@esempio.ch",
+        "annexesLabel": "Allegati",
+        "annexesPlaceholder": "es. CV, certificati di lavoro, diplomi",
+        "annexesHint": "Lascia vuoto per stampare l'elenco predefinito, nella lingua della lettera.",
+        "noAnnexesHint": "Non verrà stampato alcun allegato.",
+        "noAnnexesLabel": "Nessun blocco Allegati",
+        "errors": {
+          "invalidEmail": "Inserisci un indirizzo e-mail valido, o lascia il campo vuoto.",
+          "tooLong": "Al massimo {max} caratteri."
+        }
       }
     },
     "generation": {

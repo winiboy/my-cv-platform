@@ -96,40 +96,40 @@ describe('resolveCoverLetterLanguage', () => {
 
 describe('formatCoverLetterDate', () => {
   it('prints the long date in each language, with no leading zero', () => {
-    expect(formatCoverLetterDate(NOVEMBER_2_2026, 'en')).toBe('November 2, 2026')
+    expect(formatCoverLetterDate(NOVEMBER_2_2026, 'en')).toBe('2 November 2026')
     expect(formatCoverLetterDate(NOVEMBER_2_2026, 'fr')).toBe('2 novembre 2026')
     expect(formatCoverLetterDate(NOVEMBER_2_2026, 'de')).toBe('2. November 2026')
     expect(formatCoverLetterDate(NOVEMBER_2_2026, 'it')).toBe('2 novembre 2026')
   })
 
-  it('prints English exactly as the export always has', () => {
+  it('prints English day before month, as a Swiss letter is dated', () => {
     for (const date of [NOVEMBER_2_2026, new Date(2026, 0, 1), new Date(2027, 8, 30, 23, 59)]) {
       expect(formatCoverLetterDate(date, 'en')).toBe(
-        date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+        date.toLocaleDateString('en-GB', { month: 'long', day: 'numeric', year: 'numeric' }),
       )
     }
   })
 })
 
 describe('COVER_LETTER_WORDING', () => {
-  it('keeps the English wording exactly as it was', () => {
-    expect(COVER_LETTER_WORDING.en.subject('Engineer')).toBe('Re: Application for Engineer')
+  it('has the English Swiss-letter wording, the greeting unchanged', () => {
+    expect(COVER_LETTER_WORDING.en.subject('Engineer')).toBe('Application for Engineer')
     expect(COVER_LETTER_WORDING.en.defaultGreeting).toBe('Dear Hiring Manager,')
-    expect(COVER_LETTER_WORDING.en.defaultSignOff).toBe('Sincerely,')
+    expect(COVER_LETTER_WORDING.en.defaultSignOff).toBe('Kind regards')
   })
 
-  it('has the French, German and Italian business-letter wording', () => {
-    expect(COVER_LETTER_WORDING.fr.subject('Développeur')).toBe('Objet : Candidature au poste de Développeur')
+  it('has the French, German and Italian Swiss-letter wording, the greetings unchanged', () => {
+    expect(COVER_LETTER_WORDING.fr.subject('Développeur')).toBe('Candidature au poste de Développeur')
     expect(COVER_LETTER_WORDING.fr.defaultGreeting).toBe('Madame, Monsieur,')
-    expect(COVER_LETTER_WORDING.fr.defaultSignOff).toBe('Veuillez agréer mes salutations distinguées,')
+    expect(COVER_LETTER_WORDING.fr.defaultSignOff).toBe('Meilleures salutations')
 
-    expect(COVER_LETTER_WORDING.de.subject('Entwickler')).toBe('Betreff: Bewerbung als Entwickler')
+    expect(COVER_LETTER_WORDING.de.subject('Entwickler')).toBe('Bewerbung als Entwickler')
     expect(COVER_LETTER_WORDING.de.defaultGreeting).toBe('Sehr geehrte Damen und Herren,')
-    expect(COVER_LETTER_WORDING.de.defaultSignOff).toBe('Mit freundlichen Grüßen,')
+    expect(COVER_LETTER_WORDING.de.defaultSignOff).toBe('Freundliche Grüsse')
 
-    expect(COVER_LETTER_WORDING.it.subject('Sviluppatore')).toBe('Oggetto: Candidatura per la posizione di Sviluppatore')
+    expect(COVER_LETTER_WORDING.it.subject('Sviluppatore')).toBe('Candidatura per la posizione di Sviluppatore')
     expect(COVER_LETTER_WORDING.it.defaultGreeting).toBe('Gentili Signore e Signori,')
-    expect(COVER_LETTER_WORDING.it.defaultSignOff).toBe('Cordiali saluti,')
+    expect(COVER_LETTER_WORDING.it.defaultSignOff).toBe('Distinti saluti')
   })
 
   it('has one entry per supported language, and no other', () => {

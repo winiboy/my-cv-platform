@@ -5,6 +5,7 @@ import en from '../src/locales/en/common.json'
 import fr from '../src/locales/fr/common.json'
 import de from '../src/locales/de/common.json'
 import it from '../src/locales/it/common.json'
+import { COVER_LETTER_WORDING } from '../src/lib/cover-letter-language'
 
 /**
  * The editor's Preview button opens the letter in a full-screen window
@@ -104,7 +105,8 @@ test('the Preview button opens the unsaved letter in a scrollable full-screen wi
 
   // An unsaved edit: the greeting, typed and not saved.
   await page.getByRole('button', { name: editorDict.sections.opening, exact: true }).click()
-  await page.getByPlaceholder(editorDict.opening.greetingPlaceholder, { exact: true }).fill(UNSAVED_GREETING)
+  // The greeting's placeholder is the default of the letter's language: English.
+  await page.getByPlaceholder(COVER_LETTER_WORDING.en.defaultGreeting, { exact: true }).fill(UNSAVED_GREETING)
   const unsavedIndicator = page.getByText(editorDict.unsavedChanges, { exact: true })
   await expect(unsavedIndicator).toBeVisible()
 

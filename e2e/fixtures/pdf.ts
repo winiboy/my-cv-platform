@@ -76,6 +76,56 @@ export async function readPdf(pdf: Buffer): Promise<ReadPdf> {
   return { pages, images }
 }
 
+/** One text item of a PDF page where pdf.js places it, in points from the page's top-left corner. */
+export interface PdfTextItem {
+  str: string
+  /** The left edge of the item. */
+  x: number
+  /** The item's width. */
+  width: number
+  /** The item's baseline. */
+  baseline: number
+  /** The item's font size: its glyphs reach at most this far above the baseline. */
+  fontSize: number
+}
+
+/** The part of pdf.js's text content `readPdfTextItems` reads. */
+interface PositionedTextProxy {
+  view: number[]
+  getTextContent(): Promise<{ items: { str: string; width: number; transform: number[] }[] }>
+}
+
+/**
+ * Every page's non-blank text items with their positions, for asserting
+ * where a PDF prints a piece of text. Unrotated pages only: pdf.js's
+ * `transform` is read as a scale and a translation.
+ */
+export async function readPdfTextItems(pdf: Buffer): Promise<PdfTextItem[][]> {
+  const pages: PdfTextItem[][] = []
+  // Through `parsePdf`, never pdf-parse directly: a Buffer can fail to parse (see `parsePdf` above).
+  await parsePdf(pdf, {
+    version: `v${PDFJS_VERSION}`,
+    pagerender: async (pageData: unknown) => {
+      const proxy = pageData as PositionedTextProxy
+      const top = proxy.view[3]
+      const content = await proxy.getTextContent()
+      pages.push(
+        content.items
+          .filter((item) => item.str.trim() !== '')
+          .map((item) => ({
+            str: item.str,
+            x: item.transform[4],
+            width: item.width,
+            baseline: top - item.transform[5],
+            fontSize: Math.abs(item.transform[3]),
+          })),
+      )
+      return ''
+    },
+  })
+  return pages
+}
+
 /** A4 in PDF points, the page every resume surface is drawn on. */
 export const A4_PT = { width: 595.28, height: 841.89 }
 

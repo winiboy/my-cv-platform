@@ -15,6 +15,11 @@ function letter(overrides: Partial<CoverLetterPdfFields> = {}): CoverLetterPdfFi
     body_paragraphs: ['<p>Body</p>'],
     closing_paragraph: '<p>Closing</p>',
     sign_off: 'Sincerely,',
+    sender_street: 'Rue de Bourg 12',
+    sender_postal_locality: '1003 Lausanne',
+    sender_phone: '+41 21 555 01 42',
+    sender_email: 'ada@example.ch',
+    annexes: null,
     ...overrides,
   }
 }
@@ -36,6 +41,11 @@ describe('COVER_LETTER_FIELD_LIMITS', () => {
       closing_paragraph: 5000,
       sign_off: 255,
       sender_name: 255,
+      sender_street: 255,
+      sender_postal_locality: 255,
+      sender_phone: 50,
+      sender_email: 254,
+      annexes: 1000,
       job_title: 255,
       job_description: 50000,
     })
@@ -94,6 +104,11 @@ describe('isCoverLetterWithinPdfGuard', () => {
     'job_title',
     'greeting',
     'sign_off',
+    'sender_street',
+    'sender_postal_locality',
+    'sender_phone',
+    'sender_email',
+    'annexes',
   ] as const)('accepts %s at the plain-text guard and refuses it one over', (field) => {
     expect(isCoverLetterWithinPdfGuard(letter({ [field]: at(guard.plainTextField) }))).toBe(true)
     expect(isCoverLetterWithinPdfGuard(letter({ [field]: over(guard.plainTextField) }))).toBe(false)
@@ -119,9 +134,18 @@ describe('isCoverLetterWithinPdfGuard', () => {
       opening_paragraph: null,
       closing_paragraph: null,
       sign_off: '',
+      sender_street: null,
+      sender_postal_locality: null,
+      sender_phone: null,
+      sender_email: null,
+      annexes: null,
     }
     expect(isCoverLetterWithinPdfGuard(letter({ ...nothingElse, body_paragraphs: tenAtGuard }))).toBe(true)
     expect(isCoverLetterWithinPdfGuard(letter({ ...nothingElse, body_paragraphs: tenAtGuard, sign_off: 'x' }))).toBe(false)
+    // The sender details and the annexes print, so they count towards the total too.
+    for (const field of ['sender_street', 'sender_postal_locality', 'sender_phone', 'sender_email', 'annexes'] as const) {
+      expect(isCoverLetterWithinPdfGuard(letter({ ...nothingElse, body_paragraphs: tenAtGuard, [field]: 'x' })), field).toBe(false)
+    }
     expect(isCoverLetterWithinPdfGuard(letter({ body_paragraphs: tenAtGuard }))).toBe(false)
   })
 

@@ -432,6 +432,11 @@ export type Database = {
           closing_paragraph: string | null
           sign_off: string
           sender_name: string | null
+          sender_street: string | null
+          sender_postal_locality: string | null
+          sender_phone: string | null
+          sender_email: string | null
+          annexes: string | null
           job_title: string | null
           job_description: string | null
           template: 'modern'
@@ -456,6 +461,11 @@ export type Database = {
           closing_paragraph?: string | null
           sign_off?: string
           sender_name?: string | null
+          sender_street?: string | null
+          sender_postal_locality?: string | null
+          sender_phone?: string | null
+          sender_email?: string | null
+          annexes?: string | null
           job_title?: string | null
           job_description?: string | null
           template?: 'modern'
@@ -480,6 +490,11 @@ export type Database = {
           closing_paragraph?: string | null
           sign_off?: string
           sender_name?: string | null
+          sender_street?: string | null
+          sender_postal_locality?: string | null
+          sender_phone?: string | null
+          sender_email?: string | null
+          annexes?: string | null
           job_title?: string | null
           job_description?: string | null
           template?: 'modern'

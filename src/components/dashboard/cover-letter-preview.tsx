@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import type { CoverLetter } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
+import type { CoverLetterSenderDetails } from '@/lib/cover-letter-sender'
 import { cn } from '@/lib/utils'
 import {
   PAGE_WIDTH_PX,
@@ -95,7 +96,8 @@ function zoomLabels(editorDict: Record<string, unknown>): CoverLetterZoomLabels 
 
 interface CoverLetterPreviewProps {
   coverLetter: CoverLetter
-  senderName?: string
+  /** The sender details as printed: `effectiveSenderDetails(letter, linked CV contact)`. */
+  senderDetails: CoverLetterSenderDetails
   /** The page's locale, the fallback language of the letter's printed parts. */
   locale: Locale
   /** The `coverLetters.editor` dictionary: the scroll area's and the zoom controls' labels. */
@@ -118,7 +120,7 @@ interface CoverLetterPreviewProps {
  */
 export function CoverLetterPreview({
   coverLetter,
-  senderName,
+  senderDetails,
   locale,
   editorDict,
   variant,
@@ -251,7 +253,7 @@ export function CoverLetterPreview({
             }}
           >
             <div className="shadow-2xl" data-testid="cover-letter-preview-page">
-              <ModernLetterTemplate coverLetter={coverLetter} senderName={senderName} locale={locale} />
+              <ModernLetterTemplate coverLetter={coverLetter} senderDetails={senderDetails} locale={locale} />
             </div>
           </div>
         </div>

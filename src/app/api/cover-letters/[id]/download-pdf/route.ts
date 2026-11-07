@@ -8,6 +8,8 @@ import {
 } from '@/lib/cover-letter-pdf-html'
 import { coverLetterRequestLanguage } from '@/lib/cover-letter-language'
 import { isCoverLetterWithinPdfGuard } from '@/lib/cover-letter-limits'
+import { linkedResumeContact } from '@/lib/cover-letter-linked-contact'
+import { effectiveSenderDetails } from '@/lib/cover-letter-sender'
 import { pdfContentDisposition } from '@/lib/pdf/filename'
 import { readBoundedBody } from '@/lib/pdf/payload'
 import { renderCoverLetterPdf } from '@/lib/pdf/render-cover-letter'
@@ -23,7 +25,9 @@ import { tryAcquirePdfRenderSlot } from '@/lib/pdf/render-slots'
  * the database with the user's session, so an unsaved edit in the browser is
  * never what is printed. The locale only chooses the wording of the date,
  * subject and default formulas when the letter's own language cannot be told
- * (`coverLetterLanguage`).
+ * (`coverLetterLanguage`). The sender details are the stored ones with the
+ * linked CV's contact as fallback (`effectiveSenderDetails`), the CV read with
+ * the same session and owner filter as the letter.
  *
  * Order of checks, cheapest and least revealing first: session (401), JSON
  * content type (415), a body within `MAX_COVER_LETTER_EXPORT_REQUEST_BYTES`
@@ -95,6 +99,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // rule: see `COVER_LETTER_PDF_GUARD`.
     if (!isCoverLetterWithinPdfGuard(coverLetter)) return json('Cover letter too large to export', 422)
 
+    // Read before a slot is taken, so no slot waits on the database.
+    const senderDetails = effectiveSenderDetails(
+      coverLetter,
+      await linkedResumeContact(supabase, coverLetter.resume_id, user.id, 'Cover letter PDF route'),
+    )
+
     const slot = tryAcquirePdfRenderSlot()
     if (!slot) return json('Too many PDF renders in progress', 503, { 'Retry-After': '5' })
     const { language, currentDate } = coverLetterExportLanguage(coverLetter, pageLanguage, new Date())
@@ -102,6 +112,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     try {
       pdf = await renderCoverLetterPdf({
         coverLetter,
+        senderDetails,
         currentDate,
         language,
         timeoutMs: RENDER_TIMEOUT_MS,

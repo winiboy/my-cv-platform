@@ -243,6 +243,10 @@ describe('POST /api/cover-letters/from-job-application', () => {
       closing_paragraph: '<p>Ich freue mich auf ein Gespräch.</p>',
       sign_off: 'Mit freundlichen Grüßen',
       sender_name: 'Anna Muster',
+      sender_street: null,
+      sender_postal_locality: null,
+      sender_phone: null,
+      sender_email: 'anna@example.com',
       template: 'modern',
     })
 
@@ -310,6 +314,47 @@ describe('POST /api/cover-letters/from-job-application', () => {
       await POST(createRequest(VALID_BODY))
 
       expect(insertedLetter()).toMatchObject({ sender_name: 'Anna Muster' })
+    })
+
+    it("takes the phone, the e-mail and the locality from the CV's contact, as plain text", async () => {
+      state.resume = {
+        ...state.resume,
+        contact: {
+          name: 'Anna Muster',
+          email: 'anna@example.com',
+          phone: '+41 44 555 01 42<script>alert(1)</script>',
+          location: '<b>8001 Zürich</b>',
+        },
+      }
+
+      await POST(createRequest(VALID_BODY))
+
+      const letter = insertedLetter() as Record<string, unknown>
+      expect(letter).toMatchObject({
+        sender_street: null,
+        sender_postal_locality: '8001 Zürich',
+        sender_phone: '+41 44 555 01 42',
+        sender_email: 'anna@example.com',
+      })
+      // The annexes stay unset: the letter prints the default list.
+      expect(letter).not.toHaveProperty('annexes')
+    })
+
+    it('leaves out a CV e-mail that is not an address', async () => {
+      state.resume = { ...state.resume, contact: { name: 'Anna Muster', email: 'anna at example' } }
+
+      await POST(createRequest(VALID_BODY))
+
+      expect(insertedLetter()).toMatchObject({ sender_email: null })
+    })
+
+    it('sets no sender details without a CV', async () => {
+      await POST(createRequest({ ...VALID_BODY, resumeId: null }))
+
+      const letter = insertedLetter() as Record<string, unknown>
+      for (const field of ['sender_street', 'sender_postal_locality', 'sender_phone', 'sender_email']) {
+        expect(letter[field] ?? null, field).toBeNull()
+      }
     })
   })
 
