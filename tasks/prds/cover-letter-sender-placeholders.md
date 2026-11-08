@@ -1,6 +1,6 @@
 # PRD: Clearer sender fields in the cover letter's Signature tab
 
-**Status:** DRAFT
+**Status:** APPROVED 2026-11-08
 
 ## Objective
 
