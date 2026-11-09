@@ -87,7 +87,7 @@
         "Out of scope: Pre-existing decisions carried over from cover-letter-swiss-format: the ß in the sign-off options, the Generate fallback, and placeholder contrast."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

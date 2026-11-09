@@ -773,6 +773,8 @@ export function CoverLetterEditor({
             signOff={coverLetter.sign_off}
             defaultSignOff={letterWording.defaultSignOff}
             senderName={coverLetter.sender_name}
+            streetExample={letterWording.streetExample}
+            postalLocalityExample={letterWording.postalLocalityExample}
             senderDetails={senderDetails}
             annexes={coverLetter.annexes}
             errors={senderErrors}

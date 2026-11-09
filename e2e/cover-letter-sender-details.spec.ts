@@ -156,6 +156,18 @@ async function showSection(page: Page, dict: Dict, section: Section): Promise<Lo
 
 const signatureDict = (dict: Dict) => dict.coverLetters.editor.signature
 
+/**
+ * The address fields' placeholders are examples in the letter's language
+ * (cover-letter-sender-placeholders, US-002). A letter without paragraphs is
+ * in the page's language.
+ */
+const ADDRESS_EXAMPLES: Record<TestLocale, Partial<Record<SenderColumn, string>>> = {
+  fr: { sender_street: 'Rue du Bourg 12', sender_postal_locality: '1234 Ma ville' },
+  en: { sender_street: '12 Main Street', sender_postal_locality: '1234 My town' },
+  de: { sender_street: 'Dorfstrasse 12', sender_postal_locality: '1234 Mein Ort' },
+  it: { sender_street: 'Via del Borgo 12', sender_postal_locality: '1234 La mia città' },
+}
+
 /** A label or placeholder of the Signature section, by its dictionary key. */
 const signatureText = (dict: Dict, key: string) => (signatureDict(dict) as Record<string, unknown>)[key] as string
 
@@ -211,7 +223,10 @@ for (const locale of Object.keys(LOCALES) as TestLocale[]) {
     for (const column of SENDER_COLUMNS) {
       const input = field(pane, dict, column)
       await expect(input, column).toBeVisible()
-      await expect(input).toHaveAttribute('placeholder', signatureText(dict, `${FIELD_KEYS[column]}Placeholder`))
+      await expect(input).toHaveAttribute(
+        'placeholder',
+        ADDRESS_EXAMPLES[locale][column] ?? signatureText(dict, `${FIELD_KEYS[column]}Placeholder`),
+      )
       expect((await input.boundingBox())!.y, `${column} is under the sender name`).toBeGreaterThan(nameBox.y)
     }
     // The annexes' meaning is a persistent hint, tied to the field.
