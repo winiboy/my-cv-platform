@@ -33,6 +33,16 @@ export interface CoverLetterWording {
   annexesLabel: string
   /** The Annexes block's list when the letter has never set one (`annexes` is `null`). */
   defaultAnnexes: string
+  /**
+   * The editor's placeholder for the sender's street and number, a neutral
+   * example in the letter's language. Never stored or printed.
+   */
+  streetExample: string
+  /**
+   * The editor's placeholder for the sender's postcode and locality, a
+   * neutral example in the letter's language. Never stored or printed.
+   */
+  postalLocalityExample: string
 }
 
 /** "Place, date", the comma-separated form German, Italian and English letters use. */
@@ -56,6 +66,8 @@ export const COVER_LETTER_WORDING: Readonly<Record<CoverLetterLanguage, CoverLet
     defaultSignOff: 'Kind regards',
     annexesLabel: 'Enclosures',
     defaultAnnexes: 'CV, references, diplomas',
+    streetExample: '12 Main Street',
+    postalLocalityExample: '1234 My town',
   },
   fr: {
     dateLocale: 'fr-FR',
@@ -65,6 +77,8 @@ export const COVER_LETTER_WORDING: Readonly<Record<CoverLetterLanguage, CoverLet
     defaultSignOff: 'Meilleures salutations',
     annexesLabel: 'Annexes',
     defaultAnnexes: 'CV, certificats de travail, diplômes',
+    streetExample: 'Rue du Bourg 12',
+    postalLocalityExample: '1234 Ma ville',
   },
   de: {
     dateLocale: 'de-DE',
@@ -74,6 +88,8 @@ export const COVER_LETTER_WORDING: Readonly<Record<CoverLetterLanguage, CoverLet
     defaultSignOff: 'Freundliche Grüsse',
     annexesLabel: 'Beilagen',
     defaultAnnexes: 'Lebenslauf, Arbeitszeugnisse, Diplome',
+    streetExample: 'Dorfstrasse 12',
+    postalLocalityExample: '1234 Mein Ort',
   },
   it: {
     dateLocale: 'it-IT',
@@ -83,6 +99,8 @@ export const COVER_LETTER_WORDING: Readonly<Record<CoverLetterLanguage, CoverLet
     defaultSignOff: 'Distinti saluti',
     annexesLabel: 'Allegati',
     defaultAnnexes: 'CV, certificati di lavoro, diplomi',
+    streetExample: 'Via del Borgo 12',
+    postalLocalityExample: '1234 La mia città',
   },
 })
 

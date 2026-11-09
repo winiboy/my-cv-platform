@@ -135,6 +135,20 @@ describe('COVER_LETTER_WORDING', () => {
   it('has one entry per supported language, and no other', () => {
     expect(Object.keys(COVER_LETTER_WORDING).sort()).toEqual([...LANGUAGES].sort())
   })
+
+  it.each([
+    ['fr', 'Rue du Bourg 12', '1234 Ma ville'],
+    ['de', 'Dorfstrasse 12', '1234 Mein Ort'],
+    ['it', 'Via del Borgo 12', '1234 La mia città'],
+    ['en', '12 Main Street', '1234 My town'],
+  ] as const)('has the %s address examples, exactly and without a prefix', (language, street, postalLocality) => {
+    const { streetExample, postalLocalityExample } = COVER_LETTER_WORDING[language]
+    expect(streetExample).toBe(street)
+    expect(postalLocalityExample).toBe(postalLocality)
+    for (const example of [streetExample, postalLocalityExample]) {
+      expect(example).not.toMatch(/^(ex\.|e\.g\.|z\.\s?B\.|es\.)/i)
+    }
+  })
 })
 
 describe('coverLetterRequestLanguage', () => {

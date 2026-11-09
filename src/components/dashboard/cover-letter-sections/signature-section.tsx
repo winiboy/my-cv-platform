@@ -16,6 +16,10 @@ interface SignatureSectionProps {
   /** Printed when the sign-off is empty: the default of the letter's language. */
   defaultSignOff: string
   senderName: string | null
+  /** The street field's placeholder: a neutral example in the letter's language. */
+  streetExample: string
+  /** The postcode-and-locality field's placeholder: a neutral example in the letter's language. */
+  postalLocalityExample: string
   /** What the sender fields show: the stored details, with the linked CV as fallback. */
   senderDetails: CoverLetterSenderDetails
   annexes: string | null
@@ -33,17 +37,24 @@ const INPUT_CLASS =
 
 const INVALID_CLASS = 'border-red-500 dark:border-red-500'
 
-/** The sender detail inputs, in the order the Swiss sender block prints them. */
-const SENDER_DETAIL_INPUTS: ReadonlyArray<{
-  field: CoverLetterSenderDetailField
-  key: 'street' | 'postalLocality' | 'phone' | 'email'
-  type: 'text' | 'tel' | 'email'
-  autoComplete: string
-  label: string
-  placeholder: string
-}> = [
-  { field: 'sender_street', key: 'street', type: 'text', autoComplete: 'street-address', label: 'Street and number', placeholder: 'e.g., Rue de Bourg 12' },
-  { field: 'sender_postal_locality', key: 'postalLocality', type: 'text', autoComplete: 'off', label: 'Postcode and locality', placeholder: 'e.g., 1003 Lausanne' },
+/**
+ * The sender detail inputs, in the order the Swiss sender block prints them.
+ * The address fields have no dictionary placeholder: theirs is an example in
+ * the letter's language, passed in by the editor.
+ */
+const SENDER_DETAIL_INPUTS: ReadonlyArray<
+  {
+    field: CoverLetterSenderDetailField
+    type: 'text' | 'tel' | 'email'
+    autoComplete: string
+    label: string
+  } & (
+    | { key: 'street' | 'postalLocality'; placeholder: null }
+    | { key: 'phone' | 'email'; placeholder: string }
+  )
+> = [
+  { field: 'sender_street', key: 'street', type: 'text', autoComplete: 'street-address', label: 'Street and number', placeholder: null },
+  { field: 'sender_postal_locality', key: 'postalLocality', type: 'text', autoComplete: 'off', label: 'Postcode and locality', placeholder: null },
   { field: 'sender_phone', key: 'phone', type: 'tel', autoComplete: 'tel', label: 'Phone', placeholder: 'e.g., +41 21 555 01 42' },
   { field: 'sender_email', key: 'email', type: 'email', autoComplete: 'email', label: 'Email', placeholder: 'e.g., name@example.ch' },
 ]
@@ -60,6 +71,8 @@ export function SignatureSection({
   signOff,
   defaultSignOff,
   senderName,
+  streetExample,
+  postalLocalityExample,
   senderDetails,
   annexes,
   errors,
@@ -73,6 +86,7 @@ export function SignatureSection({
   const signatureDict = (editorDict.signature || {}) as Record<string, unknown>
   const errorsDict = (signatureDict.errors || {}) as Record<string, unknown>
   const text = (key: string, fallback: string) => (signatureDict[key] as string) || fallback
+  const addressExamples = { street: streetExample, postalLocality: postalLocalityExample }
 
   const signOffOptions = signOffOptionsFor(
     localizedSignOffOptions((signatureDict.signOffOptions || {}) as Record<string, unknown>),
@@ -142,7 +156,7 @@ export function SignatureSection({
 
         <div>
           <label className="block text-sm font-medium mb-1">
-            {(signatureDict.nameLabel as string) || 'Your Name'}
+            {(signatureDict.nameLabel as string) || 'Your first and last name'}
           </label>
           <input
             type="text"
@@ -153,7 +167,8 @@ export function SignatureSection({
           />
         </div>
 
-        {SENDER_DETAIL_INPUTS.map(({ field, key, type, autoComplete, label, placeholder }) => {
+        {SENDER_DETAIL_INPUTS.map((input) => {
+          const { field, key, type, autoComplete, label } = input
           const error = errorMessage(field)
           return (
             <div key={field}>
@@ -167,7 +182,9 @@ export function SignatureSection({
                 // An emptied field stores the empty string, not null: it was
                 // cleared on purpose, and must not fall back to the CV again.
                 onChange={(e) => onChange(field, e.target.value)}
-                placeholder={text(`${key}Placeholder`, placeholder)}
+                placeholder={
+                  input.placeholder === null ? addressExamples[input.key] : text(`${key}Placeholder`, input.placeholder)
+                }
                 maxLength={COVER_LETTER_FIELD_LIMITS[field]}
                 autoComplete={autoComplete}
                 aria-invalid={error ? true : undefined}

@@ -667,12 +667,10 @@
           "withAppreciation": "Mit herzlichem Dank"
         },
         "signOffDefaultHint": "Die erste Grussformel ist die Standardformel für die Sprache des Briefs.",
-        "nameLabel": "Ihr Name",
+        "nameLabel": "Ihr Vorname und Name",
         "namePlaceholder": "Ihr vollständiger Name",
         "streetLabel": "Strasse und Nummer",
-        "streetPlaceholder": "z.B. Bahnhofstrasse 1",
         "postalLocalityLabel": "PLZ und Ort",
-        "postalLocalityPlaceholder": "z.B. 8001 Zürich",
         "phoneLabel": "Telefon",
         "phonePlaceholder": "z.B. +41 44 555 01 42",
         "emailLabel": "E-Mail",
