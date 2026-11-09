@@ -142,7 +142,7 @@ export function SignatureSection({
 
         <div>
           <label className="block text-sm font-medium mb-1">
-            {(signatureDict.nameLabel as string) || 'Your Name'}
+            {(signatureDict.nameLabel as string) || 'Your first and last name'}
           </label>
           <input
             type="text"

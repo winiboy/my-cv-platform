@@ -667,7 +667,7 @@
           "withAppreciation": "With appreciation,"
         },
         "signOffDefaultHint": "The first sign-off is the default for the letter's language.",
-        "nameLabel": "Your Name",
+        "nameLabel": "Your first and last name",
         "namePlaceholder": "Your full name",
         "streetLabel": "Street and number",
         "streetPlaceholder": "e.g., Rue de Bourg 12",

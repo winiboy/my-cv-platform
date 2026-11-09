@@ -98,7 +98,7 @@ const ENGLISH_FALLBACKS = {
     'Express your enthusiasm and include a call to action. Thank the reader for their consideration.',
     'Write your closing paragraph...',
   ],
-  signature: ['Signature', 'Sign-off', 'Your Name', 'Your full name'],
+  signature: ['Signature', 'Sign-off', 'Your first and last name', 'Your full name'],
 } as const
 
 type SectionId = keyof typeof ENGLISH_FALLBACKS

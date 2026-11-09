@@ -5,3 +5,92 @@ PRD: tasks/prds/cover-letter-sender-placeholders.md (Status: APPROVED 2026-11-08
 Format: docs/engineering/progress-log-format.md
 Branch setup: from origin/prd/cover-letter-sender-placeholders a4cec53 (origin/main f8c6a4b, #124 merged, plus the PRD draft 790c778 and the owner's approval commit). The first commit archives the merged cover-letter-swiss-format contract; the second adds this contract.
 Contract note: the PRD's nested lists and tables in acceptance criteria and Required Verification are flattened into one criterion each, wording unchanged.
+
+## US-001: The name field asks for first and last name
+Status: PASS
+Priority: 1
+Branch: ralph/cover-letter-sender-placeholders
+Baseline HEAD: 0029c01 (contract commit; origin/main f8c6a4b)
+
+Scope:
+- Scope check: PASS
+- Changed paths: story diff sha256 prefix 86901b0c8ac25cd8. The hash covers `git diff -- src e2e` (6 files, 6/6), then "== e2e/cover-letter-signature-name-label.spec.ts" and that new file (84 lines).
+  - `src/locales/{fr,en,de,it}/common.json`: `coverLetters.editor.signature.nameLabel` is "Votre prénom et nom", "Your first and last name", "Ihr Vorname und Name", "Il tuo nome e cognome". One line per file.
+  - `src/components/dashboard/cover-letter-sections/signature-section.tsx` L145: the English fallback `'Your Name'` becomes `'Your first and last name'`, the same as en.
+  - `e2e/cover-letter-editor-i18n.spec.ts`: `ENGLISH_FALLBACKS.signature` copies the component fallback, so it changes with it. Nothing else changes.
+  - New `e2e/cover-letter-signature-name-label.spec.ts`, one test per locale (fr, en, de, it):
+    - the exact label, written out in the test;
+    - the placeholder is still the locale's `namePlaceholder`;
+    - a stored `sender_name` is shown unchanged;
+    - the page answers 200.
+- Not touched:
+  - `namePlaceholder`;
+  - the street and postcode placeholders (US-002);
+  - the Recipient tab's own `nameLabel`;
+  - the preview and exports;
+  - the database.
+- No version change, no push or merge.
+- Two temporary capture specs (`e2e/zz-p1-cap.spec.ts`, `e2e/zz-p1-a11y.spec.ts`) were each run alone and deleted. They are not in the diff.
+
+Checks:
+- Final run on this diff, alone, started after the last edit. The hash 86901b0c8ac25cd8 was the same before and after.
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3419 passed, 5 skipped. Includes `src/locales/locale-parity.test.ts`.
+  - pnpm test:integration: PASS — 63 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 534 passed, 0 failed (19.6 min), including the 4 new tests.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+  - pnpm test:visual: PASS — 10 passed. Baselines unchanged.
+
+Specialized validation:
+- Browser: PASS. Captures on the production build, fr/en/de/it at 1280 and 375 (scratchpad `p1ux/`):
+  - The label text is exact in all 8 captures.
+  - It fits on one line: scrollWidth equals clientWidth (248 at 1280, 280 at 375), and scrollHeight equals clientHeight (20).
+  - In fr and de at 1280, the label contrast is 21:1 (oklch(0.08 0 0) on white, 14px / 500).
+  - Tab moves from the sign-off select to the name input to the street input, each with the 2px teal ring.
+- Visual: PASS — `pnpm test:visual` 10/10, and parity unchanged.
+- Export: NOT_APPLICABLE — a label is never printed. Parity, which covers the preview and PDF, is unchanged.
+- Database: NOT_APPLICABLE — no schema change and no stored value changes.
+- Security: NOT_APPLICABLE — static dictionary text only; no input, route or output path.
+
+Agents:
+- senior-coder: implementation.
+- ui-expert:
+  - round 1: BLOCKED. Criteria 1–3 passed, but condition 6 (accessibility) had no contrast or keyboard evidence.
+  - round 2: PASS 7/7, after the a11y capture above.
+- code-reviewer: PASS. No critical or major findings. The two minor ones:
+  - The contract's shared criteria include US-002-only items; they are recorded below as deferred.
+  - The spec reaches the label as the input's preceding sibling, because the label has no `htmlFor`.
+
+Acceptance criteria:
+- AC-01 (exact label under /fr, /en, /de, /it): PASS — the new e2e spec, 4/4, with the expected strings written out; the captures in four locales.
+- AC-02 (the label follows the interface language): PASS — still read from the interface dictionary, and the captures show it in the same language as the tab's other labels.
+- AC-03 (placeholder, value, saving and printing unchanged): PASS — the spec checks the placeholder and the stored value; the diff does not touch the input; parity and visual are unchanged.
+- FR-2: PASS — same key, parity test green. FR-4: PASS — no dependency, column, route or migration.
+- Regression constraints: PASS — the other Signature labels and placeholders, the Recipient tab, the sender-field validation and limits, and the printed letter are unchanged (e2e, parity and visual green).
+- Shared items that only US-002 can meet, deferred to US-002 and NOT claimed here:
+  - FR-1 and FR-3;
+  - the German-letter / French-letter placeholder e2e;
+  - the per-language address-example unit test;
+  - "both placeholders" in the browser evidence;
+  - the "Wrong language", "Prefix" and "Second resolver" FAIL conditions.
+- FAIL and BLOCKER conditions within this story: none triggered.
+
+Decision:
+- **The English fallback follows en.** The component's hard-coded fallback now equals the en dictionary, so a missing key still shows the new wording.
+- **Exact strings in the test.** The spec writes the expected labels out instead of reading the dictionaries, so changing a dictionary entry fails the test.
+
+Open owner decisions:
+- **The name label is not linked to its input** (ui-expert, medium, pre-existing). It has no `htmlFor`, and the input has no `id`, so screen readers do not announce the new label as the field's name. The other sender fields are linked. Fixing it is out of this PRD's scope (label text only); it would be a small follow-up for the Signature and Recipient fields.
+- **Out of scope, pre-existing (ui-expert):**
+  - at 375 the section tab strip is cut off at the left edge, with no scroll hint;
+  - at 1280 in German, the "Verknüpfter Lebenslauf" tab wraps onto two lines.
+
+Environment notes:
+- The checks, then the two capture specs, then the reviews ran one at a time. The two review agents ran in parallel, but neither ran tests.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 The name field asks for first and last name
+FINAL: PASS

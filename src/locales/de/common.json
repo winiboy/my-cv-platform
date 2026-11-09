@@ -667,7 +667,7 @@
           "withAppreciation": "Mit herzlichem Dank"
         },
         "signOffDefaultHint": "Die erste Grussformel ist die Standardformel für die Sprache des Briefs.",
-        "nameLabel": "Ihr Name",
+        "nameLabel": "Ihr Vorname und Name",
         "namePlaceholder": "Ihr vollständiger Name",
         "streetLabel": "Strasse und Nummer",
         "streetPlaceholder": "z.B. Bahnhofstrasse 1",

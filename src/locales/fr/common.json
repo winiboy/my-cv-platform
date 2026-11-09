@@ -667,7 +667,7 @@
           "withAppreciation": "Avec mes remerciements,"
         },
         "signOffDefaultHint": "La première formule est celle par défaut pour la langue de la lettre.",
-        "nameLabel": "Votre nom",
+        "nameLabel": "Votre prénom et nom",
         "namePlaceholder": "Votre nom complet",
         "streetLabel": "Rue et numéro",
         "streetPlaceholder": "ex. : Rue de Bourg 12",
