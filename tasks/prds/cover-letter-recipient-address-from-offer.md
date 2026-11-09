@@ -1,6 +1,6 @@
 # PRD: The company's address from the job offer, in a letter created from an application
 
-**Status:** DRAFT
+**Status:** APPROVED 2026-11-09
 
 ## Objective
 
