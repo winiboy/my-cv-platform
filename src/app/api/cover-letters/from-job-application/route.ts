@@ -41,6 +41,10 @@ import type { CoverLetterInsert, ResumeContact } from '@/types/database'
  *
  * An offer that is no longer open - deadline past, or its job-board page
  * answering 404 or 410 - gets no letter: 409 with the reason (US-002).
+ *
+ * The same, single page check gives the company's postal address when the
+ * page's JobPosting data has a complete one; it is stored as the letter's
+ * `company_address` (cover-letter-recipient-address-from-offer, US-001).
  */
 
 export const dynamic = 'force-dynamic'
@@ -246,6 +250,9 @@ export async function POST(request: NextRequest) {
       resume_id: resume?.id ?? null,
       job_application_id: application.id,
       company_name: companyName || null,
+      // From the offer page's JobPosting data, already cleaned and bounded by
+      // the page check; null when the page gave no complete address.
+      company_address: pageCheck.kind === 'answered' ? pageCheck.companyAddress : null,
       job_title: jobTitle || null,
       // As the form stored it before: the offer the letter was written for.
       job_description: application.job_description,

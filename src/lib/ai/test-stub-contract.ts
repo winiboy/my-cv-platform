@@ -82,6 +82,33 @@ export const AI_TEST_STUB_OFFER_PAGE_PARAM = 'ai-test-stub-page'
 export const AI_TEST_STUB_OFFER_PAGE_TIMEOUT = 'timeout'
 
 /**
+ * The query parameter that gives the stubbed offer page a schema.org
+ * `JobPosting` naming the hiring organization's address
+ * (cover-letter-recipient-address-from-offer, US-001), when its value is
+ * `AI_TEST_STUB_OFFER_PAGE_WITH_ADDRESS` and `AI_TEST_STUB_OFFER_PAGE_PARAM`
+ * names a success status, e.g.
+ * `https://www.jobs.ch/x?ai-test-stub-page=200&ai-test-stub-page-address=job-posting`.
+ * The stub reads that page with the real parser; without the parameter its
+ * page has no address.
+ */
+export const AI_TEST_STUB_OFFER_PAGE_ADDRESS_PARAM = 'ai-test-stub-page-address'
+
+/** The value of `AI_TEST_STUB_OFFER_PAGE_ADDRESS_PARAM` that puts the address on the page. */
+export const AI_TEST_STUB_OFFER_PAGE_WITH_ADDRESS = 'job-posting'
+
+/**
+ * The address on the stubbed page. Swiss, with the country given as `CH`, so
+ * the stored address is the street, then the postcode and locality, and no
+ * country line.
+ */
+export const AI_TEST_STUB_OFFER_PAGE_ADDRESS = {
+  streetAddress: 'Avenue de la Gare 10',
+  postalCode: '1003',
+  addressLocality: 'Lausanne',
+  addressCountry: 'CH',
+} as const
+
+/**
  * What the stubbed cover-letter translation writes before every segment it
  * "translates", e.g. `[DE] ` for German: deterministic, and visibly not the
  * original. A segment carrying one of `AI_TEST_STUB_DIRECTIVES` fails the

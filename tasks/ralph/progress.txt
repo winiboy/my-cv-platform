@@ -5,3 +5,118 @@ PRD: tasks/prds/cover-letter-recipient-address-from-offer.md (Status: APPROVED 2
 Format: docs/engineering/progress-log-format.md
 Branch setup: from origin/prd/cover-letter-recipient-address-from-offer db89d2b (origin/main 8610211, #125 merged, plus the PRD draft 546349b and the owner's approval commit). The first commit archives the merged cover-letter-sender-placeholders contract; the second adds this contract.
 Contract note: the PRD's nested lists in acceptance criteria and Required Verification are flattened into one criterion each, wording unchanged.
+
+## US-001: The address comes from the offer's page
+Status: PASS
+Priority: 1
+Branch: ralph/cover-letter-recipient-address-from-offer
+Baseline HEAD: 6ee469e (contract commit; origin/main 8610211)
+
+Scope:
+- Scope check: PASS
+- Changed paths: story diff sha256 prefix 92c1a97914e119fb. The hash covers `git diff -- src e2e` (7 files, 651/26), then "== <path>" and the content of each of the three new files.
+  - **New `src/lib/cover-letter-from-job/offer-page-address.ts`:** `companyAddressFromOfferPage(html)`.
+    - It reads every `<script type="application/ld+json">` block, by a forward `indexOf` scan, with only ASCII A–Z lower-cased, so the positions match the original HTML.
+    - It finds every `JobPosting`: a single node, an array or `@graph`, with `@type` as a string, a list, or a full name such as `https://schema.org/JobPosting`.
+    - It takes the first complete `hiringOrganization.address` of any posting, then the first complete `jobLocation.address`.
+    - Each part is cleaned with `sanitizeUntrustedPlainText` and capped at 249 characters, so 4 parts and 3 separators never go over 1,000.
+    - Complete means a street, a postcode and a locality. A locality that repeats the postcode loses it, and one that is only the postcode is incomplete.
+    - The country line is left out for CH, CHE, Switzerland, Suisse, Schweiz, Svizzera and Svizra.
+    - An address containing U+FFFD (a wrong charset) is rejected.
+  - **`src/lib/cover-letter-from-job/offer-availability.ts`:**
+    - `answered` now carries `companyAddress: string | null`.
+    - A 2xx `text/html` or `application/xhtml+xml` answer is read up to `OFFER_PAGE_MAX_BODY_BYTES` (1 MiB), in its declared charset (UTF-8 by default). The read uses whatever is left of the same 5 s `OFFER_PAGE_TIMEOUT_MS`. `safeFetch` clears its own timer once it returns the response, so every read is raced against the remaining time.
+    - Any other answer, a read error or a timeout gives `answered` with a `null` address.
+    - 404 and 410 still cancel the body without reading it.
+    - The verdicts are unchanged.
+  - **`src/app/api/cover-letters/from-job-application/route.ts`:** one line stores `company_address` from the same single page check, or `null`.
+  - **`src/lib/ai/test-stub.ts`, `test-stub-contract.ts`:** `ai-test-stub-page-address=job-posting` makes a stubbed 200 page carry a fixed `JobPosting`. Its hiring organization is at Avenue de la Gare 10, 1003 Lausanne, CH, and its job location is elsewhere. The real parser reads it. The existing stub behaviour is unchanged.
+  - **Tests:**
+    - `offer-page-address.test.ts` (new): every fixture the PRD lists, plus İ before the block, a repeated postcode, full-name `@type`, U+FFFD and a linear-time scan.
+    - `offer-availability.test.ts`:
+      - the body is read only for 2xx HTML;
+      - a non-HTML answer gives no address;
+      - an endless body is stopped at the cap;
+      - a block cut by the cap is skipped;
+      - a read past the budget gives `null` at 5,000 ms, not before;
+      - a cancel that never settles does not hold the check;
+      - 404 and 410 bodies are never read;
+      - windows-1252 bytes served as UTF-8 give no address.
+    - `route.test.ts`:
+      - the address is stored;
+      - no address gives `null`;
+      - the rest of the row is identical with or without an address;
+      - 410 still gives 409 and nothing is written;
+      - an AI failure stores nothing;
+      - one page fetch and one rate-limit unit per creation.
+    - `test-stub.test.ts`: the address parameter.
+    - `e2e/cover-letter-recipient-address-from-offer.spec.ts` (new):
+      - (a) a page with an address: it is stored, the Destinataire tab shows the two lines, and the preview prints them under the company;
+      - (b) a page without one: `null`, an empty field, and the company alone.
+- Not touched:
+  - the text fallback (US-002), the other recipient fields, the other creation paths and existing letters;
+  - `/api/jobs/fetch-external`, the allowlist and `safeFetch`;
+  - the preview, PDF and Word code, and the database.
+- No version change, no push or merge. The temporary capture spec `e2e/zz-a1-pdf.spec.ts` was run alone and deleted; it is not in the diff.
+
+Checks:
+- Final run on diff 92c1a97914e119fb, alone, started after the last edit. The hash was the same before and after.
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3523 passed, 5 skipped.
+  - pnpm test:integration: PASS — 63 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 538 passed, 0 failed (17.0 min), on an idle machine. Includes the 2 tests of the new spec.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+  - pnpm test:visual: PASS — 10 passed. Baselines unchanged.
+- Earlier runs, not evidence for this diff:
+  - Diff 4db80c1203bfdb54, before review fix round 1: all green, with e2e 538/0 and unit 3503. Superseded by the fix round.
+  - The first e2e run on 92c1a979 had 537 passed and 1 failed: `modern-print-sidebar-full-page.spec.ts:365`, the resume one-page print case, timed out at 90 s while the whole run took 28.1 min instead of about 20. The story touches no resume or print code. That spec, run alone, passed 9/9 (3.7 min). A second full rerun failed the same test the same way (537/1, 28.9 min). The machine was then running a sim game, VR and SimHub (CPU about 52% before any test), which explains the 45% slower runs and the CPU-bound pixel-comparison test going past its 90 s timeout. Once the owner said the PC was free (CPU 4%), the full e2e was run again alone; that run is the result above.
+
+Specialized validation:
+- Browser: PASS. The e2e spec renders the Destinataire tab and the preview in fr at 1440: the field holds "Avenue de la Gare 10\n1003 Lausanne", and the recipient block reads "Beispiel AG\nAvenue de la Gare 10\n1003 Lausanne".
+- Visual: PASS — `pnpm test:visual` 10/10. Parity unchanged.
+- Export: PASS — temporary spec `e2e/zz-a1-pdf.spec.ts`, run alone on 92c1a97914e119fb and deleted. A letter created through the UI from an application whose stubbed page has the address; its PDF (sha256 prefix c91c316c3cfd06cb) prints, inside the window zone (x ≥ 311.8 pt = 110 mm, top ≥ 141.7 pt = 50 mm, right ≤ 538.6 pt), "Beispiel AG" (baseline 152.2), "Avenue de la Gare 10" (166.5), "1003 Lausanne" (180.7), all at 11 pt. The same capture on 4db80c12 gave the same items.
+- Database: NOT_APPLICABLE — no schema change. The existing `company_address` column is filled at creation.
+- Security: PASS — `security-review` on 4db80c1203bfdb54, with 0 critical, high or medium findings. The fix round changed only parsing and cleaning, inside the same trust boundary.
+  - SEC-001 (INFO): misaligned slicing after a lower-cased "İ". It was fixed in the fix round.
+  - SEC-002 (INFO, pre-existing): multi-tenant ATS subdomains on the allowlist can serve any JSON-LD. The result is only cleaned plain text on that user's own letter.
+  - Checked: one `safeFetch` call with the allowlist and redirect re-checks; the body is capped at 1 MiB and read within the 5 s budget, after the rate limit; the scan is linear with a depth limit; nothing is logged or sent to the AI; the value reaches the same field the user already types into.
+
+Agents:
+- senior-coder: implementation, then fix round 1 (six minor code-review findings).
+- ui-expert: NOT_APPLICABLE — no UI changes (PRD Required Verification). The e2e covers the rendered field and preview.
+- code-reviewer:
+  - round 1: PASS, with minor findings (the İ slicing, a repeated postcode, full-name `@type`, U+FFFD, an inconsistent cancel comment, two fragile tests), all fixed in round 1;
+  - round 2: PASS on 92c1a97914e119fb, with no critical or major finding.
+
+Acceptance criteria:
+- AC-01 (hiringOrganization first, then jobLocation): PASS — unit tests for each source and both, including a preferred address in a later block; the stub page's two addresses in the e2e.
+- AC-02 (complete = street, postcode, locality): PASS — unit tests for locality only, no street, no postcode, a locality that is only the postcode, markup-only or blank parts, and a plain-string address.
+- AC-03 (shape; country only when not Swiss; no company name): PASS — unit tests for the Swiss spellings, a non-Swiss country and a `Country` node; the e2e stores exactly two lines.
+- AC-04 (same page, fetched once, same allowlist, redirects and budget): PASS — the route test counts one fetch; the body comes from the response `safeFetch` returned; the timeout test shows the read ends with the 5 s budget.
+- AC-05 (a closed offer still refused, no address read): PASS — route test: 410 gives 409 with the same body and nothing is written; unit tests: 404 and 410 bodies are not read. The deadline check still comes before the page.
+- AC-06 (Destinataire tab and preview): PASS — e2e (a) and (b).
+- FR-1 to FR-4, FR-6 and FR-7: PASS. FR-5 (the text fallback costs no extra unit): deferred to US-002; the route test shows one unit per creation.
+- The shared Required Verification items about the text fallback (unit and route) belong to US-002 and are deferred there.
+- Regression constraints: PASS — the row-equality route test; 409 and the AI failure unchanged; fetch-external and the allowlist untouched; parity and visual unchanged.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **One fetch.** The address is read from the response the availability check already gets, so the page is never fetched twice (FR-3, AC-04).
+- **A capped prefix, not nothing.** A page over 1 MiB is parsed up to the cap: boards put the JSON-LD in the head. A block the cap cuts in half fails to parse and is skipped.
+- **When in doubt, no address.** A wrong charset (U+FFFD) or a postcode-only locality gives an empty field, never a damaged value.
+
+Open owner decisions:
+- None from this story. Minor code-review points left as they are, all safe (they can only lose an address, never invent one):
+  - the pre-existing 404/410 path still awaits the body's cancel;
+  - `@type` matching accepts any vocabulary's `JobPosting`, ignoring case;
+  - the `type=` match also fires on a `data-type` attribute.
+
+Environment notes:
+- The checks, the single-spec rerun, the full e2e rerun and the capture ran one at a time. The two review agents ran read-only, during the security review and the second check run.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 The address comes from the offer's page
+FINAL: PASS

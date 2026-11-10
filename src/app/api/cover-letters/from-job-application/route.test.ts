@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { AiCompletionError } from '@/lib/ai/client'
 
 /**
@@ -232,6 +232,8 @@ describe('POST /api/cover-letters/from-job-application', () => {
       resume_id: RESUME_ID,
       job_application_id: APPLICATION_ID,
       company_name: 'Beispiel AG',
+      // No job_url: no page, so no address (cover-letter-recipient-address-from-offer).
+      company_address: null,
       job_title: 'Data Engineer',
       job_description: GERMAN_DESCRIPTION,
       greeting: 'Sehr geehrte Damen und Herren,',
@@ -831,6 +833,144 @@ describe('POST /api/cover-letters/from-job-application - a closed offer (US-002)
       dnsLookup.mockResolvedValue([{ address: '10.0.0.5', family: 4 }])
       await POST(createRequest(VALID_BODY))
       expect(pageFetch).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("the company's address from the offer page (cover-letter-recipient-address-from-offer, US-001)", () => {
+    const HTML = { 'content-type': 'text/html; charset=utf-8' }
+
+    function offerPage(address: Record<string, unknown> | null): string {
+      const posting = {
+        '@context': 'https://schema.org',
+        '@type': 'JobPosting',
+        title: 'Data Engineer',
+        hiringOrganization: { '@type': 'Organization', name: 'Beispiel AG', ...(address ? { address } : {}) },
+      }
+      return `<html><head><script type="application/ld+json">${JSON.stringify(posting).replace(/</g, '\\u003c')}</script></head></html>`
+    }
+
+    const LAUSANNE = {
+      streetAddress: 'Avenue de la Gare 10',
+      postalCode: '1003',
+      addressLocality: 'Lausanne',
+      addressCountry: 'CH',
+    }
+
+    let consoleSpy: MockInstance | undefined
+
+    // Restores the console spy even when an assertion fails before the end of a test.
+    afterEach(() => {
+      consoleSpy?.mockRestore()
+      consoleSpy = undefined
+    })
+
+    it('stores the address, fetching the page once and counting one rate-limit unit', async () => {
+      withOffer({ deadline: '2026-12-31', job_url: JOB_URL })
+      pageFetch.mockResolvedValue(new Response(offerPage(LAUSANNE), { status: 200, headers: HTML }))
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(201)
+      expect(insertedLetter()).toMatchObject({ company_address: 'Avenue de la Gare 10\n1003 Lausanne' })
+      expect(pageFetch).toHaveBeenCalledTimes(1)
+      expect(enforceAiRateLimit).toHaveBeenCalledTimes(1)
+    })
+
+    it('changes no other stored value', async () => {
+      withOffer({ job_url: JOB_URL })
+      pageFetch.mockResolvedValue(new Response('<html></html>', { status: 200, headers: HTML }))
+      await POST(createRequest(VALID_BODY))
+      const { company_address: withoutAddress, ...rowWithoutAddress } = insertedLetter()
+
+      state.calls = []
+      pageFetch.mockResolvedValue(new Response(offerPage(LAUSANNE), { status: 200, headers: HTML }))
+      await POST(createRequest(VALID_BODY))
+      const { company_address: withAddress, ...rowWithAddress } = insertedLetter()
+
+      expect(withoutAddress).toBeNull()
+      expect(withAddress).toBe('Avenue de la Gare 10\n1003 Lausanne')
+      expect(rowWithAddress).toEqual(rowWithoutAddress)
+    })
+
+    it('prints a non-Swiss country on a third line, and stores the address as plain text', async () => {
+      withOffer({ job_url: JOB_URL })
+      pageFetch.mockResolvedValue(
+        new Response(
+          offerPage({
+            streetAddress: '<b>12 Rue</b> de Rivoli<script>alert(1)</script>',
+            postalCode: '75001',
+            addressLocality: 'Paris &amp; <img src=x onerror=alert(1)>',
+            addressCountry: 'France',
+          }),
+          { status: 200, headers: HTML }
+        )
+      )
+
+      await POST(createRequest(VALID_BODY))
+
+      expect(insertedLetter()).toMatchObject({ company_address: '12 Rue de Rivoli\n75001 Paris &\nFrance' })
+    })
+
+    it.each([
+      ['a page without JSON-LD', () => new Response('<html><body>Offer</body></html>', { status: 200, headers: HTML })],
+      ['an incomplete address', () => new Response(offerPage({ postalCode: '1003', addressLocality: 'Lausanne' }), { status: 200, headers: HTML })],
+      ['a non-HTML answer', () => new Response(offerPage(LAUSANNE), { status: 200, headers: { 'content-type': 'application/json' } })],
+      ['an HTML answer that is not a success', () => new Response(offerPage(LAUSANNE), { status: 500, headers: HTML })],
+    ])('stores no address for %s, and still creates the letter', async (_label, answer) => {
+      withOffer({ job_url: JOB_URL })
+      pageFetch.mockResolvedValue(answer())
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(201)
+      expect(insertedLetter()).toMatchObject({ company_address: null })
+    })
+
+    it('stores no address when the page cannot be checked', async () => {
+      withOffer({ job_url: 'https://careers.example.com/job/1' })
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(201)
+      expect(pageFetch).not.toHaveBeenCalled()
+      expect(insertedLetter()).toMatchObject({ company_address: null })
+    })
+
+    it('still refuses a removed page with an address, without reading it', async () => {
+      withOffer({ job_url: JOB_URL })
+      let pulled = false
+      const body = new ReadableStream<Uint8Array>(
+        {
+          pull(controller) {
+            pulled = true
+            controller.enqueue(new TextEncoder().encode(offerPage(LAUSANNE)))
+            controller.close()
+          },
+        },
+        { highWaterMark: 0 }
+      )
+      pageFetch.mockResolvedValue(new Response(body, { status: 410, headers: HTML }))
+      consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({ error: 'offer_closed', reason: 'page_unavailable' })
+      expect(pulled).toBe(false)
+      expectNothingDone()
+    })
+
+    it('stores nothing when the AI fails, whatever the page gave', async () => {
+      withOffer({ job_url: JOB_URL })
+      pageFetch.mockResolvedValue(new Response(offerPage(LAUSANNE), { status: 200, headers: HTML }))
+      generateCompletion.mockRejectedValueOnce(new AiCompletionError('provider_error', 'model', 500))
+      consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(502)
+      expect(writes()).toEqual([])
+      expect(pageFetch).toHaveBeenCalledTimes(1)
     })
   })
 

@@ -8,14 +8,18 @@ import {
   offerPageCheckForStatus,
   type OfferPageChecker,
 } from '@/lib/cover-letter-from-job/offer-availability'
+import { companyAddressFromOfferPage } from '@/lib/cover-letter-from-job/offer-page-address'
 import { JOB_BOARD_ALLOWED_HOSTS } from '@/lib/security/job-board-allowlist'
 import { isHostAllowed } from '@/lib/security/safe-fetch'
 import {
   AI_TEST_STUB_COVER_LETTER_TEXTS,
   AI_TEST_STUB_DIRECTIVES,
   AI_TEST_STUB_ENABLED_VALUE,
+  AI_TEST_STUB_OFFER_PAGE_ADDRESS,
+  AI_TEST_STUB_OFFER_PAGE_ADDRESS_PARAM,
   AI_TEST_STUB_OFFER_PAGE_PARAM,
   AI_TEST_STUB_OFFER_PAGE_TIMEOUT,
+  AI_TEST_STUB_OFFER_PAGE_WITH_ADDRESS,
   aiTestStubTranslationPrefix,
 } from './test-stub-contract'
 
@@ -23,8 +27,11 @@ export {
   AI_TEST_STUB_COVER_LETTER_TEXTS,
   AI_TEST_STUB_DIRECTIVES,
   AI_TEST_STUB_ENABLED_VALUE,
+  AI_TEST_STUB_OFFER_PAGE_ADDRESS,
+  AI_TEST_STUB_OFFER_PAGE_ADDRESS_PARAM,
   AI_TEST_STUB_OFFER_PAGE_PARAM,
   AI_TEST_STUB_OFFER_PAGE_TIMEOUT,
+  AI_TEST_STUB_OFFER_PAGE_WITH_ADDRESS,
   aiTestStubTranslationPrefix,
 }
 
@@ -304,6 +311,32 @@ export function coverLetterGeneratorFor(request: AiTestStubRequest): CoverLetter
 }
 
 /**
+ * The stubbed offer page with an address: a `JobPosting` whose hiring
+ * organization has `AI_TEST_STUB_OFFER_PAGE_ADDRESS`, and a job location
+ * elsewhere, so a test also proves the hiring organization is preferred.
+ */
+const STUB_OFFER_PAGE_WITH_ADDRESS = `<!doctype html><html><head><script type="application/ld+json">${JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'JobPosting',
+  title: 'Test AI offer',
+  hiringOrganization: {
+    '@type': 'Organization',
+    name: 'Test AI company',
+    address: { '@type': 'PostalAddress', ...AI_TEST_STUB_OFFER_PAGE_ADDRESS },
+  },
+  jobLocation: {
+    '@type': 'Place',
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: 'Test AI workplace street 1',
+      postalCode: '8001',
+      addressLocality: 'Zürich',
+      addressCountry: 'CH',
+    },
+  },
+})}</script></head><body></body></html>`
+
+/**
  * The stub's offer-page check (cover-letter-from-job, US-002, FR-5): it never
  * touches the network, so no e2e test reaches a real job board.
  *
@@ -312,6 +345,10 @@ export function coverLetterGeneratorFor(request: AiTestStubRequest): CoverLetter
  * names the status the page "answers", mapped exactly as the real check maps
  * it, or `AI_TEST_STUB_OFFER_PAGE_TIMEOUT`. Without the parameter the check is
  * inconclusive.
+ *
+ * A success status with `AI_TEST_STUB_OFFER_PAGE_ADDRESS_PARAM` set to
+ * `AI_TEST_STUB_OFFER_PAGE_WITH_ADDRESS` answers `STUB_OFFER_PAGE_WITH_ADDRESS`,
+ * read by the same parser as a real page; any other answer has no address.
  */
 export const stubCheckOfferPage: OfferPageChecker = async (jobUrl) => {
   const value = jobUrl?.trim()
@@ -332,7 +369,14 @@ export const stubCheckOfferPage: OfferPageChecker = async (jobUrl) => {
 
   const directive = url.searchParams.get(AI_TEST_STUB_OFFER_PAGE_PARAM)
   if (directive === AI_TEST_STUB_OFFER_PAGE_TIMEOUT) return { kind: 'undetermined', cause: 'timeout' }
-  if (directive !== null && /^[1-5]\d\d$/.test(directive)) return offerPageCheckForStatus(Number(directive))
+  if (directive !== null && /^[1-5]\d\d$/.test(directive)) {
+    const status = Number(directive)
+    const withAddress =
+      status >= 200 &&
+      status < 300 &&
+      url.searchParams.get(AI_TEST_STUB_OFFER_PAGE_ADDRESS_PARAM) === AI_TEST_STUB_OFFER_PAGE_WITH_ADDRESS
+    return offerPageCheckForStatus(status, withAddress ? companyAddressFromOfferPage(STUB_OFFER_PAGE_WITH_ADDRESS) : null)
+  }
   return { kind: 'undetermined', cause: 'stubbed' }
 }
 
