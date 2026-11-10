@@ -109,7 +109,7 @@
         "Out of scope: Other changes: the job-board allowlist, the availability check's verdicts (a closed offer is still refused as today), `/api/jobs/fetch-external`, and the Destinataire tab's UI."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

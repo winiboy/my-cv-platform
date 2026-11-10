@@ -20,6 +20,7 @@ import {
   AI_TEST_STUB_OFFER_PAGE_PARAM,
   AI_TEST_STUB_OFFER_PAGE_TIMEOUT,
   AI_TEST_STUB_OFFER_PAGE_WITH_ADDRESS,
+  AI_TEST_STUB_OFFER_TEXT_ADDRESS,
   aiTestStubTranslationPrefix,
 } from './test-stub-contract'
 
@@ -32,6 +33,7 @@ export {
   AI_TEST_STUB_OFFER_PAGE_PARAM,
   AI_TEST_STUB_OFFER_PAGE_TIMEOUT,
   AI_TEST_STUB_OFFER_PAGE_WITH_ADDRESS,
+  AI_TEST_STUB_OFFER_TEXT_ADDRESS,
   aiTestStubTranslationPrefix,
 }
 
@@ -283,6 +285,11 @@ function throwRequestedProviderFailure(jobDescription: string): void {
  * same answer or error. A request carrying a CV profile gets one more body
  * paragraph, so a test can tell that the CV reached the generator.
  *
+ * A request with `askCompanyAddress` also gets `AI_TEST_STUB_OFFER_TEXT_ADDRESS`,
+ * whatever its job description says, so the route's check that the address is
+ * in the text is what decides whether it is stored. Without the opt-in the
+ * reply has no address.
+ *
  * The job title is placed in the opening unescaped, as a provider could return
  * it; the caller sanitizes AI output whichever answered.
  */
@@ -299,6 +306,7 @@ export const generateStubCoverLetter: CoverLetterGenerator = async (input) => {
     bodyParagraphs: hasProfile ? [texts.body, texts.resumeUsed] : [texts.body],
     closingParagraph: texts.closing,
     signOff: texts.signOff,
+    ...(input.askCompanyAddress ? { companyAddress: { ...AI_TEST_STUB_OFFER_TEXT_ADDRESS } } : {}),
   }
 }
 

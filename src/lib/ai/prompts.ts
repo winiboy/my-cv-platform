@@ -690,7 +690,38 @@ export interface CoverLetterGenerationInput {
   recipientName?: string
   recipientTitle?: string
   locale?: string
+  /**
+   * Also asks for the hiring company's postal address as the job description
+   * writes it, in a `companyAddress` field of the same reply. Set only by the
+   * letter created from a job application, when the offer's page gave no
+   * address (cover-letter-recipient-address-from-offer, US-002); without it the
+   * prompt is exactly the editor's.
+   */
+  askCompanyAddress?: boolean
 }
+
+/**
+ * The reply field and the rules for `askCompanyAddress`. The anti-copy rules
+ * are lifted for this field only: an address is useful only verbatim, and the
+ * caller keeps it only if it is found in the job description.
+ */
+const COMPANY_ADDRESS_REPLY_FIELD = `,
+  "companyAddress": {
+    "streetAddress": "<street and number, exactly as written in the job description, or empty>",
+    "postalCode": "<postcode, exactly as written in the job description, or empty>",
+    "addressLocality": "<town or city, exactly as written in the job description, or empty>",
+    "addressCountry": "<country, only if the job description names it, or empty>"
+  }`
+
+const COMPANY_ADDRESS_RULES = `
+
+**COMPANY ADDRESS (companyAddress):**
+- Fill companyAddress with the hiring company's postal address only when the job description states it
+- Copy each part exactly as written in the job description; the anti-copy rules do not apply to this field
+- streetAddress holds the street and number only, without the company name, postcode or town
+- If the job description gives no complete postal address (street, postcode and town), set every field to an empty string
+- NEVER guess, complete, correct or translate any part, and never take it from anywhere but the job description
+- Do not write the address into the letter's paragraphs`
 
 /**
  * Generate prompt for creating a cover letter from resume and job description
@@ -706,6 +737,7 @@ export function buildCoverLetterGenerationPrompt(input: CoverLetterGenerationInp
     recipientName,
     recipientTitle,
     locale,
+    askCompanyAddress,
   } = input
 
   const languageMap: Record<string, string> = {
@@ -722,6 +754,10 @@ export function buildCoverLetterGenerationPrompt(input: CoverLetterGenerationInp
     .join('\n') || 'Not provided'
 
   const skillsText = resumeSkills?.join(', ') || 'Not provided'
+
+  // Empty unless asked, so the editor's prompt stays byte-identical.
+  const companyAddressField = askCompanyAddress ? COMPANY_ADDRESS_REPLY_FIELD : ''
+  const companyAddressRules = askCompanyAddress ? COMPANY_ADDRESS_RULES : ''
 
   return `You are an expert cover letter writer. Create a compelling, professional cover letter for a job application.
 
@@ -782,7 +818,7 @@ Skills: ${skillsText}
     "<Third body paragraph (optional)>"
   ],
   "closingParagraph": "<Closing paragraph in ${targetLanguage}>",
-  "signOff": "<Professional sign-off, e.g., 'Sincerely,' or equivalent in ${targetLanguage}>"
+  "signOff": "<Professional sign-off, e.g., 'Sincerely,' or equivalent in ${targetLanguage}>"${companyAddressField}
 }
 
 **REQUIREMENTS:**
@@ -791,7 +827,7 @@ Skills: ${skillsText}
 - Focus on value you bring to the company
 - Be specific, not generic
 - Avoid clichés and overused phrases
-- ALL content in ${targetLanguage}
+- ALL content in ${targetLanguage}${companyAddressRules}
 
 **Response:**
 Return ONLY the JSON object. No additional text.`

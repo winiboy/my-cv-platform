@@ -16,6 +16,7 @@ import {
   toStoredCoverLetterContent,
 } from '@/lib/cover-letter-from-job/stored-letter'
 import { isDeadlinePassed, type OfferClosedReason } from '@/lib/cover-letter-from-job/offer-availability'
+import { companyAddressFromOfferText } from '@/lib/cover-letter-from-job/offer-text-address'
 import { locales, type Locale } from '@/lib/i18n'
 import { detectOfferLanguage } from '@/lib/resume-from-job/detect-offer-language'
 import type { ResumeContentLanguage } from '@/lib/resume-from-job/sample-values'
@@ -45,6 +46,8 @@ import type { CoverLetterInsert, ResumeContact } from '@/types/database'
  * The same, single page check gives the company's postal address when the
  * page's JobPosting data has a complete one; it is stored as the letter's
  * `company_address` (cover-letter-recipient-address-from-offer, US-001).
+ * When it gives none, the same, single AI call also reads the address from the
+ * offer's text, and it is stored only if it is found in that text (US-002).
  */
 
 export const dynamic = 'force-dynamic'
@@ -212,15 +215,24 @@ export async function POST(request: NextRequest) {
       ? boundCoverLetterResumeProfile(coverLetterProfileFromResume(resume))
       : {}
 
+    // From the offer page's JobPosting data, already cleaned and bounded by the
+    // page check; null when the page gave no complete address.
+    const pageAddress = pageCheck.kind === 'answered' ? pageCheck.companyAddress : null
+    const offerText = description.slice(0, AI_TEXT_LIMITS.JOB_DESCRIPTION)
+    // US-002: only then does the generation also read the address from the
+    // text, in the same call, so no rate-limit unit or provider call is added.
+    const askCompanyAddress = pageAddress === null && offerText !== ''
+
     let generated: GeneratedCoverLetter
     try {
       const generate = coverLetterGeneratorFor(request)
       generated = await generate({
         ...profile,
-        jobDescription: description ? description.slice(0, AI_TEXT_LIMITS.JOB_DESCRIPTION) : NO_JOB_DESCRIPTION,
+        jobDescription: offerText || NO_JOB_DESCRIPTION,
         jobTitle,
         companyName,
         locale: language,
+        ...(askCompanyAddress ? { askCompanyAddress } : {}),
       })
     } catch (error) {
       // Provider failures are already reported to Sentry by `generateCompletion`.
@@ -250,9 +262,11 @@ export async function POST(request: NextRequest) {
       resume_id: resume?.id ?? null,
       job_application_id: application.id,
       company_name: companyName || null,
-      // From the offer page's JobPosting data, already cleaned and bounded by
-      // the page check; null when the page gave no complete address.
-      company_address: pageCheck.kind === 'answered' ? pageCheck.companyAddress : null,
+      // The page's address first (FR-2), then the AI's reading of the text,
+      // kept only when found in the text it was given; otherwise null.
+      company_address:
+        pageAddress ??
+        (askCompanyAddress ? companyAddressFromOfferText(generated.companyAddress, offerText, companyName) : null),
       job_title: jobTitle || null,
       // As the form stored it before: the offer the letter was written for.
       job_description: application.job_description,

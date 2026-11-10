@@ -109,6 +109,21 @@ export const AI_TEST_STUB_OFFER_PAGE_ADDRESS = {
 } as const
 
 /**
+ * The address the stubbed cover-letter generator "reads" from the offer's text
+ * when the prompt asks for one (cover-letter-recipient-address-from-offer,
+ * US-002). It answers it whatever the text says, as an AI that invents one
+ * would: the route stores it only when the offer's text contains it. Distinct
+ * from `AI_TEST_STUB_OFFER_PAGE_ADDRESS`, so a test can tell the two sources
+ * apart.
+ */
+export const AI_TEST_STUB_OFFER_TEXT_ADDRESS = {
+  streetAddress: 'Rue du Lac 5',
+  postalCode: '1201',
+  addressLocality: 'Genève',
+  addressCountry: 'CH',
+} as const
+
+/**
  * What the stubbed cover-letter translation writes before every segment it
  * "translates", e.g. `[DE] ` for German: deterministic, and visibly not the
  * original. A segment carrying one of `AI_TEST_STUB_DIRECTIVES` fails the

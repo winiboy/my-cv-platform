@@ -27,7 +27,7 @@ const ADDRESS_PART_MAX_LENGTH = Math.floor((COVER_LETTER_FIELD_LIMITS.company_ad
  * and the name in English and the four national languages. A Swiss address
  * prints no country line, as a Swiss letter writes it.
  */
-const SWITZERLAND = new Set(['ch', 'che', 'switzerland', 'suisse', 'schweiz', 'svizzera', 'svizra'])
+export const SWITZERLAND: ReadonlySet<string> = new Set(['ch', 'che', 'switzerland', 'suisse', 'schweiz', 'svizzera', 'svizra'])
 
 /** How deep `@graph` and nested arrays are followed; real pages use one level. */
 const MAX_NODE_DEPTH = 4
@@ -135,22 +135,53 @@ function countryOf(value: unknown): string {
 }
 
 /**
- * The stored form of a `PostalAddress` node, or `null` when it is not one with
- * a street, a postcode and a locality. A plain-string address is not
- * structured and is never used, and neither is one with damaged text.
+ * A complete address's parts, each cleaned to one line of plain text. `country`
+ * is `null` when none is given or it is Switzerland: neither prints a line.
  */
-function formatPostalAddress(node: unknown): string | null {
+export interface PostalAddressParts {
+  street: string
+  postcode: string
+  locality: string
+  country: string | null
+}
+
+/**
+ * The cleaned parts of a `PostalAddress`-shaped value (`streetAddress`,
+ * `postalCode`, `addressLocality`, `addressCountry`), or `null` when it is not
+ * one with a street, a postcode and a locality. A plain-string address is not
+ * structured and is never used, and neither is one with damaged text.
+ *
+ * Shared by the offer page (US-001) and the address the AI reads from the
+ * offer's text (US-002), so both are cleaned and judged complete alike.
+ */
+export function postalAddressParts(node: unknown): PostalAddressParts | null {
   if (!isObject(node)) return null
   const street = cleanPart(node.streetAddress)
   const postcode = cleanPart(node.postalCode)
   const locality = localityWithoutPostcode(cleanPart(node.addressLocality), postcode)
   if (!street || !postcode || !locality) return null
 
-  const lines = [street, `${postcode} ${locality}`]
-  const country = countryOf(node.addressCountry)
-  if (country && !SWITZERLAND.has(country.toLowerCase())) lines.push(country)
-  const formatted = lines.join('\n')
-  return formatted.includes(REPLACEMENT_CHARACTER) ? null : formatted
+  const givenCountry = countryOf(node.addressCountry)
+  const country = givenCountry && !SWITZERLAND.has(givenCountry.toLowerCase()) ? givenCountry : null
+  const kept = [street, postcode, locality, country ?? '']
+  if (kept.some((part) => part.includes(REPLACEMENT_CHARACTER))) return null
+  return { street, postcode, locality, country }
+}
+
+/**
+ * The address as `company_address` stores it: the street; then the postcode, a
+ * space and the locality; then the country, only when there is one.
+ */
+export function formatPostalAddressParts(parts: PostalAddressParts): string {
+  const lines = [parts.street, `${parts.postcode} ${parts.locality}`]
+  if (parts.country) lines.push(parts.country)
+  return lines.join('\n')
+}
+
+/** The stored form of a `PostalAddress` node, or `null` when it is not a complete one. */
+function formatPostalAddress(node: unknown): string | null {
+  const parts = postalAddressParts(node)
+  return parts ? formatPostalAddressParts(parts) : null
 }
 
 /** The first complete address among a property's values (`address` may be a list). */

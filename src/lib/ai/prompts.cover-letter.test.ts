@@ -87,3 +87,50 @@ describe('buildCoverLetterGenerationPrompt', () => {
     expect(prompt).toContain('Write the ENTIRE cover letter in German')
   })
 })
+
+describe('buildCoverLetterGenerationPrompt - asking for the company address (cover-letter-recipient-address-from-offer, US-002)', () => {
+  it('keeps the pinned prompt when the opt-in is false', () => {
+    for (const [locale, expected] of Object.entries(PROMPT_SHA256_BEFORE_COVER_LETTER_FROM_JOB)) {
+      const localeValue = locale === 'undefined' ? undefined : locale
+      expect(
+        sha256(buildCoverLetterGenerationPrompt({ ...WITH_RESUME, locale: localeValue, askCompanyAddress: false }))
+      ).toBe(expected.withResume)
+      expect(
+        sha256(buildCoverLetterGenerationPrompt({ ...WITHOUT_RESUME, locale: localeValue, askCompanyAddress: false }))
+      ).toBe(expected.withoutResume)
+    }
+  })
+
+  it('never mentions an address without the opt-in', () => {
+    const prompt = buildCoverLetterGenerationPrompt({ ...WITH_RESUME, locale: 'fr' })
+    expect(prompt).not.toContain('companyAddress')
+    expect(prompt).not.toContain('postal address')
+  })
+
+  it('asks for the address in the same JSON reply, copied from the job description or left empty', () => {
+    const prompt = buildCoverLetterGenerationPrompt({ ...WITH_RESUME, locale: 'fr', askCompanyAddress: true })
+
+    expect(prompt).toContain(
+      `  "signOff": "<Professional sign-off, e.g., 'Sincerely,' or equivalent in French>",\n  "companyAddress": {\n`
+    )
+    for (const field of ['streetAddress', 'postalCode', 'addressLocality', 'addressCountry']) {
+      expect(prompt).toContain(`"${field}": "<`)
+    }
+    expect(prompt).toContain('**COMPANY ADDRESS (companyAddress):**')
+    expect(prompt).toContain('Copy each part exactly as written in the job description')
+    expect(prompt).toContain('- streetAddress holds the street and number only, without the company name, postcode or town\n')
+    expect(prompt).toContain('set every field to an empty string')
+    expect(prompt).toContain('NEVER guess, complete, correct or translate any part')
+    expect(prompt).toMatch(/- ALL content in French\n\n\*\*COMPANY ADDRESS[\s\S]*\n\n\*\*Response:\*\*\nReturn ONLY the JSON object/)
+  })
+
+  it('changes nothing else in the prompt', () => {
+    const asked = buildCoverLetterGenerationPrompt({ ...WITH_RESUME, locale: 'de', askCompanyAddress: true })
+    const notAsked = buildCoverLetterGenerationPrompt({ ...WITH_RESUME, locale: 'de' })
+
+    const withoutAddress = asked
+      .replace(/,\n {2}"companyAddress": \{[\s\S]*?\n {2}\}/, '')
+      .replace(/\n\n\*\*COMPANY ADDRESS \(companyAddress\):\*\*[\s\S]*?(?=\n\n\*\*Response:\*\*)/, '')
+    expect(withoutAddress).toBe(notAsked)
+  })
+})

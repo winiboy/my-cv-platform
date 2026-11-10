@@ -14,6 +14,7 @@ vi.mock('./client', async (importOriginal) => ({
 }))
 
 const {
+  COMPANY_ADDRESS_MAX_TOKENS_MARGIN,
   COVER_LETTER_COMPLETION_OPTIONS,
   CoverLetterReplyError,
   coverLetterProfileFromResume,
@@ -94,6 +95,39 @@ describe('toGeneratedCoverLetter', () => {
       expect(() => toGeneratedCoverLetter(reply)).toThrow(CoverLetterReplyError)
     }
   })
+
+  describe('the company address (cover-letter-recipient-address-from-offer, US-002)', () => {
+    const LETTER = {
+      greeting: 'Hello,',
+      openingParagraph: 'Open.',
+      bodyParagraphs: ['Body.'],
+      closingParagraph: 'Close.',
+      signOff: 'Bye,',
+    }
+
+    it('keeps the string parts of companyAddress', () => {
+      expect(
+        toGeneratedCoverLetter({
+          ...LETTER,
+          companyAddress: {
+            streetAddress: 'Rue du Lac 5',
+            postalCode: 1201,
+            addressLocality: 'Genève',
+            addressCountry: { name: 'Suisse' },
+            extra: 'ignored',
+          },
+        }).companyAddress
+      ).toEqual({ streetAddress: 'Rue du Lac 5', addressLocality: 'Genève' })
+    })
+
+    it('has no address when the field is missing, malformed or has no string part, and never throws', () => {
+      for (const companyAddress of [undefined, null, 'Rue du Lac 5, 1201 Genève', 42, ['Rue du Lac 5'], {}, { postalCode: 1201 }]) {
+        const letter = toGeneratedCoverLetter({ ...LETTER, companyAddress })
+        expect(letter).not.toHaveProperty('companyAddress')
+        expect(letter).toEqual(toGeneratedCoverLetter(LETTER))
+      }
+    })
+  })
 })
 
 describe('generateCoverLetter', () => {
@@ -110,6 +144,37 @@ describe('generateCoverLetter', () => {
     )
     expect(COVER_LETTER_COMPLETION_OPTIONS.maxTokens).toBe(1500)
     expect(letter.greeting).toBe('Madame, Monsieur,')
+  })
+
+  it('asks for the address in the same, single call when the input opts in, and returns it', async () => {
+    const asking = { ...INPUT, askCompanyAddress: true }
+    const companyAddress = { streetAddress: 'Rue du Lac 5', postalCode: '1201', addressLocality: 'Genève' }
+    generateCompletion.mockResolvedValueOnce({ text: JSON.stringify({ greeting: 'Madame,', companyAddress }) })
+
+    const letter = await generateCoverLetter(asking)
+
+    expect(generateCompletion).toHaveBeenCalledTimes(1)
+    expect(generateCompletion).toHaveBeenCalledWith(buildCoverLetterGenerationPrompt(asking), expect.anything())
+    expect(letter.companyAddress).toEqual(companyAddress)
+  })
+
+  it('gives the reply room for the address only when the input opts in', async () => {
+    generateCompletion.mockResolvedValue({ text: JSON.stringify({ greeting: 'Madame,' }) })
+
+    await generateCoverLetter(INPUT)
+    await generateCoverLetter({ ...INPUT, askCompanyAddress: false })
+    await generateCoverLetter({ ...INPUT, askCompanyAddress: true })
+
+    const [plain, optedOut, asking] = generateCompletion.mock.calls.map(([, options]) => options)
+    expect(plain).toEqual({ ...COVER_LETTER_COMPLETION_OPTIONS, operation: 'generateCoverLetterFromJobApplication' })
+    expect(optedOut).toEqual(plain)
+    expect(asking).toEqual({
+      ...COVER_LETTER_COMPLETION_OPTIONS,
+      maxTokens: COVER_LETTER_COMPLETION_OPTIONS.maxTokens + COMPANY_ADDRESS_MAX_TOKENS_MARGIN,
+      operation: 'generateCoverLetterFromJobApplication',
+    })
+    expect(COMPANY_ADDRESS_MAX_TOKENS_MARGIN).toBe(200)
+    expect(COVER_LETTER_COMPLETION_OPTIONS).toEqual({ model: COVER_LETTER_COMPLETION_OPTIONS.model, temperature: 0.7, maxTokens: 1500 })
   })
 
   it('throws CoverLetterReplyError for a reply that is not JSON', async () => {

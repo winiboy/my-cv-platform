@@ -14,6 +14,7 @@ import {
   AI_TEST_STUB_OFFER_PAGE_PARAM,
   AI_TEST_STUB_OFFER_PAGE_TIMEOUT,
   AI_TEST_STUB_OFFER_PAGE_WITH_ADDRESS,
+  AI_TEST_STUB_OFFER_TEXT_ADDRESS,
   aiTestStubTranslationPrefix,
   coverLetterGeneratorFor,
   coverLetterTranslatorFor,
@@ -193,6 +194,17 @@ describe('generateStubCoverLetter', () => {
   it('is deterministic', async () => {
     const input = { ...INPUT, locale: 'it', resumeSummary: 'Profilo.' }
     expect(await generateStubCoverLetter(input)).toEqual(await generateStubCoverLetter(input))
+  })
+
+  it('answers the fixed text address only when asked for one, whatever the description says', async () => {
+    const asked = await generateStubCoverLetter({ ...INPUT, locale: 'fr', askCompanyAddress: true })
+    expect(asked.companyAddress).toEqual(AI_TEST_STUB_OFFER_TEXT_ADDRESS)
+    expect(AI_TEST_STUB_OFFER_TEXT_ADDRESS).not.toEqual(AI_TEST_STUB_OFFER_PAGE_ADDRESS)
+
+    for (const askCompanyAddress of [undefined, false]) {
+      const letter = await generateStubCoverLetter({ ...INPUT, locale: 'fr', askCompanyAddress })
+      expect(letter).not.toHaveProperty('companyAddress')
+    }
   })
 
   it('fails as the provider would when the description asks it to', async () => {
