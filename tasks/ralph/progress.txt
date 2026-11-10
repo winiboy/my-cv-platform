@@ -1,196 +1,274 @@
-# Ralph progress — cover-letter-sender-placeholders
+# Ralph progress — cover-letter-recipient-address-from-offer
 
-Contract: tasks/ralph/prd.json (branch ralph/cover-letter-sender-placeholders)
-PRD: tasks/prds/cover-letter-sender-placeholders.md (Status: APPROVED 2026-11-08, written by the owner in GitHub's web editor, commit a4cec53 on prd/cover-letter-sender-placeholders)
+Contract: tasks/ralph/prd.json (branch ralph/cover-letter-recipient-address-from-offer)
+PRD: tasks/prds/cover-letter-recipient-address-from-offer.md (Status: APPROVED 2026-11-09, written by the owner in GitHub's web editor, commit db89d2b on prd/cover-letter-recipient-address-from-offer)
 Format: docs/engineering/progress-log-format.md
-Branch setup: from origin/prd/cover-letter-sender-placeholders a4cec53 (origin/main f8c6a4b, #124 merged, plus the PRD draft 790c778 and the owner's approval commit). The first commit archives the merged cover-letter-swiss-format contract; the second adds this contract.
-Contract note: the PRD's nested lists and tables in acceptance criteria and Required Verification are flattened into one criterion each, wording unchanged.
+Branch setup: from origin/prd/cover-letter-recipient-address-from-offer db89d2b (origin/main 8610211, #125 merged, plus the PRD draft 546349b and the owner's approval commit). The first commit archives the merged cover-letter-sender-placeholders contract; the second adds this contract.
+Contract note: the PRD's nested lists in acceptance criteria and Required Verification are flattened into one criterion each, wording unchanged.
 
-## US-001: The name field asks for first and last name
+## US-001: The address comes from the offer's page
 Status: PASS
 Priority: 1
-Branch: ralph/cover-letter-sender-placeholders
-Baseline HEAD: 0029c01 (contract commit; origin/main f8c6a4b)
+Branch: ralph/cover-letter-recipient-address-from-offer
+Baseline HEAD: 6ee469e (contract commit; origin/main 8610211)
 
 Scope:
 - Scope check: PASS
-- Changed paths: story diff sha256 prefix 86901b0c8ac25cd8. The hash covers `git diff -- src e2e` (6 files, 6/6), then "== e2e/cover-letter-signature-name-label.spec.ts" and that new file (84 lines).
-  - `src/locales/{fr,en,de,it}/common.json`: `coverLetters.editor.signature.nameLabel` is "Votre prénom et nom", "Your first and last name", "Ihr Vorname und Name", "Il tuo nome e cognome". One line per file.
-  - `src/components/dashboard/cover-letter-sections/signature-section.tsx` L145: the English fallback `'Your Name'` becomes `'Your first and last name'`, the same as en.
-  - `e2e/cover-letter-editor-i18n.spec.ts`: `ENGLISH_FALLBACKS.signature` copies the component fallback, so it changes with it. Nothing else changes.
-  - New `e2e/cover-letter-signature-name-label.spec.ts`, one test per locale (fr, en, de, it):
-    - the exact label, written out in the test;
-    - the placeholder is still the locale's `namePlaceholder`;
-    - a stored `sender_name` is shown unchanged;
-    - the page answers 200.
-- Not touched:
-  - `namePlaceholder`;
-  - the street and postcode placeholders (US-002);
-  - the Recipient tab's own `nameLabel`;
-  - the preview and exports;
-  - the database.
-- No version change, no push or merge.
-- Two temporary capture specs (`e2e/zz-p1-cap.spec.ts`, `e2e/zz-p1-a11y.spec.ts`) were each run alone and deleted. They are not in the diff.
-
-Checks:
-- Final run on this diff, alone, started after the last edit. The hash 86901b0c8ac25cd8 was the same before and after.
-  - pnpm typecheck: PASS — exit 0.
-  - pnpm test: PASS — 3419 passed, 5 skipped. Includes `src/locales/locale-parity.test.ts`.
-  - pnpm test:integration: PASS — 63 passed.
-  - pnpm build: PASS — 105/105 static pages.
-  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
-  - pnpm test:e2e: PASS — 534 passed, 0 failed (19.6 min), including the 4 new tests.
-  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
-  - pnpm test:visual: PASS — 10 passed. Baselines unchanged.
-
-Specialized validation:
-- Browser: PASS. Captures on the production build, fr/en/de/it at 1280 and 375 (scratchpad `p1ux/`):
-  - The label text is exact in all 8 captures.
-  - It fits on one line: scrollWidth equals clientWidth (248 at 1280, 280 at 375), and scrollHeight equals clientHeight (20).
-  - In fr and de at 1280, the label contrast is 21:1 (oklch(0.08 0 0) on white, 14px / 500).
-  - Tab moves from the sign-off select to the name input to the street input, each with the 2px teal ring.
-- Visual: PASS — `pnpm test:visual` 10/10, and parity unchanged.
-- Export: NOT_APPLICABLE — a label is never printed. Parity, which covers the preview and PDF, is unchanged.
-- Database: NOT_APPLICABLE — no schema change and no stored value changes.
-- Security: NOT_APPLICABLE — static dictionary text only; no input, route or output path.
-
-Agents:
-- senior-coder: implementation.
-- ui-expert:
-  - round 1: BLOCKED. Criteria 1–3 passed, but condition 6 (accessibility) had no contrast or keyboard evidence.
-  - round 2: PASS 7/7, after the a11y capture above.
-- code-reviewer: PASS. No critical or major findings. The two minor ones:
-  - The contract's shared criteria include US-002-only items; they are recorded below as deferred.
-  - The spec reaches the label as the input's preceding sibling, because the label has no `htmlFor`.
-
-Acceptance criteria:
-- AC-01 (exact label under /fr, /en, /de, /it): PASS — the new e2e spec, 4/4, with the expected strings written out; the captures in four locales.
-- AC-02 (the label follows the interface language): PASS — still read from the interface dictionary, and the captures show it in the same language as the tab's other labels.
-- AC-03 (placeholder, value, saving and printing unchanged): PASS — the spec checks the placeholder and the stored value; the diff does not touch the input; parity and visual are unchanged.
-- FR-2: PASS — same key, parity test green. FR-4: PASS — no dependency, column, route or migration.
-- Regression constraints: PASS — the other Signature labels and placeholders, the Recipient tab, the sender-field validation and limits, and the printed letter are unchanged (e2e, parity and visual green).
-- Shared items that only US-002 can meet, deferred to US-002 and NOT claimed here:
-  - FR-1 and FR-3;
-  - the German-letter / French-letter placeholder e2e;
-  - the per-language address-example unit test;
-  - "both placeholders" in the browser evidence;
-  - the "Wrong language", "Prefix" and "Second resolver" FAIL conditions.
-- FAIL and BLOCKER conditions within this story: none triggered.
-
-Decision:
-- **The English fallback follows en.** The component's hard-coded fallback now equals the en dictionary, so a missing key still shows the new wording.
-- **Exact strings in the test.** The spec writes the expected labels out instead of reading the dictionaries, so changing a dictionary entry fails the test.
-
-Open owner decisions:
-- **The name label is not linked to its input** (ui-expert, medium, pre-existing). It has no `htmlFor`, and the input has no `id`, so screen readers do not announce the new label as the field's name. The other sender fields are linked. Fixing it is out of this PRD's scope (label text only); it would be a small follow-up for the Signature and Recipient fields.
-- **Out of scope, pre-existing (ui-expert):**
-  - at 375 the section tab strip is cut off at the left edge, with no scroll hint;
-  - at 1280 in German, the "Verknüpfter Lebenslauf" tab wraps onto two lines.
-
-Environment notes:
-- The checks, then the two capture specs, then the reviews ran one at a time. The two review agents ran in parallel, but neither ran tests.
-
-Commit:
-- Story commit: THIS_COMMIT
-- Commit message: ralph: US-001 The name field asks for first and last name
-FINAL: PASS
-
-## US-002: The address fields show a neutral example in the letter's language
-Status: PASS
-Priority: 2
-Branch: ralph/cover-letter-sender-placeholders
-Baseline HEAD: 6949106 (US-001)
-
-Scope:
-- Scope check: PASS
-- Changed paths: story diff sha256 prefix c57ecb3b1e000419. The hash covers `git diff -- src e2e` (9 files, 80/23), then "== e2e/cover-letter-sender-address-examples.spec.ts" and that new file.
-  - `src/lib/cover-letter-language.ts`: `CoverLetterWording` gains `streetExample` and `postalLocalityExample`, with doc comments saying they are editor placeholders, never stored or printed. Values:
-    - fr "Rue du Bourg 12" / "1234 Ma ville";
-    - de "Dorfstrasse 12" / "1234 Mein Ort";
-    - it "Via del Borgo 12" / "1234 La mia città";
-    - en "12 Main Street" / "1234 My town".
-  - `src/components/dashboard/cover-letter-editor.tsx`: passes both examples from the existing `letterWording` memo (`coverLetterLanguage(...)`), so the language is not resolved a second time.
-  - `src/components/dashboard/cover-letter-sections/signature-section.tsx`:
-    - two new props;
-    - the street and postcode entries of `SENDER_DETAIL_INPUTS` carry `placeholder: null` and use the passed example;
-    - phone and e-mail still read their dictionary placeholder;
-    - labels, ids, autocomplete, maxLength, aria and onChange are unchanged.
-  - `src/locales/{fr,en,de,it}/common.json`: `streetPlaceholder` and `postalLocalityPlaceholder` removed, two lines per file. Nothing in `src` or `e2e` reads them.
+- Changed paths: story diff sha256 prefix 92c1a97914e119fb. The hash covers `git diff -- src e2e` (7 files, 651/26), then "== <path>" and the content of each of the three new files.
+  - **New `src/lib/cover-letter-from-job/offer-page-address.ts`:** `companyAddressFromOfferPage(html)`.
+    - It reads every `<script type="application/ld+json">` block, by a forward `indexOf` scan, with only ASCII A–Z lower-cased, so the positions match the original HTML.
+    - It finds every `JobPosting`: a single node, an array or `@graph`, with `@type` as a string, a list, or a full name such as `https://schema.org/JobPosting`.
+    - It takes the first complete `hiringOrganization.address` of any posting, then the first complete `jobLocation.address`.
+    - Each part is cleaned with `sanitizeUntrustedPlainText` and capped at 249 characters, so 4 parts and 3 separators never go over 1,000.
+    - Complete means a street, a postcode and a locality. A locality that repeats the postcode loses it, and one that is only the postcode is incomplete.
+    - The country line is left out for CH, CHE, Switzerland, Suisse, Schweiz, Svizzera and Svizra.
+    - An address containing U+FFFD (a wrong charset) is rejected.
+  - **`src/lib/cover-letter-from-job/offer-availability.ts`:**
+    - `answered` now carries `companyAddress: string | null`.
+    - A 2xx `text/html` or `application/xhtml+xml` answer is read up to `OFFER_PAGE_MAX_BODY_BYTES` (1 MiB), in its declared charset (UTF-8 by default). The read uses whatever is left of the same 5 s `OFFER_PAGE_TIMEOUT_MS`. `safeFetch` clears its own timer once it returns the response, so every read is raced against the remaining time.
+    - Any other answer, a read error or a timeout gives `answered` with a `null` address.
+    - 404 and 410 still cancel the body without reading it.
+    - The verdicts are unchanged.
+  - **`src/app/api/cover-letters/from-job-application/route.ts`:** one line stores `company_address` from the same single page check, or `null`.
+  - **`src/lib/ai/test-stub.ts`, `test-stub-contract.ts`:** `ai-test-stub-page-address=job-posting` makes a stubbed 200 page carry a fixed `JobPosting`. Its hiring organization is at Avenue de la Gare 10, 1003 Lausanne, CH, and its job location is elsewhere. The real parser reads it. The existing stub behaviour is unchanged.
   - **Tests:**
-    - `src/lib/cover-letter-language.test.ts`: exact examples for the four languages, and no prefix.
-    - `e2e/cover-letter-sender-details.spec.ts`: the "five fields" loop expects the written-out examples for the two address fields. Its letter has no paragraphs, so the language falls back to the page's. The other fields still read the dictionary.
-    - New `e2e/cover-letter-sender-address-examples.spec.ts`:
-      - a German letter under /fr shows the German examples, with empty values and no linked CV;
-      - typing a French opening, unsaved, switches both to French;
-      - after saving, the stored opening holds the French text while street and postcode stay `null`;
-      - the preview never shows an example;
-      - a French letter under /de shows the French examples.
+    - `offer-page-address.test.ts` (new): every fixture the PRD lists, plus İ before the block, a repeated postcode, full-name `@type`, U+FFFD and a linear-time scan.
+    - `offer-availability.test.ts`:
+      - the body is read only for 2xx HTML;
+      - a non-HTML answer gives no address;
+      - an endless body is stopped at the cap;
+      - a block cut by the cap is skipped;
+      - a read past the budget gives `null` at 5,000 ms, not before;
+      - a cancel that never settles does not hold the check;
+      - 404 and 410 bodies are never read;
+      - windows-1252 bytes served as UTF-8 give no address.
+    - `route.test.ts`:
+      - the address is stored;
+      - no address gives `null`;
+      - the rest of the row is identical with or without an address;
+      - 410 still gives 409 and nothing is written;
+      - an AI failure stores nothing;
+      - one page fetch and one rate-limit unit per creation.
+    - `test-stub.test.ts`: the address parameter.
+    - `e2e/cover-letter-recipient-address-from-offer.spec.ts` (new):
+      - (a) a page with an address: it is stored, the Destinataire tab shows the two lines, and the preview prints them under the company;
+      - (b) a page without one: `null`, an empty field, and the company alone.
 - Not touched:
-  - the phone, e-mail, annexes and name placeholders;
-  - all labels;
-  - the Recipient tab;
-  - language detection;
-  - the preview, PDF and Word code;
-  - the database.
-- No version change, no push or merge.
-- The temporary capture spec `e2e/zz-p2-cap.spec.ts` was run alone and deleted. It is not in the diff.
+  - the text fallback (US-002), the other recipient fields, the other creation paths and existing letters;
+  - `/api/jobs/fetch-external`, the allowlist and `safeFetch`;
+  - the preview, PDF and Word code, and the database.
+- No version change, no push or merge. The temporary capture spec `e2e/zz-a1-pdf.spec.ts` was run alone and deleted; it is not in the diff.
 
 Checks:
-- Final run on this diff, alone, started after the last edit. The hash c57ecb3b1e000419 was the same before and after.
+- Final run on diff 92c1a97914e119fb, alone, started after the last edit. The hash was the same before and after.
   - pnpm typecheck: PASS — exit 0.
-  - pnpm test: PASS — 3423 passed, 5 skipped. Includes the 4 new example tests and the locale parity test.
+  - pnpm test: PASS — 3523 passed, 5 skipped.
   - pnpm test:integration: PASS — 63 passed.
   - pnpm build: PASS — 105/105 static pages.
   - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
-  - pnpm test:e2e: PASS — 536 passed, 0 failed (19.8 min). Includes the 2 new tests and the sender-details spec in fr/en/de/it.
+  - pnpm test:e2e: PASS — 538 passed, 0 failed (17.0 min), on an idle machine. Includes the 2 tests of the new spec.
   - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
   - pnpm test:visual: PASS — 10 passed. Baselines unchanged.
+- Earlier runs, not evidence for this diff:
+  - Diff 4db80c1203bfdb54, before review fix round 1: all green, with e2e 538/0 and unit 3503. Superseded by the fix round.
+  - The first e2e run on 92c1a979 had 537 passed and 1 failed: `modern-print-sidebar-full-page.spec.ts:365`, the resume one-page print case, timed out at 90 s while the whole run took 28.1 min instead of about 20. The story touches no resume or print code. That spec, run alone, passed 9/9 (3.7 min). A second full rerun failed the same test the same way (537/1, 28.9 min). The machine was then running a sim game, VR and SimHub (CPU about 52% before any test), which explains the 45% slower runs and the CPU-bound pixel-comparison test going past its 90 s timeout. Once the owner said the PC was free (CPU 4%), the full e2e was run again alone; that run is the result above.
 
 Specialized validation:
-- Browser: PASS. Captures of the production build (scratchpad `p2ux/`) cover (page, letter) = (fr, de), (de, fr), (fr, fr), (de, de), (fr, it) and (fr, en), at 1280 and 375:
-  - all 24 placeholders are the exact strings, and every value is empty;
-  - the longest example, "1234 La mia città" (127 px), fits the narrowest field (222 px);
-  - Tab moves select → name → street → postcode, each with the 2px teal ring;
-  - the printed sender block shows only the name.
-- Visual: PASS — `pnpm test:visual` 10/10, and parity unchanged.
-- Export: NOT_APPLICABLE — the PDF and Word code never reads the new fields: `swissLetterParts` reads named fields only. Parity is unchanged.
-- Database: NOT_APPLICABLE — no schema change. The e2e shows a save leaves both columns `null`.
-- Security: NOT_APPLICABLE — static strings only; no input, route or output path.
+- Browser: PASS. The e2e spec renders the Destinataire tab and the preview in fr at 1440: the field holds "Avenue de la Gare 10\n1003 Lausanne", and the recipient block reads "Beispiel AG\nAvenue de la Gare 10\n1003 Lausanne".
+- Visual: PASS — `pnpm test:visual` 10/10. Parity unchanged.
+- Export: PASS — temporary spec `e2e/zz-a1-pdf.spec.ts`, run alone on 92c1a97914e119fb and deleted. A letter created through the UI from an application whose stubbed page has the address; its PDF (sha256 prefix c91c316c3cfd06cb) prints, inside the window zone (x ≥ 311.8 pt = 110 mm, top ≥ 141.7 pt = 50 mm, right ≤ 538.6 pt), "Beispiel AG" (baseline 152.2), "Avenue de la Gare 10" (166.5), "1003 Lausanne" (180.7), all at 11 pt. The same capture on 4db80c12 gave the same items.
+- Database: NOT_APPLICABLE — no schema change. The existing `company_address` column is filled at creation.
+- Security: PASS — `security-review` on 4db80c1203bfdb54, with 0 critical, high or medium findings. The fix round changed only parsing and cleaning, inside the same trust boundary.
+  - SEC-001 (INFO): misaligned slicing after a lower-cased "İ". It was fixed in the fix round.
+  - SEC-002 (INFO, pre-existing): multi-tenant ATS subdomains on the allowlist can serve any JSON-LD. The result is only cleaned plain text on that user's own letter.
+  - Checked: one `safeFetch` call with the allowlist and redirect re-checks; the body is capped at 1 MiB and read within the 5 s budget, after the rate limit; the scan is linear with a depth limit; nothing is logged or sent to the AI; the value reaches the same field the user already types into.
 
 Agents:
-- senior-coder: implementation.
-- ui-expert: PASS 7/7, with one pre-existing finding (placeholder contrast, below).
-- code-reviewer: PASS. No critical or major findings. Four minor ones, all optional:
-  - `placeholder: null` as the "letter example" marker could be an explicit discriminant;
-  - `addressExamples` is a small object built on every render;
-  - the sender-details spec assumes a letter without paragraphs;
-  - it/en are covered by the unit test and the page-language fallback, not by a cross-language e2e.
+- senior-coder: implementation, then fix round 1 (six minor code-review findings).
+- ui-expert: NOT_APPLICABLE — no UI changes (PRD Required Verification). The e2e covers the rendered field and preview.
+- code-reviewer:
+  - round 1: PASS, with minor findings (the İ slicing, a repeated postcode, full-name `@type`, U+FFFD, an inconsistent cancel comment, two fragile tests), all fixed in round 1;
+  - round 2: PASS on 92c1a97914e119fb, with no critical or major finding.
 
 Acceptance criteria:
-- AC-01 (exact street examples): PASS — the unit test in four languages; the e2e for de and fr; the sender-details e2e in four locales; captures of four letter languages.
-- AC-02 (exact postcode examples): PASS — same evidence as AC-01.
-- AC-03 (no prefix): PASS — the unit test regex, the exact e2e equality, and the captures.
-- AC-04 (the letter's language, as the preview prints it): PASS — the e2e checks a German letter under /fr and a French letter under /de; the captures show the preview in the letter's language next to the matching examples.
-- AC-05 (the placeholders follow a language change): PASS — the e2e types a French opening into a German letter, unsaved, and both examples switch to French.
-- AC-06 (labels, values, saving, CV fallback and the printed letter unchanged; never stored or printed): PASS — the e2e reads back `null` after a save; the preview text contains no example; parity and visual are unchanged; the diff touches no label, `onChange` or export code.
-- FR-1, FR-3 and FR-4 (deferred from US-001): PASS. FR-2 is unchanged since US-001.
-- The "Wrong language", "Prefix" and "Second resolver" FAIL conditions (deferred from US-001): not triggered.
-- Regression constraints: PASS.
+- AC-01 (hiringOrganization first, then jobLocation): PASS — unit tests for each source and both, including a preferred address in a later block; the stub page's two addresses in the e2e.
+- AC-02 (complete = street, postcode, locality): PASS — unit tests for locality only, no street, no postcode, a locality that is only the postcode, markup-only or blank parts, and a plain-string address.
+- AC-03 (shape; country only when not Swiss; no company name): PASS — unit tests for the Swiss spellings, a non-Swiss country and a `Country` node; the e2e stores exactly two lines.
+- AC-04 (same page, fetched once, same allowlist, redirects and budget): PASS — the route test counts one fetch; the body comes from the response `safeFetch` returned; the timeout test shows the read ends with the 5 s budget.
+- AC-05 (a closed offer still refused, no address read): PASS — route test: 410 gives 409 with the same body and nothing is written; unit tests: 404 and 410 bodies are not read. The deadline check still comes before the page.
+- AC-06 (Destinataire tab and preview): PASS — e2e (a) and (b).
+- FR-1 to FR-4, FR-6 and FR-7: PASS. FR-5 (the text fallback costs no extra unit): deferred to US-002; the route test shows one unit per creation.
+- The shared Required Verification items about the text fallback (unit and route) belong to US-002 and are deferred there.
+- Regression constraints: PASS — the row-equality route test; 409 and the AI failure unchanged; fetch-external and the allowlist untouched; parity and visual unchanged.
 - FAIL and BLOCKER conditions: none triggered.
 
 Decision:
-- **The examples live in the letter wording.** `COVER_LETTER_WORDING` is the one per-language source the editor already resolves. The default greeting and sign-off come from it, so the examples follow the same language and update the same way.
-- **The old dictionary keys are removed (FR-3).** After this change nothing reads them, so keeping them would leave dead text that could drift.
+- **One fetch.** The address is read from the response the availability check already gets, so the page is never fetched twice (FR-3, AC-04).
+- **A capped prefix, not nothing.** A page over 1 MiB is parsed up to the cap: boards put the JSON-LD in the head. A block the cap cuts in half fails to parse and is skipped.
+- **When in doubt, no address.** A wrong charset (U+FFFD) or a postcode-only locality gives an empty field, never a damaged value.
 
 Open owner decisions:
-- **Placeholder contrast** (ui-expert, pre-existing; open since cover-letter-swiss-format). Every input in the form uses `oklab(0.08 0 0 / 0.5)` on white, about 3.95:1, below the AA minimum of 4.5:1. A colour around #737373 (4.74:1) would fix every input at once.
-- **Mixed prefixes** (approved scope). Phone, e-mail and annexes keep "ex. :" / "z.B." / "es." / "e.g.,", while the two address examples have none.
-- **Still open from US-001:** the name label is not linked to its input; the 375 tab strip has no scroll hint; the German "Verknüpfter Lebenslauf" tab wraps at 1280.
+- None from this story. Minor code-review points left as they are, all safe (they can only lose an address, never invent one):
+  - the pre-existing 404/410 path still awaits the body's cancel;
+  - `@type` matching accepts any vocabulary's `JobPosting`, ignoring case;
+  - the `type=` match also fires on a `data-type` attribute.
 
 Environment notes:
-- The checks, then the capture spec, then the reviews ran one at a time. The two review agents ran in parallel, but neither ran tests.
+- The checks, the single-spec rerun, the full e2e rerun and the capture ran one at a time. The two review agents ran read-only, during the security review and the second check run.
 
 Commit:
 - Story commit: THIS_COMMIT
-- Commit message: ralph: US-002 The address fields show a neutral example in the letter's language
+- Commit message: ralph: US-001 The address comes from the offer's page
+FINAL: PASS
+
+## US-002: Otherwise, the address comes from the offer's text
+Status: PASS
+Priority: 2
+Branch: ralph/cover-letter-recipient-address-from-offer
+Baseline HEAD: 296cd37 (US-001)
+
+Scope:
+- Scope check: PASS
+- Changed paths: story diff sha256 prefix 15e63b1d7d5a0910. The hash covers `git diff -- src e2e` (11 files, 576/24), then "== <path>" and the content of each new file:
+  - `src/app/api/ai/generate-cover-letter/route.test.ts` (86 lines);
+  - `src/lib/cover-letter-from-job/offer-text-address.ts` (651);
+  - `src/lib/cover-letter-from-job/offer-text-address.test.ts` (678).
+  - **One AI call (FR-5).**
+    - `CoverLetterGenerationInput.askCompanyAddress`: only when it is set does `buildCoverLetterGenerationPrompt` add a `companyAddress` reply field and copy-only rules. Those rules: copy each part exactly as written; street and number only, without the company name, postcode or town; every field empty if the offer gives no complete address.
+    - Without it, the prompt is byte-identical: the existing SHA-256 pins pass unchanged, and a new pin covers `false`.
+    - `generateCoverLetter` raises `maxTokens` by `COMPANY_ADDRESS_MAX_TOKENS_MARGIN` (200) only in that case. `COVER_LETTER_COMPLETION_OPTIONS` and the editor route are unchanged.
+    - `toGeneratedCoverLetter` keeps only the string parts of `companyAddress`. A missing or malformed address is no address, never an error.
+  - **Route:**
+    - The route asks only when the page gave no complete address and the offer text is not empty.
+    - `company_address` is the page address, else `companyAddressFromOfferText(generated.companyAddress, offerText, companyName)`, else `null`.
+    - Same single rate-limit unit, same single provider call, same error paths.
+  - **New `offer-text-address.ts`:** the AI's answer is accepted only when it matches the offer text's own structure.
+    - The text the AI was given (first 15,000 characters) is cut into segments before any cleaning, on:
+      - line breaks and their entities;
+      - block/line HTML tags and U+200B;
+      - tab;
+      - `, ; : | / · •` and full-width forms;
+      - dashes with spaces on both sides.
+    - Segments are compared in NFC, lower-cased, with whitespace collapsed, a trailing full stop removed, and leading bullets, list numbers and Markdown markers removed.
+    - The street must equal a whole segment, and the next segment must equal "postcode locality". An optional country prefix on the postcode in the text is allowed, and so is one P.O.-box segment in between.
+    - Street rules:
+      - it needs a house number (digits, a letter, `bis`/`ter`, or a range) and a street-type word (`STREET_TYPE_WORDS` fr/it/en, `STREET_TYPE_SUFFIXES` German);
+      - it is refused when it holds the postcode, the company name, only company-name words, a legal form (`LEGAL_FORMS`), a P.O.-box phrase, a floor/building/department word, or a second number.
+    - Postcode: `^(?:[A-Za-z]{1,2}-)?\d{4,5}$`.
+    - Locality rules:
+      - a letter and no digit;
+      - at most 4 tokens;
+      - no brackets, no sentence full stop, no trailing country, no company name or legal form, no partial overlap with company-name words of 3+ letters;
+      - no word from `NOT_A_LOCALITY_WORDS`;
+      - further tokens must be capitalised or be place particles.
+    - A non-Swiss country is kept only when it is the next segment and is in `KNOWN_COUNTRIES`; otherwise the line is dropped.
+    - `offer-page-address.ts` now exports `postalAddressParts`, `formatPostalAddressParts` and `SWITZERLAND`. The page path (US-001) gives the same output.
+  - **Stub:** `AI_TEST_STUB_OFFER_TEXT_ADDRESS` ("Rue du Lac 5", "1201", "Genève", "CH") is answered only when asked, whatever the text says, so the route's real check decides.
+  - **Tests:**
+    - `offer-text-address.test.ts`: 274 tests. They cover the PRD's three unit cases, every refused shape from review rounds 1–6, the e2e (c)/(d) texts mirrored character for character, the 15,000-character cut, and the documented limits.
+    - Route tests: page address first (not asked); text address stored; not in the text gives `null`; empty text is not asked; AI failure and a closed offer unchanged; one call and one unit in every branch; the rest of the row unchanged.
+    - Prompt, generation and stub tests.
+    - `generate-cover-letter/route.test.ts` (new): the editor never asks, even when a client posts the opt-in.
+    - e2e (c): a page without an address and a text with the stub's address, so it is stored, shown in "Adresse de l'entreprise" and printed by the preview.
+    - e2e (d): the text names the street with another town, so the field is empty.
+- Not touched:
+  - the page path's verdicts, the allowlist and `/api/jobs/fetch-external`;
+  - the editor's Generate route code;
+  - the other recipient fields, other creation paths and existing letters;
+  - the preview, PDF and Word code, and the database.
+- No version change, no push or merge.
+
+Checks:
+- Final run on 15e63b1d7d5a0910, alone (no agent running), started after the last edit. The hash was the same before and after.
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3830 passed, 5 skipped.
+  - pnpm test:integration: PASS — 63 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 540 passed, 0 failed (17.0 min), including the 4 tests of the spec (a)-(d). This was the third run on this diff; the first two each had 1 failure in a login step, see below.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+  - pnpm test:visual: PASS — 10 passed; baselines unchanged.
+- Earlier runs, not evidence for this diff:
+  - 15e63b1d7d5a0910 itself, first and second e2e runs: 539 passed and 1 failed each, a different test each time (`auth.spec.ts:27`, then `cover-letter-editor-mobile.spec.ts:461`), both in the shared `loginAs` fixture: `/en/login` stayed on its loading skeleton and `#email` never appeared within 15 s. The second run's trace shows the request for `/_next/static/chunks/main-app-*.js` failed at the network level (status -1) while every other chunk loaded, so the page never hydrated. The local server dropped a static file. The story changes no client code, login page or bundle. The machine was idle (CPU 3%, no other server on port 3100). The third run, alone, is the result above.
+  - ffe6eeb4fbbed5b0 (first implementation): all green, e2e 540/0. Superseded by the review fix rounds.
+  - 16dc70127a305f6f: stopped during e2e when code review round 2 failed.
+  - dffa98d4d245533a: e2e crashed. Chromium "Target crashed" and worker exit 0xC0000142 (a Windows process-start failure): 57 crashed, 454 did not run. A review agent was running node at the same time; that is the environment, not the code. Parity was cut by the stop. From then on, reviews ran before or after a check run, never during one.
+
+Specialized validation:
+- Browser: PASS. e2e (c) and (d) render the Destinataire tab and the preview in fr at 1440. (c): the field holds "Rue du Lac 5\n1201 Genève", and the preview prints it under "Beispiel AG". (d): the field is empty.
+- Visual: PASS — `pnpm test:visual` 10/10. Parity unchanged.
+- Export: NOT_APPLICABLE — no export code changed. A text address is stored in the same `company_address` and the same shape as the page address, whose PDF window print was captured for US-001 (c91c316c3cfd06cb).
+- Database: NOT_APPLICABLE — no schema change.
+- Security: PASS — security review by the orchestrator on ffe6eeb4fbbed5b0, re-checked on the final diff (the later changes are pure validation functions inside the same boundary), with 0 critical, high or medium findings.
+  - The editor's Generate route builds its prompt from named fields, so a client cannot opt in (tested).
+  - The AI's answer is untrusted: it is cleaned with the US-001 helpers and accepted only as whole segments of the user's own stored offer text, so a prompt injection in an offer can only yield an address that offer already writes.
+  - Regexes are built from escaped characters only, with no nested quantifiers. Code review measured 20 adversarial 15,000-character texts at ≤ 3.7 ms each.
+  - Nothing new is logged. No extra AI call or rate-limit unit.
+
+Agents:
+- senior-coder: implementation, then 7 fix rounds:
+  - rounds 1–4: street and company-name guards;
+  - round 5: redesign to whole-segment matching on the text's structure;
+  - round 6: positive street check;
+  - round 7: locality and street refusal lists.
+- ui-expert: NOT_APPLICABLE — no UI changes (PRD Required Verification). The e2e covers the rendered field and preview.
+- code-reviewer:
+  - round 1 FAIL: the street was not checked to be only a street.
+  - round 2 FAIL: the company name was spelled differently.
+  - round 3 FAIL: the company name was written without a legal form.
+  - round 4 FAIL: multi-line text with a space-joined answer.
+  - round 5 FAIL: a floor, P.O.-box or department line, or a company name with a number, taken as the street.
+  - round 6 FAIL: extra words in the locality; a P.O. box or floor after the street.
+  - round 7 PASS on 15e63b1d7d5a0910, with no critical or major finding. Every remaining finding is classed as contrived: words written after the street or town in the same segment, with an AI that ignores the prompt.
+
+Acceptance criteria:
+- AC-01 (text fallback when the page gives none): PASS — route tests for no URL, no structured data, non-HTML, timeout, 500 and a host outside the allowlist; the generator is not asked when the page gives an address.
+- AC-02 (used only if street and postcode-and-locality are in the text, ignoring case and spacing): PASS — whole-segment equality, NFC, case- and whitespace-insensitive; e2e (c) accepts "RUE DU LAC 5" / "CH-1201  Genève."; e2e (d) and unit tests refuse an answer the text does not give.
+- AC-03 (same shape as US-001): PASS — the shared `postalAddressParts` and `formatPostalAddressParts`; unit tests for the Swiss and non-Swiss country lines.
+- AC-04 (nothing found: empty field, letter created as today): PASS — route test and e2e (b)/(d).
+- AC-05 (never blocks creation or changes the error): PASS — route tests for AI failure, a non-letter reply and a closed offer; `companyAddressFromOfferText` never throws.
+- FR-1 to FR-7: PASS. FR-5 is shown by one provider call and one rate-limit unit in every route-test branch.
+- Shared Required Verification items for the text fallback (unit and route): PASS.
+- Regression constraints: PASS — editor prompt byte-pinned; "changes no other stored value" route test; parity and visual unchanged.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **The check rests on the offer text's own structure, not on the AI's answer.** Rounds 1–4 checked the AI's own string and each left another way in. Whole-segment equality on the text's lines, blocks and separators closes that class.
+- **A street must prove it is a street.** A house number plus a street-type word. Floors, P.O. boxes, departments, references and company names with a number fail by construction.
+- **When in doubt, no address.** Every rule either accepts what the text writes as an address block or leaves the field empty for the user to fill.
+
+Open owner decisions:
+- **Known false rejects (the field stays empty; the user types the address):**
+  - streets without a listed type word ("Steinenvorstadt 30", "Schipfe 2", "Bollwerk 4", "1 Main St");
+  - date-named streets ("Rue du 31-Décembre 47", "Avenue du 1er-Mars 5") and a spaced range ("Rue de la Gare 1 - 3");
+  - official slash names ("Biel/Bienne", "Domat/Ems"); "/" is a segment separator;
+  - "Collina d'Oro", "Bern 22", "Paris Cedex 08";
+  - a postcode and town on separate lines;
+  - "Rue du Lac 5, 2e étage, 1201 Genève";
+  - HTML named entities such as `&egrave;` in a stored offer text.
+  - Biel/Bienne is the most visible of these. Accepting a slash between two letters would need its own pass.
+- **Known false accepts, all contrived (code review round 7: class b):** words the offer itself writes after the street or the town in the same segment, which the AI copies against the prompt:
+  - a title or department ("Bahnhofstrasse 1 HR");
+  - an unnumbered German floor ("Bahnhofstrasse 1 Erdgeschoss");
+  - a bracketed note on the street;
+  - a fragment of the company name after the street;
+  - a capitalised non-place word after the town ("Zürich Telefon");
+  - a name the offer writes in the same segment as the street;
+  - "Engineering 2", "Technopark 2"-like segments right before the postcode;
+  - "Basel-Coop".
+  - In every case the stored text comes from the offer and is shown in the editable field. Cheap follow-ups exist: share the locality's refusal list and bracket rule with the street, add the floor compounds and contact words.
+- **The from-job letter's wording may differ** for the same inputs when the page has no address: the prompt then carries 5 more rules (accepted cost of FR-5's single call). The editor's Generate prompt is unchanged.
+- **Carried over from US-001:**
+  - the 404/410 path awaits the body's cancel;
+  - `@type` matching accepts any vocabulary's `JobPosting`;
+  - the `type=` match fires on `data-type`.
+
+Environment notes:
+- On dffa98d4d245533a, e2e crashed with 0xC0000142 while a review agent ran node in parallel. Afterwards reviews and check runs never overlapped.
+- Two stale check runs were stopped with TaskStop. Their process trees were killed, and port 3100 was confirmed free each time.
+- The first cleanup's command-line filter also killed two `npm`/`npx` processes outside the project (probably the Playwright MCP server); the second used a filter restricted to this project.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 Otherwise, the address comes from the offer's text
 FINAL: PASS

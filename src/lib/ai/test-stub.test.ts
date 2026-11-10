@@ -9,8 +9,12 @@ import {
   AI_TEST_STUB_COVER_LETTER_TEXTS,
   AI_TEST_STUB_DIRECTIVES,
   AI_TEST_STUB_ENABLED_VALUE,
+  AI_TEST_STUB_OFFER_PAGE_ADDRESS,
+  AI_TEST_STUB_OFFER_PAGE_ADDRESS_PARAM,
   AI_TEST_STUB_OFFER_PAGE_PARAM,
   AI_TEST_STUB_OFFER_PAGE_TIMEOUT,
+  AI_TEST_STUB_OFFER_PAGE_WITH_ADDRESS,
+  AI_TEST_STUB_OFFER_TEXT_ADDRESS,
   aiTestStubTranslationPrefix,
   coverLetterGeneratorFor,
   coverLetterTranslatorFor,
@@ -192,6 +196,17 @@ describe('generateStubCoverLetter', () => {
     expect(await generateStubCoverLetter(input)).toEqual(await generateStubCoverLetter(input))
   })
 
+  it('answers the fixed text address only when asked for one, whatever the description says', async () => {
+    const asked = await generateStubCoverLetter({ ...INPUT, locale: 'fr', askCompanyAddress: true })
+    expect(asked.companyAddress).toEqual(AI_TEST_STUB_OFFER_TEXT_ADDRESS)
+    expect(AI_TEST_STUB_OFFER_TEXT_ADDRESS).not.toEqual(AI_TEST_STUB_OFFER_PAGE_ADDRESS)
+
+    for (const askCompanyAddress of [undefined, false]) {
+      const letter = await generateStubCoverLetter({ ...INPUT, locale: 'fr', askCompanyAddress })
+      expect(letter).not.toHaveProperty('companyAddress')
+    }
+  })
+
   it('fails as the provider would when the description asks it to', async () => {
     await expect(
       generateStubCoverLetter({ ...INPUT, jobDescription: `${INPUT.jobDescription} ${AI_TEST_STUB_DIRECTIVES.providerError}` })
@@ -239,8 +254,39 @@ describe('stubCheckOfferPage', () => {
   it('answers the status the URL names, mapped as the real check maps it', async () => {
     await expect(stubCheckOfferPage(page('404'))).resolves.toEqual({ kind: 'gone', status: 404 })
     await expect(stubCheckOfferPage(page('410'))).resolves.toEqual({ kind: 'gone', status: 410 })
-    await expect(stubCheckOfferPage(page('200'))).resolves.toEqual({ kind: 'answered', status: 200 })
-    await expect(stubCheckOfferPage(page('503'))).resolves.toEqual({ kind: 'answered', status: 503 })
+    await expect(stubCheckOfferPage(page('200'))).resolves.toEqual({ kind: 'answered', status: 200, companyAddress: null })
+    await expect(stubCheckOfferPage(page('503'))).resolves.toEqual({ kind: 'answered', status: 503, companyAddress: null })
+  })
+
+  describe("the company's address (cover-letter-recipient-address-from-offer, US-001)", () => {
+    const withAddress = (directive: string, value = AI_TEST_STUB_OFFER_PAGE_WITH_ADDRESS) =>
+      `${page(directive)}&${AI_TEST_STUB_OFFER_PAGE_ADDRESS_PARAM}=${value}`
+
+    it("answers a success page with the hiring organization's address, read by the real parser", async () => {
+      await expect(stubCheckOfferPage(withAddress('200'))).resolves.toEqual({
+        kind: 'answered',
+        status: 200,
+        companyAddress: `${AI_TEST_STUB_OFFER_PAGE_ADDRESS.streetAddress}\n${AI_TEST_STUB_OFFER_PAGE_ADDRESS.postalCode} ${AI_TEST_STUB_OFFER_PAGE_ADDRESS.addressLocality}`,
+      })
+    })
+
+    it('gives no address for a page that is not a success, an unknown value, or a gone page', async () => {
+      await expect(stubCheckOfferPage(withAddress('503'))).resolves.toEqual({
+        kind: 'answered',
+        status: 503,
+        companyAddress: null,
+      })
+      await expect(stubCheckOfferPage(withAddress('200', 'other'))).resolves.toEqual({
+        kind: 'answered',
+        status: 200,
+        companyAddress: null,
+      })
+      await expect(stubCheckOfferPage(withAddress('404'))).resolves.toEqual({ kind: 'gone', status: 404 })
+      await expect(stubCheckOfferPage(withAddress(AI_TEST_STUB_OFFER_PAGE_TIMEOUT))).resolves.toEqual({
+        kind: 'undetermined',
+        cause: 'timeout',
+      })
+    })
   })
 
   it('times out when asked to', async () => {
@@ -269,7 +315,13 @@ describe('stubCheckOfferPage', () => {
 
   it('never touches the network', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
-    for (const url of [page(), page('404'), page('200'), page(AI_TEST_STUB_OFFER_PAGE_TIMEOUT)]) {
+    for (const url of [
+      page(),
+      page('404'),
+      page('200'),
+      page(AI_TEST_STUB_OFFER_PAGE_TIMEOUT),
+      `${page('200')}&${AI_TEST_STUB_OFFER_PAGE_ADDRESS_PARAM}=${AI_TEST_STUB_OFFER_PAGE_WITH_ADDRESS}`,
+    ]) {
       await stubCheckOfferPage(url)
     }
     expect(fetchSpy).not.toHaveBeenCalled()

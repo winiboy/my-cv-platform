@@ -17,6 +17,12 @@ export const COVER_LETTER_COMPLETION_OPTIONS = {
   maxTokens: 1500,
 } as const
 
+/**
+ * Extra output tokens when the prompt also asks for the company's address
+ * (`askCompanyAddress`): its JSON object comes after the letter, so without
+ * room for it a long letter would be cut and the reply would not parse.
+ */
+export const COMPANY_ADDRESS_MAX_TOKENS_MARGIN = 200
 /** The resume columns a cover-letter prompt reads. */
 export interface CoverLetterResumeRow {
   summary: string | null
@@ -66,6 +72,19 @@ export function parseCoverLetterJson(replyText: string): unknown {
   return JSON.parse(jsonText)
 }
 
+/**
+ * The hiring company's address as the AI read it from the job description,
+ * when the prompt asked for it (`askCompanyAddress`). Only string parts are
+ * kept. Untrusted and possibly invented: the caller checks it against the
+ * offer's text before using it.
+ */
+export interface GeneratedCompanyAddress {
+  streetAddress?: string
+  postalCode?: string
+  addressLocality?: string
+  addressCountry?: string
+}
+
 /** A letter as the AI wrote it. Untrusted text: the caller sanitizes it before storage. */
 export interface GeneratedCoverLetter {
   greeting: string
@@ -73,6 +92,8 @@ export interface GeneratedCoverLetter {
   bodyParagraphs: string[]
   closingParagraph: string
   signOff: string
+  /** Present only when the reply has an address object with at least one string part. */
+  companyAddress?: GeneratedCompanyAddress
 }
 
 /** The AI answered, but not with a letter in the requested shape. */
@@ -87,15 +108,34 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+const COMPANY_ADDRESS_PARTS = ['streetAddress', 'postalCode', 'addressLocality', 'addressCountry'] as const
+
+/**
+ * The string parts of a reply's `companyAddress`, or `undefined` when it is
+ * missing, not an object or has none. Never throws: an address is optional,
+ * and a malformed one must not turn a good letter into an error.
+ */
+function companyAddressOf(value: unknown): GeneratedCompanyAddress | undefined {
+  if (!isRecord(value)) return undefined
+  const address: GeneratedCompanyAddress = {}
+  for (const part of COMPANY_ADDRESS_PARTS) {
+    const partValue = value[part]
+    if (typeof partValue === 'string') address[part] = partValue
+  }
+  return Object.keys(address).length > 0 ? address : undefined
+}
+
 /**
  * The letter in a parsed reply, keeping only string fields and string body
- * paragraphs. Emptiness is judged by the caller, after sanitizing.
+ * paragraphs, and the string parts of a `companyAddress` when there is one.
+ * Emptiness is judged by the caller, after sanitizing.
  *
  * @throws CoverLetterReplyError when the reply is not an object.
  */
 export function toGeneratedCoverLetter(reply: unknown): GeneratedCoverLetter {
   if (!isRecord(reply)) throw new CoverLetterReplyError()
   const text = (value: unknown): string => (typeof value === 'string' ? value : '')
+  const companyAddress = companyAddressOf(reply.companyAddress)
   return {
     greeting: text(reply.greeting),
     openingParagraph: text(reply.openingParagraph),
@@ -104,6 +144,7 @@ export function toGeneratedCoverLetter(reply: unknown): GeneratedCoverLetter {
       : [],
     closingParagraph: text(reply.closingParagraph),
     signOff: text(reply.signOff),
+    ...(companyAddress ? { companyAddress } : {}),
   }
 }
 
@@ -120,6 +161,9 @@ export type CoverLetterGenerator = (input: CoverLetterGenerationInput) => Promis
 export const generateCoverLetter: CoverLetterGenerator = async (input) => {
   const result = await generateCompletion(buildCoverLetterGenerationPrompt(input), {
     ...COVER_LETTER_COMPLETION_OPTIONS,
+    ...(input.askCompanyAddress
+      ? { maxTokens: COVER_LETTER_COMPLETION_OPTIONS.maxTokens + COMPANY_ADDRESS_MAX_TOKENS_MARGIN }
+      : {}),
     operation: 'generateCoverLetterFromJobApplication',
   })
 

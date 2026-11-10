@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { AiCompletionError } from '@/lib/ai/client'
+import { COMPANY_ADDRESS_MAX_TOKENS_MARGIN, COVER_LETTER_COMPLETION_OPTIONS } from '@/lib/ai/cover-letter-generation'
 
 /**
  * Unit coverage for `POST /api/cover-letters/from-job-application`
@@ -220,10 +221,14 @@ describe('POST /api/cover-letters/from-job-application', () => {
     await expect(response.json()).resolves.toEqual({ coverLetterId: COVER_LETTER_ID })
 
     expect(enforceAiRateLimit).toHaveBeenCalledWith(expect.anything(), { kind: 'user', userId: USER_ID })
-    // The token budget and model settings of the editor's modal.
+    // The model settings of the editor's modal. This offer has no page, so the
+    // prompt also asks for the address, and the budget has room for it (US-002).
     expect(generateCompletion).toHaveBeenCalledWith(
       expect.any(String),
-      expect.objectContaining({ maxTokens: 1500, temperature: 0.7 })
+      expect.objectContaining({
+        maxTokens: COVER_LETTER_COMPLETION_OPTIONS.maxTokens + COMPANY_ADDRESS_MAX_TOKENS_MARGIN,
+        temperature: 0.7,
+      })
     )
 
     expect(insertedLetter()).toEqual({
@@ -232,6 +237,8 @@ describe('POST /api/cover-letters/from-job-application', () => {
       resume_id: RESUME_ID,
       job_application_id: APPLICATION_ID,
       company_name: 'Beispiel AG',
+      // No job_url: no page, so no address (cover-letter-recipient-address-from-offer).
+      company_address: null,
       job_title: 'Data Engineer',
       job_description: GERMAN_DESCRIPTION,
       greeting: 'Sehr geehrte Damen und Herren,',
@@ -831,6 +838,363 @@ describe('POST /api/cover-letters/from-job-application - a closed offer (US-002)
       dnsLookup.mockResolvedValue([{ address: '10.0.0.5', family: 4 }])
       await POST(createRequest(VALID_BODY))
       expect(pageFetch).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("the company's address from the offer page (cover-letter-recipient-address-from-offer, US-001)", () => {
+    const HTML = { 'content-type': 'text/html; charset=utf-8' }
+
+    function offerPage(address: Record<string, unknown> | null): string {
+      const posting = {
+        '@context': 'https://schema.org',
+        '@type': 'JobPosting',
+        title: 'Data Engineer',
+        hiringOrganization: { '@type': 'Organization', name: 'Beispiel AG', ...(address ? { address } : {}) },
+      }
+      return `<html><head><script type="application/ld+json">${JSON.stringify(posting).replace(/</g, '\\u003c')}</script></head></html>`
+    }
+
+    const LAUSANNE = {
+      streetAddress: 'Avenue de la Gare 10',
+      postalCode: '1003',
+      addressLocality: 'Lausanne',
+      addressCountry: 'CH',
+    }
+
+    let consoleSpy: MockInstance | undefined
+
+    // Restores the console spy even when an assertion fails before the end of a test.
+    afterEach(() => {
+      consoleSpy?.mockRestore()
+      consoleSpy = undefined
+    })
+
+    it('stores the address, fetching the page once and counting one rate-limit unit', async () => {
+      withOffer({ deadline: '2026-12-31', job_url: JOB_URL })
+      pageFetch.mockResolvedValue(new Response(offerPage(LAUSANNE), { status: 200, headers: HTML }))
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(201)
+      expect(insertedLetter()).toMatchObject({ company_address: 'Avenue de la Gare 10\n1003 Lausanne' })
+      expect(pageFetch).toHaveBeenCalledTimes(1)
+      expect(enforceAiRateLimit).toHaveBeenCalledTimes(1)
+    })
+
+    it('changes no other stored value', async () => {
+      withOffer({ job_url: JOB_URL })
+      pageFetch.mockResolvedValue(new Response('<html></html>', { status: 200, headers: HTML }))
+      await POST(createRequest(VALID_BODY))
+      const { company_address: withoutAddress, ...rowWithoutAddress } = insertedLetter()
+
+      state.calls = []
+      pageFetch.mockResolvedValue(new Response(offerPage(LAUSANNE), { status: 200, headers: HTML }))
+      await POST(createRequest(VALID_BODY))
+      const { company_address: withAddress, ...rowWithAddress } = insertedLetter()
+
+      expect(withoutAddress).toBeNull()
+      expect(withAddress).toBe('Avenue de la Gare 10\n1003 Lausanne')
+      expect(rowWithAddress).toEqual(rowWithoutAddress)
+    })
+
+    it('prints a non-Swiss country on a third line, and stores the address as plain text', async () => {
+      withOffer({ job_url: JOB_URL })
+      pageFetch.mockResolvedValue(
+        new Response(
+          offerPage({
+            streetAddress: '<b>12 Rue</b> de Rivoli<script>alert(1)</script>',
+            postalCode: '75001',
+            addressLocality: 'Paris &amp; <img src=x onerror=alert(1)>',
+            addressCountry: 'France',
+          }),
+          { status: 200, headers: HTML }
+        )
+      )
+
+      await POST(createRequest(VALID_BODY))
+
+      expect(insertedLetter()).toMatchObject({ company_address: '12 Rue de Rivoli\n75001 Paris &\nFrance' })
+    })
+
+    it.each([
+      ['a page without JSON-LD', () => new Response('<html><body>Offer</body></html>', { status: 200, headers: HTML })],
+      ['an incomplete address', () => new Response(offerPage({ postalCode: '1003', addressLocality: 'Lausanne' }), { status: 200, headers: HTML })],
+      ['a non-HTML answer', () => new Response(offerPage(LAUSANNE), { status: 200, headers: { 'content-type': 'application/json' } })],
+      ['an HTML answer that is not a success', () => new Response(offerPage(LAUSANNE), { status: 500, headers: HTML })],
+    ])('stores no address for %s, and still creates the letter', async (_label, answer) => {
+      withOffer({ job_url: JOB_URL })
+      pageFetch.mockResolvedValue(answer())
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(201)
+      expect(insertedLetter()).toMatchObject({ company_address: null })
+    })
+
+    it('stores no address when the page cannot be checked', async () => {
+      withOffer({ job_url: 'https://careers.example.com/job/1' })
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(201)
+      expect(pageFetch).not.toHaveBeenCalled()
+      expect(insertedLetter()).toMatchObject({ company_address: null })
+    })
+
+    it('still refuses a removed page with an address, without reading it', async () => {
+      withOffer({ job_url: JOB_URL })
+      let pulled = false
+      const body = new ReadableStream<Uint8Array>(
+        {
+          pull(controller) {
+            pulled = true
+            controller.enqueue(new TextEncoder().encode(offerPage(LAUSANNE)))
+            controller.close()
+          },
+        },
+        { highWaterMark: 0 }
+      )
+      pageFetch.mockResolvedValue(new Response(body, { status: 410, headers: HTML }))
+      consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({ error: 'offer_closed', reason: 'page_unavailable' })
+      expect(pulled).toBe(false)
+      expectNothingDone()
+    })
+
+    it('stores nothing when the AI fails, whatever the page gave', async () => {
+      withOffer({ job_url: JOB_URL })
+      pageFetch.mockResolvedValue(new Response(offerPage(LAUSANNE), { status: 200, headers: HTML }))
+      generateCompletion.mockRejectedValueOnce(new AiCompletionError('provider_error', 'model', 500))
+      consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(502)
+      expect(writes()).toEqual([])
+      expect(pageFetch).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe("the company's address from the offer's text (cover-letter-recipient-address-from-offer, US-002)", () => {
+    const HTML = { 'content-type': 'text/html; charset=utf-8' }
+    const ADDRESS_IN_TEXT = 'Bahnhofstrasse 1\n8001 Zürich'
+    const DESCRIPTION_WITH_ADDRESS = `${GERMAN_DESCRIPTION}\n  Ihre Bewerbung an: Beispiel AG, Bahnhofstrasse  1, 8001 ZÜRICH.`
+    const ZURICH = { streetAddress: 'Bahnhofstrasse 1', postalCode: '8001', addressLocality: 'Zürich', addressCountry: 'CH' }
+
+    function pageWithAddress(): string {
+      const posting = {
+        '@context': 'https://schema.org',
+        '@type': 'JobPosting',
+        hiringOrganization: {
+          '@type': 'Organization',
+          name: 'Beispiel AG',
+          address: { streetAddress: 'Avenue de la Gare 10', postalCode: '1003', addressLocality: 'Lausanne' },
+        },
+      }
+      return `<html><head><script type="application/ld+json">${JSON.stringify(posting)}</script></head></html>`
+    }
+
+    function withDescription(jobDescription: string | null, jobUrl: string | null = null) {
+      withOffer({ job_url: jobUrl })
+      state.application = { ...state.application, job_description: jobDescription }
+    }
+
+    function aiAnswersAddress(companyAddress: unknown) {
+      generateCompletion.mockResolvedValue(reply({ ...GERMAN_LETTER, companyAddress }))
+    }
+
+    function askedForAddress(): boolean {
+      return sentPrompt().includes('"companyAddress"')
+    }
+
+    /** FR-5: one provider call and one rate-limit unit, whichever source gave the address. */
+    function expectOneCallAndOneUnit() {
+      expect(generateCompletion).toHaveBeenCalledTimes(1)
+      expect(enforceAiRateLimit).toHaveBeenCalledTimes(1)
+    }
+
+    let consoleSpy: MockInstance | undefined
+
+    afterEach(() => {
+      consoleSpy?.mockRestore()
+      consoleSpy = undefined
+    })
+
+    it("uses the page's address first, without asking the AI for one", async () => {
+      withDescription(DESCRIPTION_WITH_ADDRESS, JOB_URL)
+      pageFetch.mockResolvedValue(new Response(pageWithAddress(), { status: 200, headers: HTML }))
+      aiAnswersAddress(ZURICH)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(201)
+      expect(insertedLetter()).toMatchObject({ company_address: 'Avenue de la Gare 10\n1003 Lausanne' })
+      expect(askedForAddress()).toBe(false)
+      expect(generateCompletion).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ maxTokens: 1500 }))
+      expect(pageFetch).toHaveBeenCalledTimes(1)
+      expectOneCallAndOneUnit()
+    })
+
+    it('stores the address the AI found in the text when there is no page, in the same call', async () => {
+      withDescription(DESCRIPTION_WITH_ADDRESS)
+      aiAnswersAddress(ZURICH)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(201)
+      expect(askedForAddress()).toBe(true)
+      expect(insertedLetter()).toMatchObject({ company_address: ADDRESS_IN_TEXT })
+      expectOneCallAndOneUnit()
+    })
+
+    it.each<[string, () => void]>([
+      ['a page without structured data', () => pageFetch.mockResolvedValue(new Response('<html></html>', { status: 200, headers: HTML }))],
+      ['a non-HTML answer', () => pageFetch.mockResolvedValue(new Response(pageWithAddress(), { status: 200 }))],
+      ['a timeout', () => pageFetch.mockRejectedValue(new DOMException('The operation was aborted.', 'AbortError'))],
+      ['a page that answers 500', () => pageFetch.mockResolvedValue(new Response(pageWithAddress(), { status: 500, headers: HTML }))],
+    ])('falls back to the text for %s, fetching the page once', async (_label, arrange) => {
+      withDescription(DESCRIPTION_WITH_ADDRESS, JOB_URL)
+      arrange()
+      aiAnswersAddress(ZURICH)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(201)
+      expect(insertedLetter()).toMatchObject({ company_address: ADDRESS_IN_TEXT })
+      expect(pageFetch).toHaveBeenCalledTimes(1)
+      expectOneCallAndOneUnit()
+    })
+
+    it('falls back to the text for a host outside the allowlist, fetching nothing', async () => {
+      withDescription(DESCRIPTION_WITH_ADDRESS, 'https://careers.example.com/job/1')
+      aiAnswersAddress(ZURICH)
+
+      await POST(createRequest(VALID_BODY))
+
+      expect(pageFetch).not.toHaveBeenCalled()
+      expect(insertedLetter()).toMatchObject({ company_address: ADDRESS_IN_TEXT })
+    })
+
+    it.each<[string, unknown]>([
+      ['an address that is not in the text', { ...ZURICH, streetAddress: 'Limmatquai 3' }],
+      ['a postcode and locality that are not in the text', { ...ZURICH, postalCode: '8004' }],
+      ['an incomplete address', { streetAddress: 'Bahnhofstrasse 1', addressLocality: 'Zürich' }],
+      ['empty parts', { streetAddress: '', postalCode: '', addressLocality: '', addressCountry: '' }],
+      ['no address', undefined],
+      ['a malformed address', 'Bahnhofstrasse 1, 8001 Zürich'],
+      ["a street holding the company's name", { ...ZURICH, streetAddress: 'Beispiel AG, Bahnhofstrasse 1' }],
+    ])('stores no address for %s, and still creates the same letter', async (_label, companyAddress) => {
+      withDescription(DESCRIPTION_WITH_ADDRESS)
+      aiAnswersAddress(companyAddress)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(201)
+      await expect(response.json()).resolves.toEqual({ coverLetterId: COVER_LETTER_ID })
+      expect(insertedLetter()).toMatchObject({ company_address: null })
+      expectOneCallAndOneUnit()
+    })
+
+    it('does not ask for an address when the offer has no text', async () => {
+      for (const jobDescription of [null, '   ']) {
+        state.calls = []
+        generateCompletion.mockClear()
+        withDescription(jobDescription)
+        aiAnswersAddress(ZURICH)
+
+        const response = await POST(createRequest(VALID_BODY))
+
+        expect(response.status).toBe(201)
+        expect(askedForAddress()).toBe(false)
+        expect(sentPrompt()).toContain('"""\nNot provided\n"""')
+        expect(insertedLetter()).toMatchObject({ company_address: null })
+      }
+    })
+
+    it('checks the address against the text the AI was given', async () => {
+      // The address lies past the part of the text sent to the AI.
+      withDescription(`${'x '.repeat(7_500)}Bahnhofstrasse 1, 8001 Zürich`)
+      aiAnswersAddress(ZURICH)
+
+      await POST(createRequest(VALID_BODY))
+
+      expect(askedForAddress()).toBe(true)
+      expect(insertedLetter()).toMatchObject({ company_address: null })
+    })
+
+    it.each([
+      ['ends on the last character the AI is given', 0, ADDRESS_IN_TEXT],
+      ['ends one character past it', 1, null],
+    ])('checks an address that %s', async (_label, overflow, expected) => {
+      const tail = 'Bahnhofstrasse 1, 8001 Zürich'
+      const description = `${'x'.repeat(15_000 - tail.length - 1 + overflow)}\n${tail}`
+      expect(description).toHaveLength(15_000 + overflow)
+      withDescription(description)
+      aiAnswersAddress(ZURICH)
+
+      await POST(createRequest(VALID_BODY))
+
+      expect(askedForAddress()).toBe(true)
+      expect(insertedLetter()).toMatchObject({ company_address: expected })
+    })
+
+    it('changes no other stored value', async () => {
+      withDescription(DESCRIPTION_WITH_ADDRESS)
+      aiAnswersAddress(undefined)
+      await POST(createRequest(VALID_BODY))
+      const { company_address: withoutAddress, ...rowWithoutAddress } = insertedLetter()
+
+      state.calls = []
+      aiAnswersAddress(ZURICH)
+      await POST(createRequest(VALID_BODY))
+      const { company_address: withAddress, ...rowWithAddress } = insertedLetter()
+
+      expect(withoutAddress).toBeNull()
+      expect(withAddress).toBe(ADDRESS_IN_TEXT)
+      expect(rowWithAddress).toEqual(rowWithoutAddress)
+    })
+
+    it.each([
+      ['a provider error', new AiCompletionError('provider_error', 'model', 500), 502],
+      ['a provider rate limit', new AiCompletionError('rate_limited', 'model', 429), 429],
+    ])('still answers %s with the same error and stores nothing', async (_label, error, status) => {
+      withDescription(DESCRIPTION_WITH_ADDRESS)
+      generateCompletion.mockRejectedValueOnce(error)
+      consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(status)
+      await expect(response.json()).resolves.toEqual({ error: 'The cover letter could not be generated' })
+      expect(writes()).toEqual([])
+      expectOneCallAndOneUnit()
+    })
+
+    it('still refuses a reply that is not a letter, even with an address in it', async () => {
+      withDescription(DESCRIPTION_WITH_ADDRESS)
+      generateCompletion.mockResolvedValue(reply({ ...GERMAN_LETTER, closingParagraph: '', companyAddress: ZURICH }))
+      consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(502)
+      expect(writes()).toEqual([])
+    })
+
+    it('still refuses a closed offer whose text has an address, without calling the AI', async () => {
+      withDescription(DESCRIPTION_WITH_ADDRESS, JOB_URL)
+      pageFetch.mockResolvedValue(new Response('gone', { status: 410, headers: HTML }))
+      consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined)
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({ error: 'offer_closed', reason: 'page_unavailable' })
+      expectNothingDone()
     })
   })
 
