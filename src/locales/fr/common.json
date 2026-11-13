@@ -577,6 +577,7 @@
       "zoomIn": "Zoom avant",
       "zoomFit": "Tout afficher",
       "zoomLevel": "Niveau de zoom : {percent} %",
+      "pageBreakLabel": "Page {page}",
       "view": {
         "label": "Vue de l’éditeur",
         "edit": "Édition",

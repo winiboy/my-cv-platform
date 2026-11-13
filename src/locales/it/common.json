@@ -577,6 +577,7 @@
       "zoomIn": "Ingrandisci",
       "zoomFit": "Mostra tutto",
       "zoomLevel": "Livello di zoom: {percent}%",
+      "pageBreakLabel": "Pagina {page}",
       "view": {
         "label": "Vista dell’editor",
         "edit": "Modifica",

@@ -55,7 +55,7 @@
         "Out of scope: Any change to the database."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

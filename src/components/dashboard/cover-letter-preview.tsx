@@ -17,6 +17,10 @@ import {
   zoomPercent,
 } from '@/lib/cover-letter-preview-zoom'
 import { ModernLetterTemplate } from './cover-letter-templates/modern-letter-template'
+import { SWISS_LETTER_LAYOUT_PX } from '@/lib/cover-letter-swiss-letter'
+import type { CoverLetterLineBox } from '@/lib/cover-letter-page-breaks'
+import { CoverLetterPageBreakMarkers, hasRoomForPageBreakLabels } from './cover-letter-page-break-markers'
+import { measureCoverLetterLineBoxes, sameLineBoxes } from './cover-letter-line-boxes'
 import {
   CoverLetterZoomControls,
   type CoverLetterZoomLabels,
@@ -100,7 +104,10 @@ interface CoverLetterPreviewProps {
   senderDetails: CoverLetterSenderDetails
   /** The page's locale, the fallback language of the letter's printed parts. */
   locale: Locale
-  /** The `coverLetters.editor` dictionary: the scroll area's and the zoom controls' labels. */
+  /**
+   * The `coverLetters.editor` dictionary of the interface locale: the scroll
+   * area's, the zoom controls' and the page-break markers' labels.
+   */
   editorDict: Record<string, unknown>
   variant: PreviewVariant
   /** The `pane` variant's starting scale is fitted to the width, but never above this. */
@@ -145,6 +152,10 @@ export function CoverLetterPreview({
   // then ends at the page's last line, with no blank space below it and no
   // part of the page out of reach.
   const [pageHeight, setPageHeight] = useState<number | null>(null)
+  const sheetRef = useRef<HTMLDivElement>(null)
+  // The letter's line boxes, unscaled: where its printed pages break
+  // (cover-letter-one-page, US-001). Derived from the rendered letter only.
+  const [lineBoxes, setLineBoxes] = useState<CoverLetterLineBox[] | null>(null)
 
   // A layout effect, so the first paint is already at the fitted size. The
   // observer follows the area's size, which a window resize changes as
@@ -176,6 +187,39 @@ export function CoverLetterPreview({
     const resizeObserver = new ResizeObserver(measure)
     resizeObserver.observe(element)
     return () => resizeObserver.disconnect()
+  }, [])
+
+  // Measure the lines again whenever the letter's text or size changes: an
+  // edit can move a line between paragraphs without changing the height.
+  // Coalesced to one measurement per frame. A zoom changes neither: the lines
+  // are measured unscaled.
+  useLayoutEffect(() => {
+    const element = sheetRef.current
+    if (!element) return
+
+    let frame: number | null = null
+    const measure = () => {
+      frame = null
+      const next = measureCoverLetterLineBoxes(element, PAGE_WIDTH_PX)
+      setLineBoxes((previous) => (sameLineBoxes(previous, next) ? previous : next))
+    }
+    const schedule = () => {
+      if (frame === null) frame = window.requestAnimationFrame(measure)
+    }
+    measure()
+
+    const resizeObserver = new ResizeObserver(schedule)
+    resizeObserver.observe(element)
+    const mutationObserver = new MutationObserver(schedule)
+    mutationObserver.observe(element, { subtree: true, childList: true, characterData: true, attributes: true })
+    // A font that loads late can rewrap lines without resizing the sheet.
+    document.fonts.addEventListener('loadingdone', schedule)
+    return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame)
+      resizeObserver.disconnect()
+      mutationObserver.disconnect()
+      document.fonts.removeEventListener('loadingdone', schedule)
+    }
   }, [])
 
   // After "show all" has been applied, before paint: the page has shrunk, but
@@ -252,9 +296,20 @@ export function CoverLetterPreview({
               transformOrigin: 'top left',
             }}
           >
-            <div className="shadow-2xl" data-testid="cover-letter-preview-page">
+            <div ref={sheetRef} className="shadow-2xl" data-testid="cover-letter-preview-page">
               <ModernLetterTemplate coverLetter={coverLetter} senderDetails={senderDetails} locale={locale} />
             </div>
+            {/* The transform makes this wrapper the markers' containing block. */}
+            <CoverLetterPageBreakMarkers
+              layout={
+                pageHeight === null || lineBoxes === null
+                  ? null
+                  : { lines: lineBoxes, contentBottom: pageHeight - SWISS_LETTER_LAYOUT_PX.padding.bottom }
+              }
+              scale={scale}
+              labelTemplate={(editorDict.pageBreakLabel as string) || 'Page {page}'}
+              showLabels={area !== null && hasRoomForPageBreakLabels(area.contentWidth, PAGE_WIDTH_PX * scale)}
+            />
           </div>
         </div>
       </div>

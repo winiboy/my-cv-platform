@@ -5,3 +5,108 @@ PRD: tasks/prds/cover-letter-one-page.md (Status: APPROVED 2026-11-13, written b
 Format: docs/engineering/progress-log-format.md
 Branch setup: from origin/prd/cover-letter-one-page 8fb1c44 (origin/main 03e20c6, #126 merged, plus the PRD draft a8fcd84 and the owner's approval commit). The first commit archives the merged cover-letter-recipient-address-from-offer contract; the second adds this contract.
 Contract note: the PRD's nested lists in acceptance criteria and Required Verification are flattened into one criterion each, wording unchanged.
+
+## US-001: The letter preview marks where each printed page ends
+Status: PASS
+Priority: 1
+Branch: ralph/cover-letter-one-page
+Baseline HEAD: 56dcafa (contract commit; origin/main 03e20c6)
+
+Scope:
+- Scope check: PASS
+- Changed paths: story diff sha256 prefix 0237c953b9e67c40. The hash covers `git diff -- src e2e`, then "== <path>" and the content of each new file.
+  - **New `src/lib/cover-letter-page-breaks.ts`:** `computeCoverLetterPageBreaks({ lines, contentBottom })`, pure and server-safe (it imports only `cover-letter-swiss-letter`), shared by both previews and by US-002 (FR-1).
+    - It reproduces Chromium's print fragmentation. Each line is `{ top, bottom, block }` in unscaled preview px.
+    - Page 1 ends at 1066 px; each later page holds 998 px. Chromium prints the A4 page as 1123 px with each `@page` margin rounded to a whole px (15 mm → 57, 18 mm → 68). This was established by bisecting page counts with the server's own `page.pdf({ preferCSSPageSize: true })` call and is documented in the file (`printedMarginPx`).
+    - A line whose bottom passes the page end moves to the next page. Orphans and widows are 2 within the overflowing line's block, as Chromium's defaults; nothing on the letter's print path sets `orphans`, `widows` or `break-*`.
+    - Each boundary is the top of the first line moved to the next page. With no lines, `contentBottom` breaks at each page end with a 1 px tolerance, so a letter at the template's minimum height is one page.
+  - **New `src/components/dashboard/cover-letter-line-boxes.ts`:** reads the rendered sheet's line boxes, in unscaled px.
+    - Text uses the browser's client rects. A `<br>`-only or `&nbsp;`-only line is a full line box.
+    - Each piece of text gets a box one line-height tall, `floor((line-height − glyph height) / 2)` above its glyphs (negative for a font taller than the line height), unioned with the paragraph's strut on the same baseline. Font metrics come from a detached canvas.
+  - **New `src/components/dashboard/cover-letter-page-break-markers.tsx`:** the marker overlay.
+    - It uses the CV marker's look and test ids: a dashed teal/70 % line and a vertical 10 px "Page N" label 3 px right of the sheet. It is `aria-hidden`, `pointer-events-none`, `select-none` and `print:hidden`.
+    - The line is a 1 px dashed border, counter-scaled, so it is 1.000 px on screen at every zoom.
+    - A label is drawn only when the gutter inside the scroll area is at least 16 px. Otherwise only the line is drawn.
+  - **`src/components/dashboard/cover-letter-preview.tsx`:** renders the markers next to the sheet inside the scaled wrapper. It re-measures the lines on resize, DOM mutation and font load, at most once per frame. The zoom code is unchanged.
+  - **`src/locales/{fr,en,de,it}/common.json`:** `coverLetters.editor.pageBreakLabel`: "Page {page}", "Page {page}", "Seite {page}", "Pagina {page}".
+  - **Tests:**
+    - `cover-letter-page-breaks.test.ts` (23 tests): a line straddling an edge, orphans, widows, a widow fix that would leave an orphan, a two-line paragraph, widows on a continuation page, an empty line straddling and counted toward orphans, a header crossing page 1, three pages, a paragraph ending exactly at an edge, empty, null, invalid and unsorted input.
+    - `cover-letter-line-boxes.test.ts` (11 tests): line-box geometry, the merge step and `sameLineBoxes`, with synthetic rects.
+    - `cover-letter-page-break-markers.test.ts` (16 tests).
+    - `e2e/cover-letter-page-break-marker.spec.ts` (14 tests): 10 fixtures compared with the PDF downloaded through the download route, labels in four locales, typing and zoom, the narrow pane, and the decorative overlay.
+- Not touched: the CV indicator, `resume-page-breaks.ts` and their tests; the PDF and Word builders, `render-cover-letter.ts`, `cover-letter-pdf-html.ts`, `cover-letter-swiss-letter.ts` and the letter template (`git diff` empty on each); AI generation (US-002); the database.
+- No version change, no push or merge. Two temporary capture specs (`e2e/zz-us1-capture.spec.ts`, `e2e/zz-us1-capture2.spec.ts`) were run alone and deleted; they are not in the diff.
+
+Checks:
+- Final run on diff 0237c953b9e67c40, alone, started after the last edit. The hash was the same after the run.
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3880 passed, 5 skipped (128 files).
+  - pnpm test:integration: PASS — 63 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 554 passed, 0 failed (17.1 min). Includes the 14 tests of the new spec.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+  - pnpm test:visual: PASS — 10 passed. Baselines unchanged.
+- Earlier runs, not evidence for this diff: the new spec alone, 9/9 on the first line-aware version and 14/14 on 0237c953 (80 s).
+
+Specialized validation:
+- Browser: PASS. The e2e spec and 35 captures in the editor pane and the preview window at 1440, 1024, 768 and 375 px.
+  - Every marker, measured against the PDF's own baselines, in unscaled px:
+    - 2 pages: 1065.87 (PDF 1065.96, −0.08).
+    - 3 pages: 1065.87 (−0.08) and 2057.13 (PDF 2057.21, −0.08), where line A085 straddles page 2's end.
+    - Orphans: 1046.81 (+0.01). Widows: 1046.81 (−0.04).
+    - Empty line straddling page 1's end: 1065.87 (PDF 1066.02, −0.15).
+    - 24 px span opening page 2: −0.15. Wrapped paragraph: −0.08. List: −0.08.
+    - Recipient address past page 1: 1065.84 (PDF 1065.77, +0.07).
+    - One page: no marker, and the PDF has 1 page.
+  - The window's markers are within 1 px of the pane's.
+- Visual: PASS — `pnpm test:visual` 10/10, parity unchanged.
+- Export: PASS — the PDF and Word code is unchanged (`git diff` empty), so their output is identical for the same letter. The overlay is never rendered on the export paths, and the e2e downloads the real PDF for every fixture.
+- Database: NOT_APPLICABLE — no schema or stored value changes.
+- Security: NOT_APPLICABLE — no trust boundary changes: no route, no stored data, no external input. The overlay only reads the rendered sheet.
+
+Agents:
+- senior-coder: implementation, a line-aware redesign after the first version's marker 2 sat 7 px low on a 3-page letter (a height-only formula cannot see a line moved whole to the next page), then fix round 1 (code review), plus two capture runs for ui-expert.
+- ui-expert: PASS — 7/7 conditions and all 8 criteria, after two BLOCKED verdicts for missing rendered evidence (no screenshots, then no tablet widths).
+- code-reviewer:
+  - round 1: FAIL — empty lines dropped (a marker 19 px low), inline text larger than the line height measured too high (about 4 px), and the e2e covered neither; plus minors (an e2e reusing the model, the header grid, untested line boxes, a no-op `range.detach()`).
+  - round 2: PASS on 0237c953b9e67c40, with no critical or major finding.
+
+Acceptance criteria:
+- AC-01 (one page, no marker): PASS — the one-page fixture in the pane and the window; the PDF has 1 page.
+- AC-02 (n − 1 markers, labelled k + 1): PASS — the 2- and 3-page fixtures in both previews; `data-page` 2 and 3.
+- AC-03 (each marker where the PDF page ends, within 2 px): PASS — 10 fixtures; the largest gap is 0.15 px.
+- AC-04 (the CV's look, constant thickness, label in the gutter): PASS — 1.000 px at 25, 60, 70, 72, 100 and 200 %; the label box 10 × 34.45 px, as the CV's; ui-expert compared them side by side.
+- AC-05 (interface locale): PASS — "Page 2" in en, "Seite 2" in de, "Pagina 2" in it; e2e in four locales.
+- AC-06 (no room: line without label, no horizontal scroll): PASS — scroll area `scrollWidth`/`clientWidth` 552/552 for the fitted pane, 690/690 at 1024, 434/434 at 768 and 313/313 at 375.
+- AC-07 (follows typing and zoom without reload): PASS — e2e and captures 06 and 07.
+- AC-08 (decorative, not exported): PASS — the e2e checks `aria-hidden`, `pointer-events`, `user-select`, print media and a click through the line; the export code is unchanged.
+- FR-1 to FR-4: PASS. FR-5 to FR-7 belong to US-002.
+- The Required Verification items for AI generation (route tests, the creation e2e, `security-review`) belong to US-002.
+- Regression constraints: PASS — CV indicator files unchanged; zoom unchanged; export code unchanged; parity and visual unchanged.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Lines, not height.** The shared computation takes line boxes, so it can reproduce how Chromium moves a whole line, and orphans and widows, to the next page. A height-only formula put the second marker of a 3-page letter 7 px low.
+- **The PDF anchors the test.** The e2e reads each expected break from the downloaded PDF's baselines, calibrated on page 1, not from the same line model the code uses.
+- **Whole-px page edges.** The page constants come from Chromium's printed page (1123 px, margins rounded to whole px), not from mm, after the PDF-anchored test showed the mm values put markers one line early.
+
+Open owner decisions:
+- **Dark mode (follow-up, not this story):** with `.dark` forced, the label has about 2.2:1 contrast on the dark gutter. The CV marker uses the same colours, and nothing in the app sets the dark class today. The fix is `dark:text-teal-400` on both markers in one change.
+- **CV editor line (separate issue):** the CV editor's marker line renders 0.942 px for a computed 2 px border, because of pixel rounding. The letter's marker avoids this.
+- Minor code-review points left as they are:
+  - the page-edge rule was measured on the local Playwright Chromium, while production renders with `@sparticuz/chromium`;
+  - canvas font metrics may be fractional where Blink rounds them;
+  - Firefox before 116 lacks `fontBoundingBoxAscent`, so no markers are drawn there;
+  - a new canvas on every measurement;
+  - a stale "1065.83" comment in the e2e;
+  - an English fallback for the label, following the existing `zoomLabels` pattern.
+- **US-002 note:** the server has no layout, so the one-page check will need line boxes from an estimate fed into the same function. Its accuracy is US-002's risk; the PDF stays the authority.
+
+Environment notes:
+- The checks ran alone, after both reviews and both capture runs had finished. The orphan and widow fixtures depend on Georgia's metrics on Windows; each first checks its layout and fails loudly when that changes.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 The letter preview marks where each printed page ends
+FINAL: PASS
