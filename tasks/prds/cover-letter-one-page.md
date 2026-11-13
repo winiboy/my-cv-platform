@@ -1,6 +1,6 @@
 # PRD: Cover letters that fit on one page, and show when they do not
 
-**Status:** DRAFT
+**Status:** APPROVED 2026-11-13
 
 ## Objective
 
