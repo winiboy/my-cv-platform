@@ -1,5 +1,10 @@
 import { AiCompletionError } from './client'
-import { generateCoverLetter, type CoverLetterGenerator } from './cover-letter-generation'
+import {
+  generateCoverLetter,
+  shortenCoverLetter,
+  type CoverLetterGenerator,
+  type CoverLetterShortener,
+} from './cover-letter-generation'
 import { translateCoverLetterSegments, type CoverLetterTranslator } from './cover-letter-translation'
 import type { JobDescriptionToResumeInput } from './prompts'
 import { generateResumeFromJobDescription } from './transformations'
@@ -15,6 +20,7 @@ import {
   AI_TEST_STUB_COVER_LETTER_TEXTS,
   AI_TEST_STUB_DIRECTIVES,
   AI_TEST_STUB_ENABLED_VALUE,
+  AI_TEST_STUB_LONG_LETTER_BODY_PARAGRAPHS,
   AI_TEST_STUB_OFFER_PAGE_ADDRESS,
   AI_TEST_STUB_OFFER_PAGE_ADDRESS_PARAM,
   AI_TEST_STUB_OFFER_PAGE_PARAM,
@@ -28,6 +34,7 @@ export {
   AI_TEST_STUB_COVER_LETTER_TEXTS,
   AI_TEST_STUB_DIRECTIVES,
   AI_TEST_STUB_ENABLED_VALUE,
+  AI_TEST_STUB_LONG_LETTER_BODY_PARAGRAPHS,
   AI_TEST_STUB_OFFER_PAGE_ADDRESS,
   AI_TEST_STUB_OFFER_PAGE_ADDRESS_PARAM,
   AI_TEST_STUB_OFFER_PAGE_PARAM,
@@ -299,15 +306,73 @@ export const generateStubCoverLetter: CoverLetterGenerator = async (input) => {
   const texts = AI_TEST_STUB_COVER_LETTER_TEXTS[isStubLanguage(input.locale) ? input.locale : 'en']
   const hasProfile =
     Boolean(input.resumeSummary) || Boolean(input.resumeExperience?.length) || Boolean(input.resumeSkills?.length)
+  const bodyParagraphs = hasProfile ? [texts.body, texts.resumeUsed] : [texts.body]
+
+  // A long letter (cover-letter-one-page, US-002) carries the shortening
+  // directives of its job description in its opening, where the stub
+  // shortener, which is only given the letter, reads them.
+  const long = input.jobDescription.includes(AI_TEST_STUB_DIRECTIVES.longLetter)
+  const shorteningDirectives = SHORTENING_DIRECTIVES.filter((directive) => input.jobDescription.includes(directive))
 
   return {
     greeting: texts.greeting,
-    openingParagraph: texts.opening(input.jobTitle),
-    bodyParagraphs: hasProfile ? [texts.body, texts.resumeUsed] : [texts.body],
+    openingParagraph: long
+      ? [texts.opening(input.jobTitle), ...shorteningDirectives].join(' ')
+      : texts.opening(input.jobTitle),
+    bodyParagraphs: long
+      ? [...bodyParagraphs, ...Array.from({ length: AI_TEST_STUB_LONG_LETTER_BODY_PARAGRAPHS }, () => texts.longBody)]
+      : bodyParagraphs,
     closingParagraph: texts.closing,
     signOff: texts.signOff,
     ...(input.askCompanyAddress ? { companyAddress: { ...AI_TEST_STUB_OFFER_TEXT_ADDRESS } } : {}),
   }
+}
+
+const SHORTENING_DIRECTIVES = [
+  AI_TEST_STUB_DIRECTIVES.shortenTooLong,
+  AI_TEST_STUB_DIRECTIVES.shortenFails,
+  AI_TEST_STUB_DIRECTIVES.shortenUnusable,
+] as const
+
+/**
+ * The stub's shortening (cover-letter-one-page, US-002), chosen by the
+ * directive in the letter's opening (see `generateStubCoverLetter`):
+ *
+ *   - none: a short letter with the same greeting and sign-off, opening with
+ *     `shortenedOpening`, which fits on one page;
+ *   - `shortenTooLong`: the same long letter, opening with `shortenedOpening`;
+ *   - `shortenFails`: the provider's failure;
+ *   - `shortenUnusable`: a letter with no paragraphs, only the first one's
+ *     greeting and sign-off, as the real shortener would return an empty reply.
+ *
+ * Deterministic. An address in the letter it is given is not answered back.
+ */
+export const shortenStubCoverLetter: CoverLetterShortener = async ({ letter, locale }) => {
+  const texts = AI_TEST_STUB_COVER_LETTER_TEXTS[isStubLanguage(locale) ? locale : 'en']
+  const asks = (directive: string) => letter.openingParagraph.includes(directive)
+
+  if (asks(AI_TEST_STUB_DIRECTIVES.shortenFails)) {
+    throw new AiCompletionError('provider_error', AI_TEST_STUB_MODEL, 500)
+  }
+  if (asks(AI_TEST_STUB_DIRECTIVES.shortenUnusable)) {
+    // The real shortener keeps the first letter's greeting and sign-off.
+    return { greeting: letter.greeting, openingParagraph: '', bodyParagraphs: [], closingParagraph: '', signOff: letter.signOff }
+  }
+  return {
+    greeting: letter.greeting,
+    openingParagraph: texts.shortenedOpening,
+    bodyParagraphs: asks(AI_TEST_STUB_DIRECTIVES.shortenTooLong) ? [...letter.bodyParagraphs] : [texts.body],
+    closingParagraph: texts.closing,
+    signOff: letter.signOff,
+  }
+}
+
+/**
+ * The cover-letter shortener for this request: the stub when every guard
+ * condition holds, otherwise the real AI.
+ */
+export function coverLetterShortenerFor(request: AiTestStubRequest): CoverLetterShortener {
+  return isAiTestStubEnabled(process.env, request) ? shortenStubCoverLetter : shortenCoverLetter
 }
 
 /**

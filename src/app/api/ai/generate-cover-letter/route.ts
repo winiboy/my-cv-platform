@@ -1,18 +1,28 @@
 /**
  * AI Cover Letter Generation API
  * Generates a cover letter from resume data and job description
+ *
+ * The letter is then measured as the PDF would print it, inside the header of
+ * the letter being edited (`coverLetterId`, read with the caller's session and
+ * owner filter), and one that runs over one page is shortened by exactly one
+ * more AI call, counted against no further rate-limit unit
+ * (cover-letter-one-page, US-002). A failed measurement or shortening returns
+ * the first letter.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { generateCompletion } from '@/lib/ai/client'
-import { buildCoverLetterGenerationPrompt } from '@/lib/ai/prompts'
 import {
-  COVER_LETTER_COMPLETION_OPTIONS,
+  CoverLetterReplyError,
+  coverLetterPartsOf,
   coverLetterProfileFromResume,
-  parseCoverLetterJson,
+  isCompleteGeneratedCoverLetter,
   type CoverLetterResumeRow,
+  type GeneratedCoverLetter,
 } from '@/lib/ai/cover-letter-generation'
+import { coverLetterOnePageDeadline, keepCoverLetterOnOnePage } from '@/lib/ai/cover-letter-one-page'
+import { coverLetterGeneratorFor, coverLetterShortenerFor } from '@/lib/ai/test-stub'
 import { enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
 import {
   AI_TEXT_LIMITS,
@@ -20,8 +30,103 @@ import {
   findOversizedField,
   oversizedFieldResponse,
 } from '@/lib/api/ai-input-limits'
+import { coverLetterRequestLanguage } from '@/lib/cover-letter-language'
+import { linkedResumeContact } from '@/lib/cover-letter-linked-contact'
+import { COVER_LETTER_EXPORT_COLUMNS, type CoverLetterPdfFields } from '@/lib/cover-letter-pdf-html'
+import { effectiveSenderDetails, type CoverLetterSenderDetails } from '@/lib/cover-letter-sender'
+import { countCoverLetterPages, logPageCountFailure } from '@/lib/pdf/cover-letter-page-count'
+
+// The one-page check lays the letter out in the PDF renderer's headless
+// browser, which needs Node APIs and, with up to two AI calls, more than the
+// default duration: the PDF routes' limit.
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
+/** How this route's AI call has always been named in the provider client's monitoring. */
+const EDITOR_GENERATION_OPERATION = 'generateCompletion'
+
+/** The letter as this route has always answered it, with its defaults for an empty greeting or sign-off. */
+function editorReply(letter: GeneratedCoverLetter) {
+  return {
+    greeting: letter.greeting || 'Dear Hiring Manager,',
+    openingParagraph: letter.openingParagraph || '',
+    bodyParagraphs: letter.bodyParagraphs,
+    closingParagraph: letter.closingParagraph || '',
+    signOff: letter.signOff || 'Sincerely,',
+  }
+}
+
+/** Every field the PDF prints besides the AI's text, as an empty letter has them. */
+const EMPTY_HEADER: Omit<
+  CoverLetterPdfFields,
+  'greeting' | 'opening_paragraph' | 'body_paragraphs' | 'closing_paragraph' | 'sign_off'
+> = {
+  sender_name: null,
+  sender_street: null,
+  sender_postal_locality: null,
+  sender_phone: null,
+  sender_email: null,
+  recipient_name: null,
+  recipient_title: null,
+  company_name: null,
+  company_address: null,
+  job_title: null,
+  annexes: null,
+}
+
+type ServerSupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>
+
+/**
+ * The header the generated letter is measured in: the stored letter's, read
+ * with the caller's session and an explicit owner filter, with the sender
+ * details the PDF prints (`effectiveSenderDetails`). Without an id, or for a
+ * letter that does not exist, is not the caller's or cannot be read, the
+ * header of a letter with every field empty, as the editor prints a new one:
+ * nothing of another user's letter is ever read or measured.
+ *
+ * The STORED header: an unsaved edit in the editor is not measured, as it is
+ * not what the PDF prints either.
+ */
+async function measuredHeader(
+  supabase: ServerSupabaseClient,
+  userId: string,
+  coverLetterId: unknown,
+): Promise<{ fields: typeof EMPTY_HEADER; senderDetails: CoverLetterSenderDetails }> {
+  const empty = { fields: EMPTY_HEADER, senderDetails: effectiveSenderDetails(EMPTY_HEADER, null) }
+  if (!z.uuid().safeParse(coverLetterId).success) return empty
+
+  const { data: stored, error } = await supabase
+    .from('cover_letters')
+    .select(COVER_LETTER_EXPORT_COLUMNS)
+    .eq('id', coverLetterId as string)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) {
+    console.error('[ai/generate-cover-letter] Reading the letter header failed:', error.code ?? 'unknown code')
+    return empty
+  }
+  if (!stored) return empty
+
+  const fields: typeof EMPTY_HEADER = {
+    sender_name: stored.sender_name,
+    sender_street: stored.sender_street,
+    sender_postal_locality: stored.sender_postal_locality,
+    sender_phone: stored.sender_phone,
+    sender_email: stored.sender_email,
+    recipient_name: stored.recipient_name,
+    recipient_title: stored.recipient_title,
+    company_name: stored.company_name,
+    company_address: stored.company_address,
+    job_title: stored.job_title,
+    annexes: stored.annexes,
+  }
+  const contact = await linkedResumeContact(supabase, stored.resume_id, userId, 'ai/generate-cover-letter')
+  return { fields, senderDetails: effectiveSenderDetails(stored, contact) }
+}
 
 export async function POST(request: NextRequest) {
+  // The one-page check's time budget runs from the request's start.
+  const deadline = coverLetterOnePageDeadline(Date.now())
   try {
     const supabase = await createServerSupabaseClient()
     const {
@@ -54,6 +159,7 @@ export async function POST(request: NextRequest) {
       recipientName,
       recipientTitle,
       jobApplicationId,
+      coverLetterId,
       locale,
     } = body
 
@@ -63,6 +169,7 @@ export async function POST(request: NextRequest) {
     const oversized = findOversizedField(body, {
       resumeId: AI_TEXT_LIMITS.IDENTIFIER,
       jobApplicationId: AI_TEXT_LIMITS.IDENTIFIER,
+      coverLetterId: AI_TEXT_LIMITS.IDENTIFIER,
       jobDescription: AI_TEXT_LIMITS.JOB_DESCRIPTION,
       jobTitle: AI_TEXT_LIMITS.SHORT_LABEL,
       companyName: AI_TEXT_LIMITS.SHORT_LABEL,
@@ -131,48 +238,75 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build prompt and generate
-    const prompt = buildCoverLetterGenerationPrompt({
-      resumeSummary,
-      resumeExperience,
-      resumeSkills,
-      jobDescription,
-      jobTitle,
-      companyName,
-      recipientName,
-      recipientTitle,
-      locale,
-    })
-
-    const result = await generateCompletion(prompt, COVER_LETTER_COMPLETION_OPTIONS)
-
-    // Parse JSON response
-    // The reply's shape is not validated on this route: its behaviour is kept
-    // exactly as it was before the parsing moved to the shared module.
-    let parsedContent: Record<string, unknown>
+    // The shared prompt, model settings and reply parsing; never the company
+    // address opt-in. The stub answers instead only on a local e2e server.
+    let generated: GeneratedCoverLetter
     try {
-      parsedContent = parseCoverLetterJson(result.text) as Record<string, unknown>
-    } catch (error) {
-      console.error('Failed to parse JSON response:', error)
-      console.error('Raw response:', result.text)
-      return NextResponse.json(
-        { error: 'Failed to parse AI response' },
-        { status: 500 }
+      generated = await coverLetterGeneratorFor(request)(
+        {
+          resumeSummary,
+          resumeExperience,
+          resumeSkills,
+          jobDescription,
+          jobTitle,
+          companyName,
+          recipientName,
+          recipientTitle,
+          locale,
+        },
+        { operation: EDITOR_GENERATION_OPERATION },
       )
+    } catch (error) {
+      if (error instanceof CoverLetterReplyError) {
+        // Not the reply itself: it is derived from the offer and the CV.
+        console.error('Failed to parse AI response as a cover letter')
+        return NextResponse.json(
+          { error: 'Failed to parse AI response' },
+          { status: 500 }
+        )
+      }
+      throw error
     }
+
+    // cover-letter-one-page, US-002: measured as the PDF would print it inside
+    // the letter's header, and shortened once if it runs over one page.
+    const shorten = coverLetterShortenerFor(request)
+    const pageLanguage = coverLetterRequestLanguage(body)
+    const { letter, outcome } = await keepCoverLetterOnOnePage<GeneratedCoverLetter>({
+      letter: generated,
+      deadline,
+      countPages: async (candidate, timeoutMs) => {
+        const reply = editorReply(candidate)
+        try {
+          // Read here, so that a failed or slow read only leaves the letter
+          // unmeasured: the measurement's time limit covers it too.
+          const header = await measuredHeader(supabase, user.id, coverLetterId)
+          return await countCoverLetterPages(
+            {
+              ...header.fields,
+              greeting: reply.greeting,
+              opening_paragraph: reply.openingParagraph,
+              body_paragraphs: reply.bodyParagraphs,
+              closing_paragraph: reply.closingParagraph,
+              sign_off: reply.signOff,
+            },
+            header.senderDetails,
+            pageLanguage,
+            timeoutMs,
+          )
+        } catch (error) {
+          logPageCountFailure('ai/generate-cover-letter', error)
+          throw error
+        }
+      },
+      shorten: (candidate, timeoutMs) => shorten({ letter: coverLetterPartsOf(candidate), locale }, { timeoutMs }),
+      isUsable: isCompleteGeneratedCoverLetter,
+    })
+    console.info('[ai/generate-cover-letter] One-page check:', outcome)
 
     return NextResponse.json({
       success: true,
-      coverLetter: {
-        greeting: parsedContent.greeting || 'Dear Hiring Manager,',
-        openingParagraph: parsedContent.openingParagraph || '',
-        bodyParagraphs: Array.isArray(parsedContent.bodyParagraphs)
-          ? parsedContent.bodyParagraphs
-          : [],
-        closingParagraph: parsedContent.closingParagraph || '',
-        signOff: parsedContent.signOff || 'Sincerely,',
-      },
-      tokensUsed: result.usage?.total_tokens || 0,
+      coverLetter: editorReply(letter),
     })
   } catch (error) {
     console.error('Error generating cover letter:', error)

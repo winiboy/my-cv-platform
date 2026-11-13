@@ -1,274 +1,249 @@
-# Ralph progress — cover-letter-recipient-address-from-offer
+# Ralph progress — cover-letter-one-page
 
-Contract: tasks/ralph/prd.json (branch ralph/cover-letter-recipient-address-from-offer)
-PRD: tasks/prds/cover-letter-recipient-address-from-offer.md (Status: APPROVED 2026-11-09, written by the owner in GitHub's web editor, commit db89d2b on prd/cover-letter-recipient-address-from-offer)
+Contract: tasks/ralph/prd.json (branch ralph/cover-letter-one-page)
+PRD: tasks/prds/cover-letter-one-page.md (Status: APPROVED 2026-11-13, written by the owner in GitHub's web editor, commit 8fb1c44 on prd/cover-letter-one-page)
 Format: docs/engineering/progress-log-format.md
-Branch setup: from origin/prd/cover-letter-recipient-address-from-offer db89d2b (origin/main 8610211, #125 merged, plus the PRD draft 546349b and the owner's approval commit). The first commit archives the merged cover-letter-sender-placeholders contract; the second adds this contract.
+Branch setup: from origin/prd/cover-letter-one-page 8fb1c44 (origin/main 03e20c6, #126 merged, plus the PRD draft a8fcd84 and the owner's approval commit). The first commit archives the merged cover-letter-recipient-address-from-offer contract; the second adds this contract.
 Contract note: the PRD's nested lists in acceptance criteria and Required Verification are flattened into one criterion each, wording unchanged.
 
-## US-001: The address comes from the offer's page
+## US-001: The letter preview marks where each printed page ends
 Status: PASS
 Priority: 1
-Branch: ralph/cover-letter-recipient-address-from-offer
-Baseline HEAD: 6ee469e (contract commit; origin/main 8610211)
+Branch: ralph/cover-letter-one-page
+Baseline HEAD: 56dcafa (contract commit; origin/main 03e20c6)
 
 Scope:
 - Scope check: PASS
-- Changed paths: story diff sha256 prefix 92c1a97914e119fb. The hash covers `git diff -- src e2e` (7 files, 651/26), then "== <path>" and the content of each of the three new files.
-  - **New `src/lib/cover-letter-from-job/offer-page-address.ts`:** `companyAddressFromOfferPage(html)`.
-    - It reads every `<script type="application/ld+json">` block, by a forward `indexOf` scan, with only ASCII A–Z lower-cased, so the positions match the original HTML.
-    - It finds every `JobPosting`: a single node, an array or `@graph`, with `@type` as a string, a list, or a full name such as `https://schema.org/JobPosting`.
-    - It takes the first complete `hiringOrganization.address` of any posting, then the first complete `jobLocation.address`.
-    - Each part is cleaned with `sanitizeUntrustedPlainText` and capped at 249 characters, so 4 parts and 3 separators never go over 1,000.
-    - Complete means a street, a postcode and a locality. A locality that repeats the postcode loses it, and one that is only the postcode is incomplete.
-    - The country line is left out for CH, CHE, Switzerland, Suisse, Schweiz, Svizzera and Svizra.
-    - An address containing U+FFFD (a wrong charset) is rejected.
-  - **`src/lib/cover-letter-from-job/offer-availability.ts`:**
-    - `answered` now carries `companyAddress: string | null`.
-    - A 2xx `text/html` or `application/xhtml+xml` answer is read up to `OFFER_PAGE_MAX_BODY_BYTES` (1 MiB), in its declared charset (UTF-8 by default). The read uses whatever is left of the same 5 s `OFFER_PAGE_TIMEOUT_MS`. `safeFetch` clears its own timer once it returns the response, so every read is raced against the remaining time.
-    - Any other answer, a read error or a timeout gives `answered` with a `null` address.
-    - 404 and 410 still cancel the body without reading it.
-    - The verdicts are unchanged.
-  - **`src/app/api/cover-letters/from-job-application/route.ts`:** one line stores `company_address` from the same single page check, or `null`.
-  - **`src/lib/ai/test-stub.ts`, `test-stub-contract.ts`:** `ai-test-stub-page-address=job-posting` makes a stubbed 200 page carry a fixed `JobPosting`. Its hiring organization is at Avenue de la Gare 10, 1003 Lausanne, CH, and its job location is elsewhere. The real parser reads it. The existing stub behaviour is unchanged.
+- Changed paths: story diff sha256 prefix 0237c953b9e67c40. The hash covers `git diff -- src e2e`, then "== <path>" and the content of each new file.
+  - **New `src/lib/cover-letter-page-breaks.ts`:** `computeCoverLetterPageBreaks({ lines, contentBottom })`, pure and server-safe (it imports only `cover-letter-swiss-letter`), shared by both previews and by US-002 (FR-1).
+    - It reproduces Chromium's print fragmentation. Each line is `{ top, bottom, block }` in unscaled preview px.
+    - Page 1 ends at 1066 px; each later page holds 998 px. Chromium prints the A4 page as 1123 px with each `@page` margin rounded to a whole px (15 mm → 57, 18 mm → 68). This was established by bisecting page counts with the server's own `page.pdf({ preferCSSPageSize: true })` call and is documented in the file (`printedMarginPx`).
+    - A line whose bottom passes the page end moves to the next page. Orphans and widows are 2 within the overflowing line's block, as Chromium's defaults; nothing on the letter's print path sets `orphans`, `widows` or `break-*`.
+    - Each boundary is the top of the first line moved to the next page. With no lines, `contentBottom` breaks at each page end with a 1 px tolerance, so a letter at the template's minimum height is one page.
+  - **New `src/components/dashboard/cover-letter-line-boxes.ts`:** reads the rendered sheet's line boxes, in unscaled px.
+    - Text uses the browser's client rects. A `<br>`-only or `&nbsp;`-only line is a full line box.
+    - Each piece of text gets a box one line-height tall, `floor((line-height − glyph height) / 2)` above its glyphs (negative for a font taller than the line height), unioned with the paragraph's strut on the same baseline. Font metrics come from a detached canvas.
+  - **New `src/components/dashboard/cover-letter-page-break-markers.tsx`:** the marker overlay.
+    - It uses the CV marker's look and test ids: a dashed teal/70 % line and a vertical 10 px "Page N" label 3 px right of the sheet. It is `aria-hidden`, `pointer-events-none`, `select-none` and `print:hidden`.
+    - The line is a 1 px dashed border, counter-scaled, so it is 1.000 px on screen at every zoom.
+    - A label is drawn only when the gutter inside the scroll area is at least 16 px. Otherwise only the line is drawn.
+  - **`src/components/dashboard/cover-letter-preview.tsx`:** renders the markers next to the sheet inside the scaled wrapper. It re-measures the lines on resize, DOM mutation and font load, at most once per frame. The zoom code is unchanged.
+  - **`src/locales/{fr,en,de,it}/common.json`:** `coverLetters.editor.pageBreakLabel`: "Page {page}", "Page {page}", "Seite {page}", "Pagina {page}".
   - **Tests:**
-    - `offer-page-address.test.ts` (new): every fixture the PRD lists, plus İ before the block, a repeated postcode, full-name `@type`, U+FFFD and a linear-time scan.
-    - `offer-availability.test.ts`:
-      - the body is read only for 2xx HTML;
-      - a non-HTML answer gives no address;
-      - an endless body is stopped at the cap;
-      - a block cut by the cap is skipped;
-      - a read past the budget gives `null` at 5,000 ms, not before;
-      - a cancel that never settles does not hold the check;
-      - 404 and 410 bodies are never read;
-      - windows-1252 bytes served as UTF-8 give no address.
-    - `route.test.ts`:
-      - the address is stored;
-      - no address gives `null`;
-      - the rest of the row is identical with or without an address;
-      - 410 still gives 409 and nothing is written;
-      - an AI failure stores nothing;
-      - one page fetch and one rate-limit unit per creation.
-    - `test-stub.test.ts`: the address parameter.
-    - `e2e/cover-letter-recipient-address-from-offer.spec.ts` (new):
-      - (a) a page with an address: it is stored, the Destinataire tab shows the two lines, and the preview prints them under the company;
-      - (b) a page without one: `null`, an empty field, and the company alone.
-- Not touched:
-  - the text fallback (US-002), the other recipient fields, the other creation paths and existing letters;
-  - `/api/jobs/fetch-external`, the allowlist and `safeFetch`;
-  - the preview, PDF and Word code, and the database.
-- No version change, no push or merge. The temporary capture spec `e2e/zz-a1-pdf.spec.ts` was run alone and deleted; it is not in the diff.
+    - `cover-letter-page-breaks.test.ts` (23 tests): a line straddling an edge, orphans, widows, a widow fix that would leave an orphan, a two-line paragraph, widows on a continuation page, an empty line straddling and counted toward orphans, a header crossing page 1, three pages, a paragraph ending exactly at an edge, empty, null, invalid and unsorted input.
+    - `cover-letter-line-boxes.test.ts` (11 tests): line-box geometry, the merge step and `sameLineBoxes`, with synthetic rects.
+    - `cover-letter-page-break-markers.test.ts` (16 tests).
+    - `e2e/cover-letter-page-break-marker.spec.ts` (14 tests): 10 fixtures compared with the PDF downloaded through the download route, labels in four locales, typing and zoom, the narrow pane, and the decorative overlay.
+- Not touched: the CV indicator, `resume-page-breaks.ts` and their tests; the PDF and Word builders, `render-cover-letter.ts`, `cover-letter-pdf-html.ts`, `cover-letter-swiss-letter.ts` and the letter template (`git diff` empty on each); AI generation (US-002); the database.
+- No version change, no push or merge. Two temporary capture specs (`e2e/zz-us1-capture.spec.ts`, `e2e/zz-us1-capture2.spec.ts`) were run alone and deleted; they are not in the diff.
 
 Checks:
-- Final run on diff 92c1a97914e119fb, alone, started after the last edit. The hash was the same before and after.
+- Final run on diff 0237c953b9e67c40, alone, started after the last edit. The hash was the same after the run.
   - pnpm typecheck: PASS — exit 0.
-  - pnpm test: PASS — 3523 passed, 5 skipped.
+  - pnpm test: PASS — 3880 passed, 5 skipped (128 files).
   - pnpm test:integration: PASS — 63 passed.
   - pnpm build: PASS — 105/105 static pages.
   - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
-  - pnpm test:e2e: PASS — 538 passed, 0 failed (17.0 min), on an idle machine. Includes the 2 tests of the new spec.
+  - pnpm test:e2e: PASS — 554 passed, 0 failed (17.1 min). Includes the 14 tests of the new spec.
   - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
   - pnpm test:visual: PASS — 10 passed. Baselines unchanged.
-- Earlier runs, not evidence for this diff:
-  - Diff 4db80c1203bfdb54, before review fix round 1: all green, with e2e 538/0 and unit 3503. Superseded by the fix round.
-  - The first e2e run on 92c1a979 had 537 passed and 1 failed: `modern-print-sidebar-full-page.spec.ts:365`, the resume one-page print case, timed out at 90 s while the whole run took 28.1 min instead of about 20. The story touches no resume or print code. That spec, run alone, passed 9/9 (3.7 min). A second full rerun failed the same test the same way (537/1, 28.9 min). The machine was then running a sim game, VR and SimHub (CPU about 52% before any test), which explains the 45% slower runs and the CPU-bound pixel-comparison test going past its 90 s timeout. Once the owner said the PC was free (CPU 4%), the full e2e was run again alone; that run is the result above.
+- Earlier runs, not evidence for this diff: the new spec alone, 9/9 on the first line-aware version and 14/14 on 0237c953 (80 s).
 
 Specialized validation:
-- Browser: PASS. The e2e spec renders the Destinataire tab and the preview in fr at 1440: the field holds "Avenue de la Gare 10\n1003 Lausanne", and the recipient block reads "Beispiel AG\nAvenue de la Gare 10\n1003 Lausanne".
-- Visual: PASS — `pnpm test:visual` 10/10. Parity unchanged.
-- Export: PASS — temporary spec `e2e/zz-a1-pdf.spec.ts`, run alone on 92c1a97914e119fb and deleted. A letter created through the UI from an application whose stubbed page has the address; its PDF (sha256 prefix c91c316c3cfd06cb) prints, inside the window zone (x ≥ 311.8 pt = 110 mm, top ≥ 141.7 pt = 50 mm, right ≤ 538.6 pt), "Beispiel AG" (baseline 152.2), "Avenue de la Gare 10" (166.5), "1003 Lausanne" (180.7), all at 11 pt. The same capture on 4db80c12 gave the same items.
-- Database: NOT_APPLICABLE — no schema change. The existing `company_address` column is filled at creation.
-- Security: PASS — `security-review` on 4db80c1203bfdb54, with 0 critical, high or medium findings. The fix round changed only parsing and cleaning, inside the same trust boundary.
-  - SEC-001 (INFO): misaligned slicing after a lower-cased "İ". It was fixed in the fix round.
-  - SEC-002 (INFO, pre-existing): multi-tenant ATS subdomains on the allowlist can serve any JSON-LD. The result is only cleaned plain text on that user's own letter.
-  - Checked: one `safeFetch` call with the allowlist and redirect re-checks; the body is capped at 1 MiB and read within the 5 s budget, after the rate limit; the scan is linear with a depth limit; nothing is logged or sent to the AI; the value reaches the same field the user already types into.
+- Browser: PASS. The e2e spec and 35 captures in the editor pane and the preview window at 1440, 1024, 768 and 375 px.
+  - Every marker, measured against the PDF's own baselines, in unscaled px:
+    - 2 pages: 1065.87 (PDF 1065.96, −0.08).
+    - 3 pages: 1065.87 (−0.08) and 2057.13 (PDF 2057.21, −0.08), where line A085 straddles page 2's end.
+    - Orphans: 1046.81 (+0.01). Widows: 1046.81 (−0.04).
+    - Empty line straddling page 1's end: 1065.87 (PDF 1066.02, −0.15).
+    - 24 px span opening page 2: −0.15. Wrapped paragraph: −0.08. List: −0.08.
+    - Recipient address past page 1: 1065.84 (PDF 1065.77, +0.07).
+    - One page: no marker, and the PDF has 1 page.
+  - The window's markers are within 1 px of the pane's.
+- Visual: PASS — `pnpm test:visual` 10/10, parity unchanged.
+- Export: PASS — the PDF and Word code is unchanged (`git diff` empty), so their output is identical for the same letter. The overlay is never rendered on the export paths, and the e2e downloads the real PDF for every fixture.
+- Database: NOT_APPLICABLE — no schema or stored value changes.
+- Security: NOT_APPLICABLE — no trust boundary changes: no route, no stored data, no external input. The overlay only reads the rendered sheet.
 
 Agents:
-- senior-coder: implementation, then fix round 1 (six minor code-review findings).
-- ui-expert: NOT_APPLICABLE — no UI changes (PRD Required Verification). The e2e covers the rendered field and preview.
+- senior-coder: implementation, a line-aware redesign after the first version's marker 2 sat 7 px low on a 3-page letter (a height-only formula cannot see a line moved whole to the next page), then fix round 1 (code review), plus two capture runs for ui-expert.
+- ui-expert: PASS — 7/7 conditions and all 8 criteria, after two BLOCKED verdicts for missing rendered evidence (no screenshots, then no tablet widths).
 - code-reviewer:
-  - round 1: PASS, with minor findings (the İ slicing, a repeated postcode, full-name `@type`, U+FFFD, an inconsistent cancel comment, two fragile tests), all fixed in round 1;
-  - round 2: PASS on 92c1a97914e119fb, with no critical or major finding.
+  - round 1: FAIL — empty lines dropped (a marker 19 px low), inline text larger than the line height measured too high (about 4 px), and the e2e covered neither; plus minors (an e2e reusing the model, the header grid, untested line boxes, a no-op `range.detach()`).
+  - round 2: PASS on 0237c953b9e67c40, with no critical or major finding.
 
 Acceptance criteria:
-- AC-01 (hiringOrganization first, then jobLocation): PASS — unit tests for each source and both, including a preferred address in a later block; the stub page's two addresses in the e2e.
-- AC-02 (complete = street, postcode, locality): PASS — unit tests for locality only, no street, no postcode, a locality that is only the postcode, markup-only or blank parts, and a plain-string address.
-- AC-03 (shape; country only when not Swiss; no company name): PASS — unit tests for the Swiss spellings, a non-Swiss country and a `Country` node; the e2e stores exactly two lines.
-- AC-04 (same page, fetched once, same allowlist, redirects and budget): PASS — the route test counts one fetch; the body comes from the response `safeFetch` returned; the timeout test shows the read ends with the 5 s budget.
-- AC-05 (a closed offer still refused, no address read): PASS — route test: 410 gives 409 with the same body and nothing is written; unit tests: 404 and 410 bodies are not read. The deadline check still comes before the page.
-- AC-06 (Destinataire tab and preview): PASS — e2e (a) and (b).
-- FR-1 to FR-4, FR-6 and FR-7: PASS. FR-5 (the text fallback costs no extra unit): deferred to US-002; the route test shows one unit per creation.
-- The shared Required Verification items about the text fallback (unit and route) belong to US-002 and are deferred there.
-- Regression constraints: PASS — the row-equality route test; 409 and the AI failure unchanged; fetch-external and the allowlist untouched; parity and visual unchanged.
+- AC-01 (one page, no marker): PASS — the one-page fixture in the pane and the window; the PDF has 1 page.
+- AC-02 (n − 1 markers, labelled k + 1): PASS — the 2- and 3-page fixtures in both previews; `data-page` 2 and 3.
+- AC-03 (each marker where the PDF page ends, within 2 px): PASS — 10 fixtures; the largest gap is 0.15 px.
+- AC-04 (the CV's look, constant thickness, label in the gutter): PASS — 1.000 px at 25, 60, 70, 72, 100 and 200 %; the label box 10 × 34.45 px, as the CV's; ui-expert compared them side by side.
+- AC-05 (interface locale): PASS — "Page 2" in en, "Seite 2" in de, "Pagina 2" in it; e2e in four locales.
+- AC-06 (no room: line without label, no horizontal scroll): PASS — scroll area `scrollWidth`/`clientWidth` 552/552 for the fitted pane, 690/690 at 1024, 434/434 at 768 and 313/313 at 375.
+- AC-07 (follows typing and zoom without reload): PASS — e2e and captures 06 and 07.
+- AC-08 (decorative, not exported): PASS — the e2e checks `aria-hidden`, `pointer-events`, `user-select`, print media and a click through the line; the export code is unchanged.
+- FR-1 to FR-4: PASS. FR-5 to FR-7 belong to US-002.
+- The Required Verification items for AI generation (route tests, the creation e2e, `security-review`) belong to US-002.
+- Regression constraints: PASS — CV indicator files unchanged; zoom unchanged; export code unchanged; parity and visual unchanged.
 - FAIL and BLOCKER conditions: none triggered.
 
 Decision:
-- **One fetch.** The address is read from the response the availability check already gets, so the page is never fetched twice (FR-3, AC-04).
-- **A capped prefix, not nothing.** A page over 1 MiB is parsed up to the cap: boards put the JSON-LD in the head. A block the cap cuts in half fails to parse and is skipped.
-- **When in doubt, no address.** A wrong charset (U+FFFD) or a postcode-only locality gives an empty field, never a damaged value.
+- **Lines, not height.** The shared computation takes line boxes, so it can reproduce how Chromium moves a whole line, and orphans and widows, to the next page. A height-only formula put the second marker of a 3-page letter 7 px low.
+- **The PDF anchors the test.** The e2e reads each expected break from the downloaded PDF's baselines, calibrated on page 1, not from the same line model the code uses.
+- **Whole-px page edges.** The page constants come from Chromium's printed page (1123 px, margins rounded to whole px), not from mm, after the PDF-anchored test showed the mm values put markers one line early.
 
 Open owner decisions:
-- None from this story. Minor code-review points left as they are, all safe (they can only lose an address, never invent one):
-  - the pre-existing 404/410 path still awaits the body's cancel;
-  - `@type` matching accepts any vocabulary's `JobPosting`, ignoring case;
-  - the `type=` match also fires on a `data-type` attribute.
+- **Dark mode (follow-up, not this story):** with `.dark` forced, the label has about 2.2:1 contrast on the dark gutter. The CV marker uses the same colours, and nothing in the app sets the dark class today. The fix is `dark:text-teal-400` on both markers in one change.
+- **CV editor line (separate issue):** the CV editor's marker line renders 0.942 px for a computed 2 px border, because of pixel rounding. The letter's marker avoids this.
+- Minor code-review points left as they are:
+  - the page-edge rule was measured on the local Playwright Chromium, while production renders with `@sparticuz/chromium`;
+  - canvas font metrics may be fractional where Blink rounds them;
+  - Firefox before 116 lacks `fontBoundingBoxAscent`, so no markers are drawn there;
+  - a new canvas on every measurement;
+  - a stale "1065.83" comment in the e2e;
+  - an English fallback for the label, following the existing `zoomLabels` pattern.
+- **US-002 note:** the server has no layout, so the one-page check will need line boxes from an estimate fed into the same function. Its accuracy is US-002's risk; the PDF stays the authority.
 
 Environment notes:
-- The checks, the single-spec rerun, the full e2e rerun and the capture ran one at a time. The two review agents ran read-only, during the security review and the second check run.
+- The checks ran alone, after both reviews and both capture runs had finished. The orphan and widow fixtures depend on Georgia's metrics on Windows; each first checks its layout and fails loudly when that changes.
 
 Commit:
 - Story commit: THIS_COMMIT
-- Commit message: ralph: US-001 The address comes from the offer's page
+- Commit message: ralph: US-001 The letter preview marks where each printed page ends
 FINAL: PASS
 
-## US-002: Otherwise, the address comes from the offer's text
+## US-002: A letter written by the AI fits on one page
 Status: PASS
 Priority: 2
-Branch: ralph/cover-letter-recipient-address-from-offer
-Baseline HEAD: 296cd37 (US-001)
+Branch: ralph/cover-letter-one-page
+Baseline HEAD: 84e808e (US-001 commit)
 
 Scope:
 - Scope check: PASS
-- Changed paths: story diff sha256 prefix 15e63b1d7d5a0910. The hash covers `git diff -- src e2e` (11 files, 576/24), then "== <path>" and the content of each new file:
-  - `src/app/api/ai/generate-cover-letter/route.test.ts` (86 lines);
-  - `src/lib/cover-letter-from-job/offer-text-address.ts` (651);
-  - `src/lib/cover-letter-from-job/offer-text-address.test.ts` (678).
-  - **One AI call (FR-5).**
-    - `CoverLetterGenerationInput.askCompanyAddress`: only when it is set does `buildCoverLetterGenerationPrompt` add a `companyAddress` reply field and copy-only rules. Those rules: copy each part exactly as written; street and number only, without the company name, postcode or town; every field empty if the offer gives no complete address.
-    - Without it, the prompt is byte-identical: the existing SHA-256 pins pass unchanged, and a new pin covers `false`.
-    - `generateCoverLetter` raises `maxTokens` by `COMPANY_ADDRESS_MAX_TOKENS_MARGIN` (200) only in that case. `COVER_LETTER_COMPLETION_OPTIONS` and the editor route are unchanged.
-    - `toGeneratedCoverLetter` keeps only the string parts of `companyAddress`. A missing or malformed address is no address, never an error.
-  - **Route:**
-    - The route asks only when the page gave no complete address and the offer text is not empty.
-    - `company_address` is the page address, else `companyAddressFromOfferText(generated.companyAddress, offerText, companyName)`, else `null`.
-    - Same single rate-limit unit, same single provider call, same error paths.
-  - **New `offer-text-address.ts`:** the AI's answer is accepted only when it matches the offer text's own structure.
-    - The text the AI was given (first 15,000 characters) is cut into segments before any cleaning, on:
-      - line breaks and their entities;
-      - block/line HTML tags and U+200B;
-      - tab;
-      - `, ; : | / · •` and full-width forms;
-      - dashes with spaces on both sides.
-    - Segments are compared in NFC, lower-cased, with whitespace collapsed, a trailing full stop removed, and leading bullets, list numbers and Markdown markers removed.
-    - The street must equal a whole segment, and the next segment must equal "postcode locality". An optional country prefix on the postcode in the text is allowed, and so is one P.O.-box segment in between.
-    - Street rules:
-      - it needs a house number (digits, a letter, `bis`/`ter`, or a range) and a street-type word (`STREET_TYPE_WORDS` fr/it/en, `STREET_TYPE_SUFFIXES` German);
-      - it is refused when it holds the postcode, the company name, only company-name words, a legal form (`LEGAL_FORMS`), a P.O.-box phrase, a floor/building/department word, or a second number.
-    - Postcode: `^(?:[A-Za-z]{1,2}-)?\d{4,5}$`.
-    - Locality rules:
-      - a letter and no digit;
-      - at most 4 tokens;
-      - no brackets, no sentence full stop, no trailing country, no company name or legal form, no partial overlap with company-name words of 3+ letters;
-      - no word from `NOT_A_LOCALITY_WORDS`;
-      - further tokens must be capitalised or be place particles.
-    - A non-Swiss country is kept only when it is the next segment and is in `KNOWN_COUNTRIES`; otherwise the line is dropped.
-    - `offer-page-address.ts` now exports `postalAddressParts`, `formatPostalAddressParts` and `SWITZERLAND`. The page path (US-001) gives the same output.
-  - **Stub:** `AI_TEST_STUB_OFFER_TEXT_ADDRESS` ("Rue du Lac 5", "1201", "Genève", "CH") is answered only when asked, whatever the text says, so the route's real check decides.
+- Changed paths: story diff sha256 prefix 6593fbfa2740e055. The hash covers `git diff -- src e2e` (index to working tree), then "== <path>" and the content of each untracked file. The staged move of `cover-letter-line-boxes(.test).ts` from `src/components/dashboard/` to `src/lib/` is part of the story but sits in the index.
+  - **Prompt (`src/lib/ai/prompts.ts`):** both AI paths share `buildCoverLetterGenerationPrompt`.
+    - "Total length: 250-400 words" became 180–230 words with exactly 2 body paragraphs of 2–3 sentences. The JSON example lost its optional third body paragraph.
+    - The budget was measured with a full Swiss header (5-line sender, 5-line recipient, subject, default Annexes). The largest letter that fits one page is 230 words in de, 280 in fr, 290 in en and 300 in it with 2 body paragraphs; with 3 it is 170, 210, 220 and 230. German sets the limit.
+    - The SHA pins were updated on purpose. The old pins still match the new prompt with those three spots put back.
+    - A new shortening prompt asks for at most 170 words in the same language and structure, with no new facts. The letter goes in as JSON between `<<<LETTER`/`LETTER>>>`, with `<` and `>` escaped.
+  - **One-page decision (`src/lib/ai/cover-letter-one-page.ts`, new):** `keepCoverLetterOnOnePage` measures the first letter once.
+    - If it fits, or the measurement fails: one AI call, the first letter is kept.
+    - If it runs over: exactly one shortening call, and the shorter letter is kept whatever its length.
+    - If the shortening fails, returns an unusable letter or there is not enough time: the first letter is kept.
+    - Outcomes: `fits`, `unmeasured`, `shortened`, `shortening-failed`, `shortening-unusable`, `no-time`.
+  - **Time budget:** each route records a deadline when the request starts: 50 s, under `maxDuration = 60`, leaving 10 s to store the letter and answer.
+    - The measurement gets 10 s, or less if less is left.
+    - Shortening runs only when at least 12 s remain, with the remaining time as its own timeout and `maxRetries: 0`.
+    - Every wait is limited twice: the limit is passed to the work, and a timer also enforces it.
+    - AI call 1 is called exactly as before.
+  - **Shortener (`src/lib/ai/cover-letter-generation.ts`):** parses the shortened reply with the same parser as the first. The greeting and sign-off are copied from the first letter, and any `companyAddress` is dropped.
+  - **Server measurement:**
+    - `src/lib/pdf/render-cover-letter.ts` now shares one browser lifecycle between print and measurement: same launch, isolation, sanitizing, fonts and close. The PDF steps keep the same order and stage names.
+    - `measureCoverLetterPageCount` lays out the PDF's own document. It injects the line-box model's source (moved to `src/lib/cover-letter-line-boxes.ts`, one self-contained function also used by the preview; FR-1), measured with the sheet's own width so the scale is 1, then pages it with `computeCoverLetterPageBreaks`.
+    - `src/lib/pdf/cover-letter-page-count.ts` (new) uses the shared render slot and the PDF route's language and date. No slot, a timeout or any error gives "unmeasured". Only the stage and the error name are logged.
+  - **Routes:**
+    - `from-job-application` measures the row it is about to insert.
+    - `/api/ai/generate-cover-letter` takes an optional `coverLetterId` (UUID), sent by `cover-letter-generation-modal.tsx` through `cover-letter-editor.tsx`. It reads that letter's stored header with the user's session and an owner filter. With no id, an unknown id, another user's letter or a read error, it measures with an empty header.
+    - Both routes declare `runtime = 'nodejs'` and `maxDuration = 60`, the repository's value for long routes (`docs/engineering/pdf-export-runtime.md`).
+  - **Editor route, beyond the story but required for it:**
+    - It now uses the shared generator, so the stub and the one-page path reach it. The prompt, model settings and error answers are the same.
+    - Non-string body paragraphs are dropped.
+    - The raw AI reply is no longer logged on a parse failure. It contains CV and offer content.
+    - The unused `tokensUsed` field is gone from the response. No client read it.
+  - **`src/lib/ai/client.ts`:** `generateCompletion` accepts an optional per-request limit. Without it the SDK call is unchanged.
+  - **Test stub (`test-stub.ts`, `test-stub-contract.ts`):** switches for a long first letter and for the shortening reply (fits, still too long, fails, unusable).
   - **Tests:**
-    - `offer-text-address.test.ts`: 274 tests. They cover the PRD's three unit cases, every refused shape from review rounds 1–6, the e2e (c)/(d) texts mirrored character for character, the 15,000-character cut, and the documented limits.
-    - Route tests: page address first (not asked); text address stored; not in the text gives `null`; empty text is not asked; AI failure and a closed offer unchanged; one call and one unit in every branch; the rest of the row unchanged.
-    - Prompt, generation and stub tests.
-    - `generate-cover-letter/route.test.ts` (new): the editor never asks, even when a client posts the opt-in.
-    - e2e (c): a page without an address and a text with the stub's address, so it is stored, shown in "Adresse de l'entreprise" and printed by the preview.
-    - e2e (d): the text names the street with another town, so the field is empty.
-- Not touched:
-  - the page path's verdicts, the allowlist and `/api/jobs/fetch-external`;
-  - the editor's Generate route code;
-  - the other recipient fields, other creation paths and existing letters;
-  - the preview, PDF and Word code, and the database.
+    - prompt tests;
+    - generation and shortener tests;
+    - one-page decision tests, including 7 time-path tests with fake clocks;
+    - client tests;
+    - stub tests;
+    - `from-job-application` route tests, 17 new;
+    - generate route tests, 23 new;
+    - `POST /api/cover-letters` (a blank letter makes no AI call and no measurement);
+    - `src/lib/pdf/measure-cover-letter.integration.test.ts`, 17 tests, comparing measured and printed page counts;
+    - `e2e/cover-letter-one-page-generation.spec.ts`, 3 tests.
+- Not touched: the PDF and Word builders, `cover-letter-pdf-html.ts`, the template, the PDF route, the CV, the tools-page generator, the checker, translation, the database, `package.json` and the lockfile.
 - No version change, no push or merge.
 
 Checks:
-- Final run on 15e63b1d7d5a0910, alone (no agent running), started after the last edit. The hash was the same before and after.
+- Final run on diff 6593fbfa2740e055, alone, after both reviews. The hash was the same after the run.
   - pnpm typecheck: PASS — exit 0.
-  - pnpm test: PASS — 3830 passed, 5 skipped.
-  - pnpm test:integration: PASS — 63 passed.
+  - pnpm test: PASS — 3970 passed, 5 skipped (129 files).
+  - pnpm test:integration: PASS — 80 passed (5 files), including the 17 measure-vs-PDF tests, which ran because Chromium is installed locally.
   - pnpm build: PASS — 105/105 static pages.
   - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
-  - pnpm test:e2e: PASS — 540 passed, 0 failed (17.0 min), including the 4 tests of the spec (a)-(d). This was the third run on this diff; the first two each had 1 failure in a login step, see below.
+  - pnpm test:e2e: PASS — 557 passed, 0 failed (17.5 min). Includes the 3 tests of the new spec and the 14 of the US-001 spec.
   - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
-  - pnpm test:visual: PASS — 10 passed; baselines unchanged.
-- Earlier runs, not evidence for this diff:
-  - 15e63b1d7d5a0910 itself, first and second e2e runs: 539 passed and 1 failed each, a different test each time (`auth.spec.ts:27`, then `cover-letter-editor-mobile.spec.ts:461`), both in the shared `loginAs` fixture: `/en/login` stayed on its loading skeleton and `#email` never appeared within 15 s. The second run's trace shows the request for `/_next/static/chunks/main-app-*.js` failed at the network level (status -1) while every other chunk loaded, so the page never hydrated. The local server dropped a static file. The story changes no client code, login page or bundle. The machine was idle (CPU 3%, no other server on port 3100). The third run, alone, is the result above.
-  - ffe6eeb4fbbed5b0 (first implementation): all green, e2e 540/0. Superseded by the review fix rounds.
-  - 16dc70127a305f6f: stopped during e2e when code review round 2 failed.
-  - dffa98d4d245533a: e2e crashed. Chromium "Target crashed" and worker exit 0xC0000142 (a Windows process-start failure): 57 crashed, 454 did not run. A review agent was running node at the same time; that is the environment, not the code. Parity was cut by the stop. From then on, reviews ran before or after a check run, never during one.
+  - pnpm test:visual: PASS — 10 passed. Baselines unchanged.
+- Earlier runs, not evidence for this diff: on a2699cdb, before the fix round, the unit files (1,801), the integration test (14) and the new e2e spec alone (3/3).
 
 Specialized validation:
-- Browser: PASS. e2e (c) and (d) render the Destinataire tab and the preview in fr at 1440. (c): the field holds "Rue du Lac 5\n1201 Genève", and the preview prints it under "Beispiel AG". (d): the field is empty.
-- Visual: PASS — `pnpm test:visual` 10/10. Parity unchanged.
-- Export: NOT_APPLICABLE — no export code changed. A text address is stored in the same `company_address` and the same shape as the page address, whose PDF window print was captured for US-001 (c91c316c3cfd06cb).
-- Database: NOT_APPLICABLE — no schema change.
-- Security: PASS — security review by the orchestrator on ffe6eeb4fbbed5b0, re-checked on the final diff (the later changes are pure validation functions inside the same boundary), with 0 critical, high or medium findings.
-  - The editor's Generate route builds its prompt from named fields, so a client cannot opt in (tested).
-  - The AI's answer is untrusted: it is cleaned with the US-001 helpers and accepted only as whole segments of the user's own stored offer text, so a prompt injection in an offer can only yield an address that offer already writes.
-  - Regexes are built from escaped characters only, with no nested quantifiers. Code review measured 20 adversarial 15,000-character texts at ≤ 3.7 ms each.
-  - Nothing new is logged. No extra AI call or rate-limit unit.
+- Browser: PASS. The e2e spec covers four cases:
+  - A letter created from a job application whose stubbed first letter runs over is shortened by the real server measurement. Its stored letter downloads as a 1-page PDF, and the preview shows no marker.
+  - A still-too-long shortened letter is kept and prints on more than one page.
+  - The editor's Generate button returns the shorter letter.
+  - In all three tests, the production build logged `One-page check: shortened`.
+- Export: PASS — measured page count against printed page count on 16 letters: the US-001 fixtures, AI-style letters of 230, 400 and 600 words, and German letters.
+  - German 230 words with 2 body paragraphs: 1 / 1.
+  - German 170 words with 3 body paragraphs: 1 / 1.
+  - German 250 words: 2 / 2.
+  - Every count matched and was the same on a second run. The PDF code path is unchanged in behaviour (code review).
+- Visual: PASS — `pnpm test:visual` 10/10, parity unchanged.
+- Database: NOT_APPLICABLE — no schema change; the shorter text goes into the same columns.
+- Security: PASS — `security-review` on a2699cdba390af08: 0 critical, high, medium or low; 4 INFO.
+  - SEC-001: the 2× token cost FR-5 accepts.
+  - SEC-002: render slots shared with PDF downloads.
+  - SEC-003: indirect prompt injection with no authority.
+  - SEC-004: the time budget, fixed in the fix round.
+  - Checked:
+    - `coverLetterId` is a UUID, read with the session client under RLS plus an owner filter, and gives the same empty header for a missing or foreign letter;
+    - the measuring page runs with JavaScript off and every request aborted;
+    - the injected script is a constant, with no letter content;
+    - the delimiters are escaped;
+    - the rate limit is spent once;
+    - no letter text is logged.
+  - The fix round changed only timing, limits and the copied greeting and sign-off, inside the same boundaries.
 
 Agents:
-- senior-coder: implementation, then 7 fix rounds:
-  - rounds 1–4: street and company-name guards;
-  - round 5: redesign to whole-segment matching on the text's structure;
-  - round 6: positive street check;
-  - round 7: locality and street refusal lists.
-- ui-expert: NOT_APPLICABLE — no UI changes (PRD Required Verification). The e2e covers the rendered field and preview.
+- senior-coder: implementation, then fix round 1.
+- ui-expert: NOT_APPLICABLE — no visual change. The modal sends one more field; the US-001 marker is unchanged, and its spec still passes.
 - code-reviewer:
-  - round 1 FAIL: the street was not checked to be only a street.
-  - round 2 FAIL: the company name was spelled differently.
-  - round 3 FAIL: the company name was written without a legal form.
-  - round 4 FAIL: multi-line text with a space-joined answer.
-  - round 5 FAIL: a floor, P.O.-box or department line, or a company name with a number, taken as the street.
-  - round 6 FAIL: extra words in the locality; a P.O. box or floor after the street.
-  - round 7 PASS on 15e63b1d7d5a0910, with no critical or major finding. Every remaining finding is classed as contrived: words written after the street or town in the same segment, with an AI that ignores the prompt.
+  - round 1: FAIL. Critical: no time budget, so a creation could be killed at 60 s before the insert. Majors: the editor route's `maxDuration`, the CI gap and the untested sizing. Minors: sheet width, greeting and sign-off, fallback language, out-of-story changes and slots.
+  - round 2: PASS on 6593fbfa2740e055, with no critical or major finding.
 
 Acceptance criteria:
-- AC-01 (text fallback when the page gives none): PASS — route tests for no URL, no structured data, non-HTML, timeout, 500 and a host outside the allowlist; the generator is not asked when the page gives an address.
-- AC-02 (used only if street and postcode-and-locality are in the text, ignoring case and spacing): PASS — whole-segment equality, NFC, case- and whitespace-insensitive; e2e (c) accepts "RUE DU LAC 5" / "CH-1201  Genève."; e2e (d) and unit tests refuse an answer the text does not give.
-- AC-03 (same shape as US-001): PASS — the shared `postalAddressParts` and `formatPostalAddressParts`; unit tests for the Swiss and non-Swiss country lines.
-- AC-04 (nothing found: empty field, letter created as today): PASS — route test and e2e (b)/(d).
-- AC-05 (never blocks creation or changes the error): PASS — route tests for AI failure, a non-letter reply and a closed offer; `companyAddressFromOfferText` never throws.
-- FR-1 to FR-7: PASS. FR-5 is shown by one provider call and one rate-limit unit in every route-test branch.
-- Shared Required Verification items for the text fallback (unit and route): PASS.
-- Regression constraints: PASS — editor prompt byte-pinned; "changes no other stored value" route test; parity and visual unchanged.
-- FAIL and BLOCKER conditions: none triggered.
+- AC-01 (one-page length in both prompts): PASS — prompt tests; both routes use the shared builder.
+- AC-02 (the server decides, deterministically): PASS — the integration test: measured = printed on 16 letters, the same on repeat.
+- AC-03 (a letter that fits: one AI call): PASS — route tests count `generateCompletion` once and the rate limit once.
+- AC-04 (exactly one shortening call, same language and structure, shorter letter used): PASS — route tests on both routes; e2e.
+- AC-05 (a still-too-long letter is kept, nothing truncated): PASS — route tests; e2e (the PDF has more than one page).
+- AC-06 (a failed or unusable shortening keeps the first letter): PASS — route tests for a thrown error, a timeout, an unusable reply and no time left; a measurement failure also keeps it.
+- AC-07 (no extra rate-limit unit): PASS — `enforceAiRateLimit` called once in every route-test path.
+- AC-08 (a blank letter stays blank): PASS — `POST /api/cover-letters` test: no AI call, no measurement.
+- AC-09 (the company address is unchanged by shortening): PASS — route test; the shortener drops `companyAddress`.
+- FR-1, FR-2, FR-5, FR-6 and FR-7: PASS. FR-3 and FR-4 were met by US-001 and are unchanged.
+- Regression constraints: PASS. A letter that fits keeps one call and the same fields. The editor route still never opts into the address. The PDF and Word code is unchanged in behaviour. CV, tools, checker and translation are untouched. Parity and visual are unchanged.
+- FAIL and BLOCKER conditions: none triggered. The PRD's BLOCKER about the server not being able to measure does not apply: it measures with the PDF's own engine and fonts.
 
 Decision:
-- **The check rests on the offer text's own structure, not on the AI's answer.** Rounds 1–4 checked the AI's own string and each left another way in. Whole-segment equality on the text's lines, blocks and separators closes that class.
-- **A street must prove it is a street.** A house number plus a street-type word. Floors, P.O. boxes, departments, references and company names with a number fail by construction.
-- **When in doubt, no address.** Every rule either accepts what the text writes as an address block or leaves the field empty for the user to fill.
+- **Measure, don't estimate.** The server lays the letter out in the PDF renderer's own browser and fonts, and pages it with the same function as the preview. A word or character estimate would have made "the PDF is the authority" untrue.
+- **When in doubt, keep the first letter.** No slot, a timeout, a failure, an unusable reply or too little time all keep it. Creation and generation never fail because of the one-page check.
+- **German sets the budget.** 230 words with 2 body paragraphs is the largest that fits for German; the other languages have more room.
 
 Open owner decisions:
-- **Known false rejects (the field stays empty; the user types the address):**
-  - streets without a listed type word ("Steinenvorstadt 30", "Schipfe 2", "Bollwerk 4", "1 Main St");
-  - date-named streets ("Rue du 31-Décembre 47", "Avenue du 1er-Mars 5") and a spaced range ("Rue de la Gare 1 - 3");
-  - official slash names ("Biel/Bienne", "Domat/Ems"); "/" is a segment separator;
-  - "Collina d'Oro", "Bern 22", "Paris Cedex 08";
-  - a postcode and town on separate lines;
-  - "Rue du Lac 5, 2e étage, 1201 Genève";
-  - HTML named entities such as `&egrave;` in a stored offer text.
-  - Biel/Bienne is the most visible of these. Accepting a slash between two letters would need its own pass.
-- **Known false accepts, all contrived (code review round 7: class b):** words the offer itself writes after the street or the town in the same segment, which the AI copies against the prompt:
-  - a title or department ("Bahnhofstrasse 1 HR");
-  - an unnumbered German floor ("Bahnhofstrasse 1 Erdgeschoss");
-  - a bracketed note on the street;
-  - a fragment of the company name after the street;
-  - a capitalised non-place word after the town ("Zürich Telefon");
-  - a name the offer writes in the same segment as the street;
-  - "Engineering 2", "Technopark 2"-like segments right before the postcode;
-  - "Basel-Coop".
-  - In every case the stored text comes from the offer and is shown in the editable field. Cheap follow-ups exist: share the locality's refusal list and bracket rule with the street, add the floor compounds and contact words.
-- **The from-job letter's wording may differ** for the same inputs when the page has no address: the prompt then carries 5 more rules (accepted cost of FR-5's single call). The editor's Generate prompt is unchanged.
-- **Carried over from US-001:**
-  - the 404/410 path awaits the body's cancel;
-  - `@type` matching accepts any vocabulary's `JobPosting`;
-  - the `type=` match fires on `data-type`.
+- **CI coverage:** CI's integration job has no Chromium, so the measure-vs-PDF test skips there. CI's e2e runs on a production build and covers the real measurement on the creation path. Agreement on the serverless runtime (`@sparticuz/chromium` with the substitute fonts) is not tested before deployment.
+- **Render slots:** a measurement holds one of the 2 per-instance PDF slots for about 0.2 s, at most 10 s. A PDF download on the same warm instance at that moment can get a 503 with `Retry-After: 5`.
+- **Longer creations:** a letter that runs over now takes a second AI call, a few seconds more.
+- Minor code-review points left as they are:
+  - after a timeout, the browser is closed after the response, and could be frozen with a serverless instance;
+  - the overrun tests don't assert the result is still pending just before the limit;
+  - one integration test title says "runs over" without asserting more than one page (the measured count is 2 / 2);
+  - the no-reasoning-effort retry inside `generateCompletion` gets a fresh timeout, but `within` still holds the request to the deadline.
 
 Environment notes:
-- On dffa98d4d245533a, e2e crashed with 0xC0000142 while a review agent ran node in parallel. Afterwards reviews and check runs never overlapped.
-- Two stale check runs were stopped with TaskStop. Their process trees were killed, and port 3100 was confirmed free each time.
-- The first cleanup's command-line filter also killed two `npm`/`npx` processes outside the project (probably the Playwright MCP server); the second used a filter restricted to this project.
+- The checks ran alone, after both reviews had finished. The security review and the round-1 code review ran together, both read-only.
 
 Commit:
 - Story commit: THIS_COMMIT
-- Commit message: ralph: US-002 Otherwise, the address comes from the offer's text
+- Commit message: ralph: US-002 A letter written by the AI fits on one page
 FINAL: PASS

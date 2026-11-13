@@ -2,13 +2,14 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AiCompletionError } from './client'
-import { generateCoverLetter } from './cover-letter-generation'
+import { generateCoverLetter, shortenCoverLetter } from './cover-letter-generation'
 import { translateCoverLetterSegments } from './cover-letter-translation'
 import { checkOfferPage } from '@/lib/cover-letter-from-job/offer-availability'
 import {
   AI_TEST_STUB_COVER_LETTER_TEXTS,
   AI_TEST_STUB_DIRECTIVES,
   AI_TEST_STUB_ENABLED_VALUE,
+  AI_TEST_STUB_LONG_LETTER_BODY_PARAGRAPHS,
   AI_TEST_STUB_OFFER_PAGE_ADDRESS,
   AI_TEST_STUB_OFFER_PAGE_ADDRESS_PARAM,
   AI_TEST_STUB_OFFER_PAGE_PARAM,
@@ -17,12 +18,14 @@ import {
   AI_TEST_STUB_OFFER_TEXT_ADDRESS,
   aiTestStubTranslationPrefix,
   coverLetterGeneratorFor,
+  coverLetterShortenerFor,
   coverLetterTranslatorFor,
   offerPageCheckerFor,
   translateStubCoverLetterSegments,
   stubCheckOfferPage,
   generateStubCoverLetter,
   generateStubResumeFromJobDescription,
+  shortenStubCoverLetter,
   isAiTestStubEnabled,
   type AiTestStubEnvironment,
   type AiTestStubRequest,
@@ -242,6 +245,83 @@ describe('coverLetterGeneratorFor', () => {
   it('picks the real AI without the flag', () => {
     vi.stubEnv('AI_TEST_STUB', '')
     expect(coverLetterGeneratorFor(LOCAL_REQUEST)).toBe(generateCoverLetter)
+  })
+})
+
+describe('the long letter and its shortening (cover-letter-one-page, US-002)', () => {
+  const INPUT = { jobDescription: 'An offer for the stub test.', jobTitle: 'Engineer', companyName: 'Acme', locale: 'fr' }
+  const french = AI_TEST_STUB_COVER_LETTER_TEXTS.fr
+  const long = (...directives: string[]) =>
+    generateStubCoverLetter({
+      ...INPUT,
+      jobDescription: [INPUT.jobDescription, AI_TEST_STUB_DIRECTIVES.longLetter, ...directives].join(' '),
+    })
+
+  it('writes a long letter on request, and the usual one otherwise', async () => {
+    const letter = await long()
+    expect(letter.bodyParagraphs).toHaveLength(1 + AI_TEST_STUB_LONG_LETTER_BODY_PARAGRAPHS)
+    expect(letter.bodyParagraphs.slice(1).every((paragraph) => paragraph === french.longBody)).toBe(true)
+    expect((await generateStubCoverLetter(INPUT)).bodyParagraphs).toEqual([french.body])
+  })
+
+  it('shortens to a letter with the same greeting and sign-off, and a shortened opening', async () => {
+    const letter = await long()
+    expect(await shortenStubCoverLetter({ letter, locale: 'fr' }, { timeoutMs: 1_000 })).toEqual({
+      greeting: letter.greeting,
+      openingParagraph: french.shortenedOpening,
+      bodyParagraphs: [french.body],
+      closingParagraph: french.closing,
+      signOff: letter.signOff,
+    })
+  })
+
+  it('carries the shortening directive in the long letter, where the shortener reads it', async () => {
+    const tooLong = await long(AI_TEST_STUB_DIRECTIVES.shortenTooLong)
+    const shortened = await shortenStubCoverLetter({ letter: tooLong, locale: 'fr' }, { timeoutMs: 1_000 })
+    expect(shortened.openingParagraph).toBe(french.shortenedOpening)
+    expect(shortened.bodyParagraphs).toEqual(tooLong.bodyParagraphs)
+
+    await expect(
+      shortenStubCoverLetter({ letter: await long(AI_TEST_STUB_DIRECTIVES.shortenFails), locale: 'fr' }, { timeoutMs: 1_000 })
+    ).rejects.toBeInstanceOf(AiCompletionError)
+
+    const unusable = await long(AI_TEST_STUB_DIRECTIVES.shortenUnusable)
+    expect(await shortenStubCoverLetter({ letter: unusable, locale: 'fr' }, { timeoutMs: 1_000 })).toEqual({
+      greeting: unusable.greeting,
+      openingParagraph: '',
+      bodyParagraphs: [],
+      closingParagraph: '',
+      signOff: unusable.signOff,
+    })
+  })
+
+  it('is deterministic', async () => {
+    const letter = await long()
+    expect(await shortenStubCoverLetter({ letter, locale: 'de' }, { timeoutMs: 1_000 })).toEqual(
+      await shortenStubCoverLetter({ letter, locale: 'de' }, { timeoutMs: 1_000 })
+    )
+  })
+
+  describe('coverLetterShortenerFor', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('picks the stub only when every guard condition holds', () => {
+      vi.stubEnv('AI_TEST_STUB', AI_TEST_STUB_ENABLED_VALUE)
+      vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'http://127.0.0.1:54321')
+      vi.stubEnv('VERCEL', '')
+      vi.stubEnv('VERCEL_ENV', '')
+      expect(coverLetterShortenerFor(LOCAL_REQUEST)).toBe(shortenStubCoverLetter)
+      expect(coverLetterShortenerFor(request('https://cv.example.com/x', { host: 'cv.example.com' }))).toBe(
+        shortenCoverLetter
+      )
+      vi.stubEnv('VERCEL_ENV', 'production')
+      expect(coverLetterShortenerFor(LOCAL_REQUEST)).toBe(shortenCoverLetter)
+      vi.stubEnv('VERCEL_ENV', '')
+      vi.stubEnv('AI_TEST_STUB', '')
+      expect(coverLetterShortenerFor(LOCAL_REQUEST)).toBe(shortenCoverLetter)
+    })
   })
 })
 

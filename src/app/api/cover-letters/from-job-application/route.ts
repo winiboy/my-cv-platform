@@ -4,24 +4,29 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { AiCompletionError } from '@/lib/ai/client'
 import {
   CoverLetterReplyError,
+  coverLetterPartsOf,
   coverLetterProfileFromResume,
   type CoverLetterResumeProfile,
   type GeneratedCoverLetter,
 } from '@/lib/ai/cover-letter-generation'
-import { coverLetterGeneratorFor, offerPageCheckerFor } from '@/lib/ai/test-stub'
+import { coverLetterOnePageDeadline, keepCoverLetterOnOnePage } from '@/lib/ai/cover-letter-one-page'
+import { coverLetterGeneratorFor, coverLetterShortenerFor, offerPageCheckerFor } from '@/lib/ai/test-stub'
 import { enforceAiRateLimit } from '@/lib/api/ai-rate-limit'
 import { AI_TEXT_LIMITS, enforceJsonBodyLimit } from '@/lib/api/ai-input-limits'
 import {
   boundCoverLetterResumeProfile,
   toStoredCoverLetterContent,
+  type StoredCoverLetterContent,
 } from '@/lib/cover-letter-from-job/stored-letter'
+import type { CoverLetterPdfFields } from '@/lib/cover-letter-pdf-html'
+import { countCoverLetterPages, logPageCountFailure } from '@/lib/pdf/cover-letter-page-count'
 import { isDeadlinePassed, type OfferClosedReason } from '@/lib/cover-letter-from-job/offer-availability'
 import { companyAddressFromOfferText } from '@/lib/cover-letter-from-job/offer-text-address'
 import { locales, type Locale } from '@/lib/i18n'
 import { detectOfferLanguage } from '@/lib/resume-from-job/detect-offer-language'
 import type { ResumeContentLanguage } from '@/lib/resume-from-job/sample-values'
 import { sanitizeUntrustedPlainText } from '@/lib/resume-from-job/untrusted-text'
-import { senderDetailsFromContact } from '@/lib/cover-letter-sender'
+import { effectiveSenderDetails, senderDetailsFromContact } from '@/lib/cover-letter-sender'
 import type { CoverLetterInsert, ResumeContact } from '@/types/database'
 
 /**
@@ -48,9 +53,19 @@ import type { CoverLetterInsert, ResumeContact } from '@/types/database'
  * `company_address` (cover-letter-recipient-address-from-offer, US-001).
  * When it gives none, the same, single AI call also reads the address from the
  * offer's text, and it is stored only if it is found in that text (US-002).
+ *
+ * The letter, with its header, is then measured as the PDF prints it; one that
+ * runs over one page is shortened by exactly one more AI call, counted against
+ * no further rate-limit unit (cover-letter-one-page, US-002). A failed
+ * measurement or shortening keeps the first letter.
  */
 
 export const dynamic = 'force-dynamic'
+// The one-page check (cover-letter-one-page, US-002) lays the letter out in the
+// PDF renderer's headless browser, which needs Node APIs and, with up to two AI
+// calls, more than the default duration: the PDF routes' limit.
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
 /** The cover-letter title limit of `POST /api/cover-letters`. */
 const COVER_LETTER_TITLE_MAX_LENGTH = 255
@@ -104,7 +119,31 @@ function senderNameOf(contact: unknown): string | null {
 
 const AI_UNAVAILABLE = { error: 'The cover letter could not be generated' } as const
 
+/** What the PDF would print of the row about to be stored: every field it prints, unset ones as null. */
+function pdfFieldsOf(row: CoverLetterInsert): CoverLetterPdfFields {
+  return {
+    sender_name: row.sender_name ?? null,
+    sender_street: row.sender_street ?? null,
+    sender_postal_locality: row.sender_postal_locality ?? null,
+    sender_phone: row.sender_phone ?? null,
+    sender_email: row.sender_email ?? null,
+    recipient_name: row.recipient_name ?? null,
+    recipient_title: row.recipient_title ?? null,
+    company_name: row.company_name ?? null,
+    company_address: row.company_address ?? null,
+    job_title: row.job_title ?? null,
+    greeting: row.greeting ?? '',
+    opening_paragraph: row.opening_paragraph ?? null,
+    body_paragraphs: row.body_paragraphs ?? [],
+    closing_paragraph: row.closing_paragraph ?? null,
+    sign_off: row.sign_off ?? '',
+    annexes: row.annexes ?? null,
+  }
+}
+
 export async function POST(request: NextRequest) {
+  // The one-page check's time budget runs from the request's start.
+  const deadline = coverLetterOnePageDeadline(Date.now())
   try {
     const supabase = await createServerSupabaseClient()
     const {
@@ -250,13 +289,15 @@ export async function POST(request: NextRequest) {
       throw error
     }
 
-    const content = toStoredCoverLetterContent(generated)
-    if (!content) {
+    const firstContent = toStoredCoverLetterContent(generated)
+    if (!firstContent) {
       console.error('[cover-letters/from-job-application] AI reply is an incomplete letter')
       return NextResponse.json(AI_UNAVAILABLE, { status: 502 })
     }
 
-    const newCoverLetter: CoverLetterInsert = {
+    // Everything but the AI's text, decided from the first reply: the address
+    // comes from it and never changes with the shortening (AC9).
+    const letterHeader: Omit<CoverLetterInsert, keyof StoredCoverLetterContent> = {
       user_id: user.id,
       title,
       resume_id: resume?.id ?? null,
@@ -270,12 +311,42 @@ export async function POST(request: NextRequest) {
       job_title: jobTitle || null,
       // As the form stored it before: the offer the letter was written for.
       job_description: application.job_description,
-      ...content,
       sender_name: resume ? senderNameOf(resume.contact) : null,
       // The phone, e-mail and locality the CV has, as the editor prefills them.
       ...(resume ? senderDetailsFromContact(resume.contact) : {}),
       template: 'modern',
     }
+
+    // cover-letter-one-page, US-002: the letter as it will be stored, with its
+    // header, measured as the PDF prints it; shortened once if it runs over.
+    const shorten = coverLetterShortenerFor(request)
+    const { letter: keptLetter, outcome } = await keepCoverLetterOnOnePage<GeneratedCoverLetter>({
+      letter: generated,
+      deadline,
+      countPages: async (_letter, timeoutMs) => {
+        const stored = { ...letterHeader, ...firstContent, annexes: null }
+        try {
+          return await countCoverLetterPages(
+            pdfFieldsOf(stored),
+            effectiveSenderDetails(pdfFieldsOf(stored), resume ? resume.contact : null),
+            // The page's locale, as the PDF route is given it: the fallback for
+            // a letter whose own language its text cannot tell.
+            locale,
+            timeoutMs,
+          )
+        } catch (error) {
+          logPageCountFailure('cover-letters/from-job-application', error)
+          throw error
+        }
+      },
+      // The letter is written in `language`; it is shortened in the same one.
+      shorten: (letter, timeoutMs) => shorten({ letter: coverLetterPartsOf(letter), locale: language }, { timeoutMs }),
+      isUsable: (letter) => toStoredCoverLetterContent(letter) !== null,
+    })
+    console.info('[cover-letters/from-job-application] One-page check:', outcome)
+    const content = (outcome === 'shortened' ? toStoredCoverLetterContent(keptLetter) : null) ?? firstContent
+
+    const newCoverLetter: CoverLetterInsert = { ...letterHeader, ...content }
 
     const { data: coverLetter, error: insertError } = await supabase
       .from('cover_letters')

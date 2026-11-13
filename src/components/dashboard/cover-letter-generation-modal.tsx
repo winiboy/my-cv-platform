@@ -33,6 +33,11 @@ interface CoverLetterGenerationModalProps {
   defaultJobTitle?: string | null
   defaultCompanyName?: string | null
   defaultJobApplicationId?: string | null
+  /**
+   * The letter being edited: the server measures the generated letter inside
+   * its stored header, to keep it on one page (cover-letter-one-page, US-002).
+   */
+  coverLetterId?: string
   dict: Record<string, unknown>
   locale: string
 }
@@ -48,6 +53,7 @@ export function CoverLetterGenerationModal({
   defaultJobTitle,
   defaultCompanyName,
   defaultJobApplicationId,
+  coverLetterId,
   dict,
   locale,
 }: CoverLetterGenerationModalProps) {
@@ -157,6 +163,7 @@ export function CoverLetterGenerationModal({
           companyName,
           recipientName: recipientName || undefined,
           jobApplicationId: jobSource === 'saved' ? selectedJobId : undefined,
+          coverLetterId,
           locale,
         }),
       })

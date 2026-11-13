@@ -261,6 +261,27 @@ describe('reasoning effort', () => {
     expect(createCompletion.mock.calls[0][0]).toMatchObject({ reasoning_effort: 'high' })
   })
 
+  it('sends a call without per-request limits to the SDK exactly as before', async () => {
+    createCompletion.mockResolvedValue(OK_RESPONSE)
+    const { generateCompletion } = await import('./client')
+
+    await generateCompletion('prompt')
+
+    expect(createCompletion.mock.calls[0]).toHaveLength(1)
+  })
+
+  it('passes per-request limits to the SDK, on the retry without reasoning effort too (cover-letter-one-page)', async () => {
+    createCompletion
+      .mockRejectedValueOnce(await unsupportedReasoningError())
+      .mockResolvedValueOnce(OK_RESPONSE)
+    const { generateCompletion } = await import('./client')
+
+    await generateCompletion('prompt', {}, { timeoutMs: 18_000, maxRetries: 0 })
+
+    expect(createCompletion.mock.calls[0][1]).toEqual({ timeout: 18_000, maxRetries: 0 })
+    expect(createCompletion.mock.calls[1][1]).toEqual({ timeout: 18_000, maxRetries: 0 })
+  })
+
   it('retries without the parameter on a model that does not support it', async () => {
     // GROQ_MODEL exists so the model can be swapped mid-outage. Some models
     // reject reasoning_effort outright, and that must not become a new outage.

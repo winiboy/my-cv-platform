@@ -5,6 +5,8 @@ import {
   type CoverLetterPdfFields,
 } from '@/lib/cover-letter-pdf-html'
 import type { CoverLetterLanguage } from '@/lib/cover-letter-language'
+import { coverLetterLineBoxModel } from '@/lib/cover-letter-line-boxes'
+import { computeCoverLetterPageBreaks, type CoverLetterLayout } from '@/lib/cover-letter-page-breaks'
 import type { CoverLetterSenderDetails } from '@/lib/cover-letter-sender'
 import { SWISS_LETTER_GEOMETRY_MM, SWISS_LETTER_PAGE_PX } from '@/lib/cover-letter-swiss-letter'
 import { sanitizeRichHtml } from '@/lib/rich-html-sanitizer'
@@ -38,6 +40,11 @@ import { PdfRenderError, type PdfRenderStage } from './render-preview'
  *
  * HOW LONG. One deadline covers the whole render, launch included, and the
  * browser is closed in `finally` whatever happened.
+ *
+ * MEASURING. `measureCoverLetterPageCount` lays the same page out in the same
+ * way and counts its printed pages instead of printing them
+ * (cover-letter-one-page, US-002), so the one-page check and the PDF cannot
+ * be laid out differently.
  */
 
 export interface RenderCoverLetterPdfInput {
@@ -170,7 +177,52 @@ export function sanitizedLookup(sanitized: ReadonlyMap<string, string>): (html: 
 
 const BLANK_DOCUMENT = '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>'
 
+/** The letter as printed: its PDF. */
 export async function renderCoverLetterPdf(input: RenderCoverLetterPdfInput): Promise<Buffer> {
+  return withLetterPage(input, 'print', async (page) => {
+    await page.emulateMedia({ media: 'print' })
+    return page.pdf({ preferCSSPageSize: true, displayHeaderFooter: false })
+  })
+}
+
+/**
+ * The script measuring the letter in its page: the line-box model the editor
+ * preview runs (`coverLetterLineBoxModel`, handed over as its source text), on
+ * the letter's sheet, and the content's bottom. The print stylesheet lifts the
+ * sheet's `min-height` and bottom padding, so its height is where the content
+ * ends. The sheet is laid out unscaled, so its own width is the width it is
+ * measured against: scale exactly 1.
+ */
+const MEASURE_LETTER_SCRIPT = `(() => {
+  const model = (${coverLetterLineBoxModel.toString()})();
+  const sheet = document.body.firstElementChild;
+  return { lines: model.measure(sheet, sheet.getBoundingClientRect().width), contentBottom: sheet.offsetHeight };
+})()`
+
+/**
+ * How many pages the letter prints on (cover-letter-one-page, US-002, FR-1 and
+ * FR-2): the same document, sanitizing, fonts and browser as the PDF, laid out
+ * but not printed, its lines measured with the preview's own model and paged
+ * with the preview's own computation (`computeCoverLetterPageBreaks`).
+ * Deterministic for a given letter, sender details, date and language.
+ */
+export async function measureCoverLetterPageCount(input: RenderCoverLetterPdfInput): Promise<number> {
+  return withLetterPage(input, 'measure', async (page) => {
+    const layout = (await page.evaluate(MEASURE_LETTER_SCRIPT)) as CoverLetterLayout
+    return computeCoverLetterPageBreaks(layout).pageCount
+  })
+}
+
+/**
+ * Lay the letter out in an isolated page of a fresh browser and run `action`
+ * on it: one deadline over the whole of it, launch included, and the browser
+ * closed whatever happened. A failure of `action` is reported at `stage`.
+ */
+async function withLetterPage<T>(
+  input: RenderCoverLetterPdfInput,
+  stage: 'print' | 'measure',
+  action: (page: Page) => Promise<T>,
+): Promise<T> {
   const launching = launchPdfBrowser({ timeoutMs: input.timeoutMs })
   const fontSubstitutes: Promise<SubstituteFontFace[]> =
     pdfBrowserRuntime(process.env) === 'serverless' ? serverlessFontSubstitutes() : Promise.resolve([])
@@ -190,7 +242,7 @@ export async function renderCoverLetterPdf(input: RenderCoverLetterPdfInput): Pr
         const fonts = await fontSubstitutes.catch((cause: unknown) => {
           throw new PdfRenderError('fonts', 'Could not read the substitute fonts', { cause })
         })
-        return printLetter(browser, input, fonts)
+        return onLetterPage(browser, input, fonts, stage, action)
       },
       (cause: unknown) => {
         throw new PdfRenderError('launch', 'Could not launch the PDF browser', { cause })
@@ -210,11 +262,13 @@ export async function renderCoverLetterPdf(input: RenderCoverLetterPdfInput): Pr
   }
 }
 
-async function printLetter(
+async function onLetterPage<T>(
   browser: Browser,
   input: RenderCoverLetterPdfInput,
   fonts: readonly SubstituteFontFace[],
-): Promise<Buffer> {
+  finalStage: 'print' | 'measure',
+  action: (page: Page) => Promise<T>,
+): Promise<T> {
   let stage: PdfRenderStage = 'context'
   try {
     const context = await openIsolatedContext(browser, input.timeoutMs)
@@ -237,9 +291,8 @@ async function printLetter(
     await settleFonts(page)
     if (fonts.length > 0) await assertSubstitutesLoaded(page)
 
-    stage = 'print'
-    await page.emulateMedia({ media: 'print' })
-    return await page.pdf({ preferCSSPageSize: true, displayHeaderFooter: false })
+    stage = finalStage
+    return await action(page)
   } catch (error) {
     if (error instanceof PdfRenderError) throw error
     throw new PdfRenderError(stage, `PDF render failed at ${stage}`, { cause: error })
