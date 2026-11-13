@@ -111,7 +111,7 @@
         "Out of scope: Any change to the database."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

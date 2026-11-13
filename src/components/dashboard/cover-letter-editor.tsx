@@ -1229,6 +1229,7 @@ export function CoverLetterEditor({
         defaultJobTitle={coverLetter.job_title}
         defaultCompanyName={coverLetter.company_name}
         defaultJobApplicationId={coverLetter.job_application_id}
+        coverLetterId={coverLetter.id}
         dict={dict}
         locale={locale}
       />

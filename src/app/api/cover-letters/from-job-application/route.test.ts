@@ -102,16 +102,28 @@ function fakeSupabase() {
   }
 }
 
-const generateCompletion = vi.fn<(prompt: string, options: unknown) => Promise<{ text: string }>>()
+const generateCompletion = vi.fn<(prompt: string, options: unknown, request?: unknown) => Promise<{ text: string }>>()
 const enforceAiRateLimit = vi.fn<(request: NextRequest, caller: unknown) => Promise<NextResponse | null>>()
 
 vi.mock('@/lib/supabase/server', () => ({ createServerSupabaseClient: async () => fakeSupabase() }))
 vi.mock('@/lib/ai/client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/ai/client')>()),
-  generateCompletion: (prompt: string, options: unknown) => generateCompletion(prompt, options),
+  // Every argument passed on, so a test sees the shortening call's per-request limits.
+  generateCompletion: (...args: [string, unknown, unknown?]) => generateCompletion(...args),
 }))
 vi.mock('@/lib/api/ai-rate-limit', () => ({
   enforceAiRateLimit: (request: NextRequest, caller: unknown) => enforceAiRateLimit(request, caller),
+}))
+
+// The one-page check (cover-letter-one-page, US-002) lays the letter out in a
+// headless browser; here its page count is given, and its input recorded. The
+// measurement itself is checked against the PDF in
+// `src/lib/pdf/measure-cover-letter.integration.test.ts` and end to end.
+type CountPages = typeof import('@/lib/pdf/cover-letter-page-count').countCoverLetterPages
+const countCoverLetterPages = vi.fn<CountPages>()
+vi.mock('@/lib/pdf/cover-letter-page-count', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/pdf/cover-letter-page-count')>()),
+  countCoverLetterPages: (...args: Parameters<CountPages>) => countCoverLetterPages(...args),
 }))
 
 // The offer-page check (US-002) runs the real `safeFetch`; only DNS and the
@@ -124,6 +136,12 @@ vi.mock('node:dns/promises', () => ({
 }))
 
 const { POST } = await import('./route')
+const { buildCoverLetterShorteningPrompt } = await import('@/lib/ai/prompts')
+const {
+  COVER_LETTER_MEASUREMENT_TIMEOUT_MS,
+  COVER_LETTER_MIN_SHORTENING_TIME_MS,
+  COVER_LETTER_REQUEST_BUDGET_MS,
+} = await import('@/lib/ai/cover-letter-one-page')
 
 function createRequest(body: unknown): NextRequest {
   return new NextRequest('http://localhost:3000/api/cover-letters/from-job-application', {
@@ -201,6 +219,8 @@ beforeEach(() => {
   generateCompletion.mockResolvedValue(reply(GERMAN_LETTER))
   enforceAiRateLimit.mockReset()
   enforceAiRateLimit.mockResolvedValue(null)
+  countCoverLetterPages.mockReset()
+  countCoverLetterPages.mockResolvedValue(1)
   dnsLookup.mockReset()
   dnsLookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }])
   pageFetch.mockReset()
@@ -1206,5 +1226,300 @@ describe('POST /api/cover-letters/from-job-application - a closed offer (US-002)
 
     expect(response.status).toBe(404)
     expect(pageFetch).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/cover-letters/from-job-application - one page (cover-letter-one-page, US-002)', () => {
+  const SHORTER_LETTER = {
+    greeting: 'Sehr geehrte Damen und Herren,',
+    openingParagraph: 'Ich bewerbe mich als Data Engineer.',
+    bodyParagraphs: ['Acht Jahre Datenpipelines, mit Python und SQL.'],
+    closingParagraph: 'Ich freue mich auf ein Gespräch.',
+    signOff: 'Mit freundlichen Grüßen',
+  }
+  const FIRST_STORED = {
+    greeting: 'Sehr geehrte Damen und Herren,',
+    opening_paragraph: '<p>Mit großem Interesse bewerbe ich mich als Data Engineer.</p>',
+    body_paragraphs: [
+      '<p>Ich habe acht Jahre Erfahrung mit Datenpipelines.</p>',
+      '<p>Python und SQL sind meine Werkzeuge.</p>',
+    ],
+    closing_paragraph: '<p>Ich freue mich auf ein Gespräch.</p>',
+    sign_off: 'Mit freundlichen Grüßen',
+  }
+  const SHORTER_STORED = {
+    greeting: 'Sehr geehrte Damen und Herren,',
+    opening_paragraph: '<p>Ich bewerbe mich als Data Engineer.</p>',
+    body_paragraphs: ['<p>Acht Jahre Datenpipelines, mit Python und SQL.</p>'],
+    closing_paragraph: '<p>Ich freue mich auf ein Gespräch.</p>',
+    sign_off: 'Mit freundlichen Grüßen',
+  }
+
+  let consoleSpy: MockInstance | undefined
+  beforeEach(() => {
+    // The route logs the check's outcome, never the letter.
+    consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined)
+  })
+  afterEach(() => {
+    consoleSpy?.mockRestore()
+  })
+
+  /** The first letter runs over one page; the shortening answers `shortening`. */
+  function runsOver(shortening: { text: string } | Error) {
+    countCoverLetterPages.mockResolvedValue(2)
+    generateCompletion.mockReset()
+    generateCompletion.mockResolvedValueOnce(reply(GERMAN_LETTER))
+    if (shortening instanceof Error) generateCompletion.mockRejectedValueOnce(shortening)
+    else generateCompletion.mockResolvedValueOnce(shortening)
+  }
+
+  function expectOneUnit() {
+    expect(enforceAiRateLimit).toHaveBeenCalledTimes(1)
+  }
+
+  function shorteningPrompt(): string {
+    const [prompt] = generateCompletion.mock.calls[1] ?? []
+    if (typeof prompt !== 'string') throw new Error('no shortening call')
+    return prompt
+  }
+
+  it('stores a letter that fits with one AI call and one rate-limit unit, as before', async () => {
+    const response = await POST(createRequest(VALID_BODY))
+
+    expect(response.status).toBe(201)
+    expect(generateCompletion).toHaveBeenCalledTimes(1)
+    expectOneUnit()
+    expect(insertedLetter()).toMatchObject(FIRST_STORED)
+    expect(consoleSpy).toHaveBeenCalledWith('[cover-letters/from-job-application] One-page check:', 'fits')
+  })
+
+  it('measures the letter as it will be stored, inside its header, as the PDF route would print it', async () => {
+    await POST(createRequest(VALID_BODY))
+
+    expect(countCoverLetterPages).toHaveBeenCalledTimes(1)
+    const [fields, senderDetails, language, timeoutMs] = countCoverLetterPages.mock.calls[0]
+    expect(fields).toEqual({
+      sender_name: 'Anna Muster',
+      sender_street: null,
+      sender_postal_locality: null,
+      sender_phone: null,
+      sender_email: 'anna@example.com',
+      recipient_name: null,
+      recipient_title: null,
+      company_name: 'Beispiel AG',
+      company_address: null,
+      job_title: 'Data Engineer',
+      ...FIRST_STORED,
+      annexes: null,
+    })
+    expect(senderDetails).toMatchObject({ sender_email: 'anna@example.com' })
+    // The page's locale, as the PDF route is given it: the fallback for a
+    // letter whose own language its text cannot tell (this one's is German).
+    expect(language).toBe('fr')
+    expect(timeoutMs).toBe(COVER_LETTER_MEASUREMENT_TIMEOUT_MS)
+  })
+
+  it('shortens a letter that runs over with exactly one more call, and stores the shorter one', async () => {
+    runsOver(reply(SHORTER_LETTER))
+
+    const response = await POST(createRequest(VALID_BODY))
+
+    expect(response.status).toBe(201)
+    expect(generateCompletion).toHaveBeenCalledTimes(2)
+    expectOneUnit()
+    expect(countCoverLetterPages).toHaveBeenCalledTimes(1)
+    expect(insertedLetter()).toMatchObject(SHORTER_STORED)
+    expect(shorteningPrompt()).toBe(
+      buildCoverLetterShorteningPrompt({ letter: GERMAN_LETTER, locale: 'de' })
+    )
+    expect(generateCompletion.mock.calls[1][1]).toEqual({ ...COVER_LETTER_COMPLETION_OPTIONS, operation: 'shortenCoverLetter' })
+    expect(consoleSpy).toHaveBeenCalledWith('[cover-letters/from-job-application] One-page check:', 'shortened')
+  })
+
+  it('keeps the shorter letter as it is when it still runs over: nothing cut, nothing refused', async () => {
+    const stillLong = { ...SHORTER_LETTER, bodyParagraphs: [...GERMAN_LETTER.bodyParagraphs, 'Noch ein langer Absatz.'] }
+    runsOver(reply(stillLong))
+
+    const response = await POST(createRequest(VALID_BODY))
+
+    expect(response.status).toBe(201)
+    expect(generateCompletion).toHaveBeenCalledTimes(2)
+    expect(countCoverLetterPages).toHaveBeenCalledTimes(1)
+    expect(insertedLetter().body_paragraphs).toEqual([
+      '<p>Ich habe acht Jahre Erfahrung mit Datenpipelines.</p>',
+      '<p>Python und SQL sind meine Werkzeuge.</p>',
+      '<p>Noch ein langer Absatz.</p>',
+    ])
+  })
+
+  it('sends the AI\'s letter only: never the offer, the CV or the form', async () => {
+    runsOver(reply(SHORTER_LETTER))
+
+    await POST(createRequest(VALID_BODY))
+
+    const prompt = shorteningPrompt()
+    expect(prompt).toContain(GERMAN_LETTER.openingParagraph)
+    expect(prompt).not.toContain('Datenpipelines verantwortlich')
+    expect(prompt).not.toContain('Datenexpertin mit acht Jahren Erfahrung')
+    expect(prompt).not.toContain('Anschreiben Data Engineer')
+  })
+
+  it.each([
+    ['the provider fails', new AiCompletionError('provider_error', 'test-model', 500)],
+    ['the provider rate-limits', new AiCompletionError('rate_limited', 'test-model', 429)],
+    ['the call throws', new Error('network')],
+  ])('keeps the first letter when %s on the shortening call', async (_case, failure) => {
+    runsOver(failure)
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    const response = await POST(createRequest(VALID_BODY))
+    errors.mockRestore()
+
+    expect(response.status).toBe(201)
+    expect(generateCompletion).toHaveBeenCalledTimes(2)
+    expectOneUnit()
+    expect(insertedLetter()).toMatchObject(FIRST_STORED)
+    expect(consoleSpy).toHaveBeenCalledWith('[cover-letters/from-job-application] One-page check:', 'shortening-failed')
+  })
+
+  it.each([
+    ['not JSON', { text: 'Hier ist die kürzere Fassung.' }],
+    ['missing its body', reply({ ...SHORTER_LETTER, bodyParagraphs: [] })],
+    ['empty once sanitized', reply({ ...SHORTER_LETTER, openingParagraph: '<script></script>' })],
+  ])('keeps the first letter when the shortened one is %s', async (_case, shortening) => {
+    runsOver(shortening)
+
+    const response = await POST(createRequest(VALID_BODY))
+
+    expect(response.status).toBe(201)
+    expect(insertedLetter()).toMatchObject(FIRST_STORED)
+  })
+
+  it('keeps the first letter, with no second call, when the measurement fails', async () => {
+    countCoverLetterPages.mockRejectedValue(new Error('no browser'))
+
+    const response = await POST(createRequest(VALID_BODY))
+
+    expect(response.status).toBe(201)
+    expect(generateCompletion).toHaveBeenCalledTimes(1)
+    expectOneUnit()
+    expect(insertedLetter()).toMatchObject(FIRST_STORED)
+    expect(consoleSpy).toHaveBeenCalledWith('[cover-letters/from-job-application] One-page check:', 'unmeasured')
+  })
+
+  it('stores the address read from the first reply, whatever the shortened one says (AC9)', async () => {
+    const zurich = { streetAddress: 'Bahnhofstrasse 1', postalCode: '8001', addressLocality: 'Zürich', addressCountry: 'CH' }
+    state.application = {
+      ...state.application,
+      job_description: `${GERMAN_DESCRIPTION}\n  Ihre Bewerbung an: Beispiel AG, Bahnhofstrasse 1, 8001 Zürich.`,
+    }
+
+    // The same offer, once fitting, once shortened with an invented address.
+    generateCompletion.mockResolvedValue(reply({ ...GERMAN_LETTER, companyAddress: zurich }))
+    await POST(createRequest(VALID_BODY))
+    const fitting = insertedLetter().company_address
+    expect(fitting).toBe('Bahnhofstrasse 1\n8001 Zürich')
+
+    state.calls = []
+    countCoverLetterPages.mockResolvedValue(2)
+    generateCompletion.mockReset()
+    generateCompletion
+      .mockResolvedValueOnce(reply({ ...GERMAN_LETTER, companyAddress: zurich }))
+      .mockResolvedValueOnce(reply({ ...SHORTER_LETTER, companyAddress: { streetAddress: 'Erfundene Strasse 9', postalCode: '3000', addressLocality: 'Bern' } }))
+    await POST(createRequest(VALID_BODY))
+
+    expect(generateCompletion).toHaveBeenCalledTimes(2)
+    expect(insertedLetter()).toMatchObject({ ...SHORTER_STORED, company_address: fitting })
+  })
+
+  describe('within the time budget (60 s maxDuration, 50 s for the AI and the check)', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('stores the first letter, unmeasured, when the measurement overruns its 10 s', async () => {
+      vi.useFakeTimers()
+      countCoverLetterPages.mockReturnValue(new Promise<number>(() => undefined))
+
+      const responding = POST(createRequest(VALID_BODY))
+      await vi.advanceTimersByTimeAsync(COVER_LETTER_MEASUREMENT_TIMEOUT_MS)
+      const response = await responding
+
+      expect(response.status).toBe(201)
+      expect(generateCompletion).toHaveBeenCalledTimes(1)
+      expectOneUnit()
+      expect(insertedLetter()).toMatchObject(FIRST_STORED)
+      expect(consoleSpy).toHaveBeenCalledWith('[cover-letters/from-job-application] One-page check:', 'unmeasured')
+    })
+
+    it('stores the first letter without a second call when the first one left too little time to shorten', async () => {
+      vi.useFakeTimers()
+      countCoverLetterPages.mockResolvedValue(2)
+      generateCompletion.mockReset()
+      generateCompletion.mockImplementationOnce(async () => {
+        // The first call takes all but less than the shortening's minimum.
+        vi.advanceTimersByTime(COVER_LETTER_REQUEST_BUDGET_MS - COVER_LETTER_MIN_SHORTENING_TIME_MS + 1_000)
+        return reply(GERMAN_LETTER)
+      })
+
+      const response = await POST(createRequest(VALID_BODY))
+
+      expect(response.status).toBe(201)
+      expect(generateCompletion).toHaveBeenCalledTimes(1)
+      expectOneUnit()
+      expect(insertedLetter()).toMatchObject(FIRST_STORED)
+      expect(consoleSpy).toHaveBeenCalledWith('[cover-letters/from-job-application] One-page check:', 'no-time')
+    })
+
+    it('stores the first letter when the shortening call overruns the time left, which it was given with no retry', async () => {
+      vi.useFakeTimers()
+      countCoverLetterPages.mockResolvedValue(2)
+      generateCompletion.mockReset()
+      generateCompletion.mockResolvedValueOnce(reply(GERMAN_LETTER))
+      generateCompletion.mockReturnValueOnce(new Promise<{ text: string }>(() => undefined))
+
+      const responding = POST(createRequest(VALID_BODY))
+      await vi.advanceTimersByTimeAsync(COVER_LETTER_REQUEST_BUDGET_MS)
+      const response = await responding
+
+      expect(response.status).toBe(201)
+      expect(generateCompletion).toHaveBeenCalledTimes(2)
+      expectOneUnit()
+      expect(insertedLetter()).toMatchObject(FIRST_STORED)
+      const limits = generateCompletion.mock.calls[1][2] as { timeoutMs: number; maxRetries: number }
+      expect(limits.maxRetries).toBe(0)
+      expect(limits.timeoutMs).toBeGreaterThanOrEqual(COVER_LETTER_MIN_SHORTENING_TIME_MS)
+      expect(limits.timeoutMs).toBeLessThanOrEqual(COVER_LETTER_REQUEST_BUDGET_MS)
+      expect(consoleSpy).toHaveBeenCalledWith('[cover-letters/from-job-application] One-page check:', 'shortening-failed')
+    })
+
+    it('makes the first call as before: no per-request limit on it', async () => {
+      await POST(createRequest(VALID_BODY))
+      expect(generateCompletion.mock.calls[0]).toHaveLength(2)
+    })
+  })
+
+  it('makes no AI call and no measurement when the request is refused before the AI', async () => {
+    state.application = { ...state.application, user_id: OTHER_USER_ID }
+
+    const response = await POST(createRequest(VALID_BODY))
+
+    expect(response.status).toBe(404)
+    expect(generateCompletion).not.toHaveBeenCalled()
+    expect(countCoverLetterPages).not.toHaveBeenCalled()
+  })
+
+  it('measures nothing and stores nothing when the first call fails, as before', async () => {
+    generateCompletion.mockReset()
+    generateCompletion.mockRejectedValue(new AiCompletionError('provider_error', 'test-model', 500))
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    const response = await POST(createRequest(VALID_BODY))
+    errors.mockRestore()
+
+    expect(response.status).toBe(502)
+    expect(generateCompletion).toHaveBeenCalledTimes(1)
+    expect(countCoverLetterPages).not.toHaveBeenCalled()
+    expect(writes()).toEqual([])
   })
 })

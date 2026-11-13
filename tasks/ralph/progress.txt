@@ -110,3 +110,140 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 The letter preview marks where each printed page ends
 FINAL: PASS
+
+## US-002: A letter written by the AI fits on one page
+Status: PASS
+Priority: 2
+Branch: ralph/cover-letter-one-page
+Baseline HEAD: 84e808e (US-001 commit)
+
+Scope:
+- Scope check: PASS
+- Changed paths: story diff sha256 prefix 6593fbfa2740e055. The hash covers `git diff -- src e2e` (index to working tree), then "== <path>" and the content of each untracked file. The staged move of `cover-letter-line-boxes(.test).ts` from `src/components/dashboard/` to `src/lib/` is part of the story but sits in the index.
+  - **Prompt (`src/lib/ai/prompts.ts`):** both AI paths share `buildCoverLetterGenerationPrompt`.
+    - "Total length: 250-400 words" became 180–230 words with exactly 2 body paragraphs of 2–3 sentences. The JSON example lost its optional third body paragraph.
+    - The budget was measured with a full Swiss header (5-line sender, 5-line recipient, subject, default Annexes). The largest letter that fits one page is 230 words in de, 280 in fr, 290 in en and 300 in it with 2 body paragraphs; with 3 it is 170, 210, 220 and 230. German sets the limit.
+    - The SHA pins were updated on purpose. The old pins still match the new prompt with those three spots put back.
+    - A new shortening prompt asks for at most 170 words in the same language and structure, with no new facts. The letter goes in as JSON between `<<<LETTER`/`LETTER>>>`, with `<` and `>` escaped.
+  - **One-page decision (`src/lib/ai/cover-letter-one-page.ts`, new):** `keepCoverLetterOnOnePage` measures the first letter once.
+    - If it fits, or the measurement fails: one AI call, the first letter is kept.
+    - If it runs over: exactly one shortening call, and the shorter letter is kept whatever its length.
+    - If the shortening fails, returns an unusable letter or there is not enough time: the first letter is kept.
+    - Outcomes: `fits`, `unmeasured`, `shortened`, `shortening-failed`, `shortening-unusable`, `no-time`.
+  - **Time budget:** each route records a deadline when the request starts: 50 s, under `maxDuration = 60`, leaving 10 s to store the letter and answer.
+    - The measurement gets 10 s, or less if less is left.
+    - Shortening runs only when at least 12 s remain, with the remaining time as its own timeout and `maxRetries: 0`.
+    - Every wait is limited twice: the limit is passed to the work, and a timer also enforces it.
+    - AI call 1 is called exactly as before.
+  - **Shortener (`src/lib/ai/cover-letter-generation.ts`):** parses the shortened reply with the same parser as the first. The greeting and sign-off are copied from the first letter, and any `companyAddress` is dropped.
+  - **Server measurement:**
+    - `src/lib/pdf/render-cover-letter.ts` now shares one browser lifecycle between print and measurement: same launch, isolation, sanitizing, fonts and close. The PDF steps keep the same order and stage names.
+    - `measureCoverLetterPageCount` lays out the PDF's own document. It injects the line-box model's source (moved to `src/lib/cover-letter-line-boxes.ts`, one self-contained function also used by the preview; FR-1), measured with the sheet's own width so the scale is 1, then pages it with `computeCoverLetterPageBreaks`.
+    - `src/lib/pdf/cover-letter-page-count.ts` (new) uses the shared render slot and the PDF route's language and date. No slot, a timeout or any error gives "unmeasured". Only the stage and the error name are logged.
+  - **Routes:**
+    - `from-job-application` measures the row it is about to insert.
+    - `/api/ai/generate-cover-letter` takes an optional `coverLetterId` (UUID), sent by `cover-letter-generation-modal.tsx` through `cover-letter-editor.tsx`. It reads that letter's stored header with the user's session and an owner filter. With no id, an unknown id, another user's letter or a read error, it measures with an empty header.
+    - Both routes declare `runtime = 'nodejs'` and `maxDuration = 60`, the repository's value for long routes (`docs/engineering/pdf-export-runtime.md`).
+  - **Editor route, beyond the story but required for it:**
+    - It now uses the shared generator, so the stub and the one-page path reach it. The prompt, model settings and error answers are the same.
+    - Non-string body paragraphs are dropped.
+    - The raw AI reply is no longer logged on a parse failure. It contains CV and offer content.
+    - The unused `tokensUsed` field is gone from the response. No client read it.
+  - **`src/lib/ai/client.ts`:** `generateCompletion` accepts an optional per-request limit. Without it the SDK call is unchanged.
+  - **Test stub (`test-stub.ts`, `test-stub-contract.ts`):** switches for a long first letter and for the shortening reply (fits, still too long, fails, unusable).
+  - **Tests:**
+    - prompt tests;
+    - generation and shortener tests;
+    - one-page decision tests, including 7 time-path tests with fake clocks;
+    - client tests;
+    - stub tests;
+    - `from-job-application` route tests, 17 new;
+    - generate route tests, 23 new;
+    - `POST /api/cover-letters` (a blank letter makes no AI call and no measurement);
+    - `src/lib/pdf/measure-cover-letter.integration.test.ts`, 17 tests, comparing measured and printed page counts;
+    - `e2e/cover-letter-one-page-generation.spec.ts`, 3 tests.
+- Not touched: the PDF and Word builders, `cover-letter-pdf-html.ts`, the template, the PDF route, the CV, the tools-page generator, the checker, translation, the database, `package.json` and the lockfile.
+- No version change, no push or merge.
+
+Checks:
+- Final run on diff 6593fbfa2740e055, alone, after both reviews. The hash was the same after the run.
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3970 passed, 5 skipped (129 files).
+  - pnpm test:integration: PASS — 80 passed (5 files), including the 17 measure-vs-PDF tests, which ran because Chromium is installed locally.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 286 problems (219 errors, 67 warnings), equal to the tracked 286.
+  - pnpm test:e2e: PASS — 557 passed, 0 failed (17.5 min). Includes the 3 tests of the new spec and the 14 of the US-001 spec.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+  - pnpm test:visual: PASS — 10 passed. Baselines unchanged.
+- Earlier runs, not evidence for this diff: on a2699cdb, before the fix round, the unit files (1,801), the integration test (14) and the new e2e spec alone (3/3).
+
+Specialized validation:
+- Browser: PASS. The e2e spec covers four cases:
+  - A letter created from a job application whose stubbed first letter runs over is shortened by the real server measurement. Its stored letter downloads as a 1-page PDF, and the preview shows no marker.
+  - A still-too-long shortened letter is kept and prints on more than one page.
+  - The editor's Generate button returns the shorter letter.
+  - In all three tests, the production build logged `One-page check: shortened`.
+- Export: PASS — measured page count against printed page count on 16 letters: the US-001 fixtures, AI-style letters of 230, 400 and 600 words, and German letters.
+  - German 230 words with 2 body paragraphs: 1 / 1.
+  - German 170 words with 3 body paragraphs: 1 / 1.
+  - German 250 words: 2 / 2.
+  - Every count matched and was the same on a second run. The PDF code path is unchanged in behaviour (code review).
+- Visual: PASS — `pnpm test:visual` 10/10, parity unchanged.
+- Database: NOT_APPLICABLE — no schema change; the shorter text goes into the same columns.
+- Security: PASS — `security-review` on a2699cdba390af08: 0 critical, high, medium or low; 4 INFO.
+  - SEC-001: the 2× token cost FR-5 accepts.
+  - SEC-002: render slots shared with PDF downloads.
+  - SEC-003: indirect prompt injection with no authority.
+  - SEC-004: the time budget, fixed in the fix round.
+  - Checked:
+    - `coverLetterId` is a UUID, read with the session client under RLS plus an owner filter, and gives the same empty header for a missing or foreign letter;
+    - the measuring page runs with JavaScript off and every request aborted;
+    - the injected script is a constant, with no letter content;
+    - the delimiters are escaped;
+    - the rate limit is spent once;
+    - no letter text is logged.
+  - The fix round changed only timing, limits and the copied greeting and sign-off, inside the same boundaries.
+
+Agents:
+- senior-coder: implementation, then fix round 1.
+- ui-expert: NOT_APPLICABLE — no visual change. The modal sends one more field; the US-001 marker is unchanged, and its spec still passes.
+- code-reviewer:
+  - round 1: FAIL. Critical: no time budget, so a creation could be killed at 60 s before the insert. Majors: the editor route's `maxDuration`, the CI gap and the untested sizing. Minors: sheet width, greeting and sign-off, fallback language, out-of-story changes and slots.
+  - round 2: PASS on 6593fbfa2740e055, with no critical or major finding.
+
+Acceptance criteria:
+- AC-01 (one-page length in both prompts): PASS — prompt tests; both routes use the shared builder.
+- AC-02 (the server decides, deterministically): PASS — the integration test: measured = printed on 16 letters, the same on repeat.
+- AC-03 (a letter that fits: one AI call): PASS — route tests count `generateCompletion` once and the rate limit once.
+- AC-04 (exactly one shortening call, same language and structure, shorter letter used): PASS — route tests on both routes; e2e.
+- AC-05 (a still-too-long letter is kept, nothing truncated): PASS — route tests; e2e (the PDF has more than one page).
+- AC-06 (a failed or unusable shortening keeps the first letter): PASS — route tests for a thrown error, a timeout, an unusable reply and no time left; a measurement failure also keeps it.
+- AC-07 (no extra rate-limit unit): PASS — `enforceAiRateLimit` called once in every route-test path.
+- AC-08 (a blank letter stays blank): PASS — `POST /api/cover-letters` test: no AI call, no measurement.
+- AC-09 (the company address is unchanged by shortening): PASS — route test; the shortener drops `companyAddress`.
+- FR-1, FR-2, FR-5, FR-6 and FR-7: PASS. FR-3 and FR-4 were met by US-001 and are unchanged.
+- Regression constraints: PASS. A letter that fits keeps one call and the same fields. The editor route still never opts into the address. The PDF and Word code is unchanged in behaviour. CV, tools, checker and translation are untouched. Parity and visual are unchanged.
+- FAIL and BLOCKER conditions: none triggered. The PRD's BLOCKER about the server not being able to measure does not apply: it measures with the PDF's own engine and fonts.
+
+Decision:
+- **Measure, don't estimate.** The server lays the letter out in the PDF renderer's own browser and fonts, and pages it with the same function as the preview. A word or character estimate would have made "the PDF is the authority" untrue.
+- **When in doubt, keep the first letter.** No slot, a timeout, a failure, an unusable reply or too little time all keep it. Creation and generation never fail because of the one-page check.
+- **German sets the budget.** 230 words with 2 body paragraphs is the largest that fits for German; the other languages have more room.
+
+Open owner decisions:
+- **CI coverage:** CI's integration job has no Chromium, so the measure-vs-PDF test skips there. CI's e2e runs on a production build and covers the real measurement on the creation path. Agreement on the serverless runtime (`@sparticuz/chromium` with the substitute fonts) is not tested before deployment.
+- **Render slots:** a measurement holds one of the 2 per-instance PDF slots for about 0.2 s, at most 10 s. A PDF download on the same warm instance at that moment can get a 503 with `Retry-After: 5`.
+- **Longer creations:** a letter that runs over now takes a second AI call, a few seconds more.
+- Minor code-review points left as they are:
+  - after a timeout, the browser is closed after the response, and could be frozen with a serverless instance;
+  - the overrun tests don't assert the result is still pending just before the limit;
+  - one integration test title says "runs over" without asserting more than one page (the measured count is 2 / 2);
+  - the no-reasoning-effort retry inside `generateCompletion` gets a fresh timeout, but `within` still holds the request to the deadline.
+
+Environment notes:
+- The checks ran alone, after both reviews had finished. The security review and the round-1 code review ran together, both read-only.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 A letter written by the AI fits on one page
+FINAL: PASS

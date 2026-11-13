@@ -189,7 +189,14 @@ export async function generateCompletion(
     reasoningEffort?: ReasoningEffort
     /** Names the calling feature in Sentry so a probe is distinguishable from real traffic. */
     operation?: string
-  } = {}
+  } = {},
+  /**
+   * Per-request limits for a call that must finish within a caller's time
+   * budget (the cover-letter shortening call, cover-letter-one-page US-002):
+   * the SDK's own timeout and retry count for this request. Omitted, the call
+   * is made exactly as before, with the SDK's defaults.
+   */
+  request?: { timeoutMs: number; maxRetries: number }
 ) {
   const {
     model = DEFAULT_MODEL,
@@ -201,7 +208,7 @@ export async function generateCompletion(
 
   const groq = getGroqClient()
 
-  const request = {
+  const body = {
     messages: [
       {
         role: 'user' as const,
@@ -212,14 +219,19 @@ export async function generateCompletion(
     temperature,
     max_tokens: maxTokens,
   }
+  // Passed only when asked for, so every other call reaches the SDK unchanged.
+  const requestOptions = request ? [{ timeout: request.timeoutMs, maxRetries: request.maxRetries }] as const : []
 
   try {
     let completion
     try {
-      completion = await groq.chat.completions.create({
-        ...request,
-        reasoning_effort: reasoningEffort,
-      })
+      completion = await groq.chat.completions.create(
+        {
+          ...body,
+          reasoning_effort: reasoningEffort,
+        },
+        ...requestOptions,
+      )
     } catch (error) {
       if (!isReasoningEffortUnsupported(error)) {
         throw error
@@ -228,7 +240,7 @@ export async function generateCompletion(
       // only some models accept this parameter. Retrying without it keeps a
       // valid model choice working instead of turning the escape hatch into a
       // second outage; the reasoning budget simply does not apply there.
-      completion = await groq.chat.completions.create(request)
+      completion = await groq.chat.completions.create(body, ...requestOptions)
     }
 
     return {

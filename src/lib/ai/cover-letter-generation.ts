@@ -1,5 +1,11 @@
 import { generateCompletion, MODELS } from './client'
-import { buildCoverLetterGenerationPrompt, type CoverLetterGenerationInput } from './prompts'
+import {
+  buildCoverLetterGenerationPrompt,
+  buildCoverLetterShorteningPrompt,
+  type CoverLetterGenerationInput,
+  type CoverLetterParts,
+  type CoverLetterShorteningInput,
+} from './prompts'
 
 /**
  * Cover-letter generation shared by the editor's generation modal
@@ -7,10 +13,12 @@ import { buildCoverLetterGenerationPrompt, type CoverLetterGenerationInput } fro
  * application (`POST /api/cover-letters/from-job-application`).
  *
  * Both send the same prompt (`buildCoverLetterGenerationPrompt`), with the same
- * model settings, and read the same JSON reply shape.
+ * model settings, and read the same JSON reply shape. Both may ask once for a
+ * shorter version of the letter the AI just wrote (`shortenCoverLetter`), read
+ * the same way (cover-letter-one-page, US-002).
  */
 
-/** The model settings both callers use. 1500 tokens fits a 250-400 word letter in JSON. */
+/** The model settings both callers use. 1500 tokens fits a one-page letter in JSON, with room to spare. */
 export const COVER_LETTER_COMPLETION_OPTIONS = {
   model: MODELS.BALANCED,
   temperature: 0.7,
@@ -148,8 +156,27 @@ export function toGeneratedCoverLetter(reply: unknown): GeneratedCoverLetter {
   }
 }
 
+/** How a caller's AI calls are named in the provider client's monitoring. */
+export interface CoverLetterCallOptions {
+  operation?: string
+}
+
 /** Writes a letter with the AI provider. */
-export type CoverLetterGenerator = (input: CoverLetterGenerationInput) => Promise<GeneratedCoverLetter>
+export type CoverLetterGenerator = (
+  input: CoverLetterGenerationInput,
+  options?: CoverLetterCallOptions,
+) => Promise<GeneratedCoverLetter>
+
+/** The letter in a reply's text, read the one way both prompts' replies are read. */
+function generatedCoverLetterFromReply(replyText: string): GeneratedCoverLetter {
+  let reply: unknown
+  try {
+    reply = parseCoverLetterJson(replyText)
+  } catch {
+    throw new CoverLetterReplyError()
+  }
+  return toGeneratedCoverLetter(reply)
+}
 
 /**
  * The real generator: the shared prompt, the shared model settings, the shared
@@ -158,20 +185,87 @@ export type CoverLetterGenerator = (input: CoverLetterGenerationInput) => Promis
  * @throws AiCompletionError when the provider fails or rate-limits.
  * @throws CoverLetterReplyError when the reply is not a JSON letter.
  */
-export const generateCoverLetter: CoverLetterGenerator = async (input) => {
+export const generateCoverLetter: CoverLetterGenerator = async (input, options = {}) => {
   const result = await generateCompletion(buildCoverLetterGenerationPrompt(input), {
     ...COVER_LETTER_COMPLETION_OPTIONS,
     ...(input.askCompanyAddress
       ? { maxTokens: COVER_LETTER_COMPLETION_OPTIONS.maxTokens + COMPANY_ADDRESS_MAX_TOKENS_MARGIN }
       : {}),
-    operation: 'generateCoverLetterFromJobApplication',
+    operation: options.operation ?? 'generateCoverLetterFromJobApplication',
   })
+  return generatedCoverLetterFromReply(result.text)
+}
 
-  let reply: unknown
-  try {
-    reply = parseCoverLetterJson(result.text)
-  } catch {
-    throw new CoverLetterReplyError()
+/** The shortening call's limits: it must be over before the request's own deadline. */
+export interface CoverLetterShorteningOptions {
+  /** The longest the call may take, the provider's answer included. */
+  timeoutMs: number
+}
+
+/**
+ * Asks for a shorter version of a letter the AI just wrote (cover-letter-one-page,
+ * US-002). Only ever given the AI's own letter, never a user's text.
+ */
+export type CoverLetterShortener = (
+  input: CoverLetterShorteningInput,
+  options: CoverLetterShorteningOptions,
+) => Promise<GeneratedCoverLetter>
+
+/**
+ * The real shortener: the shortening prompt, the generation's model settings,
+ * and the generation's reply parsing, so the shorter letter is read, cleaned
+ * and bounded exactly as the first. One attempt, within `timeoutMs`: no SDK
+ * retry, which could outlast the request.
+ *
+ * The greeting and the sign-off are the first letter's, as the prompt asks:
+ * taken from it here rather than from the reply, so they are the same whatever
+ * the AI answers. Any `companyAddress` in the reply is dropped: the address
+ * belongs to the first reply. Never logs the reply.
+ *
+ * @throws AiCompletionError when the provider fails, rate-limits or times out.
+ * @throws CoverLetterReplyError when the reply is not a JSON letter.
+ */
+export const shortenCoverLetter: CoverLetterShortener = async (input, options) => {
+  const result = await generateCompletion(
+    buildCoverLetterShorteningPrompt(input),
+    { ...COVER_LETTER_COMPLETION_OPTIONS, operation: 'shortenCoverLetter' },
+    { timeoutMs: options.timeoutMs, maxRetries: 0 },
+  )
+  const shortened = generatedCoverLetterFromReply(result.text)
+  return {
+    greeting: input.letter.greeting,
+    openingParagraph: shortened.openingParagraph,
+    bodyParagraphs: shortened.bodyParagraphs,
+    closingParagraph: shortened.closingParagraph,
+    signOff: input.letter.signOff,
   }
-  return toGeneratedCoverLetter(reply)
+}
+
+/**
+ * The letter's own text, and nothing else: what the shortening call is given
+ * (FR-7). The company address read from the offer is not part of it.
+ */
+export function coverLetterPartsOf(letter: GeneratedCoverLetter): CoverLetterParts {
+  return {
+    greeting: letter.greeting,
+    openingParagraph: letter.openingParagraph,
+    bodyParagraphs: [...letter.bodyParagraphs],
+    closingParagraph: letter.closingParagraph,
+    signOff: letter.signOff,
+  }
+}
+
+/**
+ * Every part a letter needs has text: a greeting, an opening, at least one
+ * body paragraph, a closing and a sign-off. Whitespace is no text.
+ */
+export function isCompleteGeneratedCoverLetter(letter: GeneratedCoverLetter): boolean {
+  const hasText = (value: string) => value.trim() !== ''
+  return (
+    hasText(letter.greeting) &&
+    hasText(letter.openingParagraph) &&
+    letter.bodyParagraphs.some(hasText) &&
+    hasText(letter.closingParagraph) &&
+    hasText(letter.signOff)
+  )
 }

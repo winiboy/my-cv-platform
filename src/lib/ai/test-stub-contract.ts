@@ -15,6 +15,18 @@ export const AI_TEST_STUB_ENABLED_VALUE = 'local-e2e-only'
 export const AI_TEST_STUB_DIRECTIVES = {
   providerError: '[ai-test-stub:provider-error]',
   rateLimited: '[ai-test-stub:rate-limited]',
+  /**
+   * The stubbed cover letter runs over one page (cover-letter-one-page,
+   * US-002), so the route asks the stub to shorten it. Without one of the
+   * `shorten*` directives below, the shortened letter fits on one page.
+   */
+  longLetter: '[ai-test-stub:long-letter]',
+  /** The shortened letter still runs over one page. */
+  shortenTooLong: '[ai-test-stub:shorten-too-long]',
+  /** The shortening call fails as the provider would. */
+  shortenFails: '[ai-test-stub:shorten-fails]',
+  /** The shortening call answers with a letter missing its parts. */
+  shortenUnusable: '[ai-test-stub:shorten-unusable]',
 } as const
 
 /** The stub's cover letter in one language. */
@@ -27,7 +39,14 @@ export interface AiTestStubCoverLetterTexts {
   readonly resumeUsed: string
   readonly closing: string
   readonly signOff: string
+  /** One body paragraph of the long letter (`AI_TEST_STUB_DIRECTIVES.longLetter`). */
+  readonly longBody: string
+  /** The opening of the shortened letter, so a test can tell it from the first. */
+  readonly shortenedOpening: string
 }
+
+/** Body paragraphs of the stub's long letter: well over one page in every language. */
+export const AI_TEST_STUB_LONG_LETTER_BODY_PARAGRAPHS = 12
 
 /**
  * The stub's cover letter, one per content language. Test content, never shown
@@ -42,6 +61,10 @@ export const AI_TEST_STUB_COVER_LETTER_TEXTS: Readonly<Record<'fr' | 'en' | 'de'
     resumeUsed: 'Texte IA de test : le CV a été pris en compte.',
     closing: 'Texte IA de test : conclusion de la lettre.',
     signOff: 'Veuillez agréer mes salutations distinguées,',
+    longBody:
+      'Texte IA de test : un long paragraphe du corps de la lettre, écrit pour que la lettre dépasse une page imprimée ' +
+      'et que la route demande une version plus courte de la même lettre, dans la même langue et la même structure.',
+    shortenedOpening: 'Texte IA de test : ouverture de la lettre raccourcie.',
   },
   en: {
     greeting: 'Dear Sir or Madam,',
@@ -50,6 +73,10 @@ export const AI_TEST_STUB_COVER_LETTER_TEXTS: Readonly<Record<'fr' | 'en' | 'de'
     resumeUsed: 'Test AI text: the CV was taken into account.',
     closing: 'Test AI text: closing of the letter.',
     signOff: 'Yours faithfully,',
+    longBody:
+      'Test AI text: a long body paragraph of the letter, written so that the letter runs over one printed page ' +
+      'and the route asks for a shorter version of the same letter, in the same language and the same structure.',
+    shortenedOpening: 'Test AI text: opening of the shortened letter.',
   },
   de: {
     greeting: 'Sehr geehrte Damen und Herren,',
@@ -58,6 +85,10 @@ export const AI_TEST_STUB_COVER_LETTER_TEXTS: Readonly<Record<'fr' | 'en' | 'de'
     resumeUsed: 'KI-Testtext: Der Lebenslauf wurde berücksichtigt.',
     closing: 'KI-Testtext: Schluss des Anschreibens.',
     signOff: 'Mit freundlichen Grüßen',
+    longBody:
+      'KI-Testtext: ein langer Absatz im Hauptteil des Anschreibens, geschrieben, damit das Anschreiben über eine ' +
+      'gedruckte Seite hinausgeht und die Route eine kürzere Fassung desselben Anschreibens in derselben Sprache anfordert.',
+    shortenedOpening: 'KI-Testtext: Einleitung des gekürzten Anschreibens.',
   },
   it: {
     greeting: 'Gentile Responsabile,',
@@ -66,6 +97,10 @@ export const AI_TEST_STUB_COVER_LETTER_TEXTS: Readonly<Record<'fr' | 'en' | 'de'
     resumeUsed: 'Testo IA di prova: il CV è stato preso in considerazione.',
     closing: 'Testo IA di prova: chiusura della lettera.',
     signOff: 'Cordiali saluti,',
+    longBody:
+      'Testo IA di prova: un lungo paragrafo del corpo della lettera, scritto perché la lettera superi una pagina ' +
+      'stampata e la route chieda una versione più breve della stessa lettera, nella stessa lingua e struttura.',
+    shortenedOpening: 'Testo IA di prova: apertura della lettera abbreviata.',
   },
 }
 

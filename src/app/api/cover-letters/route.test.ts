@@ -35,6 +35,18 @@ function fakeSupabase() {
 
 vi.mock('@/lib/supabase/server', () => ({ createServerSupabaseClient: async () => fakeSupabase() }))
 
+// cover-letter-one-page, US-002 (AC8): a blank letter is created without the AI
+// and without the one-page check. Both are recorded, so a call would show.
+const generateCompletion = vi.fn()
+const countCoverLetterPages = vi.fn()
+vi.mock('@/lib/ai/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/ai/client')>()),
+  generateCompletion: (...args: unknown[]) => generateCompletion(...args),
+}))
+vi.mock('@/lib/pdf/cover-letter-page-count', () => ({
+  countCoverLetterPages: (...args: unknown[]) => countCoverLetterPages(...args),
+}))
+
 function postRequest(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/cover-letters', {
     method: 'POST',
@@ -70,5 +82,23 @@ describe('POST /api/cover-letters greeting and sign-off', () => {
 
     expect(res.status).toBe(201)
     expect(state.inserted).toMatchObject({ greeting: '  Liebe Frau Muster,', sign_off: 'Mit freundlichen Grüßen' })
+  })
+})
+
+describe('POST /api/cover-letters - a blank letter (cover-letter-one-page, US-002)', () => {
+  beforeEach(() => {
+    state.inserted = null
+    generateCompletion.mockReset()
+    countCoverLetterPages.mockReset()
+  })
+
+  it('is created blank, with no AI call and no one-page check', async () => {
+    const res = await POST(postRequest({ title: 'Lettre' }))
+
+    expect(res.status).toBe(201)
+    expect(state.inserted).toMatchObject({ greeting: '', sign_off: '' })
+    expect(state.inserted?.opening_paragraph ?? null).toBeNull()
+    expect(generateCompletion).not.toHaveBeenCalled()
+    expect(countCoverLetterPages).not.toHaveBeenCalled()
   })
 })

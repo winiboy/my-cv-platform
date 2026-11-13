@@ -20,7 +20,7 @@ import { ModernLetterTemplate } from './cover-letter-templates/modern-letter-tem
 import { SWISS_LETTER_LAYOUT_PX } from '@/lib/cover-letter-swiss-letter'
 import type { CoverLetterLineBox } from '@/lib/cover-letter-page-breaks'
 import { CoverLetterPageBreakMarkers, hasRoomForPageBreakLabels } from './cover-letter-page-break-markers'
-import { measureCoverLetterLineBoxes, sameLineBoxes } from './cover-letter-line-boxes'
+import { measureCoverLetterLineBoxes, sameLineBoxes } from '@/lib/cover-letter-line-boxes'
 import {
   CoverLetterZoomControls,
   type CoverLetterZoomLabels,

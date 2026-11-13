@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { SWISS_LETTER_LAYOUT_PX } from '@/lib/cover-letter-swiss-letter'
 import {
+  coverLetterLineBoxModel,
   fragmentLineBox,
   mergeLineBoxes,
   sameLineBoxes,
@@ -89,6 +90,23 @@ describe('mergeLineBoxes', () => {
       { block: 0, top: 0, bottom: 19 },
       { block: 0, top: 1, bottom: 20 },
     ])
+  })
+})
+
+describe('coverLetterLineBoxModel', () => {
+  it('works rebuilt from its own source text, as the server hands it to the measuring page', () => {
+    // Nothing outside the factory's body is in scope here: a reference to a
+    // module-level helper would throw.
+    const rebuild = new Function(`return (${coverLetterLineBoxModel.toString()})`) as () => typeof coverLetterLineBoxModel
+    const rebuilt = rebuild()()
+    const fragments = [
+      fragment({ glyphTop: 9 }),
+      fragment({ glyphTop: 61.19, glyphHeight: 27, metrics: GEORGIA_24PX }),
+      fragment({ glyphTop: 70.19 }),
+    ]
+    expect(fragments.map(rebuilt.fragmentLineBox)).toEqual(fragments.map(fragmentLineBox))
+    const boxes = fragments.map(fragmentLineBox)
+    expect(rebuilt.mergeLineBoxes(boxes)).toEqual(mergeLineBoxes(boxes))
   })
 })
 

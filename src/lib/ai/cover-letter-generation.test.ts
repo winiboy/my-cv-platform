@@ -6,23 +6,27 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
  * extracted; these tests pin that behaviour.
  */
 
-const generateCompletion = vi.fn<(prompt: string, options: unknown) => Promise<{ text: string }>>()
+const generateCompletion = vi.fn<(prompt: string, options: unknown, request?: unknown) => Promise<{ text: string }>>()
 
 vi.mock('./client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./client')>()),
-  generateCompletion: (prompt: string, options: unknown) => generateCompletion(prompt, options),
+  // Every argument passed on, so a test sees whether per-request limits were given.
+  generateCompletion: (...args: [string, unknown, unknown?]) => generateCompletion(...args),
 }))
 
 const {
   COMPANY_ADDRESS_MAX_TOKENS_MARGIN,
   COVER_LETTER_COMPLETION_OPTIONS,
   CoverLetterReplyError,
+  coverLetterPartsOf,
   coverLetterProfileFromResume,
   generateCoverLetter,
+  isCompleteGeneratedCoverLetter,
   parseCoverLetterJson,
+  shortenCoverLetter,
   toGeneratedCoverLetter,
 } = await import('./cover-letter-generation')
-const { buildCoverLetterGenerationPrompt } = await import('./prompts')
+const { buildCoverLetterGenerationPrompt, buildCoverLetterShorteningPrompt } = await import('./prompts')
 
 beforeEach(() => {
   generateCompletion.mockReset()
@@ -181,5 +185,127 @@ describe('generateCoverLetter', () => {
     generateCompletion.mockResolvedValueOnce({ text: 'Madame, Monsieur, ...' })
 
     await expect(generateCoverLetter(INPUT)).rejects.toBeInstanceOf(CoverLetterReplyError)
+  })
+
+  it('names the call as the caller asks, so the editor route keeps its monitoring name (cover-letter-one-page)', async () => {
+    generateCompletion.mockResolvedValueOnce({ text: JSON.stringify({ greeting: 'Madame,' }) })
+    await generateCoverLetter(INPUT, { operation: 'generateCompletion' })
+    expect(generateCompletion.mock.calls[0][1]).toEqual({ ...COVER_LETTER_COMPLETION_OPTIONS, operation: 'generateCompletion' })
+  })
+})
+
+describe('shortenCoverLetter (cover-letter-one-page, US-002)', () => {
+  const LETTER = {
+    greeting: 'Madame, Monsieur,',
+    openingParagraph: 'Une longue ouverture.',
+    bodyParagraphs: ['Un.', 'Deux.', 'Trois.'],
+    closingParagraph: 'Une conclusion.',
+    signOff: 'Meilleures salutations',
+  }
+  const SHORTER = {
+    greeting: 'Madame, Monsieur,',
+    openingParagraph: 'Une ouverture.',
+    bodyParagraphs: ['Un et deux.'],
+    closingParagraph: 'Une conclusion.',
+    signOff: 'Meilleures salutations',
+  }
+
+  const LIMIT = { timeoutMs: 18_000 }
+
+  it('sends the shortening prompt, with the generation model settings, in one bounded attempt', async () => {
+    generateCompletion.mockResolvedValueOnce({ text: JSON.stringify(SHORTER) })
+
+    const shortened = await shortenCoverLetter({ letter: LETTER, locale: 'fr' }, LIMIT)
+
+    expect(generateCompletion).toHaveBeenCalledTimes(1)
+    expect(generateCompletion).toHaveBeenCalledWith(
+      buildCoverLetterShorteningPrompt({ letter: LETTER, locale: 'fr' }),
+      { ...COVER_LETTER_COMPLETION_OPTIONS, operation: 'shortenCoverLetter' },
+      // The time left before the request's deadline, and no SDK retry.
+      { timeoutMs: 18_000, maxRetries: 0 },
+    )
+    expect(shortened).toEqual(SHORTER)
+  })
+
+  it('reads the reply as the generation reads it: fenced JSON, string fields only', async () => {
+    generateCompletion.mockResolvedValueOnce({
+      text: '```json\n' + JSON.stringify({ ...SHORTER, bodyParagraphs: ['Un.', 3, null], closingParagraph: 7 }) + '\n```',
+    })
+
+    const shortened = await shortenCoverLetter({ letter: LETTER, locale: 'fr' }, LIMIT)
+
+    expect(shortened.bodyParagraphs).toEqual(['Un.'])
+    expect(shortened.closingParagraph).toBe('')
+  })
+
+  it("keeps the first letter's greeting and sign-off, whatever the reply says", async () => {
+    generateCompletion.mockResolvedValueOnce({
+      text: JSON.stringify({ ...SHORTER, greeting: 'Bonjour,', signOff: undefined }),
+    })
+
+    const shortened = await shortenCoverLetter({ letter: LETTER, locale: 'fr' }, LIMIT)
+
+    expect(shortened.greeting).toBe(LETTER.greeting)
+    expect(shortened.signOff).toBe(LETTER.signOff)
+  })
+
+  it('never answers an address back: the address belongs to the first reply', async () => {
+    generateCompletion.mockResolvedValueOnce({
+      text: JSON.stringify({ ...SHORTER, companyAddress: { streetAddress: 'Rue inventée 1' } }),
+    })
+    expect(await shortenCoverLetter({ letter: LETTER, locale: 'fr' }, LIMIT)).not.toHaveProperty('companyAddress')
+  })
+
+  it('throws CoverLetterReplyError for a reply that is not JSON or not an object', async () => {
+    generateCompletion.mockResolvedValueOnce({ text: 'Voici la lettre raccourcie.' })
+    await expect(shortenCoverLetter({ letter: LETTER }, LIMIT)).rejects.toBeInstanceOf(CoverLetterReplyError)
+    generateCompletion.mockResolvedValueOnce({ text: '["Un."]' })
+    await expect(shortenCoverLetter({ letter: LETTER }, LIMIT)).rejects.toBeInstanceOf(CoverLetterReplyError)
+  })
+
+  it('leaves the first call as it was: no per-request limit on the generation', async () => {
+    generateCompletion.mockResolvedValueOnce({ text: JSON.stringify(SHORTER) })
+    await generateCoverLetter({ jobDescription: 'An offer.', jobTitle: 'Engineer', companyName: 'Acme' })
+    expect(generateCompletion.mock.calls[0]).toHaveLength(2)
+  })
+})
+
+describe('isCompleteGeneratedCoverLetter', () => {
+  const COMPLETE = {
+    greeting: 'Dear Sir or Madam,',
+    openingParagraph: 'Opening.',
+    bodyParagraphs: ['Body.'],
+    closingParagraph: 'Closing.',
+    signOff: 'Yours faithfully,',
+  }
+
+  it('accepts a letter with every part', () => {
+    expect(isCompleteGeneratedCoverLetter(COMPLETE)).toBe(true)
+    expect(isCompleteGeneratedCoverLetter({ ...COMPLETE, bodyParagraphs: ['', 'Body.'] })).toBe(true)
+  })
+
+  it.each([
+    ['greeting', { greeting: ' ' }],
+    ['opening', { openingParagraph: '' }],
+    ['body', { bodyParagraphs: [] }],
+    ['blank body', { bodyParagraphs: ['  ', '\n'] }],
+    ['closing', { closingParagraph: '\t' }],
+    ['sign-off', { signOff: '' }],
+  ])('refuses a letter without its %s', (_part, missing) => {
+    expect(isCompleteGeneratedCoverLetter({ ...COMPLETE, ...missing })).toBe(false)
+  })
+})
+
+describe('coverLetterPartsOf', () => {
+  it("keeps the letter's text only, never the address read from the offer", () => {
+    const parts = coverLetterPartsOf({
+      greeting: 'G',
+      openingParagraph: 'O',
+      bodyParagraphs: ['B'],
+      closingParagraph: 'C',
+      signOff: 'S',
+      companyAddress: { streetAddress: 'Rue du Lac 5' },
+    })
+    expect(parts).toEqual({ greeting: 'G', openingParagraph: 'O', bodyParagraphs: ['B'], closingParagraph: 'C', signOff: 'S' })
   })
 })
