@@ -1,6 +1,6 @@
 # PRD: Cover letter paragraph alignment, and the job banner in the user's language
 
-**Status:** DRAFT
+Status: APPROVED 2026-11-16
 
 ## Objective
 
