@@ -345,6 +345,7 @@
         "fontSize": "Taille de police",
         "alignLeft": "Aligner à gauche",
         "alignCenter": "Centrer",
+        "alignRight": "Aligner à droite",
         "alignJustify": "Justifier",
         "systemDefault": "Police système"
       }

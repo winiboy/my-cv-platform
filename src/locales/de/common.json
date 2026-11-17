@@ -347,6 +347,7 @@
         "fontSize": "Schriftgröße",
         "alignLeft": "Linksbündig",
         "alignCenter": "Zentriert",
+        "alignRight": "Rechtsbündig",
         "alignJustify": "Blocksatz",
         "systemDefault": "Systemschrift"
       }

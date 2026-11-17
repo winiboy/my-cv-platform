@@ -5,3 +5,113 @@ PRD: tasks/prds/cover-letter-alignment-and-job-banner.md (Status: APPROVED 2026-
 Format: docs/engineering/progress-log-format.md
 Branch setup: from prd/cover-letter-alignment-and-job-banner 05b525c (origin/main b364b8c, #127 merged, plus the PRD draft 671614f and the owner's approval commit). The first commit archives the merged cover-letter-one-page contract; the second adds this contract.
 Contract note: each FAIL condition keeps its bold lead-in ("Missing control:" and so on) as plain text; wording unchanged.
+
+## US-001: A letter's paragraphs can be aligned left, center, right or justified
+Status: PASS
+Priority: 1
+Branch: ralph/cover-letter-alignment-and-job-banner
+Baseline HEAD: 47f2f16 (contract commit; origin/main b364b8c)
+
+Scope:
+- Scope check: PASS
+- Changed paths: story diff sha256 prefix dd6770e8028814b9. The hash covers `git diff -- src e2e`, then "== <path>" and the content of each untracked file under src/ and e2e/.
+  - **New `src/lib/rich-text-alignment.ts`:** the four alignments, their `justify*` editing commands, and `resolveActiveAlignment`, which falls back to left when no command reports true.
+  - **`src/components/dashboard/formatting-ribbon.tsx`:** an opt-in `showAlignment` prop, default false.
+    - It adds a group of four buttons after the lists: left, center, right, justify.
+    - Each button has `aria-label` and `title` from `resumes.editor.richTextToolbar.*`, plus `aria-pressed`, a `focus-visible` ring, and `onMouseDown` preventDefault so the editor keeps its selection.
+    - The active state is read on `selectionchange` (only for a selection inside this editor) and on the editor's `input` event, so it follows undo and redo. `queryCommandState` is in try/catch.
+    - With the prop off, the markup is identical, and a unit test asserts it.
+  - **`src/components/dashboard/rich-text-editor.tsx`:** passes `showAlignment` through. It runs `justifyLeft|Center|Right|Full` with `styleWithCSS` switched on just for that call and restored in `finally`. In Chromium, 24 before/after cases gave identical markup. The aim is that Gecko writes `text-align` rather than an `align` attribute, which the sanitizer drops.
+  - **`src/components/dashboard/cover-letter-sections/{opening,body,closing}-section.tsx`:** `showAlignment` on the opening editor, on every body-paragraph editor (including added ones) and on the closing editor.
+  - **`src/lib/rich-html-sanitizer.ts`:** `text-align` keeps only `left|center|right|justify` (trimmed, case-insensitive, written lowercase). Any other value is dropped. The function is still self-contained.
+  - **`src/locales/{fr,en,de,it}/common.json`:** `resumes.editor.richTextToolbar.alignRight` added as "Aligner à droite", "Align right", "Rechtsbündig", "Allinea a destra".
+  - **Tests:**
+    - `formatting-ribbon.test.ts` (new): absent by default with identical markup; button order; labels in four locales; left active by default; command mapping; active-state resolution; `TEXT_ALIGNMENTS` checked against the Word parser.
+    - `cover-letter-docx.test.ts`: Chromium's markup (`<p>`, wrapping `<div>`, `<li>`) reaches `w:jc` as left / center / right / both.
+    - `e2e/html-sanitizer.spec.ts`: 12 narrowing cases.
+    - `e2e/cover-letter-paragraph-alignment.spec.ts` (new, 12 tests):
+      - aligns opening, body (including an added paragraph) and closing, plus a two-paragraph selection;
+      - active state, keyboard path, undo (Ctrl+Z) and redo (Ctrl+Shift+Z);
+      - save and reload;
+      - computed alignment in both previews;
+      - PDF line x-positions and the Word file's `w:jc`;
+      - labels and titles in fr, en, de and it;
+      - no horizontal scroll from 320 to 1440 px;
+      - the CV's key-achievements toolbar is unchanged.
+- Not touched: the PDF and Word builders, `cover-letter-pdf-html.ts`, the letter template, translation, the CV templates and key-achievements toolbar, the page-break marker and one-page check, the database, `package.json` and the lockfile.
+- No version change, no push or merge. A temporary capture spec (`e2e/zz-us1-capture.spec.ts`) was run alone and deleted; it is not in the diff.
+
+Checks:
+- Final run on diff dd6770e8028814b9, alone, after both review rounds and the last fix. The hash was the same after the run.
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3982 passed, 5 skipped.
+  - pnpm test:integration: PASS — 80 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 285 problems (219 errors, 66 warnings), against the tracked ceiling of 286.
+  - pnpm test:e2e: PASS — 581 passed, 0 failed (21.6 min). Includes the 12 new tests and the 12 new sanitizer cases.
+  - pnpm test:visual: PASS — 10 passed. Baselines unchanged.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+- Earlier runs, not evidence for this diff:
+  - before the review fixes (f410c935): visual 10/10, parity 211/3/0, the new spec 12/12;
+  - after round 1: the two specs 53/53.
+
+Specialized validation:
+- Browser: PASS. The e2e spec, plus 55 captures at 1440, 1024, 768 and 375 px in the four locales: active state, focus, hover, both previews and the PDF.
+- Export: PASS. The e2e downloads both files.
+  - PDF, in points (text column 70.87–538.58): centered lines have midpoints 304.72 against a column center of 304.72; right-aligned lines end at 538.58; left-aligned lines start at 70.86; justified lines 1–6 run 70.86–538.58, and the last line ends at 445.26.
+  - Word: `w:jc` is left, center, right or both on every paragraph.
+  - A letter without alignment takes no new path: the PDF and Word builders are unchanged, and the sanitizer only changes values outside the four.
+- Visual: PASS — `pnpm test:visual` 10/10, parity unchanged.
+- Database: NOT_APPLICABLE — no schema change; the alignment is stored in the existing rich-text HTML.
+- Security: NOT_APPLICABLE — no new route, input or trust boundary.
+  - The sanitizer allowlist got stricter: one property, now four exact values.
+  - Code review checked it: no new attack surface; values matched exactly.
+
+Agents:
+- senior-coder: implementation; e2e spec fix (it assumed all three sections were on screen at once; the editor shows one at a time); captures; review fix round; the redo key.
+- ui-expert:
+  - first verdict BLOCKED, because visual and parity had not run after the sanitizer change;
+  - then PASS, 7/7 conditions, with minors: dividers left at the end of wrapped rows, 32 px buttons, and the focus ring only on the new buttons. All three are existing traits of the ribbon.
+- code-reviewer:
+  - round 1: PASS, with two Majors, both fixed: Firefox writing `align` (fixed with scoped `styleWithCSS`) and a stale active state after undo (fixed with the `input` listener).
+  - round 2: PASS on b401ff91019cb357, no Critical or Major. Its minor about Ctrl+Y on Linux was fixed afterwards with Ctrl+Shift+Z, and the checks ran after that fix.
+
+Acceptance criteria:
+- AC-01 (four buttons, in order, on all three fields including an added body paragraph): PASS — e2e.
+- AC-02 (aligns the paragraph under the cursor; a multi-paragraph selection aligns each; others keep theirs): PASS — e2e.
+- AC-03 (active button follows the cursor; unaligned shows left): PASS — e2e, including undo and redo; unit tests for the resolution.
+- AC-04 (accessible name and tooltip in fr/en/de/it, keyboard operable, visible focus): PASS — e2e and captures.
+- AC-05 (saved, survives reload): PASS — e2e.
+- AC-06 (both previews): PASS — e2e computed `text-align`; captures 06.
+- AC-07 (PDF): PASS — e2e x-positions; capture 08.
+- AC-08 (Word): PASS — e2e and unit `w:jc`.
+- AC-09 (a letter without alignment looks as today): PASS — no new path for unaligned HTML; export and template code unchanged; e2e unaligned paragraphs start at the left edge.
+- AC-10 (no new button on CV fields): PASS — opt-in prop; identical markup unit test; e2e on the professional CV's toolbar.
+- FR-1 to FR-5: PASS.
+- Regression constraints: PASS — CV ribbon and toolbar unchanged, letter formatting buttons unchanged, page-break and one-page specs green in the full e2e, parity and visual unchanged.
+- FAIL and BLOCKER conditions: none triggered. The BLOCKER does not apply: Chromium writes `style="text-align: …"`, which the sanitizer keeps without widening.
+
+Decision:
+- **Opt-in on the shared editor.** The letter's three fields enable the buttons, and the CV's fields stay byte-identical.
+- **Narrow, don't widen.** The sanitizer keeps exactly the four values, which matches what the Word parser already accepted, so the preview, PDF and Word file agree on every stored value.
+- **Verification layer.** The PRD asks for unit tests that set each value and align a multi-paragraph selection. jsdom has no `execCommand` or layout, and the sanitizer needs a DOM that vitest does not have. Those behaviours are therefore proven in Chromium by `e2e/cover-letter-paragraph-alignment.spec.ts` and `e2e/html-sanitizer.spec.ts`. The unit tests cover the mapping, the resolution and the rendered markup.
+
+Open owner decisions:
+- **Firefox is not verified.** Playwright's Firefox is not installed and every suite runs Chromium only. The scoped `styleWithCSS` should make Gecko write `text-align`, but this has not been observed.
+- **Translation drops alignment.** `translate/letter-segments.ts` rebuilds the letter without attributes, so a translated copy is left-aligned. This is out of scope, as the PRD's Risks foresaw, and needs a follow-up.
+- **Stored values outside the four.** A stored `end` or `-webkit-center` (no editor writes either) now renders left in previews and the CV/letter PDF. Parity and visual are unchanged.
+- **Ribbon polish (ui-expert minors, existing traits):** dividers at the end of wrapped rows, 32 px buttons on mobile, and the focus ring only on the new buttons.
+- Minor code-review points left as they are:
+  - the undo test may pass without the `input` listener, because Chromium also fires `selectionchange`;
+  - the sanitizer reads the first `text-align` and is case-sensitive on the property name, unlike the Word parser (this predates the story);
+  - touch input is not exercised;
+  - the group has no accessible name of its own, because no dictionary key fits.
+
+Environment notes:
+- Docker Desktop had to be started by the owner before local Supabase could run.
+- The checks ran alone. The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 A letter's paragraphs can be aligned left, center, right or justified
+FINAL: PASS

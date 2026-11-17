@@ -363,6 +363,32 @@ describe('buildCoverLetterDocx: rich text keeps its meaning', () => {
     expect(byText(paragraphs, 'Centered').alignment).toBe('center')
   })
 
+  it("gives each paragraph the Word alignment of the editor's markup: left, center, right, both", async () => {
+    // What Chromium's justify* commands write in the editor: text-align on an
+    // existing <p>/<div>/<li>, or a <div> wrapping a bare line
+    const { paragraphs } = await readDocx(
+      await build({
+        ...FULL_LETTER,
+        opening_paragraph:
+          '<p style="text-align: left;">Para left</p><p style="text-align: center;">Para center</p>' +
+          '<p style="text-align: right;">Para right</p><p style="text-align: justify;">Para justify</p>',
+        body_paragraphs: [
+          '<div style="text-align: right;">Wrapped right</div><div>Plain line</div>',
+          '<ul><li style="text-align: center;">Item center</li></ul>',
+        ],
+        closing_paragraph: '<div style="text-align: justify;">Closing justify</div>',
+      }),
+    )
+    expect(byText(paragraphs, 'Para left').alignment).toBe('left')
+    expect(byText(paragraphs, 'Para center').alignment).toBe('center')
+    expect(byText(paragraphs, 'Para right').alignment).toBe('right')
+    expect(byText(paragraphs, 'Para justify').alignment).toBe('both')
+    expect(byText(paragraphs, 'Wrapped right').alignment).toBe('right')
+    expect(byText(paragraphs, 'Plain line').alignment).toBe('left')
+    expect(byText(paragraphs, 'Item center').alignment).toBe('center')
+    expect(byText(paragraphs, 'Closing justify').alignment).toBe('both')
+  })
+
   it('writes lists as Word lists: a numbered list and a bulleted one, each its own', async () => {
     const { paragraphs, numbering } = await readDocx(await build(FULL_LETTER))
     const first = byText(paragraphs, 'Première raison')

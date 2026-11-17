@@ -347,6 +347,7 @@
         "fontSize": "Dimensione carattere",
         "alignLeft": "Allinea a sinistra",
         "alignCenter": "Centra",
+        "alignRight": "Allinea a destra",
         "alignJustify": "Giustifica",
         "systemDefault": "Carattere di sistema"
       }

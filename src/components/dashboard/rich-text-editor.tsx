@@ -1,9 +1,10 @@
 'use client'
 
 import { useRef, useEffect, useState, useCallback } from 'react'
-import { FormattingRibbon, FormatCommand } from './formatting-ribbon'
+import { ALIGN_FORMAT_COMMANDS, FormattingRibbon, FormatCommand } from './formatting-ribbon'
 import { sanitizeHtml, htmlToPlainText, migrateTextToHtml } from '@/lib/html-utils'
 import { DEFAULT_FONT, DEFAULT_FONT_SIZE } from '@/lib/constants/fonts'
+import { ALIGNMENT_COMMANDS } from '@/lib/rich-text-alignment'
 
 interface RichTextEditorProps {
   id: string
@@ -13,6 +14,8 @@ interface RichTextEditorProps {
   className?: string
   minHeight?: string
   showRibbon?: boolean
+  /** Adds the paragraph alignment buttons to the ribbon (cover letter fields only). */
+  showAlignment?: boolean
   availableFonts?: string[]
   dict?: any
 }
@@ -25,6 +28,7 @@ export function RichTextEditor({
   className = '',
   minHeight = '192px',
   showRibbon = true,
+  showAlignment = false,
   dict,
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
@@ -135,6 +139,29 @@ export function RichTextEditor({
         case 'numberedList':
           document.execCommand('insertOrderedList')
           break
+        case 'alignLeft':
+        case 'alignCenter':
+        case 'alignRight':
+        case 'alignJustify': {
+          // Writes text-align on each block the selection touches, or wraps a
+          // bare line in a <div> carrying it. Without styleWithCSS, Gecko
+          // writes <div align="…"> instead, which the sanitizer drops. It is
+          // switched on for this command only, so bold, italic and underline
+          // keep writing the tags they always have.
+          let styledWithCss = false
+          try {
+            styledWithCss = document.queryCommandState('styleWithCSS')
+          } catch {
+            // Not every browser reports this state; the editor's default is off
+          }
+          document.execCommand('styleWithCSS', false, 'true')
+          try {
+            document.execCommand(ALIGNMENT_COMMANDS[ALIGN_FORMAT_COMMANDS[command]])
+          } finally {
+            document.execCommand('styleWithCSS', false, String(styledWithCss))
+          }
+          break
+        }
         case 'font':
           if (value) {
             const selection = window.getSelection()
@@ -261,6 +288,7 @@ export function RichTextEditor({
           onFormat={handleFormat}
           currentFont={currentFont}
           currentFontSize={currentFontSize}
+          showAlignment={showAlignment}
           dict={dict}
         />
       )}

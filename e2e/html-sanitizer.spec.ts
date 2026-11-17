@@ -165,6 +165,34 @@ test.describe('html sanitizer output is unchanged', () => {
     ['<noscript><b>ns</b></noscript>', 'ns'],
   ]
 
+  // Paragraph alignment (cover-letter-alignment-and-job-banner, FR-3): exactly
+  // the four values the editor writes survive, in lowercase; any other value
+  // is dropped while the element and its other allowed styles are kept.
+  const TEXT_ALIGN_CASES: ReadonlyArray<readonly [string, string]> = [
+    ['<p style="text-align: left;">l</p>', '<p style="text-align: left;">l</p>'],
+    ['<p style="text-align: center;">c</p>', '<p style="text-align: center;">c</p>'],
+    ['<p style="text-align: right;">r</p>', '<p style="text-align: right;">r</p>'],
+    ['<p style="text-align: justify;">j</p>', '<p style="text-align: justify;">j</p>'],
+    ['<div style="text-align:  CENTER ">c</div>', '<div style="text-align: center;">c</div>'],
+    ['<li style="text-align: right">r</li>', '<li style="text-align: right;">r</li>'],
+    ['<p style="text-align: start">s</p>', '<p>s</p>'],
+    ['<p style="text-align: -webkit-center">w</p>', '<p>w</p>'],
+    ['<p style="text-align: inherit">i</p>', '<p>i</p>'],
+    ['<p style="text-align: center !important">x</p>', '<p>x</p>'],
+    ['<p style="text-align: expression(alert(1))">e</p>', '<p>e</p>'],
+    [
+      '<p style="font-family: Arial; text-align: end; font-size: 14px">kept</p>',
+      '<p style="font-family: Arial;font-size: 14px;">kept</p>',
+    ],
+  ]
+
+  for (const [input, expected] of TEXT_ALIGN_CASES) {
+    test(`sanitizeHtml keeps only the four alignments: ${JSON.stringify(input)}`, async ({ page }) => {
+      const output = await page.evaluate((html) => window.sanitizeHtml(html), input)
+      expect(output).toBe(expected)
+    })
+  }
+
   for (const [input, expected] of PLAIN_TEXT_CASES) {
     test(`htmlToPlainText(${JSON.stringify(input)})`, async ({ page }) => {
       const output = await page.evaluate((html) => window.htmlToPlainText(html), input)
