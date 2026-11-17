@@ -538,6 +538,7 @@
     "new": {
       "title": "Create New Cover Letter",
       "subtitle": "Create a cover letter for your job application",
+      "creatingForJob": "Creating cover letter for job application",
       "titleLabel": "Cover Letter Title",
       "titlePlaceholder": "e.g., Application for Software Engineer",
       "titleHint": "Give your cover letter a descriptive name",

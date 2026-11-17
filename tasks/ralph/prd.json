@@ -99,7 +99,7 @@
         "Out of scope: Any database change."
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]
