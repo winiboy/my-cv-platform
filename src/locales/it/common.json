@@ -347,6 +347,7 @@
         "fontSize": "Dimensione carattere",
         "alignLeft": "Allinea a sinistra",
         "alignCenter": "Centra",
+        "alignRight": "Allinea a destra",
         "alignJustify": "Giustifica",
         "systemDefault": "Carattere di sistema"
       }
@@ -537,6 +538,7 @@
     "new": {
       "title": "Crea nuova lettera di presentazione",
       "subtitle": "Crea una lettera di presentazione per la tua candidatura",
+      "creatingForJob": "Lettera di presentazione per la candidatura",
       "titleLabel": "Titolo della lettera",
       "titlePlaceholder": "es. Candidatura per Ingegnere Software",
       "titleHint": "Dai un nome descrittivo alla tua lettera",

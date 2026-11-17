@@ -347,6 +347,7 @@
         "fontSize": "Schriftgröße",
         "alignLeft": "Linksbündig",
         "alignCenter": "Zentriert",
+        "alignRight": "Rechtsbündig",
         "alignJustify": "Blocksatz",
         "systemDefault": "Systemschrift"
       }
@@ -537,6 +538,7 @@
     "new": {
       "title": "Neues Anschreiben erstellen",
       "subtitle": "Erstellen Sie ein Anschreiben für Ihre Bewerbung",
+      "creatingForJob": "Anschreiben für die Bewerbung",
       "titleLabel": "Titel des Anschreibens",
       "titlePlaceholder": "z.B. Bewerbung als Software-Ingenieur",
       "titleHint": "Geben Sie Ihrem Anschreiben einen aussagekräftigen Namen",

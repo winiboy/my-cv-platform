@@ -345,6 +345,7 @@
         "fontSize": "Taille de police",
         "alignLeft": "Aligner à gauche",
         "alignCenter": "Centrer",
+        "alignRight": "Aligner à droite",
         "alignJustify": "Justifier",
         "systemDefault": "Police système"
       }
@@ -537,6 +538,7 @@
     "new": {
       "title": "Nouvelle lettre de motivation",
       "subtitle": "Créez une lettre de motivation pour votre candidature",
+      "creatingForJob": "Lettre de motivation pour la candidature",
       "titleLabel": "Titre de la lettre",
       "titlePlaceholder": "ex: Candidature pour Ingénieur Logiciel",
       "titleHint": "Donnez un nom descriptif à votre lettre",

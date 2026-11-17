@@ -57,6 +57,7 @@ export function OpeningSection({
             onChange={(html) => onChange('opening_paragraph', html || null)}
             placeholder={(openingDict.paragraphPlaceholder as string) || 'Write your opening paragraph...'}
             minHeight="120px"
+            showAlignment
             dict={dict}
           />
         </div>

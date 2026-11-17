@@ -58,7 +58,16 @@ export function sanitizeRichHtml(html: string): string {
         // Extract allowed styles
         let fontFamily = style.match(/font-family:\s*([^;]+)/)?.[1]
         const fontSize = style.match(/font-size:\s*([^;]+)/)?.[1]
-        const textAlign = style.match(/text-align:\s*([^;]+)/)?.[1]
+        // Only the editor's four paragraph alignments: any other value, an
+        // `!important` included, is dropped and the paragraph reads as left
+        const textAlignValue = style.match(/text-align:\s*([^;]+)/)?.[1].trim().toLowerCase()
+        const textAlign =
+          textAlignValue === 'left' ||
+          textAlignValue === 'center' ||
+          textAlignValue === 'right' ||
+          textAlignValue === 'justify'
+            ? textAlignValue
+            : undefined
 
         // For <font> tags, also check the deprecated 'face' attribute
         if (element.tagName === 'FONT' && element.hasAttribute('face') && !fontFamily) {
