@@ -1,6 +1,6 @@
 # PRD: Ten Swiss CV templates
 
-**Status:** DRAFT
+**Status:** APPROVED 2026-11-18
 
 ## Objective
 
