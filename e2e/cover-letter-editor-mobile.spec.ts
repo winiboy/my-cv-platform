@@ -44,7 +44,8 @@ import de from '../src/locales/de/common.json'
  *
  *   - The header is one row of at most 64px: Back, a 44x44 link named
  *     `common.back`; the title, inside the header and clear of its
- *     neighbours, with the save status whole; and the "•••" trigger, 44x44,
+ *     neighbours, with the save status whole on its own line under it; and
+ *     the "•••" trigger, 44x44,
  *     named in the locale. The six desktop buttons, the translate row and
  *     the Preview button are not rendered.
  *   - The menu: a `menu` named like its trigger (`aria-haspopup`,
@@ -890,6 +891,14 @@ for (const locale of Object.keys(LOCALES) as LocaleCode[]) {
               expect(statusBox.bottom, `${label}: status bottom`).toBeLessThanOrEqual(header.bottom)
               expect(intersects(statusBox, triggerBox), `${label}: status under "•••"`).toBe(false)
               expect(intersects(statusBox, titleBox), `${label}: status over the title`).toBe(false)
+              // On its own line under the title, left-aligned with it
+              // (cover-letter-save-status-below-title, US-001).
+              expect(statusBox.top, `${label}: status under the title`).toBeGreaterThanOrEqual(
+                titleBox.bottom - TOLERANCE,
+              )
+              expect(Math.abs(statusBox.left - titleBox.left), `${label}: status aligned with the title`).toBeLessThanOrEqual(
+                TOLERANCE,
+              )
             }
 
             // The desktop controls are not rendered: six buttons, flags, Preview.

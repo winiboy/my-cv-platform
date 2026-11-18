@@ -813,9 +813,9 @@ export function CoverLetterEditor({
         beside each other; the title then takes the rest. Narrower, the
         buttons move to lines of their own, right-aligned, so they never
         cover the title and every label stays visible.
-        Below xl, always one row: Back, the title and its save status, and the
-        "•••" menu, which holds the buttons but Save (in the bottom bar) and
-        Preview (the Aperçu view replaces it).
+        Below xl, always one row: Back, the title with its save status under
+        it, and the "•••" menu, which holds the buttons but Save (in the
+        bottom bar) and Preview (the Aperçu view replaces it).
       */}
       <div
         data-testid="cover-letter-editor-header"
@@ -823,7 +823,9 @@ export function CoverLetterEditor({
       >
         {/*
           The explicit min width sets the size the row wraps at: left to its
-          default, it would be the title input's own width, wider than 13.5rem.
+          default, it would be the group's content width, which the save
+          status's unwrapped text sets, so the row would wrap at a width that
+          changes with the status shown and the locale.
           Below xl the row never wraps, so the group shrinks to what is left.
         */}
         <div className="flex min-w-[13.5rem] grow basis-[13.5rem] items-center gap-4 max-xl:min-w-0 max-xl:gap-2">
@@ -835,31 +837,41 @@ export function CoverLetterEditor({
             <ArrowLeft className="h-5 w-5" aria-hidden="true" />
           </Link>
           {/*
-            Below xl the save status follows the title on its line while both
-            fit, and moves under it otherwise: the title keeps at least 6rem,
-            within the 44px row. Where even its own line is too narrow (the
-            longest locales at 320px) it ends in an ellipsis rather than run
-            under the menu; its full text is still what is announced.
+            The save status has its own line under the title at every width, as
+            in the resume editor, so the title spans the whole column and is
+            never cut where the status would begin. Below xl the two lines
+            (28px + 16px) fill the 44px row exactly, so the header keeps its
+            height. Where the status's line is too narrow (the longest locales
+            at 320px) it ends in an ellipsis rather than run under the menu;
+            its full text is still what is announced.
           */}
-          <div className="min-w-40 flex-1 max-xl:flex max-xl:min-w-0 max-xl:flex-wrap max-xl:items-center max-xl:gap-x-2">
+          <div className="flex min-w-40 flex-1 flex-col max-xl:min-w-0">
             <input
               type="text"
               value={coverLetter.title}
               onChange={(e) => handleFieldChange('title', e.target.value)}
-              className="max-w-full text-xl font-semibold bg-transparent border-none focus:outline-none focus:ring-0 p-0 max-xl:min-w-24 max-xl:flex-1 max-xl:basis-24"
+              className="w-full text-xl font-semibold bg-transparent border-none focus:outline-none focus:ring-0 p-0"
               placeholder={(editorDict.titlePlaceholder as string) || 'Untitled Cover Letter'}
             />
-            {hasUnsavedChanges && (
-              <span className="text-xs text-amber-600 dark:text-amber-400 ml-2 whitespace-nowrap max-xl:ml-0 max-xl:max-w-full max-xl:truncate">
-                {(editorDict.unsavedChanges as string) || 'Unsaved changes'}
-              </span>
-            )}
-            {lastSaved && !hasUnsavedChanges && (
-              <span className="text-xs text-slate-500 ml-2 whitespace-nowrap max-xl:ml-0 max-xl:max-w-full max-xl:truncate">
-                {(editorDict.lastSaved as string) || 'Saved'}{' '}
-                {lastSaved.toLocaleTimeString()}
-              </span>
-            )}
+            {/*
+              The line is kept, empty, before there is a status to show, so the
+              first edit does not move the title or grow the header.
+            */}
+            <p
+              className={cn(
+                'min-h-4 truncate text-xs',
+                hasUnsavedChanges ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'
+              )}
+            >
+              {hasUnsavedChanges ? (
+                (editorDict.unsavedChanges as string) || 'Unsaved changes'
+              ) : lastSaved ? (
+                <>
+                  {(editorDict.lastSaved as string) || 'Saved'}{' '}
+                  {lastSaved.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
+                </>
+              ) : null}
+            </p>
           </div>
         </div>
         <CoverLetterActionsMenu
