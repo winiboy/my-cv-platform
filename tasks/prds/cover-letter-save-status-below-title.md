@@ -1,6 +1,6 @@
 # PRD: Cover letter save status below the title
 
-**Status:** DRAFT
+**Status:** APPROVED 2026-11-18
 
 ## Objective
 
