@@ -42,7 +42,7 @@
         "Out of scope: Any database change, any export, the letter's content and template."
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]
