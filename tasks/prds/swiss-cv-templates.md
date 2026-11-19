@@ -1,6 +1,8 @@
 # PRD: Ten Swiss CV templates
 
-**Status:** DRAFT — amendment 1 (2026-11-19), awaiting owner re-approval. APPROVED 2026-11-19.
+**Status:** DRAFT — amendment 2 (2026-11-19), awaiting owner re-approval. Amendment 1 was approved 2026-11-19 (b2d5295).
+
+**Amendment 2 (owner feedback on the `swissVocational` skills section, 2026-11-19):** adds US-012, executed next (before US-002), and FR-15; adds one regression exception and one FAIL condition. In the skills section, US-001 put each category label on the same line as its skills, so a long label left a narrow column for the skills ("awful to watch"). The owner chose option A: label above, skills below at the full column width. US-001 and US-011 stay committed (e5d8ea7, ca7e961).
 
 **Amendment 1 (owner feedback after checking US-001 locally, 2026-11-19):** adds US-011, executed next (before US-002); changes FR-4 and FR-5; adds FR-12 to FR-14; narrows two Out of Scope items. US-001 stays committed (e5d8ea7); the parts it built that this amendment changes are reworked in US-011.
 
@@ -118,6 +120,20 @@ As a CV author, I want to choose which contact details and whether my photo appe
 - [ ] **Preview page:** the "Show Controls" switch and the per-element size handles it turns on are gone from the Preview page for every template. The stored layout values still apply to the rendering.
 - [ ] US-001's `swissVocational` evidence is re-run for the parts this story changes: the photo, the font and the contact fields.
 - [ ] The story satisfies FR-12 to FR-14 and the unchanged FR-1 to FR-11.
+
+### US-012: The "Formation professionnelle (CFC)" skills section shows each category label above its skills (amendment 2, executed before US-002)
+
+**Description:**
+As a CV author using the CFC template, I want each skill category's label on its own line with the skills below it, so that the skills use the full width of the column and stay readable however long the label is.
+
+**Acceptance Criteria:**
+
+- [ ] In the `swissVocational` skills section, each category is drawn as its label on one line, then its skills starting on the next line at the full width of the skills column. No skill text sits beside the label. This holds in the Editor live preview, the Preview page, the PDF and the Word export.
+- [ ] The label is bold in the template's red accent, without a trailing colon. The skills keep the body size and colour, and are the stored content unchanged: the rich text as stored, or the legacy items joined with ", " as today.
+- [ ] Categories stay in their stored order, with the space between two categories larger than the space between a label and its skills. Hidden categories and categories with no content are still left out (FR-2).
+- [ ] With the owner's sample (labels up to "Droit du travail et sécurité sociale"), no label and no skill line wraps word by word: before and after screenshots of the Editor live preview and the Preview page are in the evidence, in fr and one other locale.
+- [ ] The languages column beside the skills is unchanged.
+- [ ] The story satisfies FR-15 and the unchanged FR-1 to FR-14.
 
 ### US-002: The "Commerce & administration" template is available
 
@@ -284,6 +300,7 @@ As a first-time job seeker or a person without a certified vocational qualificat
   - **Validation:** unknown entries are dropped by the existing validation in `src/lib/layout-settings.ts`, and the value stays within the existing 4096-byte bound.
   - **Readers:** the Editor live preview, the Preview page, the PDF and every Word generator, all reading this same value. No second copy is kept.
   - **Labels:** tick-box labels are localized in fr, en, de and it.
+- **FR-15 (amendment 2):** In `swissVocational`, a skill category's label and its skills are two stacked blocks: the label on its own line, the skills below it at the full column width. The Editor live preview, the Preview page, the PDF and the `swissVocational` Word generator draw the same structure. The stored skill data, the other Swiss templates' skills layouts (defined by their own stories) and the five existing templates are unchanged.
 
 ## Regression Constraints
 
@@ -294,6 +311,7 @@ As a first-time job seeker or a person without a certified vocational qualificat
 - The template picker keeps its radio-group keyboard behaviour across all fifteen options, and its existing order for the first five.
 - The photo upload handler, the background removal and the photo's storage key are unchanged. `modern` keeps its existing upload zone and also gains the Contact-tab photo row (FR-14).
 - The cover letter templates are unchanged.
+- Amendment 2 changes only the skills section of `swissVocational`. Its `e2e/visual` baseline is updated in US-012 for that section alone, and the evidence shows the old and new baseline side by side. Every other baseline, and every parity verdict, stays unchanged.
 
 ## Required Verification
 
@@ -329,6 +347,7 @@ As a first-time job seeker or a person without a certified vocational qualificat
 - A template name, description or heading is missing or untranslated in one of fr, en, de or it.
 - A template's Preview returns a non-200 response on the server render.
 - A layout control is offered for a template whose rendering ignores it.
+- In any of the four `swissVocational` outputs, skill text is drawn on the same line as its category label (FR-15).
 
 ## BLOCKER Conditions
 
