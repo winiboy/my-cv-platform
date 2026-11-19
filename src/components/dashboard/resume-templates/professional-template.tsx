@@ -4,7 +4,6 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import type {
   Resume,
-  ResumeContact,
   ResumeExperience,
   ResumeEducation,
   ResumeSkillCategory,
@@ -12,6 +11,7 @@ import type {
   ResumeLanguage,
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
+import { visibleContactDetails, type ContactFieldId } from '@/lib/contact-visibility'
 import { presentLabel } from '@/lib/resume-template-strings'
 import { renderFormattedText } from '@/lib/format-text'
 import { PROFESSIONAL_LINE_HEIGHT } from '@/lib/resume-line-height'
@@ -41,6 +41,8 @@ interface ProfessionalTemplateProps {
   sidebarWidth?: number
   setSidebarWidth?: (width: number) => void
   hiddenSidebarSections?: readonly SidebarSectionId[]
+  /** Contact details the owner hid (swiss-cv-templates FR-14); drawn through `visibleContactDetails`. */
+  hiddenContactFields?: readonly ContactFieldId[]
   hiddenMainSections?: readonly MainContentSectionId[]
 }
 
@@ -142,8 +144,9 @@ export function ProfessionalTemplate({
   setSidebarWidth,
   hiddenSidebarSections = DEFAULT_RESUME_LAYOUT.hiddenSidebarSections,
   hiddenMainSections = DEFAULT_RESUME_LAYOUT.hiddenMainSections,
+  hiddenContactFields,
 }: ProfessionalTemplateProps) {
-  const contact = (resume.contact as unknown as ResumeContact) || {}
+  const { contact, title, titleVisible } = visibleContactDetails(resume, hiddenContactFields)
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
   const education = ((resume.education as unknown as ResumeEducation[]) || []).filter(edu => edu.visible !== false)
@@ -536,9 +539,11 @@ export function ProfessionalTemplate({
       >
           {/* HEADER: Professional Title and Contact Info */}
           <div className="pb-6" style={{ marginBottom: `${mainContentTopMargin}px` }}>
-            <h1 className="font-bold tracking-tight" style={{ color: 'oklch(0.2 0 0)', fontSize: `${scaledProfessionalTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${TITLE_GAP}px` }}>
-              {resume.title || 'PROFESSIONAL TITLE'}
-            </h1>
+            {titleVisible && (
+              <h1 className="font-bold tracking-tight" style={{ color: 'oklch(0.2 0 0)', fontSize: `${scaledProfessionalTitleFontSize}px`, lineHeight: HEADING_LINE_HEIGHT, marginBottom: `${TITLE_GAP}px` }}>
+                {title || 'PROFESSIONAL TITLE'}
+              </h1>
+            )}
 
             {/* Contact Information */}
             <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ color: 'oklch(0.4 0 0)', fontSize: `${scaledContactFontSize}px`, lineHeight: BODY_LINE_HEIGHT }}>

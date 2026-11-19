@@ -341,6 +341,17 @@
       "uploadPhoto": "Upload photo",
       "changePhoto": "Change photo",
       "photoTooLarge": "The photo must be under 2 MB.",
+      "photoRow": "Photo",
+      "showOnCv": {
+        "title": "Show professional title on CV",
+        "email": "Show e-mail on CV",
+        "phone": "Show phone on CV",
+        "location": "Show location on CV",
+        "linkedin": "Show LinkedIn on CV",
+        "github": "Show GitHub on CV",
+        "website": "Show website on CV",
+        "photo": "Show photo on CV"
+      },
       "richTextToolbar": {
         "bold": "Bold (Ctrl+B)",
         "italic": "Italic (Ctrl+I)",
@@ -392,7 +403,6 @@
         "olive": "Olive"
       }
     },
-    "showControls": "Show Controls",
     "association": {
       "linkedCoverLetters": "Linked Cover Letters",
       "noCoverLetters": "No cover letters linked to this resume yet",

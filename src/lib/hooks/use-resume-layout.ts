@@ -13,6 +13,7 @@ import {
   type PersistedLayoutSource,
   type ResumeLayoutModel,
 } from '@/lib/layout-settings'
+import type { ContactFieldId } from '@/lib/contact-visibility'
 import { adoptCachedLayout, usePersistedLayout } from '@/lib/hooks/use-persisted-layout'
 import {
   applyLayoutChange,
@@ -95,6 +96,7 @@ export interface ResumeLayoutSetters {
   setMainContentOrder: LayoutValueSetter<readonly EditorMainId[]>
   setHiddenSidebarSections: LayoutValueSetter<readonly EditorSidebarId[]>
   setHiddenMainSections: LayoutValueSetter<readonly EditorMainId[]>
+  setHiddenContactFields: LayoutValueSetter<readonly ContactFieldId[]>
 }
 
 export interface ResumeLayoutController {
@@ -168,6 +170,7 @@ export function useResumeLayout(
       setMainContentOrder: (update) => change('mainContentOrder', update),
       setHiddenSidebarSections: (update) => change('hiddenSidebarSections', update),
       setHiddenMainSections: (update) => change('hiddenMainSections', update),
+      setHiddenContactFields: (update) => change('hiddenContactFields', update),
     }),
     [change],
   )

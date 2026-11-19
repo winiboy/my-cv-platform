@@ -149,9 +149,16 @@ test('fr: a CV is created with swissVocational from the new-CV picker, and the E
   await expect(live).toContainText(FIXTURE_EXPERIENCE[0].company)
   await expect(live).not.toContainText(HIDDEN_EXPERIENCE.company)
 
-  // No photo yet: the photo's place is the upload affordance, in the Editor only.
-  await expect(live.getByRole('button', { name: frCommon.resumes.editor.uploadPhoto })).toBeVisible()
+  // No photo yet: no frame and no upload box in the CV (FR-5). The upload is
+  // the Contact tab's photo row, with its "show photo on CV" tick (FR-14).
+  await expect(live.getByRole('button')).toHaveCount(0)
   await expect(live.locator('img')).toHaveCount(0)
+  const photoRow = page.getByTestId('contact-photo-row')
+  await expect(photoRow.getByRole('button', { name: frCommon.resumes.editor.uploadPhoto })).toBeVisible()
+  await expect(photoRow.getByRole('checkbox', { name: frCommon.resumes.editor.showOnCv.photo })).toBeChecked()
+
+  // FR-12: no font carousel and no font-size slider above the live preview.
+  await expect(page.getByTestId('resume-editor-preview').locator('input.font-slider')).toHaveCount(0)
 })
 
 test('en: the Preview page renders on the server, in order, without hidden content or a photo frame', async ({ page, authedUser }) => {

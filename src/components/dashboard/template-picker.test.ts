@@ -7,7 +7,7 @@ import de from '@/locales/de/common.json'
 import it_ from '@/locales/it/common.json'
 import type { Locale } from '@/lib/i18n'
 import { TEMPLATE_SAMPLE_RESUME } from '@/lib/template-sample-resume'
-import { ResumePreview } from '@/components/dashboard/resume-preview'
+import { ProfessionalTemplate } from '@/components/dashboard/resume-templates/professional-template'
 import type { ResumeTemplate } from '@/types/database'
 import {
   TEMPLATE_OPTIONS,
@@ -204,10 +204,12 @@ describe('TemplatePicker', () => {
 
 describe('TemplateThumbnailPage', () => {
   // Control: the patterns do detect an affordance when a setter is passed, so
-  // their absence below is not a pattern that can never match.
+  // their absence below is not a pattern that can never match. Passed to the
+  // template directly: `ResumePreview`, which the thumbnails use, accepts no
+  // setter at all (swiss-cv-templates FR-13).
   it('would detect the resize handle a setter makes a template draw', () => {
     const html = renderToStaticMarkup(
-      createElement(ResumePreview, {
+      createElement(ProfessionalTemplate, {
         resume: { ...TEMPLATE_SAMPLE_RESUME, template: 'professional' },
         locale: 'en',
         dict: en,

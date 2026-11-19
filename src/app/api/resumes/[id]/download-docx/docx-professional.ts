@@ -19,6 +19,7 @@ import {
   type UniversalMeasure,
   PageOrientation,
 } from 'docx'
+import { visibleContactDetails } from '@/lib/contact-visibility'
 import {
   pxToHalfPoints,
   pxToTwips,
@@ -204,7 +205,7 @@ export async function generateProfessionalDocx(
   // Load translations
   const dict = getTranslations(locale as Locale, 'common')
 
-  const contact = resume.contact || {}
+  const { contact, title, titleVisible } = visibleContactDetails(resume, settings.hiddenContactFields)
 
   // Filter visible items only (matching Preview behavior)
   const experiences = (resume.experience || []).filter((exp: any) => exp.visible !== false)
@@ -851,28 +852,32 @@ export async function generateProfessionalDocx(
   // ============================================================
   const mainContentParagraphs: Paragraph[] = []
 
-  // Header: Professional Title
-  mainContentParagraphs.push(
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: resume.title || 'PROFESSIONAL TITLE',
-          bold: true,
-          size: scaledFontSizes.professionalTitle,
-          scale: widthScales.professionalTitle,
-          position: baselineShift('professionalTitle', LINE_HEIGHT.heading),
-          color: PALETTE.heading,
-          font: primaryFont,
-          characterSpacing: trackingSpacing(TRACKING.title, lineFontSizes.professionalTitle),
-        }),
-      ],
-      spacing: {
-        before: mainFirstParagraphBefore,
-        after: pxToTwips(SPACING.TITLE_GAP),
-        ...exactLineSpacing([LINE_HEIGHT.heading, lineFontSizes.professionalTitle]),
-      },
-    })
-  )
+  // Header: Professional Title. When it is hidden, the paragraph that
+  // follows opens the column and takes its first-paragraph offset.
+  const headerOpening = titleVisible ? {} : { before: mainFirstParagraphBefore }
+  if (titleVisible) {
+    mainContentParagraphs.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: title || 'PROFESSIONAL TITLE',
+            bold: true,
+            size: scaledFontSizes.professionalTitle,
+            scale: widthScales.professionalTitle,
+            position: baselineShift('professionalTitle', LINE_HEIGHT.heading),
+            color: PALETTE.heading,
+            font: primaryFont,
+            characterSpacing: trackingSpacing(TRACKING.title, lineFontSizes.professionalTitle),
+          }),
+        ],
+        spacing: {
+          before: mainFirstParagraphBefore,
+          after: pxToTwips(SPACING.TITLE_GAP),
+          ...exactLineSpacing([LINE_HEIGHT.heading, lineFontSizes.professionalTitle]),
+        },
+      })
+    )
+  }
 
   // Contact Information (horizontal layout with emojis)
   const contactItems: { icon: string; text: string }[] = []
@@ -911,6 +916,7 @@ export async function generateProfessionalDocx(
           new TextRun({ ...contactRun, text: text.replace(/ /g, '\u00A0') }),
         ]),
         spacing: {
+          ...headerOpening,
           after: pxToTwips(24 + mainContentTopMargin) - contactRowGap,
           ...contactLine,
           line: contactLine.line + contactRowGap,
@@ -922,7 +928,7 @@ export async function generateProfessionalDocx(
     // This paragraph carries only that gap; the Preview draws no line here.
     mainContentParagraphs.push(
       new Paragraph({
-        spacing: { after: pxToTwips(24 + mainContentTopMargin), ...NO_TEXT_LINE },
+        spacing: { ...headerOpening, after: pxToTwips(24 + mainContentTopMargin), ...NO_TEXT_LINE },
       })
     )
   }

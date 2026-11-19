@@ -296,19 +296,35 @@ describe('swissVocational: the photo', () => {
     expect(xml).not.toContain('<w:drawing>')
   })
 
-  it('turns the photo place into an upload affordance in the Editor only', () => {
-    const editor = renderToStaticMarkup(
-      createElement(SwissVocationalTemplate, {
-        resume: resumeRow() as unknown as Resume,
-        locale: 'fr',
-        dict: fr,
-        onPhotoChange: () => {},
+  it('draws no upload box in the CV: the photo is uploaded from the Contact tab (FR-5)', () => {
+    const html = renderToStaticMarkup(
+      createElement(SwissVocationalTemplate, { resume: resumeRow() as unknown as Resume, locale: 'fr', dict: fr }),
+    )
+    expect(html).not.toContain(fr.resumes.editor.uploadPhoto)
+    expect(html).not.toMatch(/<input[^>]*type="file"/)
+    expect(html).not.toContain('<button')
+    expect(html).not.toContain('border-dashed')
+  })
+
+  it('draws no photo on either output when the photo is unticked, and keeps it when ticked (FR-14)', async () => {
+    const hidden = resumeRow({ layout_settings: { hiddenContactFields: ['photo'] } })
+    const layout = resolveResumeLayout(hidden, null)
+    expect(layout.hiddenContactFields).toEqual(['photo'])
+
+    const preview = renderToStaticMarkup(
+      createElement(ResumePreview, {
+        resume: hidden as unknown as Resume,
+        locale: 'en',
+        dict: en,
+        photoUrl: PHOTO,
+        hiddenContactFields: layout.hiddenContactFields,
       }),
     )
-    expect(editor).toContain(fr.resumes.editor.uploadPhoto)
-    expect(editor).toMatch(/<input[^>]*type="file"/)
-    // An editor control, never part of a printed document.
-    expect(editor).toMatch(/<button[^>]*class="[^"]*print:hidden/)
+    expect(preview).not.toContain('<img')
+    expect(await documentXml(hidden, 'en', { photoBase64: PHOTO, hiddenContactFields: layout.hiddenContactFields })).not.toContain('<w:drawing>')
+
+    // Ticked again: drawn again, from the same stored photo.
+    expect(await documentXml(hidden, 'en', { photoBase64: PHOTO, hiddenContactFields: [] })).toContain('<w:drawing>')
   })
 })
 
@@ -320,17 +336,28 @@ describe('swissVocational: Word layout', () => {
     expect(borders?.[1]).toMatch(new RegExp(`<w:left\\b[^>]*w:val="single"[^>]*w:color="${DOCX_PALETTE.swissVocational['red-700']}"`, 'i'))
   })
 
-  it('applies the layout font scale to every size it draws', async () => {
+  it('ignores the stored font scale: every size is its own design (FR-4)', async () => {
     const row = resumeRow()
     const nameRun = (xml: string) => /<w:r>(?:(?!<\/w:r>)[\s\S])*?<w:sz w:val="(\d+)"\/>(?:(?!<\/w:r>)[\s\S])*?<w:t[^>]*>Robin Halvorsen<\/w:t>/.exec(xml)?.[1]
     expect(Number(nameRun(await documentXml(row, 'en')))).toBe(pxToHalfPoints(SWISS_VOCATIONAL_SIZES.name))
-    expect(Number(nameRun(await documentXml(row, 'en', { fontScale: 1.2 })))).toBe(pxToHalfPoints(SWISS_VOCATIONAL_SIZES.name * 1.2))
+    expect(Number(nameRun(await documentXml(row, 'en', { fontScale: 1.2 })))).toBe(pxToHalfPoints(SWISS_VOCATIONAL_SIZES.name))
   })
 
-  it('writes the chosen font, and Inter when none was chosen', async () => {
+  it('writes Inter whatever font is stored (FR-4)', async () => {
     const row = resumeRow()
     expect(await documentXml(row, 'en')).toMatch(/w:ascii="Inter"/)
-    expect(await documentXml(row, 'en', { fontFamily: 'Georgia, serif' })).toMatch(/w:ascii="Georgia"/)
+    const georgia = await documentXml(row, 'en', { fontFamily: 'Georgia, serif' })
+    expect(georgia).toMatch(/w:ascii="Inter"/)
+    expect(georgia).not.toMatch(/Georgia/)
+  })
+
+  it('draws the same Preview whatever font and scale are stored (FR-4)', () => {
+    const plain = resumeRow()
+    const styled = resumeRow({ layout_settings: { fontScale: 1.3, fontFamily: 'Georgia, serif' } })
+    const layout = resolveResumeLayout(styled, null)
+    const render = (row: Row, props: Record<string, unknown>) =>
+      renderToStaticMarkup(createElement(ResumePreview, { resume: row as unknown as Resume, locale: 'en', dict: en, ...props }))
+    expect(render(styled, { fontScale: layout.fontScale, fontFamily: layout.fontFamily })).toBe(render(plain, {}))
   })
 
   it('puts the dates in a left column beside each dated entry', async () => {
@@ -403,31 +430,32 @@ const lineTwips = (lineHeight: number, px: number) => Math.round(lineHeight * (p
 
 describe('swissVocational: each DOCX element as the Preview draws it', () => {
   const row = resumeRow()
+  // The stored scale, which the template ignores (FR-4): each size below is its design size at both.
   const xmlAt = (fontScale: number) => documentXml(row, 'en', { fontScale })
 
-  it.each([1, 1.3])('the name at font scale %s: slate-900, bold, at the name line height', async (scale) => {
+  it.each([1, 1.3])('the name at stored font scale %s: slate-900, bold, at the name line height', async (scale) => {
     const name = runNamed(await xmlAt(scale), 'Robin Halvorsen')
     expect(name).toMatchObject({ colour: PALETTE['slate-900'], bold: true, caps: false, spacing: undefined })
-    expect(name.size).toBe(pxToHalfPoints(SWISS_VOCATIONAL_SIZES.name * scale))
-    expect(name.line).toBe(lineTwips(LH.name, SWISS_VOCATIONAL_SIZES.name * scale))
+    expect(name.size).toBe(pxToHalfPoints(SWISS_VOCATIONAL_SIZES.name))
+    expect(name.line).toBe(lineTwips(LH.name, SWISS_VOCATIONAL_SIZES.name))
   })
 
-  it.each([1, 1.3])('the CV title at font scale %s: red-700, capitals, tracking-widest, compact line', async (scale) => {
+  it.each([1, 1.3])('the CV title at stored font scale %s: red-700, capitals, tracking-widest, compact line', async (scale) => {
     const title = runNamed(await xmlAt(scale), 'Kilnwright CFC')
-    const size = pxToHalfPoints(SWISS_VOCATIONAL_SIZES.title * scale)
+    const size = pxToHalfPoints(SWISS_VOCATIONAL_SIZES.title)
     expect(title).toMatchObject({ colour: PALETTE['red-700'], caps: true, size })
     expect(title.spacing).toBe(trackingSpacing(TRACKING.caps, size))
-    expect(title.line).toBe(lineTwips(LH.compact, SWISS_VOCATIONAL_SIZES.title * scale))
+    expect(title.line).toBe(lineTwips(LH.compact, SWISS_VOCATIONAL_SIZES.title))
   })
 
-  it.each([1, 1.3])('every section heading at font scale %s: slate-900, bold capitals, tracking-widest, compact line', async (scale) => {
+  it.each([1, 1.3])('every section heading at stored font scale %s: slate-900, bold capitals, tracking-widest, compact line', async (scale) => {
     const xml = await xmlAt(scale)
-    const size = pxToHalfPoints(SWISS_VOCATIONAL_SIZES.heading * scale)
+    const size = pxToHalfPoints(SWISS_VOCATIONAL_SIZES.heading)
     for (const key of ['summary', 'experience', 'education', 'training', 'skills', 'languages'] as const) {
       const heading = runNamed(xml, en.resumes.template[key])
       expect(heading, key).toMatchObject({ colour: PALETTE['slate-900'], bold: true, caps: true, size })
       expect(heading.spacing, key).toBe(trackingSpacing(TRACKING.caps, size))
-      expect(heading.line, key).toBe(lineTwips(LH.compact, SWISS_VOCATIONAL_SIZES.heading * scale))
+      expect(heading.line, key).toBe(lineTwips(LH.compact, SWISS_VOCATIONAL_SIZES.heading))
     }
   })
 
@@ -438,10 +466,10 @@ describe('swissVocational: each DOCX element as the Preview draws it', () => {
     expect(xml).toMatch(new RegExp(`<w:bottom\\b[^>]*w:color="${PALETTE['slate-800']}"`, 'i'))
   })
 
-  it.each([1, 1.3])('dates, entries and body text at font scale %s, at the text line height', async (scale) => {
+  it.each([1, 1.3])('dates, entries and body text at stored font scale %s, at the text line height', async (scale) => {
     const xml = await xmlAt(scale)
-    const size = pxToHalfPoints(SWISS_VOCATIONAL_SIZES.body * scale)
-    const line = lineTwips(LH.text, SWISS_VOCATIONAL_SIZES.body * scale)
+    const size = pxToHalfPoints(SWISS_VOCATIONAL_SIZES.body)
+    const line = lineTwips(LH.text, SWISS_VOCATIONAL_SIZES.body)
     const expected: [string, string, boolean][] = [
       [`03.2021 – ${en.resumes.template.present}`, PALETTE['slate-600'], false],
       ['Kilnwright', PALETTE['slate-900'], true],
@@ -462,14 +490,14 @@ describe('swissVocational: each DOCX element as the Preview draws it', () => {
     }
   })
 
-  it('scales the date column and the contact label column with the type (FR-4)', async () => {
+  it('keeps the date column and the contact label column at their design widths, whatever the stored scale (FR-4)', async () => {
     const firstColumns = async (scale: number) => {
       const xml = await xmlAt(scale)
       return [...xml.matchAll(/<w:tblGrid>([\s\S]*?)<\/w:tblGrid>/g)].map(([, grid]) => Number(/w:w="(\d+)"/.exec(grid)?.[1]))
     }
     // pxToTwips: 15 twips a px.
     expect(await firstColumns(1)).toEqual(expect.arrayContaining([128 * 15, (80 + 12) * 15]))
-    expect(await firstColumns(1.3)).toEqual(expect.arrayContaining([Math.round(128 * 1.3 * 15), Math.round((80 + 12) * 1.3 * 15)]))
+    expect(await firstColumns(1.3)).toEqual(await firstColumns(1))
   })
 })
 

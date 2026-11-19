@@ -202,6 +202,9 @@ async function handleDocxGeneration(
     mainContentOrder: [...layout.mainContentOrder],
     hiddenSidebarSections: [...layout.hiddenSidebarSections],
     hiddenMainSections: [...layout.hiddenMainSections],
+    // The stored list, not a request value: the body's photo is a transport,
+    // and whether it is drawn is decided here by the same list the Preview reads.
+    hiddenContactFields: layout.hiddenContactFields,
     photoBase64: boundedPhoto(body?.photoBase64),
   }
 

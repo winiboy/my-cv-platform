@@ -61,20 +61,29 @@ export function expectCompleteRow(resume: Record<string, unknown>): void {
   expect(projects[0].technologies.length).toBeGreaterThan(0)
 }
 
+/**
+ * The fields that hold text a section shows. A Contact tab's "show on CV" tick
+ * boxes and its photo row's hidden file input hold none (swiss-cv-templates
+ * FR-14): a checkbox's value is the constant "on", and a hidden input never
+ * becomes visible to wait for.
+ */
+const TEXT_FIELDS = 'input:not([type="checkbox"]):not([type="file"]), textarea'
+
 /** The text a section shows in the editor: its form fields and its rich-text editors. */
 async function editorSectionText(page: Page, locale: string, resumeId: string, section: string): Promise<string> {
   const response = await page.goto(`/${locale}/dashboard/resumes/${resumeId}/edit?section=${section}`)
   expect(response?.status()).toBe(200)
-  await page.locator('input, textarea, [contenteditable="true"]').first().waitFor()
-  return page.evaluate(() =>
+  await page.locator(`${TEXT_FIELDS}, [contenteditable="true"]`).first().waitFor()
+  return page.evaluate((textFields) =>
     [
-      ...Array.from(document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')).map(
+      ...Array.from(document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(textFields)).map(
         (field) => field.value
       ),
       ...Array.from(document.querySelectorAll<HTMLElement>('[contenteditable="true"]')).map(
         (editor) => editor.innerText
       ),
-    ].join('\n')
+    ].join('\n'),
+    TEXT_FIELDS
   )
 }
 

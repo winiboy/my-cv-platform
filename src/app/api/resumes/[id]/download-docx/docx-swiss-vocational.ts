@@ -52,6 +52,7 @@ import {
   swissVocationalVisibility,
   type SwissVocationalSectionId,
 } from '@/lib/swiss-vocational-template'
+import { visibleContactDetails } from '@/lib/contact-visibility'
 import {
   APP_BODY_FONT,
   NO_TEXT_LINE,
@@ -64,7 +65,6 @@ import {
   parsePlainTextListToParagraphs,
   pxToHalfPoints,
   pxToTwips,
-  resolveDocxFont,
   trackingSpacing,
   type DocxGeneratorSettings,
 } from './docx-helpers'
@@ -129,16 +129,18 @@ const emptyParagraph = () => new Paragraph({ children: [], spacing: { before: 0,
  * languages are the two cells of a borderless table.
  */
 export async function generateSwissVocationalDocx(resume: unknown, settings: DocxGeneratorSettings): Promise<Buffer> {
-  const { fontFamily, fontScale, locale: localeRaw, hiddenMainSections, hiddenSidebarSections, photoBase64 } = settings
+  // `fontFamily` and `fontScale` are deliberately not read: the template draws
+  // its own typeface at its own sizes in every output, as its Preview does (FR-4).
+  const { locale: localeRaw, hiddenMainSections, hiddenSidebarSections, hiddenContactFields, photoBase64 } = settings
   const visibility = swissVocationalVisibility(hiddenMainSections, hiddenSidebarSections)
   const locale = localeRaw as Locale
   const dict = getTranslations(locale, 'common')
-  const font = resolveDocxFont(fontFamily, APP_BODY_FONT)
+  const font = APP_BODY_FONT
 
   // The route hands every generator the selected `resumes` row as it came from
   // the database; these are the columns this template reads.
   const row = (resume ?? {}) as StoredResume
-  const contact: ResumeContact = row.contact || {}
+  const { contact, title, photoVisible } = visibleContactDetails(row, hiddenContactFields)
   const experiences: ResumeExperience[] = (row.experience || []).filter((exp: ResumeExperience) => exp.visible !== false)
   const education: ResumeEducation[] = (row.education || []).filter((edu: ResumeEducation) => edu.visible !== false)
   const certifications: ResumeCertification[] = (row.certifications || []).filter(
@@ -159,11 +161,11 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
   // Run sizes in whole half-points, and the same sizes unrounded for line
   // spacing, so a fractional size keeps the Preview's line pitch.
   const px = {
-    name: SIZES.name * fontScale,
-    title: SIZES.title * fontScale,
-    contact: SIZES.contact * fontScale,
-    heading: SIZES.heading * fontScale,
-    body: SIZES.body * fontScale,
+    name: SIZES.name,
+    title: SIZES.title,
+    contact: SIZES.contact,
+    heading: SIZES.heading,
+    body: SIZES.body,
   }
   const size = {
     name: pxToHalfPoints(px.name),
@@ -257,8 +259,7 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
 
   /** One borderless table of dated rows: the dates in the left column, the content on the right. */
   const datedRows = (rows: { dates: string; content: Paragraph[] }[]) => {
-    // Scaled with the type, as on the Preview, so a scaled date still fits (FR-4).
-    const dateWidth = pxToTwips(GEOMETRY.dateColumn * fontScale)
+    const dateWidth = pxToTwips(GEOMETRY.dateColumn)
     return new Table({
       width: { size: contentWidth, type: WidthType.DXA },
       columnWidths: [dateWidth, contentWidth - dateWidth],
@@ -294,7 +295,7 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
   // ----------------------------------------------------------
   // HEADER
   // ----------------------------------------------------------
-  const photo = photoBase64 ? photoRun(photoBase64) : null
+  const photo = photoVisible && photoBase64 ? photoRun(photoBase64) : null
 
   const contactEntries = swissContactEntries(contact, dict)
   const headerText: (Paragraph | Table)[] = []
@@ -306,12 +307,12 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
       }),
     )
   }
-  if (row.title) {
+  if (title) {
     headerText.push(
       new Paragraph({
         children: [
           new TextRun({
-            text: row.title,
+            text: title,
             font,
             size: size.title,
             allCaps: true,
@@ -520,8 +521,7 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
   /** The contact grid: label and value pairs, two to a row. */
   function contactGrid(entries: ReturnType<typeof swissContactEntries>, width: number): Table {
     const pairGap = pxToTwips(GEOMETRY.contactPairGap)
-    // The label column and its gap grow with the type, as on the Preview (FR-4).
-    const labelWidth = pxToTwips((GEOMETRY.contactLabel + GEOMETRY.contactLabelGap) * fontScale)
+    const labelWidth = pxToTwips(GEOMETRY.contactLabel + GEOMETRY.contactLabelGap)
     const pairWidth = Math.round((width - pairGap) / 2)
     const valueWidth = pairWidth - labelWidth
     const contactLine = exactLineSpacing([LINE_HEIGHT.compact, line.contact])

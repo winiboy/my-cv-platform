@@ -28,6 +28,7 @@ import {
   type IMediaTransformation,
   type UniversalMeasure,
 } from 'docx'
+import { visibleContactDetails } from '@/lib/contact-visibility'
 import JSZip from 'jszip'
 import {
   pxToHalfPoints,
@@ -463,7 +464,7 @@ export async function generateModernDocx(
     mainContentOrder: mainContentOrderRaw,
     hiddenSidebarSections: hiddenSidebarRaw,
     hiddenMainSections: hiddenMainRaw,
-    photoBase64,
+    photoBase64: storedPhotoBase64,
   } = settings
 
   // Map editor-format section IDs to Modern template section IDs.
@@ -513,7 +514,9 @@ export async function generateModernDocx(
   // Load translations
   const dict = getTranslations(locale as Locale, 'common')
 
-  const contact = resume.contact || {}
+  const { contact, title, photoVisible } = visibleContactDetails(resume, settings.hiddenContactFields)
+  // An unticked photo is not drawn, and neither is its zone (FR-5).
+  const photoBase64 = photoVisible ? storedPhotoBase64 : undefined
 
   // Filter visible items only (matching Preview behavior)
   const experiences = (resume.experience || []).filter((exp: any) => exp.visible !== false)
@@ -1019,14 +1022,15 @@ export async function generateModernDocx(
   // Tables as well as paragraphs: a skill's proficiency bar is a table (US-007).
   const sidebarParagraphs: (Paragraph | Table)[] = []
 
-  // The sidebar content starts below the photo zone, which the Preview always
-  // draws (a placeholder when there is no photo), plus the content's top
-  // padding: the stored sidebarTopMargin when it is positive, p-8 otherwise.
+  // The sidebar content starts below the photo zone, which the Preview draws
+  // whenever the photo is ticked (a placeholder when there is no photo) and not
+  // at all when it is unticked (FR-5), plus the content's top padding: the
+  // stored sidebarTopMargin when it is positive, p-8 otherwise.
   // With "In Front of Text" wrapping the floating photo does not push text
   // down, so one paragraph carries the whole offset; it is also the photo's
   // anchor. Its 1-twip line is part of the offset.
   const sidebarContentTop =
-    pxToTwips(SPACING.PHOTO_ZONE_HEIGHT) +
+    (photoVisible ? pxToTwips(SPACING.PHOTO_ZONE_HEIGHT) : 0) +
     pxToTwips(sidebarTopMargin > 0 ? sidebarTopMargin : SPACING.SIDEBAR_PADDING)
   sidebarParagraphs.push(
     new Paragraph({
@@ -1511,7 +1515,7 @@ export async function generateModernDocx(
   )
 
   // --- HEADER: Job Title on accent bar ---
-  if (resume.title) {
+  if (title) {
     // The bar is an inline-block: as wide as its text plus 12px of padding
     // each side, as tall as its text line, which inherits preflight's height,
     // plus 4px above and below. The paragraph's line is that box, with the
@@ -1536,7 +1540,7 @@ export async function generateModernDocx(
           titleBarPadding(),
           new TextRun({
             ...titleBarRun,
-            text: resume.title.toUpperCase(),
+            text: title.toUpperCase(),
             characterSpacing: trackingSpacing(TRACKING.jobTitleBar, scaledFontSizes.jobTitleBar),
           }),
           titleBarPadding(),
@@ -1563,7 +1567,7 @@ export async function generateModernDocx(
         // The address line sets no line height, so it inherits preflight's;
         // with no job title above it, it has a 4px top margin.
         spacing: {
-          before: resume.title ? 0 : pxToTwips(SPACING.LOCATION_NO_TITLE_MT),
+          before: title ? 0 : pxToTwips(SPACING.LOCATION_NO_TITLE_MT),
           after: pxToTwips(SPACING.SECTION_MARGIN_BOTTOM_MAIN),
           ...lineOf('location'),
         },

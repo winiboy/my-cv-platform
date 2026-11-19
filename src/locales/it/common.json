@@ -341,6 +341,17 @@
       "uploadPhoto": "Aggiungi una foto",
       "changePhoto": "Cambia foto",
       "photoTooLarge": "La foto deve essere inferiore a 2 MB.",
+      "photoRow": "Foto",
+      "showOnCv": {
+        "title": "Mostra il titolo professionale nel CV",
+        "email": "Mostra l'e-mail nel CV",
+        "phone": "Mostra il telefono nel CV",
+        "location": "Mostra la località nel CV",
+        "linkedin": "Mostra LinkedIn nel CV",
+        "github": "Mostra GitHub nel CV",
+        "website": "Mostra il sito web nel CV",
+        "photo": "Mostra la foto nel CV"
+      },
       "richTextToolbar": {
         "bold": "Grassetto (Ctrl+B)",
         "italic": "Corsivo (Ctrl+I)",
@@ -392,7 +403,6 @@
         "olive": "Oliva"
       }
     },
-    "showControls": "Mostra controlli",
     "association": {
       "linkedCoverLetters": "Lettere di presentazione collegate",
       "noCoverLetters": "Nessuna lettera di presentazione collegata a questo CV",

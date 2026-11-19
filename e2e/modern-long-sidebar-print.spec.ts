@@ -82,7 +82,8 @@ test('modern: a sidebar taller than one page keeps its background behind all its
   const resume = await seedFixtureResume(authedUser.id, 'modern', { skills: LONG_SIDEBAR_SKILLS })
   const response = await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
   expect(response?.status()).toBe(200)
-  const controls = page.getByTestId('controls-toggle')
+  // The Preview has no controls switch and draws no editing control (swiss-cv-templates FR-13).
+  await expect(page.getByTestId('controls-toggle')).toHaveCount(0)
   const document = page.getByTestId('resume-document')
   await expect(document).toBeVisible()
   await page.evaluate(() => globalThis.document.fonts.ready)
@@ -142,13 +143,11 @@ test('modern: a sidebar taller than one page keeps its background behind all its
     )
   }
 
-  // Screen: the Preview itself, controls off.
-  await controls.uncheck({ force: true })
+  // Screen: the Preview itself.
   await page.emulateMedia({ media: 'screen' })
   expectBackgroundContainsText(await read(), 'screen')
 
-  // Print as shipped: the controls on, as when a user hits Download PDF.
-  await controls.check({ force: true })
+  // Print, as when a user hits Download PDF.
   await page.emulateMedia({ media: 'print' })
   const print = await read()
   expectBackgroundContainsText(print, 'print')

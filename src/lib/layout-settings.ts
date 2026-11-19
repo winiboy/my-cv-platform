@@ -18,6 +18,7 @@
  */
 
 import type { BuiltResumeTemplate, ResumeLayoutSettings } from '@/types/database'
+import { CONTACT_FIELD_IDS, type ContactFieldId } from '@/lib/contact-visibility'
 
 /** Known sidebar section IDs — used for validation and migration. */
 const VALID_SIDEBAR_IDS = ['keyAchievements', 'skills', 'languages', 'training'] as const
@@ -100,6 +101,13 @@ export interface ResumeLayoutModel {
   readonly mainContentOrder: readonly EditorMainId[]
   readonly hiddenSidebarSections: readonly EditorSidebarId[]
   readonly hiddenMainSections: readonly EditorMainId[]
+  /**
+   * The contact details the owner unticked in the Contact tab, which no
+   * output draws (swiss-cv-templates FR-14). Empty means everything is shown,
+   * which is also what a blob written before the list existed resolves to.
+   * Read through `visibleContactDetails` in `@/lib/contact-visibility`.
+   */
+  readonly hiddenContactFields: readonly ContactFieldId[]
 }
 
 /**
@@ -137,6 +145,7 @@ export const DEFAULT_RESUME_LAYOUT: Readonly<ResumeLayoutModel> = Object.freeze(
   mainContentOrder: Object.freeze([...VALID_MAIN_IDS]),
   hiddenSidebarSections: Object.freeze([] as EditorSidebarId[]),
   hiddenMainSections: Object.freeze([] as EditorMainId[]),
+  hiddenContactFields: Object.freeze([] as ContactFieldId[]),
 })
 
 /**
@@ -363,6 +372,11 @@ export function parseLayoutModel(input: unknown): Partial<ResumeLayoutModel> {
     result.hiddenMainSections = hiddenMainSections
   }
 
+  const hiddenContactFields = parseIdList(raw.hiddenContactFields, CONTACT_FIELD_IDS)
+  if (hiddenContactFields !== null) {
+    result.hiddenContactFields = hiddenContactFields
+  }
+
   return result
 }
 
@@ -395,10 +409,10 @@ export function resolveLayoutModel(input: unknown): ResumeLayoutModel {
  * string's length in UTF-16 code units is never greater than its length in
  * UTF-8 bytes, so anything the database accepted passes here too: the two
  * bounds cannot disagree in the direction that would reject a legitimate
- * value. 4096 against a worst case of 977 bytes — nineteen properties with
+ * value. 4096 against a worst case of 1074 bytes — twenty properties with
  * every list full, the longest accepted font stack, and every number as wide
  * as a double can print inside its accepted range. The model the CONTROLS can
- * actually produce is 752 bytes. Both are asserted in `layout-settings.test.ts`
+ * actually produce is 849 bytes. Both are asserted in `layout-settings.test.ts`
  * so this bound cannot be narrowed past a legitimate value without failing.
  */
 export const MAX_LAYOUT_BLOB_LENGTH = 4096
@@ -580,6 +594,7 @@ export function toStoredLayout(model: ResumeLayoutModel): StoredLayoutModel {
     mainContentOrder: [...model.mainContentOrder],
     hiddenSidebarSections: [...model.hiddenSidebarSections],
     hiddenMainSections: [...model.hiddenMainSections],
+    hiddenContactFields: [...model.hiddenContactFields],
   }
 }
 
@@ -1409,12 +1424,14 @@ export const DEFAULT_CREATIVE_MAIN_ORDER: readonly CreativeMainId[] = Object.fre
  * one drag-and-drop panel writes both sidebar-section keys. Gating per group is
  * gating per control, which is what FR-9 is about.
  */
-export type LayoutControlId = 'sidebarColour' | 'perPropertySize' | 'sidebarSections'
+export type LayoutControlId = 'sidebarColour' | 'perPropertySize' | 'sidebarSections' | 'font'
 
 /** The model keys each control writes. Nothing else may write them. */
 export const LAYOUT_CONTROL_KEYS: Readonly<
   Record<LayoutControlId, readonly (keyof ResumeLayoutModel)[]>
 > = Object.freeze({
+  /** The font carousel and the font-size slider above the Editor live preview. */
+  font: Object.freeze(['fontFamily', 'fontScale'] as const),
   sidebarColour: Object.freeze(['sidebarHue', 'sidebarSaturation', 'sidebarBrightness'] as const),
   perPropertySize: Object.freeze([
     'titleFontSize',
@@ -1439,9 +1456,16 @@ export const LAYOUT_CONTROL_KEYS: Readonly<
  * generator READS is the whole of the question:
  *
  *                     professional  modern   classic  minimal  creative  swissVocational
+ *   font                   yes       yes       yes      yes      yes         no
  *   sidebarColour          yes       yes       no       no       no          no
  *   perPropertySize        no        no        yes      yes      yes         no
  *   sidebarSections        yes       yes       no       no       yes         visibility only
+ *
+ * font — the five original templates draw the stored font family and font
+ *   scale. A Swiss template draws its own typeface at scale 1.0 in every output
+ *   and ignores both (swiss-cv-templates FR-4, FR-12), so neither the carousel
+ *   nor the slider is offered for it; the stored values stay as they are and
+ *   apply again when one of the five is selected.
  *
  * sidebarColour — professional and modern are the only templates the editor
  *   passes `sidebarColor` to, and the only DOCX generators that paint a sidebar
@@ -1466,24 +1490,20 @@ export const LAYOUT_CONTROL_KEYS: Readonly<
  *   surface today, which is Part 3 US-015's defect to close, not a control to
  *   withdraw.
  *
- * NOT IN THIS MAP, deliberately. `fontScale` and `fontFamily` do not reach the
- * classic, minimal and creative Previews today, and the main-content panel does
- * not reach those three either. Each is a live divergence owned by another Part
- * 3 story — US-011, US-012 and US-009/US-015 respectively — which closes it by
- * making the control APPLY. Hiding them here would pre-empt those stories and
- * remove capability the product is about to gain.
+ * NOT IN THIS MAP: the main-content panel, which the editor offers for every
+ * template; which of its rows each template lists is `TEMPLATE_EDITOR_SECTIONS`.
  */
 export const TEMPLATE_LAYOUT_CONTROLS: Readonly<
   Record<BuiltResumeTemplate, readonly LayoutControlId[]>
 > = Object.freeze({
-  professional: Object.freeze(['sidebarColour', 'sidebarSections'] as const),
-  modern: Object.freeze(['sidebarColour', 'sidebarSections'] as const),
-  classic: Object.freeze(['perPropertySize'] as const),
-  minimal: Object.freeze(['perPropertySize'] as const),
-  creative: Object.freeze(['perPropertySize', 'sidebarSections'] as const),
+  professional: Object.freeze(['font', 'sidebarColour', 'sidebarSections'] as const),
+  modern: Object.freeze(['font', 'sidebarColour', 'sidebarSections'] as const),
+  classic: Object.freeze(['font', 'perPropertySize'] as const),
+  minimal: Object.freeze(['font', 'perPropertySize'] as const),
+  creative: Object.freeze(['font', 'perPropertySize', 'sidebarSections'] as const),
   /**
-   * swissVocational draws its sizes from its own design at the model's font
-   * scale, renders no in-Preview size input and paints no user colour. It has
+   * swissVocational draws its sizes from its own design at scale 1.0 in its
+   * own typeface, renders no in-Preview size input and paints no user colour. It has
    * no sidebar, but skills, languages and training are SIDEBAR ids in the
    * model and it honours their stored visibility on every surface, so the
    * sidebar panel is offered for their visibility toggles only: every row it
@@ -1505,6 +1525,34 @@ export function templateOffersLayoutControl(template: string, control: LayoutCon
       ? TEMPLATE_LAYOUT_CONTROLS[template as BuiltResumeTemplate]
       : TEMPLATE_LAYOUT_CONTROLS.modern
   return offered.includes(control)
+}
+
+/**
+ * Whether a template draws the photo (swiss-cv-templates FR-5, FR-14): modern
+ * and every Swiss template except `swissAcademic`. The editor shows the
+ * Contact tab's photo row exactly where this is true.
+ *
+ * A `Record` over the built templates, so a template added to the set fails
+ * to compile here until its photo is stated.
+ */
+export const TEMPLATE_DRAWS_PHOTO: Readonly<Record<BuiltResumeTemplate, boolean>> = Object.freeze({
+  professional: false,
+  modern: true,
+  classic: false,
+  minimal: false,
+  creative: false,
+  swissVocational: true,
+})
+
+/**
+ * Whether `template` draws the photo. Takes a `string` and resolves an unknown
+ * value like `templateOffersLayoutControl` does: as modern, which the editor's
+ * template switch draws for it.
+ */
+export function templateDrawsPhoto(template: string): boolean {
+  return template in TEMPLATE_DRAWS_PHOTO
+    ? TEMPLATE_DRAWS_PHOTO[template as BuiltResumeTemplate]
+    : TEMPLATE_DRAWS_PHOTO.modern
 }
 
 /** The per-property size keys, in the order `LAYOUT_CONTROL_KEYS` lists them. */

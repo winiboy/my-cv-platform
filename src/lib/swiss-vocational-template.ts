@@ -14,11 +14,12 @@ import { contactLabel, presentLabel, type ContactLabelKey } from '@/lib/resume-t
  */
 
 /**
- * The type sizes, in CSS px at page scale before the layout model's font scale.
+ * The type sizes, in CSS px at page scale.
  *
- * No per-property size control applies to this template
- * (`TEMPLATE_APPLIED_SIZE_KEYS.swissVocational` is empty): these are its design,
- * and `fontScale` is the one size setting that moves them.
+ * No size setting applies to this template: no per-property size
+ * (`TEMPLATE_APPLIED_SIZE_KEYS.swissVocational` is empty) and not the layout
+ * model's font scale, which a Swiss template ignores in every output (FR-4).
+ * These are its design.
  */
 export const SWISS_VOCATIONAL_SIZES = {
   name: 30,
@@ -34,9 +35,9 @@ export const SWISS_VOCATIONAL_GEOMETRY = {
   paddingX: 56,
   /** The page's padding, top and bottom. */
   paddingY: 48,
-  /** The left column that dated rows put their dates in, at font scale 1. */
+  /** The left column that dated rows put their dates in. */
   dateColumn: 128,
-  /** The contact grid: each label's column and the gap after it, at font scale 1. */
+  /** The contact grid: each label's column and the gap after it. */
   contactLabel: 80,
   contactLabelGap: 12,
   /** The gap between the two label and value pairs of a contact row. */

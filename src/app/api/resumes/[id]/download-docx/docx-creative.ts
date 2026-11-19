@@ -22,6 +22,7 @@ import {
   VerticalPositionRelativeFrom,
   TextWrappingType,
 } from 'docx'
+import { visibleContactDetails } from '@/lib/contact-visibility'
 import {
   pxToHalfPoints,
   pxToTwips,
@@ -238,7 +239,7 @@ export async function generateCreativeDocx(
   // (Part 3 US-012).
   const font = resolveDocxFont(fontFamily, APP_BODY_FONT)
 
-  const contact = resume.contact || {}
+  const { contact, title } = visibleContactDetails(resume, settings.hiddenContactFields)
 
   // Filter visible items only (matching Preview behavior)
   const experiences = (resume.experience || []).filter((exp: any) => exp.visible !== false)
@@ -531,7 +532,7 @@ export async function generateCreativeDocx(
       children: [
         headerCircle('top'),
         new TextRun({
-          text: (resume.title || contact.name || 'Your Name').toUpperCase(),
+          text: (title || contact.name || 'Your Name').toUpperCase(),
           bold: true,
           size: scaledFontSizes.name,
           color: PALETTE.white,

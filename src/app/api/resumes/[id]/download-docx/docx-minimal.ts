@@ -18,6 +18,7 @@ import {
   PageOrientation,
   TableLayoutType,
 } from 'docx'
+import { visibleContactDetails } from '@/lib/contact-visibility'
 import {
   pxToHalfPoints,
   pxToTwips,
@@ -159,7 +160,11 @@ export async function generateMinimalDocx(
   // The owner's chosen font, or the font the Preview draws when none was chosen.
   const font = resolveDocxFont(fontFamily, DESIGNED_FONT)
 
-  const contact = resume.contact || {}
+  const { contact, title, titleVisible } = visibleContactDetails(resume, settings.hiddenContactFields)
+  // The heading: the CV title (or its placeholder) while it is ticked, else the
+  // full name, which cannot be hidden and is drawn nowhere else (FR-14), as on
+  // the Preview. Nothing when there is no name either.
+  const heading = titleVisible ? title || 'CV TITLE' : contact.name ?? ''
 
   // Filter visible items only (matching Preview behavior)
   const experiences = (resume.experience || []).filter((exp: any) => exp.visible !== false)
@@ -338,26 +343,28 @@ export async function generateMinimalDocx(
   // HEADER: CV Title (centered, light weight, NOT bold)
   // font-light tracking-tight text-slate-900
   // ----------------------------------------------------------
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: resume.title || 'CV TITLE',
-          // font-light (300) = normal (non-bold) in DOCX
-          bold: false,
-          size: scaledFontSizes.title,
-          color: PALETTE['slate-900'],
-          font,
-          characterSpacing: trackingSpacing(TRACKING.title, scaledFontSizes.title),
-        }),
-      ],
-      alignment: AlignmentType.CENTER,
-      spacing: {
-        after: pxToTwips(16), // space-y-4 between title and contact
-        ...exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.title]),
-      },
-    })
-  )
+  if (heading) {
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: heading,
+            // font-light (300) = normal (non-bold) in DOCX
+            bold: false,
+            size: scaledFontSizes.title,
+            color: PALETTE['slate-900'],
+            font,
+            characterSpacing: trackingSpacing(TRACKING.title, scaledFontSizes.title),
+          }),
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: {
+          after: pxToTwips(16), // space-y-4 between title and contact
+          ...exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.title]),
+        },
+      })
+    )
+  }
 
   // ----------------------------------------------------------
   // HEADER: Contact information (centered, NO bullet separators)

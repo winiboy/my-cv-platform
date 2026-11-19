@@ -192,7 +192,8 @@ async function storeDraft(
 
 /** Each page's text and the page count of the PDF the Preview prints, as shipped. */
 async function printPdf(page: Page): Promise<{ pages: number; texts: string[] }> {
-  await expect(page.getByTestId('controls-toggle')).toBeChecked()
+  // The Preview has no controls switch and draws no editing control (swiss-cv-templates FR-13).
+  await expect(page.getByTestId('controls-toggle')).toHaveCount(0)
   await page.emulateMedia({ media: 'print' })
   const pdf = await page.pdf({ preferCSSPageSize: true })
   await page.emulateMedia({ media: 'screen' })

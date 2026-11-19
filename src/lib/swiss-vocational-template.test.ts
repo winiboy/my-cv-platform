@@ -45,14 +45,15 @@ const UNBUILT: readonly ResumeTemplate[] = [
 ]
 
 describe('swissVocational in the template x control registries (FR-3)', () => {
-  it('offers only the sections panel: it paints no user colour and draws no size input', () => {
+  it('offers only the sections panel: it paints no user colour, draws no size input and applies no stored font (FR-12)', () => {
     expect(TEMPLATE_LAYOUT_CONTROLS.swissVocational).toEqual(['sidebarSections'])
+    expect(templateOffersLayoutControl('swissVocational', 'font')).toBe(false)
     expect(templateOffersLayoutControl('swissVocational', 'sidebarColour')).toBe(false)
     expect(templateOffersLayoutControl('swissVocational', 'perPropertySize')).toBe(false)
     expect(templateOffersLayoutControl('swissVocational', 'sidebarSections')).toBe(true)
   })
 
-  it('applies no per-property size: its sizes are its design, at the model font scale', () => {
+  it('applies no per-property size: its sizes are its design (FR-4)', () => {
     expect(TEMPLATE_APPLIED_SIZE_KEYS.swissVocational).toEqual([])
   })
 

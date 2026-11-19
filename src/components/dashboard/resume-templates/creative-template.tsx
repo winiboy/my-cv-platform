@@ -1,7 +1,6 @@
 import { Fragment, type ReactNode } from 'react'
 import type {
   Resume,
-  ResumeContact,
   ResumeExperience,
   ResumeEducation,
   ResumeSkillCategory,
@@ -10,6 +9,7 @@ import type {
   ResumeProject,
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
+import { visibleContactDetails, type ContactFieldId } from '@/lib/contact-visibility'
 import { presentLabel } from '@/lib/resume-template-strings'
 import { renderFormattedText } from '@/lib/format-text'
 import { PAGE_WIDTH_CSS } from '@/lib/resume-page-size'
@@ -58,6 +58,8 @@ interface CreativeTemplateProps {
   hiddenSidebarSections?: readonly CreativeSidebarId[]
   hiddenMainSections?: readonly CreativeMainId[]
   /** `summary` is fixed in the header and carries visibility only — see `CreativeHeaderId`. */
+  /** Contact details the owner hid (swiss-cv-templates FR-14); drawn through `visibleContactDetails`. */
+  hiddenContactFields?: readonly ContactFieldId[]
   summaryHidden?: boolean
 }
 
@@ -79,7 +81,8 @@ export function CreativeTemplate({
   mainContentOrder = DEFAULT_CREATIVE_MAIN_ORDER,
   hiddenSidebarSections = [],
   hiddenMainSections = [],
-  summaryHidden = false
+  summaryHidden = false,
+  hiddenContactFields,
 }: CreativeTemplateProps) {
   /**
    * The sizes this document DRAWS: the stored size at the model's scale
@@ -95,7 +98,7 @@ export function CreativeTemplate({
   const drawnSectionTitleSize = sectionTitleFontSize * fontScale
   const drawnSectionDescSize = sectionDescFontSize * fontScale
 
-  const contact = (resume.contact as unknown as ResumeContact) || {}
+  const { contact, title } = visibleContactDetails(resume, hiddenContactFields)
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
   const education = ((resume.education as unknown as ResumeEducation[]) || []).filter(edu => edu.visible !== false)
@@ -428,7 +431,7 @@ export function CreativeTemplate({
       <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 p-10 text-white" style={{ position: 'relative' }}>
         <div className="relative z-10">
           <h1 className="mb-3 font-black uppercase tracking-tight" style={{ fontSize: `${drawnTitleSize}px` }}>
-            {resume.title || contact.name || 'Your Name'}
+            {title || contact.name || 'Your Name'}
           </h1>
 
           {/* Font Size Slider - Positioned outside CV to the right */}

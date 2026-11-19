@@ -3,7 +3,6 @@
 import React, { useRef, useCallback } from 'react'
 import type {
   Resume,
-  ResumeContact,
   ResumeExperience,
   ResumeEducation,
   ResumeSkillCategory,
@@ -12,6 +11,8 @@ import type {
   ResumeProject,
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
+import { visibleContactDetails, type ContactFieldId } from '@/lib/contact-visibility'
+import { readPhotoFile } from '@/lib/photo-upload'
 import { contactLabel, presentLabel } from '@/lib/resume-template-strings'
 import { renderFormattedText } from '@/lib/format-text'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
@@ -243,11 +244,17 @@ interface ModernTemplateProps {
   isRemovingBackground?: boolean
   photoBgMode?: 'sidebar-color' | 'content-color'
   onPhotoBgModeChange?: (mode: 'sidebar-color' | 'content-color') => void
+  /** Contact details the owner hid (swiss-cv-templates FR-14); drawn through `visibleContactDetails`. */
+  hiddenContactFields?: readonly ContactFieldId[]
   hasForegroundBlob?: boolean
 }
 
-export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSize = 36, setTitleFontSize, sectionTitleFontSize = 16, setSectionTitleFontSize, sectionDescFontSize = 14, setSectionDescFontSize, sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections, sidebarWidth, setSidebarWidth, sidebarTopMargin, setSidebarTopMargin, mainContentTopMargin, setMainContentTopMargin, fontScale, fontFamily, photoUrl, onPhotoChange, onRemoveBackground, isRemovingBackground, photoBgMode, onPhotoBgModeChange, hasForegroundBlob }: ModernTemplateProps) {
-  const contact = (resume.contact as unknown as ResumeContact) || {}
+export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSize = 36, setTitleFontSize, sectionTitleFontSize = 16, setSectionTitleFontSize, sectionDescFontSize = 14, setSectionDescFontSize, sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections, sidebarWidth, setSidebarWidth, sidebarTopMargin, setSidebarTopMargin, mainContentTopMargin, setMainContentTopMargin, fontScale, fontFamily, photoUrl: storedPhotoUrl, onPhotoChange, onRemoveBackground, isRemovingBackground, photoBgMode, onPhotoBgModeChange, hasForegroundBlob, hiddenContactFields }: ModernTemplateProps) {
+  const { contact, title, photoVisible } = visibleContactDetails(resume, hiddenContactFields)
+  // An unticked photo draws no photo zone at all, on every output (FR-5): the
+  // sidebar content starts at its own top margin. With the tick on and no photo
+  // stored, the zone keeps its placeholder and, in the Editor, its upload overlay.
+  const photoUrl = photoVisible ? storedPhotoUrl : undefined
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
   const education = ((resume.education as unknown as ResumeEducation[]) || []).filter(edu => edu.visible !== false)
@@ -281,24 +288,11 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
-
-    // Reject files over 2MB
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Image must be under 2MB')
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      const dataUrl = reader.result as string
-      onPhotoChange?.(dataUrl)
-    }
-    reader.readAsDataURL(file)
-
     // Reset input so same file can be re-selected
     e.target.value = ''
-  }, [onPhotoChange])
+    if (!file || !onPhotoChange) return
+    readPhotoFile(file, onPhotoChange, () => alert(dict?.resumes?.editor?.photoTooLarge))
+  }, [dict, onPhotoChange])
 
   /** Render a single sidebar section by its identifier; returns null if section has no data */
   const renderSidebarSection = (id: ModernSidebarId): React.ReactNode => {
@@ -779,268 +773,270 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
           backgroundColor: activeSidebarColor,
         }}
       >
-        {/* Photo Zone */}
-        <div
-          className="group"
-          aria-busy={isRemovingBackground ? true : undefined}
-          style={{
-            width: '100%',
-            height: '220px',
-            backgroundColor: '#444444',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
-          {/* Photo or placeholder */}
-          {photoUrl ? (
-            <img
-              src={photoUrl}
-              alt="Profile"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {/* User silhouette icon placeholder */}
-              <svg width="80" height="80" viewBox="0 0 80 80" fill="none" aria-hidden="true">
-                <circle cx="40" cy="28" r="16" fill="rgba(255,255,255,0.3)" />
-                <ellipse cx="40" cy="68" rx="28" ry="18" fill="rgba(255,255,255,0.3)" />
-              </svg>
-            </div>
-          )}
-
-          {/* Upload overlay - editor only */}
-          {onPhotoChange && (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={handleFileSelect}
+        {/* Photo Zone: not drawn at all while the photo is unticked (FR-5). */}
+        {photoVisible && (
+          <div
+            className="group"
+            aria-busy={isRemovingBackground ? true : undefined}
+            style={{
+              width: '100%',
+              height: '220px',
+              backgroundColor: '#444444',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Photo or placeholder */}
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt="Profile"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
               />
+            ) : (
               <div
-                onClick={() => fileInputRef.current?.click()}
-                role="button"
-                tabIndex={0}
-                aria-label={photoUrl ? 'Change profile photo' : 'Upload profile photo'}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click() } }}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {/* User silhouette icon placeholder */}
+                <svg width="80" height="80" viewBox="0 0 80 80" fill="none" aria-hidden="true">
+                  <circle cx="40" cy="28" r="16" fill="rgba(255,255,255,0.3)" />
+                  <ellipse cx="40" cy="68" rx="28" ry="18" fill="rgba(255,255,255,0.3)" />
+                </svg>
+              </div>
+            )}
+
+            {/* Upload overlay - editor only */}
+            {onPhotoChange && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleFileSelect}
+                />
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={photoUrl ? 'Change profile photo' : 'Upload profile photo'}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click() } }}
+                  className="print:hidden opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {/* Camera icon */}
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
+                  <span style={{ color: 'white', fontSize: '11px', marginTop: '8px', fontWeight: 500 }}>
+                    {photoUrl ? 'Change Photo' : 'Upload Photo'}
+                  </span>
+                </div>
+              </>
+            )}
+
+            {/* Remove Background button - visible on hover when photo exists */}
+            {photoUrl && onPhotoChange && onRemoveBackground && !isRemovingBackground && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRemoveBackground()
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onRemoveBackground()
+                  }
+                }}
+                aria-label="Remove photo background"
                 className="print:hidden opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                style={{
+                  position: 'absolute',
+                  bottom: '8px',
+                  right: '8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 10px',
+                  borderRadius: '9999px',
+                  backgroundColor: 'rgba(0,0,0,0.7)',
+                  color: '#FFFFFF',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: 'pointer',
+                  zIndex: 10,
+                  lineHeight: 1.4,
+                }}
+              >
+                {/* Magic wand icon */}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M15 4V2" />
+                  <path d="M15 16v-2" />
+                  <path d="M8 9h2" />
+                  <path d="M20 9h2" />
+                  <path d="M17.8 11.8L19 13" />
+                  <path d="M15 9h.01" />
+                  <path d="M17.8 6.2L19 5" />
+                  <path d="M11 6.2L9.7 5" />
+                  <path d="M11 11.8L9.7 13" />
+                  <path d="M3 21l9-9" />
+                </svg>
+                Remove BG
+              </button>
+            )}
+
+            {/* Background mode toggle -- bottom-left, visible after BG removal */}
+            {photoUrl && onPhotoChange && hasForegroundBlob && !isRemovingBackground && onPhotoBgModeChange && (
+              <div
+                className="print:hidden opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                style={{
+                  position: 'absolute',
+                  bottom: '8px',
+                  left: '8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  zIndex: 11,
+                }}
+              >
+                {/* Sidebar color background button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onPhotoBgModeChange('sidebar-color')
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      onPhotoBgModeChange('sidebar-color')
+                    }
+                  }}
+                  aria-label="Sidebar color background"
+                  aria-pressed={photoBgMode === 'sidebar-color'}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '9999px',
+                    backgroundColor: photoBgMode === 'sidebar-color' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
+                    border: photoBgMode === 'sidebar-color' ? '2px solid #FFFFFF' : '2px solid rgba(255,255,255,0.15)',
+                    cursor: 'pointer',
+                    padding: 0,
+                  }}
+                >
+                  {/* Layout icon — left column filled (sidebar) */}
+                  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" style={{ opacity: photoBgMode === 'sidebar-color' ? 1 : 0.6 }}>
+                    <rect x="3" y="3" width="7" height="18" rx="1" fill="#FFFFFF" />
+                    <rect x="12" y="3" width="9" height="18" rx="1" stroke="#FFFFFF" strokeWidth="1.5" fill="none" />
+                  </svg>
+                </button>
+
+                {/* Content-color background button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onPhotoBgModeChange('content-color')
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      onPhotoBgModeChange('content-color')
+                    }
+                  }}
+                  aria-label="Content background"
+                  aria-pressed={photoBgMode === 'content-color'}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '9999px',
+                    backgroundColor: photoBgMode === 'content-color' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
+                    border: photoBgMode === 'content-color' ? '2px solid #FFFFFF' : '2px solid rgba(255,255,255,0.15)',
+                    cursor: 'pointer',
+                    padding: 0,
+                  }}
+                >
+                  {/* Layout icon — right column filled (content area) */}
+                  <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" style={{ opacity: photoBgMode === 'content-color' ? 1 : 0.6 }}>
+                    <rect x="3" y="3" width="7" height="18" rx="1" stroke="#FFFFFF" strokeWidth="1.5" fill="none" />
+                    <rect x="12" y="3" width="9" height="18" rx="1" fill="#FFFFFF" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {/* Loading spinner overlay during background removal */}
+            {isRemovingBackground && (
+              <div
+                className="print:hidden"
                 style={{
                   position: 'absolute',
                   top: 0,
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  backgroundColor: 'rgba(0,0,0,0.5)',
+                  backgroundColor: 'rgba(0,0,0,0.6)',
                   display: 'flex',
-                  flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  cursor: 'pointer',
+                  zIndex: 20,
                 }}
               >
-                {/* Camera icon */}
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                  <circle cx="12" cy="13" r="4"/>
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-label="Removing background"
+                  style={{
+                    animation: 'spin 1s linear infinite',
+                  }}
+                >
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                 </svg>
-                <span style={{ color: 'white', fontSize: '11px', marginTop: '8px', fontWeight: 500 }}>
-                  {photoUrl ? 'Change Photo' : 'Upload Photo'}
-                </span>
+                <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
               </div>
-            </>
-          )}
-
-          {/* Remove Background button - visible on hover when photo exists */}
-          {photoUrl && onPhotoChange && onRemoveBackground && !isRemovingBackground && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                onRemoveBackground()
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  onRemoveBackground()
-                }
-              }}
-              aria-label="Remove photo background"
-              className="print:hidden opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-              style={{
-                position: 'absolute',
-                bottom: '8px',
-                right: '8px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '4px 10px',
-                borderRadius: '9999px',
-                backgroundColor: 'rgba(0,0,0,0.7)',
-                color: '#FFFFFF',
-                fontSize: '10px',
-                fontWeight: 600,
-                border: 'none',
-                cursor: 'pointer',
-                zIndex: 10,
-                lineHeight: 1.4,
-              }}
-            >
-              {/* Magic wand icon */}
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M15 4V2" />
-                <path d="M15 16v-2" />
-                <path d="M8 9h2" />
-                <path d="M20 9h2" />
-                <path d="M17.8 11.8L19 13" />
-                <path d="M15 9h.01" />
-                <path d="M17.8 6.2L19 5" />
-                <path d="M11 6.2L9.7 5" />
-                <path d="M11 11.8L9.7 13" />
-                <path d="M3 21l9-9" />
-              </svg>
-              Remove BG
-            </button>
-          )}
-
-          {/* Background mode toggle -- bottom-left, visible after BG removal */}
-          {photoUrl && onPhotoChange && hasForegroundBlob && !isRemovingBackground && onPhotoBgModeChange && (
-            <div
-              className="print:hidden opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-              style={{
-                position: 'absolute',
-                bottom: '8px',
-                left: '8px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                zIndex: 11,
-              }}
-            >
-              {/* Sidebar color background button */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onPhotoBgModeChange('sidebar-color')
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    onPhotoBgModeChange('sidebar-color')
-                  }
-                }}
-                aria-label="Sidebar color background"
-                aria-pressed={photoBgMode === 'sidebar-color'}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '9999px',
-                  backgroundColor: photoBgMode === 'sidebar-color' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
-                  border: photoBgMode === 'sidebar-color' ? '2px solid #FFFFFF' : '2px solid rgba(255,255,255,0.15)',
-                  cursor: 'pointer',
-                  padding: 0,
-                }}
-              >
-                {/* Layout icon — left column filled (sidebar) */}
-                <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" style={{ opacity: photoBgMode === 'sidebar-color' ? 1 : 0.6 }}>
-                  <rect x="3" y="3" width="7" height="18" rx="1" fill="#FFFFFF" />
-                  <rect x="12" y="3" width="9" height="18" rx="1" stroke="#FFFFFF" strokeWidth="1.5" fill="none" />
-                </svg>
-              </button>
-
-              {/* Content-color background button */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onPhotoBgModeChange('content-color')
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    onPhotoBgModeChange('content-color')
-                  }
-                }}
-                aria-label="Content background"
-                aria-pressed={photoBgMode === 'content-color'}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '9999px',
-                  backgroundColor: photoBgMode === 'content-color' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
-                  border: photoBgMode === 'content-color' ? '2px solid #FFFFFF' : '2px solid rgba(255,255,255,0.15)',
-                  cursor: 'pointer',
-                  padding: 0,
-                }}
-              >
-                {/* Layout icon — right column filled (content area) */}
-                <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" style={{ opacity: photoBgMode === 'content-color' ? 1 : 0.6 }}>
-                  <rect x="3" y="3" width="7" height="18" rx="1" stroke="#FFFFFF" strokeWidth="1.5" fill="none" />
-                  <rect x="12" y="3" width="9" height="18" rx="1" fill="#FFFFFF" />
-                </svg>
-              </button>
-            </div>
-          )}
-
-          {/* Loading spinner overlay during background removal */}
-          {isRemovingBackground && (
-            <div
-              className="print:hidden"
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: 'rgba(0,0,0,0.6)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 20,
-              }}
-            >
-              <svg
-                width="32"
-                height="32"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-label="Removing background"
-                style={{
-                  animation: 'spin 1s linear infinite',
-                }}
-              >
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-              </svg>
-              <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Sidebar content with padding */}
         <div className="p-8" style={{ paddingTop: activeSidebarTopMargin > 0 ? `${activeSidebarTopMargin}px` : undefined }}>
@@ -1069,7 +1065,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
           </h1>
 
           {/* Job title — on gold accent highlight bar */}
-          {resume.title && (
+          {title && (
             <div
               className="inline-block uppercase font-semibold tracking-wide"
               style={{
@@ -1080,7 +1076,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
                 marginBottom: '8px',
               }}
             >
-              {resume.title}
+              {title}
             </div>
           )}
 
@@ -1090,7 +1086,7 @@ export function ModernTemplate({ resume, locale, dict, sidebarColor, titleFontSi
               style={{
                 fontSize: `${11 * activeScale}px`,
                 color: '#6b7280',
-                marginTop: resume.title ? '0px' : '4px',
+                marginTop: title ? '0px' : '4px',
               }}
             >
               {contact.location}

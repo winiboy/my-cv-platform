@@ -56,8 +56,10 @@ function admin(): SupabaseClient {
  * heading it controls carries the value as an inline font-size.
  *
  * `classic` rather than `modern` because its slider is rendered by the template
- * itself from a setter the preview wrapper actually passes, so driving it goes
- * through the same state the wrapper persists.
+ * itself from a setter the Editor passes, so driving it goes through the one
+ * layout owner (`useResumeLayout`) that the Editor and the Preview share and
+ * that persists the value. The slider is the Editor's: the Preview renders the
+ * stored layout read-only and draws no control (swiss-cv-templates FR-13).
  */
 const TITLE_SIZE_DEFAULT = 24
 const TITLE_SIZE_CHOSEN = 42
@@ -181,8 +183,8 @@ test('layout settings saved in one session are present in another', async ({
   // having written anything.
   expect(await persistedTitleFontSize(resume.id)).toBeNull()
 
-  // --- First session: make a choice ---
-  await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
+  // --- First session: make a choice, in the Editor, where the control is ---
+  await page.goto(`/en/dashboard/resumes/${resume.id}/edit`)
   await expect(page.getByTestId('resume-document')).toBeVisible()
   expect(await titleFontSizePx(page)).toBe(TITLE_SIZE_DEFAULT)
 
@@ -195,6 +197,12 @@ test('layout settings saved in one session are present in another', async ({
   await expect
     .poll(() => persistedTitleFontSize(resume.id), { timeout: 15_000 })
     .toBe(TITLE_SIZE_CHOSEN)
+
+  // The same session's Preview renders the stored value, read-only.
+  await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
+  await expect(page.getByTestId('resume-document')).toBeVisible()
+  await expect(page.getByTestId('resume-document').locator('input[type="range"]')).toHaveCount(0)
+  await expect.poll(() => titleFontSizePx(page)).toBe(TITLE_SIZE_CHOSEN)
 
   // --- Second session: a different browser, holding a conflicting cache ---
   const secondContext = await browser.newContext()
@@ -473,7 +481,7 @@ test('the editor adopts local settings too, not only the preview', async ({
   /**
    * The second call site.
    *
-   * Every other test here loads `/preview`, so without this one the editor's
+   * Every other test here loads `/preview` to read the result, so without this one the editor's
    * adoption is covered only through the shared planner's unit tests — and the
    * editor is the surface that differs, because it resolves its stores from the
    * server prop while holding a separate `resume` state a draft blob can

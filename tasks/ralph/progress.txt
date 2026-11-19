@@ -184,3 +184,80 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 The "Formation professionnelle (CFC)" template is available and the template set is ready
 FINAL: PASS
+
+## US-011: Contact fields and photo can be hidden, and controls that do not belong to a template are gone (amendment 1, executed before US-002)
+Status: PASS
+Priority: 2
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: d89d482 (contract for amendment 1; origin/main f0a2e75 is an ancestor). PRD amendment 1 committed e7e30ff, approved by the owner on GitHub in b2d5295 ("APPROVED 2026-11-19").
+Scope:
+- Scope check: PASS
+- Changed paths (53):
+  - **New:** `src/lib/contact-visibility.ts` (+ test), `src/lib/photo-upload.ts` (+ test), `src/app/api/resumes/[id]/download-docx/docx-contact-visibility.test.ts`, `src/components/dashboard/resume-preview-readonly.test.ts`, `e2e/contact-visibility.spec.ts`.
+  - **Deleted:** `src/components/dashboard/controls-toggle.tsx`.
+  - **Model and wiring:** `src/lib/layout-settings.ts`, `src/lib/hooks/use-resume-layout.ts`, `src/components/dashboard/resume-sections/contact-section.tsx`, `resume-editor.tsx`, `resume-preview.tsx`, `resume-preview-wrapper.tsx`, `resume-preview-page-client.tsx`.
+  - **Templates:** all six in `src/components/dashboard/resume-templates/` (professional, modern, classic, minimal, creative, swiss-vocational); `src/lib/swiss-vocational-template.ts` (comments).
+  - **Word:** `docx-{professional,modern,classic,minimal,creative,swiss-vocational}.ts`, `docx-helpers.ts`, `route.ts`.
+  - **Locales:** `src/locales/{fr,en,de,it}/common.json` (new `resumes.editor.showOnCv.*`, `photoRow`; `showControls` removed).
+  - **Unit tests updated:** `layout-settings`, `resume-layout-ownership`, `resume-layout-store`, `swiss-vocational-template`, `docx-swiss-vocational`, `docx-modern-geometry`, `template-picker`.
+  - **e2e updated:** `swiss-vocational-template`, `layout-persistence`, `fixtures/resume-from-job.ts`, `visual/resume-templates.spec.ts`, and the seven specs that clicked the removed switch (`modern-long-sidebar-print`, `modern-print-sidebar-full-page`, `parity/surfaces.ts`, `resume-page-break-pdf-count`, `resume-pdf-route`, `resume-preview-page-breaks`, `resume-print-geometry`).
+  - **Docs:** `docs/engineering/visual-regression.md` (the `print:hidden` observation mechanism is retired: the Preview route renders no in-template control).
+- Not touched: no migration (`hiddenContactFields` lives in the existing `layout_settings`, worst case 1074 of 4096 bytes); no visual baseline PNG; no parity expectation; no version change; no push or merge of this commit.
+Checks (final diff hash 4c60b6b77468003a, sha256 of `git diff -- src e2e` plus untracked src/e2e files; logs in the session scratchpad `checks-us11-r4/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 4249 passed, 6 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 286 ceiling; 4 fewer than before (unused setter props removed).
+- e2e: PASS — 598 passed, 0 failed (third full run on the same hash). Earlier runs on this hash: 597/1 with the known login flake (`#email` timeout, fixtures/auth.ts:153; `resume-pdf-route.spec.ts` then 21/21 alone), and 597/1 with `net::ERR_NO_BUFFER_SPACE` (Windows socket exhaustion) in `auth.spec.ts` (then 22/22 alone).
+- visual (`pnpm test:visual`): PASS — 12/12, no baseline changed.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier rounds, invalidated by fixes: r1 (e2e 594/4: `layout-persistence` drove a Preview slider FR-13 removed; `cv-from-job-application` fixture waited on the photo row's hidden file input; one login flake), r2 green (2132aa73adf0668c) before the review FAILs, r3 green (a1d8ca46b515c4b3) before the classic/minimal heading fix.
+Specialized validation:
+- Browser: PASS — fr, 1440x1000, 6 templates x (no tick off / all 8 ticks off), Editor live preview + Preview page screenshots (24); 768x1024 and 375x812 Editor Contact tab for modern and swissVocational, Preview at 375: horizontal overflow 0 px on all six; tick rows 44 px tall at 375, 20 px at 768. Keyboard trace at 1440: "Changer la photo" -> Tab -> photo tick -> Space unticks it and the live photo goes 1 -> 0 -> Tab -> `#cvName` (hidden file input skipped) -> Tab -> title tick; Enter on "Changer la photo" fires the file chooser; focus ring visible (`k-focus-photo-tick.png`).
+- Visual: PASS — 12/12 unchanged; the screen and print captures both unchanged now that the Preview draws no in-template control.
+- Export: PASS — per template and state, a PDF and a .docx from the product routes, 24 artifacts (sha256 prefixes PDF/Word): professional shown 7ec247dca3f96c33/d169505fe07c8389, hidden bf47296d4ca7c999/84aa9ce242917563; modern shown bae6be7204d70360/e13ca4482b9e49c5, hidden 5d7c7ff4dfa781ea/13456898b5727185; classic shown 4784eb32f181b92b/f8a2c664c4ccd5db, hidden bc54d46ec0e4c561/ab700222cc6f4e34; minimal shown 4decef184cb31014/afa7c785eac4dc7d, hidden 5b07e5ddbb10a97f/c4642df6ac0b6f82; creative shown f81977b39363f872/6d2aaa46acc69aa9, hidden f1016bc2264b1bb4/cb1138913c8db286; swissVocational shown 620c7f10ce60e0b2/62609856d42a1fe6, hidden ac8642d849751880/ede46fb633ef9463. Presence matrix (live, Preview, PDF, Word; compared on lower-case letters and digits so wraps, NBSP and non-breaking hyphens cannot hide a value): every one of title, e-mail, phone, location, LinkedIn, GitHub, website is 1111 shown and 0000 hidden on all six templates; the full name 1111 in both states. Photo: modern live/Preview 1 -> 0, Word drawings 2 -> 1; swissVocational 1 -> 0, Word 1 -> 0; no "Upload photo" text in any CV.
+- Database: NOT_APPLICABLE — no schema change; the new property is validated in `src/lib/layout-settings.ts` (unknown ids, non-strings and repeats dropped) inside the existing 4096-byte bound.
+- Security: NOT_APPLICABLE — no new route or trust boundary. The Word route reads the hidden list from the stored row, not the request; the request photo stays bounded as before.
+Agents:
+- ui-expert: PASS (round 3).
+  - Round 1 FAIL: modern drew its grey silhouette zone when the photo was unticked (MAJOR); empty 15 px controls bar on Swiss; unclear "nom du CV" title-tick wording; 20 px tap targets.
+  - Round 2 BLOCKED: no tablet/mobile or keyboard evidence. Round 3 PASS on that evidence.
+- code-reviewer: PASS (round 3).
+  - Round 1 FAIL: the same modern MAJOR; dead setter props on `ResumePreview`; duplicated photo reading with an English-only size message; creative hidden-title fallback untested; evidence matrix misread Word values; `[role="button"]` missing from the no-controls check.
+  - Round 2: code PASS, conditional on a 0-failure e2e on the final hash. Round 3 PASS after 598/0.
+- senior-coder: implementation and every fix. Also found by the evidence run: classic and minimal never draw the full name, so an unticked title left their header empty; fixed (see Decision).
+Acceptance criteria:
+- AC-01 Contact ticks: PASS — 7 ticks (CV name, e-mail, phone, location, LinkedIn, GitHub, website), none for Full Name; all ticked by default (e2e `contact-visibility` asserts every box checked on a fresh CV; missing list = []).
+- AC-02 Unticked field leaves all four outputs, value kept, survives save/reopen, re-tick restores: PASS — presence matrix above; e2e unticks, polls the stored `['email','photo']`, reloads, checks the form value, the Preview and Word, re-ticks; unit tests compare hidden output with empty-field output on 6 templates x Preview/Word.
+- AC-03 Photo row with upload/change and "show photo on CV" tick for modern and Swiss: PASS — `contact-photo-row` in the Contact tab, reusing `handleNewPhotoUpload` and `resume_photo_${id}`; unticked photo absent in four outputs (matrix); stored photo kept.
+- AC-04 Swiss photo slot: PASS — no in-CV upload box; frame only with a photo and the tick on (screenshots, `liveUpload` 0, unit tests).
+- AC-05 Swiss font controls hidden, existing templates keep them: PASS — gated on the `font` layout control, offered by the five existing templates only (screenshots, registry test).
+- AC-06 Preview page without "Show Controls" or handles, stored layout still applied: PASS — switch absent on all templates (`showControlsToggle` 0), `expectNoEditingControls` in the visual suite, SSR test, `layout-persistence` reads the stored 42 px on the read-only Preview.
+- AC-07 US-001 evidence re-run for photo, font and contact: PASS — swissVocational rows of the matrix and screenshots above; Swiss template and Word ignore the stored font and scale (unit tests); Swiss baselines unchanged.
+- AC-08 FR-12 to FR-14 and FR-1 to FR-11: PASS — the checks and evidence above; FR-13 `showControls` removed from all four locales (test).
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Hidden is drawn as empty.** One pure helper, `visibleContactDetails`, is called by every template and every Word generator. Each output's own "draw only when it has a value" test then drops the label, icon and separator too. There is no second copy of the choice.
+- **The photo is still sent by the Download buttons.** The server decides from the stored list, as the Preview does, so the stored list stays the only source of truth.
+- **Swiss templates ignore the stored font family and scale** (Inter at scale 1) and leave them stored, so switching back to an existing template restores them.
+- **Upload code shared:** `readPhotoFile` (2 MB limit, localized `photoTooLarge`) replaces modern's English-only alert.
+
+Open owner decisions:
+- **Modern, no photo, tick on:** unchanged, with its silhouette zone and upload overlay. The regression constraint and "modern keeps its existing upload zone" were read as overriding FR-5's "no photo frame" for that one case; the baselines stay. With the photo unticked there is no zone in any output.
+- **Classic and minimal, title unticked:** the full name becomes the heading. These two templates have never drawn the name (their heading is the title, or "CV TITLE" when empty), so without this the header would be empty. With the title ticked nothing changes. Creative already falls back the same way.
+- **Uploading a photo ticks "show photo on CV" again.** Someone replacing a photo while it is hidden will see it shown.
+- **Preview page at 375 px (predates this story):** the header does not fit. The title wraps word by word, "Télécharger Word" is cut off at the right edge, and the CV page is clipped rather than scaled. Candidate for its own PRD.
+- **Pre-existing, untouched:** the "CV Name" label and its hint are English in every locale (no locale key exists); classic ends its first contact line with a stray "•".
+- **Tick rows at 768 px are 20 px tall** (44 px only below 640 px). This meets WCAG 2.2 2.5.8; applying 44 px up to `lg` is optional.
+
+Environment notes:
+- The checks ran alone. The local dev server on port 3000 (an orphan of the dev-local launcher) was stopped before them.
+- The evidence specs (`zz-us11-evidence`, `zz-us11-a11y`) were copied into `e2e/` only for their run and deleted. The diff hash was the same before and after each (4c60b6b77468003a).
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-011 Contact fields and photo can be hidden, and controls that do not belong to a template are gone
+FINAL: PASS

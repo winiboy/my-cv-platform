@@ -1,9 +1,8 @@
 'use client'
 
-import { useCallback, useRef, type ChangeEvent, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import type {
   Resume,
-  ResumeContact,
   ResumeExperience,
   ResumeEducation,
   ResumeSkillCategory,
@@ -11,6 +10,7 @@ import type {
   ResumeCertification,
 } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
+import { visibleContactDetails, type ContactFieldId } from '@/lib/contact-visibility'
 import { renderFormattedText } from '@/lib/format-text'
 import { PAGE_WIDTH_CSS } from '@/lib/resume-page-size'
 import { SWISS_VOCATIONAL_LINE_HEIGHT } from '@/lib/resume-line-height'
@@ -29,9 +29,6 @@ import {
   swissVocationalVisibility,
   type SwissVocationalSectionId,
 } from '@/lib/swiss-vocational-template'
-
-/** The largest photo file the upload affordance reads, the limit `modern-template.tsx` applies. */
-const MAX_PHOTO_BYTES = 2 * 1024 * 1024
 
 const LINE_HEIGHT = SWISS_VOCATIONAL_LINE_HEIGHT
 
@@ -55,15 +52,6 @@ const LINE_HEIGHT = SWISS_VOCATIONAL_LINE_HEIGHT
  */
 const COLUMN_BREAK = '\u00A0'
 
-/**
- * The dictionary keys this template reads itself. Its headings, dates, contact
- * labels and level names are read through `@/lib/swiss-vocational-template`,
- * which takes the whole `common` dictionary.
- */
-interface SwissVocationalDict {
-  resumes: { editor: { uploadPhoto: string; changePhoto: string; photoTooLarge: string } }
-}
-
 interface SwissVocationalTemplateProps {
   resume: Resume
   /**
@@ -72,27 +60,24 @@ interface SwissVocationalTemplateProps {
    * every locale.
    */
   locale: Locale
-  dict: SwissVocationalDict
-  /** The document-wide size multiplier from the layout model. Every size this template draws is drawn at it. */
-  fontScale?: number
   /**
-   * The font the owner CHOSE, or undefined when they chose none. The template
-   * declares no family of its own and draws the app's Inter until one is
-   * chosen; `resume-preview.tsx` applies `chosenFontFamily` before passing it.
+   * The `common` dictionary. Every word this template draws that is not resume
+   * content — headings, dates, contact labels, level names — is read from it
+   * through `@/lib/swiss-vocational-template`.
    */
-  fontFamily?: string
+  dict: unknown
   /** Main sections hidden through the layout model, in the editor's vocabulary. */
   hiddenMainSections?: readonly EditorMainId[]
   /** Sidebar sections hidden through the layout model: this template draws skills, languages and training from them. */
   hiddenSidebarSections?: readonly EditorSidebarId[]
-  /** The browser-local photo, drawn top right when present. */
-  photoUrl?: string
+  /** Contact details the owner hid (FR-14), the photo among them; drawn through `visibleContactDetails`. */
+  hiddenContactFields?: readonly ContactFieldId[]
   /**
-   * The Editor's photo handler. Passed only by the Editor, where it turns the
-   * photo's place into an upload affordance; the Preview, PDF and thumbnails
-   * pass none and draw no photo frame when there is no photo.
+   * The browser-local photo, drawn top right when present and not hidden. It
+   * is uploaded from the Editor's Contact tab; the CV draws no upload
+   * affordance and no empty frame (FR-5).
    */
-  onPhotoChange?: (dataUrl: string) => void
+  photoUrl?: string
 }
 
 /**
@@ -104,26 +89,21 @@ interface SwissVocationalTemplateProps {
  *
  * Sizes, section sequence, dates and labels come from
  * `@/lib/swiss-vocational-template`, which `docx-swiss-vocational.ts` reads too.
+ * It draws its own typeface (the app's Inter) at its own sizes, whatever font
+ * and font scale the layout model stores (FR-4): it takes neither.
  */
 export function SwissVocationalTemplate({
   resume,
   dict,
-  fontScale = DEFAULT_RESUME_LAYOUT.fontScale,
-  fontFamily,
   hiddenMainSections = DEFAULT_RESUME_LAYOUT.hiddenMainSections,
   hiddenSidebarSections = DEFAULT_RESUME_LAYOUT.hiddenSidebarSections,
+  hiddenContactFields,
   photoUrl,
-  onPhotoChange,
 }: SwissVocationalTemplateProps) {
-  const size = {
-    name: SIZES.name * fontScale,
-    title: SIZES.title * fontScale,
-    contact: SIZES.contact * fontScale,
-    heading: SIZES.heading * fontScale,
-    body: SIZES.body * fontScale,
-  }
+  const size = SIZES
 
-  const contact = (resume.contact as unknown as ResumeContact) || {}
+  const { contact, title, photoVisible } = visibleContactDetails(resume, hiddenContactFields)
+  const photo = photoVisible ? photoUrl : undefined
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter((exp) => exp.visible !== false)
   const education = ((resume.education as unknown as ResumeEducation[]) || []).filter((edu) => edu.visible !== false)
   const certifications = ((resume.certifications as unknown as ResumeCertification[]) || []).filter(
@@ -143,32 +123,7 @@ export function SwissVocationalTemplate({
     : []
 
   const contactEntries = swissContactEntries(contact, dict)
-  // The two fixed-width columns grow with the type, so scaled text still fits (FR-4).
-  const dateColumn = GEOMETRY.dateColumn * fontScale
-  const contactLabelWidth = GEOMETRY.contactLabel * fontScale
   const sections = visibility.sections
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const handleFileSelect = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0]
-      // Reset so the same file can be chosen again.
-      event.target.value = ''
-      if (!file || !onPhotoChange) return
-
-      if (file.size > MAX_PHOTO_BYTES) {
-        alert(dict.resumes.editor.photoTooLarge)
-        return
-      }
-
-      const reader = new FileReader()
-      reader.onload = () => {
-        if (typeof reader.result === 'string') onPhotoChange(reader.result)
-      }
-      reader.readAsDataURL(file)
-    },
-    [dict, onPhotoChange],
-  )
 
   const heading = (label: string) => (
     <h2
@@ -193,7 +148,7 @@ export function SwissVocationalTemplate({
     <div
       key={key}
       className="grid break-inside-avoid"
-      style={{ gridTemplateColumns: `${dateColumn}px 1fr`, marginTop: key === 0 ? 0 : `${GEOMETRY.entryGap}px` }}
+      style={{ gridTemplateColumns: `${GEOMETRY.dateColumn}px 1fr`, marginTop: key === 0 ? 0 : `${GEOMETRY.entryGap}px` }}
     >
       <div className="text-slate-600" style={{ fontSize: `${size.body}px`, lineHeight: LINE_HEIGHT.text }}>
         {dates && `${dates}${COLUMN_BREAK}`}
@@ -360,7 +315,6 @@ export function SwissVocationalTemplate({
       className="swiss-vocational-template relative mx-auto bg-white shadow-lg print:shadow-none"
       style={{
         width: PAGE_WIDTH_CSS,
-        fontFamily: fontFamily,
         padding: `${GEOMETRY.paddingY}px ${GEOMETRY.paddingX}px`,
       }}
     >
@@ -386,12 +340,12 @@ export function SwissVocationalTemplate({
               {contact.name}
             </h1>
           )}
-          {resume.title && (
+          {title && (
             <p
               className="mt-2 uppercase tracking-widest text-red-700"
               style={{ fontSize: `${size.title}px`, lineHeight: LINE_HEIGHT.compact }}
             >
-              {resume.title}
+              {title}
             </p>
           )}
           {contactEntries.length > 0 && (
@@ -400,8 +354,8 @@ export function SwissVocationalTemplate({
               style={{ columnGap: `${GEOMETRY.contactPairGap}px`, fontSize: `${size.contact}px`, lineHeight: LINE_HEIGHT.compact }}
             >
               {contactEntries.map((entry) => (
-                <div key={entry.key} className="flex min-w-0" style={{ columnGap: `${GEOMETRY.contactLabelGap * fontScale}px` }}>
-                  <dt className="shrink-0 font-semibold text-slate-900" style={{ width: `${contactLabelWidth}px` }}>
+                <div key={entry.key} className="flex min-w-0" style={{ columnGap: `${GEOMETRY.contactLabelGap}px` }}>
+                  <dt className="shrink-0 font-semibold text-slate-900" style={{ width: `${GEOMETRY.contactLabel}px` }}>
                     {`${entry.label}${COLUMN_BREAK}`}
                   </dt>
                   {/* Its separator parts this pair from the next one on the row. */}
@@ -412,45 +366,11 @@ export function SwissVocationalTemplate({
           )}
         </div>
 
-        {photoUrl ? (
-          <div className="group relative shrink-0 overflow-hidden" style={{ width: `${GEOMETRY.photoWidth}px`, height: `${GEOMETRY.photoHeight}px` }}>
+        {photo && (
+          <div className="shrink-0 overflow-hidden" style={{ width: `${GEOMETRY.photoWidth}px`, height: `${GEOMETRY.photoHeight}px` }}>
             {/* eslint-disable-next-line @next/next/no-img-element -- a browser-local data URL, which next/image cannot optimise */}
-            <img src={photoUrl} alt="" className="h-full w-full object-cover" />
-            {onPhotoChange && (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-medium text-white opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 group-hover:opacity-100 print:hidden"
-              >
-                {dict.resumes.editor.changePhoto}
-              </button>
-            )}
+            <img src={photo} alt="" className="h-full w-full object-cover" />
           </div>
-        ) : onPhotoChange ? (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex shrink-0 flex-col items-center justify-center gap-2 border border-dashed border-slate-400 bg-slate-50 text-xs font-medium text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 print:hidden"
-            style={{ width: `${GEOMETRY.photoWidth}px`, height: `${GEOMETRY.photoHeight}px` }}
-          >
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-              <circle cx="12" cy="13" r="4" />
-            </svg>
-            {dict.resumes.editor.uploadPhoto}
-          </button>
-        ) : null}
-
-        {onPhotoChange && (
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            tabIndex={-1}
-            aria-hidden="true"
-            onChange={handleFileSelect}
-          />
         )}
       </header>
 

@@ -12,7 +12,6 @@ interface ResumePreviewWrapperProps {
   initialResume: Resume
   locale: Locale
   dict: any
-  showControls?: boolean
 }
 
 /**
@@ -23,12 +22,15 @@ interface ResumePreviewWrapperProps {
  * `resume-editor.tsx` also calls — one declaration, one loader, one cache
  * writer, one account writer. Adding a `useState` for a layout property to this
  * file would recreate the second authoritative copy US-002 removed.
+ *
+ * Read-only for layout (swiss-cv-templates FR-13): the Preview renders the
+ * stored values and passes no setter, so no template draws an in-page editing
+ * control here. Layout is changed in the Editor.
  */
 export function ResumePreviewWrapper({
   initialResume,
   locale,
   dict,
-  showControls = true,
 }: ResumePreviewWrapperProps) {
   const [resume, setResume] = useState<Resume>(initialResume)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -36,7 +38,7 @@ export function ResumePreviewWrapper({
   const documentFrameRef = useRef<HTMLDivElement>(null)
   const [documentHeight, setDocumentHeight] = useState<number | null>(null)
 
-  const { layout, setters, sidebarColor, modern } = useResumeLayout(
+  const { layout, sidebarColor, modern } = useResumeLayout(
     initialResume.id,
     initialResume,
   )
@@ -117,19 +119,12 @@ export function ResumePreviewWrapper({
             locale={locale}
             dict={dict}
             titleFontSize={layout.titleFontSize}
-            setTitleFontSize={showControls ? setters.setTitleFontSize : undefined}
             titleGap={layout.titleGap}
-            setTitleGap={showControls ? setters.setTitleGap : undefined}
             contactFontSize={layout.contactFontSize}
-            setContactFontSize={showControls ? setters.setContactFontSize : undefined}
             sectionTitleFontSize={layout.sectionTitleFontSize}
-            setSectionTitleFontSize={showControls ? setters.setSectionTitleFontSize : undefined}
             sectionDescFontSize={layout.sectionDescFontSize}
-            setSectionDescFontSize={showControls ? setters.setSectionDescFontSize : undefined}
             sectionGap={layout.sectionGap}
-            setSectionGap={showControls ? setters.setSectionGap : undefined}
             headerGap={layout.headerGap}
-            setHeaderGap={showControls ? setters.setHeaderGap : undefined}
             sidebarColor={sidebarColor}
             fontScale={layout.fontScale}
             fontFamily={layout.fontFamily}
@@ -144,6 +139,7 @@ export function ResumePreviewWrapper({
             modernMainContentOrder={modern.modernMainOrder}
             hiddenModernSidebarSections={modern.hiddenModernSidebar}
             hiddenModernMainSections={modern.hiddenModernMain}
+            hiddenContactFields={layout.hiddenContactFields}
             photoUrl={photoUrl}
           />
           <ResumePageBreakIndicators

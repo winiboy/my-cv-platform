@@ -341,6 +341,17 @@
       "uploadPhoto": "Foto hinzufügen",
       "changePhoto": "Foto ändern",
       "photoTooLarge": "Das Foto muss kleiner als 2 MB sein.",
+      "photoRow": "Foto",
+      "showOnCv": {
+        "title": "Berufsbezeichnung im Lebenslauf anzeigen",
+        "email": "E-Mail im Lebenslauf anzeigen",
+        "phone": "Telefon im Lebenslauf anzeigen",
+        "location": "Standort im Lebenslauf anzeigen",
+        "linkedin": "LinkedIn im Lebenslauf anzeigen",
+        "github": "GitHub im Lebenslauf anzeigen",
+        "website": "Website im Lebenslauf anzeigen",
+        "photo": "Foto im Lebenslauf anzeigen"
+      },
       "richTextToolbar": {
         "bold": "Fett (Strg+B)",
         "italic": "Kursiv (Strg+I)",
@@ -392,7 +403,6 @@
         "olive": "Olivgrün"
       }
     },
-    "showControls": "Steuerungen anzeigen",
     "association": {
       "linkedCoverLetters": "Verknüpfte Anschreiben",
       "noCoverLetters": "Noch keine Anschreiben mit diesem Lebenslauf verknüpft",

@@ -339,6 +339,17 @@
       "uploadPhoto": "Ajouter une photo",
       "changePhoto": "Changer la photo",
       "photoTooLarge": "La photo doit faire moins de 2 Mo.",
+      "photoRow": "Photo",
+      "showOnCv": {
+        "title": "Afficher le titre professionnel sur le CV",
+        "email": "Afficher l'e-mail sur le CV",
+        "phone": "Afficher le téléphone sur le CV",
+        "location": "Afficher la localisation sur le CV",
+        "linkedin": "Afficher LinkedIn sur le CV",
+        "github": "Afficher GitHub sur le CV",
+        "website": "Afficher le site web sur le CV",
+        "photo": "Afficher la photo sur le CV"
+      },
       "richTextToolbar": {
         "bold": "Gras (Ctrl+B)",
         "italic": "Italique (Ctrl+I)",
@@ -390,7 +401,6 @@
         "olive": "Olive"
       }
     },
-    "showControls": "Afficher les contrôles",
     "pdfExportComingSoon": "Export PDF bientôt disponible !",
     "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce CV ?",
     "association": {
