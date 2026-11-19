@@ -8,7 +8,7 @@ import { TEMPLATE_OPTIONS } from '@/components/dashboard/template-picker'
 /**
  * `common.json -> resumes.templates` is the only source of template names and
  * descriptions. The template picker throws on a missing entry rather than
- * falling back to English, so every locale must carry all five.
+ * falling back to English, so every locale must carry every offered template.
  */
 
 const LOCALES = { fr, en, de, it: it_ } as const
@@ -31,5 +31,12 @@ describe('resumes.templates locale parity', () => {
     expect(fr.resumes.templates.professional).not.toBe(en.resumes.templates.professional)
     expect(de.resumes.templates.professional).not.toBe(en.resumes.templates.professional)
     expect(it_.resumes.templates.professional).not.toBe(en.resumes.templates.professional)
+  })
+
+  it('names the vocational template after the Swiss qualification of each language', () => {
+    expect(fr.resumes.templates.swissVocational).toBe('Formation professionnelle (CFC)')
+    expect(en.resumes.templates.swissVocational).toBe('Vocational training (VET)')
+    expect(de.resumes.templates.swissVocational).toBe('Berufslehre (EFZ)')
+    expect(it_.resumes.templates.swissVocational).toBe('Formazione professionale (AFC)')
   })
 })

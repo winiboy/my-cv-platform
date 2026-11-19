@@ -199,7 +199,7 @@ function deriveAccentColorHex(sidebarHue: number, sidebarSaturation: number, sid
  * Detect the image type from a base64 data URL or raw base64 string.
  * Returns a docx-compatible type or null if unrecognized.
  */
-function detectImageType(base64: string): 'jpg' | 'png' | 'gif' | 'bmp' | null {
+export function detectImageType(base64: string): 'jpg' | 'png' | 'gif' | 'bmp' | null {
   if (base64.startsWith('data:image/jpeg') || base64.startsWith('data:image/jpg')) return 'jpg'
   if (base64.startsWith('data:image/png')) return 'png'
   if (base64.startsWith('data:image/gif')) return 'gif'
@@ -217,7 +217,7 @@ function detectImageType(base64: string): 'jpg' | 'png' | 'gif' | 'bmp' | null {
 /**
  * Extract raw base64 data from a data URL. If already raw, returns as-is.
  */
-function extractBase64Data(dataUrl: string): string {
+export function extractBase64Data(dataUrl: string): string {
   const commaIndex = dataUrl.indexOf(',')
   if (commaIndex !== -1 && dataUrl.startsWith('data:')) {
     return dataUrl.substring(commaIndex + 1)
@@ -230,7 +230,7 @@ function extractBase64Data(dataUrl: string): string {
  * PNG: width at bytes 16-19, height at bytes 20-23 (big-endian uint32).
  * JPEG: iterate marker segments to find SOF0/SOF1/SOF2 for dimensions.
  */
-function parseImageDimensions(
+export function parseImageDimensions(
   buffer: Buffer,
   imageType: 'jpg' | 'png' | 'gif' | 'bmp'
 ): { width: number; height: number } | null {
@@ -299,7 +299,7 @@ function parseImageDimensions(
  * Calculate OOXML srcRect crop percentages to achieve CSS object-fit: cover.
  * Values are in 100,000ths of the source image dimensions (e.g., 25000 = 25%).
  */
-function calculateCoverCropPercents(
+export function calculateCoverCropPercents(
   origWidth: number,
   origHeight: number,
   zoneWidth: number,
@@ -328,7 +328,7 @@ function calculateCoverCropPercents(
 }
 
 /** EXIF orientation 1: the stored pixels are already upright. */
-const EXIF_ORIENTATION_NONE = 1
+export const EXIF_ORIENTATION_NONE = 1
 const EXIF_ORIENTATION_TAG = 0x0112
 const TIFF_TYPE_SHORT = 3
 const TIFF_IFD_ENTRY_BYTES = 12
@@ -410,7 +410,7 @@ export function readJpegOrientation(buffer: Buffer): number {
   }
 }
 
-interface PhotoOrientationTransform {
+export interface PhotoOrientationTransform {
   /** Written on the picture's `a:xfrm`; Word applies the flip before the rotation. */
   readonly picture: Pick<IMediaTransformation, 'rotation' | 'flip'>
   /** Orientations 5–8 display the stored image with width and height swapped. */
@@ -422,7 +422,7 @@ interface PhotoOrientationTransform {
  * the Preview does: Chromium applies EXIF orientation before
  * `object-fit: cover`. Measured in Word's own render for every orientation.
  */
-const EXIF_PHOTO_TRANSFORMS: Readonly<Record<number, PhotoOrientationTransform>> = {
+export const EXIF_PHOTO_TRANSFORMS: Readonly<Record<number, PhotoOrientationTransform>> = {
   2: { picture: { flip: { horizontal: true } }, swapsAxes: false },
   3: { picture: { rotation: 180 }, swapsAxes: false },
   4: { picture: { flip: { vertical: true } }, swapsAxes: false },

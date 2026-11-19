@@ -1,7 +1,7 @@
 import { test, expect, type TestUser } from '../fixtures/auth'
 import { seedFixtureResume } from '../fixtures/resume'
 import type { Page, Locator } from '@playwright/test'
-import type { ResumeTemplate } from '../../src/types/database'
+import type { BuiltResumeTemplate, ResumeTemplate } from '../../src/types/database'
 
 /**
  * Visual baselines for the five resume templates, on screen and in print.
@@ -129,12 +129,13 @@ import type { ResumeTemplate } from '../../src/types/database'
  * `docs/engineering/visual-regression.md` before adding CI to the list.
  */
 
-const TEMPLATES: ResumeTemplate[] = [
+const TEMPLATES: BuiltResumeTemplate[] = [
   'professional',
   'modern',
   'classic',
   'minimal',
   'creative',
+  'swissVocational',
 ]
 
 /**
@@ -165,12 +166,16 @@ const TEMPLATES: ResumeTemplate[] = [
  * A full `Record` rather than a `Partial`: a sixth template then has to be given
  * a value here, instead of silently getting no assertion at all.
  */
-const OBSERVABLE_CONTROLS: Record<ResumeTemplate, number> = {
+const OBSERVABLE_CONTROLS: Record<BuiltResumeTemplate, number> = {
   professional: 0,
   modern: 0,
   classic: 0,
   minimal: 0,
   creative: 2,
+  // STRUCTURAL, like professional and modern: swissVocational renders no
+  // range input, and its one editing control - the photo upload - is passed
+  // only by the Editor, never by this route.
+  swissVocational: 0,
 }
 
 /**

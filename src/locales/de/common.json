@@ -197,7 +197,9 @@
       "professional": "Professionell",
       "professionalDesc": "Vorlage für Führungskräfte mit Seitenleiste und Abschnitt für wichtige Erfolge",
       "creative": "Kreativ",
-      "creativeDesc": "Mutiges Design für kreative Profis"
+      "creativeDesc": "Mutiges Design für kreative Profis",
+      "swissVocational": "Berufslehre (EFZ)",
+      "swissVocationalDesc": "Schlichtes Schweizer Format, ideal nach einer EFZ-Lehre"
     },
     "new": {
       "title": "Neuen Lebenslauf erstellen",
@@ -336,6 +338,9 @@
       "aiOptimizedSummary": "KI-optimierte Zusammenfassung",
       "useThisVersion": "Diese Version verwenden",
       "keepOriginal": "Original behalten",
+      "uploadPhoto": "Foto hinzufügen",
+      "changePhoto": "Foto ändern",
+      "photoTooLarge": "Das Foto muss kleiner als 2 MB sein.",
       "richTextToolbar": {
         "bold": "Fett (Strg+B)",
         "italic": "Kursiv (Strg+I)",

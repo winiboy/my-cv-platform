@@ -197,7 +197,9 @@
       "professional": "Professional",
       "professionalDesc": "Executive template with sidebar and key achievements section",
       "creative": "Creative",
-      "creativeDesc": "Bold design for creative professionals"
+      "creativeDesc": "Bold design for creative professionals",
+      "swissVocational": "Vocational training (VET)",
+      "swissVocationalDesc": "Sober Swiss format, ideal after an apprenticeship"
     },
     "new": {
       "title": "Create New Resume",
@@ -336,6 +338,9 @@
       "aiOptimizedSummary": "AI-Optimized Summary",
       "useThisVersion": "Use This Version",
       "keepOriginal": "Keep Original",
+      "uploadPhoto": "Upload photo",
+      "changePhoto": "Change photo",
+      "photoTooLarge": "The photo must be under 2 MB.",
       "richTextToolbar": {
         "bold": "Bold (Ctrl+B)",
         "italic": "Italic (Ctrl+I)",

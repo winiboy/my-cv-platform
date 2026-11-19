@@ -41,6 +41,9 @@ const PHONE = { width: 375, height: 812 } as const
 const TABLET = { width: 768, height: 1024 } as const
 const DESKTOP = { width: 1440, height: 900 } as const
 
+/** The options TEMPLATE_OPTIONS offers: the five original templates and swissVocational. */
+const TEMPLATE_OPTION_COUNT = 6
+
 const STRINGS = {
   fr: {
     backToResults: 'Retour aux résultats',
@@ -364,7 +367,7 @@ async function expectModalInViewport(page: Page, panel: Locator): Promise<void> 
 /** Every template option can be scrolled fully into view inside the modal's scrolling body. */
 async function expectEveryTemplateReachable(page: Page): Promise<void> {
   const radios = page.getByRole('radiogroup').getByRole('radio')
-  await expect(radios).toHaveCount(5)
+  await expect(radios).toHaveCount(TEMPLATE_OPTION_COUNT)
   const body = await page
     .getByRole('radiogroup')
     .locator('xpath=ancestor::div[contains(@class, "overflow-y-auto")][1]')

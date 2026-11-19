@@ -1,4 +1,4 @@
-import type { ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate } from '@/types/database'
 import { TAILWIND_SPACING_PX } from '@/lib/resume-line-height'
 import { compositeOverOpaque } from '@/lib/resume-text-opacity'
 
@@ -58,6 +58,8 @@ export type DocxGraphicForm =
   | 'shaded-cell'
   /** A floating `w:drawing` of a PNG with an alpha channel: the DOCX translucent shape. */
   | 'floating-raster'
+  /** A `w:pgBorders` edge, drawn on every page: the DOCX full-height page strip. */
+  | 'page-border'
   /** Nothing OOXML has draws it, or drawing it was rejected. `approximation` says which, and why. */
   | 'not-drawn'
 
@@ -157,6 +159,18 @@ export const CREATIVE_HEADER_CIRCLES = {
   topRight: { sizePx: 64 * TAILWIND_SPACING_PX, overhangPx: 20 * TAILWIND_SPACING_PX },
   /** `absolute -bottom-10 -left-10 h-48 w-48` */
   bottomLeft: { sizePx: 48 * TAILWIND_SPACING_PX, overhangPx: 10 * TAILWIND_SPACING_PX },
+} as const
+
+/**
+ * `swiss-vocational-template.tsx`: the accent strip down the page's left edge
+ * and the square before each section heading, both sized inline from here, in
+ * CSS px at page scale.
+ */
+export const SWISS_VOCATIONAL_ACCENT = {
+  stripPx: 8,
+  squarePx: 10,
+  /** The gap between the square and the heading text. */
+  squareGapPx: 14,
 } as const
 
 /** The height of a Tailwind `h-N` utility, in CSS px. */
@@ -262,7 +276,26 @@ export const PREVIEW_GRAPHICS = {
         'no shape primitive.',
     },
   },
-} as const satisfies Readonly<Record<ResumeTemplate, Readonly<Record<string, PreviewGraphic>>>>
+  swissVocational: {
+    accentStrip: {
+      element: 'the red strip down the left edge of the page (`bg-red-700`, `SWISS_VOCATIONAL_ACCENT.stripPx` wide)',
+      form: 'page-border',
+      approximation:
+        'A left page border (`w:pgBorders`) of red-700, measured from the page edge with no gap and as wide as ' +
+        'the strip, so it runs the full height of every page as the Preview’s strip does in print. Word takes ' +
+        'a border width in eighths of a point, so the strip’s width is rounded to the nearest eighth.',
+    },
+    headingSquare: {
+      element: 'the red square before each section heading (`bg-red-700`, `SWISS_VOCATIONAL_ACCENT.squarePx` square)',
+      form: 'shaded-run',
+      approximation:
+        'A red-700 shaded run holding one no-break space at the heading’s line, widened by character spacing ' +
+        'to the square’s width, and followed by an unshaded spacer run for the gap. A run’s shading is as tall ' +
+        'as its line rather than the square’s side, so the DOCX block is taller than it is wide. No glyph is ' +
+        'written, so the heading text an ATS reads is the heading alone.',
+    },
+  },
+} as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewGraphic>>>>
 
 // ---------------------------------------------------------------------------
 // Colour

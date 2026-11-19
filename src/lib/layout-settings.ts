@@ -17,7 +17,7 @@
  *    not an authority — see `resolveResumeLayout`.
  */
 
-import type { ResumeLayoutSettings, ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate, ResumeLayoutSettings } from '@/types/database'
 
 /** Known sidebar section IDs — used for validation and migration. */
 const VALID_SIDEBAR_IDS = ['keyAchievements', 'skills', 'languages', 'training'] as const
@@ -1438,10 +1438,10 @@ export const LAYOUT_CONTROL_KEYS: Readonly<
  * each generator the same model, so what a template is PASSED and what its
  * generator READS is the whole of the question:
  *
- *                     professional  modern   classic  minimal  creative
- *   sidebarColour          yes       yes       no       no       no
- *   perPropertySize        no        no        yes      yes      yes
- *   sidebarSections        yes       yes       no       no       yes
+ *                     professional  modern   classic  minimal  creative  swissVocational
+ *   sidebarColour          yes       yes       no       no       no          no
+ *   perPropertySize        no        no        yes      yes      yes         no
+ *   sidebarSections        yes       yes       no       no       yes         visibility only
  *
  * sidebarColour — professional and modern are the only templates the editor
  *   passes `sidebarColor` to, and the only DOCX generators that paint a sidebar
@@ -1474,13 +1474,22 @@ export const LAYOUT_CONTROL_KEYS: Readonly<
  * remove capability the product is about to gain.
  */
 export const TEMPLATE_LAYOUT_CONTROLS: Readonly<
-  Record<ResumeTemplate, readonly LayoutControlId[]>
+  Record<BuiltResumeTemplate, readonly LayoutControlId[]>
 > = Object.freeze({
   professional: Object.freeze(['sidebarColour', 'sidebarSections'] as const),
   modern: Object.freeze(['sidebarColour', 'sidebarSections'] as const),
   classic: Object.freeze(['perPropertySize'] as const),
   minimal: Object.freeze(['perPropertySize'] as const),
   creative: Object.freeze(['perPropertySize', 'sidebarSections'] as const),
+  /**
+   * swissVocational draws its sizes from its own design at the model's font
+   * scale, renders no in-Preview size input and paints no user colour. It has
+   * no sidebar, but skills, languages and training are SIDEBAR ids in the
+   * model and it honours their stored visibility on every surface, so the
+   * sidebar panel is offered for their visibility toggles only: every row it
+   * lists is fixed in `TEMPLATE_EDITOR_SECTIONS` below, so nothing reorders.
+   */
+  swissVocational: Object.freeze(['sidebarSections'] as const),
 })
 
 /**
@@ -1493,7 +1502,7 @@ export const TEMPLATE_LAYOUT_CONTROLS: Readonly<
 export function templateOffersLayoutControl(template: string, control: LayoutControlId): boolean {
   const offered =
     template in TEMPLATE_LAYOUT_CONTROLS
-      ? TEMPLATE_LAYOUT_CONTROLS[template as ResumeTemplate]
+      ? TEMPLATE_LAYOUT_CONTROLS[template as BuiltResumeTemplate]
       : TEMPLATE_LAYOUT_CONTROLS.modern
   return offered.includes(control)
 }
@@ -1515,13 +1524,14 @@ export type PerPropertySizeKey =
  * Preview applies and an export does not (Part 3 US-011's divergence).
  */
 export const TEMPLATE_APPLIED_SIZE_KEYS: Readonly<
-  Record<ResumeTemplate, readonly PerPropertySizeKey[]>
+  Record<BuiltResumeTemplate, readonly PerPropertySizeKey[]>
 > = Object.freeze({
   professional: Object.freeze([] as const),
   modern: Object.freeze(['titleFontSize', 'sectionDescFontSize'] as const),
   classic: LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[],
   minimal: LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[],
   creative: LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[],
+  swissVocational: Object.freeze([] as const),
 })
 
 // ---------- Which section ids the editor's panels offer ----------
@@ -1577,7 +1587,7 @@ const ALL_EDITOR_SECTIONS: TemplateEditorSections = Object.freeze({
 })
 
 export const TEMPLATE_EDITOR_SECTIONS: Readonly<
-  Record<ResumeTemplate, TemplateEditorSections>
+  Record<BuiltResumeTemplate, TemplateEditorSections>
 > = Object.freeze({
   professional: ALL_EDITOR_SECTIONS,
   modern: ALL_EDITOR_SECTIONS,
@@ -1588,7 +1598,41 @@ export const TEMPLATE_EDITOR_SECTIONS: Readonly<
     main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
     fixed: Object.freeze(['summary'] as const),
   }),
+  /**
+   * swissVocational draws its sections in one fixed sequence (summary,
+   * experience, education, training, then skills and languages), so every
+   * row it lists keeps its visibility toggle and none can be dragged. It does
+   * not draw keyAchievements, so that row is not listed.
+   */
+  swissVocational: Object.freeze({
+    // In the order the template draws them: with every row fixed, the panel
+    // lists them so (`listedEditorSections`), and its numbers are true.
+    sidebar: Object.freeze(['training', 'skills', 'languages'] as const),
+    main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
+    fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'training', 'skills', 'languages'] as const),
+  }),
 })
+
+/**
+ * The rows one of the editor's panels lists, in the order it lists them.
+ *
+ * Normally the stored order, filtered to the rows the template lists: the
+ * panel is where that order is changed. A panel whose every row is FIXED
+ * changes no order, and the template draws those rows in a sequence of its
+ * own, so it lists them in that sequence (the template's declared list) and
+ * its row numbers say where each section is drawn. Only swissVocational has
+ * such a panel; every other template's panels list exactly as before.
+ *
+ * A display order only: nothing here is written back to the model.
+ */
+export function listedEditorSections<Id extends EditorSidebarId | EditorMainId>(
+  storedOrder: readonly Id[],
+  listed: readonly Id[],
+  fixed: readonly (EditorSidebarId | EditorMainId)[],
+): Id[] {
+  if (listed.length > 0 && listed.every((id) => fixed.includes(id))) return [...listed]
+  return storedOrder.filter((id) => listed.includes(id))
+}
 
 /**
  * The section rows the editor's panels offer while `template` is selected.
@@ -1600,6 +1644,6 @@ export const TEMPLATE_EDITOR_SECTIONS: Readonly<
  */
 export function templateEditorSections(template: string): TemplateEditorSections {
   return template in TEMPLATE_EDITOR_SECTIONS
-    ? TEMPLATE_EDITOR_SECTIONS[template as ResumeTemplate]
+    ? TEMPLATE_EDITOR_SECTIONS[template as BuiltResumeTemplate]
     : TEMPLATE_EDITOR_SECTIONS.modern
 }

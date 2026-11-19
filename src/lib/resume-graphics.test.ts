@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import type { ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate } from '@/types/database'
+import { templateComponentFile } from '@/test/resume-template-files'
 import { TAILWIND_SPACING_PX } from './resume-line-height'
 import {
   CREATIVE_HEADER_CIRCLES,
@@ -11,6 +12,7 @@ import {
   CREATIVE_TIMELINE,
   MODERN_SKILL_BAR,
   PREVIEW_GRAPHICS,
+  SWISS_VOCATIONAL_ACCENT,
   creativeLanguageBarSegments,
   graphicHeightPx,
   modernSkillBarTrack,
@@ -31,9 +33,15 @@ import {
  */
 
 const ROOT = path.resolve(__dirname, '../..')
-const TEMPLATES: readonly ResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative']
-const template = (name: ResumeTemplate) =>
-  readFileSync(path.join(ROOT, `src/components/dashboard/resume-templates/${name}-template.tsx`), 'utf-8')
+const TEMPLATES: readonly BuiltResumeTemplate[] = [
+  'professional',
+  'modern',
+  'classic',
+  'minimal',
+  'creative',
+  'swissVocational',
+]
+const template = (name: BuiltResumeTemplate) => readFileSync(path.join(ROOT, templateComponentFile(name)), 'utf-8')
 
 /** Every occurrence of a pattern, so a count can be pinned as well as a presence. */
 const count = (source: string, pattern: RegExp) => (source.match(pattern) ?? []).length
@@ -161,8 +169,21 @@ describe('CREATIVE_HEADER_CIRCLES', () => {
   })
 })
 
+describe('SWISS_VOCATIONAL_ACCENT', () => {
+  it('sizes the strip and the heading square the swissVocational Preview draws', () => {
+    const source = template('swissVocational')
+    expect(source).toMatch(
+      /className="absolute inset-y-0 left-0 bg-red-700 [^"]*"\s+style=\{\{ width: `\$\{SWISS_VOCATIONAL_ACCENT\.stripPx\}px` \}\}/,
+    )
+    expect(source).toContain('width: `${SWISS_VOCATIONAL_ACCENT.squarePx}px`')
+    expect(source).toContain('height: `${SWISS_VOCATIONAL_ACCENT.squarePx}px`')
+    expect(source).toContain('marginRight: `${SWISS_VOCATIONAL_ACCENT.squareGapPx}px`')
+    expect(SWISS_VOCATIONAL_ACCENT).toEqual({ stripPx: 8, squarePx: 10, squareGapPx: 14 })
+  })
+})
+
 describe('PREVIEW_GRAPHICS', () => {
-  it('covers all five templates', () => {
+  it('covers every built template', () => {
     expect([...TEMPLATES].sort()).toEqual(Object.keys(PREVIEW_GRAPHICS).sort())
   })
 

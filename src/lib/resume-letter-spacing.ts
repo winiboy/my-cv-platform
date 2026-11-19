@@ -1,4 +1,4 @@
-import type { ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate } from '@/types/database'
 
 /**
  * The letter spacing the resume Preview draws, as the source that sets it
@@ -88,4 +88,8 @@ export const PREVIEW_TRACKING = {
     /** The header title, the document's `h1`. Creative's headings draw none. */
     title: TAILWIND_TRACKING['tracking-tight'],
   },
-} as const satisfies Readonly<Record<ResumeTemplate, Readonly<Record<string, number>>>>
+  swissVocational: {
+    /** The CV title under the name, and every section heading. */
+    caps: TAILWIND_TRACKING['tracking-widest'],
+  },
+} as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, number>>>>

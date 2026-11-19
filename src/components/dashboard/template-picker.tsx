@@ -1,15 +1,16 @@
 'use client'
 
 import { memo, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Briefcase, FileText, Layout, PenTool, Sparkles, type LucideIcon } from 'lucide-react'
+import { Briefcase, FileText, GraduationCap, Layout, PenTool, Sparkles, type LucideIcon } from 'lucide-react'
 import { ResumePreview } from '@/components/dashboard/resume-preview'
 import type { Locale } from '@/lib/i18n'
 import { PAGE_HEIGHT_MM, PAGE_WIDTH_MM, PAGE_WIDTH_PX } from '@/lib/resume-page-size'
 import { TEMPLATE_SAMPLE_RESUME } from '@/lib/template-sample-resume'
-import type { Resume, ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate, Resume, ResumeTemplate } from '@/types/database'
 
 interface TemplateOption {
-  id: ResumeTemplate
+  /** Only a template drawn on every surface can be offered: an unbuilt id does not compile here. */
+  id: BuiltResumeTemplate
   icon: LucideIcon
 }
 
@@ -23,6 +24,7 @@ export const TEMPLATE_OPTIONS: readonly TemplateOption[] = [
   { id: 'minimal', icon: Layout },
   { id: 'creative', icon: PenTool },
   { id: 'professional', icon: Briefcase },
+  { id: 'swissVocational', icon: GraduationCap },
 ]
 
 /**

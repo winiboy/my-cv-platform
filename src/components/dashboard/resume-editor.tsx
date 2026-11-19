@@ -28,6 +28,7 @@ import type { EditorMainId, EditorSidebarId } from '@/lib/layout-settings'
 import {
   chosenFontFamily,
   templateEditorSections,
+  listedEditorSections,
   templateOffersLayoutControl,
 } from '@/lib/layout-settings'
 import { useResumeLayout } from '@/lib/hooks/use-resume-layout'
@@ -44,6 +45,7 @@ import { ProjectsSection } from './resume-sections/projects-section'
 import { CoverLetterAssociationSection } from './resume-sections/cover-letter-association-section'
 import { JobAssociationSection } from './cover-letter-sections/job-association-section'
 import { ProfessionalTemplate } from './resume-templates/professional-template'
+import { SwissVocationalTemplate } from './resume-templates/swiss-vocational-template'
 import { ModernTemplate } from './resume-templates/modern-template'
 import { ClassicTemplate } from './resume-templates/classic-template'
 import { MinimalTemplate } from './resume-templates/minimal-template'
@@ -282,8 +284,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
     hiddenCreativeMain,
     summaryHidden,
   } = creative
-  const listedSidebarSections = sidebarOrder.filter((id) => editorSections.sidebar.includes(id))
-  const listedMainSections = mainContentOrder.filter((id) => editorSections.main.includes(id))
+  const listedSidebarSections = listedEditorSections(sidebarOrder, editorSections.sidebar, editorSections.fixed)
+  const listedMainSections = listedEditorSections(mainContentOrder, editorSections.main, editorSections.fixed)
 
   const [draggedSection, setDraggedSection] = useState<EditorSidebarId | null>(null)
   const [draggedMainSection, setDraggedMainSection] = useState<EditorMainId | null>(null)
@@ -1774,6 +1776,23 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
                           setSidebarWidth={setSidebarWidth}
                           hiddenSidebarSections={hiddenSidebarSections}
                           hiddenMainSections={hiddenMainSections}
+                        />
+                      )
+                    case 'swissVocational':
+                      return (
+                        // The photo's place is an upload affordance here, through the same
+                        // handler and storage key modern uses; background removal is
+                        // modern's alone and is not offered.
+                        <SwissVocationalTemplate
+                          resume={resume}
+                          locale={locale}
+                          dict={dict}
+                          fontScale={fontScale}
+                          fontFamily={chosenFontFamily(fontFamily) ?? undefined}
+                          hiddenMainSections={hiddenMainSections}
+                          hiddenSidebarSections={hiddenSidebarSections}
+                          photoUrl={photoUrl}
+                          onPhotoChange={handleNewPhotoUpload}
                         />
                       )
                     default:

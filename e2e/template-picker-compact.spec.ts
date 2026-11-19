@@ -44,9 +44,27 @@ const VIEWPORTS = {
 const TABLET = { width: 768, height: 1024 } as const
 const TABLET_CARD_MAX_HEIGHT = 340
 
+/** The options TEMPLATE_OPTIONS offers: the five original templates and swissVocational. */
+const OPTION_COUNT = 6
 const CARD_MAX_HEIGHT = 200
-const PAGE_GROUP_MAX_HEIGHT_AT_375 = 1100
-const MODAL_GROUP_MAX_HEIGHT_AT_1440 = 650
+/**
+ * The radiogroup ceilings, per option rather than as fixed totals.
+ *
+ * compact-template-picker (tasks/prds/compact-template-picker.md, US-001) set
+ * them for five options: at most 1,100 px for the create page at 375 px (one
+ * column, 220 px an option) and at most 650 px for the modal at 1440 px (two
+ * columns, three rows: 650 / 3 px a row). swiss-cv-templates
+ * (tasks/prds/swiss-cv-templates.md) adds options to the picker, so the group
+ * grows with them; the ceiling a card or a row may take does not.
+ *
+ * The row ceiling is kept as the exact fraction rather than rounded up to
+ * 217 px: six options are still three rows, and 3 x 217 would be 651 px, one
+ * pixel looser than the 650 px the compact PRD approved.
+ */
+const PAGE_GROUP_MAX_HEIGHT_PER_OPTION_AT_375 = 220
+const MODAL_GROUP_MAX_HEIGHT_PER_ROW_AT_1440 = 650 / 3
+const PAGE_GROUP_MAX_HEIGHT_AT_375 = PAGE_GROUP_MAX_HEIGHT_PER_OPTION_AT_375 * OPTION_COUNT
+const MODAL_GROUP_MAX_HEIGHT_AT_1440 = MODAL_GROUP_MAX_HEIGHT_PER_ROW_AT_1440 * Math.ceil(OPTION_COUNT / 2)
 const THUMBNAIL_MIN_WIDTH = 96
 const THUMBNAIL_MAX_WIDTH = 128
 
@@ -192,7 +210,7 @@ async function measurePicker(page: Page): Promise<PickerMeasure> {
 
 /** What every card must satisfy, wherever its text sits. */
 function expectReadableCards(measure: PickerMeasure, maxCardHeight: number): void {
-  expect(measure.cards).toHaveLength(5)
+  expect(measure.cards).toHaveLength(OPTION_COUNT)
   for (const card of measure.cards) {
     expect(card.height, `${card.template} card height`).toBeLessThanOrEqual(maxCardHeight)
     expect(card.thumbnailWidth, `${card.template} thumbnail width`).toBeGreaterThanOrEqual(THUMBNAIL_MIN_WIDTH)
@@ -237,7 +255,7 @@ for (const locale of LOCALES) {
       const response = await page.goto(`/${locale}/dashboard/resumes/new`)
       expect(response?.status()).toBe(200)
       await expect(group(page)).toBeVisible()
-      await expect(drawnThumbnails(page)).toHaveCount(5)
+      await expect(drawnThumbnails(page)).toHaveCount(OPTION_COUNT)
 
       const measure = await measurePicker(page)
       logMeasure('page', locale, viewport, measure)
@@ -260,7 +278,7 @@ for (const locale of LOCALES) {
     const response = await page.goto(`/${locale}/dashboard/resumes/new`)
     expect(response?.status()).toBe(200)
     await expect(group(page)).toBeVisible()
-    await expect(drawnThumbnails(page)).toHaveCount(5)
+    await expect(drawnThumbnails(page)).toHaveCount(OPTION_COUNT)
 
     const measure = await measurePicker(page)
     logMeasure('page', locale, TABLET, measure)
@@ -283,8 +301,8 @@ for (const locale of LOCALES) {
 
     await page.getByRole('button', { name: CREATE_CV_BUTTON[locale], exact: true }).click()
     await expect(group(page)).toBeVisible()
-    await expect(drawnThumbnails(page)).toHaveCount(5)
-    await expect(radios(page)).toHaveCount(5)
+    await expect(drawnThumbnails(page)).toHaveCount(OPTION_COUNT)
+    await expect(radios(page)).toHaveCount(OPTION_COUNT)
 
     const measure = await measurePicker(page)
     logMeasure('modal', locale, VIEWPORTS.desktop, measure)
@@ -334,8 +352,8 @@ for (const locale of LOCALES) {
 
     await createButton.click()
     await expect(group(page)).toBeVisible()
-    await expect(drawnThumbnails(page)).toHaveCount(5)
-    await expect(radios(page)).toHaveCount(5)
+    await expect(drawnThumbnails(page)).toHaveCount(OPTION_COUNT)
+    await expect(radios(page)).toHaveCount(OPTION_COUNT)
 
     const measure = await measurePicker(page)
     logMeasure('modal', locale, VIEWPORTS.mobile, measure)

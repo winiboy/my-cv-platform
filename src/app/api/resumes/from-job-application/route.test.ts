@@ -267,6 +267,31 @@ describe('POST /api/resumes/from-job-application', () => {
     expect(writes()).toEqual([])
   })
 
+  it('creates a CV with the swissVocational template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply('<p>x</p>'))
+
+    const response = await POST(createRequest({ ...VALID_BODY, template: 'swissVocational' }))
+
+    expect(response.status).toBe(201)
+    expect(insertedResume().template).toBe('swissVocational')
+  })
+
+  it.each([
+    'swissCommerce',
+    'swissTrades',
+    'swissHealth',
+    'swissFinance',
+    'swissEngineering',
+    'swissIt',
+    'swissExecutive',
+    'swissAcademic',
+    'swissFirstJob',
+  ])('refuses %s, a Swiss template that is not built yet, and writes nothing', async (template) => {
+    const response = await POST(createRequest({ ...VALID_BODY, template }))
+    expect(response.status).toBe(400)
+    expect(writes()).toEqual([])
+  })
+
   it('ignores job content sent by the client', async () => {
     generateResumeFromJobDescription.mockResolvedValueOnce(aiReply('<p>x</p>'))
     await POST(createRequest({ ...VALID_BODY, jobDescription: 'Injected', job_title: 'Injected' }))

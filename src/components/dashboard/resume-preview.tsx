@@ -7,6 +7,7 @@ import { ClassicTemplate } from './resume-templates/classic-template'
 import { MinimalTemplate } from './resume-templates/minimal-template'
 import { CreativeTemplate } from './resume-templates/creative-template'
 import { ProfessionalTemplate } from './resume-templates/professional-template'
+import { SwissVocationalTemplate } from './resume-templates/swiss-vocational-template'
 import {
   chosenFontFamily,
   DEFAULT_RESUME_LAYOUT,
@@ -139,6 +140,12 @@ export function ResumePreview({
     }
     case 'professional':
       return <ProfessionalTemplate resume={resume} locale={locale} dict={dict} sidebarColor={sidebarColor} fontScale={fontScale} fontFamily={fontFamily} sidebarOrder={sidebarOrder} mainContentOrder={mainContentOrder} sidebarTopMargin={sidebarTopMargin} setSidebarTopMargin={setSidebarTopMargin} mainContentTopMargin={mainContentTopMargin} setMainContentTopMargin={setMainContentTopMargin} sidebarWidth={sidebarWidth} setSidebarWidth={setSidebarWidth} hiddenSidebarSections={hiddenSidebarSections} hiddenMainSections={hiddenMainSections} />
+    case 'swissVocational':
+      // Like classic and minimal it declares no font of its own, so it is passed
+      // the CHOSEN font or nothing. It reads the sections' visibility and not
+      // their order, which is fixed: skills, languages and training are sidebar
+      // ids in the model although it draws no sidebar.
+      return <SwissVocationalTemplate resume={resume} locale={locale} dict={dict} fontScale={fontScale} fontFamily={chosenFont} hiddenMainSections={hiddenMainSections} hiddenSidebarSections={hiddenSidebarSections} photoUrl={photoUrl} onPhotoChange={onPhotoChange} />
     default:
       return <ModernTemplate resume={resume} locale={locale} dict={dict} sidebarColor={sidebarColor} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} sidebarOrder={modernSidebarOrder} mainContentOrder={modernMainContentOrder} hiddenSidebarSections={hiddenModernSidebarSections} hiddenMainSections={hiddenModernMainSections} sidebarWidth={sidebarWidth} setSidebarWidth={setSidebarWidth} sidebarTopMargin={sidebarTopMargin} setSidebarTopMargin={setSidebarTopMargin} mainContentTopMargin={mainContentTopMargin} setMainContentTopMargin={setMainContentTopMargin} fontScale={fontScale} fontFamily={fontFamily} photoUrl={photoUrl} onPhotoChange={onPhotoChange} />
   }

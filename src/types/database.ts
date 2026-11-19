@@ -193,6 +193,37 @@ export interface CoverLetterAnalysis {
 // Enums
 export type UserPlan = Profile['plan']
 export type ResumeTemplate = Resume['template']
+
+/**
+ * The template identifiers the schema accepts (migration 011) whose template is
+ * not built yet: each lands in its own story of `tasks/prds/swiss-cv-templates.md`,
+ * which removes it from this union.
+ *
+ * No creation surface offers them and the job and AI routes refuse them. The
+ * schema still accepts them and the owner's client writes `resumes.template`
+ * under RLS, so a row CAN hold one. Such a row is drawn as modern everywhere:
+ * the Editor, Preview and PDF through their template switch's `default` branch,
+ * and the Word route through `docxTemplateFor`, which maps exactly these ids to
+ * modern (any other unknown value keeps the route's professional fallback).
+ *
+ * The per-template registries are keyed by `BuiltResumeTemplate` rather than
+ * given placeholder entries for these ids, so a story that removes an id here
+ * fails to compile until every registry states that template's real value; the
+ * registry lookups resolve an id they do not hold as modern.
+ */
+export type UnbuiltResumeTemplate =
+  | 'swissCommerce'
+  | 'swissTrades'
+  | 'swissHealth'
+  | 'swissFinance'
+  | 'swissEngineering'
+  | 'swissIt'
+  | 'swissExecutive'
+  | 'swissAcademic'
+  | 'swissFirstJob'
+
+/** The template identifiers that have a template on every surface. */
+export type BuiltResumeTemplate = Exclude<ResumeTemplate, UnbuiltResumeTemplate>
 export type CoverLetterTemplate = CoverLetter['template']
 export type JobStatus = JobApplication['status']
 export type JobPriority = JobApplication['priority']

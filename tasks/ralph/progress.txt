@@ -5,3 +5,182 @@ PRD: tasks/prds/swiss-cv-templates.md (Status: APPROVED 2026-11-18, written by t
 Format: docs/engineering/progress-log-format.md
 Branch setup: from prd/swiss-cv-templates fc98226 (origin/main f0a2e75, #129 merged, plus the PRD draft d7567cf with the ten mockups, and the owner's approval commit). The first commit archives the merged cover-letter-save-status-below-title contract; the second adds this contract.
 Contract note: nested sub-bullets and follow-on paragraphs in the PRD are folded into their parent criterion, and bold markers are dropped; wording unchanged.
+
+## US-001: The "Formation professionnelle (CFC)" template is available and the template set is ready for the ten Swiss templates
+Status: PASS
+Priority: 1
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 94d4185 (contract commit; origin/main f0a2e75)
+
+Scope:
+- Scope check: PASS
+- Changed paths: story diff sha256 prefix 06bfd5b50a5c22a5. The hash covers `git diff -- src e2e`, then "== <path>" and the content of each untracked file under src/ and e2e/.
+  - **Migration:** `supabase/migrations/011_add_swiss_cv_templates.sql` drops and re-adds `resumes_template_check` with the five existing values and the ten Swiss ids. No row, column or policy changes.
+    - Its rollback note names both statements of 002 (the CHECK and the `COMMENT ON COLUMN`).
+    - The note was edited (comment only) after the migration was applied locally; it was never committed or deployed before this commit.
+  - **Types:** `src/types/supabase.ts` lists the fifteen values in Row, Insert and Update. `src/types/database.ts` adds:
+    - `UnbuiltResumeTemplate`: the nine ids without a story yet;
+    - `BuiltResumeTemplate`: the six with one.
+  - **Registries keyed by `BuiltResumeTemplate`, each with a real `swissVocational` entry:**
+    - the layout registries in `src/lib/layout-settings.ts`;
+    - `resume-palette.ts` (adds `red-700`);
+    - `resume-text-opacity.ts`, `resume-letter-spacing.ts`, `resume-graphics.ts` (new `page-border` form), `resume-line-height.ts`.
+
+    A later story that moves an id out of `UnbuiltResumeTemplate` does not compile until each of these has an entry for it.
+  - **Offered lists:** `swissVocational` only, in four places. Each list is typed so an unbuilt id does not compile.
+    - `TEMPLATE_OPTIONS`, after the five existing templates;
+    - `RESUME_TEMPLATES`, in the job-application route;
+    - `validTemplates`, in the AI route;
+    - `SUPPORTED_TEMPLATES`, moved from `route.ts` to the new `docx-templates.ts` so it can be tested.
+  - **Unbuilt id already in a row:** `docxTemplateFor` exports the nine unbuilt ids as modern, which is what the Editor, Preview and PDF draw for them. Any other unknown value still gets professional, as before.
+  - **Template:**
+    - `src/components/dashboard/resume-templates/swiss-vocational-template.tsx` draws the Editor, Preview and PDF.
+    - `src/lib/swiss-vocational-template.ts` is shared by the Preview and the Word generator: sizes, geometry, section order and visibility, `MM.YYYY` dates, contact entries, level names, the emptiness test and the skill content.
+    - **Layout:**
+      - one column, a red strip at the left edge, and a header with the name, the CV title in red capitals, a labelled two-column contact grid, and the photo (110×140) top right;
+      - sections in this order: summary, experience, education, training (certifications), then skills and languages side by side;
+      - dates in a left column, which, like the contact label column, scales with fontScale.
+    - **Page breaks:** each heading is kept with its first entry (`break-inside-avoid`), and so is each dated row, the summary, and each of the skills and languages sections.
+    - **Alignment:** achievements, descriptions and skill content are left-aligned; the summary is justified, as in the mockup.
+    - **PDF text layer:** a no-break space inside the same string as each left-column text puts a word separator at every column boundary.
+  - **Word:** the new generator `docx-swiss-vocational.ts` reuses the photo helpers that `docx-modern.ts` now exports. Modern itself changes only by gaining the `export` keyword.
+  - **Wiring:** `resume-preview.tsx`, plus the Editor case in `resume-editor.tsx`.
+    - The Editor reuses the existing photo handler and storage key.
+    - Its section panels list fixed rows in the order the template draws them, through `listedEditorSections`.
+    - The five original templates' panels are unchanged (unit test).
+  - **Locales (fr, en, de, it):** the name, the description, and three photo strings (`uploadPhoto`, `changePhoto`, `photoTooLarge`).
+  - **Tests:**
+    - New: `docx-swiss-vocational.test.ts`, `docx-templates.test.ts`, `src/lib/swiss-vocational-template.test.ts`, `swiss-vocational-template.test.ts`, `e2e/swiss-vocational-template.spec.ts`, and the swissVocational cases in `e2e/visual/resume-templates.spec.ts` with their two baselines.
+    - Updated wherever a test lists the offered templates, including the three picker specs and `job-search-mobile.spec.ts`.
+    - The per-element DOCX suites and the parity suite are typed to the five original templates. swissVocational's per-element assertions live in `docx-swiss-vocational.test.ts`.
+- Not touched:
+  - the five existing templates' rendering, Word generators (apart from the export keyword), layout controls, visual baselines and parity;
+  - the cover letter;
+  - the PDF pipeline;
+  - resume fields;
+  - the photo storage.
+- No version change, push or merge.
+- A temporary capture spec (`e2e/zz-capture-swiss-vocational.spec.ts`) was used for the evidence and deleted. It is not in the diff.
+
+Checks:
+- Final run on diff 06bfd5b50a5c22a5, alone, after the last change. The hash was the same before and after each run.
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 4170 passed, 6 skipped (134 files).
+  - pnpm test:integration: PASS — 80 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 285 problems (219 errors, 66 warnings), against the tracked ceiling of 286.
+  - pnpm test:e2e: PASS — 596 passed, 0 failed (19.8 min), on the rerun. The first run on the same hash had 595 passed and 1 failed: `font-scale-rendered.spec.ts` "modern: the drawn size follows the stored scale", which timed out waiting for the login page's `#email` (`fixtures/auth.ts:153`). That spec alone then passed 4/4, and the full rerun passed 596/0.
+  - pnpm test:visual: PASS — 12 passed, run alone. The ten existing baselines are unchanged.
+    - The two swissVocational baselines were created in this story and regenerated with `--grep swissVocational` only.
+    - After the last layout change they were re-rendered and are sha256-identical to the previous ones.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+- Earlier runs, not evidence for this diff: rounds before the review fixes (hashes 6dcece0c9321c283, bc6da8fc42e0ad93, 0ac16f3fe61bfe67).
+  - **Flakes:** the e2e runs met the known login timeout on `#email` (`fixtures/auth.ts:153`) in cover-letter specs. Each time, the affected specs passed alone and the full rerun on the same hash passed.
+  - **Hard-coded count:** the first run found one real failure, a literal `toHaveCount(5)` in `job-search-mobile.spec.ts`, which is now a named count.
+
+Specialized validation:
+- Database: PASS.
+  - Migration 011 was applied to the local Supabase with `supabase migration up --local`. The constraint definition lists the fifteen values.
+  - A rolled-back transaction inserted all fifteen and rejected `bogus` and `SwissVocational`. No rows changed.
+  - No hosted database was touched.
+- Browser: PASS. Captures with a realistic fictional fixture (scratchpad `us1-shots/`):
+  - **Preview:** fr and de, with and without photo, the hidden variant, and font scales 0.7 and 1.3;
+  - **Editor:** with and without photo, at 768 and 375, plus both section panels and the upload button's focus;
+  - **Picker card:** at 375, 768 and 1440;
+  - **Keyboard trace:** the picker radio group (arrows, Home, End, with `aria-checked` following) and the upload button reached by Tab.
+- Export: PASS.
+  - **Variants:** PDF and DOCX for five variants: full, photo, hidden (one experience `visible:false`, training hidden through `hiddenSidebarSections`, no languages), scale 0.7 and scale 1.3.
+  - **Content:** checked by script against an independent expected list (48 strings, 29 for the hidden variant). In every variant:
+    - every string is in the DOCX and in the PDF text;
+    - the headings are in order;
+    - the hidden content is absent;
+    - the photo media is present only in the photo variant.
+  - **Word render:** each DOCX was rendered by Microsoft Word: one page, two at scale 1.3, the same as the PDF.
+  - **Page break:** at scale 1.3 the PDF and Word both start page 2 with the Compétences and Langues headings and their content.
+  - **PDF text layer:** separates every column. The e2e spec asserts it, for example "Location Lausanne, Switzerland Phone +41 21 555 0142".
+- Visual: PASS — see test:visual above.
+- Security: NOT_APPLICABLE.
+  - No new route, input or trust boundary; the existing template lists only grow, and the routes reject unbuilt ids with 400.
+  - The photo goes through the existing bounded `photoBase64` path. Rich text goes through `renderFormattedText` and the shared DOCX parsers.
+
+Agents:
+- senior-coder: implementation and five fix rounds:
+  - the compact-picker counts and descriptions;
+  - the hidden sidebar sections;
+  - the review fixes;
+  - the PDF text-layer separators;
+  - the page breaks and alignment;
+  - the regression test for the page breaks.
+- ui-expert:
+  - round 1 FAIL: the skills row broke after its label; fixed widths did not follow the font scale; panel order; `MM.YYYY` dates; upload contrast.
+  - round 2 FAIL: a heading was left alone at a PDF page break at scale 1.3; bullets were justified.
+  - round 3 PASS, 7/7 conditions.
+- code-reviewer:
+  - round 1 FAIL: no per-element DOCX coverage; the Word fallback for unbuilt ids was professional.
+  - round 2 PASS.
+  - round 3 PASS (re-review after the page-break change), with one Minor: the page-break fix had no automated test. That test was added in `swiss-vocational-template.test.ts`, which a deliberate mutation shows fails without the fix. All checks were re-run after it.
+
+Acceptance criteria:
+- AC-01 (migration, fifteen values, no row changes, types): PASS — the Database evidence above, and `supabase.ts`.
+- AC-02 (the nine other ids offered nowhere): PASS.
+  - Unit tests check the picker, both routes (400, no write) and `docxTemplateFor`.
+  - Each list is typed with `BuiltResumeTemplate`.
+- AC-03 (swissVocational in the picker after the five, with thumbnail, name and description in four locales; created from the new-CV page and from a job application): PASS.
+  - The e2e spec creates a CV from the picker; the route unit test covers creation from a job application.
+  - Picker specs: compact 20/20, picker, and job-cv-template-picker.
+- AC-04 (Editor, Preview, PDF and Word match `t1-cfc.png`): PASS — ui-expert round 3, comparing the captures and the Word renders with the mockup. The sanctioned differences:
+  - no CFC badge;
+  - the existing labels "Résumé", "Expérience", "Formation", "Formation / Cours" and "Localisation";
+  - no photo frame without a photo, outside the Editor;
+  - no footer.
+- AC-05 (FR-1 to FR-11): PASS.
+  - **FR-1:** only stored fields are drawn.
+  - **FR-2:** `visible`, `hiddenMainSections` and `hiddenSidebarSections` are honoured; empty rich text counts as empty; no heading appears without content.
+  - **FR-3:** the order is fixed; only the section visibility panel is offered, with fixed rows.
+  - **FR-4:** fontScale and the chosen font apply, and the column widths scale.
+  - **FR-5:** the photo top right; no frame without one; the Editor's upload button reuses the existing handler.
+  - **FR-6:** the existing labels.
+  - **FR-7:** the existing level names.
+  - **FR-8:** the four locales, covered by the locale tests.
+  - **FR-9:** `renderFormattedText`; the Preview returns 200.
+  - **FR-10:** its own generator; content checked; per-element tests.
+  - **FR-11:** all four lists.
+- Regression constraints: PASS.
+  - Visual: the ten existing baselines are unchanged.
+  - Parity: MATCH 211, KNOWN 3, NEW 0.
+  - Existing rows: the constraint only grows.
+  - Picker keyboard behaviour: trace and specs.
+  - Modern's photo code: unchanged.
+  - Cover letters: untouched.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **One migration for all fifteen ids.** The PRD asks for the set to be widened once, in US-001.
+  - Until each template's story lands, no surface offers its id.
+  - A row holding one through a direct write renders as modern in every output, Word included.
+- **Compact-picker ceilings counted per option.** The compact-template-picker PRD's 1100 px group ceiling at 375 px was set for five cards.
+  - Six cards measure 1198.3 px at 375 px (fr, en and it on the page; 1208.0 in the de modal), so a fixed 1100 cannot hold.
+  - The ceiling is now 220 px per option (1320 for six). The modal's 1440 px ceiling is per row (650/3, which is 650 for six options, unchanged).
+  - Every per-card assertion is unchanged: at most 200 px, at most 340 at 768, no split words.
+- **Shorter descriptions.** The fr and it descriptions are shortened so the card stays within the 200 px card ceiling: "Format suisse, idéal après un CFC" and "Formato svizzero, ideale dopo un AFC".
+- **The three new FR-6 labels are not added yet.** `projects`, `publications` and `distinctions` come in the stories that first use them (swissIt and swissAcademic).
+- **Dates follow the mockup:** `MM.YYYY` in every locale, read from the stored string, so no time zone can shift the month.
+
+Open owner decisions:
+- **Word font:** Word draws the document in a serif fallback when Inter is not installed. That comes from the shared `APP_BODY_FONT`, so it affects every template. A fontTable hint (`w:family="swiss"`) would fix it; that is a follow-up PRD.
+- **Word skill rows:** wrapped lines start under the label, because Word cannot measure the label width. Word's heading squares are taller than wide; this is documented in `resume-graphics.ts`.
+- **PDF page 2:** there is no top margin at the start of page 2, because `globals.css` sets `@page { margin: 0 }` for every template. The PDF pipeline is out of scope here.
+- **Glued text in the PDF:** the five existing templates very likely run adjacent columns together in their PDF text (for example language and level, or position and date). This was found by reading their markup and was not measured; it hurts copy-paste and ATS parsing. It is not fixed here and is a candidate for its own PRD.
+- **Untranslated panel text:** the section panel's "Edit Sidebar" title and its "drag and drop" text are not translated in any template.
+- **Shared photo helpers:** `docx-swiss-vocational.ts` imports them from `docx-modern.ts`. Moving them to `docx-helpers.ts` is advised before the other nine generators are written.
+
+Environment notes:
+- Docker Desktop was relaunched for local Supabase.
+- The checks ran alone.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+- **Word conversions:** done through COM, one file at a time, with a timeout. A Word process with no window, already running, was left untouched. One document of ours left open in it after a timed-out conversion was closed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 The "Formation professionnelle (CFC)" template is available and the template set is ready
+FINAL: PASS

@@ -3,7 +3,8 @@ import path from 'node:path'
 import { expect, type Page } from '@playwright/test'
 import JSZip from 'jszip'
 import type { ResumeLayoutModel } from '../../src/lib/layout-settings'
-import type { ResumeTemplate } from '../../src/types/database'
+// Parity pins its references element by element for the five original templates.
+import type { OriginalResumeTemplate as ResumeTemplate } from '../../src/test/resume-template-files'
 import { parsePdf } from '../fixtures/pdf'
 import { coloursAgree, isBlendOf } from './colour'
 import {

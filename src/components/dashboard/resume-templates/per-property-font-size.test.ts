@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server'
 import JSZip from 'jszip'
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/common.json'
-import type { Resume, ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate as ResumeTemplate, Resume } from '@/types/database'
 import {
   DEFAULT_RESUME_LAYOUT,
   LAYOUT_CONTROL_KEYS,
@@ -15,11 +15,13 @@ import { ClassicTemplate } from '@/components/dashboard/resume-templates/classic
 import { CreativeTemplate } from '@/components/dashboard/resume-templates/creative-template'
 import { MinimalTemplate } from '@/components/dashboard/resume-templates/minimal-template'
 import { ModernTemplate } from '@/components/dashboard/resume-templates/modern-template'
+import { SwissVocationalTemplate } from '@/components/dashboard/resume-templates/swiss-vocational-template'
 import { generateClassicDocx } from '@/app/api/resumes/[id]/download-docx/docx-classic'
 import { generateCreativeDocx } from '@/app/api/resumes/[id]/download-docx/docx-creative'
 import { generateMinimalDocx } from '@/app/api/resumes/[id]/download-docx/docx-minimal'
 import { generateModernDocx } from '@/app/api/resumes/[id]/download-docx/docx-modern'
 import { generateProfessionalDocx } from '@/app/api/resumes/[id]/download-docx/docx-professional'
+import { generateSwissVocationalDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-vocational'
 import { pxToHalfPoints, type DocxGeneratorSettings } from '@/app/api/resumes/[id]/download-docx/docx-helpers'
 
 /**
@@ -58,13 +60,14 @@ const BUMPED: Readonly<Record<PerPropertySizeKey, number>> = {
 
 const SIZE_KEYS = LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[]
 
-const TEMPLATES: readonly ResumeTemplate[] = ['classic', 'minimal', 'creative', 'modern', 'professional']
+const TEMPLATES: readonly ResumeTemplate[] = ['classic', 'minimal', 'creative', 'modern', 'professional', 'swissVocational']
 
 const PREVIEWS: Readonly<Partial<Record<ResumeTemplate, ComponentType<never>>>> = {
   classic: ClassicTemplate as ComponentType<never>,
   minimal: MinimalTemplate as ComponentType<never>,
   creative: CreativeTemplate as ComponentType<never>,
   modern: ModernTemplate as ComponentType<never>,
+  swissVocational: SwissVocationalTemplate as ComponentType<never>,
 }
 
 const GENERATORS: Readonly<
@@ -75,6 +78,7 @@ const GENERATORS: Readonly<
   creative: generateCreativeDocx,
   modern: generateModernDocx,
   professional: generateProfessionalDocx,
+  swissVocational: generateSwissVocationalDocx,
 }
 
 const RESUME = {

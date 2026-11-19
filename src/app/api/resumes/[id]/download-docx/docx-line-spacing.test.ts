@@ -9,7 +9,8 @@ import {
   PROFESSIONAL_LINE_HEIGHT,
   TAILWIND_LEADING,
 } from '@/lib/resume-line-height'
-import type { ResumeTemplate } from '@/types/database'
+// Per-element values are pinned for the five original templates; swissVocational's are in docx-swiss-vocational.test.ts.
+import type { OriginalResumeTemplate as ResumeTemplate } from '@/test/resume-template-files'
 import { generateClassicDocx } from './docx-classic'
 import { generateCreativeDocx } from './docx-creative'
 import type { DocxGeneratorSettings } from './docx-helpers'

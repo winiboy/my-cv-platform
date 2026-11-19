@@ -15,6 +15,7 @@ import { solidColourPng, translucentDiscPng } from './docx-disc'
 import type { DocxGeneratorSettings } from './docx-helpers'
 import { hslToHex } from './docx-helpers'
 import { generateModernDocx } from './docx-modern'
+import { generateSwissVocationalDocx } from './docx-swiss-vocational'
 import { DOCX_PALETTE } from './docx-palette'
 
 /**
@@ -577,15 +578,17 @@ describe('every recorded form is the shape the generator emits', () => {
     'paragraph-border': (xml) => paragraphs(xml).some((p) => p.leftBorderColour !== null),
     'shaded-cell': (xml) => elements(xml, 'w:tcPr').some((cell) => /<w:tcBorders>/.test(cell) && /<w:shd\b/.test(cell)),
     'floating-raster': (xml) => elements(xml, 'w:drawing').length > 0,
+    'page-border': (xml) => /<w:pgBorders\b[\s\S]*?<w:left\b[^>]*w:val="single"/.test(xml),
     'not-drawn': () => true,
   }
 
   it.each([
     ['modern', () => documentXml('modern-green', generateModernDocx, 'green')] as const,
     ['creative', () => documentXml('creative', generateCreativeDocx, null)] as const,
+    ['swissVocational', () => documentXml('swissVocational', generateSwissVocationalDocx, null)] as const,
   ])('%s emits the shape it records for each of its graphics', async (template, load) => {
     const xml = await load()
-    const graphics = PREVIEW_GRAPHICS[template as 'modern' | 'creative']
+    const graphics = PREVIEW_GRAPHICS[template as 'modern' | 'creative' | 'swissVocational']
     expect(Object.keys(graphics).length, `${template} records no graphics`).toBeGreaterThan(0)
     for (const [key, graphic] of Object.entries(graphics)) {
       expect(EVIDENCE[graphic.form as DocxGraphicForm], `${template}.${key}: "${graphic.form}" is not a known form`).toBeDefined()
@@ -598,13 +601,13 @@ describe('every recorded form is the shape the generator emits', () => {
 
   it('names a form the generators actually use, and no form they do not', () => {
     const recorded = new Set(
-      (['professional', 'modern', 'classic', 'minimal', 'creative'] as const).flatMap((template) =>
+      (['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational'] as const).flatMap((template) =>
         Object.values(PREVIEW_GRAPHICS[template]).map((graphic) => graphic.form as string),
       ),
     )
     // Every form the union offers is either used by a graphic or gone from it.
     expect([...recorded].sort()).toEqual(
-      ['floating-raster', 'not-drawn', 'paragraph-border', 'shaded-cell', 'shaded-cells', 'shaded-run'],
+      ['floating-raster', 'not-drawn', 'page-border', 'paragraph-border', 'shaded-cell', 'shaded-cells', 'shaded-run'],
     )
   })
 })

@@ -152,6 +152,33 @@ describe('POST /api/ai/generate-from-job-description', () => {
     expect((resume.certifications as unknown[]).length).toBe(1)
   })
 
+  it('creates a CV with the swissVocational template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply())
+
+    const response = await POST(createRequest({ ...MODAL_BODY, template: 'swissVocational' }))
+
+    expect(response.status).toBe(200)
+    expect(inserted().template).toBe('swissVocational')
+  })
+
+  it.each([
+    'swissCommerce',
+    'swissTrades',
+    'swissHealth',
+    'swissFinance',
+    'swissEngineering',
+    'swissIt',
+    'swissExecutive',
+    'swissAcademic',
+    'swissFirstJob',
+  ])('refuses %s, a Swiss template that is not built yet, before calling the AI', async (template) => {
+    const response = await POST(createRequest({ ...MODAL_BODY, template }))
+
+    expect(response.status).toBe(400)
+    expect(generateResumeFromJobDescription).not.toHaveBeenCalled()
+    expect(state.db.table('resumes')).toEqual([])
+  })
+
   it('sanitizes the AI content through the builder', async () => {
     const reply = aiReply()
     reply.resumeData.summary = '<p onclick="x()">Profil<script>alert(1)</script><img src=x onerror=alert(1)></p>'

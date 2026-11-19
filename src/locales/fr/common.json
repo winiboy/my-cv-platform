@@ -195,7 +195,9 @@
       "professional": "Professionnel",
       "professionalDesc": "Modèle pour cadres avec barre latérale et section des réalisations clés",
       "creative": "Créatif",
-      "creativeDesc": "Design audacieux pour les professionnels créatifs"
+      "creativeDesc": "Design audacieux pour les professionnels créatifs",
+      "swissVocational": "Formation professionnelle (CFC)",
+      "swissVocationalDesc": "Format suisse, idéal après un CFC"
     },
     "new": {
       "title": "Créer un nouveau CV",
@@ -334,6 +336,9 @@
       "aiOptimizedSummary": "Résumé optimisé par IA",
       "useThisVersion": "Utiliser cette version",
       "keepOriginal": "Conserver l'original",
+      "uploadPhoto": "Ajouter une photo",
+      "changePhoto": "Changer la photo",
+      "photoTooLarge": "La photo doit faire moins de 2 Mo.",
       "richTextToolbar": {
         "bold": "Gras (Ctrl+B)",
         "italic": "Italique (Ctrl+I)",

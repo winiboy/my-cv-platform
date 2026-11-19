@@ -1,4 +1,4 @@
-import type { ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate } from '@/types/database'
 
 /**
  * The colours the resume Preview renders for text, borders and fills, as the
@@ -74,6 +74,7 @@ export const TAILWIND_DEFAULT_TOKENS = {
   'purple-100': 'oklch(94.6% 0.033 307.174)',
   'purple-300': 'oklch(82.7% 0.119 306.383)',
   'purple-700': 'oklch(49.6% 0.265 301.924)',
+  'red-700': 'oklch(50.5% 0.213 27.518)',
 } as const
 
 export type ThemeToken = keyof typeof THEME_TOKENS
@@ -167,4 +168,18 @@ export const PREVIEW_PALETTE = {
     /** The project card's fill (US-007). */
     'slate-50': theme('slate-50'),
   },
-} as const satisfies Readonly<Record<ResumeTemplate, Readonly<Record<string, PreviewColour>>>>
+  swissVocational: {
+    /** The accent strip at the left edge, the CV title and the square before each section heading. */
+    'red-700': tailwind('red-700'),
+    /** Name, contact labels, section headings, entry titles, skill categories, languages. */
+    'slate-900': theme('slate-900'),
+    /** The rule under the header. */
+    'slate-800': theme('slate-800'),
+    /** Contact values, summary, descriptions, achievements, skill items. */
+    'slate-700': theme('slate-700'),
+    /** Dates, companies, schools, issuers, language levels. */
+    'slate-600': theme('slate-600'),
+    /** Section heading rules and the dotted rule under each language. */
+    'slate-300': theme('slate-300'),
+  },
+} as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewColour>>>>

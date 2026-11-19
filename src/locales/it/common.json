@@ -197,7 +197,9 @@
       "professional": "Professionale",
       "professionalDesc": "Modello per dirigenti con barra laterale e sezione dei risultati chiave",
       "creative": "Creativo",
-      "creativeDesc": "Design audace per professionisti creativi"
+      "creativeDesc": "Design audace per professionisti creativi",
+      "swissVocational": "Formazione professionale (AFC)",
+      "swissVocationalDesc": "Formato svizzero, ideale dopo un AFC"
     },
     "new": {
       "title": "Crea nuovo CV",
@@ -336,6 +338,9 @@
       "aiOptimizedSummary": "Riepilogo ottimizzato dall'IA",
       "useThisVersion": "Usa questa versione",
       "keepOriginal": "Mantieni originale",
+      "uploadPhoto": "Aggiungi una foto",
+      "changePhoto": "Cambia foto",
+      "photoTooLarge": "La foto deve essere inferiore a 2 MB.",
       "richTextToolbar": {
         "bold": "Grassetto (Ctrl+B)",
         "italic": "Corsivo (Ctrl+I)",

@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import type { ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate } from '@/types/database'
+import { templateComponentFile } from '@/test/resume-template-files'
 import { PREVIEW_TRACKING, TAILWIND_TRACKING, type TailwindTrackingUtility } from './resume-letter-spacing'
 
 /**
@@ -38,8 +39,8 @@ const tailwindTheme = read('node_modules/tailwindcss/theme.css')
 const tailwindPreflight = read('node_modules/tailwindcss/preflight.css')
 const globals = read('src/app/globals.css')
 
-const TEMPLATES: readonly ResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative']
-const template = (name: ResumeTemplate) => read(`src/components/dashboard/resume-templates/${name}-template.tsx`)
+const TEMPLATES: readonly BuiltResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational']
+const template = (name: BuiltResumeTemplate) => read(templateComponentFile(name))
 
 /** A theme letter spacing, in em: `--tracking-wide: 0.025em`. */
 function themeTracking(utility: TailwindTrackingUtility): number {
@@ -87,7 +88,7 @@ describe('the templates draw with these letter spacings and no others', () => {
     }
   })
 
-  it.each(['professional', 'classic', 'minimal', 'creative'] as const)('%s writes no letter spacing inline', (name) => {
+  it.each(['professional', 'classic', 'minimal', 'creative', 'swissVocational'] as const)('%s writes no letter spacing inline', (name) => {
     expect(template(name)).not.toMatch(/letterSpacing/)
   })
 
@@ -115,6 +116,7 @@ describe('the values themselves', () => {
       classic: { title: 0.025 },
       minimal: { title: -0.025, heading: 0.1 },
       creative: { title: -0.025 },
+      swissVocational: { caps: 0.1 },
     })
   })
 })

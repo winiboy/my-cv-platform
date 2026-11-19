@@ -26,13 +26,30 @@ import {
 
 const DICTS: Record<Locale, Record<string, unknown>> = { fr, en, de, it: it_ }
 const LOCALES = Object.keys(DICTS) as Locale[]
-const EXPECTED_ORDER: ResumeTemplate[] = ['modern', 'classic', 'minimal', 'creative', 'professional']
+/** The five original templates in their original order, then the Swiss templates built so far. */
+const EXPECTED_ORDER: ResumeTemplate[] = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational']
+
+/**
+ * The Swiss templates whose story has not landed: offered by no creation
+ * surface, although the schema accepts them (migration 011).
+ */
+const UNBUILT: readonly ResumeTemplate[] = [
+  'swissCommerce',
+  'swissTrades',
+  'swissHealth',
+  'swissFinance',
+  'swissEngineering',
+  'swissIt',
+  'swissExecutive',
+  'swissAcademic',
+  'swissFirstJob',
+]
 
 const EXPECTED_NAMES: Record<Locale, string[]> = {
-  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel'],
-  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional'],
-  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell'],
-  it: ['Moderno', 'Classico', 'Minimale', 'Creativo', 'Professionale'],
+  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)'],
+  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)'],
+  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)'],
+  it: ['Moderno', 'Classico', 'Minimale', 'Creativo', 'Professionale', 'Formazione professionale (AFC)'],
 }
 
 interface RenderedRadio {
@@ -108,7 +125,7 @@ const EDIT_AFFORDANCES = [
 
 describe('TemplatePicker', () => {
   for (const locale of LOCALES) {
-    it(`renders the five templates in order with their ${locale} names`, () => {
+    it(`renders the offered templates in order with their ${locale} names`, () => {
       const html = renderPicker(locale, 'modern')
       const rendered = radios(html)
 
@@ -123,8 +140,14 @@ describe('TemplatePicker', () => {
     expect(html).toMatch(/^<div role="radiogroup" aria-labelledby="picker-label"/)
   })
 
-  it('declares the five canonical template ids in order', () => {
+  it('declares the offered template ids in order, the five original ones first', () => {
     expect(TEMPLATE_OPTIONS.map((option) => option.id)).toEqual(EXPECTED_ORDER)
+  })
+
+  it('offers none of the Swiss templates that are not built yet', () => {
+    const offered: readonly string[] = TEMPLATE_OPTIONS.map((option) => option.id)
+    for (const id of UNBUILT) expect(offered, id).not.toContain(id)
+    for (const id of UNBUILT) expect(radios(renderPicker('fr', 'modern')).map((radio) => radio.template)).not.toContain(id)
   })
 
   for (const value of EXPECTED_ORDER) {
@@ -132,7 +155,7 @@ describe('TemplatePicker', () => {
       const rendered = radios(renderPicker('fr', value))
 
       expect(rendered.filter((radio) => radio.checked === 'true').map((radio) => radio.template)).toEqual([value])
-      expect(rendered.filter((radio) => radio.checked === 'false')).toHaveLength(4)
+      expect(rendered.filter((radio) => radio.checked === 'false')).toHaveLength(EXPECTED_ORDER.length - 1)
       expect(rendered.filter((radio) => radio.tabIndex === '0').map((radio) => radio.template)).toEqual([value])
     })
   }
@@ -141,7 +164,7 @@ describe('TemplatePicker', () => {
     const html = renderPicker('en', 'classic', true)
     const tags = [...html.matchAll(/<div[^>]*\srole="radio"[^>]*>/g)].map(([tag]) => tag)
 
-    expect(tags).toHaveLength(5)
+    expect(tags).toHaveLength(EXPECTED_ORDER.length)
     for (const tag of tags) {
       expect(attribute(tag, 'tabindex')).toBe('-1')
       expect(attribute(tag, 'aria-disabled')).toBe('true')
@@ -221,17 +244,19 @@ describe('templateIdForKey', () => {
   it('moves forward with ArrowRight and ArrowDown, wrapping from the last option', () => {
     expect(templateIdForKey('modern', 'ArrowRight')).toBe('classic')
     expect(templateIdForKey('creative', 'ArrowDown')).toBe('professional')
-    expect(templateIdForKey('professional', 'ArrowRight')).toBe('modern')
+    expect(templateIdForKey('professional', 'ArrowRight')).toBe('swissVocational')
+    expect(templateIdForKey('swissVocational', 'ArrowRight')).toBe('modern')
   })
 
   it('moves back with ArrowLeft and ArrowUp, wrapping from the first option', () => {
     expect(templateIdForKey('classic', 'ArrowLeft')).toBe('modern')
-    expect(templateIdForKey('modern', 'ArrowUp')).toBe('professional')
+    expect(templateIdForKey('modern', 'ArrowUp')).toBe('swissVocational')
+    expect(templateIdForKey('swissVocational', 'ArrowLeft')).toBe('professional')
   })
 
   it('jumps to the ends with Home and End', () => {
     expect(templateIdForKey('minimal', 'Home')).toBe('modern')
-    expect(templateIdForKey('minimal', 'End')).toBe('professional')
+    expect(templateIdForKey('minimal', 'End')).toBe('swissVocational')
   })
 
   it('ignores keys that do not move the selection', () => {

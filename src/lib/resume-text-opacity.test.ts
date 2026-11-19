@@ -35,6 +35,7 @@ describe('PREVIEW_TEXT_ALPHA', () => {
       classic: {},
       minimal: {},
       creative: { headerSummary: 0.9, headerLinks: 0.8 },
+      swissVocational: {},
     })
   })
 

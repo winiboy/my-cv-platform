@@ -1,13 +1,14 @@
 import { createElement, type ComponentType } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import type { Resume, ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate as ResumeTemplate, Resume } from '@/types/database'
 import en from '@/locales/en/common.json'
 import { ClassicTemplate } from '@/components/dashboard/resume-templates/classic-template'
 import { CreativeTemplate } from '@/components/dashboard/resume-templates/creative-template'
 import { MinimalTemplate } from '@/components/dashboard/resume-templates/minimal-template'
 import { ModernTemplate } from '@/components/dashboard/resume-templates/modern-template'
 import { ProfessionalTemplate } from '@/components/dashboard/resume-templates/professional-template'
+import { SwissVocationalTemplate } from '@/components/dashboard/resume-templates/swiss-vocational-template'
 
 /**
  * Part 3 US-016: every template's Preview reads the rich text the editor saved.
@@ -36,6 +37,7 @@ const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
   minimal: MinimalTemplate as ComponentType<never>,
   modern: ModernTemplate as ComponentType<never>,
   professional: ProfessionalTemplate as ComponentType<never>,
+  swissVocational: SwissVocationalTemplate as ComponentType<never>,
 }
 
 const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
@@ -44,7 +46,7 @@ const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
 const RENDERS_PROJECT_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'creative', 'minimal', 'modern']
 
 /** Templates that render an education description at all. */
-const RENDERS_EDUCATION_DESCRIPTION: readonly ResumeTemplate[] = ['classic']
+const RENDERS_EDUCATION_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'swissVocational']
 
 function buildResume(overrides: Partial<Record<string, unknown>>): Resume {
   return {

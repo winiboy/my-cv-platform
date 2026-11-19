@@ -8,12 +8,9 @@ import { generateModernDocx } from './docx-modern'
 import { generateClassicDocx } from './docx-classic'
 import { generateMinimalDocx } from './docx-minimal'
 import { generateCreativeDocx } from './docx-creative'
-
-// ============================================================
-// SUPPORTED TEMPLATES
-// ============================================================
-const SUPPORTED_TEMPLATES = ['professional', 'modern', 'classic', 'minimal', 'creative'] as const
-type TemplateId = (typeof SUPPORTED_TEMPLATES)[number]
+import { generateSwissVocationalDocx } from './docx-swiss-vocational'
+// The supported templates and the professional fallback: `docx-templates.ts`.
+import { docxTemplateFor } from './docx-templates'
 
 // ============================================================
 // THE PHOTO — THE ONE NAMED EXCEPTION
@@ -217,10 +214,7 @@ async function handleDocxGeneration(
    * shorter path, and closes a parameter that could have selected a template
    * the resume is not.
    */
-  const templateRaw = resume.template || 'professional'
-  const template = (SUPPORTED_TEMPLATES as readonly string[]).includes(templateRaw)
-    ? (templateRaw as TemplateId)
-    : 'professional'
+  const template = docxTemplateFor(resume.template)
 
   // Dispatch to the appropriate template generator
   let buffer: Buffer
@@ -244,6 +238,10 @@ async function handleDocxGeneration(
 
     case 'creative':
       buffer = await generateCreativeDocx(resume, settings)
+      break
+
+    case 'swissVocational':
+      buffer = await generateSwissVocationalDocx(resume, settings)
       break
 
     default:

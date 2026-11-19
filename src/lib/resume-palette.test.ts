@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import type { ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate as ResumeTemplate } from '@/types/database'
+import { templateComponentFile } from '@/test/resume-template-files'
 import { PREVIEW_PALETTE, TAILWIND_DEFAULT_TOKENS, THEME_TOKENS, type PreviewColour } from './resume-palette'
 import { PREVIEW_TEXT_ALPHA, type PreviewAlpha } from './resume-text-opacity'
 
@@ -91,7 +92,7 @@ const tailwindDefaults = colourTokens(
 )
 
 const TEMPLATES = Object.keys(PREVIEW_PALETTE) as ResumeTemplate[]
-const templateFile = (template: ResumeTemplate) => `src/components/dashboard/resume-templates/${template}-template.tsx`
+const templateFile = (template: ResumeTemplate) => templateComponentFile(template)
 
 // ---------------------------------------------------------------------------
 // Scanning a template for the colours it draws
@@ -503,6 +504,23 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     // The header's decorative circles, drawn as floating PNG discs (US-007).
     'bg-white/10': { count: 2, excluded: RASTER },
   },
+  swissVocational: {
+    // The accent strip and the square before each section heading.
+    'bg-red-700': { count: 2, palette: 'red-700' },
+    // The CV title.
+    'text-red-700': { count: 1, palette: 'red-700' },
+    // Name, contact labels, headings, position, degree, certification name, skill category, language.
+    'text-slate-900': { count: 8, palette: 'slate-900' },
+    // Contact values, summary, achievements, experience and education descriptions, skill items.
+    'text-slate-700': { count: 6, palette: 'slate-700' },
+    // Dates, company, school, issuer, language level.
+    'text-slate-600': { count: 5, palette: 'slate-600' },
+    // The rule under the header.
+    'border-slate-800': { count: 1, palette: 'slate-800' },
+    // The section heading rule and the dotted rule under each language.
+    'border-slate-300': { count: 2, palette: 'slate-300' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -587,8 +605,8 @@ describe('PREVIEW_PALETTE', () => {
     Object.entries(PREVIEW_PALETTE[template]).map(([name, colour]: [string, PreviewColour]) => ({ template, name, colour })),
   )
 
-  it('covers all five templates', () => {
-    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional'])
+  it('covers every built template', () => {
+    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissVocational'])
   })
 
   it('holds each Preview colour of a template once', () => {

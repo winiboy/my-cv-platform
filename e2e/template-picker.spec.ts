@@ -30,12 +30,12 @@ function admin(): SupabaseClient {
   })
 }
 
-const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional']
+const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational']
 
 const NAMES = {
-  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel'],
-  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional'],
-  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell'],
+  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)'],
+  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)'],
+  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)'],
 } as const
 
 /** The fr `resumes.editor.sections.education` heading every template draws. */
@@ -82,25 +82,25 @@ async function expectOnlyChecked(page: Page, template: string): Promise<void> {
 
 /** Every thumbnail has drawn its template's page. */
 async function expectThumbnailsDrawn(page: Page): Promise<void> {
-  await expect(thumbnails(page)).toHaveCount(5)
+  await expect(thumbnails(page)).toHaveCount(ORDER.length)
   for (const thumbnail of await thumbnails(page).all()) {
     await expect(thumbnail.getByTestId('resume-document')).toHaveCount(1)
   }
 }
 
-test('fr: five live thumbnails, keyboard and pointer selection, and the CV is created with the chosen template', async ({ page, authedUser }) => {
+test('fr: every option has a live thumbnail, keyboard and pointer selection, and the CV is created with the chosen template', async ({ page, authedUser }) => {
   const problems = watchConsole(page)
   await openPicker(page, 'fr')
 
-  // Five options, in order, named in French; Modern is the default.
-  await expect(radios(page)).toHaveCount(5)
+  // Every option, in order, named in French; Modern is the default.
+  await expect(radios(page)).toHaveCount(ORDER.length)
   expect(await radios(page).evaluateAll((elements) => elements.map((element) => element.getAttribute('data-template')))).toEqual(ORDER)
   for (const [index, name] of NAMES.fr.entries()) {
     await expect(radios(page).nth(index)).toHaveAccessibleName(name)
   }
   await expectOnlyChecked(page, 'modern')
 
-  // Five thumbnails, each drawing its own option's template with fr headings.
+  // One thumbnail per option, each drawing its own option's template with fr headings.
   await expectThumbnailsDrawn(page)
   expect(await thumbnails(page).evaluateAll((elements) => elements.map((element) => element.getAttribute('data-template')))).toEqual(ORDER)
   for (const thumbnail of await thumbnails(page).all()) {
@@ -181,7 +181,7 @@ test('fr: without touching the picker the CV is created as modern', async ({ pag
 })
 
 for (const locale of ['en', 'de'] as const) {
-  test(`${locale}: the five options carry their ${locale} names, Professional included`, async ({ page, authedUser }) => {
+  test(`${locale}: every option carries its ${locale} names, Professional included`, async ({ page, authedUser }) => {
     expect(authedUser.id).toBeTruthy()
     const problems = watchConsole(page)
     await openPicker(page, locale)
