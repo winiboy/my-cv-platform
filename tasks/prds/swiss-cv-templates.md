@@ -1,6 +1,8 @@
 # PRD: Ten Swiss CV templates
 
-**Status:** APPROVED 2026-11-18
+**Status:** DRAFT — amendment 1 (2026-11-19), awaiting owner re-approval. Previously APPROVED 2026-11-18.
+
+**Amendment 1 (owner feedback after checking US-001 locally, 2026-11-19):** adds US-011, executed next (before US-002); changes FR-4 and FR-5; adds FR-12 to FR-14; narrows two Out of Scope items. US-001 stays committed (e5d8ea7); the parts it built that this amendment changes are reworked in US-011.
 
 ## Objective
 
@@ -63,9 +65,10 @@ Add ten new CV templates, each fitted to one of the most common Swiss CV profile
 
 ## Out of Scope
 
-- Any new resume field, column, JSON property or stored setting, including nationality, permit, date of birth, skill level or a CEFR language level.
-- Any change to the five existing templates, their Word generators, their layout controls or their visual and parity baselines.
-- Any change to the Editor's form fields, sections or save behavior; the photo storage, its upload or its background removal; the PDF rendering pipeline; or the cover letter.
+- Any new resume field, column, JSON property or stored setting, including nationality, permit, date of birth, skill level or a CEFR language level. Sole exception (amendment 1): the contact-visibility list of FR-14, stored inside the existing `layout_settings` value.
+- Any change to the five existing templates, their Word generators, their layout controls or their visual and parity baselines. Exceptions (amendment 1): the contact-visibility ticks of FR-14 apply to them, and the Preview page loses its "Show Controls" switch (FR-13), for every template.
+- Any change to the Editor's form fields, sections or save behavior, other than the Contact-tab ticks and photo row of FR-12 and FR-14; the photo storage, its upload handler or its background removal; the PDF rendering pipeline; or the cover letter.
+- Any new database migration for amendment 1: FR-14 needs none.
 - Skill-level bars. The `t6-ingenierie.png` mockup shows bars; the platform stores no level per skill, so `swissEngineering` lists skills without bars.
 - A "CFC" badge detected from the degree text (shown in `t1-cfc.png`). It would be locale-specific text detection, so it is not built.
 - Removing, renaming or reordering the existing templates in the picker.
@@ -99,6 +102,22 @@ As a job seeker with an apprenticeship (CFC), I want a CV template that follows 
   - **Section order:** summary, experience, education, continuing education (certifications), then skills and languages side by side.
   - **Dated sections:** the dates sit in a left column.
 - [ ] The template satisfies FR-1 to FR-11.
+
+### US-011: Contact fields and photo can be hidden, and controls that do not belong to a template are gone (amendment 1, executed before US-002)
+
+**Description:**
+As a CV author, I want to choose which contact details and whether my photo appear on my CV, and to see only the controls that actually affect my template, so that the editor is clear and my CV shows only what I want.
+
+**Acceptance Criteria:**
+
+- [ ] **Contact ticks:** in the Editor's Contact tab, every field except Full Name has a visible, labelled tick box: CV name, e-mail, phone, location, LinkedIn, GitHub and website. Ticked means shown. A new CV and every existing CV start with every box ticked.
+- [ ] Unticking a field removes it from the Editor live preview, the Preview page, the PDF and the Word export of every template (the five existing and the Swiss ones). Its label and its separator go with it, and the value stays stored and in the form field. Ticking it again brings it back. The choice survives saving and reopening the CV.
+- [ ] **Photo row:** for every template that draws a photo (`modern` and every Swiss template except `swissAcademic`), the Contact tab shows a photo row. The row holds the upload / change button, which reuses the existing upload handler and storage key, and a tick box "show photo on CV". Unticking it hides the photo in all four outputs and keeps the stored photo.
+- [ ] **Swiss photo slot:** the Swiss templates no longer show the dashed "Upload photo" box in the CV. The photo frame appears only when a photo exists and is ticked, in the Editor live preview too.
+- [ ] **Swiss font controls:** when a Swiss template is selected, the font carousel and the font-size slider above the Editor live preview are not shown. The five existing templates keep them.
+- [ ] **Preview page:** the "Show Controls" switch and the per-element size handles it turns on are gone from the Preview page for every template. The stored layout values still apply to the rendering.
+- [ ] US-001's `swissVocational` evidence is re-run for the parts this story changes: the photo, the font and the contact fields.
+- [ ] The story satisfies FR-12 to FR-14 and the unchanged FR-1 to FR-11.
 
 ### US-002: The "Commerce & administration" template is available
 
@@ -234,10 +253,10 @@ As a first-time job seeker or a person without a certified vocational qualificat
 - **FR-1:** A template renders only data already stored for the resume (the fields listed in Context). It writes nothing back and adds no new stored state; its only output is the rendered CV. Sample text is never hard-coded into a template.
 - **FR-2:** Items with `visible: false` and sections hidden through the existing layout settings are absent from the Editor live preview, the Preview page, the PDF and the Word export. An empty section, including one whose items are all hidden, is not drawn: no heading without content.
 - **FR-3:** The template's section order is the order its story states. The template is registered in `TEMPLATE_LAYOUT_CONTROLS` and `TEMPLATE_EDITOR_SECTIONS` with only controls whose effect it actually draws. A control it does not draw is not offered.
-- **FR-4:** The existing font family and font scale settings apply to the template in all four outputs. Where a story names a typeface (serif, monospace), that face is the template's default; the user's chosen font family still replaces it.
-- **FR-5:** When the CV has a photo, every template except `swissAcademic` draws it at the place and in the shape its mockup shows, in all four outputs.
-  - **No photo:** the Preview, PDF and Word show no photo frame.
-  - **Editor:** shows an upload affordance in the photo's place, reusing the existing photo upload handler and storage.
+- **FR-4 (amended):** A Swiss template uses its own typeface (the face its story names, otherwise the platform default) at font scale 1.0 in all four outputs. It ignores the stored font family and font scale, and leaves them stored unchanged, so switching back to an existing template restores them. The font carousel and font-size slider are not offered for it (FR-3).
+- **FR-5 (amended):** When the CV has a photo and the photo tick of FR-14 is on, every template except `swissAcademic` draws it at the place and in the shape its mockup shows, in all four outputs.
+  - **No photo, or photo unticked:** no photo frame in any of the four outputs, the Editor live preview included.
+  - **Upload:** from the Contact tab photo row (FR-14), reusing the existing photo upload handler and storage. No upload box is drawn inside the CV.
 - **FR-6:** Section headings use the existing `resumes.template` labels. Three new labels are added in fr, en, de and it, and are used only by the new templates:
   - `projects` ("Projets");
   - `publications` ("Publications et projets");
@@ -258,15 +277,22 @@ As a first-time job seeker or a person without a certified vocational qualificat
   - `RESUME_TEMPLATES` in the job-application route;
   - `validTemplates` in the AI route;
   - `SUPPORTED_TEMPLATES` in the Word route.
+- **FR-12 (amendment 1):** The Editor shows the font carousel and font-size slider only for templates whose rendering applies them: the five existing templates, not the Swiss ones.
+- **FR-13 (amendment 1):** The Preview page has no "Show Controls" switch and no per-element size handles, for any template. The Preview renders the stored layout values read-only. The now-unused `showControls` locale key is removed from all four locales together.
+- **FR-14 (amendment 1):** Contact visibility is stored in the existing `layout_settings` value as `hiddenContactFields`. The property is a list drawn only from `title`, `email`, `phone`, `location`, `linkedin`, `github`, `website` and `photo`.
+  - **Missing or empty:** everything is shown, so existing CVs render exactly as before.
+  - **Validation:** unknown entries are dropped by the existing validation in `src/lib/layout-settings.ts`, and the value stays within the existing 4096-byte bound.
+  - **Readers:** the Editor live preview, the Preview page, the PDF and every Word generator, all reading this same value. No second copy is kept.
+  - **Labels:** tick-box labels are localized in fr, en, de and it.
 
 ## Regression Constraints
 
-- The five existing templates render, export to PDF and export to Word exactly as before:
-  - their visual baselines in `e2e/visual` do not change;
+- With every contact tick on (the default), the five existing templates render, export to PDF and export to Word exactly as before:
+  - their visual baselines in `e2e/visual` do not change, except where a baseline captures the Preview page's "Show Controls" switch or its handles (FR-13). Each such change is listed and shown in that story's evidence;
   - `pnpm test:parity` keeps its verdicts for them (MATCH 211, KNOWN 3, NEW 0 at origin/main f0a2e75).
 - Existing resumes keep their stored template. A CV created before the migration opens, edits, previews and exports unchanged.
 - The template picker keeps its radio-group keyboard behaviour across all fifteen options, and its existing order for the first five.
-- The photo upload, the background removal and the photo's storage key are unchanged for `modern`.
+- The photo upload handler, the background removal and the photo's storage key are unchanged. `modern` keeps its existing upload zone and also gains the Contact-tab photo row (FR-14).
 - The cover letter templates are unchanged.
 
 ## Required Verification
@@ -295,7 +321,8 @@ As a first-time job seeker or a person without a certified vocational qualificat
 
 ## FAIL Conditions
 
-- A template draws a value that is not in the resume's stored data, or adds a new stored field or setting.
+- A template draws a value that is not in the resume's stored data, or adds a new stored field or setting other than FR-14's `hiddenContactFields`.
+- An unticked contact field or photo appears in any of the four outputs of any template, or a ticked one is missing.
 - A hidden item or section appears in any of the four outputs, or a heading appears with no content under it.
 - The Word export omits, reorders or rewrites visible content, or the PDF differs from the Preview.
 - Any visual baseline or parity verdict of the five existing templates changes.
