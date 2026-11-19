@@ -274,15 +274,16 @@ export function SwissVocationalTemplate({
             {skills.length > 0 && (
               <section className="break-inside-avoid">
                 {heading(swissHeading(dict, 'skills'))}
-                <div className="space-y-1.5" style={{ fontSize: `${size.body}px`, lineHeight: LINE_HEIGHT.text }}>
-                  {/* One structure whatever the storage: the label, then the content
-                      in a block beside it, so one line reads inline and a longer
-                      one wraps under itself, not under the label. */}
+                <div style={{ fontSize: `${size.body}px`, lineHeight: LINE_HEIGHT.text }}>
+                  {/* One structure whatever the storage (FR-15): the label on its
+                      own line, then the skills below it at the column's full
+                      width, so a long label never narrows them. */}
                   {skills.map((skill, index) => (
-                    <div key={index} className="flex">
-                      {/* The separator is the gap between the label and its content. */}
-                      <span className="shrink-0 font-bold text-slate-900">{`${skill.category}:${COLUMN_BREAK}`}</span>
-                      <div className="min-w-0 flex-1 text-slate-700">
+                    <div key={index} style={{ marginTop: index === 0 ? 0 : `${GEOMETRY.skillGap}px` }}>
+                      {/* The separator keeps the label a word of its own in the
+                          PDF's text layer, whatever reads the two lines together. */}
+                      <p className="font-bold text-red-700">{`${skill.category}${COLUMN_BREAK}`}</p>
+                      <div className="text-slate-700" style={{ marginTop: `${GEOMETRY.skillLabelGap}px` }}>
                         {skill.content.kind === 'html' ? renderFormattedText(skill.content.html, { justify: false }) : skill.content.text}
                       </div>
                     </div>

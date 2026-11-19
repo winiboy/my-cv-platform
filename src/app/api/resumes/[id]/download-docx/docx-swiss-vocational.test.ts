@@ -13,7 +13,7 @@ import type { Resume } from '@/types/database'
 import { resolveResumeLayout } from '@/lib/layout-settings'
 import { ResumePreview } from '@/components/dashboard/resume-preview'
 import { SwissVocationalTemplate } from '@/components/dashboard/resume-templates/swiss-vocational-template'
-import { SWISS_VOCATIONAL_SIZES } from '@/lib/swiss-vocational-template'
+import { SWISS_VOCATIONAL_GEOMETRY, SWISS_VOCATIONAL_SIZES } from '@/lib/swiss-vocational-template'
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import { SWISS_VOCATIONAL_LINE_HEIGHT } from '@/lib/resume-line-height'
 import { solidColourPng } from './docx-disc'
@@ -478,7 +478,7 @@ describe('swissVocational: each DOCX element as the Preview draws it', () => {
       ['Magister', PALETTE['slate-900'], true],
       ['Halvorsen Institute · Chromatics', PALETTE['slate-600'], false],
       ['Glazing permit', PALETTE['slate-900'], true],
-      ['Toolchain: ', PALETTE['slate-900'], true],
+      ['Toolchain', PALETTE['red-700'], true],
       ['Zanzibarscript, Quillwork', PALETTE['slate-700'], false],
       ['Esperanto', PALETTE['slate-900'], false],
       [en.resumes.editor.levels.native, PALETTE['slate-600'], false],
@@ -501,21 +501,65 @@ describe('swissVocational: each DOCX element as the Preview draws it', () => {
   })
 })
 
-describe('swissVocational: a skill row reads on one line, whatever its storage', () => {
+describe('swissVocational: a skill row is its label above its skills, whatever its storage (FR-15)', () => {
   const skills = [
     { category: 'Bureautique', items: [], skillsHtml: '<p><strong>Word</strong>, Excel</p>', visible: true },
     { category: 'Logiciels', items: [], skillsHtml: 'Abacus, SAP', visible: true },
     { category: 'Administration', items: ['Facturation', 'Archivage'], visible: true },
+    { category: 'Listes', items: [], skillsHtml: '<ul><li>Abacus</li><li>SAP</li></ul>', visible: true },
     { category: 'Vide', items: [], skillsHtml: '<p><br></p>', visible: true },
+    { category: 'Cachée', items: ['Secret'], visible: false },
   ]
+  const labels = ['Bureautique', 'Logiciels', 'Administration', 'Listes']
 
-  it('writes the label and its content in one paragraph, and leaves out an empty row', async () => {
-    const xml = await documentXml(resumeRow({ skills }), 'fr')
-    const texts = paragraphsOf(xml).map((p) => runsOf(p).map(textOf).join(''))
-    expect(texts).toContain('Bureautique: Word, Excel')
-    expect(texts).toContain('Logiciels: Abacus, SAP')
-    expect(texts).toContain('Administration: Facturation, Archivage')
-    expect(texts.join('|')).not.toContain('Vide')
+  /** The skills column's paragraphs, from the first label on, as text and properties. */
+  const skillParagraphs = async () => {
+    const paragraphs = paragraphsOf(await documentXml(resumeRow({ skills }), 'fr')).map((p) => ({
+      xml: p,
+      text: runsOf(p).map(textOf).join(''),
+    }))
+    const first = paragraphs.findIndex((p) => p.text === labels[0])
+    return paragraphs.slice(first)
+  }
+
+  it('writes each label in a paragraph of its own, then its skills below it, in the stored order', async () => {
+    const texts = (await skillParagraphs()).map((p) => p.text)
+    const at = (text: string) => texts.indexOf(text)
+    expect(texts.slice(at('Bureautique'), at('Bureautique') + 2)).toEqual(['Bureautique', 'Word, Excel'])
+    expect(texts.slice(at('Logiciels'), at('Logiciels') + 2)).toEqual(['Logiciels', 'Abacus, SAP'])
+    expect(texts.slice(at('Administration'), at('Administration') + 2)).toEqual(['Administration', 'Facturation, Archivage'])
+    expect(texts.slice(at('Listes'), at('Listes') + 3)).toEqual(['Listes', '• Abacus', '• SAP'])
+    expect(labels.map(at)).toEqual([...labels.map(at)].sort((a, b) => a - b))
+  })
+
+  it('leaves out an empty row and a hidden row', async () => {
+    const texts = (await skillParagraphs()).map((p) => p.text).join('|')
+    expect(texts).not.toContain('Vide')
+    expect(texts).not.toContain('Cachée')
+    expect(texts).not.toContain('Secret')
+  })
+
+  it('shares no label paragraph with skill text, and writes the label bold in red-700 with no trailing colon', async () => {
+    const paragraphs = await skillParagraphs()
+    for (const label of labels) {
+      const paragraph = paragraphs.find((p) => p.text.startsWith(label))
+      expect(paragraph?.text, label).toBe(label)
+      const runs = runsOf(paragraph?.xml ?? '')
+      expect(runs, label).toHaveLength(1)
+      expect(runs[0], label).toContain(`<w:color w:val="${PALETTE['red-700']}"/>`)
+      expect(runs[0], label).toContain('<w:b/>')
+    }
+  })
+
+  it('puts more space between two categories than between a label and its skills', async () => {
+    const paragraphs = await skillParagraphs()
+    const spacing = (xml: string, side: 'before' | 'after') => Number(new RegExp(`w:${side}="(\\d+)"`).exec(xml)?.[1] ?? 0)
+    const label = (text: string) => paragraphs.find((p) => p.text === text)?.xml ?? ''
+    // 15 twips a px.
+    expect(spacing(label('Bureautique'), 'before')).toBe(0)
+    expect(SWISS_VOCATIONAL_GEOMETRY.skillGap).toBeGreaterThan(SWISS_VOCATIONAL_GEOMETRY.skillLabelGap)
+    for (const text of labels) expect(spacing(label(text), 'after'), text).toBe(SWISS_VOCATIONAL_GEOMETRY.skillLabelGap * 15)
+    for (const text of labels.slice(1)) expect(spacing(label(text), 'before'), text).toBe(SWISS_VOCATIONAL_GEOMETRY.skillGap * 15)
   })
 
   it('leaves out the skills heading when every row is empty, on both outputs', async () => {
@@ -525,14 +569,33 @@ describe('swissVocational: a skill row reads on one line, whatever its storage',
     }
   })
 
-  it('draws the Preview row with one structure for every storage: the label, then a content block', () => {
+  it('draws the Preview row with one structure for every storage: the label block, then the skills block under it', () => {
     const html = renderToStaticMarkup(
       createElement(SwissVocationalTemplate, { resume: resumeRow({ skills }) as unknown as Resume, locale: 'fr', dict: fr }),
     )
-    const labels = [
-      ...html.matchAll(/<span class="shrink-0 font-bold text-slate-900">([^<]*)<\/span><div class="min-w-0 flex-1 text-slate-700">/g),
-    ].map(([, label]) => label)
-    expect(labels).toEqual(['Bureautique:\u00A0', 'Logiciels:\u00A0', 'Administration:\u00A0'])
+    const rows = [
+      ...html.matchAll(
+        /<div style="margin-top:(\d+)(?:px)?"><p class="font-bold text-red-700">([^<]*)<\/p><div class="text-slate-700" style="margin-top:(\d+)px">/g,
+      ),
+    ].map(([, gap, label, labelGap]) => ({ gap: Number(gap), label, labelGap: Number(labelGap) }))
+    const { skillGap, skillLabelGap } = SWISS_VOCATIONAL_GEOMETRY
+    // The separator keeps the label a word of its own in the PDF's text layer; no colon.
+    expect(rows).toEqual([
+      { gap: 0, label: 'Bureautique\u00A0', labelGap: skillLabelGap },
+      { gap: skillGap, label: 'Logiciels\u00A0', labelGap: skillLabelGap },
+      { gap: skillGap, label: 'Administration\u00A0', labelGap: skillLabelGap },
+      { gap: skillGap, label: 'Listes\u00A0', labelGap: skillLabelGap },
+    ])
+    expect(html).not.toMatch(/(Bureautique|Logiciels|Administration|Listes):/)
+  })
+
+  it('writes the legacy items as stored, joined with ", ", in the Preview skills block', () => {
+    const html = renderToStaticMarkup(
+      createElement(SwissVocationalTemplate, { resume: resumeRow({ skills }) as unknown as Resume, locale: 'fr', dict: fr }),
+    )
+    expect(html).toContain(
+      `<div class="text-slate-700" style="margin-top:${SWISS_VOCATIONAL_GEOMETRY.skillLabelGap}px">Facturation, Archivage</div>`,
+    )
   })
 })
 
@@ -565,7 +628,7 @@ describe('swissVocational: words in side-by-side columns stay separate in the te
       `${en.resumes.editor.email} robin@halvorsen.test`,
       `03.2021 – ${en.resumes.template.present} Kilnwright`,
       '05.2024 Glazing permit',
-      'Toolchain: Zanzibarscript',
+      'Toolchain Zanzibarscript',
       `Esperanto ${en.resumes.editor.levels.native}`,
     ]) {
       expect(text, separated).toContain(separated)
@@ -575,10 +638,17 @@ describe('swissVocational: words in side-by-side columns stay separate in the te
   it('keeps each column in its own paragraph or run in Word', async () => {
     const xml = await documentXml(resumeRow(), 'en')
     const texts = paragraphsOf(xml).map((p) => runsOf(p).map(textOf).join(''))
-    for (const own of [en.resumes.editor.location, 'Oxbridge', `03.2021 – ${en.resumes.template.present}`, 'Esperanto', en.resumes.editor.levels.native]) {
+    for (const own of [
+      en.resumes.editor.location,
+      'Oxbridge',
+      `03.2021 – ${en.resumes.template.present}`,
+      'Toolchain',
+      'Zanzibarscript, Quillwork',
+      'Esperanto',
+      en.resumes.editor.levels.native,
+    ]) {
       expect(texts, own).toContain(own)
     }
-    expect(texts).toContain('Toolchain: Zanzibarscript, Quillwork')
   })
 })
 

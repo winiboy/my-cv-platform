@@ -280,7 +280,8 @@ test('en: the PDF and the Word downloads are valid files holding the CV and not 
     // Label | value, then one pair | the next on the same row.
     `${FIXTURE_CONTACT.location} ${enCommon.resumes.editor.phone} ${FIXTURE_CONTACT.phone}`,
     `${enCommon.resumes.template.present} ${FIXTURE_EXPERIENCE[0].position}`,
-    `${FIXTURE_SKILLS[0].category}: ${FIXTURE_SKILLS[0].items[0]}`,
+    // The skill label, on its own line above its skills with no colon (FR-15), is a word of its own.
+    `${FIXTURE_SKILLS[0].category} ${FIXTURE_SKILLS[0].items[0]}`,
     `${FIXTURE_LANGUAGES[0].language} ${enCommon.resumes.editor.levels.native}`,
   ]) {
     expect(pdfWords, separated).toContain(separated)

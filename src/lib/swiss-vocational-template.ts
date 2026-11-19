@@ -57,6 +57,10 @@ export const SWISS_VOCATIONAL_GEOMETRY = {
   entryGap: 12,
   /** The gap between the skills and the languages columns. */
   columnGap: 40,
+  /** Space between two skill categories: larger than `skillLabelGap`, so each label reads with its own skills. */
+  skillGap: 10,
+  /** Space between a skill category's label and the skills under it. */
+  skillLabelGap: 2,
 } as const
 
 /**
@@ -209,7 +213,7 @@ export function swissHeading(
 }
 
 /**
- * What a skill row draws beside its category, or null when it draws nothing
+ * What a skill row draws under its category label, or null when it draws nothing
  * and the row is left out: its stored rich text when that has any text,
  * otherwise its legacy `items`, joined as every template joins them.
  */

@@ -507,10 +507,10 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
   swissVocational: {
     // The accent strip and the square before each section heading.
     'bg-red-700': { count: 2, palette: 'red-700' },
-    // The CV title.
-    'text-red-700': { count: 1, palette: 'red-700' },
-    // Name, contact labels, headings, position, degree, certification name, skill category, language.
-    'text-slate-900': { count: 8, palette: 'slate-900' },
+    // The CV title and each skill category label (FR-15).
+    'text-red-700': { count: 2, palette: 'red-700' },
+    // Name, contact labels, headings, position, degree, certification name, language.
+    'text-slate-900': { count: 7, palette: 'slate-900' },
     // Contact values, summary, achievements, experience and education descriptions, skill items.
     'text-slate-700': { count: 6, palette: 'slate-700' },
     // Dates, company, school, issuer, language level.

@@ -464,14 +464,22 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
         if (skills.length > 0) {
           const column: (Paragraph | Table)[] = [heading(swissHeading(dict, 'skills'))]
           skills.forEach((skill, index) => {
-            // One structure whatever the storage, as on the Preview: the label
-            // and its content on one line. A list cannot share a line in
-            // Word, so a list's items follow the label line.
-            const label = run(`${skill.category}: `, PALETTE['slate-900'], { bold: true })
-            const spacingBefore = index === 0 ? 0 : pxToTwips(6)
+            // One structure whatever the storage, as on the Preview (FR-15): the
+            // label in a paragraph of its own, then the skills in their own
+            // paragraphs below it, at the column's full width. The label's
+            // space after is the gap to its skills, so no spacer is needed.
+            column.push(
+              new Paragraph({
+                children: [run(skill.category, PALETTE['red-700'], { bold: true })],
+                spacing: {
+                  before: index === 0 ? 0 : pxToTwips(GEOMETRY.skillGap),
+                  after: pxToTwips(GEOMETRY.skillLabelGap),
+                  ...bodyLine,
+                },
+              }),
+            )
             const { content } = skill
             if (content.kind === 'html' && (isHtmlList(content.html) || isPlainTextList(content.html))) {
-              column.push(new Paragraph({ children: [label], spacing: { before: spacingBefore, after: 0, ...bodyLine } }))
               column.push(...richParagraphs(content.html, PALETTE['slate-700']))
             } else {
               const runs =
@@ -479,7 +487,7 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
                   ? parseHtmlToDocxRuns(content.html, { size: size.body, color: PALETTE['slate-700'], font })
                   : [run(content.text, PALETTE['slate-700'])]
               const lineSpacing = content.kind === 'html' ? richLine(content.html) : bodyLine
-              column.push(new Paragraph({ children: [label, ...runs], spacing: { before: spacingBefore, after: 0, ...lineSpacing } }))
+              column.push(new Paragraph({ children: runs, spacing: { after: 0, ...lineSpacing } }))
             }
           })
           columns.push(column)

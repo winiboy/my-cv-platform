@@ -261,3 +261,70 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-011 Contact fields and photo can be hidden, and controls that do not belong to a template are gone
 FINAL: PASS
+
+## US-012: The "Formation professionnelle (CFC)" skills section shows each category label above its skills (amendment 2, executed before US-002)
+Status: PASS
+Priority: 3
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 941c95f (contract for amendment 2). PRD amendment 2 committed e79e3bd, approved by the owner on GitHub in c92a7af ("APPROVED 2026-11-19").
+Scope:
+- Scope check: PASS
+- Changed paths (8):
+  - **Template:** `src/components/dashboard/resume-templates/swiss-vocational-template.tsx` (skills block), `src/lib/swiss-vocational-template.ts` (`skillGap` 10, `skillLabelGap` 2 in `SWISS_VOCATIONAL_GEOMETRY`; doc comment).
+  - **Word:** `src/app/api/resumes/[id]/download-docx/docx-swiss-vocational.ts` (skills block).
+  - **Unit tests:** `docx-swiss-vocational.test.ts` (stacked structure in both outputs, gap ordering), `src/lib/resume-palette.test.ts` (class counts: `text-red-700` 1 -> 2, `text-slate-900` 8 -> 7).
+  - **e2e:** `e2e/swiss-vocational-template.spec.ts` (expected PDF words "Engineering TypeScript", no colon).
+  - **Visual baselines:** `e2e/visual/__screenshots__/win32/swissVocational.png` and `swissVocational-print.png`, regenerated for the skills block only.
+- Not touched: the other 5 templates and their Word generators, the languages column, shared helpers, stored skill data, parity expectations; no migration; no version change; no push or merge of this commit.
+Checks (final diff hash b06566f3c11e2d1c, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run; logs in the session scratchpad `checks-us12-r3/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 4253 passed, 6 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 286 ceiling; unchanged.
+- e2e: PASS — 598 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 12/12 on the new baselines; only the two swissVocational PNGs differ from HEAD.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged). The first run on this hash had 250/33: one `TimeoutError` (15 s) on the cold-start professional DOCX collect, and 32 rows failing with "No observation" because of it. Re-run alone on the same hash: green (`parity-rerun.log`).
+- Earlier rounds, invalidated by fixes: r1 (hash 87f6dd6f2cad5606, 6 px gap): e2e 597/1, `swiss-vocational-template.spec.ts:286` still expected "Engineering: TypeScript"; r2 stopped when the gap was raised to 10 px.
+Specialized validation:
+- Browser: PASS — owner's sample (6 categories, 1 hidden, 1 legacy-items row, labels up to "Droit du travail et sécurité sociale"), 1440x1000 at 3x, fr and de, Editor live preview and Preview page. Before (pre-US-012 template files temporarily restored from HEAD, then the story files put back; diff hash 7e642b242b1ef737 identical before and after): before-editor-skills-fr aae80a4c4ec7f12d, -de 90cf96f7a74ee90a; before-preview-skills-fr 90af85cfdf2b8295, -de 7043ea6b282a70f3. "Droit du travail et sécurité sociale:" leaves its skills a 5-line column of 1 to 3 words. After: after-editor-skills-fr c30505a4a22efb6e, -de 632f42aaa1aa041e; after-preview-skills-fr 2bd1dc68327f5600, -de 5a66a2f07210a72c. Measured on the Preview page, all 5 visible rows, fr and de: label on 1 line, weight 700, colour red-700; skills start 2 px below the label at offset 0, width 321 = section width; 10 px between categories; hidden row drawn 0; labels with a colon 0.
+- Visual: PASS — before baseline c28a3fe28d8178db, after 388204e2f2c8016b (screen and print). Only the skills block differs; the header, the other sections and the languages column are unchanged.
+- Export: PASS — product routes, fr and de: PDF fr e64aaa413f703f95, de f639112496eaa30f; Word fr 124839bb9fd956bc, de d538eef900e42389; the .docx rendered by Microsoft Word to PDF: fr 6b87629ab360e008, de ee73cf249d8bf8cb (2 pages each). PDF text (pdftotext, saved next to each PDF): each label on its own line with no colon, its skills on the following lines; the hidden row absent. Word XML: each label its own paragraph, one bold run, colour C10007 (red-700), spacing before 150 twips (0 for the first) and after 30; the next paragraph holds the skills; hidden row absent. The trace's `pdf: present=false` lines come from a broken probe in the evidence script and are not evidence.
+- Database: NOT_APPLICABLE — no schema or stored-data change.
+- Security: NOT_APPLICABLE — no new route or trust boundary. The category is rendered as escaped text; rich text still goes through `renderFormattedText` / `parseHtmlToDocxRuns` / `richParagraphs`.
+Agents:
+- ui-expert: PASS (round 3).
+  - Round 1 FAIL: no "before" captures with the owner's sample (MAJOR); the 6 px gap between categories was not visibly larger than the label gap once line height applied (MINOR); a 1x de capture was unreadable.
+  - Round 2 BLOCKED: waiting for the final `pnpm test:visual` output. Round 3 PASS on it.
+- code-reviewer: PASS. Required change: do not cite the trace's PDF probe as evidence (done: pdftotext and the e2e assertion are cited instead).
+- senior-coder: implementation, the e2e expectation fix and the 6 -> 10 px gap change.
+Acceptance criteria:
+- AC-01 Label on its own line, skills below at full column width, in all four outputs: PASS — Preview geometry above; PDF text; Word paragraph structure; Word-rendered PDF.
+- AC-02 Bold red label without colon; skills unchanged: PASS — red-700 / C10007 bold, no colon; rich text as stored and legacy items joined with ", " (unit tests, captures, PDF text).
+- AC-03 Stored order, larger gap between categories than label -> skills, hidden and empty categories left out: PASS — 10 px vs 2 px (150 vs 30 twips); hidden row absent in all four outputs; unit tests for order and empty rows.
+- AC-04 Owner's sample, no word-by-word wrapping, before and after in fr and one other locale: PASS — the captures above; every label on 1 line; the fewest words on any skills line is 1 ("processus", the last word of a paragraph) and no line wraps word by word.
+- AC-05 Languages column unchanged: PASS — no diff in that branch; baseline identical outside the skills block.
+- AC-06 FR-15 and FR-1 to FR-14: PASS — the checks above.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **One geometry source.** `skillGap` and `skillLabelGap` live in `SWISS_VOCATIONAL_GEOMETRY` and are read by both the Preview and the Word generator, so the four outputs space the section the same way.
+- **10 px between categories, not 6.** At 6 px the line height hid the difference (about 13 px between categories against 12 px under a label on the 3x capture); ui-expert asked for a visible grouping.
+- **The label keeps a trailing no-break space** so the PDF text layer reads "Label skills" as separate words.
+
+Open owner decisions:
+- **A category with an empty label** now draws a blank line (Preview) and an empty paragraph (Word), where it drew ": ..." before. Both outputs agree; no requirement covers it. Skipping the label when it is blank is a small follow-up.
+- **A label can be left alone at the bottom of a page** if a page break falls between it and its skills. The owner's sample does not hit this (the whole skills block prints on one page). A follow-up could keep each label with its skills (CSS break-inside on each category, `keepNext` in Word).
+- **The owner's sample has a "Langues" skill category** next to the template's own Languages column, so languages appear twice. This comes from the data, not the template.
+- **Pre-existing, untouched:** the Editor's dashed page-break marker can cross a skills line; list skills are 4 px apart in the Preview and 0 in Word.
+
+Environment notes:
+- The checks ran alone. The local dev server on port 3000 was stopped before them; the stopped r2 run left no process behind.
+- The evidence specs (`zz-us12-evidence`, `zz-us12-shots`, and the temporary `-hi`/`-before` variants) were copied into `e2e/` only for their run and deleted. For the "before" capture the three pre-US-012 template files were written from HEAD and the saved story versions copied back; the diff hash was identical before and after.
+- The swissVocational baselines were regenerated with `playwright test --config playwright.visual.config.ts -g swissVocational --update-snapshots` (`pnpm test:visual:update -- -g` does not forward the filter); the other 10 baselines were not rewritten.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-012 The CFC skills section shows each category label above its skills
+FINAL: PASS

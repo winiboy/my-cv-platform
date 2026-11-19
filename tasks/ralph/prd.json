@@ -182,7 +182,7 @@
         "Out of scope: A version bump."
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
