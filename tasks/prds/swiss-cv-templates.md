@@ -1,6 +1,6 @@
 # PRD: Ten Swiss CV templates
 
-**Status:** DRAFT — amendment 1 (2026-11-19), awaiting owner re-approval. Previously APPROVED 2026-11-18.
+**Status:** DRAFT — amendment 1 (2026-11-19), awaiting owner re-approval. APPROVED 2026-11-19.
 
 **Amendment 1 (owner feedback after checking US-001 locally, 2026-11-19):** adds US-011, executed next (before US-002); changes FR-4 and FR-5; adds FR-12 to FR-14; narrows two Out of Scope items. US-001 stays committed (e5d8ea7); the parts it built that this amendment changes are reworked in US-011.
 
