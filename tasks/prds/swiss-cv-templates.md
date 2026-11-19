@@ -1,6 +1,6 @@
 # PRD: Ten Swiss CV templates
 
-**Status:** DRAFT — amendment 2 (2026-11-19), awaiting owner re-approval. Amendment 1 was approved 2026-11-19 (b2d5295).
+**Status:** APPROVED 2026-11-19, awaiting owner re-approval. Amendment 1 was approved 2026-11-19 (b2d5295).
 
 **Amendment 2 (owner feedback on the `swissVocational` skills section, 2026-11-19):** adds US-012, executed next (before US-002), and FR-15; adds one regression exception and one FAIL condition. In the skills section, US-001 put each category label on the same line as its skills, so a long label left a narrow column for the skills ("awful to watch"). The owner chose option A: label above, skills below at the full column width. US-001 and US-011 stay committed (e5d8ea7, ca7e961).
 
