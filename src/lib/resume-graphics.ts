@@ -316,6 +316,26 @@ export const PREVIEW_GRAPHICS = {
         'padding or corner radius.',
     },
   },
+  swissTrades: {
+    sidebar: {
+      element: 'the dark column down the left of every page (`SWISS_TRADES_GEOMETRY.sidebarWidth` wide)',
+      form: 'floating-raster',
+      approximation:
+        'The left cell of the two-column body table is shaded the column’s colour, and a solid PNG of the ' +
+        'column’s width and the page’s height is anchored to the page behind the text in a 1-twip repeated ' +
+        'header row, as `docx-modern.ts` draws its sidebar, so the column runs to the foot of every page ' +
+        'as the printed Preview’s does rather than ending with the cell.',
+    },
+    skillTag: {
+      element: 'each skill tag (`SWISS_TRADES_GEOMETRY.tagRadius` corners, `tagPaddingX` padding)',
+      form: 'shaded-run',
+      approximation:
+        'One run per tag, shaded the tag colour and padded with a no-break space each side; tags are ' +
+        'separated by unshaded spaces and wrap as the Preview’s row does. Square corners where the Preview ' +
+        'rounds them 4px, the padding is a space wide rather than the Preview’s 8px, and the shading is the ' +
+        'height of the line rather than the tag’s box: a run has no padding or corner radius.',
+    },
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewGraphic>>>>
 
 // ---------------------------------------------------------------------------

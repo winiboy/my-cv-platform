@@ -544,6 +544,27 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     'text-slate-500': { count: 4, palette: 'slate-500' },
     'bg-white': { count: 1, excluded: PAGE },
   },
+  swissTrades: {
+    // The dark column, and the text it draws.
+    'style backgroundColor: #334155': { count: 1, palette: 'sidebar' },
+    'style color: #f1f5f9': { count: 1, palette: 'sidebarText' },
+    // A skill tag's fill.
+    'style backgroundColor: #475569': { count: 1, palette: 'tag' },
+    // The photo's border; an entry's meta line under its title.
+    'style borderColor: #64748b': { count: 1, palette: 'muted' },
+    'style color: #64748b': { count: 1, palette: 'muted' },
+    // The headings of the dark column.
+    'style color: #fdba74': { count: 1, palette: 'sidebarHeading' },
+    // The CV title and the dates.
+    'style color: #c2410c': { count: 2, palette: 'accent' },
+    // The rule after each main heading.
+    'style backgroundColor: #fed7aa': { count: 1, palette: 'rule' },
+    // The name, the main headings, an entry's title.
+    'style color: #0f172a': { count: 3, palette: 'ink' },
+    // Summary, achievements, experience and education descriptions.
+    'style color: #1e293b': { count: 4, palette: 'body' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -629,7 +650,7 @@ describe('PREVIEW_PALETTE', () => {
   )
 
   it('covers every built template', () => {
-    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissCommerce', 'swissVocational'])
+    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissCommerce', 'swissTrades', 'swissVocational'])
   })
 
   it('holds each Preview colour of a template once', () => {

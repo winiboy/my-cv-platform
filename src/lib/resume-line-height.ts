@@ -110,6 +110,17 @@ export const SWISS_COMMERCE_LINE_HEIGHT = {
 } as const
 
 /**
+ * `swiss-trades-template.tsx`: the name; the CV title, every heading, the
+ * skill tags and captions; running text, every entry line and every line of
+ * the dark column.
+ */
+export const SWISS_TRADES_LINE_HEIGHT = {
+  name: 1.15,
+  compact: 1.4,
+  text: 1.5,
+} as const
+
+/**
  * `modern-template.tsx`: the vertical padding, in CSS px, of the accent bar the
  * job title is drawn on (`padding: 4px 12px`). The bar's box is its text line
  * plus this padding above and below.

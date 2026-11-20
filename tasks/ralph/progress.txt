@@ -401,3 +401,77 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-002 The "Commerce & administration" template is available
 FINAL: PASS
+
+## US-003: The "Métiers techniques & manuels" template is available
+Status: PASS
+Priority: 5
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 1a292aa (US-002 story commit).
+Scope:
+- Scope check: PASS
+- Changed paths (52 under src/ and e2e/, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-trades-template.ts` (geometry, section order, skill-tag parsing), `src/components/dashboard/resume-templates/swiss-trades-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-trades.ts`, each with its unit test.
+  - **Wiring:** `src/types/database.ts` (swissTrades no longer unbuilt), `resume-editor.tsx`, `resume-preview.tsx`, `template-picker.tsx` (Wrench icon), `layout-settings.ts`, `resume-palette.ts`, `resume-graphics.ts`, `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route, the four `common.json` locale files.
+  - **Shared picker:** `template-picker.tsx` adds `scroll-my-px` (1px scroll margin, draws nothing) to every card. With 8 options the 8th card (186.4px tall, a fractional height) stopped 0.125px short of the viewport at 375px because the dashboard `<main>` scrolls in whole pixels.
+  - **Print CSS:** `src/app/globals.css`, print-only rules scoped to `.swiss-trades-template`: the tag radius exception after the untouched global `* { border-radius: 0 !important }` reset, and a page-height band in the dark column colour (as modern does).
+  - **Test lists:** unit tests for layout-settings, palette, graphics, line-height, letter-spacing, page-size, text-opacity, swiss-vocational-template, build-resume-from-job.render, template-picker, rich-text, per-property-font-size, docx-graphics, docx-templates, docx-contact-visibility, both route tests, template-names; e2e template-picker, template-picker-compact (8 options), job-cv-template-picker, job-search-mobile, visual/resume-templates.
+  - **e2e:** new `e2e/swiss-trades-template.spec.ts`.
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissTrades.png` (sha256 0f5aeffc20ea4261), `swissTrades-print.png` (3ea65bd58e58b640).
+- Not touched: the five original templates, swissVocational and swissCommerce (renderers, Word generators, baselines, parity verdicts), the shared docx and format helpers, stored data; no migration; no version change; no push or merge of this commit.
+Checks (final diff hash 014e93d05621d900, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run; logs in the session scratchpad `checks-us03-r4/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 4580 passed, 8 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 281 baseline; unchanged.
+- e2e: PASS — 613 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 16/16; only the two new swissTrades PNGs were added, the other 14 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier rounds, invalidated by fixes: r1 (14d0d74a2cbe97dc) e2e 611/2: the de swissTrades card was 204px against the 200px ceiling in the 375px "Create CV from Job" modal, and the 8th picker card scrolled to a 0.99933 viewport ratio at 375px. r2 (4f934686287eb093) green, then the Word fixes below. r3 (e04170997b81a10b) green, then the ui-expert fixes.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample "Nicolas Rey", close to t3-technique-manuel.png, with one hidden experience, one hidden skill category, one hidden certificate, one hidden language, a comma-separated plain skillsHtml ("Fraisage, Maintenance, Contrôle qualité"), a rich skillsHtml (paragraph with bold plus a list) and an education entry with no degree. Cases full-photo-fr, full-photo-de, full-nophoto-en, empty-nophoto-fr (no certifications, every language hidden). Preview HTTP 200 in all four; the photo cases draw 1 img in the Editor and Preview, the no-photo cases 0; hidden text absent. Preview captures: full-photo-fr e8c533ecf3ebd65e, full-photo-de c4e1f71fa7cf3274, full-nophoto-en 48eeaa8ceea92002, empty-nophoto-fr 57823fb6f586476b. Picker (fr, de): order modern, classic, minimal, creative, professional, swissVocational, swissCommerce, swissTrades; fr "Métiers techniques & manuels / Compétences et certificats en avant", de "Technische & handwerkliche Berufe / Fähigkeiten und Zertifikate zuerst"; picker-card-fr 195093160047ec12, picker-card-de f7de432813747db9. At 375px: covered by the e2e picker specs (every card 186.4px, all 8 options scroll fully into view). Creation from the picker: `e2e/swiss-trades-template.spec.ts`.
+- Visual: PASS — the new baselines were captured with `--update-snapshots=all` on the final template code (after the accent colour change); the r1 baselines (9eb4944e…, bc35a296…) were replaced.
+- Export: PASS.
+  - PDF: full-photo-fr 3f761bb46ff89aec, full-photo-de 543b25e452dd3341, full-nophoto-en 919f69e08a24968b, empty-nophoto-fr c416649c6966e8a1; 1 page each; dark column to the foot of the page, rectangular photo, rounded tags.
+  - Word: full-photo-fr 14742178804c2f37, full-photo-de 93cd5dc27281c896, full-nophoto-en 60d82f23bf4a206f, empty-nophoto-fr 8a150895c1dedd74. Media: the dark-column fill image always, plus one photo PNG only in the photo cases.
+  - Rendered by Microsoft Word to PDF: full-photo-fr c841e2bca8dd8416, full-photo-de c19649a8a68dca19, empty-nophoto-fr 5759cb171edf9734; 1 page each. Two columns with the dark fill, photo in the column, tags shaded with a gap between rows, "Consignation **électrique**" kept above "• Travail en hauteur".
+  - Word defects found in the r2 render and fixed: the paragraph beside a list in rich text was dropped (the generator now uses the existing `formattedBlocks` splitter instead of the shared `parseHtmlListToParagraphs`); "Contrôle qualité" broke inside the tag (no-break spaces inside a tag, a zero-width space between tags); wrapped tag rows touched (auto line spacing 323/240).
+- Database: NOT_APPLICABLE — no schema or stored-data change; `swissTrades` was already accepted by the US-001 constraint.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text goes through `renderFormattedText` (Preview stays server-renderable; e2e asserts 200) and `formattedBlocks` / `parseHtmlToDocxRuns` in Word; tags are React text nodes; the photo goes through the Word route's existing `boundedPhoto`.
+Agents:
+- ui-expert: PASS (round 2).
+  - Round 1 FAIL: accent text #ea580c on white is 3.56:1 for the 14px title and 12px dates (MAJOR, WCAG AA); minors: a degree-less education entry read as a continuation; Word tag rows touched.
+  - Round 2 PASS: accent #c2410c, 5.18:1; all four outputs consistent; 7/7 conditions evaluated.
+- code-reviewer: PASS (round 1), no critical or major finding; minors recorded below.
+- senior-coder: implementation; the picker scroll margin and the de description; the three Word fixes; the accent colour, title-less entries and tag line spacing.
+Acceptance criteria:
+- AC-01 The picker shows swissTrades after swissCommerce with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-trades-template.spec.ts`.
+- AC-02 Editor, Preview, PDF and Word match t3-technique-manuel.png (dark left column: photo, contact, skills as tags, certificates, languages; main column: name, orange CV title, summary, experience, education): PASS — the captures, PDFs and Word renders above; ui-expert side-by-side comparison; accent darkened for contrast (Decision).
+- AC-03 FR-1 to FR-11: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing headings reused (FR-6: "Résumé", "Formation / Cours" for certificates, the editor's "Contact").
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Accent text #c2410c instead of the mockup's #ea580c.** The mockup's orange is 3.56:1 on white and fails WCAG AA at the title and date sizes; orange-700 is 5.18:1. The light heading rules (#fed7aa) and the dark-column headings (#fdba74) keep the mockup's colours.
+- **One colour source.** `PREVIEW_PALETTE.swissTrades` holds the colours; the Word palette derives from it, and `resume-palette.test.ts` counts every inline hex in the template against it, as for swissCommerce.
+- **Skills:** rich `skillsHtml` wins over `items`, as in every template. A single plain comma-separated line is drawn as tags; any other rich text is drawn as sanitized prose; `items` without `skillsHtml` become tags. Each visible category's label is a small caption above its tags in all four outputs, since the category name is stored content.
+- **An entry without a position or degree** shows the company or school as its bold first line beside the dates.
+
+Open owner decisions:
+- **The certificates heading reads "Formation / Cours"** (FR-6: `training` is the only existing label, as in swissVocational and swissCommerce). The French page shows it beside the main column's "FORMATION". A dedicated `certifications` label would need a PRD change.
+- **Word text differs invisibly from the Preview:** tags contain no-break spaces and a zero-width space separates them, so text copied from Word or parsed by an applicant-tracking system can carry U+00A0 / U+200B. The description of the Word tag in `PREVIEW_GRAPHICS.swissTrades.skillTag` (`resume-graphics.ts`) still describes the earlier spacing; to be corrected in a later change.
+- **A blank visible entry shows a lone "Présent"** through the shared `formatSwissDateRange` (empty end date read as current). Same in swissVocational and swissCommerce; fixing it changes all three.
+- **Rich-text skill categories are prose, not tags** (consistent in all four outputs).
+- **Word limits:** square tag corners and different tag wrapping from the Preview; Word substitutes a serif font where Inter is not installed (as for US-001 and US-002); at 96 dpi the thick-underline rule under one heading rasterises 1px tall and looks grey (a 4x render shows the same #fed7aa).
+- **Invisible characters written literally** in `docx-swiss-trades.ts` (U+200B, U+00A0) rather than as `\u` escapes (code-review minor).
+
+Environment notes:
+- The checks ran alone; the local dev server was stopped before them.
+- The evidence spec was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- senior-coder ran `git stash push` on an untracked file (no stash created) and then `git stash pop`, which tried the pre-existing `stash@{0}` (WIP on ralph/tools-page) and aborted; that stash is unchanged and nothing was applied.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 The "Métiers techniques & manuels" template is available
+FINAL: PASS

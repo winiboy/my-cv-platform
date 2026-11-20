@@ -201,7 +201,9 @@
       "swissVocational": "Formazione professionale (AFC)",
       "swissVocationalDesc": "Formato svizzero, ideale dopo un AFC",
       "swissCommerce": "Commercio e amministrazione",
-      "swissCommerceDesc": "Formato svizzero per l'ufficio"
+      "swissCommerceDesc": "Formato svizzero per l'ufficio",
+      "swissTrades": "Mestieri tecnici e manuali",
+      "swissTradesDesc": "Competenze e certificati in primo piano"
     },
     "new": {
       "title": "Crea nuovo CV",

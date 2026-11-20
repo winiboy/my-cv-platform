@@ -210,4 +210,31 @@ export const PREVIEW_PALETTE = {
     /** Dates, companies, schools, issuers. */
     'slate-500': theme('slate-500'),
   },
+  /**
+   * Every colour is inline: the mockup's slate is blue-grey and its oranges
+   * are fixed, and the slate tokens `globals.css` redefines are neutral greys.
+   */
+  swissTrades: {
+    /** The dark column. */
+    sidebar: inline('#334155'),
+    /** A skill tag's fill. */
+    tag: inline('#475569'),
+    /** The photo's thin border; companies and schools under their entry's title. */
+    muted: inline('#64748b'),
+    /** Every line of the dark column: contact, captions, tags, certificates, languages. */
+    sidebarText: inline('#f1f5f9'),
+    /** The headings of the dark column. */
+    sidebarHeading: inline('#fdba74'),
+    /**
+     * The CV title and the dates: orange-700, darker than the mockup's
+     * orange-600 so small text on white meets WCAG AA (about 5.2:1).
+     */
+    accent: inline('#c2410c'),
+    /** The rule that follows each main heading. */
+    rule: inline('#fed7aa'),
+    /** The name, the main headings, and each entry's bold first line. */
+    ink: inline('#0f172a'),
+    /** Summary, achievements and descriptions. */
+    body: inline('#1e293b'),
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewColour>>>>

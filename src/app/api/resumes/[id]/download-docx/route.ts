@@ -10,6 +10,7 @@ import { generateMinimalDocx } from './docx-minimal'
 import { generateCreativeDocx } from './docx-creative'
 import { generateSwissVocationalDocx } from './docx-swiss-vocational'
 import { generateSwissCommerceDocx } from './docx-swiss-commerce'
+import { generateSwissTradesDocx } from './docx-swiss-trades'
 // The supported templates and the professional fallback: `docx-templates.ts`.
 import { docxTemplateFor } from './docx-templates'
 
@@ -250,6 +251,10 @@ async function handleDocxGeneration(
 
     case 'swissCommerce':
       buffer = await generateSwissCommerceDocx(resume, settings)
+      break
+
+    case 'swissTrades':
+      buffer = await generateSwissTradesDocx(resume, settings)
       break
 
     default:

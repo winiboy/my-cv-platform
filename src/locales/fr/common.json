@@ -199,7 +199,9 @@
       "swissVocational": "Formation professionnelle (CFC)",
       "swissVocationalDesc": "Format suisse, idéal après un CFC",
       "swissCommerce": "Commerce & administration",
-      "swissCommerceDesc": "Format suisse pour le bureau"
+      "swissCommerceDesc": "Format suisse pour le bureau",
+      "swissTrades": "Métiers techniques & manuels",
+      "swissTradesDesc": "Compétences et certificats en avant"
     },
     "new": {
       "title": "Créer un nouveau CV",

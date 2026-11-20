@@ -46,4 +46,11 @@ describe('resumes.templates locale parity', () => {
     expect(de.resumes.templates.swissCommerce).toBe('Kaufmännisch & Verwaltung')
     expect(it_.resumes.templates.swissCommerce).toBe('Commercio e amministrazione')
   })
+
+  it('names the trades template as the swiss-cv-templates PRD does', () => {
+    expect(fr.resumes.templates.swissTrades).toBe('Métiers techniques & manuels')
+    expect(en.resumes.templates.swissTrades).toBe('Technical & skilled trades')
+    expect(de.resumes.templates.swissTrades).toBe('Technische & handwerkliche Berufe')
+    expect(it_.resumes.templates.swissTrades).toBe('Mestieri tecnici e manuali')
+  })
 })

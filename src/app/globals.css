@@ -481,6 +481,35 @@
     border-radius: 4px !important;
   }
 
+  /* swissTrades (swiss-cv-templates US-003) prints its rounded skill tags as
+     its Preview and mockup draw them, scoped to that template's root. The
+     radius is SWISS_TRADES_GEOMETRY.tagRadius, which the template also writes
+     inline for the screen; swiss-trades-template.test.ts holds the two equal. */
+  .swiss-trades-template .swiss-trades-tag {
+    border-radius: 4px !important;
+  }
+
+  /* swissTrades' dark column on every printed page, top to foot. As modern's
+     band above: the column is in-flow, so its own background ends where the
+     document ends; the root's background paints every page in full. The
+     colour and width are the template's fixed ones (PREVIEW_PALETTE.swissTrades
+     .sidebar, SWISS_TRADES_GEOMETRY.sidebarWidth); swiss-trades-template.test.ts
+     holds them equal. */
+  html:has(.swiss-trades-template) {
+    background: linear-gradient(
+      to right,
+      white max(0px, 50% - 397px),
+      #334155 max(0px, 50% - 397px),
+      #334155 calc(max(0px, 50% - 397px) + 250px),
+      white calc(max(0px, 50% - 397px) + 250px)
+    ) !important;
+  }
+
+  body:has(.swiss-trades-template),
+  body :has(.swiss-trades-template) {
+    background: transparent !important;
+  }
+
   /* Preserve colors in CV templates */
   * {
     print-color-adjust: exact !important;

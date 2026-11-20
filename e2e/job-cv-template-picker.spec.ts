@@ -36,7 +36,7 @@ function admin(): SupabaseClient {
   })
 }
 
-const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce']
+const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades']
 
 const STRINGS = {
   fr: {
@@ -48,7 +48,7 @@ const STRINGS = {
     analyze: "Analyser et générer l'adaptation",
     creating: 'Création de votre CV...',
     groupLabel: 'Choisir un modèle',
-    names: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration'],
+    names: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels'],
     educationHeading: 'Formation',
   },
   en: {
@@ -60,7 +60,7 @@ const STRINGS = {
     analyze: 'Analyze & Generate Adaptation',
     creating: 'Creating your CV...',
     groupLabel: 'Choose Template',
-    names: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration'],
+    names: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades'],
     educationHeading: 'Education',
   },
 } as const

@@ -1455,11 +1455,11 @@ export const LAYOUT_CONTROL_KEYS: Readonly<
  * each generator the same model, so what a template is PASSED and what its
  * generator READS is the whole of the question:
  *
- *                     professional  modern   classic  minimal  creative  swissVocational  swissCommerce
- *   font                   yes       yes       yes      yes      yes         no               no
- *   sidebarColour          yes       yes       no       no       no          no               no
- *   perPropertySize        no        no        yes      yes      yes         no               no
- *   sidebarSections        yes       yes       no       no       yes         visibility only  visibility only
+ *                     professional  modern   classic  minimal  creative  swissVocational  swissCommerce    swissTrades
+ *   font                   yes       yes       yes      yes      yes         no               no               no
+ *   sidebarColour          yes       yes       no       no       no          no               no               no
+ *   perPropertySize        no        no        yes      yes      yes         no               no               no
+ *   sidebarSections        yes       yes       no       no       yes         visibility only  visibility only  visibility only
  *
  * font — the five original templates draw the stored font family and font
  *   scale. A Swiss template draws its own typeface at scale 1.0 in every output
@@ -1512,6 +1512,12 @@ export const TEMPLATE_LAYOUT_CONTROLS: Readonly<
   swissVocational: Object.freeze(['sidebarSections'] as const),
   /** swissCommerce: the same reasoning as swissVocational, with its own fixed rows below. */
   swissCommerce: Object.freeze(['sidebarSections'] as const),
+  /**
+   * swissTrades: the same reasoning as swissVocational. Its dark column is a
+   * fixed part of its design, not the user's sidebar: it paints no user colour,
+   * and every row it lists is fixed below.
+   */
+  swissTrades: Object.freeze(['sidebarSections'] as const),
 })
 
 /**
@@ -1545,6 +1551,7 @@ export const TEMPLATE_DRAWS_PHOTO: Readonly<Record<BuiltResumeTemplate, boolean>
   creative: false,
   swissVocational: true,
   swissCommerce: true,
+  swissTrades: true,
 })
 
 /**
@@ -1584,6 +1591,7 @@ export const TEMPLATE_APPLIED_SIZE_KEYS: Readonly<
   creative: LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[],
   swissVocational: Object.freeze([] as const),
   swissCommerce: Object.freeze([] as const),
+  swissTrades: Object.freeze([] as const),
 })
 
 // ---------- Which section ids the editor's panels offer ----------
@@ -1673,6 +1681,18 @@ export const TEMPLATE_EDITOR_SECTIONS: Readonly<
     sidebar: Object.freeze(['skills', 'languages', 'training'] as const),
     main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
     fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'skills', 'languages', 'training'] as const),
+  }),
+  /**
+   * swissTrades draws summary, experience and education in its main column,
+   * and skills, certifications (`training`) and languages in its dark column,
+   * each in a fixed sequence: every row it lists is fixed. It does not draw
+   * keyAchievements, so that row is not listed.
+   */
+  swissTrades: Object.freeze({
+    // In the order the template draws them, as for swissVocational.
+    sidebar: Object.freeze(['skills', 'training', 'languages'] as const),
+    main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
+    fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'skills', 'training', 'languages'] as const),
   }),
 })
 

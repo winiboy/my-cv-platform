@@ -201,7 +201,9 @@
       "swissVocational": "Vocational training (VET)",
       "swissVocationalDesc": "Sober Swiss format, ideal after an apprenticeship",
       "swissCommerce": "Business & administration",
-      "swissCommerceDesc": "Sober Swiss format for office and admin roles"
+      "swissCommerceDesc": "Sober Swiss format for office and admin roles",
+      "swissTrades": "Technical & skilled trades",
+      "swissTradesDesc": "Puts your skills and certificates first"
     },
     "new": {
       "title": "Create New Resume",

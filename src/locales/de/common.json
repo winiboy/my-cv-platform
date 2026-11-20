@@ -201,7 +201,9 @@
       "swissVocational": "Berufslehre (EFZ)",
       "swissVocationalDesc": "Schlichtes Schweizer Format, ideal nach einer EFZ-Lehre",
       "swissCommerce": "Kaufmännisch & Verwaltung",
-      "swissCommerceDesc": "Schweizer Format für Büro und Verwaltung"
+      "swissCommerceDesc": "Schweizer Format für Büro und Verwaltung",
+      "swissTrades": "Technische & handwerkliche Berufe",
+      "swissTradesDesc": "Fähigkeiten und Zertifikate zuerst"
     },
     "new": {
       "title": "Neuen Lebenslauf erstellen",
