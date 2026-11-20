@@ -27,14 +27,13 @@ import {
 const DICTS: Record<Locale, Record<string, unknown>> = { fr, en, de, it: it_ }
 const LOCALES = Object.keys(DICTS) as Locale[]
 /** The five original templates in their original order, then the Swiss templates built so far. */
-const EXPECTED_ORDER: ResumeTemplate[] = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational']
+const EXPECTED_ORDER: ResumeTemplate[] = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce']
 
 /**
  * The Swiss templates whose story has not landed: offered by no creation
  * surface, although the schema accepts them (migration 011).
  */
 const UNBUILT: readonly ResumeTemplate[] = [
-  'swissCommerce',
   'swissTrades',
   'swissHealth',
   'swissFinance',
@@ -46,10 +45,10 @@ const UNBUILT: readonly ResumeTemplate[] = [
 ]
 
 const EXPECTED_NAMES: Record<Locale, string[]> = {
-  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)'],
-  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)'],
-  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)'],
-  it: ['Moderno', 'Classico', 'Minimale', 'Creativo', 'Professionale', 'Formazione professionale (AFC)'],
+  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration'],
+  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration'],
+  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung'],
+  it: ['Moderno', 'Classico', 'Minimale', 'Creativo', 'Professionale', 'Formazione professionale (AFC)', 'Commercio e amministrazione'],
 }
 
 interface RenderedRadio {
@@ -247,18 +246,20 @@ describe('templateIdForKey', () => {
     expect(templateIdForKey('modern', 'ArrowRight')).toBe('classic')
     expect(templateIdForKey('creative', 'ArrowDown')).toBe('professional')
     expect(templateIdForKey('professional', 'ArrowRight')).toBe('swissVocational')
-    expect(templateIdForKey('swissVocational', 'ArrowRight')).toBe('modern')
+    expect(templateIdForKey('swissVocational', 'ArrowRight')).toBe('swissCommerce')
+    expect(templateIdForKey('swissCommerce', 'ArrowRight')).toBe('modern')
   })
 
   it('moves back with ArrowLeft and ArrowUp, wrapping from the first option', () => {
     expect(templateIdForKey('classic', 'ArrowLeft')).toBe('modern')
-    expect(templateIdForKey('modern', 'ArrowUp')).toBe('swissVocational')
+    expect(templateIdForKey('modern', 'ArrowUp')).toBe('swissCommerce')
+    expect(templateIdForKey('swissCommerce', 'ArrowLeft')).toBe('swissVocational')
     expect(templateIdForKey('swissVocational', 'ArrowLeft')).toBe('professional')
   })
 
   it('jumps to the ends with Home and End', () => {
     expect(templateIdForKey('minimal', 'Home')).toBe('modern')
-    expect(templateIdForKey('minimal', 'End')).toBe('swissVocational')
+    expect(templateIdForKey('minimal', 'End')).toBe('swissCommerce')
   })
 
   it('ignores keys that do not move the selection', () => {

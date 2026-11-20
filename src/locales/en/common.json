@@ -199,7 +199,9 @@
       "creative": "Creative",
       "creativeDesc": "Bold design for creative professionals",
       "swissVocational": "Vocational training (VET)",
-      "swissVocationalDesc": "Sober Swiss format, ideal after an apprenticeship"
+      "swissVocationalDesc": "Sober Swiss format, ideal after an apprenticeship",
+      "swissCommerce": "Business & administration",
+      "swissCommerceDesc": "Sober Swiss format for office and admin roles"
     },
     "new": {
       "title": "Create New Resume",

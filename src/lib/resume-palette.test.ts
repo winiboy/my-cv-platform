@@ -521,6 +521,29 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     'border-slate-300': { count: 2, palette: 'slate-300' },
     'bg-white': { count: 1, excluded: PAGE },
   },
+  swissCommerce: {
+    // The header band; each section heading and its rule; each skill category label.
+    'style backgroundColor: #1f3a5f': { count: 1, palette: 'navy' },
+    'style color: #1f3a5f': { count: 2, palette: 'navy' },
+    'style borderColor: #1f3a5f': { count: 1, palette: 'navy' },
+    // The name, on the band.
+    'text-white': { count: 1, palette: 'white' },
+    // The CV title, and the ring round the photo.
+    'text-blue-300': { count: 1, palette: 'blue-300' },
+    'border-blue-300': { count: 1, palette: 'blue-300' },
+    // The contact row.
+    'text-blue-100': { count: 1, palette: 'blue-100' },
+    // A language pill's border and fill.
+    'border-blue-200': { count: 1, palette: 'blue-200' },
+    'bg-blue-50': { count: 1, palette: 'blue-50' },
+    // Position, degree, certification name.
+    'text-slate-900': { count: 3, palette: 'slate-900' },
+    // Summary, achievements, experience and education descriptions, skills, language pill text.
+    'text-slate-800': { count: 6, palette: 'slate-800' },
+    // Dates, company, school, issuer.
+    'text-slate-500': { count: 4, palette: 'slate-500' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -606,7 +629,7 @@ describe('PREVIEW_PALETTE', () => {
   )
 
   it('covers every built template', () => {
-    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissVocational'])
+    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissCommerce', 'swissVocational'])
   })
 
   it('holds each Preview colour of a template once', () => {

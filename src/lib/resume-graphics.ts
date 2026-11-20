@@ -295,6 +295,27 @@ export const PREVIEW_GRAPHICS = {
         'written, so the heading text an ATS reads is the heading alone.',
     },
   },
+  swissCommerce: {
+    headerBand: {
+      element: 'the navy band across the top of the page holding the photo, name, title and contact row',
+      form: 'shaded-cell',
+      approximation:
+        'A full-width single-row table whose cells are shaded navy with no borders, the band’s padding as ' +
+        'the cell margins and the page’s top and side margins set to zero so the band meets the paper’s ' +
+        'edges as it does in the Preview. The body below keeps its own inset through the table and paragraph ' +
+        'indents. The band is drawn on the first page only, as in the Preview.',
+    },
+    languagePill: {
+      element: 'each language pill (`border-blue-200 bg-blue-50`, `SWISS_COMMERCE_GEOMETRY.pillRadius` corners)',
+      form: 'shaded-run',
+      approximation:
+        'One run per pill, shaded blue-50 and bordered blue-200 (`w:bdr`), padded with a no-break space each ' +
+        'side and with no-break spaces between its words so a pill is never split across lines; pills are ' +
+        'separated by unshaded spaces and wrap as the Preview’s row does. Square corners where the Preview ' +
+        'rounds them 4px, and the padding is a space wide rather than the Preview’s 11px: a run has no ' +
+        'padding or corner radius.',
+    },
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewGraphic>>>>
 
 // ---------------------------------------------------------------------------

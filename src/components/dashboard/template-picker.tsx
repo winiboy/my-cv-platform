@@ -1,7 +1,7 @@
 'use client'
 
 import { memo, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Briefcase, FileText, GraduationCap, Layout, PenTool, Sparkles, type LucideIcon } from 'lucide-react'
+import { Briefcase, Building2, FileText, GraduationCap, Layout, PenTool, Sparkles, type LucideIcon } from 'lucide-react'
 import { ResumePreview } from '@/components/dashboard/resume-preview'
 import type { Locale } from '@/lib/i18n'
 import { PAGE_HEIGHT_MM, PAGE_WIDTH_MM, PAGE_WIDTH_PX } from '@/lib/resume-page-size'
@@ -25,6 +25,7 @@ export const TEMPLATE_OPTIONS: readonly TemplateOption[] = [
   { id: 'creative', icon: PenTool },
   { id: 'professional', icon: Briefcase },
   { id: 'swissVocational', icon: GraduationCap },
+  { id: 'swissCommerce', icon: Building2 },
 ]
 
 /**

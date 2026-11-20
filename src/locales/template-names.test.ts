@@ -39,4 +39,11 @@ describe('resumes.templates locale parity', () => {
     expect(de.resumes.templates.swissVocational).toBe('Berufslehre (EFZ)')
     expect(it_.resumes.templates.swissVocational).toBe('Formazione professionale (AFC)')
   })
+
+  it('names the commerce template as the swiss-cv-templates PRD does', () => {
+    expect(fr.resumes.templates.swissCommerce).toBe('Commerce & administration')
+    expect(en.resumes.templates.swissCommerce).toBe('Business & administration')
+    expect(de.resumes.templates.swissCommerce).toBe('Kaufmännisch & Verwaltung')
+    expect(it_.resumes.templates.swissCommerce).toBe('Commercio e amministrazione')
+  })
 })

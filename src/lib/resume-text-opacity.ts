@@ -112,6 +112,7 @@ export const PREVIEW_TEXT_ALPHA = {
     headerLinks: colourModifier('text-white/80'),
   },
   swissVocational: {},
+  swissCommerce: {},
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewAlpha>>>>
 
 /**

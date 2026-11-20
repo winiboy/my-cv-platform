@@ -92,4 +92,8 @@ export const PREVIEW_TRACKING = {
     /** The CV title under the name, and every section heading. */
     caps: TAILWIND_TRACKING['tracking-widest'],
   },
+  swissCommerce: {
+    /** The CV title in the header band, and every section heading. */
+    caps: TAILWIND_TRACKING['tracking-widest'],
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, number>>>>

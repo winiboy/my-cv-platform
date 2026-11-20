@@ -1302,6 +1302,8 @@ describe('which layout controls a template offers (Part 3 US-014)', () => {
     }
     expect(templateOffersLayoutControl('swissVocational', 'font')).toBe(false)
     expect(TEMPLATE_LAYOUT_CONTROLS.swissVocational).toEqual(['sidebarSections'])
+    expect(templateOffersLayoutControl('swissCommerce', 'font')).toBe(false)
+    expect(TEMPLATE_LAYOUT_CONTROLS.swissCommerce).toEqual(['sidebarSections'])
     expect(LAYOUT_CONTROL_KEYS.font).toEqual(['fontFamily', 'fontScale'])
   })
 })
@@ -1360,6 +1362,7 @@ describe('which templates draw the photo (swiss-cv-templates FR-5, FR-14)', () =
       minimal: false,
       creative: false,
       swissVocational: true,
+      swissCommerce: true,
     })
   })
 
@@ -1371,6 +1374,7 @@ describe('which templates draw the photo (swiss-cv-templates FR-5, FR-14)', () =
     expect(templateDrawsPhoto('brochure')).toBe(true)
     expect(templateDrawsPhoto('classic')).toBe(false)
     expect(templateDrawsPhoto('swissVocational')).toBe(true)
+    expect(templateDrawsPhoto('swissCommerce')).toBe(true)
   })
 })
 

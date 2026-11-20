@@ -9,6 +9,7 @@ import { MinimalTemplate } from '@/components/dashboard/resume-templates/minimal
 import { ModernTemplate } from '@/components/dashboard/resume-templates/modern-template'
 import { ProfessionalTemplate } from '@/components/dashboard/resume-templates/professional-template'
 import { SwissVocationalTemplate } from '@/components/dashboard/resume-templates/swiss-vocational-template'
+import { SwissCommerceTemplate } from '@/components/dashboard/resume-templates/swiss-commerce-template'
 
 /**
  * Part 3 US-016: every template's Preview reads the rich text the editor saved.
@@ -38,6 +39,7 @@ const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
   modern: ModernTemplate as ComponentType<never>,
   professional: ProfessionalTemplate as ComponentType<never>,
   swissVocational: SwissVocationalTemplate as ComponentType<never>,
+  swissCommerce: SwissCommerceTemplate as ComponentType<never>,
 }
 
 const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
@@ -46,7 +48,7 @@ const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
 const RENDERS_PROJECT_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'creative', 'minimal', 'modern']
 
 /** Templates that render an education description at all. */
-const RENDERS_EDUCATION_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'swissVocational']
+const RENDERS_EDUCATION_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'swissVocational', 'swissCommerce']
 
 function buildResume(overrides: Partial<Record<string, unknown>>): Resume {
   return {

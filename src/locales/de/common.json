@@ -199,7 +199,9 @@
       "creative": "Kreativ",
       "creativeDesc": "Mutiges Design für kreative Profis",
       "swissVocational": "Berufslehre (EFZ)",
-      "swissVocationalDesc": "Schlichtes Schweizer Format, ideal nach einer EFZ-Lehre"
+      "swissVocationalDesc": "Schlichtes Schweizer Format, ideal nach einer EFZ-Lehre",
+      "swissCommerce": "Kaufmännisch & Verwaltung",
+      "swissCommerceDesc": "Schweizer Format für Büro und Verwaltung"
     },
     "new": {
       "title": "Neuen Lebenslauf erstellen",

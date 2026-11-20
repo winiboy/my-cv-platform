@@ -75,6 +75,10 @@ export const TAILWIND_DEFAULT_TOKENS = {
   'purple-300': 'oklch(82.7% 0.119 306.383)',
   'purple-700': 'oklch(49.6% 0.265 301.924)',
   'red-700': 'oklch(50.5% 0.213 27.518)',
+  'blue-50': 'oklch(97% 0.014 254.604)',
+  'blue-100': 'oklch(93.2% 0.032 255.585)',
+  'blue-200': 'oklch(88.2% 0.059 254.128)',
+  'blue-300': 'oklch(80.9% 0.105 251.813)',
 } as const
 
 export type ThemeToken = keyof typeof THEME_TOKENS
@@ -181,5 +185,29 @@ export const PREVIEW_PALETTE = {
     'slate-600': theme('slate-600'),
     /** Section heading rules and the dotted rule under each language. */
     'slate-300': theme('slate-300'),
+  },
+  swissCommerce: {
+    /**
+     * The header band, the section headings and their rules, and the skill
+     * category labels. Inline: no Tailwind token is this navy, and the slate
+     * tokens `globals.css` redefines are neutral greys.
+     */
+    navy: inline('#1f3a5f'),
+    /** The name, on the band. */
+    white: tailwind('white'),
+    /** The CV title on the band, and the ring round the photo. */
+    'blue-300': tailwind('blue-300'),
+    /** The contact details on the band. */
+    'blue-100': tailwind('blue-100'),
+    /** A language pill's border. */
+    'blue-200': tailwind('blue-200'),
+    /** A language pill's fill. */
+    'blue-50': tailwind('blue-50'),
+    /** Positions, degrees, certification names. */
+    'slate-900': theme('slate-900'),
+    /** Summary, descriptions, achievements, skills, language pill text. */
+    'slate-800': theme('slate-800'),
+    /** Dates, companies, schools, issuers. */
+    'slate-500': theme('slate-500'),
   },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewColour>>>>

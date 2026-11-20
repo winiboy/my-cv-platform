@@ -18,6 +18,7 @@ import { generateClassicDocx } from './docx-classic'
 import { generateMinimalDocx } from './docx-minimal'
 import { generateCreativeDocx } from './docx-creative'
 import { generateSwissVocationalDocx } from './docx-swiss-vocational'
+import { generateSwissCommerceDocx } from './docx-swiss-commerce'
 
 /**
  * swiss-cv-templates FR-14: an unticked contact detail, CV title or photo is
@@ -36,6 +37,7 @@ const GENERATORS: Record<DocxTemplateId, (resume: unknown, settings: DocxGenerat
   minimal: generateMinimalDocx,
   creative: generateCreativeDocx,
   swissVocational: generateSwissVocationalDocx,
+  swissCommerce: generateSwissCommerceDocx,
 }
 
 const PHOTO = `data:image/png;base64,${solidColourPng('336699').toString('base64')}`
@@ -204,7 +206,7 @@ describe.each(SUPPORTED_TEMPLATES)('%s: contact visibility on the Preview and in
   })
 })
 
-describe.each(['modern', 'swissVocational'] as const)('%s: the photo tick', (template) => {
+describe.each(['modern', 'swissVocational', 'swissCommerce'] as const)('%s: the photo tick', (template) => {
   it('draws the stored photo when ticked and draws it as absent when unticked, on both outputs', async () => {
     const shown = resumeRow(template)
     const hidden = resumeRow(template, ['photo'])
@@ -213,7 +215,7 @@ describe.each(['modern', 'swissVocational'] as const)('%s: the photo tick', (tem
     expect(previewMarkup(hidden, PHOTO)).not.toContain(PHOTO)
     // On the Swiss template unticked is exactly "no photo"; modern also drops
     // its zone, which the describe below pins.
-    if (template === 'swissVocational') expect(previewMarkup(hidden, PHOTO)).toBe(previewMarkup(shown))
+    if (template !== 'modern') expect(previewMarkup(hidden, PHOTO)).toBe(previewMarkup(shown))
 
     const withPhoto = drawings(await documentXml(shown, PHOTO))
     const withoutPhoto = drawings(await documentXml(shown))

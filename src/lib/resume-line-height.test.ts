@@ -14,6 +14,7 @@ import {
   tailwindHeightPx,
   PREFLIGHT_LINE_HEIGHT,
   PROFESSIONAL_LINE_HEIGHT,
+  SWISS_COMMERCE_LINE_HEIGHT,
   SWISS_VOCATIONAL_LINE_HEIGHT,
   TAILWIND_LEADING,
   TAILWIND_TEXT_LINE_HEIGHT,
@@ -57,7 +58,7 @@ const tailwindTheme = read('node_modules/tailwindcss/theme.css')
 const tailwindPreflight = read('node_modules/tailwindcss/preflight.css')
 const globals = read('src/app/globals.css')
 
-const TEMPLATES: readonly BuiltResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational']
+const TEMPLATES: readonly BuiltResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce']
 const template = (name: BuiltResumeTemplate) => read(templateComponentFile(name))
 
 /** A CSS number or `calc(a / b)`, as the Tailwind theme writes line heights. */
@@ -147,6 +148,16 @@ describe('the templates draw with these line heights and no others', () => {
     for (const { value } of values) expect(value).toMatch(/^LINE_HEIGHT\.(name|compact|text)$/)
     for (const key of ['name', 'compact', 'text']) expect(source).toContain(`LINE_HEIGHT.${key}`)
     expect(SWISS_VOCATIONAL_LINE_HEIGHT).toEqual({ name: 1.15, compact: 1.4, text: 1.5 })
+  })
+
+  it('swissCommerce gives lineHeight only the constants it imports', () => {
+    const source = template('swissCommerce')
+    expect(source).toMatch(/const LINE_HEIGHT = SWISS_COMMERCE_LINE_HEIGHT/)
+    const values = lineHeightValues(source)
+    expect(values.length).toBeGreaterThan(0)
+    for (const { value } of values) expect(value).toMatch(/^LINE_HEIGHT\.(name|compact|text)$/)
+    for (const key of ['name', 'compact', 'text']) expect(source).toContain(`LINE_HEIGHT.${key}`)
+    expect(SWISS_COMMERCE_LINE_HEIGHT).toEqual({ name: 1.15, compact: 1.4, text: 1.5 })
   })
 
   it('modern draws its job-title bar with the padding the DOCX adds to its line', () => {

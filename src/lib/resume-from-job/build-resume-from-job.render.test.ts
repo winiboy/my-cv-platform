@@ -12,6 +12,7 @@ import { MinimalTemplate } from '@/components/dashboard/resume-templates/minimal
 import { ModernTemplate } from '@/components/dashboard/resume-templates/modern-template'
 import { ProfessionalTemplate } from '@/components/dashboard/resume-templates/professional-template'
 import { SwissVocationalTemplate } from '@/components/dashboard/resume-templates/swiss-vocational-template'
+import { SwissCommerceTemplate } from '@/components/dashboard/resume-templates/swiss-commerce-template'
 import { presentLabel } from '@/lib/resume-template-strings'
 import { buildResumeFromJobOffer, type AiResumeContent, type ResumeDraftContent } from './build-resume-from-job'
 import { RESUME_CONTENT_LANGUAGES, RESUME_SAMPLE_VALUES, type ResumeContentLanguage } from './sample-values'
@@ -38,6 +39,7 @@ const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
   modern: ModernTemplate as ComponentType<never>,
   professional: ProfessionalTemplate as ComponentType<never>,
   swissVocational: SwissVocationalTemplate as ComponentType<never>,
+  swissCommerce: SwissCommerceTemplate as ComponentType<never>,
 }
 
 const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
@@ -96,8 +98,8 @@ type DraftName = keyof typeof DRAFTS
  * - classic, creative, minimal and professional draw an experience's
  *   description only when it has no achievements, and every built experience
  *   has achievements, so they draw none; modern draws each description;
- * - only classic and swissVocational draw an education description;
- * - swissVocational draws no projects.
+ * - only classic, swissVocational and swissCommerce draw an education description;
+ * - swissVocational and swissCommerce draw no projects.
  */
 const EXPECTED_RICH_FIELDS: Readonly<Record<ResumeTemplate, (draft: ResumeDraftContent) => number>> = {
   classic: (d) => 1 + d.skills.length + d.projects.length + d.education.length,
@@ -106,6 +108,7 @@ const EXPECTED_RICH_FIELDS: Readonly<Record<ResumeTemplate, (draft: ResumeDraftC
   modern: (d) => 1 + d.skills.length + d.projects.length + d.experience.length,
   professional: (d) => 1 + d.skills.length + d.projects.length,
   swissVocational: (d) => 1 + d.skills.length + d.education.length,
+  swissCommerce: (d) => 1 + d.skills.length + d.education.length,
 }
 
 type DrawnField =
@@ -149,6 +152,7 @@ const NOT_DRAWN: Readonly<Record<ResumeTemplate, readonly DrawnField[]>> = {
   professional: ['technology'],
   // Its mockup has no projects section and no GPA.
   swissVocational: ['gpa', 'project', 'technology'],
+  swissCommerce: ['gpa', 'project', 'technology'],
 }
 
 /** The first entry of each section's text, as the draft holds it. */

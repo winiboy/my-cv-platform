@@ -44,8 +44,8 @@ const VIEWPORTS = {
 const TABLET = { width: 768, height: 1024 } as const
 const TABLET_CARD_MAX_HEIGHT = 340
 
-/** The options TEMPLATE_OPTIONS offers: the five original templates and swissVocational. */
-const OPTION_COUNT = 6
+/** The options TEMPLATE_OPTIONS offers: the five original templates, swissVocational and swissCommerce. */
+const OPTION_COUNT = 7
 const CARD_MAX_HEIGHT = 200
 /**
  * The radiogroup ceilings, per option rather than as fixed totals.
@@ -58,8 +58,8 @@ const CARD_MAX_HEIGHT = 200
  * grows with them; the ceiling a card or a row may take does not.
  *
  * The row ceiling is kept as the exact fraction rather than rounded up to
- * 217 px: six options are still three rows, and 3 x 217 would be 651 px, one
- * pixel looser than the 650 px the compact PRD approved.
+ * 217 px: 3 x 217 would be 651 px, one pixel looser than the 650 px the
+ * compact PRD approved for three rows. Seven options take four rows.
  */
 const PAGE_GROUP_MAX_HEIGHT_PER_OPTION_AT_375 = 220
 const MODAL_GROUP_MAX_HEIGHT_PER_ROW_AT_1440 = 650 / 3

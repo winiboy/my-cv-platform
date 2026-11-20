@@ -197,7 +197,9 @@
       "creative": "Créatif",
       "creativeDesc": "Design audacieux pour les professionnels créatifs",
       "swissVocational": "Formation professionnelle (CFC)",
-      "swissVocationalDesc": "Format suisse, idéal après un CFC"
+      "swissVocationalDesc": "Format suisse, idéal après un CFC",
+      "swissCommerce": "Commerce & administration",
+      "swissCommerceDesc": "Format suisse pour le bureau"
     },
     "new": {
       "title": "Créer un nouveau CV",

@@ -1455,11 +1455,11 @@ export const LAYOUT_CONTROL_KEYS: Readonly<
  * each generator the same model, so what a template is PASSED and what its
  * generator READS is the whole of the question:
  *
- *                     professional  modern   classic  minimal  creative  swissVocational
- *   font                   yes       yes       yes      yes      yes         no
- *   sidebarColour          yes       yes       no       no       no          no
- *   perPropertySize        no        no        yes      yes      yes         no
- *   sidebarSections        yes       yes       no       no       yes         visibility only
+ *                     professional  modern   classic  minimal  creative  swissVocational  swissCommerce
+ *   font                   yes       yes       yes      yes      yes         no               no
+ *   sidebarColour          yes       yes       no       no       no          no               no
+ *   perPropertySize        no        no        yes      yes      yes         no               no
+ *   sidebarSections        yes       yes       no       no       yes         visibility only  visibility only
  *
  * font — the five original templates draw the stored font family and font
  *   scale. A Swiss template draws its own typeface at scale 1.0 in every output
@@ -1510,6 +1510,8 @@ export const TEMPLATE_LAYOUT_CONTROLS: Readonly<
    * lists is fixed in `TEMPLATE_EDITOR_SECTIONS` below, so nothing reorders.
    */
   swissVocational: Object.freeze(['sidebarSections'] as const),
+  /** swissCommerce: the same reasoning as swissVocational, with its own fixed rows below. */
+  swissCommerce: Object.freeze(['sidebarSections'] as const),
 })
 
 /**
@@ -1542,6 +1544,7 @@ export const TEMPLATE_DRAWS_PHOTO: Readonly<Record<BuiltResumeTemplate, boolean>
   minimal: false,
   creative: false,
   swissVocational: true,
+  swissCommerce: true,
 })
 
 /**
@@ -1580,6 +1583,7 @@ export const TEMPLATE_APPLIED_SIZE_KEYS: Readonly<
   minimal: LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[],
   creative: LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[],
   swissVocational: Object.freeze([] as const),
+  swissCommerce: Object.freeze([] as const),
 })
 
 // ---------- Which section ids the editor's panels offer ----------
@@ -1659,6 +1663,17 @@ export const TEMPLATE_EDITOR_SECTIONS: Readonly<
     main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
     fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'training', 'skills', 'languages'] as const),
   }),
+  /**
+   * swissCommerce draws summary, experience, education, skills, languages,
+   * then training, in that fixed sequence: every row it lists is fixed. It
+   * does not draw keyAchievements, so that row is not listed.
+   */
+  swissCommerce: Object.freeze({
+    // In the order the template draws them, as for swissVocational.
+    sidebar: Object.freeze(['skills', 'languages', 'training'] as const),
+    main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
+    fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'skills', 'languages', 'training'] as const),
+  }),
 })
 
 /**
@@ -1668,8 +1683,8 @@ export const TEMPLATE_EDITOR_SECTIONS: Readonly<
  * panel is where that order is changed. A panel whose every row is FIXED
  * changes no order, and the template draws those rows in a sequence of its
  * own, so it lists them in that sequence (the template's declared list) and
- * its row numbers say where each section is drawn. Only swissVocational has
- * such a panel; every other template's panels list exactly as before.
+ * its row numbers say where each section is drawn. Only the Swiss templates
+ * have such a panel; every other template's panels list exactly as before.
  *
  * A display order only: nothing here is written back to the model.
  */

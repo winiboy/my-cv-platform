@@ -48,6 +48,7 @@ import { CoverLetterAssociationSection } from './resume-sections/cover-letter-as
 import { JobAssociationSection } from './cover-letter-sections/job-association-section'
 import { ProfessionalTemplate } from './resume-templates/professional-template'
 import { SwissVocationalTemplate } from './resume-templates/swiss-vocational-template'
+import { SwissCommerceTemplate } from './resume-templates/swiss-commerce-template'
 import { ModernTemplate } from './resume-templates/modern-template'
 import { ClassicTemplate } from './resume-templates/classic-template'
 import { MinimalTemplate } from './resume-templates/minimal-template'
@@ -1821,6 +1822,19 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
                         // The photo is uploaded from the Contact tab's photo row, not from
                         // the CV (FR-5). Its own typeface and sizes: no font, no scale (FR-4).
                         <SwissVocationalTemplate
+                          resume={resume}
+                          locale={locale}
+                          dict={dict}
+                          hiddenMainSections={hiddenMainSections}
+                          hiddenSidebarSections={hiddenSidebarSections}
+                          hiddenContactFields={hiddenContactFields}
+                          photoUrl={photoUrl}
+                        />
+                      )
+                    case 'swissCommerce':
+                      return (
+                        // As swissVocational: photo from the Contact tab, own typeface and sizes.
+                        <SwissCommerceTemplate
                           resume={resume}
                           locale={locale}
                           dict={dict}

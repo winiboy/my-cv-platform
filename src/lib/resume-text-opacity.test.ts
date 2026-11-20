@@ -36,6 +36,7 @@ describe('PREVIEW_TEXT_ALPHA', () => {
       minimal: {},
       creative: { headerSummary: 0.9, headerLinks: 0.8 },
       swissVocational: {},
+      swissCommerce: {},
     })
   })
 

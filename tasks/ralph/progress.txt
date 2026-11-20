@@ -328,3 +328,76 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-012 The CFC skills section shows each category label above its skills
 FINAL: PASS
+
+## US-002: The "Commerce & administration" template is available
+Status: PASS
+Priority: 4
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 6430a5f (US-012 story commit).
+Scope:
+- Scope check: PASS
+- Changed paths (52 under src/ and e2e/, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-commerce-template.ts` (geometry, colours, section order), `src/components/dashboard/resume-templates/swiss-commerce-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-commerce.ts`, each with its unit test.
+  - **Wiring:** `src/types/database.ts` (swissCommerce no longer unbuilt), `resume-editor.tsx`, `resume-preview.tsx`, `template-picker.tsx` (Building2 icon), `layout-settings.ts`, `resume-palette.ts`, `resume-graphics.ts`, `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route, the four `common.json` locale files.
+  - **Print CSS:** `src/app/globals.css`, two print-only rules scoped to `.swiss-commerce-template .swiss-commerce-photo` (50%) and `.swiss-commerce-template .swiss-commerce-pill` (4px), after the untouched global `* { border-radius: 0 !important }` reset.
+  - **Test lists:** unit tests for layout-settings, palette, graphics, line-height, letter-spacing, page-size, text-opacity, swiss-vocational-template, build-resume-from-job.render, template-picker, rich-text, per-property-font-size, docx-graphics, docx-templates, docx-contact-visibility, both route tests, template-names; e2e template-picker, template-picker-compact (7 options), job-cv-template-picker, job-search-mobile (7 options), visual/resume-templates.
+  - **e2e:** new `e2e/swiss-commerce-template.spec.ts` (7 tests, including creation from the picker and the print-media radius assertion).
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissCommerce.png` (sha256 1686a86a9c0ebd38), `swissCommerce-print.png` (1eaa7c16e86fa888).
+- Not touched: the five original templates and swissVocational (renderers, Word generators, baselines, parity verdicts), the shared docx and format helpers, stored data; no migration; no version change; no push or merge of this commit.
+Checks (final diff hash 34d82b45531f646d, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run; logs in the session scratchpad `checks-us02-r5/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 4412 passed, 7 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 286 ceiling; unchanged.
+- e2e: PASS — 605 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 14/14; only the two new swissCommerce PNGs were added, the other 12 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged; parity covers the five original templates only).
+- Earlier rounds, invalidated by fixes: r1 (a406bf16543c13f9) e2e 602/2 (the PDF text layer read "Engineering:TypeScript" and the pills ran together; the de picker card was 350.39 px against the 340 px ceiling). r2 (ec76788a4b3a9561) and r3 (a82f8f6e8d3cf53e) green, then the Word photo and pill fix and the print-radius fix. r4 (1547938c6e7246e8) green, then the print baseline re-capture (ffabc85c406b4d79, visual 14/14) and the code-review fix.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample "Marc Dubois", close to t2-commerce.png, with one hidden experience, one hidden skill category, one hidden language, plain-text skills ("Abacus, Bexio"; "Rédaction" + line break + "Traduction") and an education entry with no degree. Cases full-photo-fr, full-photo-de, full-nophoto-en, empty-nophoto-fr (no certifications, every language hidden). Preview HTTP 200 in all four; the photo cases draw 1 img in the Editor and Preview, the no-photo cases 0; hidden text absent. Preview captures: full-photo-fr b2fdada68cf2a878, full-photo-de 31fc6f0f80d61c23, full-nophoto-en fde94a35df1717a3, empty-nophoto-fr 93e091059af22d2b. Picker (fr, de): order modern, classic, minimal, creative, professional, swissVocational, swissCommerce; fr "Commerce & administration / Format suisse pour le bureau", de "Kaufmännisch & Verwaltung / Schweizer Format für Büro und Verwaltung"; picker-card-fr 74c7e3e81ad1a5a3, picker-card-de 4b815eec8b7086f0. Creation from the picker: `e2e/swiss-commerce-template.spec.ts:115`.
+- Visual: PASS — the new baselines were captured on the final template code. The print baseline's pill corner at (52,852) is anti-aliased (255,255,255,251,236,224,219,219), identical to the screen baseline. The first print capture (d70265cd…, taken before the print fix) had hard square corners and was replaced with `--update-snapshots=all`.
+- Export: PASS.
+  - PDF: full-photo-fr 78be44e668f067fb, full-photo-de 588e5457fb05a1e6, full-nophoto-en ba9e5af149e0e97b, empty-nophoto-fr 78b6ff3b36616b48; 1 page each; round photo with its blue ring, rounded pills; the PDF text reads "Logiciels: Abacus, Bexio" and "Langages: Rédaction" then "Traduction".
+  - Word: full-photo-fr 46e4860a38b430d4, full-photo-de 99f1391e3e57165d, full-nophoto-en 158aaac7eb7a2a16, empty-nophoto-fr 831626f1828a2ba4. The photo is one PNG under word/media (the second zip entry is the folder itself), drawn as an ellipse; no media without a photo.
+  - Rendered by Microsoft Word to PDF: full-photo-fr d990f776f66b94a8, full-photo-de b609c90166406e70, empty-nophoto-fr af7057848725842d; 1 page each. The full circle sits inside the navy band; the skills are in two columns with the same line placement as the PDF; the pills are shaded and bordered.
+- Database: NOT_APPLICABLE — no schema or stored-data change; only existing fields are read.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text goes through `renderFormattedText` (client-only sanitizer; the e2e asserts the Preview returns 200) and `parseHtmlToDocxRuns` / `richParagraphs`; the photo goes through the Word route's existing `boundedPhoto`, and non-image data draws no frame.
+Agents:
+- ui-expert: PASS (round 4).
+  - Round 1 FAIL: the product PDF printed the photo and pills square because of the global print radius reset (MAJOR).
+  - Round 2 FAIL: the print baseline had been captured before that fix (MAJOR).
+  - Round 3 PASS, with WCAG contrast computed for every text colour (lowest 4.76, slate-500 on white).
+  - Round 4 PASS after the code-review fix.
+- code-reviewer: PASS (round 2). Round 1 FAIL: plain-text `skillsHtml` dropped below its label in the Preview and PDF while Word kept it inline (critical); an empty degree drew an empty line in the Preview only; Word joined plain-text lines. All three fixed, with tests on both outputs that fail on the old code.
+- senior-coder: implementation; the Word photo clipping (exact line height) and pill shading fix; the scoped print-radius rules and their e2e assertion; the plain-text skills and empty-degree fix.
+Acceptance criteria:
+- AC-01 The picker shows swissCommerce after swissVocational with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-commerce-template.spec.ts:115`.
+- AC-02 Editor, Preview, PDF and Word match t2-commerce.png (navy band with round photo, name, title and contact; one column with a date column; skills in two columns; languages as labelled pills): PASS — the captures, PDFs and Word renders above; ui-expert side-by-side comparison.
+- AC-03 FR-1 to FR-11: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing headings reused (FR-6: "Résumé", "Formation / Cours").
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **One geometry and colour source.** `SWISS_COMMERCE_GEOMETRY` and the template colours live in `src/lib/swiss-commerce-template.ts`; the Preview and the Word generator both read them.
+- **The print radius exception is scoped to this template.** The global print reset stays, so the five original templates and swissVocational print exactly as before; the e2e asserts the photo (50%) and pill (4px) radius under print media.
+- **Dates are MM.YYYY in every section,** from the stored data. The mockup shows years only for education; no per-section format was invented.
+- **A skill label and its skills share one line** in all four outputs, for `items`, HTML and plain text. A list starts below its label in both outputs.
+
+Open owner decisions:
+- **Word drops text outside the list items in rich text that mixes paragraphs and a list** (`<p>Intro</p><ul>…</ul>` loses "Intro"). The cause is the shared `parseHtmlListToParagraphs` in `docx-helpers.ts`, which the classic, minimal, creative and swissVocational generators also use. Fixing it changes the existing templates' Word output, which is out of scope here; it needs its own story.
+- **A job location without a company** is drawn in neither the Preview nor Word.
+- **Word limits:** the pills have square corners and Word's own line height; Word substitutes a serif font where Inter is not installed (as for US-001).
+- **Small differences from the mockup:** the title blue is brighter than the mockup's; skill labels read "Bureautique:" where the French mockup has "Bureautique :".
+- **swissVocational under the print reset:** the same global rule applies to US-001's template; its evidence should be checked for any shape that is meant to be round.
+
+Environment notes:
+- The checks ran alone; the local dev server was stopped before them.
+- The evidence spec (`zz-us02-evidence.spec.ts`) was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- `--update-snapshots` without a value rewrites only failing snapshots, so a change under `maxDiffPixels` (120) keeps the old picture. New baselines are captured with `--update-snapshots=all`.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 The "Commerce & administration" template is available
+FINAL: PASS

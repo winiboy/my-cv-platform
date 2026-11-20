@@ -467,6 +467,20 @@
     border-radius: 0 !important;
   }
 
+  /* swissCommerce (swiss-cv-templates US-002) prints its round photo and its
+     rounded language pills as its Preview, Word export and mockup draw them.
+     Scoped to that template's root, so every other template keeps the reset.
+     The pill radius is SWISS_COMMERCE_GEOMETRY.pillRadius, which the template
+     also writes inline for the screen; swiss-commerce-template.test.ts holds
+     the two equal. */
+  .swiss-commerce-template .swiss-commerce-photo {
+    border-radius: 50% !important;
+  }
+
+  .swiss-commerce-template .swiss-commerce-pill {
+    border-radius: 4px !important;
+  }
+
   /* Preserve colors in CV templates */
   * {
     print-color-adjust: exact !important;

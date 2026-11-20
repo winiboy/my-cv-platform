@@ -16,12 +16,14 @@ import { CreativeTemplate } from '@/components/dashboard/resume-templates/creati
 import { MinimalTemplate } from '@/components/dashboard/resume-templates/minimal-template'
 import { ModernTemplate } from '@/components/dashboard/resume-templates/modern-template'
 import { SwissVocationalTemplate } from '@/components/dashboard/resume-templates/swiss-vocational-template'
+import { SwissCommerceTemplate } from '@/components/dashboard/resume-templates/swiss-commerce-template'
 import { generateClassicDocx } from '@/app/api/resumes/[id]/download-docx/docx-classic'
 import { generateCreativeDocx } from '@/app/api/resumes/[id]/download-docx/docx-creative'
 import { generateMinimalDocx } from '@/app/api/resumes/[id]/download-docx/docx-minimal'
 import { generateModernDocx } from '@/app/api/resumes/[id]/download-docx/docx-modern'
 import { generateProfessionalDocx } from '@/app/api/resumes/[id]/download-docx/docx-professional'
 import { generateSwissVocationalDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-vocational'
+import { generateSwissCommerceDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-commerce'
 import { pxToHalfPoints, type DocxGeneratorSettings } from '@/app/api/resumes/[id]/download-docx/docx-helpers'
 
 /**
@@ -60,7 +62,7 @@ const BUMPED: Readonly<Record<PerPropertySizeKey, number>> = {
 
 const SIZE_KEYS = LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[]
 
-const TEMPLATES: readonly ResumeTemplate[] = ['classic', 'minimal', 'creative', 'modern', 'professional', 'swissVocational']
+const TEMPLATES: readonly ResumeTemplate[] = ['classic', 'minimal', 'creative', 'modern', 'professional', 'swissVocational', 'swissCommerce']
 
 const PREVIEWS: Readonly<Partial<Record<ResumeTemplate, ComponentType<never>>>> = {
   classic: ClassicTemplate as ComponentType<never>,
@@ -68,6 +70,7 @@ const PREVIEWS: Readonly<Partial<Record<ResumeTemplate, ComponentType<never>>>> 
   creative: CreativeTemplate as ComponentType<never>,
   modern: ModernTemplate as ComponentType<never>,
   swissVocational: SwissVocationalTemplate as ComponentType<never>,
+  swissCommerce: SwissCommerceTemplate as ComponentType<never>,
 }
 
 const GENERATORS: Readonly<
@@ -79,6 +82,7 @@ const GENERATORS: Readonly<
   modern: generateModernDocx,
   professional: generateProfessionalDocx,
   swissVocational: generateSwissVocationalDocx,
+  swissCommerce: generateSwissCommerceDocx,
 }
 
 const RESUME = {

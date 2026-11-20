@@ -80,6 +80,7 @@ const TEMPLATES: BuiltResumeTemplate[] = [
   'minimal',
   'creative',
   'swissVocational',
+  'swissCommerce',
 ]
 
 /**
