@@ -30,12 +30,12 @@ function admin(): SupabaseClient {
   })
 }
 
-const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth']
+const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance']
 
 const NAMES = {
-  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social'],
-  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care'],
-  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung', 'Technische & handwerkliche Berufe', 'Gesundheit & Soziales'],
+  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance'],
+  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance'],
+  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung', 'Technische & handwerkliche Berufe', 'Gesundheit & Soziales', 'Bank, Finanzen & Versicherung'],
 } as const
 
 /** The fr `resumes.editor.sections.education` heading every template draws. */

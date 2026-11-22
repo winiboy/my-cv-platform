@@ -27,14 +27,13 @@ import {
 const DICTS: Record<Locale, Record<string, unknown>> = { fr, en, de, it: it_ }
 const LOCALES = Object.keys(DICTS) as Locale[]
 /** The five original templates in their original order, then the Swiss templates built so far. */
-const EXPECTED_ORDER: ResumeTemplate[] = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth']
+const EXPECTED_ORDER: ResumeTemplate[] = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance']
 
 /**
  * The Swiss templates whose story has not landed: offered by no creation
  * surface, although the schema accepts them (migration 011).
  */
 const UNBUILT: readonly ResumeTemplate[] = [
-  'swissFinance',
   'swissEngineering',
   'swissIt',
   'swissExecutive',
@@ -43,10 +42,10 @@ const UNBUILT: readonly ResumeTemplate[] = [
 ]
 
 const EXPECTED_NAMES: Record<Locale, string[]> = {
-  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social'],
-  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care'],
-  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung', 'Technische & handwerkliche Berufe', 'Gesundheit & Soziales'],
-  it: ['Moderno', 'Classico', 'Minimale', 'Creativo', 'Professionale', 'Formazione professionale (AFC)', 'Commercio e amministrazione', 'Mestieri tecnici e manuali', 'Sanità e sociale'],
+  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance'],
+  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance'],
+  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung', 'Technische & handwerkliche Berufe', 'Gesundheit & Soziales', 'Bank, Finanzen & Versicherung'],
+  it: ['Moderno', 'Classico', 'Minimale', 'Creativo', 'Professionale', 'Formazione professionale (AFC)', 'Commercio e amministrazione', 'Mestieri tecnici e manuali', 'Sanità e sociale', 'Banca, finanza e assicurazioni'],
 }
 
 interface RenderedRadio {
@@ -247,12 +246,14 @@ describe('templateIdForKey', () => {
     expect(templateIdForKey('swissVocational', 'ArrowRight')).toBe('swissCommerce')
     expect(templateIdForKey('swissCommerce', 'ArrowRight')).toBe('swissTrades')
     expect(templateIdForKey('swissTrades', 'ArrowRight')).toBe('swissHealth')
-    expect(templateIdForKey('swissHealth', 'ArrowRight')).toBe('modern')
+    expect(templateIdForKey('swissHealth', 'ArrowRight')).toBe('swissFinance')
+    expect(templateIdForKey('swissFinance', 'ArrowRight')).toBe('modern')
   })
 
   it('moves back with ArrowLeft and ArrowUp, wrapping from the first option', () => {
     expect(templateIdForKey('classic', 'ArrowLeft')).toBe('modern')
-    expect(templateIdForKey('modern', 'ArrowUp')).toBe('swissHealth')
+    expect(templateIdForKey('modern', 'ArrowUp')).toBe('swissFinance')
+    expect(templateIdForKey('swissFinance', 'ArrowLeft')).toBe('swissHealth')
     expect(templateIdForKey('swissHealth', 'ArrowLeft')).toBe('swissTrades')
     expect(templateIdForKey('swissTrades', 'ArrowLeft')).toBe('swissCommerce')
     expect(templateIdForKey('swissCommerce', 'ArrowLeft')).toBe('swissVocational')
@@ -261,7 +262,7 @@ describe('templateIdForKey', () => {
 
   it('jumps to the ends with Home and End', () => {
     expect(templateIdForKey('minimal', 'Home')).toBe('modern')
-    expect(templateIdForKey('minimal', 'End')).toBe('swissHealth')
+    expect(templateIdForKey('minimal', 'End')).toBe('swissFinance')
   })
 
   it('ignores keys that do not move the selection', () => {

@@ -547,3 +547,76 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-004 The "Santé & social" template is available
 FINAL: PASS
+
+## US-005: The "Banque, finance & assurance" template is available
+Status: PASS
+Priority: 7
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 3116d5e (US-004 story commit).
+Scope:
+- Scope check: PASS
+- Changed paths (53 under src/ and e2e/, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-finance-template.ts` (geometry, section order, first-line helper, label-column width rule), `src/components/dashboard/resume-templates/swiss-finance-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-finance.ts`, each with its unit test.
+  - **New data module:** `src/lib/georgia-advance-widths.ts` (+ test): Georgia advance widths per face, used to size the Word label cell like the browser does.
+  - **Wiring:** `src/types/database.ts` (swissFinance no longer unbuilt), `resume-editor.tsx`, `resume-preview.tsx`, `template-picker.tsx` (Landmark icon), `layout-settings.ts`, `resume-palette.ts`, `resume-graphics.ts` (new additive `paragraph-bottom-border` graphic kind), `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route, the four `common.json` locale files.
+  - **Print CSS:** none; the photo and rules are square, `globals.css` is unchanged and a test asserts the template sets no radius.
+  - **Test lists:** the unit tests that enumerate templates; e2e template-picker, template-picker-compact (10 options), job-cv-template-picker, job-search-mobile, visual/resume-templates.
+  - **e2e:** new `e2e/swiss-finance-template.spec.ts` (7 tests).
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissFinance.png` (sha256 b408d1eecca06fbb), `swissFinance-print.png` (8c2d12ce04344490).
+- Not touched: the five original templates, swissVocational, swissCommerce, swissTrades and swissHealth (renderers, Word generators, baselines, parity verdicts), the shared docx and format helpers, stored data; no migration; no new dependency; no version change; no push or merge of this commit.
+Checks (final diff hash dfab8cf5dba4b2fe, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run; logs in the session scratchpad `checks-us05-r4/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 4953 passed, 10 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 281 baseline; unchanged.
+- e2e: PASS — 628 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 20/20; only the two new swissFinance PNGs were added, the other 18 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier rounds, invalidated by fixes: r1 (e154de7cf72eb2ee) all green, ui-expert and code-reviewer PASS; then the **owner FAILED it in the real app**: German skill labels were split mid-word ("HR Fachkenntniss / e") in the fixed 120px label column. r2 (f4ed672381f068f4) green with a fit-content column; code-reviewer FAIL (critical): the column had no upper bound, so a label with one very long unbroken word squeezed the values to 0 px and made a negative Word table width (invalid OOXML). r4 (dfab8cf5dba4b2fe) is the final code.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample "Thomas Keller", close to t5-finance.png, with one hidden experience, one hidden skill category, one hidden certificate, one hidden language, a description mixing a paragraph and a list, a comma-separated plain skillsHtml, an education entry with no degree, and German labels "HR Fachkenntnisse", "Kommunikationsfähigkeiten", "Kommunikations- und Verhandlungskompetenzen im Finanzbereich" (over the 38% cap) and "Finanzdienstleistungsaufsichtskompetenz" (one long word); the empty variant adds a 120-character label with no spaces. Cases full-photo-fr, full-photo-de, full-nophoto-en, empty-nophoto-fr (no certifications, every language hidden). Preview HTTP 200 in all four; photo 1/1/0/0 img; hidden text absent. Preview captures: full-photo-fr 941584044fb57829, full-photo-de 1ebf77feaad175cc, full-nophoto-en 169102c85f0b86b4, empty-nophoto-fr 9f9ca14512d1c20c. Picker (fr, de): swissFinance after swissHealth; fr "Banque, finance & assurance / Format classique et sobre", de "Bank, Finanzen & Versicherung / Klassisches, seriöses Format"; picker-card-fr 50fda188991824dd, picker-card-de 11e05cf6e4240de5. At 375px: covered by the e2e picker specs (all 10 options).
+- Visual: PASS — the baselines were captured with `--update-snapshots=all` on the final template code; the r1 baselines (e5c42abc…, b098f4b8…) were replaced after the label-column change (the sample in the baseline has short labels, so r2 and r4 produced the same images).
+- Export: PASS.
+  - PDF: full-photo-fr 396dcf390a15e961, full-photo-de f8912cf09393715d, full-nophoto-en ef19cce5b5749141, empty-nophoto-fr c70eb8ee33347921; 1 page each.
+  - Word: full-photo-fr 7a19732d6f1772ed, full-photo-de 34fedcaf4b742dde, full-nophoto-en ae48bb43da25853a, empty-nophoto-fr bd53504b234361ea. One rectangular photo in the photo cases (the trace's `media=2` counts the `word/media/` folder entry); no media without a photo.
+  - Rendered by Microsoft Word to PDF: full-photo-fr a6126605df923029, full-photo-de 8423b7cf3b2dceb3, empty-nophoto-fr d346629a2c4d612a; 1 page each. Georgia, capitals name, italic green title, double green rule, right-aligned italic dates, one skills-and-languages table; every label under the cap whole; the multi-word over-cap label wraps at spaces only; the long single word whole; the 120-character no-space label breaks inside the 337px maximum with the values at full width; Word opened the file normally.
+- Database: NOT_APPLICABLE — no schema or stored-data change; `swissFinance` was already accepted by the US-001 constraint.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text goes through `renderFormattedText` (Preview server-renderable; SSR test plus e2e 200) and `formattedBlocks` / `parseHtmlToDocxRuns` in Word; the photo goes through the Word route's existing `boundedPhoto`.
+Agents:
+- ui-expert: PASS (round 4). Round 1 PASS (the fixed 120px column was passed without a long label rendered — the owner then failed it); round 2 BLOCKED (the over-cap branch was not rendered); round 4 PASS after r3/r4 evidence with the over-cap labels; 7/7 conditions.
+- code-reviewer: PASS (round 3). Round 1 PASS on r1; round 2 FAIL (unbounded label column, critical); round 3 PASS.
+- senior-coder: implementation; the word-split fix (fit-content column, Georgia advance widths for Word); the hard 50% maximum, whitespace-only word split and Word slack.
+Acceptance criteria:
+- AC-01 The picker shows swissFinance after swissHealth with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-finance-template.spec.ts`.
+- AC-02 Editor, Preview, PDF and Word match t5-finance.png (serif, dark-green accent; name in capitals, italic title, double rule, small rectangular photo on the right; right-aligned dates; summary, experience, education, certifications, then skills and languages in one table): PASS — the captures, PDFs and Word renders above; ui-expert side-by-side comparison.
+- AC-03 FR-1 to FR-11: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing headings reused (FR-6).
+- Owner requirement during the story, verbatim: "il faut s'assurer que les mots ne soit pas tronqué, peu importe la langue": PASS within the bounds below — no word is split in the label column below its 337px maximum, in any output or locale.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Typeface:** Tailwind `font-serif` (Georgia in Chromium; the server PDF substitutes metric-compatible Gelasio) and Georgia in Word, as `classic` does; no font download or dependency.
+- **Label column of the skills-and-languages table:** as wide as the widest label up to 38% of the text width; above that, labels wrap at spaces only; a longer single word widens the column; hard maximum 50% (337px), leaving the values at least 321px. Only a word wider than 337px is broken. Word sizes the cell with the same rule from Georgia's advance widths plus 2px slack.
+- **Combined heading:** the existing skills and languages labels joined with " & "; one label alone when only one part is drawn; no heading and no table when neither has content.
+- **Certifications heading** uses the existing `training` label ("Formation / Cours"), as in the other Swiss templates; the summary label replaces "Profil".
+- **Colours (all AA on white):** accent #166534 7.13:1, ink #0f172a 17.85:1, muted #475569 7.58:1, body #1e293b 14.63:1.
+- **Dates** use the stored MM.YYYY; language levels keep the dictionary's capitals ("Langue maternelle"); an entry without a position or degree leads with the company or school.
+
+Open owner decisions:
+- **Provenance of the Georgia advance widths:** `georgia-advance-widths.ts` holds advance widths only (no outlines, hinting or font program data), read on 2026-11-22 from the Windows Georgia font files. Gelasio (SIL OFL, already a dependency) differs on 7 to 11 glyphs per face, so it was not used. Whether taking these numbers from Microsoft's licensed font files is acceptable is the owner's call; the fallback is Gelasio widths plus a per-glyph margin.
+- **Where a word can still be cut:** a label with no spaces wider than 337px (about 40 bold characters, e.g. a slash-joined tool list) breaks inside it; the name in the header breaks when a single word exceeds about 21 spaced capitals beside the photo (26 without); value cells and the title only for words of about 55+ characters (URLs). Shrinking the name to fit would be new behaviour (PRD change).
+- **FR-10 findings, Word vs Preview:** Word draws 13px text at 10pt, so its label column is a few px wider and over-long text breaks at different letters ("Mur|ex" vs "Mure|x"); line breaks, bullet glyph and 1–3px spacings differ; the double rule's gap is set by Word. LibreOffice without Georgia or Gelasio was not exercised and may split labels.
+- **The " & " join is not localized** (Italian reads "Competenze & Lingue", while the template name uses "e"); FR-6 forbids new keys.
+- **Mockup differences:** the label column is wider than the mockup's whenever a label needs it; dates are MM.YYYY, not years only; the school line shows school and field (education has no city field).
+- **Achievements rendered inline in Word** (as in every generator); an achievement holding a list would differ from the Preview.
+
+Environment notes:
+- The checks ran alone; the local dev server (the owner's session) was stopped before each run and restarted afterwards.
+- The evidence spec was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards. The r3 evidence run (over-cap labels, no code change) used the r2 code hash f4ed672381f068f4.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-005 The "Banque, finance & assurance" template is available
+FINAL: PASS

@@ -56,6 +56,8 @@ export type DocxGraphicForm =
   | 'paragraph-border'
   /** A `w:tcBorders` edge down one side of a table cell: the DOCX rule as tall as its row. */
   | 'cell-border'
+  /** `w:pBdr` along the bottom of one paragraph: the DOCX horizontal rule. */
+  | 'paragraph-bottom-border'
   /** A nested single-cell table carrying a fill, a border and its padding: the DOCX card. */
   | 'shaded-cell'
   /** A floating `w:drawing` of a PNG with an alpha channel: the DOCX translucent shape. */
@@ -357,6 +359,25 @@ export const PREVIEW_GRAPHICS = {
         'Each entry is a one-row borderless table whose date cell has a single left border of the bar’s ' +
         'colour and width, rounded to Word’s eighths of a point, so the bar runs the full height of the entry ' +
         'as the Preview’s does. One table per entry, so the gap between two entries carries no bar.',
+    },
+  },
+  swissFinance: {
+    headerRule: {
+      element: 'the double green rule under the header (`SWISS_FINANCE_GEOMETRY.headerRule` wide, CSS `double`)',
+      form: 'paragraph-bottom-border',
+      approximation:
+        'A `double` bottom border of the accent colour on a paragraph drawing no text, placed the rule’s gap ' +
+        'below the header, spanning the text width as the Preview’s does. Word sizes each of a double border’s ' +
+        'two lines in eighths of a point and sets its own gap between them, where CSS divides the declared ' +
+        'width into thirds: the two lines are 1px each, the gap is Word’s.',
+    },
+    headingRule: {
+      element: 'the thin grey rule under each section heading (`SWISS_FINANCE_GEOMETRY.headingRule` wide)',
+      form: 'paragraph-bottom-border',
+      approximation:
+        'A `single` bottom border of the rule colour on the heading’s own paragraph, its width rounded to ' +
+        'Word’s eighths of a point and its distance from the text (`headingRuleGap`) in whole points, so it ' +
+        'spans the text width under the heading as the Preview’s border does.',
     },
   },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewGraphic>>>>

@@ -15,9 +15,11 @@ import { SwissVocationalTemplate } from '@/components/dashboard/resume-templates
 import { SwissCommerceTemplate } from '@/components/dashboard/resume-templates/swiss-commerce-template'
 import { SwissTradesTemplate } from '@/components/dashboard/resume-templates/swiss-trades-template'
 import { SwissHealthTemplate } from '@/components/dashboard/resume-templates/swiss-health-template'
+import { SwissFinanceTemplate } from '@/components/dashboard/resume-templates/swiss-finance-template'
 import { presentLabel } from '@/lib/resume-template-strings'
 import { swissTradesSkillContent } from '@/lib/swiss-trades-template'
 import { swissHealthSkillContent } from '@/lib/swiss-health-template'
+import { swissFinanceSkillContent } from '@/lib/swiss-finance-template'
 import { buildResumeFromJobOffer, type AiResumeContent, type ResumeDraftContent } from './build-resume-from-job'
 import { RESUME_CONTENT_LANGUAGES, RESUME_SAMPLE_VALUES, type ResumeContentLanguage } from './sample-values'
 
@@ -46,6 +48,7 @@ const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
   swissCommerce: SwissCommerceTemplate as ComponentType<never>,
   swissTrades: SwissTradesTemplate as ComponentType<never>,
   swissHealth: SwissHealthTemplate as ComponentType<never>,
+  swissFinance: SwissFinanceTemplate as ComponentType<never>,
 }
 
 const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
@@ -107,7 +110,7 @@ type DraftName = keyof typeof DRAFTS
  * - only classic and the Swiss templates draw an education description;
  * - the Swiss templates draw no projects;
  * - swissTrades draws a comma-separated skill paragraph as tags, and swissHealth
- *   as one line of plain text.
+ *   and swissFinance as one line of plain text.
  */
 const EXPECTED_RICH_FIELDS: Readonly<Record<ResumeTemplate, (draft: ResumeDraftContent) => number>> = {
   classic: (d) => 1 + d.skills.length + d.projects.length + d.education.length,
@@ -121,6 +124,7 @@ const EXPECTED_RICH_FIELDS: Readonly<Record<ResumeTemplate, (draft: ResumeDraftC
   // every built one is, is drawn as tags rather than through the sanitizer.
   swissTrades: (d) => 1 + d.skills.filter((skill) => swissTradesSkillContent(skill)?.kind === 'html').length + d.education.length,
   swissHealth: (d) => 1 + d.skills.filter((skill) => swissHealthSkillContent(skill)?.kind === 'html').length + d.education.length,
+  swissFinance: (d) => 1 + d.skills.filter((skill) => swissFinanceSkillContent(skill)?.kind === 'html').length + d.education.length,
 }
 
 type DrawnField =
@@ -167,6 +171,7 @@ const NOT_DRAWN: Readonly<Record<ResumeTemplate, readonly DrawnField[]>> = {
   swissCommerce: ['gpa', 'project', 'technology'],
   swissTrades: ['gpa', 'project', 'technology'],
   swissHealth: ['gpa', 'project', 'technology'],
+  swissFinance: ['gpa', 'project', 'technology'],
 }
 
 /** The first entry of each section's text, as the draft holds it. */

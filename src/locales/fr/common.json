@@ -203,7 +203,9 @@
       "swissTrades": "Métiers techniques & manuels",
       "swissTradesDesc": "Compétences et certificats en avant",
       "swissHealth": "Santé & social",
-      "swissHealthDesc": "Diplômes et formations en avant"
+      "swissHealthDesc": "Diplômes et formations en avant",
+      "swissFinance": "Banque, finance & assurance",
+      "swissFinanceDesc": "Format classique et sobre"
     },
     "new": {
       "title": "Créer un nouveau CV",

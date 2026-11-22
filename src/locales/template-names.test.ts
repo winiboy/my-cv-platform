@@ -60,4 +60,11 @@ describe('resumes.templates locale parity', () => {
     expect(de.resumes.templates.swissHealth).toBe('Gesundheit & Soziales')
     expect(it_.resumes.templates.swissHealth).toBe('Sanità e sociale')
   })
+
+  it('names the finance template as the swiss-cv-templates PRD does', () => {
+    expect(fr.resumes.templates.swissFinance).toBe('Banque, finance & assurance')
+    expect(en.resumes.templates.swissFinance).toBe('Banking, finance & insurance')
+    expect(de.resumes.templates.swissFinance).toBe('Bank, Finanzen & Versicherung')
+    expect(it_.resumes.templates.swissFinance).toBe('Banca, finanza e assicurazioni')
+  })
 })

@@ -39,7 +39,7 @@ const tailwindTheme = read('node_modules/tailwindcss/theme.css')
 const tailwindPreflight = read('node_modules/tailwindcss/preflight.css')
 const globals = read('src/app/globals.css')
 
-const TEMPLATES: readonly BuiltResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth']
+const TEMPLATES: readonly BuiltResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance']
 const template = (name: BuiltResumeTemplate) => read(templateComponentFile(name))
 
 /** A theme letter spacing, in em: `--tracking-wide: 0.025em`. */
@@ -92,6 +92,15 @@ describe('the templates draw with these letter spacings and no others', () => {
     expect(template(name)).not.toMatch(/letterSpacing/)
   })
 
+  it('swissFinance gives letterSpacing only the heading constant it imports', () => {
+    const source = template('swissFinance')
+    expect(source).toMatch(/const TRACKING = PREVIEW_TRACKING\.swissFinance/)
+    const values = [...source.matchAll(/letterSpacing\s*[:=]\s*([^\n]+)/g)].map((m) => m[1].trim().replace(/,$/, ''))
+    expect(values).toEqual(['`${TRACKING.heading}em`'])
+    // The name's spacing is the `tracking-widest` utility, read by the test below.
+    expect(source).toContain('uppercase tracking-widest')
+  })
+
   it.each(TEMPLATES)('%s uses only tracking utilities this module declares for it', (name) => {
     const declared: readonly number[] = Object.values(PREVIEW_TRACKING[name])
     // Any tracking utility, arbitrary values included: `tracking-wide`, `tracking-[0.2em]`.
@@ -120,6 +129,7 @@ describe('the values themselves', () => {
       swissCommerce: { caps: 0.1 },
       swissTrades: { caps: 0.1 },
       swissHealth: { caps: 0.1 },
+      swissFinance: { name: 0.1, heading: 0.25 },
     })
   })
 })

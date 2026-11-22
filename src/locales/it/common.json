@@ -205,7 +205,9 @@
       "swissTrades": "Mestieri tecnici e manuali",
       "swissTradesDesc": "Competenze e certificati in primo piano",
       "swissHealth": "Sanità e sociale",
-      "swissHealthDesc": "Diplomi e formazioni in primo piano"
+      "swissHealthDesc": "Diplomi e formazioni in primo piano",
+      "swissFinance": "Banca, finanza e assicurazioni",
+      "swissFinanceDesc": "Formato classico e sobrio"
     },
     "new": {
       "title": "Crea nuovo CV",

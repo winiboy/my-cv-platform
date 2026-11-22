@@ -104,4 +104,14 @@ export const PREVIEW_TRACKING = {
     /** The text of every heading pill. */
     caps: TAILWIND_TRACKING['tracking-widest'],
   },
+  swissFinance: {
+    /** The name, the document's `h1`, in spaced capitals. */
+    name: TAILWIND_TRACKING['tracking-widest'],
+    /**
+     * Every section heading `h2`: the mockup spaces its capitals far wider
+     * than any Tailwind `tracking-*` utility, so the template imports this
+     * value and writes it inline, as modern does.
+     */
+    heading: 0.25,
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, number>>>>

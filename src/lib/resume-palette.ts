@@ -265,4 +265,23 @@ export const PREVIEW_PALETTE = {
     /** Summary, achievements, descriptions, skills and languages: 14.6:1 on white. */
     body: inline('#1e293b'),
   },
+  /**
+   * Every colour is inline: the mockup's dark green is fixed, and the slate
+   * tokens `globals.css` redefines are neutral greys where the mockup's are
+   * blue-grey. Every text colour meets WCAG AA (4.5:1) on what it is drawn on.
+   */
+  swissFinance: {
+    /** The CV title, every section heading, and the double rule under the header: green-800, 7.1:1 on white. */
+    accent: inline('#166534'),
+    /** The name, and the bold first part of an entry and of a table row: 17.9:1 on white. */
+    ink: inline('#0f172a'),
+    /** The contact line, the dates and the school under a degree: 7.6:1 on white. */
+    muted: inline('#475569'),
+    /** The summary, the rest of an entry's first line, achievements, descriptions, skills and languages: 14.6:1 on white. */
+    body: inline('#1e293b'),
+    /** The thin rule under each section heading, and the photo's border. */
+    rule: inline('#cbd5e1'),
+    /** The photo's fill, seen where the photo is transparent. */
+    photoFill: inline('#f8fafc'),
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewColour>>>>

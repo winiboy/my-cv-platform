@@ -205,7 +205,9 @@
       "swissTrades": "Technische & handwerkliche Berufe",
       "swissTradesDesc": "Fähigkeiten und Zertifikate zuerst",
       "swissHealth": "Gesundheit & Soziales",
-      "swissHealthDesc": "Diplome und Weiterbildungen zuerst"
+      "swissHealthDesc": "Diplome und Weiterbildungen zuerst",
+      "swissFinance": "Bank, Finanzen & Versicherung",
+      "swissFinanceDesc": "Klassisches, seriöses Format"
     },
     "new": {
       "title": "Neuen Lebenslauf erstellen",

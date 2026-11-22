@@ -205,7 +205,9 @@
       "swissTrades": "Technical & skilled trades",
       "swissTradesDesc": "Puts your skills and certificates first",
       "swissHealth": "Health & social care",
-      "swissHealthDesc": "Puts your diplomas and training first"
+      "swissHealthDesc": "Puts your diplomas and training first",
+      "swissFinance": "Banking, finance & insurance",
+      "swissFinanceDesc": "Classic, conservative format"
     },
     "new": {
       "title": "Create New Resume",

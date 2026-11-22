@@ -587,6 +587,24 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     'style color: #1e293b': { count: 5, palette: 'body' },
     'bg-white': { count: 1, excluded: PAGE },
   },
+  swissFinance: {
+    // The CV title and the text of every heading.
+    'style color: #166534': { count: 2, palette: 'accent' },
+    // The double rule under the header.
+    'style borderBottomColor: #166534': { count: 1, palette: 'accent' },
+    // The name, an entry's bold lead, a table row's label.
+    'style color: #0f172a': { count: 3, palette: 'ink' },
+    // The contact line, the dates, the school under a degree.
+    'style color: #475569': { count: 3, palette: 'muted' },
+    // The rest of an entry's first line, bullets, descriptions, the summary and a table row's value.
+    'style color: #1e293b': { count: 5, palette: 'body' },
+    // The rule under each heading; the photo's border.
+    'style borderBottomColor: #cbd5e1': { count: 1, palette: 'rule' },
+    'style borderColor: #cbd5e1': { count: 1, palette: 'rule' },
+    // The photo's fill.
+    'style backgroundColor: #f8fafc': { count: 1, palette: 'photoFill' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -672,7 +690,7 @@ describe('PREVIEW_PALETTE', () => {
   )
 
   it('covers every built template', () => {
-    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissCommerce', 'swissHealth', 'swissTrades', 'swissVocational'])
+    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissCommerce', 'swissFinance', 'swissHealth', 'swissTrades', 'swissVocational'])
   })
 
   it('holds each Preview colour of a template once', () => {
