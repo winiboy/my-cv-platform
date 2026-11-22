@@ -15,6 +15,7 @@ import { generateSwissHealthDocx } from './docx-swiss-health'
 import { generateSwissFinanceDocx } from './docx-swiss-finance'
 // The supported templates and the professional fallback: `docx-templates.ts`.
 import { docxTemplateFor } from './docx-templates'
+import { boundedPhoto } from './docx-photo-bound'
 
 // ============================================================
 // THE PHOTO — THE ONE NAMED EXCEPTION
@@ -50,64 +51,7 @@ import { docxTemplateFor } from './docx-templates'
  * and it is one generator rather than the door every generator comes through.
  */
 
-/**
- * The largest photo payload this route will look at, in base64 characters.
- *
- * Sized to be unreachable by any photo the application can legitimately
- * produce, so that it can never cost a user their photo, while still bounding
- * what an attacker can make this process decode.
- *
- * The application's own limit is 2 MB of BINARY, enforced on the file picker in
- * `modern-template.tsx`. Base64 inflates that by 4/3, to roughly 2.8 MB of
- * characters. The stored value can legitimately be larger than the uploaded
- * file — background removal re-encodes the image as PNG and writes the result
- * back under the same key — so the bound is set well above that re-encode
- * rather than at the upload limit itself.
- *
- * 8 MB of characters is also above what a browser could have stored: the value
- * is held in localStorage, whose per-origin quota is around 5 MB in every
- * engine the application targets. A request over this bound therefore did not
- * come from this application's own storage.
- */
-const MAX_PHOTO_BASE64_LENGTH = 8 * 1024 * 1024
-
-/**
- * The image data-URL forms `docx-modern.ts` can actually decode.
- *
- * A superset check, not a second implementation of the generator's own
- * detection: anything accepted here is still identified — or rejected — there.
- * Kept as a superset deliberately, so that narrowing this list is the only way
- * to lose a photo that used to work, and so a format the generator drops
- * cannot be smuggled past on the strength of its prefix alone.
- */
-const SUPPORTED_PHOTO_DATA_URL = /^data:image\/(?:jpeg|jpg|png|gif|bmp);base64,/
-
-/** Base64 as `FileReader` and `btoa` emit it: no whitespace, no line breaks. */
-const BASE64_PAYLOAD = /^[A-Za-z0-9+/]+={0,2}$/
-
-/**
- * The photo, if the request carried one this route is willing to hand on.
- *
- * Returns `undefined` for anything unusable rather than failing the request.
- * That is the behaviour a caller already gets for an unrecognised image — the
- * generator skips it and produces the document without a photo — and matching
- * it means this bound cannot turn an export that used to succeed into an error
- * response. The document is still produced; it simply has no photo in it.
- */
-function boundedPhoto(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined
-  if (value.length === 0 || value.length > MAX_PHOTO_BASE64_LENGTH) return undefined
-
-  // A supported data URL contributes its prefix; anything else must be raw
-  // base64 in full. An unsupported data URL (`data:image/svg+xml;base64,...`,
-  // say) reaches the payload check with its own prefix still attached and
-  // fails it on the characters that prefix contains.
-  const prefix = SUPPORTED_PHOTO_DATA_URL.exec(value)
-  const payload = prefix ? value.slice(prefix[0].length) : value
-
-  if (payload.length === 0 || !BASE64_PAYLOAD.test(payload)) return undefined
-  return value
-}
+// The bound itself, its accepted types and its size limit: `docx-photo-bound.ts`.
 
 // ============================================================
 // SHARED LOGIC: Resolve the resume's layout and generate the DOCX

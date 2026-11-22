@@ -620,3 +620,38 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-005 The "Banque, finance & assurance" template is available
 FINAL: PASS
+
+## FIX (owner report, 2026-11-23): a WebP or AVIF photo is missing from the Word export
+Status: PASS
+Story: none (owner-reported defect against FR-5 / FR-10: the photo shows in the Preview and the PDF but not in Word). No story's `passes` value is changed.
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 7786061 (US-005 story commit).
+Cause: the photo is kept browser-locally as the uploaded file's data URL (`resume_photo_${id}`). The Word route accepts only `data:image/(jpeg|jpg|png|gif|bmp)` because the docx image run supports only those; a WebP or AVIF photo was dropped silently (HTTP 200, no image). Reproduced on the local stack: the same canvas image POSTed as image/jpeg was embedded, as image/webp it was not.
+Scope:
+- Scope check: PASS
+- Changed paths (7): `src/lib/photo-for-docx.ts` (+ test; shared `DOCX_PHOTO_DATA_URL` and `MAX_DOCX_PHOTO_LENGTH`, `photoForDocx`), `src/app/api/resumes/[id]/download-docx/docx-photo-bound.ts` (+ test; the route's existing `boundedPhoto` moved out unchanged so it can be tested), `src/app/api/resumes/[id]/download-docx/route.ts` (imports both), `src/components/dashboard/download-button.tsx` (Word download passes the stored photo through `photoForDocx`; in-flight guard and busy state like the PDF button), `e2e/docx-photo-format.spec.ts` (3 tests).
+- Not touched (approved PRD constraint): the photo upload handler, background removal, the storage key and the stored value; the PDF path; the route's accepted types and size limit (not widened).
+Change: before the Word request, a WebP/AVIF (any type the route refuses) is decoded in the browser on a copy, scaled to at most 1024 px on its long edge (never enlarged) and encoded as JPEG (quality 0.9) when opaque or PNG when any pixel is transparent; JPEG/PNG/GIF/BMP pass through byte for byte; a decode failure or a result still over the limit sends no photo, as before.
+Checks (final diff hash 1effb48b09eb99fa, same method as the stories; logs in the session scratchpad `checks-photo-fix-r2/`):
+- typecheck: PASS — 0 errors.
+- unit: PASS — 5020 passed, 10 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings), equal to the ceiling.
+- e2e: PASS — 631 passed, 0 failed, including `docx-photo-format.spec.ts`: a 3000×4000 WebP (stored under 2 MB) sent as a 768×1024 JPEG and embedded; a transparent 300×400 WebP sent as PNG at its own size with alpha and embedded; a JPEG sent and embedded byte for byte; the stored value unchanged in each.
+- visual: PASS — 20/20, no baseline changed.
+- parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+- Earlier round, invalidated: r1 (c256dcac535f61cc, full-size PNG re-encode) all green, then code-reviewer FAIL (major): a realistic WebP re-encoded to full-size PNG exceeds the route's 8 MB limit and is still dropped silently.
+- Browser: before the fix, a WebP photo on a swissHealth CV gave a .docx with no image; after it, "Télécharger Word" posted `data:image/png` and the .docx contained the image (built-in browser, local stack).
+Agents:
+- code-reviewer: PASS (round 2). Round 1 FAIL as above.
+- ui-expert: NOT_APPLICABLE — no rendered change beyond the Word button's existing spinner pattern; the template outputs are unchanged.
+Open owner decisions:
+- `src/lib/pdf/photo.ts` keeps its own copy of the 8 MB limit and a comment that is now stale ("that route may not change and does not export it"); the PDF path was left untouched under the PRD; aligning it is a separate scoped change.
+- The earlier report in this session (a photo that never reached the Preview) was the browser storage being full ("Failed to save photo. Image may be too large."), resolved by the owner with a smaller image; shrinking photos at upload would need a PRD amendment, since the upload handler is frozen.
+Environment notes:
+- The checks ran alone; the owner's local dev server was stopped for each run and restarted afterwards.
+Commit:
+- Commit: THIS_COMMIT
+- Commit message: fix: embed WebP and AVIF photos in the Word export
+FINAL: PASS
