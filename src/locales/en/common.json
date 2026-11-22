@@ -203,7 +203,9 @@
       "swissCommerce": "Business & administration",
       "swissCommerceDesc": "Sober Swiss format for office and admin roles",
       "swissTrades": "Technical & skilled trades",
-      "swissTradesDesc": "Puts your skills and certificates first"
+      "swissTradesDesc": "Puts your skills and certificates first",
+      "swissHealth": "Health & social care",
+      "swissHealthDesc": "Puts your diplomas and training first"
     },
     "new": {
       "title": "Create New Resume",

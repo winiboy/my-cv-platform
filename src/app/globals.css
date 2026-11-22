@@ -489,6 +489,19 @@
     border-radius: 4px !important;
   }
 
+  /* swissHealth (swiss-cv-templates US-004) prints its round photo and its
+     pill-shaped section headings as its Preview and mockup draw them, scoped
+     to that template's root. The pill radius is SWISS_HEALTH_GEOMETRY
+     .pillRadius, which the template also writes inline for the screen;
+     swiss-health-template.test.ts holds the two equal. */
+  .swiss-health-template .swiss-health-photo {
+    border-radius: 50% !important;
+  }
+
+  .swiss-health-template .swiss-health-pill {
+    border-radius: 9999px !important;
+  }
+
   /* swissTrades' dark column on every printed page, top to foot. As modern's
      band above: the column is in-flow, so its own background ends where the
      document ends; the root's background paints every page in full. The

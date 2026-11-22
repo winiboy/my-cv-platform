@@ -237,4 +237,32 @@ export const PREVIEW_PALETTE = {
     /** Summary, achievements and descriptions. */
     body: inline('#1e293b'),
   },
+  /**
+   * Every colour is inline: the mockup's teals are fixed, and the slate tokens
+   * `globals.css` redefines are neutral greys where the mockup's are blue-grey.
+   * Every text colour meets WCAG AA (4.5:1) on what it is drawn on.
+   */
+  swissHealth: {
+    /** The name, the text of every heading pill, and the skill captions: teal-900, 9.5:1 on white, 8.4:1 on the pill. */
+    heading: inline('#134e4a'),
+    /**
+     * The CV title and the dates: teal-700, darker than the mockup's teal
+     * (about 3.1:1 on white) so small text meets WCAG AA (5.5:1).
+     */
+    accent: inline('#0f766e'),
+    /** A heading pill's fill. */
+    pill: inline('#ccfbf1'),
+    /** The bar down the left of each entry, and the photo's ring. */
+    rule: inline('#99f6e4'),
+    /** The photo's fill, seen where the photo is transparent. */
+    photoFill: inline('#f0fdfa'),
+    /** Each entry's bold first line and a certificate's name: 17.9:1 on white. */
+    ink: inline('#0f172a'),
+    /** Schools, employers and issuers: 4.8:1 on white. */
+    muted: inline('#64748b'),
+    /** The contact line: 7.6:1 on white. */
+    contact: inline('#475569'),
+    /** Summary, achievements, descriptions, skills and languages: 14.6:1 on white. */
+    body: inline('#1e293b'),
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewColour>>>>

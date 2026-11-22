@@ -39,7 +39,7 @@ const tailwindTheme = read('node_modules/tailwindcss/theme.css')
 const tailwindPreflight = read('node_modules/tailwindcss/preflight.css')
 const globals = read('src/app/globals.css')
 
-const TEMPLATES: readonly BuiltResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades']
+const TEMPLATES: readonly BuiltResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth']
 const template = (name: BuiltResumeTemplate) => read(templateComponentFile(name))
 
 /** A theme letter spacing, in em: `--tracking-wide: 0.025em`. */
@@ -88,7 +88,7 @@ describe('the templates draw with these letter spacings and no others', () => {
     }
   })
 
-  it.each(['professional', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades'] as const)('%s writes no letter spacing inline', (name) => {
+  it.each(['professional', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth'] as const)('%s writes no letter spacing inline', (name) => {
     expect(template(name)).not.toMatch(/letterSpacing/)
   })
 
@@ -119,6 +119,7 @@ describe('the values themselves', () => {
       swissVocational: { caps: 0.1 },
       swissCommerce: { caps: 0.1 },
       swissTrades: { caps: 0.1 },
+      swissHealth: { caps: 0.1 },
     })
   })
 })

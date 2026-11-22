@@ -82,6 +82,7 @@ const TEMPLATES: BuiltResumeTemplate[] = [
   'swissVocational',
   'swissCommerce',
   'swissTrades',
+  'swissHealth',
 ]
 
 /**

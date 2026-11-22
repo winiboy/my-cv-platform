@@ -54,6 +54,8 @@ export type DocxGraphicForm =
   | 'shaded-run'
   /** `w:pBdr` down the left of consecutive paragraphs: the DOCX rule. */
   | 'paragraph-border'
+  /** A `w:tcBorders` edge down one side of a table cell: the DOCX rule as tall as its row. */
+  | 'cell-border'
   /** A nested single-cell table carrying a fill, a border and its padding: the DOCX card. */
   | 'shaded-cell'
   /** A floating `w:drawing` of a PNG with an alpha channel: the DOCX translucent shape. */
@@ -334,6 +336,27 @@ export const PREVIEW_GRAPHICS = {
         'separated by unshaded spaces and wrap as the Preview’s row does. Square corners where the Preview ' +
         'rounds them 4px, the padding is a space wide rather than the Preview’s 8px, and the shading is the ' +
         'height of the line rather than the tag’s box: a run has no padding or corner radius.',
+    },
+  },
+  swissHealth: {
+    headingPill: {
+      element: 'each section heading’s pill (`SWISS_HEALTH_GEOMETRY.pillRadius` corners, `pillPaddingX` × `pillPaddingY` padding)',
+      form: 'shaded-run',
+      approximation:
+        'The heading’s spaced capitals and a no-break space each side, widened by character spacing to the ' +
+        'pill’s horizontal padding, all shaded the pill colour, on an exact line as tall as the pill (its ' +
+        'text line plus its vertical padding): under an exact line Word shades a run the full height of its ' +
+        'line, so the shading is the pill’s box. The text is raised by half the vertical padding, since Word ' +
+        'lays the extra height of an exact line above the glyphs. Square ends where the Preview draws ' +
+        'half-circles: a run has no corner radius.',
+    },
+    entryBar: {
+      element: 'the thin bar down the left of each dated entry (`SWISS_HEALTH_GEOMETRY.entryBar` wide)',
+      form: 'cell-border',
+      approximation:
+        'Each entry is a one-row borderless table whose date cell has a single left border of the bar’s ' +
+        'colour and width, rounded to Word’s eighths of a point, so the bar runs the full height of the entry ' +
+        'as the Preview’s does. One table per entry, so the gap between two entries carries no bar.',
     },
   },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewGraphic>>>>

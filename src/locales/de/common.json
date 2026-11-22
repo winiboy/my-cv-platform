@@ -203,7 +203,9 @@
       "swissCommerce": "Kaufmännisch & Verwaltung",
       "swissCommerceDesc": "Schweizer Format für Büro und Verwaltung",
       "swissTrades": "Technische & handwerkliche Berufe",
-      "swissTradesDesc": "Fähigkeiten und Zertifikate zuerst"
+      "swissTradesDesc": "Fähigkeiten und Zertifikate zuerst",
+      "swissHealth": "Gesundheit & Soziales",
+      "swissHealthDesc": "Diplome und Weiterbildungen zuerst"
     },
     "new": {
       "title": "Neuen Lebenslauf erstellen",

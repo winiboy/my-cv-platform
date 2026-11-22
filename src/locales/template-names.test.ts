@@ -53,4 +53,11 @@ describe('resumes.templates locale parity', () => {
     expect(de.resumes.templates.swissTrades).toBe('Technische & handwerkliche Berufe')
     expect(it_.resumes.templates.swissTrades).toBe('Mestieri tecnici e manuali')
   })
+
+  it('names the health template as the swiss-cv-templates PRD does', () => {
+    expect(fr.resumes.templates.swissHealth).toBe('Santé & social')
+    expect(en.resumes.templates.swissHealth).toBe('Health & social care')
+    expect(de.resumes.templates.swissHealth).toBe('Gesundheit & Soziales')
+    expect(it_.resumes.templates.swissHealth).toBe('Sanità e sociale')
+  })
 })

@@ -18,6 +18,7 @@ import { generateModernDocx } from './docx-modern'
 import { generateSwissVocationalDocx } from './docx-swiss-vocational'
 import { generateSwissCommerceDocx } from './docx-swiss-commerce'
 import { generateSwissTradesDocx } from './docx-swiss-trades'
+import { generateSwissHealthDocx } from './docx-swiss-health'
 import { DOCX_PALETTE } from './docx-palette'
 
 /**
@@ -578,6 +579,7 @@ describe('every recorded form is the shape the generator emits', () => {
     'shaded-cells': (xml) => bars(xml).length > 0,
     'shaded-run': (xml) => paragraphs(xml).some((p) => p.runs.some((run) => run.shading !== null)),
     'paragraph-border': (xml) => paragraphs(xml).some((p) => p.leftBorderColour !== null),
+    'cell-border': (xml) => elements(xml, 'w:tcBorders').some((borders) => /<w:left\b[^>]*w:val="single"/.test(borders)),
     'shaded-cell': (xml) => elements(xml, 'w:tcPr').some((cell) => /<w:tcBorders>/.test(cell) && /<w:shd\b/.test(cell)),
     'floating-raster': (xml) => elements(xml, 'w:drawing').length > 0,
     'page-border': (xml) => /<w:pgBorders\b[\s\S]*?<w:left\b[^>]*w:val="single"/.test(xml),
@@ -590,9 +592,10 @@ describe('every recorded form is the shape the generator emits', () => {
     ['swissVocational', () => documentXml('swissVocational', generateSwissVocationalDocx, null)] as const,
     ['swissCommerce', () => documentXml('swissCommerce', generateSwissCommerceDocx, null)] as const,
     ['swissTrades', () => documentXml('swissTrades', generateSwissTradesDocx, null)] as const,
+    ['swissHealth', () => documentXml('swissHealth', generateSwissHealthDocx, null)] as const,
   ])('%s emits the shape it records for each of its graphics', async (template, load) => {
     const xml = await load()
-    const graphics = PREVIEW_GRAPHICS[template as 'modern' | 'creative' | 'swissVocational' | 'swissCommerce' | 'swissTrades']
+    const graphics = PREVIEW_GRAPHICS[template as 'modern' | 'creative' | 'swissVocational' | 'swissCommerce' | 'swissTrades' | 'swissHealth']
     expect(Object.keys(graphics).length, `${template} records no graphics`).toBeGreaterThan(0)
     for (const [key, graphic] of Object.entries(graphics)) {
       expect(EVIDENCE[graphic.form as DocxGraphicForm], `${template}.${key}: "${graphic.form}" is not a known form`).toBeDefined()
@@ -605,13 +608,13 @@ describe('every recorded form is the shape the generator emits', () => {
 
   it('names a form the generators actually use, and no form they do not', () => {
     const recorded = new Set(
-      (['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades'] as const).flatMap((template) =>
+      (['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth'] as const).flatMap((template) =>
         Object.values(PREVIEW_GRAPHICS[template]).map((graphic) => graphic.form as string),
       ),
     )
     // Every form the union offers is either used by a graphic or gone from it.
     expect([...recorded].sort()).toEqual(
-      ['floating-raster', 'not-drawn', 'page-border', 'paragraph-border', 'shaded-cell', 'shaded-cells', 'shaded-run'],
+      ['cell-border', 'floating-raster', 'not-drawn', 'page-border', 'paragraph-border', 'shaded-cell', 'shaded-cells', 'shaded-run'],
     )
   })
 })

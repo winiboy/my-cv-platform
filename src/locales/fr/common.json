@@ -201,7 +201,9 @@
       "swissCommerce": "Commerce & administration",
       "swissCommerceDesc": "Format suisse pour le bureau",
       "swissTrades": "Métiers techniques & manuels",
-      "swissTradesDesc": "Compétences et certificats en avant"
+      "swissTradesDesc": "Compétences et certificats en avant",
+      "swissHealth": "Santé & social",
+      "swissHealthDesc": "Diplômes et formations en avant"
     },
     "new": {
       "title": "Créer un nouveau CV",

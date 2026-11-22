@@ -203,7 +203,9 @@
       "swissCommerce": "Commercio e amministrazione",
       "swissCommerceDesc": "Formato svizzero per l'ufficio",
       "swissTrades": "Mestieri tecnici e manuali",
-      "swissTradesDesc": "Competenze e certificati in primo piano"
+      "swissTradesDesc": "Competenze e certificati in primo piano",
+      "swissHealth": "Sanità e sociale",
+      "swissHealthDesc": "Diplomi e formazioni in primo piano"
     },
     "new": {
       "title": "Crea nuovo CV",

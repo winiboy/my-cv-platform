@@ -475,3 +475,75 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-003 The "Métiers techniques & manuels" template is available
 FINAL: PASS
+
+## US-004: The "Santé & social" template is available
+Status: PASS
+Priority: 6
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 35304be (US-003 story commit).
+Scope:
+- Scope check: PASS
+- Changed paths (52 under src/ and e2e/, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-health-template.ts` (geometry, section order, contrast table), `src/components/dashboard/resume-templates/swiss-health-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-health.ts`, each with its unit test.
+  - **Wiring:** `src/types/database.ts` (swissHealth no longer unbuilt), `resume-editor.tsx`, `resume-preview.tsx`, `template-picker.tsx` (HeartPulse icon), `layout-settings.ts`, `resume-palette.ts`, `resume-graphics.ts` (new additive `cell-border` graphic kind for the entry bar), `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route, the four `common.json` locale files.
+  - **Print CSS:** `src/app/globals.css`, print-only radius rules scoped to `.swiss-health-template .swiss-health-photo` (50%) and `.swiss-health-template .swiss-health-pill` (9999px), after the untouched global `* { border-radius: 0 !important }` reset.
+  - **Test lists:** the unit tests that enumerate templates (layout-settings, palette, graphics, line-height, letter-spacing, page-size, text-opacity, swiss-vocational-template, build-resume-from-job.render, template-picker, rich-text, per-property-font-size, docx-graphics, docx-templates, docx-contact-visibility, both route tests, template-names); e2e template-picker, template-picker-compact (9 options), job-cv-template-picker, job-search-mobile, visual/resume-templates.
+  - **e2e:** new `e2e/swiss-health-template.spec.ts` (8 tests).
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissHealth.png` (sha256 125f37eb80d35581), `swissHealth-print.png` (c89ab4ba5b23ed3e).
+- Not touched: the five original templates, swissVocational, swissCommerce and swissTrades (renderers, Word generators, baselines, parity verdicts), the shared docx and format helpers, stored data; no migration; no version change; no push or merge of this commit.
+Checks (final diff hash 3fa2db020f6c3ccc, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run; logs in the session scratchpad `checks-us04-r2/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 4756 passed, 9 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 281 baseline; unchanged.
+- e2e: PASS — 621 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 18/18; only the two new swissHealth PNGs were added, the other 16 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier round, invalidated by a fix: r1 (0f8c9d8a0c533646) e2e 619 passed, 2 failed, both timing out in the shared login fixture (`e2e/fixtures/auth.ts:160`, waitForURL dashboard): `cover-letter-preview-zoom.spec.ts:369` (unrelated) and `swiss-health-template.spec.ts:255`; neither failed in r2. The r1 evidence showed the skills and languages text at the browser's 16px instead of the 13px body size; fixed, with a test that every text block carries a size.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample "Sofia Marchetti", close to t4-sante-social.png, with one hidden experience, one hidden skill category, one hidden certificate, one hidden language, an experience description mixing a paragraph and a list, a comma-separated plain skillsHtml and an education entry with no degree. Cases full-photo-fr, full-photo-de, full-nophoto-en, empty-nophoto-fr (no certifications, every language hidden). Preview HTTP 200 in all four; the photo cases draw 1 img in the Editor and Preview, the no-photo cases 0; hidden text absent. Preview captures: full-photo-fr 23e986d6a17c97f0, full-photo-de 49859c0a4ca84f15, full-nophoto-en 2e91f766e0afcfb3, empty-nophoto-fr 13af63c31fb7d428. Picker (fr, de): order modern, classic, minimal, creative, professional, swissVocational, swissCommerce, swissTrades, swissHealth; fr "Santé & social / Diplômes et formations en avant", de "Gesundheit & Soziales / Diplome und Weiterbildungen zuerst"; picker-card-fr aea3ec2f9dc36c0b, picker-card-de aa064e217ab3ec7b. At 375px: covered by the e2e picker specs (all 9 options).
+- Visual: PASS — the new baselines were captured with `--update-snapshots=all` on the final template code; the r1 baselines (5a8a23c7…, 94429d1f…) were replaced after the font-size fix.
+- Export: PASS.
+  - PDF: full-photo-fr 554e4d63093bc13d, full-photo-de 4a1a34bc1235989b, full-nophoto-en 51c141a2d1b35724, empty-nophoto-fr 9c81e585d61c8479; 1 page each; round photo with ring, rounded pills, entry bars, skills and languages side by side.
+  - Word: full-photo-fr 659b220fdee476f9, full-photo-de 5b03d351207adc76, full-nophoto-en b971913e9d18b1f7, empty-nophoto-fr 18aacb4b6e6c171d. One photo PNG drawn as an ellipse in the photo cases (the trace's `media=2` counts the `word/media/` folder entry); no media without a photo.
+  - Rendered by Microsoft Word to PDF: full-photo-fr c53804671dc32ec9, full-photo-de 160eb04b5370c87c, empty-nophoto-fr 12bf38ccb0c8c8ad; 1 page each. Round photo with ring, shaded pill headings with centred text, bars beside each dated entry, the paragraph and the list of the mixed description both present; in the empty case skills take the full width.
+- Database: NOT_APPLICABLE — no schema or stored-data change; `swissHealth` was already accepted by the US-001 constraint.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text goes through `renderFormattedText` (Preview server-renderable; SSR test plus e2e 200) and `formattedBlocks` / `parseHtmlToDocxRuns` in Word; the photo goes through the Word route's existing `boundedPhoto`.
+Agents:
+- ui-expert: PASS (round 1), 7/7 conditions evaluated, 0 MAJOR, 3 MINOR (recorded below); contrast recomputed (lowest text 4.76:1).
+- code-reviewer: PASS (round 1), no critical finding; its one required item is the FR-10 findings below.
+- senior-coder: implementation; the skills/languages font-size fix and the Word pill text raise.
+Acceptance criteria:
+- AC-01 The picker shows swissHealth after swissTrades with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-health-template.spec.ts`.
+- AC-02 Editor, Preview, PDF and Word match t4-sante-social.png (one column, teal accent, round photo beside the name, pill headings; summary, education, experience, continuing education, then skills and languages side by side): PASS — the captures, PDFs and Word renders above; ui-expert side-by-side comparison; title and dates darkened for contrast (Decision).
+- AC-03 FR-1 to FR-11: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing headings reused (FR-6: "Résumé", "Formation / Cours" for continuing education).
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Title and date text #0f766e instead of the mockup's teal.** The mockup's teal is about 3.1:1 on white and fails WCAG AA; teal-700 is 5.47:1. Decorative fills (pill #ccfbf1, bars and ring #99f6e4, photo fill #f0fdfa) keep the mockup's colours. `swiss-health-template.test.ts` asserts every text colour is at least 4.5:1.
+- **One colour source:** `PREVIEW_PALETTE.swissHealth`; the Word palette derives from it and `resume-palette.test.ts` counts the template's inline hexes against it.
+- **Skills reuse swissTrades' content logic** (imported, not duplicated) and are joined with " · "; each visible category's stored name is a small caption above its skills.
+- **When skills or languages is empty or hidden, the other is drawn alone at full width.**
+- **Certificate dates use the stored MM.YYYY**, as in the other Swiss templates; the mockup shows the year only.
+- **A certificate is drawn when it has a name, an issuer or a date;** an entry without a position or degree shows the company or school as its bold first line.
+
+Open owner decisions:
+- **FR-10 finding, Word pill ends are square** (shaded runs; Word cannot round them).
+- **FR-10 finding, Word substitutes a serif font where Inter is not installed** (as for US-001 to US-003); semibold captions become bold and the medium-weight title and dates regular.
+- **FR-10 finding, bullet spacing differs** between achievement lists (about 20 CSS px apart) and lists inside a description (about 18 px), in the Preview, PDF and Word alike.
+- **Word pill text is raised 2.25pt** (`PILL_TEXT_RAISE`, written as `w:position="2.25pt"`). ISO/IEC 29500 Transitional accepts a universal measure there and Microsoft Word renders it; the existing generators only ever write whole half-points, and LibreOffice and Google Docs were not exercised. Rounding to 2.5pt would stay on the half-point grid.
+- **An experience with both achievements and a description draws only the achievements**, as in swissTrades and the original templates.
+- **A certificate with only a date** draws an empty content cell beside the date.
+- **The `cell-border` evidence check in `docx-graphics.test.ts`** does not assert the cell or colour; the template's own test does.
+
+Environment notes:
+- Docker Desktop and the local Supabase stack were restarted before the checks (the machine had rebooted); the checks ran alone, with no dev server running.
+- The evidence spec (`zz-us04-evidence.spec.ts`) was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-004 The "Santé & social" template is available
+FINAL: PASS
