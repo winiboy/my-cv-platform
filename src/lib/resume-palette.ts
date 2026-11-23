@@ -284,4 +284,41 @@ export const PREVIEW_PALETTE = {
     /** The photo's fill, seen where the photo is transparent. */
     photoFill: inline('#f8fafc'),
   },
+  /**
+   * Every colour is inline: the mockup's blues are fixed, and the slate tokens
+   * `globals.css` redefines are neutral greys where the mockup's are
+   * blue-grey. Every text colour meets WCAG AA (4.5:1) on every background it
+   * is drawn on: white, the light column, a project card.
+   */
+  swissEngineering: {
+    /**
+     * The CV title and every section heading: blue-700, the mockup's heading
+     * blue, 6.7:1 on white and 6.1:1 on the light column. The mockup draws the
+     * title a shade lighter (blue-600, 5.2:1 and 4.7:1); one accent serves both
+     * with a wider margin over AA.
+     */
+    accent: inline('#1d4ed8'),
+    /** The light column's bar down its left edge, and each project card's thick left edge: blue-600. */
+    bar: inline('#2563eb'),
+    /** The light column's fill. */
+    column: inline('#f1f5f9'),
+    /** A project card's fill. */
+    card: inline('#f8fafc'),
+    /** A project card's thin border. */
+    cardBorder: inline('#bfdbfe'),
+    /** The name, and the bold first line of an experience, a project, an education and a skill category: 17.9:1 on white, 16.3:1 on the column. */
+    ink: inline('#0f172a'),
+    /**
+     * Dates, an experience's company line, and a project's technologies and
+     * link: 4.8:1 on white, 4.6:1 on a card. Never drawn on the light column,
+     * where it would fall under 4.5:1.
+     */
+    muted: inline('#64748b'),
+    /** Running text, bullets, descriptions, and every plain line of the light column: 14.6:1 on white, 13.3:1 on the column. */
+    body: inline('#1e293b'),
+    /** The photo's light ring. */
+    photoRing: inline('#cbd5e1'),
+    /** The photo's fill, seen where the photo is transparent. */
+    photoFill: inline('#e2e8f0'),
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewColour>>>>

@@ -20,6 +20,7 @@ import { SwissCommerceTemplate } from '@/components/dashboard/resume-templates/s
 import { SwissTradesTemplate } from '@/components/dashboard/resume-templates/swiss-trades-template'
 import { SwissHealthTemplate } from '@/components/dashboard/resume-templates/swiss-health-template'
 import { SwissFinanceTemplate } from '@/components/dashboard/resume-templates/swiss-finance-template'
+import { SwissEngineeringTemplate } from '@/components/dashboard/resume-templates/swiss-engineering-template'
 import { generateClassicDocx } from '@/app/api/resumes/[id]/download-docx/docx-classic'
 import { generateCreativeDocx } from '@/app/api/resumes/[id]/download-docx/docx-creative'
 import { generateMinimalDocx } from '@/app/api/resumes/[id]/download-docx/docx-minimal'
@@ -30,6 +31,7 @@ import { generateSwissCommerceDocx } from '@/app/api/resumes/[id]/download-docx/
 import { generateSwissTradesDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-trades'
 import { generateSwissHealthDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-health'
 import { generateSwissFinanceDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-finance'
+import { generateSwissEngineeringDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-engineering'
 import { pxToHalfPoints, type DocxGeneratorSettings } from '@/app/api/resumes/[id]/download-docx/docx-helpers'
 
 /**
@@ -68,7 +70,7 @@ const BUMPED: Readonly<Record<PerPropertySizeKey, number>> = {
 
 const SIZE_KEYS = LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[]
 
-const TEMPLATES: readonly ResumeTemplate[] = ['classic', 'minimal', 'creative', 'modern', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance']
+const TEMPLATES: readonly ResumeTemplate[] = ['classic', 'minimal', 'creative', 'modern', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering']
 
 const PREVIEWS: Readonly<Partial<Record<ResumeTemplate, ComponentType<never>>>> = {
   classic: ClassicTemplate as ComponentType<never>,
@@ -80,6 +82,7 @@ const PREVIEWS: Readonly<Partial<Record<ResumeTemplate, ComponentType<never>>>> 
   swissTrades: SwissTradesTemplate as ComponentType<never>,
   swissHealth: SwissHealthTemplate as ComponentType<never>,
   swissFinance: SwissFinanceTemplate as ComponentType<never>,
+  swissEngineering: SwissEngineeringTemplate as ComponentType<never>,
 }
 
 const GENERATORS: Readonly<
@@ -95,6 +98,7 @@ const GENERATORS: Readonly<
   swissTrades: generateSwissTradesDocx,
   swissHealth: generateSwissHealthDocx,
   swissFinance: generateSwissFinanceDocx,
+  swissEngineering: generateSwissEngineeringDocx,
 }
 
 const RESUME = {

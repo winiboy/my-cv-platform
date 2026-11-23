@@ -207,7 +207,9 @@
       "swissHealth": "Health & social care",
       "swissHealthDesc": "Puts your diplomas and training first",
       "swissFinance": "Banking, finance & insurance",
-      "swissFinanceDesc": "Classic, conservative format"
+      "swissFinanceDesc": "Classic, conservative format",
+      "swissEngineering": "Engineering",
+      "swissEngineeringDesc": "Puts your key projects first"
     },
     "new": {
       "title": "Create New Resume",

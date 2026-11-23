@@ -13,6 +13,7 @@ import { generateSwissCommerceDocx } from './docx-swiss-commerce'
 import { generateSwissTradesDocx } from './docx-swiss-trades'
 import { generateSwissHealthDocx } from './docx-swiss-health'
 import { generateSwissFinanceDocx } from './docx-swiss-finance'
+import { generateSwissEngineeringDocx } from './docx-swiss-engineering'
 // The supported templates and the professional fallback: `docx-templates.ts`.
 import { docxTemplateFor } from './docx-templates'
 import { boundedPhoto } from './docx-photo-bound'
@@ -209,6 +210,10 @@ async function handleDocxGeneration(
 
     case 'swissFinance':
       buffer = await generateSwissFinanceDocx(resume, settings)
+      break
+
+    case 'swissEngineering':
+      buffer = await generateSwissEngineeringDocx(resume, settings)
       break
 
     default:

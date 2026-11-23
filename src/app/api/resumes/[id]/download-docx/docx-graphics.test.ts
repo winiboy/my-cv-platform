@@ -20,6 +20,7 @@ import { generateSwissCommerceDocx } from './docx-swiss-commerce'
 import { generateSwissTradesDocx } from './docx-swiss-trades'
 import { generateSwissHealthDocx } from './docx-swiss-health'
 import { generateSwissFinanceDocx } from './docx-swiss-finance'
+import { generateSwissEngineeringDocx } from './docx-swiss-engineering'
 import { DOCX_PALETTE } from './docx-palette'
 
 /**
@@ -597,9 +598,10 @@ describe('every recorded form is the shape the generator emits', () => {
     ['swissTrades', () => documentXml('swissTrades', generateSwissTradesDocx, null)] as const,
     ['swissHealth', () => documentXml('swissHealth', generateSwissHealthDocx, null)] as const,
     ['swissFinance', () => documentXml('swissFinance', generateSwissFinanceDocx, null)] as const,
+    ['swissEngineering', () => documentXml('swissEngineering', generateSwissEngineeringDocx, null)] as const,
   ])('%s emits the shape it records for each of its graphics', async (template, load) => {
     const xml = await load()
-    const graphics = PREVIEW_GRAPHICS[template as 'modern' | 'creative' | 'swissVocational' | 'swissCommerce' | 'swissTrades' | 'swissHealth' | 'swissFinance']
+    const graphics = PREVIEW_GRAPHICS[template as 'modern' | 'creative' | 'swissVocational' | 'swissCommerce' | 'swissTrades' | 'swissHealth' | 'swissFinance' | 'swissEngineering']
     expect(Object.keys(graphics).length, `${template} records no graphics`).toBeGreaterThan(0)
     for (const [key, graphic] of Object.entries(graphics)) {
       expect(EVIDENCE[graphic.form as DocxGraphicForm], `${template}.${key}: "${graphic.form}" is not a known form`).toBeDefined()
@@ -612,7 +614,7 @@ describe('every recorded form is the shape the generator emits', () => {
 
   it('names a form the generators actually use, and no form they do not', () => {
     const recorded = new Set(
-      (['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance'] as const).flatMap((template) =>
+      (['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering'] as const).flatMap((template) =>
         Object.values(PREVIEW_GRAPHICS[template]).map((graphic) => graphic.form as string),
       ),
     )

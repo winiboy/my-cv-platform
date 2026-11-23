@@ -523,6 +523,43 @@
     background: transparent !important;
   }
 
+  /* swissEngineering (swiss-cv-templates US-006) prints its round photo and
+     its rounded project cards as its Preview and mockup draw them, scoped to
+     that template's root. The card radius is SWISS_ENGINEERING_GEOMETRY
+     .cardRadius, which the template also writes inline for the screen;
+     swiss-engineering-template.test.ts holds the two equal. */
+  .swiss-engineering-template .swiss-engineering-photo {
+    border-radius: 50% !important;
+  }
+
+  .swiss-engineering-template .swiss-engineering-card {
+    border-radius: 4px !important;
+  }
+
+  /* swissEngineering's light column, and the blue bar on its left edge, on
+     every printed page, top to foot, as swissTrades' dark column above: the
+     document ends where its content does, and the root's background paints
+     every page in full. The column is the document's last 250px
+     (SWISS_ENGINEERING_GEOMETRY.columnWidth), its first 4px the bar
+     (columnBar); the colours are PREVIEW_PALETTE.swissEngineering .bar and
+     .column. swiss-engineering-template.test.ts holds them equal. */
+  html:has(.swiss-engineering-template) {
+    background: linear-gradient(
+      to right,
+      white calc(max(0px, 50% - 397px) + 544px),
+      #2563eb calc(max(0px, 50% - 397px) + 544px),
+      #2563eb calc(max(0px, 50% - 397px) + 548px),
+      #f1f5f9 calc(max(0px, 50% - 397px) + 548px),
+      #f1f5f9 calc(max(0px, 50% - 397px) + 794px),
+      white calc(max(0px, 50% - 397px) + 794px)
+    ) !important;
+  }
+
+  body:has(.swiss-engineering-template),
+  body :has(.swiss-engineering-template) {
+    background: transparent !important;
+  }
+
   /* Preserve colors in CV templates */
   * {
     print-color-adjust: exact !important;

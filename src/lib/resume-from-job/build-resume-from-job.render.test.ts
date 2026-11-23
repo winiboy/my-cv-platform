@@ -16,10 +16,12 @@ import { SwissCommerceTemplate } from '@/components/dashboard/resume-templates/s
 import { SwissTradesTemplate } from '@/components/dashboard/resume-templates/swiss-trades-template'
 import { SwissHealthTemplate } from '@/components/dashboard/resume-templates/swiss-health-template'
 import { SwissFinanceTemplate } from '@/components/dashboard/resume-templates/swiss-finance-template'
+import { SwissEngineeringTemplate } from '@/components/dashboard/resume-templates/swiss-engineering-template'
 import { presentLabel } from '@/lib/resume-template-strings'
 import { swissTradesSkillContent } from '@/lib/swiss-trades-template'
 import { swissHealthSkillContent } from '@/lib/swiss-health-template'
 import { swissFinanceSkillContent } from '@/lib/swiss-finance-template'
+import { swissEngineeringSkillContent } from '@/lib/swiss-engineering-template'
 import { buildResumeFromJobOffer, type AiResumeContent, type ResumeDraftContent } from './build-resume-from-job'
 import { RESUME_CONTENT_LANGUAGES, RESUME_SAMPLE_VALUES, type ResumeContentLanguage } from './sample-values'
 
@@ -49,6 +51,7 @@ const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
   swissTrades: SwissTradesTemplate as ComponentType<never>,
   swissHealth: SwissHealthTemplate as ComponentType<never>,
   swissFinance: SwissFinanceTemplate as ComponentType<never>,
+  swissEngineering: SwissEngineeringTemplate as ComponentType<never>,
 }
 
 const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
@@ -108,9 +111,11 @@ type DraftName = keyof typeof DRAFTS
  *   description only when it has no achievements, and every built experience
  *   has achievements, so they draw none; modern draws each description;
  * - only classic and the Swiss templates draw an education description;
- * - the Swiss templates draw no projects;
- * - swissTrades draws a comma-separated skill paragraph as tags, and swissHealth
- *   and swissFinance as one line of plain text.
+ * - the Swiss templates draw no projects, except swissEngineering, which draws
+ *   each project's description in its card;
+ * - swissTrades draws a comma-separated skill paragraph as tags, swissHealth
+ *   and swissFinance as one line of plain text, and swissEngineering as one
+ *   line per skill.
  */
 const EXPECTED_RICH_FIELDS: Readonly<Record<ResumeTemplate, (draft: ResumeDraftContent) => number>> = {
   classic: (d) => 1 + d.skills.length + d.projects.length + d.education.length,
@@ -125,6 +130,8 @@ const EXPECTED_RICH_FIELDS: Readonly<Record<ResumeTemplate, (draft: ResumeDraftC
   swissTrades: (d) => 1 + d.skills.filter((skill) => swissTradesSkillContent(skill)?.kind === 'html').length + d.education.length,
   swissHealth: (d) => 1 + d.skills.filter((skill) => swissHealthSkillContent(skill)?.kind === 'html').length + d.education.length,
   swissFinance: (d) => 1 + d.skills.filter((skill) => swissFinanceSkillContent(skill)?.kind === 'html').length + d.education.length,
+  swissEngineering: (d) =>
+    1 + d.skills.filter((skill) => swissEngineeringSkillContent(skill)?.kind === 'html').length + d.education.length + d.projects.length,
 }
 
 type DrawnField =
@@ -172,6 +179,8 @@ const NOT_DRAWN: Readonly<Record<ResumeTemplate, readonly DrawnField[]>> = {
   swissTrades: ['gpa', 'project', 'technology'],
   swissHealth: ['gpa', 'project', 'technology'],
   swissFinance: ['gpa', 'project', 'technology'],
+  // Draws the projects as key-achievement cards, their technologies included.
+  swissEngineering: ['gpa'],
 }
 
 /** The first entry of each section's text, as the draft holds it. */

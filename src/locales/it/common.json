@@ -207,7 +207,9 @@
       "swissHealth": "Sanità e sociale",
       "swissHealthDesc": "Diplomi e formazioni in primo piano",
       "swissFinance": "Banca, finanza e assicurazioni",
-      "swissFinanceDesc": "Formato classico e sobrio"
+      "swissFinanceDesc": "Formato classico e sobrio",
+      "swissEngineering": "Ingegneria e tecnica",
+      "swissEngineeringDesc": "Progetti chiave in primo piano"
     },
     "new": {
       "title": "Crea nuovo CV",

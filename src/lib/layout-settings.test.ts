@@ -1310,6 +1310,8 @@ describe('which layout controls a template offers (Part 3 US-014)', () => {
     expect(TEMPLATE_LAYOUT_CONTROLS.swissHealth).toEqual(['sidebarSections'])
     expect(templateOffersLayoutControl('swissFinance', 'font')).toBe(false)
     expect(TEMPLATE_LAYOUT_CONTROLS.swissFinance).toEqual(['sidebarSections'])
+    expect(templateOffersLayoutControl('swissEngineering', 'font')).toBe(false)
+    expect(TEMPLATE_LAYOUT_CONTROLS.swissEngineering).toEqual(['sidebarSections'])
     expect(LAYOUT_CONTROL_KEYS.font).toEqual(['fontFamily', 'fontScale'])
   })
 })
@@ -1372,6 +1374,7 @@ describe('which templates draw the photo (swiss-cv-templates FR-5, FR-14)', () =
       swissTrades: true,
       swissHealth: true,
       swissFinance: true,
+      swissEngineering: true,
     })
   })
 
@@ -1387,6 +1390,7 @@ describe('which templates draw the photo (swiss-cv-templates FR-5, FR-14)', () =
     expect(templateDrawsPhoto('swissTrades')).toBe(true)
     expect(templateDrawsPhoto('swissHealth')).toBe(true)
     expect(templateDrawsPhoto('swissFinance')).toBe(true)
+    expect(templateDrawsPhoto('swissEngineering')).toBe(true)
   })
 })
 

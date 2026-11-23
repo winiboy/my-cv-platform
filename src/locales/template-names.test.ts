@@ -67,4 +67,11 @@ describe('resumes.templates locale parity', () => {
     expect(de.resumes.templates.swissFinance).toBe('Bank, Finanzen & Versicherung')
     expect(it_.resumes.templates.swissFinance).toBe('Banca, finanza e assicurazioni')
   })
+
+  it('names the engineering template as the swiss-cv-templates PRD does', () => {
+    expect(fr.resumes.templates.swissEngineering).toBe('Ingénierie & technique')
+    expect(en.resumes.templates.swissEngineering).toBe('Engineering')
+    expect(de.resumes.templates.swissEngineering).toBe('Ingenieurwesen & Technik')
+    expect(it_.resumes.templates.swissEngineering).toBe('Ingegneria e tecnica')
+  })
 })

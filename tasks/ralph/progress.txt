@@ -655,3 +655,76 @@ Commit:
 - Commit: THIS_COMMIT
 - Commit message: fix: embed WebP and AVIF photos in the Word export
 FINAL: PASS
+
+## US-006: The "Ingénierie & technique" template is available
+Status: PASS
+Priority: 8
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 362122a (fix commit for WebP/AVIF photos in Word, after the US-005 story commit 7786061).
+Scope:
+- Scope check: PASS
+- Changed paths (54 under src/ and e2e/, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-engineering-template.ts` (geometry, section order, `swissEngineeringDates`), `src/components/dashboard/resume-templates/swiss-engineering-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-engineering.ts`, each with its unit test; `src/test/inter-advance-widths.ts` (test-only: Inter advance widths read from the installed `@fontsource/inter` files, used to prove long words fit the column).
+  - **Wiring:** `src/types/database.ts` (swissEngineering no longer unbuilt), `resume-editor.tsx`, `resume-preview.tsx`, `template-picker.tsx` (DraftingCompass icon), `layout-settings.ts`, `resume-palette.ts`, `resume-graphics.ts`, `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route, the four `common.json` locale files; the shared `swissHeading` type now also accepts `keyAchievements` (type only, no runtime change).
+  - **Print CSS:** `src/app/globals.css`, print-only rules scoped to `.swiss-engineering-template` (photo and card radius, the light column with its blue bar to the page foot).
+  - **Test lists:** the unit tests that enumerate templates; e2e template-picker, template-picker-compact (11 options), job-cv-template-picker, job-search-mobile, visual/resume-templates.
+  - **e2e:** new `e2e/swiss-engineering-template.spec.ts` (8 tests).
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissEngineering.png` and `swissEngineering-print.png`, byte-identical (sha256 8839d8fb424c3ae1): the element screenshot cannot see the print-only page band, and the radii are set inline, so nothing differs inside the captured box. The print rules are asserted by computed styles in the e2e and by unit tests, not by this baseline.
+- Not touched: the five original templates and the five earlier Swiss templates (renderers, Word generators, baselines, parity verdicts), the shared date helper `formatSwissDateRange`, the shared docx and format helpers, stored data; no migration; no new dependency; no version change; no push or merge of this commit.
+Checks (final diff hash 18b136cee341febe, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run; logs in the session scratchpad `checks-us06-r2/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 5228 passed, 10 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 281 baseline; unchanged.
+- e2e: PASS — 639 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 22/22; only the two new swissEngineering PNGs were added, the other 20 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier round, invalidated by fixes: r1 (b613b9ba594740b7) e2e 638 passed, 1 failed with `net::ERR_NO_BUFFER_SPACE` on `page.goto /en/login` in `job-applications-link-resume.spec.ts:168` (unrelated, environment); the Word render showed the light column and its blue bar ending at about 920 of 1123 px with the bar starting 48 px below the top, then (after a first fix) two offset bars. Fixed by anchoring both page-high drawings in the first header cell, removing the column cell's own shading and left border, stacking the bar above the fill (relativeHeight 2 over 1) and placing the bar at 544 px.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample "Julien Moret", close to t6-ingenierie.png, with one hidden experience, skill category, language, certificate and project; a project with technologies and a url; a description mixing a paragraph and a list; an education entry with no degree; long German words in the narrow column ("Kommunikationsfähigkeiten", "Weiterbildungsstudiengang Brückenbauingenieurwesen"). Cases full-photo-fr, full-photo-de, full-nophoto-en, empty-nophoto-fr (no projects, no certifications, every language hidden). Preview HTTP 200 in all four; photo 1/1/0/0 img; hidden text absent (the PDF check rerun with whitespace removed, because the PDF text layer is letter-spaced: 0 hits in all four). Preview captures: full-photo-fr 9e6927e91f4eac24, full-photo-de 22ae86219528f548, full-nophoto-en 636a7623f3eb7866, empty-nophoto-fr d42cff9f7c5a5317. Picker: swissEngineering after swissFinance; fr "Ingénierie & technique / Projets clés en avant", de "Ingenieurwesen & Technik / Schlüsselprojekte zuerst"; picker-card-fr ac37c31fcad24d87, picker-card-de ff0714b56be3cdf7. At 375px: covered by the e2e picker specs (all 11 options, 186.4 px cards).
+- Visual: PASS — baselines captured with `--update-snapshots=all` on the template code; the Preview did not change after r1 (the later fixes were Word-only), and the r2 visual run matched them.
+- Export: PASS.
+  - PDF: full-photo-fr dab4eaea49944e87, full-photo-de a7dec4bb18f2dc30, full-nophoto-en b275f2a50c3506b2, empty-nophoto-fr a8bc25db27efe766; 1 page each.
+  - Word: full-photo-fr ea84fca2b530dda1, full-photo-de 99ec6c6fe33db93b, full-nophoto-en c81e646d5c17ecbb, empty-nophoto-fr f487995969978b14. Media: the bar and fill images always, plus one photo drawn as an ellipse in the photo cases.
+  - Rendered by Microsoft Word to PDF: full-photo-fr defb7e90bc6d8b23, full-photo-de 8d469f8bbad430ea, empty-nophoto-fr 266c628397c4ed99; 1 page each. One blue bar and the light fill from the page top to its foot (pixels sampled at y=1 and y=1121), round photo with ring, project cards with the blue stripe, long German words whole.
+- Database: NOT_APPLICABLE — no schema or stored-data change; `swissEngineering` was already accepted by the US-001 constraint.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text through `renderFormattedText` (SSR test plus e2e 200) and `formattedBlocks` in Word; the project url is drawn as plain text, not a link; the photo goes through the Word route's existing bound.
+Agents:
+- ui-expert: PASS (round 1), 7/7 conditions, 0 MAJOR, 5 MINOR (recorded below); contrast recomputed (lowest text pair in use 4.55:1, muted on the card).
+- code-reviewer: PASS (round 1), no critical or major finding; minors recorded below.
+- senior-coder: implementation; the Word page-high column and bar fixes.
+Acceptance criteria:
+- AC-01 The picker shows swissEngineering after swissFinance with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-engineering-template.spec.ts`.
+- AC-02 Editor, Preview, PDF and Word match t6-ingenierie.png except the skill bars (main: name, CV title, summary, key achievements as cards, experience; light column: round photo, contact, education, skills, languages, certifications): PASS — the captures, PDFs and Word renders above; ui-expert side-by-side comparison; no bars (PRD out of scope).
+- AC-03 FR-1 to FR-11: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing headings reused (FR-6: `keyAchievements` for the projects, `training` for certifications).
+- Owner rule (no word split mid-word, any locale): PASS for every word that fits the 202 px column text width; only a single token wider than the column can break (last resort, not rendered in the evidence).
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Key achievements are the stored `projects`,** edited in the existing Projects tab and laid out under the existing `keyAchievements` row (as `professional` already does). A card shows the name, the description, then the technologies and the url as muted lines (stored content; the mockup shows name and description only); project dates are not drawn.
+- **Skills:** the category caption, then one skill per line, no level bars (PRD out of scope), as the other Swiss templates stack them.
+- **Colours (AA):** accent #1d4ed8 for the title and headings (6.70:1 on white, 6.12:1 on the column; the mockup's title blue is lighter), ink #0f172a, body #1e293b; the muted #64748b (4.34:1 on the column) is never used on the column, which a test enforces.
+- **Column width 250 px** (mockup about 238 px), so the long German words of the sample fit whole.
+- **An entry with no stored dates shows no date,** through a local wrapper (`swissEngineeringDates`); the shared `formatSwissDateRange` is unchanged.
+
+Open owner decisions:
+- **FR-10, Word only:** the page-anchored column and bar were verified in Microsoft Word only. Renderers that drop anchored drawings in table cells (Google Docs, some LibreOffice versions, Pages) would show a white column with no bar (text still readable); swissTrades keeps a cell-shading fallback, swissEngineering cannot without Word painting it over the bar.
+- **FR-10, Word typeface:** Word falls back to a serif face where Inter is not installed (all Swiss templates; the shared `docx-helpers.ts` writes no font-table hint). The no-split proof for Word measures Inter; the fallback face was narrower in the renders but no test proves it.
+- **Breaks at stored hyphens and in URLs:** CSS and Word break after an in-word hyphen ("HEIG-VD", "linkedin.com/in/example-alex-rivera"); this is not a cut inside letters, but a strict reading of the no-split rule would need non-breaking hyphens in every template.
+- **A date range can wrap before its en dash in the narrow column** ("09.2012" / "– 06.2014" in the baseline); non-breaking spaces around the dash would keep it whole.
+- **A single token wider than the column** (a very long email or URL) is the only case where letters can be split, by `overflow-wrap: break-word`; the e2e does not render such a token.
+- **Stale code comments:** the header comment of `docx-swiss-engineering.ts` (lines ~139-146) still describes the column cell as shaded with a bordered bar; the "how both columns wrap" block in `swiss-engineering-template.tsx` (~44-54) is a JSDoc attached to the props type. To be fixed in a later change.
+- **Editor panels:** "Edit Sidebar" lists Key achievements (drawn in the main column) and "Edit Main Content" lists Education (drawn in the light column), a consequence of the fixed layout id vocabularies.
+- **Pre-existing:** the shared `formatSwissDateRange` shows "present" for a start date with no end date even when `current` is false (all Swiss templates); a follow-up covering all of them would be needed.
+
+Environment notes:
+- The checks ran alone; the owner's local dev server was stopped for each run and restarted afterwards.
+- The evidence spec was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards. Two quick single-case evidence runs (folder `us06-evidence-q`) were used to check the Word column between fixes.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-006 The "Ingénierie & technique" template is available
+FINAL: PASS

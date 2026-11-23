@@ -605,6 +605,27 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     'style backgroundColor: #f8fafc': { count: 1, palette: 'photoFill' },
     'bg-white': { count: 1, excluded: PAGE },
   },
+  swissEngineering: {
+    // The CV title and the text of every heading, in both columns.
+    'style color: #1d4ed8': { count: 2, palette: 'accent' },
+    // The light column's bar; a project card's thick left edge.
+    'style borderLeftColor: #2563eb': { count: 2, palette: 'bar' },
+    // The light column.
+    'style backgroundColor: #f1f5f9': { count: 1, palette: 'column' },
+    // A project card's fill and its thin border.
+    'style backgroundColor: #f8fafc': { count: 1, palette: 'card' },
+    'style borderColor: #bfdbfe': { count: 1, palette: 'cardBorder' },
+    // The name; an education's lead, a skill category's caption; a project's name; an experience's first line.
+    'style color: #0f172a': { count: 5, palette: 'ink' },
+    // A project's technologies and link; an experience's dates and company line.
+    'style color: #64748b': { count: 3, palette: 'muted' },
+    // Every line of the light column; the summary, a project's description, bullets and descriptions.
+    'style color: #1e293b': { count: 5, palette: 'body' },
+    // The photo's ring and fill.
+    'style borderColor: #cbd5e1': { count: 1, palette: 'photoRing' },
+    'style backgroundColor: #e2e8f0': { count: 1, palette: 'photoFill' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -690,7 +711,7 @@ describe('PREVIEW_PALETTE', () => {
   )
 
   it('covers every built template', () => {
-    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissCommerce', 'swissFinance', 'swissHealth', 'swissTrades', 'swissVocational'])
+    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissCommerce', 'swissEngineering', 'swissFinance', 'swissHealth', 'swissTrades', 'swissVocational'])
   })
 
   it('holds each Preview colour of a template once', () => {

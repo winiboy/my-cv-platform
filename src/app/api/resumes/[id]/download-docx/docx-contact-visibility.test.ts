@@ -22,6 +22,7 @@ import { generateSwissCommerceDocx } from './docx-swiss-commerce'
 import { generateSwissTradesDocx } from './docx-swiss-trades'
 import { generateSwissHealthDocx } from './docx-swiss-health'
 import { generateSwissFinanceDocx } from './docx-swiss-finance'
+import { generateSwissEngineeringDocx } from './docx-swiss-engineering'
 
 /**
  * swiss-cv-templates FR-14: an unticked contact detail, CV title or photo is
@@ -44,6 +45,7 @@ const GENERATORS: Record<DocxTemplateId, (resume: unknown, settings: DocxGenerat
   swissTrades: generateSwissTradesDocx,
   swissHealth: generateSwissHealthDocx,
   swissFinance: generateSwissFinanceDocx,
+  swissEngineering: generateSwissEngineeringDocx,
 }
 
 const PHOTO = `data:image/png;base64,${solidColourPng('336699').toString('base64')}`
@@ -212,7 +214,7 @@ describe.each(SUPPORTED_TEMPLATES)('%s: contact visibility on the Preview and in
   })
 })
 
-describe.each(['modern', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance'] as const)('%s: the photo tick', (template) => {
+describe.each(['modern', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering'] as const)('%s: the photo tick', (template) => {
   it('draws the stored photo when ticked and draws it as absent when unticked, on both outputs', async () => {
     const shown = resumeRow(template)
     const hidden = resumeRow(template, ['photo'])

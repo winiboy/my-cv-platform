@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { SUPPORTED_TEMPLATES, docxTemplateFor } from './docx-templates'
 
 const UNBUILT = [
-  'swissEngineering',
   'swissIt',
   'swissExecutive',
   'swissAcademic',
@@ -10,8 +9,8 @@ const UNBUILT = [
 ] as const
 
 describe('the templates the Word route accepts', () => {
-  it('are the five original templates, swissVocational, swissCommerce, swissTrades, swissHealth and swissFinance', () => {
-    expect([...SUPPORTED_TEMPLATES]).toEqual(['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance'])
+  it('are the five original templates, swissVocational, swissCommerce, swissTrades, swissHealth, swissFinance and swissEngineering', () => {
+    expect([...SUPPORTED_TEMPLATES]).toEqual(['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering'])
   })
 
   it('export each supported template with its own generator', () => {

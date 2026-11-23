@@ -380,6 +380,31 @@ export const PREVIEW_GRAPHICS = {
         'spans the text width under the heading as the Preview’s border does.',
     },
   },
+  swissEngineering: {
+    column: {
+      element:
+        'the light column down the right of every page (`SWISS_ENGINEERING_GEOMETRY.columnWidth` wide) and the blue ' +
+        'bar on its left edge (`columnBar` wide)',
+      form: 'floating-raster',
+      approximation:
+        'Two solid PNGs, the bar’s width at the column’s left edge and the rest of the column’s width beside it, ' +
+        'each the page’s height, are anchored to the page behind the text in the first cell of a 1-twip ' +
+        'repeated header row, as `docx-swiss-trades.ts` draws its dark column, the bar stacked in front of the ' +
+        'fill, so the column and its bar run from the top to the foot of every page as the printed Preview’s ' +
+        'do. The right cell of the body table carries no shading and no border: Word paints both over drawings ' +
+        'behind the text, which hid the page-high bar under a shorter cell border.',
+    },
+    projectCard: {
+      element:
+        'each project card (`SWISS_ENGINEERING_GEOMETRY.cardBorder` border, `cardBar` left edge, `cardRadius` corners)',
+      form: 'shaded-cell',
+      approximation:
+        'A one-cell table per project, shaded the card colour, with single top, right and bottom borders of the ' +
+        'card’s border colour and a thick left border of the bar colour, each rounded to Word’s eighths of a ' +
+        'point, the card’s padding as the cell margins, and a spacer paragraph between two cards for their gap. ' +
+        'Square corners where the Preview rounds them 4px: a table cell has no corner radius.',
+    },
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewGraphic>>>>
 
 // ---------------------------------------------------------------------------

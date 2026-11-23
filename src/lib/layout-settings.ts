@@ -1455,11 +1455,11 @@ export const LAYOUT_CONTROL_KEYS: Readonly<
  * each generator the same model, so what a template is PASSED and what its
  * generator READS is the whole of the question:
  *
- *                     professional  modern   classic  minimal  creative  swissVocational  swissCommerce    swissTrades      swissHealth      swissFinance
- *   font                   yes       yes       yes      yes      yes         no               no               no               no               no
- *   sidebarColour          yes       yes       no       no       no          no               no               no               no               no
- *   perPropertySize        no        no        yes      yes      yes         no               no               no               no               no
- *   sidebarSections        yes       yes       no       no       yes         visibility only  visibility only  visibility only  visibility only  visibility only
+ *                     professional  modern   classic  minimal  creative  swissVocational  swissCommerce    swissTrades      swissHealth      swissFinance     swissEngineering
+ *   font                   yes       yes       yes      yes      yes         no               no               no               no               no               no
+ *   sidebarColour          yes       yes       no       no       no          no               no               no               no               no               no
+ *   perPropertySize        no        no        yes      yes      yes         no               no               no               no               no               no
+ *   sidebarSections        yes       yes       no       no       yes         visibility only  visibility only  visibility only  visibility only  visibility only  visibility only
  *
  * font — the five original templates draw the stored font family and font
  *   scale. A Swiss template draws its own typeface at scale 1.0 in every output
@@ -1522,6 +1522,12 @@ export const TEMPLATE_LAYOUT_CONTROLS: Readonly<
   swissHealth: Object.freeze(['sidebarSections'] as const),
   /** swissFinance: the same reasoning as swissVocational, with its own fixed rows below. */
   swissFinance: Object.freeze(['sidebarSections'] as const),
+  /**
+   * swissEngineering: the same reasoning as swissTrades. Its light column is a
+   * fixed part of its design, not the user's sidebar: it paints no user colour,
+   * and every row it lists is fixed below.
+   */
+  swissEngineering: Object.freeze(['sidebarSections'] as const),
 })
 
 /**
@@ -1558,6 +1564,7 @@ export const TEMPLATE_DRAWS_PHOTO: Readonly<Record<BuiltResumeTemplate, boolean>
   swissTrades: true,
   swissHealth: true,
   swissFinance: true,
+  swissEngineering: true,
 })
 
 /**
@@ -1600,6 +1607,7 @@ export const TEMPLATE_APPLIED_SIZE_KEYS: Readonly<
   swissTrades: Object.freeze([] as const),
   swissHealth: Object.freeze([] as const),
   swissFinance: Object.freeze([] as const),
+  swissEngineering: Object.freeze([] as const),
 })
 
 // ---------- Which section ids the editor's panels offer ----------
@@ -1725,6 +1733,21 @@ export const TEMPLATE_EDITOR_SECTIONS: Readonly<
     sidebar: Object.freeze(['training', 'skills', 'languages'] as const),
     main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
     fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'training', 'skills', 'languages'] as const),
+  }),
+  /**
+   * swissEngineering draws summary, the projects as key-achievement cards
+   * (`keyAchievements`) and experience in its main column, then education,
+   * skills, languages and certifications (`training`) in its light column, each
+   * in a fixed sequence: every row it lists is fixed. It is the one Swiss
+   * template that draws keyAchievements, so that row is listed: the projects
+   * the editor's Projects tab collects are its content, and hiding the row
+   * hides the cards and their heading.
+   */
+  swissEngineering: Object.freeze({
+    // In the order the template draws them, as for swissVocational.
+    sidebar: Object.freeze(['keyAchievements', 'skills', 'languages', 'training'] as const),
+    main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
+    fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'keyAchievements', 'skills', 'languages', 'training'] as const),
   }),
 })
 

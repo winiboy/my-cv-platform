@@ -39,7 +39,7 @@ const tailwindTheme = read('node_modules/tailwindcss/theme.css')
 const tailwindPreflight = read('node_modules/tailwindcss/preflight.css')
 const globals = read('src/app/globals.css')
 
-const TEMPLATES: readonly BuiltResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance']
+const TEMPLATES: readonly BuiltResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering']
 const template = (name: BuiltResumeTemplate) => read(templateComponentFile(name))
 
 /** A theme letter spacing, in em: `--tracking-wide: 0.025em`. */
@@ -130,6 +130,7 @@ describe('the values themselves', () => {
       swissTrades: { caps: 0.1 },
       swissHealth: { caps: 0.1 },
       swissFinance: { name: 0.1, heading: 0.25 },
+      swissEngineering: { caps: 0.1 },
     })
   })
 })

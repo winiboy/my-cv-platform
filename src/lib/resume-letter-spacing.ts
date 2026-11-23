@@ -114,4 +114,8 @@ export const PREVIEW_TRACKING = {
      */
     heading: 0.25,
   },
+  swissEngineering: {
+    /** Every section heading of both columns. */
+    caps: TAILWIND_TRACKING['tracking-widest'],
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, number>>>>

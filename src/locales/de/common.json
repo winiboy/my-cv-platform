@@ -207,7 +207,9 @@
       "swissHealth": "Gesundheit & Soziales",
       "swissHealthDesc": "Diplome und Weiterbildungen zuerst",
       "swissFinance": "Bank, Finanzen & Versicherung",
-      "swissFinanceDesc": "Klassisches, seriöses Format"
+      "swissFinanceDesc": "Klassisches, seriöses Format",
+      "swissEngineering": "Ingenieurwesen & Technik",
+      "swissEngineeringDesc": "Schlüsselprojekte zuerst"
     },
     "new": {
       "title": "Neuen Lebenslauf erstellen",
