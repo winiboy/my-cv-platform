@@ -55,6 +55,7 @@ import { SwissFinanceTemplate } from './resume-templates/swiss-finance-template'
 import { SwissEngineeringTemplate } from './resume-templates/swiss-engineering-template'
 import { SwissItTemplate } from './resume-templates/swiss-it-template'
 import { SwissExecutiveTemplate } from './resume-templates/swiss-executive-template'
+import { SwissAcademicTemplate } from './resume-templates/swiss-academic-template'
 import { ModernTemplate } from './resume-templates/modern-template'
 import { ClassicTemplate } from './resume-templates/classic-template'
 import { MinimalTemplate } from './resume-templates/minimal-template'
@@ -1926,6 +1927,19 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
                           hiddenSidebarSections={hiddenSidebarSections}
                           hiddenContactFields={hiddenContactFields}
                           photoUrl={photoUrl}
+                        />
+                      )
+                    case 'swissAcademic':
+                      return (
+                        // As swissVocational, own typeface and sizes; it draws no photo,
+                        // so it is handed none (PRD FR-5 exception).
+                        <SwissAcademicTemplate
+                          resume={resume}
+                          locale={locale}
+                          dict={dict}
+                          hiddenMainSections={hiddenMainSections}
+                          hiddenSidebarSections={hiddenSidebarSections}
+                          hiddenContactFields={hiddenContactFields}
                         />
                       )
                     default:

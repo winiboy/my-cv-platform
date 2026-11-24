@@ -883,3 +883,85 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-008 The "Cadre & direction" template is available
 FINAL: PASS
+
+## US-009: The "Académique & recherche" template is available
+Status: PASS
+Priority: 11
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: b3f77be (US-008 story commit).
+Scope:
+- Scope check: PASS
+- Changed paths (53 under src/ and e2e/, 9 of them new, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-academic-template.ts`, `src/components/dashboard/resume-templates/swiss-academic-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-academic.ts`, each with its unit test.
+  - **Wiring:** `src/types/database.ts` (swissAcademic no longer unbuilt), `resume-editor.tsx` and `resume-preview.tsx` (no photo passed to this template), `template-picker.tsx` (BookOpen icon), `layout-settings.ts` (including `TEMPLATE_DRAWS_PHOTO.swissAcademic = false`), `resume-palette.ts`, `resume-graphics.ts`, `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `swiss-vocational-template.ts` (`swissHeading` type accepts `publications` and `distinctions`; no runtime change), `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route.
+  - **Locales:** the four `common.json` files: template name and description, and the two new heading labels FR-6 provides for — `resumes.template.publications` (fr "Publications et projets", en "Publications and projects", de "Publikationen und Projekte", it "Pubblicazioni e progetti") and `resumes.template.distinctions` (fr "Distinctions", en "Distinctions", de "Auszeichnungen", it "Riconoscimenti").
+  - **Print CSS:** `src/app/globals.css`, print-only rules scoped to `.swiss-academic-template`: named page `swiss-academic` with 48 px top and foot margins, print top padding 8 px, print foot padding 0.
+  - **Test lists:** the unit tests that enumerate templates; e2e template-picker, template-picker-compact (14 options), job-cv-template-picker, job-search-mobile, visual/resume-templates.
+  - **e2e:** new `e2e/swiss-academic-template.spec.ts`, including a stored, ticked photo that must draw no image in the Editor, the Preview and the .docx.
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissAcademic.png` (sha256 238ac5abdaa71920) and `swissAcademic-print.png` (3466d144ddec5f8e), regenerated with `--update-snapshots=all` in each round because the Preview changed.
+- Not touched: the five original templates and the eight earlier Swiss templates (renderers, Word generators, baselines, parity verdicts), the shared date, docx and format helpers, the stored photo, stored data; no migration; no new dependency; no version change; no push or merge of this commit.
+Checks (final diff hash 63bd94b71fc84368, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run and re-verified by the code-reviewer; logs in the session scratchpad `checks-us09-r3/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 5800 passed, 25 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 281 baseline; unchanged.
+- e2e: PASS — 666 passed, 0 failed (`e2e-full4.log`). Three earlier full runs on the same hash each had 665 passed and 1 failed, a different test each time, none rendering swissAcademic, all at the login step (the login page stayed on its loading skeleton, or the dashboard redirect timed out): `resume-page-break-pdf-count.spec.ts:93` (professional), `job-search-mobile.spec.ts:553` (375 px), `layout-persistence.spec.ts:174`. Each failing spec passed when rerun alone on the same hash (10/10, 20/20). The clean full run followed a restart of the local Supabase stack, which had been running for days.
+- visual (`pnpm test:visual`): PASS — 28/28; only the two new swissAcademic PNGs were added, the other 26 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier rounds, each invalidated by a fix:
+  - r1 (ea0494c206336b06): all green, but the Microsoft Word render wrapped "09.2013 – 06.2015" and "09.2010 – 06.2013" in the date column, which was measured at the Preview's 13 px while Word draws 10 pt. Fixed: measured at Word's half-point size plus 4 px, no-break spaces around the en dash, zero cell margins.
+  - r2 (adbd799fb1eb96ae): all green, ui-expert PASS, code-reviewer FAIL: (Critical) in Word a nameless project whose description opens with a list got no number, renumbering every later publication against the Preview's list; (Major) a free-text stored date wider than the 160 px column could wrap. Fixed: every item gets exactly one number (a numbered lead paragraph above a list), every space in a drawn date is a no-break space, the column grows to the widest date up to 242 px in both outputs; plus no-break space after the skill and language labels in Word, no break points in the Preview email, one bullet geometry in Word, a no-break space before the em dash.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample close to t9-academique.png ("Dr Elena Rossi"), plus a hidden experience, education entry, skill category, language, certificate and project; an ORCID-style website; a long DOI URL; a nameless project whose description is an HTML list; a distinction with the free-text date "Wintersemester 2021/2022"; long German words ("Neurowissenschaftsforschungsprogramm", "Datenauswertungsverfahren", "Gedächtniskonsolidierung"). Cases full-photo-fr and full-photo-de store a ticked photo; full-nophoto-en; empty-nophoto-fr (no projects, no certifications, every language hidden). Preview HTTP 200 in all four; photo img 0 in the Editor and Preview and Word media 0 in all four (photo never drawn); hidden text absent in Preview, PDF and Word (trace.txt). Preview captures: full-photo-fr 38d94eb081e0a643, full-photo-de d37a764e47b7afe3, full-nophoto-en af1ffaf94d7297bb, empty-nophoto-fr 070954f371384193. Picker: swissAcademic after swissExecutive; fr "Académique & recherche / Recherche et publications en avant", de "Akademisch & Forschung / Forschung und Publikationen zuerst"; picker-card-fr bf37352d90bfe872, picker-card-de 7afc3d631b0912dc. Live (ui-expert): the Contact tab shows no photo row for this template; the picker keeps one tab stop and arrow navigation over 14 options; no overflow at 1920, 768 and 375 px.
+- Visual: PASS — baselines regenerated in r3 on the final template code; the r3 visual run matched them.
+- Export: PASS (evidence folder `us09-evidence-r3/`).
+  - PDF: full-photo-fr 9476ad6f628ee3e9, full-photo-de 80145b657a1db3d8, full-nophoto-en f6defeab43c9f8b6 (2 pages each), empty-nophoto-fr fddc61b36ba235e8 (1 page).
+  - Word: full-photo-fr e6fc6b5a3a7fa66d, full-photo-de ca544ed4399cd1ff, full-nophoto-en 2130214d4b066fd2, empty-nophoto-fr c345da7e0a159740; no media in any.
+  - Rendered by Microsoft Word to PDF: full-photo-fr b12de77e7613df11, full-photo-de 7b741e2e5ef1548a, full-nophoto-en ddac9cdbda978fb9 (2 pages each), empty-nophoto-fr 6b8bed0c3e3eed43 (1 page). Serif type, small-caps headings with rules, one aligned date column on every section with no date wrapped, publications numbered 1–4 as in the Preview and the PDF, the last section on page 2 with its 48 px top margin in the PDF and in Word, long German words and the DOI URL whole.
+- Database: NOT_APPLICABLE — no schema or stored-data change; `swissAcademic` was already accepted by the US-001 constraint.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text through `renderFormattedText` (Preview, e2e 200) and the shared docx parsers; website and project URLs are drawn as plain text, not links; the photo is never read by this template's generator.
+Agents:
+- ui-expert: PASS (round 2, on r3), 7/7 conditions, 0 MAJOR, 4 MINOR (recorded below). Round 1 (on r2): PASS with 5 MINOR, of which the bullet indent and the em-dash break were fixed in r3.
+- code-reviewer: PASS (round 2, on r3, confirmed after the clean full e2e run). Round 1 (on r2): FAIL (Critical numbering, Major date wrap), fixed in r3.
+- senior-coder: implementation and the r1 and r2 fixes.
+Acceptance criteria:
+- AC-01 The picker shows swissAcademic after swissExecutive with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-academic-template.spec.ts`.
+- AC-02 Editor live preview, Preview, PDF and Word match t9-academique.png (serif type, no photo even when the CV has one; order summary, education, experience, "Publications and projects" as a numbered list, "Distinctions", skills and languages): PASS — the captures, PDFs and Word renders above; trace img 0 / media 0 with a stored ticked photo; ui-expert side-by-side comparison.
+- AC-03 FR-1 to FR-11 except the FR-5 photo requirement: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing labels plus the two FR-6 labels; the photo control not offered (FR-3).
+- Owner rule (no word split mid-word, dates never wrap, any locale): PASS for every word and date in the evidence, Preview, PDF and Word.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **No photo:** `TEMPLATE_DRAWS_PHOTO.swissAcademic = false` hides the Contact tab's photo row (upload and tick), so no photo control is offered (FR-3); the Editor and Preview pass no photo, the Word generator ignores `photoBase64`; the stored photo is unchanged and reappears with another template.
+- **Typeface and colours (AA, all on white):** serif stack (Georgia first) on the Preview, Georgia in Word. Ink #0f172a (17.85:1) for the name, headings and bold leads; body #1e293b (14.63:1); muted #475569 (7.58:1) for the title, contact line, dates, field of study and project extras; #94a3b8 for the heading rules (decoration only).
+- **Headings:** bold small capitals with 0.1em letter spacing and a 1 px rule; the summary under the existing summary label (FR-6: "Profil de recherche" reads as the summary); the last section from the existing labels "skills & languages".
+- **Date column:** one column for the whole page, as wide as the widest drawn date measured in Georgia at Word's size plus 4 px, up to 242 px (the entries keep at least 60 % of the 666 px content width); the Preview grid and Word's column and cell widths use the same value; every space in a drawn date is a no-break space; no dates, no column. Distinction dates MM.YYYY as the other Swiss templates print them.
+- **Entries:** education "**degree** — school", then the stored field of study in grey italics (where a "Thèse : …" text lives); experience "**position** — company, location", then bullets or description; a no-break space before every em dash.
+- **Publications and projects:** the stored `projects` as a numbered list: name in bold on its own line, the description, then technologies and the url as muted lines; project dates not drawn. Word uses a real decimal numbered list; an item whose text opens with a list gets its number on a lead paragraph of its own.
+- **Last section:** "**Category:** skills" per visible category (rich `skillsHtml` under its label), then "**Languages:** language (level), …" with the existing level names (FR-7); a no-break space after each label.
+- **Links:** a contact value or link that fits its line keeps its hyphens unbreakable in Word (`w:noBreakHyphen`); a wider one gets break points at its boundaries; the email never gets break points, in either output.
+
+Open owner decisions:
+- **Date wider than 242 px (code comment wrong):** a single stored free-text date wider than 242 px (about 38+ characters) overflows its column on the Preview, but Word cannot overflow a fixed-layout cell and would split it inside a word, against the owner rule. The comment in `swiss-academic-template.ts` (~77-83, 189-190) says it overflows in both. The editor stores dates as months, so only AI or imported data can reach it. Correcting the comment, or wrapping such a date at its spaces in both outputs, is a follow-up.
+- **FR-10, numbered item opening with a list:** in Word the number sits alone on its line above the list; the Preview and the PDF put it on the first list line. Content and numbering match.
+- **Wide date column:** one long free-text date widens the whole page's date column (about 190 px in the sample against about 102 px in the mockup), so long positions take an extra line; this follows from "dates never wrap" and one aligned column.
+- **Summary alignment:** left-aligned; the mockup justifies it. Kept left-aligned for long German compounds.
+- **FR-10, Word typeface:** Georgia is a Windows/Office face; where it is missing Word substitutes, and the date-column fit is measured in Georgia with a 4 px margin.
+- **Test strength:** the page-2 margin e2e check (`swiss-academic-template.spec.ts:319`) has a lower bound only; an upper bound would catch a doubled margin.
+- **Code:** the entry building is written in both the renderer and the Word generator (the r3 date fix had to edit both); the Word route still decodes `photoBase64` for this template although the generator ignores it.
+- **e2e flakiness:** three full runs each lost one unrelated test at login after the local Supabase stack had run for days; a restart cleared it. Worth tracking outside this initiative.
+- **Carried over from earlier stories:** the swissIt latent hyphen break in Word contact values; Inter not embedded in Word; swissCommerce has no page-2 top margin; swissEngineering URLs can break at in-word hyphens; stale comments in `docx-swiss-engineering.ts` and `swiss-engineering-template.tsx`; the shared `formatSwissDateRange` shows "present" for a missing end date when `current` is false; shrinking photos at upload needs a PRD amendment.
+
+Environment notes:
+- The checks ran alone; the owner's local dev server was stopped for each run and restarted afterwards. One stop interrupted the owner while using it (a CV created from a job application had already been saved, HTTP 201).
+- The local Supabase stack was restarted (stop/start, data kept) before the clean e2e run.
+- The evidence spec was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- ui-expert left a throwaway local account (uiexp-us009-…@example.test) with one CV on the local stack only.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-009 The "Académique & recherche" template is available
+FINAL: PASS

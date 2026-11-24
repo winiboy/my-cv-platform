@@ -25,6 +25,7 @@ import { generateSwissFinanceDocx } from './docx-swiss-finance'
 import { generateSwissEngineeringDocx } from './docx-swiss-engineering'
 import { generateSwissItDocx } from './docx-swiss-it'
 import { generateSwissExecutiveDocx } from './docx-swiss-executive'
+import { generateSwissAcademicDocx } from './docx-swiss-academic'
 
 /**
  * swiss-cv-templates FR-14: an unticked contact detail, CV title or photo is
@@ -50,6 +51,7 @@ const GENERATORS: Record<DocxTemplateId, (resume: unknown, settings: DocxGenerat
   swissEngineering: generateSwissEngineeringDocx,
   swissIt: generateSwissItDocx,
   swissExecutive: generateSwissExecutiveDocx,
+  swissAcademic: generateSwissAcademicDocx,
 }
 
 const PHOTO = `data:image/png;base64,${solidColourPng('336699').toString('base64')}`

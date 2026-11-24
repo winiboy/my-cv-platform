@@ -213,7 +213,9 @@
       "swissIt": "IT & software",
       "swissItDesc": "Puts your stack and projects first",
       "swissExecutive": "Executive & management",
-      "swissExecutiveDesc": "Puts your key achievements first"
+      "swissExecutiveDesc": "Puts your key achievements first",
+      "swissAcademic": "Academic & research",
+      "swissAcademicDesc": "Puts your research and publications first"
     },
     "new": {
       "title": "Create New Resume",
@@ -385,6 +387,8 @@
     "template": {
       "keyAchievements": "Key Achievements",
       "projects": "Projects",
+      "publications": "Publications and projects",
+      "distinctions": "Distinctions",
       "skills": "Skills",
       "languages": "Languages",
       "training": "Training / Courses",

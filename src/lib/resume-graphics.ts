@@ -463,6 +463,15 @@ export const PREVIEW_GRAPHICS = {
         'cell between them for the gap; an odd last card stays in the left column.',
     },
   },
+  swissAcademic: {
+    headingRule: {
+      element: 'the thin rule under every section heading (`SWISS_ACADEMIC_GEOMETRY.headingRule` thick, `headingRuleGap` below the text)',
+      form: 'paragraph-bottom-border',
+      approximation:
+        'The heading paragraph’s bottom border in the rule’s colour, its width rounded to Word’s eighths of a point and its ' +
+        'gap to the text rounded to whole points, spanning the text width as the Preview’s border does.',
+    },
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewGraphic>>>>
 
 // ---------------------------------------------------------------------------

@@ -224,8 +224,16 @@ describe('POST /api/ai/generate-from-job-description', () => {
     expect(inserted().template).toBe('swissExecutive')
   })
 
+  it('creates a CV with the swissAcademic template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply())
+
+    const response = await POST(createRequest({ ...MODAL_BODY, template: 'swissAcademic' }))
+
+    expect(response.status).toBe(200)
+    expect(inserted().template).toBe('swissAcademic')
+  })
+
   it.each([
-    'swissAcademic',
     'swissFirstJob',
   ])('refuses %s, a Swiss template that is not built yet, before calling the AI', async (template) => {
     const response = await POST(createRequest({ ...MODAL_BODY, template }))

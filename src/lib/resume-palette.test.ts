@@ -668,6 +668,17 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     'style backgroundColor: #f5efe3': { count: 1, palette: 'photoFill' },
     'bg-white': { count: 1, excluded: PAGE },
   },
+  swissAcademic: {
+    // The name, the headings, a bold lead (entry, publication), a skill or languages label.
+    'style color: #0f172a': { count: 7, palette: 'ink' },
+    // Rich text, entry lines, bullets, publications and the last section.
+    'style color: #1e293b': { count: 5, palette: 'body' },
+    // The title, the contact line, the dates, the field of study, a publication's technologies and link.
+    'style color: #475569': { count: 5, palette: 'muted' },
+    // The rule under every heading.
+    'style borderBottomColor: #94a3b8': { count: 1, palette: 'rule' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -753,7 +764,7 @@ describe('PREVIEW_PALETTE', () => {
   )
 
   it('covers every built template', () => {
-    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissCommerce', 'swissEngineering', 'swissExecutive', 'swissFinance', 'swissHealth', 'swissIt', 'swissTrades', 'swissVocational'])
+    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissAcademic', 'swissCommerce', 'swissEngineering', 'swissExecutive', 'swissFinance', 'swissHealth', 'swissIt', 'swissTrades', 'swissVocational'])
   })
 
   it('holds each Preview colour of a template once', () => {

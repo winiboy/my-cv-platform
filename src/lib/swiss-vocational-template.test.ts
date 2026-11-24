@@ -33,7 +33,6 @@ const ORIGINAL = ['professional', 'modern', 'classic', 'minimal', 'creative'] as
 
 /** The Swiss templates the schema accepts whose story has not landed. */
 const UNBUILT: readonly ResumeTemplate[] = [
-  'swissAcademic',
   'swissFirstJob',
 ]
 

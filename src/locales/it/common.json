@@ -213,7 +213,9 @@
       "swissIt": "Informatica e IT",
       "swissItDesc": "Tecnologie e progetti in primo piano",
       "swissExecutive": "Quadri e direzione",
-      "swissExecutiveDesc": "Risultati chiave in primo piano"
+      "swissExecutiveDesc": "Risultati chiave in primo piano",
+      "swissAcademic": "Accademico e ricerca",
+      "swissAcademicDesc": "Ricerca e pubblicazioni in primo piano"
     },
     "new": {
       "title": "Crea nuovo CV",
@@ -385,6 +387,8 @@
     "template": {
       "keyAchievements": "Risultati chiave",
       "projects": "Progetti",
+      "publications": "Pubblicazioni e progetti",
+      "distinctions": "Riconoscimenti",
       "skills": "Competenze",
       "languages": "Lingue",
       "training": "Formazione / Corsi",

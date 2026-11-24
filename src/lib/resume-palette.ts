@@ -385,4 +385,19 @@ export const PREVIEW_PALETTE = {
     /** The contact line, dates, an entry's second line, a card's technologies and link: 4.8:1 on white. Never drawn on the cream box. */
     muted: inline('#64748b'),
   },
+  /**
+   * Every colour is inline, as for the other Swiss templates. The page is
+   * white throughout and every text colour meets WCAG AA (4.5:1) on it; the
+   * heading rule carries no text.
+   */
+  swissAcademic: {
+    /** The name, the headings, and the bold lead of an entry, a publication and a skill line: 17.9:1 on white. */
+    ink: inline('#0f172a'),
+    /** Running text, bullets, descriptions, distinctions and the last section's lines: 14.6:1 on white. */
+    body: inline('#1e293b'),
+    /** The CV title, the contact line, the dates, the field of study and a publication's technologies and link: slate-600, 7.6:1 on white. */
+    muted: inline('#475569'),
+    /** The thin rule under every heading: slate-400. Decoration, no text. */
+    rule: inline('#94a3b8'),
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewColour>>>>

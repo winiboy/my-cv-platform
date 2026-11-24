@@ -1455,11 +1455,11 @@ export const LAYOUT_CONTROL_KEYS: Readonly<
  * each generator the same model, so what a template is PASSED and what its
  * generator READS is the whole of the question:
  *
- *                     professional  modern   classic  minimal  creative  swissVocational  swissCommerce    swissTrades      swissHealth      swissFinance     swissEngineering  swissIt          swissExecutive
- *   font                   yes       yes       yes      yes      yes         no               no               no               no               no               no                no               no
- *   sidebarColour          yes       yes       no       no       no          no               no               no               no               no               no                no               no
- *   perPropertySize        no        no        yes      yes      yes         no               no               no               no               no               no                no               no
- *   sidebarSections        yes       yes       no       no       yes         visibility only  visibility only  visibility only  visibility only  visibility only  visibility only   visibility only  visibility only
+ *                     professional  modern   classic  minimal  creative  swissVocational  swissCommerce    swissTrades      swissHealth      swissFinance     swissEngineering  swissIt          swissExecutive   swissAcademic
+ *   font                   yes       yes       yes      yes      yes         no               no               no               no               no               no                no               no               no
+ *   sidebarColour          yes       yes       no       no       no          no               no               no               no               no               no                no               no               no
+ *   perPropertySize        no        no        yes      yes      yes         no               no               no               no               no               no                no               no               no
+ *   sidebarSections        yes       yes       no       no       yes         visibility only  visibility only  visibility only  visibility only  visibility only  visibility only   visibility only  visibility only  visibility only
  *
  * font — the five original templates draw the stored font family and font
  *   scale. A Swiss template draws its own typeface at scale 1.0 in every output
@@ -1532,6 +1532,8 @@ export const TEMPLATE_LAYOUT_CONTROLS: Readonly<
   swissIt: Object.freeze(['sidebarSections'] as const),
   /** swissExecutive: the same reasoning as swissVocational, with its own fixed rows below. */
   swissExecutive: Object.freeze(['sidebarSections'] as const),
+  /** swissAcademic: the same reasoning as swissVocational, with its own fixed rows below. */
+  swissAcademic: Object.freeze(['sidebarSections'] as const),
 })
 
 /**
@@ -1571,6 +1573,9 @@ export const TEMPLATE_DRAWS_PHOTO: Readonly<Record<BuiltResumeTemplate, boolean>
   swissEngineering: true,
   swissIt: true,
   swissExecutive: true,
+  // The PRD's one exception to FR-5: no photo on any output, so the Contact
+  // tab offers neither the photo row nor its tick for it (FR-3).
+  swissAcademic: false,
 })
 
 /**
@@ -1616,6 +1621,7 @@ export const TEMPLATE_APPLIED_SIZE_KEYS: Readonly<
   swissEngineering: Object.freeze([] as const),
   swissIt: Object.freeze([] as const),
   swissExecutive: Object.freeze([] as const),
+  swissAcademic: Object.freeze([] as const),
 })
 
 // ---------- Which section ids the editor's panels offer ----------
@@ -1785,6 +1791,20 @@ export const TEMPLATE_EDITOR_SECTIONS: Readonly<
     sidebar: Object.freeze(['keyAchievements', 'languages', 'training'] as const),
     main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
     fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'keyAchievements', 'languages', 'training'] as const),
+  }),
+  /**
+   * swissAcademic draws summary, education, experience, the projects as its
+   * numbered publications (`keyAchievements`), the certifications as its
+   * distinctions (`training`), then one last section for the skills and the
+   * languages, in a fixed sequence: every row it lists is fixed. Hiding
+   * skills or languages drops that part of the last section, and the section
+   * with both.
+   */
+  swissAcademic: Object.freeze({
+    // In the order the template draws them, as for swissVocational.
+    sidebar: Object.freeze(['keyAchievements', 'training', 'skills', 'languages'] as const),
+    main: Object.freeze(['summary', 'education', 'experience'] as const),
+    fixed: Object.freeze(['summary', 'education', 'experience', 'keyAchievements', 'training', 'skills', 'languages'] as const),
   }),
 })
 

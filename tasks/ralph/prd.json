@@ -670,7 +670,7 @@
         "Out of scope: A version bump."
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

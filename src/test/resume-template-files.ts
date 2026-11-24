@@ -22,6 +22,7 @@ const FILE_STEM: Readonly<Record<BuiltResumeTemplate, string>> = {
   swissEngineering: 'swiss-engineering',
   swissIt: 'swiss-it',
   swissExecutive: 'swiss-executive',
+  swissAcademic: 'swiss-academic',
 }
 
 /** The repository-relative path of a template's Preview component. */

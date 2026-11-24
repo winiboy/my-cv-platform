@@ -89,6 +89,24 @@ describe('resumes.templates locale parity', () => {
     expect(it_.resumes.templates.swissExecutive).toBe('Quadri e direzione')
   })
 
+  it('names the academic template as the swiss-cv-templates PRD does', () => {
+    expect(fr.resumes.templates.swissAcademic).toBe('Académique & recherche')
+    expect(en.resumes.templates.swissAcademic).toBe('Academic & research')
+    expect(de.resumes.templates.swissAcademic).toBe('Akademisch & Forschung')
+    expect(it_.resumes.templates.swissAcademic).toBe('Accademico e ricerca')
+  })
+
+  it('adds the publications and distinctions headings of swiss-cv-templates FR-6 in every locale', () => {
+    expect(fr.resumes.template.publications).toBe('Publications et projets')
+    expect(en.resumes.template.publications).toBe('Publications and projects')
+    expect(de.resumes.template.publications).toBe('Publikationen und Projekte')
+    expect(it_.resumes.template.publications).toBe('Pubblicazioni e progetti')
+    expect(fr.resumes.template.distinctions).toBe('Distinctions')
+    expect(en.resumes.template.distinctions).toBe('Distinctions')
+    expect(de.resumes.template.distinctions).toBe('Auszeichnungen')
+    expect(it_.resumes.template.distinctions).toBe('Riconoscimenti')
+  })
+
   it('adds the projects heading of swiss-cv-templates FR-6 in every locale', () => {
     expect(fr.resumes.template.projects).toBe('Projets')
     expect(en.resumes.template.projects).toBe('Projects')

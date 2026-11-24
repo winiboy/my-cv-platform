@@ -28,22 +28,21 @@ import {
 const DICTS: Record<Locale, Record<string, unknown>> = { fr, en, de, it: it_ }
 const LOCALES = Object.keys(DICTS) as Locale[]
 /** The five original templates in their original order, then the Swiss templates built so far. */
-const EXPECTED_ORDER: ResumeTemplate[] = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive']
+const EXPECTED_ORDER: ResumeTemplate[] = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic']
 
 /**
  * The Swiss templates whose story has not landed: offered by no creation
  * surface, although the schema accepts them (migration 011).
  */
 const UNBUILT: readonly ResumeTemplate[] = [
-  'swissAcademic',
   'swissFirstJob',
 ]
 
 const EXPECTED_NAMES: Record<Locale, string[]> = {
-  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique', 'Informatique & IT', 'Cadre & direction'],
-  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering', 'IT & software', 'Executive & management'],
-  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung', 'Technische & handwerkliche Berufe', 'Gesundheit & Soziales', 'Bank, Finanzen & Versicherung', 'Ingenieurwesen & Technik', 'Informatik & IT', 'Kader & Geschäftsleitung'],
-  it: ['Moderno', 'Classico', 'Minimale', 'Creativo', 'Professionale', 'Formazione professionale (AFC)', 'Commercio e amministrazione', 'Mestieri tecnici e manuali', 'Sanità e sociale', 'Banca, finanza e assicurazioni', 'Ingegneria e tecnica', 'Informatica e IT', 'Quadri e direzione'],
+  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique', 'Informatique & IT', 'Cadre & direction', 'Académique & recherche'],
+  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering', 'IT & software', 'Executive & management', 'Academic & research'],
+  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung', 'Technische & handwerkliche Berufe', 'Gesundheit & Soziales', 'Bank, Finanzen & Versicherung', 'Ingenieurwesen & Technik', 'Informatik & IT', 'Kader & Geschäftsleitung', 'Akademisch & Forschung'],
+  it: ['Moderno', 'Classico', 'Minimale', 'Creativo', 'Professionale', 'Formazione professionale (AFC)', 'Commercio e amministrazione', 'Mestieri tecnici e manuali', 'Sanità e sociale', 'Banca, finanza e assicurazioni', 'Ingegneria e tecnica', 'Informatica e IT', 'Quadri e direzione', 'Accademico e ricerca'],
 }
 
 interface RenderedRadio {
@@ -250,12 +249,14 @@ describe('templateIdForKey', () => {
     expect(templateIdForKey('swissFinance', 'ArrowRight')).toBe('swissEngineering')
     expect(templateIdForKey('swissEngineering', 'ArrowRight')).toBe('swissIt')
     expect(templateIdForKey('swissIt', 'ArrowRight')).toBe('swissExecutive')
-    expect(templateIdForKey('swissExecutive', 'ArrowRight')).toBe('modern')
+    expect(templateIdForKey('swissExecutive', 'ArrowRight')).toBe('swissAcademic')
+    expect(templateIdForKey('swissAcademic', 'ArrowRight')).toBe('modern')
   })
 
   it('moves back with ArrowLeft and ArrowUp, wrapping from the first option', () => {
     expect(templateIdForKey('classic', 'ArrowLeft')).toBe('modern')
-    expect(templateIdForKey('modern', 'ArrowUp')).toBe('swissExecutive')
+    expect(templateIdForKey('modern', 'ArrowUp')).toBe('swissAcademic')
+    expect(templateIdForKey('swissAcademic', 'ArrowLeft')).toBe('swissExecutive')
     expect(templateIdForKey('swissExecutive', 'ArrowLeft')).toBe('swissIt')
     expect(templateIdForKey('swissIt', 'ArrowLeft')).toBe('swissEngineering')
     expect(templateIdForKey('swissEngineering', 'ArrowLeft')).toBe('swissFinance')
@@ -268,7 +269,7 @@ describe('templateIdForKey', () => {
 
   it('jumps to the ends with Home and End', () => {
     expect(templateIdForKey('minimal', 'Home')).toBe('modern')
-    expect(templateIdForKey('minimal', 'End')).toBe('swissExecutive')
+    expect(templateIdForKey('minimal', 'End')).toBe('swissAcademic')
   })
 
   it('ignores keys that do not move the selection', () => {

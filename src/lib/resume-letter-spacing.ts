@@ -124,4 +124,8 @@ export const PREVIEW_TRACKING = {
     /** The CV title's spaced capitals. */
     caps: TAILWIND_TRACKING['tracking-widest'],
   },
+  swissAcademic: {
+    /** Every section heading's letter-spaced small capitals. */
+    caps: TAILWIND_TRACKING['tracking-widest'],
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, number>>>>

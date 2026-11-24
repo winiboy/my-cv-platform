@@ -635,6 +635,28 @@
     margin-bottom: 48px;
   }
 
+  /* swissAcademic (swiss-cv-templates US-009) prints every page with a top and
+     a foot margin, as swissExecutive above: one named page
+     (`swiss-academic`), its margins SWISS_ACADEMIC_GEOMETRY.pageTop and
+     .pageBottom, which the Word export also uses; the document's top padding
+     gives up the top margin (56px - 48px) and its foot padding gives way to
+     the foot margin. swiss-academic-template.test.ts holds these equal. Print
+     only: the Preview on screen is unchanged. */
+  html:has(.swiss-academic-template),
+  body:has(.swiss-academic-template) {
+    page: swiss-academic;
+  }
+
+  .swiss-academic-template {
+    padding-top: 8px !important;
+    padding-bottom: 0 !important;
+  }
+
+  @page swiss-academic {
+    margin-top: 48px;
+    margin-bottom: 48px;
+  }
+
   /* Preserve colors in CV templates */
   * {
     print-color-adjust: exact !important;

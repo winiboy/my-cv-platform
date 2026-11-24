@@ -176,6 +176,17 @@ export const SWISS_EXECUTIVE_LINE_HEIGHT = {
 } as const
 
 /**
+ * `swiss-academic-template.tsx`: the name; the CV title, the contact line and
+ * the section headings; running text, every entry and its date, the
+ * publications and the last section's lines.
+ */
+export const SWISS_ACADEMIC_LINE_HEIGHT = {
+  name: 1.15,
+  compact: 1.4,
+  text: 1.5,
+} as const
+
+/**
  * `modern-template.tsx`: the vertical padding, in CSS px, of the accent bar the
  * job title is drawn on (`padding: 4px 12px`). The bar's box is its text line
  * plus this padding above and below.

@@ -16,6 +16,7 @@ import { SwissFinanceTemplate } from '@/components/dashboard/resume-templates/sw
 import { SwissEngineeringTemplate } from '@/components/dashboard/resume-templates/swiss-engineering-template'
 import { SwissItTemplate } from '@/components/dashboard/resume-templates/swiss-it-template'
 import { SwissExecutiveTemplate } from '@/components/dashboard/resume-templates/swiss-executive-template'
+import { SwissAcademicTemplate } from '@/components/dashboard/resume-templates/swiss-academic-template'
 
 /**
  * Part 3 US-016: every template's Preview reads the rich text the editor saved.
@@ -52,18 +53,19 @@ const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
   swissEngineering: SwissEngineeringTemplate as ComponentType<never>,
   swissIt: SwissItTemplate as ComponentType<never>,
   swissExecutive: SwissExecutiveTemplate as ComponentType<never>,
+  swissAcademic: SwissAcademicTemplate as ComponentType<never>,
 }
 
 const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
 
 /** Templates that render a project description at all. Professional has no projects section. */
-const RENDERS_PROJECT_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'creative', 'minimal', 'modern', 'swissEngineering', 'swissIt', 'swissExecutive']
+const RENDERS_PROJECT_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'creative', 'minimal', 'modern', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic']
 
 /** Templates whose mockup draws no skills section, so they render no skill at all (swiss-cv-templates US-008). */
 const DRAWS_NO_SKILLS: readonly ResumeTemplate[] = ['swissExecutive']
 
 /** Templates that render an education description at all. */
-const RENDERS_EDUCATION_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive']
+const RENDERS_EDUCATION_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic']
 
 function buildResume(overrides: Partial<Record<string, unknown>>): Resume {
   return {
