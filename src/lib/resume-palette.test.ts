@@ -679,6 +679,28 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     'style borderBottomColor: #94a3b8': { count: 1, palette: 'rule' },
     'bg-white': { count: 1, excluded: PAGE },
   },
+  swissFirstJob: {
+    // The sidebar's fill.
+    'style backgroundColor: #f5f3ff': { count: 1, palette: 'sidebar' },
+    // The name.
+    'style color: #4c1d95': { count: 1, palette: 'name' },
+    // The CV title, the headings of both columns, an entry's date line.
+    'style color: #6d28d9': { count: 4, palette: 'accent' },
+    // A heading's circle; a language's filled dots.
+    'style backgroundColor: #7c3aed': { count: 2, palette: 'mark' },
+    // A language's empty dots.
+    'style backgroundColor: #ddd6fe': { count: 1, palette: 'emptyDot' },
+    // The photo's ring and fill.
+    'style borderColor: #c4b5fd': { count: 1, palette: 'soft' },
+    'style backgroundColor: #ede9fe': { count: 1, palette: 'photoFill' },
+    // A skill category's caption; an entry's bold title.
+    'style color: #0f172a': { count: 2, palette: 'ink' },
+    // Every line of the sidebar; rich text and bullets.
+    'style color: #1e293b': { count: 3, palette: 'body' },
+    // An entry's second line.
+    'style color: #475569': { count: 1, palette: 'muted' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -764,7 +786,7 @@ describe('PREVIEW_PALETTE', () => {
   )
 
   it('covers every built template', () => {
-    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissAcademic', 'swissCommerce', 'swissEngineering', 'swissExecutive', 'swissFinance', 'swissHealth', 'swissIt', 'swissTrades', 'swissVocational'])
+    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissAcademic', 'swissCommerce', 'swissEngineering', 'swissExecutive', 'swissFinance', 'swissFirstJob', 'swissHealth', 'swissIt', 'swissTrades', 'swissVocational'])
   })
 
   it('holds each Preview colour of a template once', () => {

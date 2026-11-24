@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const validTemplates: readonly string[] = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic'] satisfies readonly BuiltResumeTemplate[]
+    const validTemplates: readonly string[] = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob'] satisfies readonly BuiltResumeTemplate[]
     if (!template || !validTemplates.includes(template)) {
       return NextResponse.json(
         { error: `Invalid template. Must be one of: ${validTemplates.join(', ')}` },

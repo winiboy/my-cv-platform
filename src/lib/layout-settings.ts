@@ -1455,11 +1455,11 @@ export const LAYOUT_CONTROL_KEYS: Readonly<
  * each generator the same model, so what a template is PASSED and what its
  * generator READS is the whole of the question:
  *
- *                     professional  modern   classic  minimal  creative  swissVocational  swissCommerce    swissTrades      swissHealth      swissFinance     swissEngineering  swissIt          swissExecutive   swissAcademic
- *   font                   yes       yes       yes      yes      yes         no               no               no               no               no               no                no               no               no
- *   sidebarColour          yes       yes       no       no       no          no               no               no               no               no               no                no               no               no
- *   perPropertySize        no        no        yes      yes      yes         no               no               no               no               no               no                no               no               no
- *   sidebarSections        yes       yes       no       no       yes         visibility only  visibility only  visibility only  visibility only  visibility only  visibility only   visibility only  visibility only  visibility only
+ *                     professional  modern   classic  minimal  creative  swissVocational  swissCommerce    swissTrades      swissHealth      swissFinance     swissEngineering  swissIt          swissExecutive   swissAcademic    swissFirstJob
+ *   font                   yes       yes       yes      yes      yes         no               no               no               no               no               no                no               no               no               no
+ *   sidebarColour          yes       yes       no       no       no          no               no               no               no               no               no                no               no               no               no
+ *   perPropertySize        no        no        yes      yes      yes         no               no               no               no               no               no                no               no               no               no
+ *   sidebarSections        yes       yes       no       no       yes         visibility only  visibility only  visibility only  visibility only  visibility only  visibility only   visibility only  visibility only  visibility only  visibility only
  *
  * font — the five original templates draw the stored font family and font
  *   scale. A Swiss template draws its own typeface at scale 1.0 in every output
@@ -1534,6 +1534,12 @@ export const TEMPLATE_LAYOUT_CONTROLS: Readonly<
   swissExecutive: Object.freeze(['sidebarSections'] as const),
   /** swissAcademic: the same reasoning as swissVocational, with its own fixed rows below. */
   swissAcademic: Object.freeze(['sidebarSections'] as const),
+  /**
+   * swissFirstJob: the same reasoning as swissTrades. Its light violet sidebar
+   * is a fixed part of its design, not the user's sidebar: it paints no user
+   * colour, and every row it lists is fixed below.
+   */
+  swissFirstJob: Object.freeze(['sidebarSections'] as const),
 })
 
 /**
@@ -1576,6 +1582,7 @@ export const TEMPLATE_DRAWS_PHOTO: Readonly<Record<BuiltResumeTemplate, boolean>
   // The PRD's one exception to FR-5: no photo on any output, so the Contact
   // tab offers neither the photo row nor its tick for it (FR-3).
   swissAcademic: false,
+  swissFirstJob: true,
 })
 
 /**
@@ -1622,6 +1629,7 @@ export const TEMPLATE_APPLIED_SIZE_KEYS: Readonly<
   swissIt: Object.freeze([] as const),
   swissExecutive: Object.freeze([] as const),
   swissAcademic: Object.freeze([] as const),
+  swissFirstJob: Object.freeze([] as const),
 })
 
 // ---------- Which section ids the editor's panels offer ----------
@@ -1805,6 +1813,18 @@ export const TEMPLATE_EDITOR_SECTIONS: Readonly<
     sidebar: Object.freeze(['keyAchievements', 'training', 'skills', 'languages'] as const),
     main: Object.freeze(['summary', 'education', 'experience'] as const),
     fixed: Object.freeze(['summary', 'education', 'experience', 'keyAchievements', 'training', 'skills', 'languages'] as const),
+  }),
+  /**
+   * swissFirstJob draws summary, experience and education in its main column,
+   * then skills, languages and certifications (`training`) in its sidebar, each
+   * in a fixed sequence: every row it lists is fixed. Its mockup draws no
+   * projects, so the template draws none and the projects row is not listed.
+   */
+  swissFirstJob: Object.freeze({
+    // In the order the template draws them, as for swissVocational.
+    sidebar: Object.freeze(['skills', 'languages', 'training'] as const),
+    main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
+    fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'skills', 'languages', 'training'] as const),
   }),
 })
 

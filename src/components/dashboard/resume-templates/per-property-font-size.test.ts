@@ -24,6 +24,7 @@ import { SwissEngineeringTemplate } from '@/components/dashboard/resume-template
 import { SwissItTemplate } from '@/components/dashboard/resume-templates/swiss-it-template'
 import { SwissExecutiveTemplate } from '@/components/dashboard/resume-templates/swiss-executive-template'
 import { SwissAcademicTemplate } from '@/components/dashboard/resume-templates/swiss-academic-template'
+import { SwissFirstJobTemplate } from '@/components/dashboard/resume-templates/swiss-first-job-template'
 import { generateClassicDocx } from '@/app/api/resumes/[id]/download-docx/docx-classic'
 import { generateCreativeDocx } from '@/app/api/resumes/[id]/download-docx/docx-creative'
 import { generateMinimalDocx } from '@/app/api/resumes/[id]/download-docx/docx-minimal'
@@ -38,6 +39,7 @@ import { generateSwissEngineeringDocx } from '@/app/api/resumes/[id]/download-do
 import { generateSwissItDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-it'
 import { generateSwissExecutiveDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-executive'
 import { generateSwissAcademicDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-academic'
+import { generateSwissFirstJobDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-first-job'
 import { pxToHalfPoints, type DocxGeneratorSettings } from '@/app/api/resumes/[id]/download-docx/docx-helpers'
 
 /**
@@ -76,7 +78,7 @@ const BUMPED: Readonly<Record<PerPropertySizeKey, number>> = {
 
 const SIZE_KEYS = LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[]
 
-const TEMPLATES: readonly ResumeTemplate[] = ['classic', 'minimal', 'creative', 'modern', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic']
+const TEMPLATES: readonly ResumeTemplate[] = ['classic', 'minimal', 'creative', 'modern', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
 
 const PREVIEWS: Readonly<Partial<Record<ResumeTemplate, ComponentType<never>>>> = {
   classic: ClassicTemplate as ComponentType<never>,
@@ -92,6 +94,7 @@ const PREVIEWS: Readonly<Partial<Record<ResumeTemplate, ComponentType<never>>>> 
   swissIt: SwissItTemplate as ComponentType<never>,
   swissExecutive: SwissExecutiveTemplate as ComponentType<never>,
   swissAcademic: SwissAcademicTemplate as ComponentType<never>,
+  swissFirstJob: SwissFirstJobTemplate as ComponentType<never>,
 }
 
 const GENERATORS: Readonly<
@@ -111,6 +114,7 @@ const GENERATORS: Readonly<
   swissIt: generateSwissItDocx,
   swissExecutive: generateSwissExecutiveDocx,
   swissAcademic: generateSwissAcademicDocx,
+  swissFirstJob: generateSwissFirstJobDocx,
 }
 
 const RESUME = {

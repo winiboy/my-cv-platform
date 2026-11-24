@@ -211,8 +211,7 @@ export type ResumeTemplate = Resume['template']
  * fails to compile until every registry states that template's real value; the
  * registry lookups resolve an id they do not hold as modern.
  */
-export type UnbuiltResumeTemplate =
-  | 'swissFirstJob'
+export type UnbuiltResumeTemplate = never
 
 /** The template identifiers that have a template on every surface. */
 export type BuiltResumeTemplate = Exclude<ResumeTemplate, UnbuiltResumeTemplate>

@@ -215,7 +215,9 @@
       "swissExecutive": "Kader & Geschäftsleitung",
       "swissExecutiveDesc": "Wichtige Erfolge zuerst",
       "swissAcademic": "Akademisch & Forschung",
-      "swissAcademicDesc": "Forschung und Publikationen zuerst"
+      "swissAcademicDesc": "Forschung und Publikationen zuerst",
+      "swissFirstJob": "Erste Stelle",
+      "swissFirstJobDesc": "Fähigkeiten und Ausbildung zuerst"
     },
     "new": {
       "title": "Neuen Lebenslauf erstellen",

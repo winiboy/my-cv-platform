@@ -1378,6 +1378,7 @@ describe('which templates draw the photo (swiss-cv-templates FR-5, FR-14)', () =
       swissIt: true,
       swissExecutive: true,
       swissAcademic: false,
+      swissFirstJob: true,
     })
   })
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { memo, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { BookOpen, Briefcase, Building2, Crown, DraftingCompass, FileText, GraduationCap, HeartPulse, Landmark, Layout, PenTool, Sparkles, Terminal, Wrench, type LucideIcon } from 'lucide-react'
+import { BookOpen, Briefcase, Building2, Crown, DraftingCompass, FileText, GraduationCap, HeartPulse, Landmark, Layout, PenTool, Rocket, Sparkles, Terminal, Wrench, type LucideIcon } from 'lucide-react'
 import { ResumePreview } from '@/components/dashboard/resume-preview'
 import type { Locale } from '@/lib/i18n'
 import { PAGE_HEIGHT_MM, PAGE_WIDTH_MM, PAGE_WIDTH_PX } from '@/lib/resume-page-size'
@@ -33,6 +33,7 @@ export const TEMPLATE_OPTIONS: readonly TemplateOption[] = [
   { id: 'swissIt', icon: Terminal },
   { id: 'swissExecutive', icon: Crown },
   { id: 'swissAcademic', icon: BookOpen },
+  { id: 'swissFirstJob', icon: Rocket },
 ]
 
 /**

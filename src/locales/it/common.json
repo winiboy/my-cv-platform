@@ -215,7 +215,9 @@
       "swissExecutive": "Quadri e direzione",
       "swissExecutiveDesc": "Risultati chiave in primo piano",
       "swissAcademic": "Accademico e ricerca",
-      "swissAcademicDesc": "Ricerca e pubblicazioni in primo piano"
+      "swissAcademicDesc": "Ricerca e pubblicazioni in primo piano",
+      "swissFirstJob": "Primo impiego",
+      "swissFirstJobDesc": "Competenze e formazione in primo piano"
     },
     "new": {
       "title": "Crea nuovo CV",

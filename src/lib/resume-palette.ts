@@ -400,4 +400,35 @@ export const PREVIEW_PALETTE = {
     /** The thin rule under every heading: slate-400. Decoration, no text. */
     rule: inline('#94a3b8'),
   },
+  /**
+   * Every colour is inline, as for the other Swiss templates. Every text
+   * colour meets WCAG AA (4.5:1) on every background it is drawn on: white
+   * (the main column) and the sidebar's violet tint. The dots, the heading
+   * circles and the photo's ring are decoration. A language's level is shown
+   * by how many dots are filled; the Preview also names it in words for
+   * assistive technology, while in Word it is shown by the dots' count and
+   * colour only.
+   */
+  swissFirstJob: {
+    /** The sidebar's fill: violet-50. */
+    sidebar: inline('#f5f3ff'),
+    /** The name: violet-900, 11.0:1 on white. */
+    name: inline('#4c1d95'),
+    /** The CV title, every heading, and an entry's date line: violet-700, 7.1:1 on white, 6.5:1 on the sidebar. */
+    accent: inline('#6d28d9'),
+    /** A heading's circle and a language's filled dots: violet-600. Decoration (5.7:1 on white, 5.2:1 on the sidebar). */
+    mark: inline('#7c3aed'),
+    /** The photo's ring: violet-300. Decoration, no text. */
+    soft: inline('#c4b5fd'),
+    /** A language's empty dots: violet-200. Decoration: the filled dots' count tells the level, and the Preview names it in words. */
+    emptyDot: inline('#ddd6fe'),
+    /** The photo's fill, seen where the photo is transparent: violet-100. */
+    photoFill: inline('#ede9fe'),
+    /** An entry's bold title and a skill category's caption: 17.9:1 on white, 16.3:1 on the sidebar. */
+    ink: inline('#0f172a'),
+    /** Running text, bullets and every line of the sidebar: 14.6:1 on white, 13.3:1 on the sidebar. */
+    body: inline('#1e293b'),
+    /** An entry's second line: slate-600, 7.6:1 on white, 6.9:1 on the sidebar. */
+    muted: inline('#475569'),
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewColour>>>>

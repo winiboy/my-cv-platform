@@ -17,6 +17,7 @@ import { SwissEngineeringTemplate } from '@/components/dashboard/resume-template
 import { SwissItTemplate } from '@/components/dashboard/resume-templates/swiss-it-template'
 import { SwissExecutiveTemplate } from '@/components/dashboard/resume-templates/swiss-executive-template'
 import { SwissAcademicTemplate } from '@/components/dashboard/resume-templates/swiss-academic-template'
+import { SwissFirstJobTemplate } from '@/components/dashboard/resume-templates/swiss-first-job-template'
 
 /**
  * Part 3 US-016: every template's Preview reads the rich text the editor saved.
@@ -54,6 +55,7 @@ const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
   swissIt: SwissItTemplate as ComponentType<never>,
   swissExecutive: SwissExecutiveTemplate as ComponentType<never>,
   swissAcademic: SwissAcademicTemplate as ComponentType<never>,
+  swissFirstJob: SwissFirstJobTemplate as ComponentType<never>,
 }
 
 const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
@@ -65,7 +67,7 @@ const RENDERS_PROJECT_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'crea
 const DRAWS_NO_SKILLS: readonly ResumeTemplate[] = ['swissExecutive']
 
 /** Templates that render an education description at all. */
-const RENDERS_EDUCATION_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic']
+const RENDERS_EDUCATION_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
 
 function buildResume(overrides: Partial<Record<string, unknown>>): Resume {
   return {

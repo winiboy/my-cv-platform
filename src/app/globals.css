@@ -657,6 +657,61 @@
     margin-bottom: 48px;
   }
 
+  /* swissFirstJob (swiss-cv-templates US-010) prints its round photo, its
+     headings' circles and its languages' dots as its Preview and mockup draw
+     them, scoped to that template's root. */
+  .swiss-first-job-template .swiss-first-job-photo,
+  .swiss-first-job-template .swiss-first-job-circle,
+  .swiss-first-job-template .swiss-first-job-dot {
+    border-radius: 50% !important;
+  }
+
+  /* swissFirstJob's sidebar down the left of every printed page, from the
+     paper's top edge to its foot, as swissEngineering paints its light
+     column: the page has no margin (the default `@page` above), and the
+     root's background paints every page in full. The sidebar is the
+     document's first 260px (SWISS_FIRST_JOB_GEOMETRY.sidebarWidth) in
+     PREVIEW_PALETTE.swissFirstJob.sidebar. A page margin would cut that band
+     off: Chromium paints no background into a page's margin area. The band
+     is anchored at the page's left edge, where the page-wide document
+     starts: centring it on the background's positioning area, as the bands
+     above do, moved it a few px right on pages whose positioning area was
+     wider than the page, leaving a white strip at the paper's edge. */
+  html:has(.swiss-first-job-template) {
+    background: linear-gradient(to right, #f5f3ff 260px, white 260px) !important;
+  }
+
+  /* Nothing above the root's band paints over it: not the ancestors, not the
+     document's white, not the sidebar's own fill, which would end where the
+     sidebar's content does. */
+  body:has(.swiss-first-job-template),
+  body :has(.swiss-first-job-template),
+  .swiss-first-job-template,
+  .swiss-first-job-template > aside.swiss-first-job-column {
+    background: transparent !important;
+  }
+
+  /* The text's top and foot margins on every page, SWISS_FIRST_JOB_GEOMETRY
+     .pageTop and .pageBottom, which the Word export uses as its page margins,
+     so both break their pages at the same place: the document's own padding,
+     repeated on each page's piece of it (`box-decoration-break: clone`)
+     instead of the page's margins. The columns' own padding gives way to it.
+     The document's on-screen page height would open an empty page 2.
+     swiss-first-job-template.test.ts holds these equal. Print only: the
+     Preview on screen is unchanged. */
+  .swiss-first-job-template {
+    min-height: 0 !important;
+    padding-top: 48px !important;
+    padding-bottom: 48px !important;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  .swiss-first-job-template .swiss-first-job-column {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
   /* Preserve colors in CV templates */
   * {
     print-color-adjust: exact !important;

@@ -215,7 +215,9 @@
       "swissExecutive": "Executive & management",
       "swissExecutiveDesc": "Puts your key achievements first",
       "swissAcademic": "Academic & research",
-      "swissAcademicDesc": "Puts your research and publications first"
+      "swissAcademicDesc": "Puts your research and publications first",
+      "swissFirstJob": "First job",
+      "swissFirstJobDesc": "Puts your skills and training first"
     },
     "new": {
       "title": "Create New Resume",

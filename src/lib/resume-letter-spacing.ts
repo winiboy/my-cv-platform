@@ -128,4 +128,8 @@ export const PREVIEW_TRACKING = {
     /** Every section heading's letter-spaced small capitals. */
     caps: TAILWIND_TRACKING['tracking-widest'],
   },
+  swissFirstJob: {
+    /** Every heading of the sidebar, in spaced capitals. */
+    caps: TAILWIND_TRACKING['tracking-widest'],
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, number>>>>

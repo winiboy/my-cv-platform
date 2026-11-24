@@ -472,6 +472,17 @@ export const PREVIEW_GRAPHICS = {
         'gap to the text rounded to whole points, spanning the text width as the Preview’s border does.',
     },
   },
+  swissFirstJob: {
+    sidebar: {
+      element: 'the light violet sidebar down the left of every page (`SWISS_FIRST_JOB_GEOMETRY.sidebarWidth` wide)',
+      form: 'floating-raster',
+      approximation:
+        'A solid PNG the sidebar’s width and the page’s height, anchored to the page behind the text in the first cell ' +
+        'of a 1-twip repeated header row, as `docx-swiss-engineering.ts` draws its light column, so the sidebar runs ' +
+        'from the paper’s top edge to its foot on every page, its margins included, as the printed Preview’s does. ' +
+        'The sidebar’s cell carries no shading: Word paints a cell’s shading over drawings behind the text.',
+    },
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewGraphic>>>>
 
 // ---------------------------------------------------------------------------

@@ -31,10 +31,6 @@ const DICTS: Record<Locale, unknown> = { fr, en, de, it: it_ }
 
 const ORIGINAL = ['professional', 'modern', 'classic', 'minimal', 'creative'] as const
 
-/** The Swiss templates the schema accepts whose story has not landed. */
-const UNBUILT: readonly ResumeTemplate[] = [
-  'swissFirstJob',
-]
 
 describe('swissVocational in the template x control registries (FR-3)', () => {
   it('offers only the sections panel: it paints no user colour, draws no size input and applies no stored font (FR-12)', () => {
@@ -58,13 +54,12 @@ describe('swissVocational in the template x control registries (FR-3)', () => {
     expect([...sections.fixed].sort()).toEqual([...sections.main, ...sections.sidebar].sort())
   })
 
-  it('has no registry entry for an unbuilt Swiss id: the editor resolves one as modern, the template it draws', () => {
-    for (const id of UNBUILT) {
-      expect(Object.keys(TEMPLATE_LAYOUT_CONTROLS), id).not.toContain(id)
-      expect(Object.keys(TEMPLATE_APPLIED_SIZE_KEYS), id).not.toContain(id)
-      expect(Object.keys(TEMPLATE_EDITOR_SECTIONS), id).not.toContain(id)
-      expect(templateEditorSections(id)).toBe(TEMPLATE_EDITOR_SECTIONS.modern)
-      expect(templateOffersLayoutControl(id, 'sidebarColour')).toBe(templateOffersLayoutControl('modern', 'sidebarColour'))
+  it('has a registry entry for every id the schema accepts: no Swiss template is left unbuilt', () => {
+    const schema: readonly ResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
+    for (const id of schema) {
+      expect(Object.keys(TEMPLATE_LAYOUT_CONTROLS), id).toContain(id)
+      expect(Object.keys(TEMPLATE_APPLIED_SIZE_KEYS), id).toContain(id)
+      expect(Object.keys(TEMPLATE_EDITOR_SECTIONS), id).toContain(id)
     }
   })
 })

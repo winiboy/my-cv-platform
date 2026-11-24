@@ -96,6 +96,13 @@ describe('resumes.templates locale parity', () => {
     expect(it_.resumes.templates.swissAcademic).toBe('Accademico e ricerca')
   })
 
+  it('names the first-job template as the swiss-cv-templates PRD does', () => {
+    expect(fr.resumes.templates.swissFirstJob).toBe('Premier emploi')
+    expect(en.resumes.templates.swissFirstJob).toBe('First job')
+    expect(de.resumes.templates.swissFirstJob).toBe('Erste Stelle')
+    expect(it_.resumes.templates.swissFirstJob).toBe('Primo impiego')
+  })
+
   it('adds the publications and distinctions headings of swiss-cv-templates FR-6 in every locale', () => {
     expect(fr.resumes.template.publications).toBe('Publications et projets')
     expect(en.resumes.template.publications).toBe('Publications and projects')

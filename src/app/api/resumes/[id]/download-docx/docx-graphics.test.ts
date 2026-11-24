@@ -24,6 +24,7 @@ import { generateSwissEngineeringDocx } from './docx-swiss-engineering'
 import { generateSwissItDocx } from './docx-swiss-it'
 import { generateSwissExecutiveDocx } from './docx-swiss-executive'
 import { generateSwissAcademicDocx } from './docx-swiss-academic'
+import { generateSwissFirstJobDocx } from './docx-swiss-first-job'
 import { DOCX_PALETTE } from './docx-palette'
 
 /**
@@ -237,7 +238,10 @@ function documentXml(key: string, generate: Generator, sidebar: SidebarName | nu
       const zip = await JSZip.loadAsync(await generate(row, settingsFor(row, sidebar)))
       const part = zip.file('word/document.xml')
       if (part === null) throw new Error(`The ${key} artifact has no word/document.xml`)
-      return part.async('string')
+      // A header's drawings are drawn on every page too (swissFirstJob's sidebar
+      // fill), so the header parts are read with the body.
+      const headers = await Promise.all(zip.file(/^word\/header\d*\.xml$/).map((header) => header.async('string')))
+      return [await part.async('string'), ...headers].join('')
     })()
     documents.set(key, cached)
   }
@@ -605,9 +609,10 @@ describe('every recorded form is the shape the generator emits', () => {
     ['swissIt', () => documentXml('swissIt', generateSwissItDocx, null)] as const,
     ['swissExecutive', () => documentXml('swissExecutive', generateSwissExecutiveDocx, null)] as const,
     ['swissAcademic', () => documentXml('swissAcademic', generateSwissAcademicDocx, null)] as const,
+    ['swissFirstJob', () => documentXml('swissFirstJob', generateSwissFirstJobDocx, null)] as const,
   ])('%s emits the shape it records for each of its graphics', async (template, load) => {
     const xml = await load()
-    const graphics = PREVIEW_GRAPHICS[template as 'modern' | 'creative' | 'swissVocational' | 'swissCommerce' | 'swissTrades' | 'swissHealth' | 'swissFinance' | 'swissEngineering' | 'swissIt' | 'swissExecutive' | 'swissAcademic']
+    const graphics = PREVIEW_GRAPHICS[template as 'modern' | 'creative' | 'swissVocational' | 'swissCommerce' | 'swissTrades' | 'swissHealth' | 'swissFinance' | 'swissEngineering' | 'swissIt' | 'swissExecutive' | 'swissAcademic' | 'swissFirstJob']
     expect(Object.keys(graphics).length, `${template} records no graphics`).toBeGreaterThan(0)
     for (const [key, graphic] of Object.entries(graphics)) {
       expect(EVIDENCE[graphic.form as DocxGraphicForm], `${template}.${key}: "${graphic.form}" is not a known form`).toBeDefined()
@@ -620,7 +625,7 @@ describe('every recorded form is the shape the generator emits', () => {
 
   it('names a form the generators actually use, and no form they do not', () => {
     const recorded = new Set(
-      (['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic'] as const).flatMap((template) =>
+      (['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob'] as const).flatMap((template) =>
         Object.values(PREVIEW_GRAPHICS[template]).map((graphic) => graphic.form as string),
       ),
     )

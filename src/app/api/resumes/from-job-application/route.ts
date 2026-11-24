@@ -45,7 +45,7 @@ export const dynamic = 'force-dynamic'
  */
 const MIN_USABLE_DESCRIPTION_LENGTH = 50
 
-const RESUME_TEMPLATES = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic'] as const satisfies readonly BuiltResumeTemplate[]
+const RESUME_TEMPLATES = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob'] as const satisfies readonly BuiltResumeTemplate[]
 
 const requestSchema = z.object({
   jobApplicationId: z.uuid(),

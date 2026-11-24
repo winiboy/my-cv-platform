@@ -22,6 +22,7 @@ export const SUPPORTED_TEMPLATES = [
   'swissIt',
   'swissExecutive',
   'swissAcademic',
+  'swissFirstJob',
 ] as const satisfies readonly BuiltResumeTemplate[]
 
 export type DocxTemplateId = (typeof SUPPORTED_TEMPLATES)[number]
@@ -30,11 +31,9 @@ export type DocxTemplateId = (typeof SUPPORTED_TEMPLATES)[number]
  * The Swiss ids the schema accepts whose template is not built yet. A `Record`
  * so that the compiler requires exactly the members of `UnbuiltResumeTemplate`:
  * a story that builds one removes it there, and this stops compiling until it
- * is removed here too.
+ * is removed here too. Every Swiss template is built (US-010), so it is empty.
  */
-const UNBUILT_TEMPLATES: Readonly<Record<UnbuiltResumeTemplate, true>> = {
-  swissFirstJob: true,
-}
+const UNBUILT_TEMPLATES: Readonly<Record<UnbuiltResumeTemplate, true>> = {}
 
 /**
  * The generator a stored `resumes.template` value is exported with.

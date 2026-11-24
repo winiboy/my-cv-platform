@@ -20,6 +20,7 @@ import { SwissEngineeringTemplate } from '@/components/dashboard/resume-template
 import { SwissItTemplate } from '@/components/dashboard/resume-templates/swiss-it-template'
 import { SwissExecutiveTemplate } from '@/components/dashboard/resume-templates/swiss-executive-template'
 import { SwissAcademicTemplate } from '@/components/dashboard/resume-templates/swiss-academic-template'
+import { SwissFirstJobTemplate } from '@/components/dashboard/resume-templates/swiss-first-job-template'
 import { presentLabel } from '@/lib/resume-template-strings'
 import { swissTradesSkillContent } from '@/lib/swiss-trades-template'
 import { swissHealthSkillContent } from '@/lib/swiss-health-template'
@@ -59,6 +60,7 @@ const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
   swissIt: SwissItTemplate as ComponentType<never>,
   swissExecutive: SwissExecutiveTemplate as ComponentType<never>,
   swissAcademic: SwissAcademicTemplate as ComponentType<never>,
+  swissFirstJob: SwissFirstJobTemplate as ComponentType<never>,
 }
 
 const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
@@ -143,6 +145,7 @@ const EXPECTED_RICH_FIELDS: Readonly<Record<ResumeTemplate, (draft: ResumeDraftC
   swissIt: (d) => 1 + d.skills.filter((skill) => swissItSkillContent(skill)?.kind === 'html').length + d.education.length + d.projects.length,
   swissExecutive: (d) => 1 + d.education.length + d.projects.length,
   swissAcademic: (d) => 1 + d.skills.filter((skill) => swissFinanceSkillContent(skill)?.kind === 'html').length + d.education.length + d.projects.length,
+  swissFirstJob: (d) => 1 + d.skills.filter((skill) => swissEngineeringSkillContent(skill)?.kind === 'html').length + d.education.length,
 }
 
 type DrawnField =
@@ -198,6 +201,8 @@ const NOT_DRAWN: Readonly<Record<ResumeTemplate, readonly DrawnField[]>> = {
   swissExecutive: ['gpa', 'skillCategory'],
   // Draws the projects as its numbered publications, their technologies included.
   swissAcademic: ['gpa'],
+  // Its mockup has no projects section and no GPA.
+  swissFirstJob: ['gpa', 'project', 'technology'],
 }
 
 /** The first entry of each section's text, as the draft holds it. */
