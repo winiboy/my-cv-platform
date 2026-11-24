@@ -54,6 +54,7 @@ import { SwissHealthTemplate } from './resume-templates/swiss-health-template'
 import { SwissFinanceTemplate } from './resume-templates/swiss-finance-template'
 import { SwissEngineeringTemplate } from './resume-templates/swiss-engineering-template'
 import { SwissItTemplate } from './resume-templates/swiss-it-template'
+import { SwissExecutiveTemplate } from './resume-templates/swiss-executive-template'
 import { ModernTemplate } from './resume-templates/modern-template'
 import { ClassicTemplate } from './resume-templates/classic-template'
 import { MinimalTemplate } from './resume-templates/minimal-template'
@@ -1905,6 +1906,19 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
                       return (
                         // As swissVocational: photo from the Contact tab, own typeface and sizes.
                         <SwissItTemplate
+                          resume={resume}
+                          locale={locale}
+                          dict={dict}
+                          hiddenMainSections={hiddenMainSections}
+                          hiddenSidebarSections={hiddenSidebarSections}
+                          hiddenContactFields={hiddenContactFields}
+                          photoUrl={photoUrl}
+                        />
+                      )
+                    case 'swissExecutive':
+                      return (
+                        // As swissVocational: photo from the Contact tab, own typeface and sizes.
+                        <SwissExecutiveTemplate
                           resume={resume}
                           locale={locale}
                           dict={dict}

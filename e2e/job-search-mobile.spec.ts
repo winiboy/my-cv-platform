@@ -41,8 +41,8 @@ const PHONE = { width: 375, height: 812 } as const
 const TABLET = { width: 768, height: 1024 } as const
 const DESKTOP = { width: 1440, height: 900 } as const
 
-/** The options TEMPLATE_OPTIONS offers: the five original templates, swissVocational, swissCommerce, swissTrades, swissHealth, swissFinance, swissEngineering and swissIt. */
-const TEMPLATE_OPTION_COUNT = 12
+/** The options TEMPLATE_OPTIONS offers: the five original templates, swissVocational, swissCommerce, swissTrades, swissHealth, swissFinance, swissEngineering, swissIt and swissExecutive. */
+const TEMPLATE_OPTION_COUNT = 13
 
 const STRINGS = {
   fr: {

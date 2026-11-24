@@ -803,3 +803,83 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-007 The "Informatique & IT" template is available
 FINAL: PASS
+
+## US-008: The "Cadre & direction" template is available
+Status: PASS
+Priority: 10
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: e0bc1b8 (US-007 story commit).
+Scope:
+- Scope check: PASS
+- Changed paths (52 under src/ and e2e/, 9 of them new, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-executive-template.ts`, `src/components/dashboard/resume-templates/swiss-executive-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-executive.ts`, each with its unit test.
+  - **Wiring:** `src/types/database.ts` (swissExecutive no longer unbuilt), `resume-editor.tsx`, `resume-preview.tsx`, `template-picker.tsx` (Crown icon), `layout-settings.ts`, `resume-palette.ts`, `resume-graphics.ts`, `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route, the four `common.json` locale files (name and description only; no new heading label).
+  - **Print CSS:** `src/app/globals.css`, print-only rules scoped to `.swiss-executive-template`: named page `swiss-executive` with 48 px top and foot margins, print top padding 8 px, print foot padding 0, round photo.
+  - **Test lists:** the unit tests that enumerate templates (`rich-text.test.ts` skips its two skills cases for swissExecutive only and adds one case asserting no skill text is drawn: skipped count 10 → 24, no other template loses a case); `docx-contact-visibility.test.ts` reads `w:noBreakHyphen` as "-"; e2e template-picker, template-picker-compact (13 options), job-cv-template-picker, job-search-mobile, visual/resume-templates.
+  - **e2e:** new `e2e/swiss-executive-template.spec.ts`.
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissExecutive.png` (sha256 5e792b6e38fc40f7) and `swissExecutive-print.png` (c51f4fa46422005a).
+- Not touched: the five original templates and the seven earlier Swiss templates (renderers, Word generators, baselines, parity verdicts), the shared docx and format helpers, stored data; no migration; no new dependency; no version change; no push or merge of this commit.
+Checks (final diff hash 72049d7665059d24, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run and re-verified by the code-reviewer; logs in the session scratchpad `checks-us08-r2/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 5641 passed, 24 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 281 baseline; unchanged.
+- e2e: PASS — 658 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 26/26; only the two new swissExecutive PNGs were added, the other 24 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier round, invalidated by a fix: r1 (ced67c514df8b581) all checks green, but the Microsoft Word render split the website "catherine-imhof.ch" at its hyphen across two lines while the Preview and PDF moved it whole. Fixed in the Word generator only: a contact value or project link that fits its line has its hyphens written as `w:noBreakHyphen`.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample close to t8-cadre-direction.png ("Catherine Imhof") with one hidden experience, skill category, language, certificate and project; LinkedIn and website filled; a project with technologies and a long URL; long German words ("Unternehmensentwicklung und Restrukturierungsprogramme", "Kommunikationsfähigkeiten"); stored skills (never drawn). Cases full-photo-fr, full-photo-de, full-nophoto-en, empty-nophoto-fr (no projects, no certifications, every language hidden). Preview HTTP 200 in all four; photo img 1/1/0/0; hidden text and skills absent in Preview, PDF and Word (trace.txt, whitespace-insensitive match). Preview captures: full-photo-fr 33ee429735557514, full-photo-de ca72991f717e7519, full-nophoto-en 5d35695723400942, empty-nophoto-fr 28132d524b32f825. Picker: swissExecutive after swissIt; fr "Cadre & direction / Réalisations clés en avant", de "Kader & Geschäftsleitung / Wichtige Erfolge zuerst"; picker-card-fr 352ff5c229bfc257, picker-card-de df0788d160691726. Keyboard: ArrowRight reaches option 12 and wraps (ui-expert live check). At 375 px: covered by the e2e picker specs (all 13 options).
+- Visual: PASS — baselines captured with `--update-snapshots=all` on the template code before r1; the r2 visual run matched them (the r1→r2 fix was Word-only).
+- Export: PASS (evidence folder `us08-evidence-r2/`).
+  - PDF: full-photo-fr 1be30b2d53b1936f, full-photo-de b61def3e7de4b934, full-nophoto-en 9368d255615ae027 (2 pages each), empty-nophoto-fr c26716dbb291479f (1 page).
+  - Word: full-photo-fr e19ab5b2e8872e42, full-photo-de 4e5b97810e573a46, full-nophoto-en c1cd45cab504a8e3, empty-nophoto-fr 14b9e1a2b3d78caa. Photo drawn as an ellipse with a gold outline in the photo cases.
+  - Rendered by Microsoft Word to PDF: full-photo-fr 30ac43dd119c5c54, full-photo-de d57a0bfad5cf8e97 (2 pages each), empty-nophoto-fr 0e845fbd37842234 (1 page). Header, gold rule, italic cream summary box, two-column achievement cards with gold rules, experience, education; the last section on page 2 in both the PDF and Word; "catherine-imhof.ch" whole on its line; the long URL breaks only after "/" and its own hyphens; long German words whole.
+- Database: NOT_APPLICABLE — no schema or stored-data change; `swissExecutive` was already accepted by the US-001 constraint.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text through `renderFormattedText` (Preview, e2e 200) and `parseHtmlToDocxRuns` (Word); LinkedIn, website and project URLs are drawn as plain text, not links; the photo goes through the Word route's existing bound.
+Agents:
+- ui-expert: PASS (round 1, on r2), 6/7 conditions PASS, 1 NOT_APPLICABLE (responsive: fixed A4 document), 0 MAJOR, 4 MINOR (recorded below); contrast recomputed.
+- code-reviewer: PASS (round 1, on r2), no critical or major finding; 6 minors recorded below.
+- senior-coder: implementation and the round-1 Word hyphen fix.
+Acceptance criteria:
+- AC-01 The picker shows swissExecutive after swissIt with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-executive-template.spec.ts`.
+- AC-02 Editor live preview, Preview, PDF and Word match t8-cadre-direction.png (large serif name, burgundy capital title, round photo; summary in a highlighted box under a gold rule; key achievements as the projects in a two-column grid; then experience, education, then languages and certifications): PASS — the captures, PDFs and Word renders above; ui-expert side-by-side comparison.
+- AC-03 FR-1 to FR-11: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing headings only (FR-6: the summary has no heading; projects under `keyAchievements`; the last section joins the languages and `training` labels).
+- Owner rule (no word split mid-word, any locale): PASS for every word in the evidence, Preview, PDF and Word.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Skills are not drawn** in any output, plain or rich: the story's section order (key achievements, experience, education, languages and certifications) has no skills section and the mockup shows none. `TEMPLATE_EDITOR_SECTIONS.swissExecutive` lists only `keyAchievements`, `languages` and `training`, so no skills visibility row is offered (FR-3). The Skills tab and the stored skills are unchanged; switching to another template draws them again.
+- **Key achievements are the stored `projects`,** under the existing `keyAchievements` label: bold name, description, then technologies (joined by ", ") and the url as muted lines (stored content; the mockup shows name and description only); project dates are not drawn.
+- **Summary:** no heading (FR-6: it is the summary), italic, in a cream box with a gold left bar. In Word the box is a one-cell table whose runs are made italic by a scoped post-pass on the generated XML, because the shared rich-text helper writes "not italic" on every run.
+- **Colours (AA):** burgundy #9f1239 for the title and headings (8.02:1 on white, 7.44:1 on the cream #faf6ee), ink #0f172a, body #1e293b (13.57:1 on cream); muted #64748b (4.76:1 on white) only on white, never on the cream box (4.41:1 there); gold #a16207 for rules, the bar and the photo ring only, never text.
+- **Type:** name and headings in serif (Georgia in Word), the rest in Inter; title in capitals with 0.1em letter spacing.
+- **Geometry:** page padding 64 px (content 666 px); two cards of 323 px each with a 20 px gap; the date column as wide as its widest date (Word: measured in Inter plus 4 px, non-ASCII counted as the widest glyph).
+- **Last section:** heading built from the existing labels "languages & training" (only the part that has content is shown); languages joined by " · "; certificates "Name, Issuer (MM.YYYY)".
+- **Contact line:** location, phone, email, LinkedIn, then GitHub and website, honouring FR-14. In Word a value that fits its line keeps its hyphens unbreakable (`w:noBreakHyphen`) and moves as one unit, as on the Preview; a value wider than its line gets zero-width break points at its boundaries; the email never gets break points.
+- **Page margins:** 48 px top on every page and 48 px foot, in the PDF (`@page swiss-executive`) and Word (section margins); page 1 starts at 56 px in both.
+
+Open owner decisions:
+- **FR-10, Word typeface:** Word falls back to a serif face where Inter is not installed (all Swiss templates; Inter is neither installed there nor embedded). The fit checks (held contact values, the date column) are measured in Inter with a 4 px margin; a fallback face wider than Inter could still force a break inside a held value. Not seen in the evidence. Embedding Inter in Word exports (a cross-template change) would remove it.
+- **FR-10, copy-paste and ATS:** a value written with `w:noBreakHyphen` (e.g. "catherine-imhof.ch", or a hyphenated email that fits) is split into text nodes; Word and python-docx read it as "-", but extractors that read only `w:t` lose the hyphen (a hyphenated email would read wrong). Same mechanism as `docx-modern.ts`.
+- **FR-10, over-wide links:** a URL wider than its line carries U+200B in Word (behaviour shared with swissIt); copied out of Word it is no longer a working link.
+- **swissIt latent issue (not fixed here):** `docx-swiss-it.ts` writes fitting contact values and card links with ordinary hyphens, so Word can break e.g. "aline-" / "berset.dev" at a line end while the Preview moves the value whole. The swissExecutive fix would apply there in a follow-up.
+- **Skills absent:** a user switching to swissExecutive no longer sees their skills in any output, while the Skills tab stays editable (PRD-scoped; recorded so the behaviour is known).
+- **French heading:** the last section reads "Langues & Formation / Cours" after a section titled "Formation" (education), as FR-6 requires existing labels; a label change would need a PRD amendment.
+- **Contact separator:** a wrapped contact line can end with a dangling "·" (consistent across all four outputs); binding each separator to the following item would avoid it.
+- **Code:** the entry filtering is written in both the renderer and the Word generator (guarded by a "same text in the same order" test); the summary italic post-pass could be replaced by an optional `italic` option on the shared docx text helper in a separate change; the hyphen reader in `docx-swiss-executive.test.ts` handles only a hyphen between two text nodes, unlike the reader in `docx-contact-visibility.test.ts`.
+- **Evidence gaps:** the Preview captures cover page 1 only (the last section is evidenced by the PDF, which prints the Preview route); no Word render and no PDF image for the en case (text dumps only).
+- **Carried over from earlier stories:** swissCommerce has no page-2 top margin; swissEngineering URLs can break at in-word hyphens; stale comments in `docx-swiss-engineering.ts` and `swiss-engineering-template.tsx`; the shared `formatSwissDateRange` shows "present" for a missing end date when `current` is false; shrinking photos at upload needs a PRD amendment.
+
+Environment notes:
+- The checks ran alone; the owner's local dev server was stopped for each run and restarted afterwards.
+- The evidence spec was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- The code-reviewer could not run a single vitest file (permission denied); it verified the skipped count from `checks-us08-r2/test.log` arithmetically.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-008 The "Cadre & direction" template is available
+FINAL: PASS

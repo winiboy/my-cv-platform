@@ -362,4 +362,27 @@ export const PREVIEW_PALETTE = {
     /** A project card's thin border. Decoration, no text. */
     cardBorder: inline('#e2e8f0'),
   },
+  /**
+   * Every colour is inline, as for the other Swiss templates. Every text
+   * colour meets WCAG AA (4.5:1) on every background it is drawn on: white
+   * and the summary's cream box. The gold is decoration only — the rule
+   * under the header, the summary's bar, the cards' rules, the photo's ring —
+   * and `swiss-executive-template.test.ts` measures each text pair.
+   */
+  swissExecutive: {
+    /** The name, and the bold first line of an entry and of an achievement card: 17.9:1 on white. */
+    ink: inline('#0f172a'),
+    /** The CV title and every section heading: rose-800, 8.0:1 on white. */
+    accent: inline('#9f1239'),
+    /** The rule under the header, the summary's bar, the cards' rules, the photo's ring: yellow-700. Decoration, no text. */
+    gold: inline('#a16207'),
+    /** The summary's box. */
+    cream: inline('#faf6ee'),
+    /** The photo's fill, seen where the photo is transparent. */
+    photoFill: inline('#f5efe3'),
+    /** Running text, bullets, descriptions, the summary and the last section's lines: 14.6:1 on white, 13.6:1 on the cream box. */
+    body: inline('#1e293b'),
+    /** The contact line, dates, an entry's second line, a card's technologies and link: 4.8:1 on white. Never drawn on the cream box. */
+    muted: inline('#64748b'),
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewColour>>>>

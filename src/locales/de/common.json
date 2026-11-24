@@ -211,7 +211,9 @@
       "swissEngineering": "Ingenieurwesen & Technik",
       "swissEngineeringDesc": "Schlüsselprojekte zuerst",
       "swissIt": "Informatik & IT",
-      "swissItDesc": "Technologien und Projekte zuerst"
+      "swissItDesc": "Technologien und Projekte zuerst",
+      "swissExecutive": "Kader & Geschäftsleitung",
+      "swissExecutiveDesc": "Wichtige Erfolge zuerst"
     },
     "new": {
       "title": "Neuen Lebenslauf erstellen",

@@ -120,4 +120,8 @@ export const PREVIEW_TRACKING = {
   },
   /** No letter spacing: its monospace headings are drawn as typed, lower case. */
   swissIt: {},
+  swissExecutive: {
+    /** The CV title's spaced capitals. */
+    caps: TAILWIND_TRACKING['tracking-widest'],
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, number>>>>

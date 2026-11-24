@@ -46,6 +46,7 @@ const TEMPLATES: readonly BuiltResumeTemplate[] = [
   'swissFinance',
   'swissEngineering',
   'swissIt',
+  'swissExecutive',
 ]
 const template = (name: BuiltResumeTemplate) => readFileSync(path.join(ROOT, templateComponentFile(name)), 'utf-8')
 

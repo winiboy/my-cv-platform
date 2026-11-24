@@ -651,6 +651,23 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     'style borderColor: #e2e8f0': { count: 1, palette: 'cardBorder' },
     'bg-white': { count: 1, excluded: PAGE },
   },
+  swissExecutive: {
+    // The name; the bold first line of an entry and of an achievement card.
+    'style color: #0f172a': { count: 3, palette: 'ink' },
+    // The CV title and the text of every heading.
+    'style color: #9f1239': { count: 2, palette: 'accent' },
+    // The contact line, the dates, an entry's second line, a card's technologies and link.
+    'style color: #64748b': { count: 4, palette: 'muted' },
+    // The summary, rich text, bullets, and the last section.
+    'style color: #1e293b': { count: 4, palette: 'body' },
+    // The summary's box and its bar; the header's rule and the cards' rules; the photo's ring and fill.
+    'style backgroundColor: #faf6ee': { count: 1, palette: 'cream' },
+    'style borderLeftColor: #a16207': { count: 1, palette: 'gold' },
+    'style borderTopColor: #a16207': { count: 2, palette: 'gold' },
+    'style borderColor: #a16207': { count: 1, palette: 'gold' },
+    'style backgroundColor: #f5efe3': { count: 1, palette: 'photoFill' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -736,7 +753,7 @@ describe('PREVIEW_PALETTE', () => {
   )
 
   it('covers every built template', () => {
-    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissCommerce', 'swissEngineering', 'swissFinance', 'swissHealth', 'swissIt', 'swissTrades', 'swissVocational'])
+    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissCommerce', 'swissEngineering', 'swissExecutive', 'swissFinance', 'swissHealth', 'swissIt', 'swissTrades', 'swissVocational'])
   })
 
   it('holds each Preview colour of a template once', () => {

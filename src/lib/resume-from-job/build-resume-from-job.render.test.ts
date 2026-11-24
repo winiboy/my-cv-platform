@@ -18,6 +18,7 @@ import { SwissHealthTemplate } from '@/components/dashboard/resume-templates/swi
 import { SwissFinanceTemplate } from '@/components/dashboard/resume-templates/swiss-finance-template'
 import { SwissEngineeringTemplate } from '@/components/dashboard/resume-templates/swiss-engineering-template'
 import { SwissItTemplate } from '@/components/dashboard/resume-templates/swiss-it-template'
+import { SwissExecutiveTemplate } from '@/components/dashboard/resume-templates/swiss-executive-template'
 import { presentLabel } from '@/lib/resume-template-strings'
 import { swissTradesSkillContent } from '@/lib/swiss-trades-template'
 import { swissHealthSkillContent } from '@/lib/swiss-health-template'
@@ -55,6 +56,7 @@ const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
   swissFinance: SwissFinanceTemplate as ComponentType<never>,
   swissEngineering: SwissEngineeringTemplate as ComponentType<never>,
   swissIt: SwissItTemplate as ComponentType<never>,
+  swissExecutive: SwissExecutiveTemplate as ComponentType<never>,
 }
 
 const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
@@ -114,8 +116,9 @@ type DraftName = keyof typeof DRAFTS
  *   description only when it has no achievements, and every built experience
  *   has achievements, so they draw none; modern draws each description;
  * - only classic and the Swiss templates draw an education description;
- * - the Swiss templates draw no projects, except swissEngineering and swissIt,
- *   which draw each project's description in its card;
+ * - the Swiss templates draw no projects, except swissEngineering, swissIt and
+ *   swissExecutive, which draw each project's description in its card;
+ *   swissExecutive draws no skills at all;
  * - swissTrades draws a comma-separated skill paragraph as tags, swissHealth
  *   and swissFinance as one line of plain text, swissEngineering as one line
  *   per skill, and swissIt as tags.
@@ -136,6 +139,7 @@ const EXPECTED_RICH_FIELDS: Readonly<Record<ResumeTemplate, (draft: ResumeDraftC
   swissEngineering: (d) =>
     1 + d.skills.filter((skill) => swissEngineeringSkillContent(skill)?.kind === 'html').length + d.education.length + d.projects.length,
   swissIt: (d) => 1 + d.skills.filter((skill) => swissItSkillContent(skill)?.kind === 'html').length + d.education.length + d.projects.length,
+  swissExecutive: (d) => 1 + d.education.length + d.projects.length,
 }
 
 type DrawnField =
@@ -187,6 +191,8 @@ const NOT_DRAWN: Readonly<Record<ResumeTemplate, readonly DrawnField[]>> = {
   swissEngineering: ['gpa'],
   // Draws the projects as cards, their technologies as tags.
   swissIt: ['gpa'],
+  // Draws the projects as key-achievement cards; its mockup has no skills.
+  swissExecutive: ['gpa', 'skillCategory'],
 }
 
 /** The first entry of each section's text, as the draft holds it. */

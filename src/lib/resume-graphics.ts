@@ -438,6 +438,31 @@ export const PREVIEW_GRAPHICS = {
         'two rows. Square corners where the Preview rounds them 6px: a table cell has no corner radius.',
     },
   },
+  swissExecutive: {
+    headerRule: {
+      element: 'the gold rule under the header (`SWISS_EXECUTIVE_GEOMETRY.headerRule` thick)',
+      form: 'paragraph-bottom-border',
+      approximation:
+        'The bottom border of an empty paragraph after the header, in the gold, its width rounded to Word’s ' +
+        'eighths of a point, spanning the text width as the Preview’s rule does.',
+    },
+    summaryBox: {
+      element: 'the summary’s cream box with its gold bar down the left (`summaryBar` wide, `summaryPadding*` padding)',
+      form: 'shaded-cell',
+      approximation:
+        'A one-cell table the text width, shaded cream, with a single left border of the bar’s width in the ' +
+        'gold and none elsewhere, the box’s padding as the cell margins; its runs are italic, as the Preview ' +
+        'sets the box in italics.',
+    },
+    cardRule: {
+      element: 'the gold rule along the top of each achievement card (`cardRule` thick), two cards to a row',
+      form: 'cell-border',
+      approximation:
+        'One table per row of cards: two cells the card’s width with a single top border of the rule’s width ' +
+        'in the gold and none elsewhere, the space under the rule as the cell’s top margin, and an unbordered ' +
+        'cell between them for the gap; an odd last card stays in the left column.',
+    },
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewGraphic>>>>
 
 // ---------------------------------------------------------------------------

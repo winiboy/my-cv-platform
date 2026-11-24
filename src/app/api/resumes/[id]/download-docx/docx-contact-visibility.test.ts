@@ -24,6 +24,7 @@ import { generateSwissHealthDocx } from './docx-swiss-health'
 import { generateSwissFinanceDocx } from './docx-swiss-finance'
 import { generateSwissEngineeringDocx } from './docx-swiss-engineering'
 import { generateSwissItDocx } from './docx-swiss-it'
+import { generateSwissExecutiveDocx } from './docx-swiss-executive'
 
 /**
  * swiss-cv-templates FR-14: an unticked contact detail, CV title or photo is
@@ -48,6 +49,7 @@ const GENERATORS: Record<DocxTemplateId, (resume: unknown, settings: DocxGenerat
   swissFinance: generateSwissFinanceDocx,
   swissEngineering: generateSwissEngineeringDocx,
   swissIt: generateSwissItDocx,
+  swissExecutive: generateSwissExecutiveDocx,
 }
 
 const PHOTO = `data:image/png;base64,${solidColourPng('336699').toString('base64')}`
@@ -140,8 +142,9 @@ async function documentXml(row: Row, photoBase64?: string): Promise<string> {
 /** Each Word paragraph's text, in document order. */
 async function wordParagraphs(row: Row): Promise<string[]> {
   const xml = await documentXml(row)
+  // A non-breaking hyphen is a hyphen of the text, written as an element of its own.
   return [...xml.matchAll(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)].map(([paragraph]) =>
-    [...paragraph.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g)].map(([, text]) => decode(text)).join(''),
+    [...paragraph.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:noBreakHyphen\/>/g)].map(([tag, text]) => (tag === '<w:noBreakHyphen/>' ? '-' : decode(text))).join(''),
   )
 }
 
@@ -220,7 +223,7 @@ describe.each(SUPPORTED_TEMPLATES)('%s: contact visibility on the Preview and in
   })
 })
 
-describe.each(['modern', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt'] as const)('%s: the photo tick', (template) => {
+describe.each(['modern', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive'] as const)('%s: the photo tick', (template) => {
   it('draws the stored photo when ticked and draws it as absent when unticked, on both outputs', async () => {
     const shown = resumeRow(template)
     const hidden = resumeRow(template, ['photo'])

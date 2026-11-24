@@ -15,6 +15,7 @@ import { SwissHealthTemplate } from '@/components/dashboard/resume-templates/swi
 import { SwissFinanceTemplate } from '@/components/dashboard/resume-templates/swiss-finance-template'
 import { SwissEngineeringTemplate } from '@/components/dashboard/resume-templates/swiss-engineering-template'
 import { SwissItTemplate } from '@/components/dashboard/resume-templates/swiss-it-template'
+import { SwissExecutiveTemplate } from '@/components/dashboard/resume-templates/swiss-executive-template'
 
 /**
  * Part 3 US-016: every template's Preview reads the rich text the editor saved.
@@ -50,15 +51,19 @@ const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
   swissFinance: SwissFinanceTemplate as ComponentType<never>,
   swissEngineering: SwissEngineeringTemplate as ComponentType<never>,
   swissIt: SwissItTemplate as ComponentType<never>,
+  swissExecutive: SwissExecutiveTemplate as ComponentType<never>,
 }
 
 const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
 
 /** Templates that render a project description at all. Professional has no projects section. */
-const RENDERS_PROJECT_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'creative', 'minimal', 'modern', 'swissEngineering', 'swissIt']
+const RENDERS_PROJECT_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'creative', 'minimal', 'modern', 'swissEngineering', 'swissIt', 'swissExecutive']
+
+/** Templates whose mockup draws no skills section, so they render no skill at all (swiss-cv-templates US-008). */
+const DRAWS_NO_SKILLS: readonly ResumeTemplate[] = ['swissExecutive']
 
 /** Templates that render an education description at all. */
-const RENDERS_EDUCATION_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt']
+const RENDERS_EDUCATION_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive']
 
 function buildResume(overrides: Partial<Record<string, unknown>>): Resume {
   return {
@@ -114,7 +119,23 @@ describe('rich text in the Preview', () => {
   })
 
   describe.each(TEMPLATE_IDS)('%s', (template) => {
-    it('renders a category saved as skillsHtml through the sanitiser', () => {
+    it.runIf(DRAWS_NO_SKILLS.includes(template))('draws no skill category, rich or plain', () => {
+      const html = render(
+        template,
+        buildResume({
+          skills: [
+            { category: 'Engineering', items: [], skillsHtml: HTML_SKILLS, visible: true },
+            { category: 'Operations', items: PLAIN_ITEMS, visible: true },
+          ],
+        })
+      )
+
+      expect(html).not.toContain('Engineering')
+      expect(html).not.toContain('Operations')
+      for (const item of PLAIN_ITEMS) expect(html).not.toContain(item)
+    })
+
+    it.skipIf(DRAWS_NO_SKILLS.includes(template))('renders a category saved as skillsHtml through the sanitiser', () => {
       const html = render(
         template,
         buildResume({ skills: [{ category: 'Engineering', items: [], skillsHtml: HTML_SKILLS, visible: true }] })
@@ -127,7 +148,7 @@ describe('rich text in the Preview', () => {
       expect(html).not.toContain('&lt;p&gt;')
     })
 
-    it('falls back to items when no skillsHtml is stored', () => {
+    it.skipIf(DRAWS_NO_SKILLS.includes(template))('falls back to items when no skillsHtml is stored', () => {
       const html = render(
         template,
         buildResume({ skills: [{ category: 'Operations', items: PLAIN_ITEMS, visible: true }] })

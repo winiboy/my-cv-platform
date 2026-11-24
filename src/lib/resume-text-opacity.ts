@@ -118,6 +118,7 @@ export const PREVIEW_TEXT_ALPHA = {
   swissFinance: {},
   swissEngineering: {},
   swissIt: {},
+  swissExecutive: {},
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewAlpha>>>>
 
 /**

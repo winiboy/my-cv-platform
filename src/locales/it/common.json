@@ -211,7 +211,9 @@
       "swissEngineering": "Ingegneria e tecnica",
       "swissEngineeringDesc": "Progetti chiave in primo piano",
       "swissIt": "Informatica e IT",
-      "swissItDesc": "Tecnologie e progetti in primo piano"
+      "swissItDesc": "Tecnologie e progetti in primo piano",
+      "swissExecutive": "Quadri e direzione",
+      "swissExecutiveDesc": "Risultati chiave in primo piano"
     },
     "new": {
       "title": "Crea nuovo CV",

@@ -82,6 +82,13 @@ describe('resumes.templates locale parity', () => {
     expect(it_.resumes.templates.swissIt).toBe('Informatica e IT')
   })
 
+  it('names the executive template as the swiss-cv-templates PRD does', () => {
+    expect(fr.resumes.templates.swissExecutive).toBe('Cadre & direction')
+    expect(en.resumes.templates.swissExecutive).toBe('Executive & management')
+    expect(de.resumes.templates.swissExecutive).toBe('Kader & Geschäftsleitung')
+    expect(it_.resumes.templates.swissExecutive).toBe('Quadri e direzione')
+  })
+
   it('adds the projects heading of swiss-cv-templates FR-6 in every locale', () => {
     expect(fr.resumes.template.projects).toBe('Projets')
     expect(en.resumes.template.projects).toBe('Projects')

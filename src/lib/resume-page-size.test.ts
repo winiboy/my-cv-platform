@@ -92,7 +92,7 @@ describe('globals.css prints the same page', () => {
 })
 
 describe('no surface keeps a page of its own', () => {
-  const TEMPLATES = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt'] as const
+  const TEMPLATES = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive'] as const
 
   it('swissVocational prints its accent strip from the edge of a document PAGE_WIDTH_PX wide', () => {
     // Tailwind reads class names statically, so the half width is written out
