@@ -209,7 +209,9 @@
       "swissFinance": "Banking, finance & insurance",
       "swissFinanceDesc": "Classic, conservative format",
       "swissEngineering": "Engineering",
-      "swissEngineeringDesc": "Puts your key projects first"
+      "swissEngineeringDesc": "Puts your key projects first",
+      "swissIt": "IT & software",
+      "swissItDesc": "Puts your stack and projects first"
     },
     "new": {
       "title": "Create New Resume",
@@ -380,6 +382,7 @@
     },
     "template": {
       "keyAchievements": "Key Achievements",
+      "projects": "Projects",
       "skills": "Skills",
       "languages": "Languages",
       "training": "Training / Courses",

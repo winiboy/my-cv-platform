@@ -321,4 +321,45 @@ export const PREVIEW_PALETTE = {
     /** The photo's fill, seen where the photo is transparent. */
     photoFill: inline('#e2e8f0'),
   },
+  /**
+   * Every colour is inline, as for swissEngineering. The mockup draws its
+   * headings and tags in a bright green (green-600, 3.3:1 on white), which
+   * fails WCAG AA at their sizes; the green is kept bright only where it
+   * passes or carries no text — the CV title on the dark band, the photo's
+   * ring, a tag's border — and is darkened for text on white. Every text colour
+   * meets AA (4.5:1) on every background it is drawn on: the band, white, a
+   * tag's fill. `swiss-it-template.test.ts` measures each pair.
+   */
+  swissIt: {
+    /**
+     * The band behind the header, and the name of every entry: slate-900.
+     * One colour, so the band's ink and the bold lines read as one dark;
+     * 17.9:1 for the bold lines on white.
+     */
+    ink: inline('#0f172a'),
+    /** The name on the band: 17.9:1. */
+    name: inline('#ffffff'),
+    /** The CV title on the band, behind its "> " prompt: green-400, 10.3:1 on the band. */
+    prompt: inline('#4ade80'),
+    /** The contact lines on the band: slate-300, 12.0:1 on the band. */
+    contact: inline('#cbd5e1'),
+    /** The photo's ring: green-500. Decoration, no text. */
+    photoRing: inline('#22c55e'),
+    /** The photo's fill, seen where the photo is transparent. */
+    photoFill: inline('#334155'),
+    /** Every section heading: green-700, 5.0:1 on white. */
+    heading: inline('#15803d'),
+    /** A tag's text: green-800, 6.8:1 on its fill, 7.1:1 on white. */
+    tagText: inline('#166534'),
+    /** A tag's fill: green-50. */
+    tagFill: inline('#f0fdf4'),
+    /** A tag's outline: green-300. Decoration, no text. */
+    tagBorder: inline('#86efac'),
+    /** Running text, bullets, descriptions and the last section's lines: 14.6:1 on white. */
+    body: inline('#1e293b'),
+    /** Dates, an entry's second line, and a project's link: 4.8:1 on white. */
+    muted: inline('#64748b'),
+    /** A project card's thin border. Decoration, no text. */
+    cardBorder: inline('#e2e8f0'),
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewColour>>>>

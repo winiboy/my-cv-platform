@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures/auth'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Locator, Page } from '@playwright/test'
+import { swissItHeading } from '../src/lib/swiss-it-template'
 import {
   LOCAL_SUPABASE_URL,
   LOCAL_SERVICE_KEY,
@@ -30,15 +31,15 @@ function admin(): SupabaseClient {
   })
 }
 
-const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering']
+const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt']
 
 const NAMES = {
-  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique'],
-  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering'],
-  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung', 'Technische & handwerkliche Berufe', 'Gesundheit & Soziales', 'Bank, Finanzen & Versicherung', 'Ingenieurwesen & Technik'],
+  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique', 'Informatique & IT'],
+  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering', 'IT & software'],
+  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung', 'Technische & handwerkliche Berufe', 'Gesundheit & Soziales', 'Bank, Finanzen & Versicherung', 'Ingenieurwesen & Technik', 'Informatik & IT'],
 } as const
 
-/** The fr `resumes.editor.sections.education` heading every template draws. */
+/** The fr `resumes.editor.sections.education` heading every template draws (swissIt as "// formation"). */
 const FR_EDUCATION_HEADING = 'Formation'
 
 /**
@@ -80,6 +81,14 @@ async function expectOnlyChecked(page: Page, template: string): Promise<void> {
   expect(checked).toEqual([template])
 }
 
+/**
+ * The education heading a thumbnail draws: the label as every template draws
+ * it, except swissIt, which draws its headings "// label" in lower case.
+ */
+async function educationHeadingOf(thumbnail: Locator, label: string, locale: 'fr' | 'en'): Promise<string> {
+  return (await thumbnail.getAttribute('data-template')) === 'swissIt' ? swissItHeading(label, locale) : label
+}
+
 /** Every thumbnail has drawn its template's page. */
 async function expectThumbnailsDrawn(page: Page): Promise<void> {
   await expect(thumbnails(page)).toHaveCount(ORDER.length)
@@ -105,7 +114,7 @@ test('fr: every option has a live thumbnail, keyboard and pointer selection, and
   expect(await thumbnails(page).evaluateAll((elements) => elements.map((element) => element.getAttribute('data-template')))).toEqual(ORDER)
   for (const thumbnail of await thumbnails(page).all()) {
     await expect(thumbnail).toHaveAttribute('aria-hidden', 'true')
-    await expect(thumbnail).toContainText(FR_EDUCATION_HEADING)
+    await expect(thumbnail).toContainText(await educationHeadingOf(thumbnail, FR_EDUCATION_HEADING, 'fr'))
   }
 
   // Nothing inside a thumbnail can take focus, even when asked to directly.

@@ -405,6 +405,39 @@ export const PREVIEW_GRAPHICS = {
         'Square corners where the Preview rounds them 4px: a table cell has no corner radius.',
     },
   },
+  swissIt: {
+    headerBand: {
+      element: 'the dark band across the top of the page holding the name, the CV title, the contact lines and the photo',
+      form: 'shaded-cell',
+      approximation:
+        'A full-width single-row table whose cells are shaded the band’s colour with no borders, floating at ' +
+        'the page’s origin so it meets the paper’s top and side edges while the section keeps the top margin ' +
+        'every later page needs, the body flowing below it at the Preview’s gap; the band’s padding as the ' +
+        'cell margins, the round photo in its last cell. The band is drawn on the first page only, as in the ' +
+        'Preview.',
+    },
+    tag: {
+      element:
+        'each skill and technology tag (`SWISS_IT_GEOMETRY.tagBorder` outline, `tagRadius` pill corners, `tagPaddingX` padding)',
+      form: 'shaded-run',
+      approximation:
+        'One run per tag, shaded the tag’s fill and outlined in the tag’s border colour (`w:bdr`), padded with ' +
+        'a no-break space each side and with no-break spaces between its words, so a tag is never split; ' +
+        'two tags are parted by a widened space and a zero-width space, the break opportunity, as ' +
+        '`docx-swiss-trades.ts` parts its tags. Square ends where the Preview draws a pill, and the padding is ' +
+        'a space wide rather than the Preview’s 10px: a run has no padding or corner radius.',
+    },
+    projectCard: {
+      element: 'each project card (`SWISS_IT_GEOMETRY.cardBorder` border, `cardRadius` corners), two to a row',
+      form: 'cell-border',
+      approximation:
+        'One table per row of cards: two cells the card’s width with single borders of the card’s border ' +
+        'colour on all four sides, rounded to Word’s eighths of a point, the card’s padding as the cell ' +
+        'margins, and an unbordered cell between them for the gap; the cards of a row share its height as ' +
+        'the Preview’s grid does, an odd last card stays in the left column, and a spacer paragraph parts ' +
+        'two rows. Square corners where the Preview rounds them 6px: a table cell has no corner radius.',
+    },
+  },
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewGraphic>>>>
 
 // ---------------------------------------------------------------------------

@@ -203,7 +203,7 @@ export function swissContactEntries(contact: ResumeContact, dict: unknown): Swis
  */
 export function swissHeading(
   dict: unknown,
-  key: 'summary' | 'experience' | 'education' | 'training' | 'skills' | 'languages' | 'keyAchievements',
+  key: 'summary' | 'experience' | 'education' | 'training' | 'skills' | 'languages' | 'keyAchievements' | 'projects',
 ): string {
   const label = (dict as { resumes?: { template?: Record<string, unknown> } }).resumes?.template?.[key]
   if (typeof label !== 'string' || label === '') {

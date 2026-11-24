@@ -209,7 +209,9 @@
       "swissFinance": "Bank, Finanzen & Versicherung",
       "swissFinanceDesc": "Klassisches, seriöses Format",
       "swissEngineering": "Ingenieurwesen & Technik",
-      "swissEngineeringDesc": "Schlüsselprojekte zuerst"
+      "swissEngineeringDesc": "Schlüsselprojekte zuerst",
+      "swissIt": "Informatik & IT",
+      "swissItDesc": "Technologien und Projekte zuerst"
     },
     "new": {
       "title": "Neuen Lebenslauf erstellen",
@@ -380,6 +382,7 @@
     },
     "template": {
       "keyAchievements": "Wichtige Erfolge",
+      "projects": "Projekte",
       "skills": "Fähigkeiten",
       "languages": "Sprachen",
       "training": "Schulung / Kurse",

@@ -728,3 +728,78 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-006 The "Ingénierie & technique" template is available
 FINAL: PASS
+
+## US-007: The "Informatique & IT" template is available
+Status: PASS
+Priority: 9
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 8f5198f (US-006 story commit).
+Scope:
+- Scope check: PASS
+- Changed paths (55 under src/ and e2e/, 11 of them new, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-it-template.ts` (sizes, geometry, section order, `swissItHeading`, `swissItLinkParts`), `src/components/dashboard/resume-templates/swiss-it-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-it.ts`, each with its unit test; `src/lib/inter-link-widths.ts` (+ test: Inter advance widths for printable ASCII, checked against the installed `@fontsource/inter` file, used by the Word export to decide whether a project URL fits its card).
+  - **Wiring:** `src/types/database.ts` (swissIt no longer unbuilt), `resume-editor.tsx`, `resume-preview.tsx`, `template-picker.tsx` (Terminal icon), `layout-settings.ts`, `resume-palette.ts`, `resume-graphics.ts`, `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `swiss-vocational-template.ts` (shared Swiss lists), `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route, the four `common.json` locale files.
+  - **New locale label:** `resumes.template.projects` — fr "Projets", en "Projects", de "Projekte", it "Progetti" (FR-6: no existing label named the projects section for this layout).
+  - **Print CSS:** `src/app/globals.css`, print-only rules scoped to `.swiss-it-template`: named page `swiss-it` with 48 px top and foot margins, `:first` top 0 so the band meets the paper edge, print foot padding 0, photo/tag/card radii.
+  - **Test lists:** the unit tests that enumerate templates; e2e template-picker, template-picker-compact (12 options), job-cv-template-picker, job-search-mobile, visual/resume-templates; the picker specs expect the "// label" heading form for swissIt; the render and contact-visibility tests strip `<wbr>`/U+200B before comparing text.
+  - **e2e:** new `e2e/swiss-it-template.spec.ts` (10 tests, including the two-page margins and a long project URL).
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissIt.png` (sha256 4e5455f27c05c661) and `swissIt-print.png` (b03a92f6279a9a64).
+- Not touched: the five original templates and the six earlier Swiss templates (renderers, Word generators, baselines, parity verdicts), the shared date helper, the shared docx and format helpers, stored data; no migration; no new dependency; no version change; no push or merge of this commit.
+Checks (final diff hash 9c7a1e4f96ae03ad, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run and re-verified by the code-reviewer; logs in the session scratchpad `checks-us07-r5/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 5469 passed, 10 skipped (160 files).
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 281 baseline; unchanged.
+- e2e: PASS — 649 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 24/24; only the two new swissIt PNGs were added, the other 22 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier rounds r1–r4, each invalidated by a fix: e2e picker expectations for the "// label" heading; page 2 of the PDF and Word had no top margin (fixed by the named print page and the Word section margins with a floating band table); the PDF hidden-text assertion did not cope with letter-spaced text; code-review FAIL on the page foot (fixed with the 48 px foot margin); URLs broken mid-letter (fixed with break points at URL boundaries); code-review FAIL on U+200B inside contact values and ui-expert MAJOR on U+200B in the email and in links that fit (fixed: Word writes break points only into a contact value wider than the band line or a URL wider than its card, never into the email). One parity cold-start timeout in an earlier round was environmental and passed on rerun.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample close to t7-informatique.png with one hidden experience, skill category, language, certificate and project; GitHub and website filled; a project with technologies and an 87-character URL; long German words in skills and project cards ("Infrastrukturautomatisierung", "Energieverbrauchsüberwachungsplattform", "Kubernetes-Operatoren"). Cases full-photo-fr, full-photo-de, full-nophoto-en, empty-nophoto-fr. Preview HTTP 200 in all four; photo img 1/1/0/0; hidden text absent in Preview, PDF and Word (trace.txt). Preview captures: full-photo-fr b1b4b81f5becab3a, full-photo-de 0d355d20adba6cf8, full-nophoto-en 3ed641f4eef51d65, empty-nophoto-fr 409894c56b369ad5. Picker: swissIt after swissEngineering; fr "Informatique & IT / Technologies et projets en avant", de "Informatik & IT / Technologien und Projekte zuerst"; picker-card-fr 7f523cea01b4c2fd, picker-card-de f777e92213c6fc78. At 375 px: covered by the e2e picker specs (all 12 options).
+- Visual: PASS — baselines captured with `--update-snapshots=all` on the template code; the r5 visual run matched them.
+- Export: PASS (evidence folder `us07-evidence-r5/`).
+  - PDF: full-photo-fr 64c19c501d49ae19, full-photo-de e03a3cce5b2e8535, full-nophoto-en 82f2d02353b684b3 (2 pages each), empty-nophoto-fr f1fc4cf1443003ce (1 page).
+  - Word: full-photo-fr f5f2571d413252c4, full-photo-de a89214eb30635ef5, full-nophoto-en b83b305c951747b7, empty-nophoto-fr dc02d686326c1e51. Photo drawn as an ellipse in the photo cases.
+  - Text of the Word files (`*.docx.txt`): the email and every link that fits are byte-identical to the stored values; U+200B appears only between tags and inside the 87-character URL.
+  - Rendered by Microsoft Word to PDF: full-photo-fr 72b98d52c413e34a, full-photo-de 9c1728582af1cec0, empty-nophoto-fr 4e1a93a8d0b85e3d. Dark band at the page top, 48 px top margin on page 2, 48 px foot margin on both pages, monospace headings, tags, two-column project cards; the long URL wraps after "/" and "-", never inside letters; long German words whole.
+- Database: NOT_APPLICABLE — no schema or stored-data change; `swissIt` was already accepted by the US-001 constraint.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text through `renderFormattedText` (SSR test plus e2e 200) and `formattedBlocks` in Word; GitHub, website and project URLs are drawn as plain text, not links; the photo goes through the Word route's existing bound.
+Agents:
+- ui-expert: PASS (round 5), 0 MAJOR; minors recorded below. Earlier round: MAJOR on U+200B in the email and in links that fit, fixed in r5.
+- code-reviewer: PASS (round 3), no critical or major finding; minors recorded below. Earlier rounds: FAIL on the page foot, then FAIL on break points inside contact values.
+- senior-coder: implementation and the fixes listed above.
+Acceptance criteria:
+- AC-01 The picker shows swissIt after swissEngineering with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-it-template.spec.ts`.
+- AC-02 Editor live preview, Preview, PDF and Word match t7-informatique.png (dark band with name, monospace CV title, contact incl. GitHub and website, round photo; monospace headings; skills as tags; projects as two-column cards with technology tags; order summary, skills, experience, projects, education, then languages and certifications): PASS — the captures, PDFs and Word renders above; ui-expert side-by-side comparison.
+- AC-03 FR-1 to FR-11: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing headings reused, certifications under `training`, plus the one new `projects` label in four locales (FR-6).
+- Owner rule (no word split mid-word, any locale): PASS for every word in the evidence; a URL wider than its card breaks only after "/", "-", "." or similar boundaries; only a single token wider than its line with no boundary can break inside letters (last resort).
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Projects** are the stored `projects`, edited in the existing Projects tab, drawn as two-column cards (name, description, technologies as tags, url as a muted line); project dates are not drawn.
+- **Headings** are the existing localized labels, lowercased with a "// " prefix in the monospace face (as the mockup shows); the stored and translated label text is unchanged.
+- **Monospace face:** the system stack `ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace` (no font download); Word names Consolas.
+- **Page margins:** 48 px top on every page but the first and 48 px foot on every page, in the PDF (`@page swiss-it`) and Word (section margins), so both break pages at the same place.
+- **Break points in Word:** a contact value is kept whole with no-break spaces and moves to the next line as a unit, as on the Preview; only a value wider than the whole band line gets break points; the email never does; a project URL gets break points only when wider than its card by Inter's measure (4 px margin).
+
+Open owner decisions:
+- **FR-10, Word typeface:** Word falls back to a serif face where Inter is not installed (all Swiss templates; Inter is neither installed there nor embedded). The URL threshold is measured in Inter; a URL within a few px of the card width could fit by Inter's measure, get no break points, and be cut at a letter in a wider fallback face. Embedding Inter in Word exports (a cross-template change) would remove it.
+- **FR-10, Consolas fallback:** contact widths are exact only where Consolas is installed; Courier New is about 9 % wider. The same applies to the dates at the right tab stop.
+- **FR-10, page 1 break:** the PDF and the Word render break page 1 at slightly different lines because of the serif fallback.
+- **FR-10, floating band:** the Word band is a floating table; renderers that ignore floating tables (Google Docs, some LibreOffice versions, Pages) may place it inline or lose the page-1 top-edge alignment.
+- **Email difference:** the Preview keeps `<wbr>` in the email; Word never breaks the email. The two differ only for an email wider than about 87 Consolas characters.
+- **Phone in Word:** the phone number keeps no-break spaces in the Word text (it never wraps); a copy-paste from Word carries U+00A0.
+- **Readability (code):** the email check in `docx-swiss-it.ts` is an inline test on the dot suffix; returning each contact value with its key would be clearer.
+- **Carried over from earlier stories:** swissCommerce has no page-2 top margin; swissEngineering URLs can break at in-word hyphens; stale comments in `docx-swiss-engineering.ts` and `swiss-engineering-template.tsx`; the shared `formatSwissDateRange` shows "present" for a missing end date when `current` is false; shrinking photos at upload needs a PRD amendment.
+
+Environment notes:
+- The checks ran alone; the owner's local dev server was stopped for each run and restarted afterwards.
+- The evidence spec was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-007 The "Informatique & IT" template is available
+FINAL: PASS

@@ -39,7 +39,7 @@ const tailwindTheme = read('node_modules/tailwindcss/theme.css')
 const tailwindPreflight = read('node_modules/tailwindcss/preflight.css')
 const globals = read('src/app/globals.css')
 
-const TEMPLATES: readonly BuiltResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering']
+const TEMPLATES: readonly BuiltResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt']
 const template = (name: BuiltResumeTemplate) => read(templateComponentFile(name))
 
 /** A theme letter spacing, in em: `--tracking-wide: 0.025em`. */
@@ -88,7 +88,7 @@ describe('the templates draw with these letter spacings and no others', () => {
     }
   })
 
-  it.each(['professional', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth'] as const)('%s writes no letter spacing inline', (name) => {
+  it.each(['professional', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissIt'] as const)('%s writes no letter spacing inline', (name) => {
     expect(template(name)).not.toMatch(/letterSpacing/)
   })
 
@@ -107,6 +107,11 @@ describe('the templates draw with these letter spacings and no others', () => {
     const used = new Set(
       [...template(name).matchAll(/(?<![\w-])(tracking-(?:\[[^\]]*\]|\([^)]*\)|[\w-]+))/g)].map((m) => m[1]),
     )
+    if (declared.length === 0) {
+      // A template that declares no letter spacing draws none.
+      expect([...used], `${name} declares no letter spacing`).toEqual([])
+      return
+    }
     expect(used.size, `${name} uses no tracking utility`).toBeGreaterThan(0)
     for (const utility of used) {
       expect(Object.keys(TAILWIND_TRACKING), utility).toContain(utility)
@@ -131,6 +136,7 @@ describe('the values themselves', () => {
       swissHealth: { caps: 0.1 },
       swissFinance: { name: 0.1, heading: 0.25 },
       swissEngineering: { caps: 0.1 },
+      swissIt: {},
     })
   })
 })

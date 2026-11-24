@@ -23,6 +23,7 @@ import { generateSwissTradesDocx } from './docx-swiss-trades'
 import { generateSwissHealthDocx } from './docx-swiss-health'
 import { generateSwissFinanceDocx } from './docx-swiss-finance'
 import { generateSwissEngineeringDocx } from './docx-swiss-engineering'
+import { generateSwissItDocx } from './docx-swiss-it'
 
 /**
  * swiss-cv-templates FR-14: an unticked contact detail, CV title or photo is
@@ -46,6 +47,7 @@ const GENERATORS: Record<DocxTemplateId, (resume: unknown, settings: DocxGenerat
   swissHealth: generateSwissHealthDocx,
   swissFinance: generateSwissFinanceDocx,
   swissEngineering: generateSwissEngineeringDocx,
+  swissIt: generateSwissItDocx,
 }
 
 const PHOTO = `data:image/png;base64,${solidColourPng('336699').toString('base64')}`
@@ -123,6 +125,8 @@ function decode(text: string): string {
     .replace(/&amp;/g, '&')
     // Word keeps some details whole with no-break spaces.
     .replace(/ /g, ' ')
+    // and marks where a link may wrap with zero-width spaces, which draw nothing.
+    .replace(/\u200B/g, '')
 }
 
 async function documentXml(row: Row, photoBase64?: string): Promise<string> {
@@ -143,6 +147,8 @@ async function wordParagraphs(row: Row): Promise<string[]> {
 
 function previewMarkup(row: Row, photoUrl?: string): string {
   const layout = resolveResumeLayout(row, null)
+  // A `<wbr>` is a line-break opportunity, not text: the browser reads the
+  // text on both sides of it as one (swissIt marks its links' boundaries so).
   return renderToStaticMarkup(
     createElement(ResumePreview, {
       resume: row as unknown as Resume,
@@ -151,7 +157,7 @@ function previewMarkup(row: Row, photoUrl?: string): string {
       photoUrl,
       hiddenContactFields: layout.hiddenContactFields,
     }),
-  )
+  ).replace(/<wbr\/?>/g, '')
 }
 
 /** The Preview's text nodes, in document order. */
@@ -214,7 +220,7 @@ describe.each(SUPPORTED_TEMPLATES)('%s: contact visibility on the Preview and in
   })
 })
 
-describe.each(['modern', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering'] as const)('%s: the photo tick', (template) => {
+describe.each(['modern', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt'] as const)('%s: the photo tick', (template) => {
   it('draws the stored photo when ticked and draws it as absent when unticked, on both outputs', async () => {
     const shown = resumeRow(template)
     const hidden = resumeRow(template, ['photo'])

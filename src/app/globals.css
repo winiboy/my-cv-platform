@@ -560,6 +560,51 @@
     background: transparent !important;
   }
 
+  /* swissIt (swiss-cv-templates US-007) prints its round photo, its pill tags
+     and its rounded project cards as its Preview and mockup draw them, scoped
+     to that template's root. The radii are SWISS_IT_GEOMETRY.tagRadius and
+     .cardRadius, which the template also writes inline for the screen;
+     swiss-it-template.test.ts holds them equal. */
+  .swiss-it-template .swiss-it-photo {
+    border-radius: 50% !important;
+  }
+
+  .swiss-it-template .swiss-it-tag {
+    border-radius: 9999px !important;
+  }
+
+  .swiss-it-template .swiss-it-card {
+    border-radius: 6px !important;
+  }
+
+  /* swissIt prints its first page with no top margin, so its dark band meets
+     the paper's top edge, every later page with a top margin, so the text
+     that continues there does not start at the paper's edge, and every page
+     with a foot margin, so the PDF breaks its pages where the Word export
+     does. The whole document is one named page (`swiss-it`), so no page break
+     is forced; the margins are SWISS_IT_GEOMETRY.pageTop and .pageBottom,
+     which the Word export also uses, and swiss-it-template.test.ts holds them
+     equal. The foot margin replaces the document's own foot padding in print,
+     so the last page does not get both. Print only: the Preview on screen is
+     unchanged. */
+  html:has(.swiss-it-template),
+  body:has(.swiss-it-template) {
+    page: swiss-it;
+  }
+
+  .swiss-it-template {
+    padding-bottom: 0 !important;
+  }
+
+  @page swiss-it {
+    margin-top: 48px;
+    margin-bottom: 48px;
+  }
+
+  @page swiss-it:first {
+    margin-top: 0;
+  }
+
   /* Preserve colors in CV templates */
   * {
     print-color-adjust: exact !important;

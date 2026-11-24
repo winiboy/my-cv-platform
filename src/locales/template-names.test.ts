@@ -74,4 +74,18 @@ describe('resumes.templates locale parity', () => {
     expect(de.resumes.templates.swissEngineering).toBe('Ingenieurwesen & Technik')
     expect(it_.resumes.templates.swissEngineering).toBe('Ingegneria e tecnica')
   })
+
+  it('names the IT template as the swiss-cv-templates PRD does', () => {
+    expect(fr.resumes.templates.swissIt).toBe('Informatique & IT')
+    expect(en.resumes.templates.swissIt).toBe('IT & software')
+    expect(de.resumes.templates.swissIt).toBe('Informatik & IT')
+    expect(it_.resumes.templates.swissIt).toBe('Informatica e IT')
+  })
+
+  it('adds the projects heading of swiss-cv-templates FR-6 in every locale', () => {
+    expect(fr.resumes.template.projects).toBe('Projets')
+    expect(en.resumes.template.projects).toBe('Projects')
+    expect(de.resumes.template.projects).toBe('Projekte')
+    expect(it_.resumes.template.projects).toBe('Progetti')
+  })
 })

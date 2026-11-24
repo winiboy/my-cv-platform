@@ -13,6 +13,7 @@ import { SwissTradesTemplate } from './resume-templates/swiss-trades-template'
 import { SwissHealthTemplate } from './resume-templates/swiss-health-template'
 import { SwissFinanceTemplate } from './resume-templates/swiss-finance-template'
 import { SwissEngineeringTemplate } from './resume-templates/swiss-engineering-template'
+import { SwissItTemplate } from './resume-templates/swiss-it-template'
 import {
   chosenFontFamily,
   DEFAULT_RESUME_LAYOUT,
@@ -151,6 +152,9 @@ export function ResumePreview({
     case 'swissEngineering':
       // As swissVocational: no font, no font scale (FR-4); fixed section order.
       return <SwissEngineeringTemplate resume={resume} locale={locale} dict={dict} hiddenMainSections={hiddenMainSections} hiddenSidebarSections={hiddenSidebarSections} photoUrl={photoUrl} hiddenContactFields={hiddenContactFields} />
+    case 'swissIt':
+      // As swissVocational: no font, no font scale (FR-4); fixed section order.
+      return <SwissItTemplate resume={resume} locale={locale} dict={dict} hiddenMainSections={hiddenMainSections} hiddenSidebarSections={hiddenSidebarSections} photoUrl={photoUrl} hiddenContactFields={hiddenContactFields} />
     default:
       return <ModernTemplate resume={resume} locale={locale} dict={dict} sidebarColor={sidebarColor} titleFontSize={titleFontSize} contactFontSize={contactFontSize} sectionTitleFontSize={sectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} sidebarOrder={modernSidebarOrder} mainContentOrder={modernMainContentOrder} hiddenSidebarSections={hiddenModernSidebarSections} hiddenMainSections={hiddenModernMainSections} sidebarWidth={sidebarWidth} sidebarTopMargin={sidebarTopMargin} mainContentTopMargin={mainContentTopMargin} fontScale={fontScale} fontFamily={fontFamily} photoUrl={photoUrl} hiddenContactFields={hiddenContactFields} />
   }

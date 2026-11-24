@@ -118,4 +118,6 @@ export const PREVIEW_TRACKING = {
     /** Every section heading of both columns. */
     caps: TAILWIND_TRACKING['tracking-widest'],
   },
+  /** No letter spacing: its monospace headings are drawn as typed, lower case. */
+  swissIt: {},
 } as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, number>>>>

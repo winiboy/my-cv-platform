@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures/auth'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Locator, Page, Route } from '@playwright/test'
+import { swissItHeading } from '../src/lib/swiss-it-template'
 import {
   LOCAL_SUPABASE_URL,
   LOCAL_SERVICE_KEY,
@@ -36,7 +37,7 @@ function admin(): SupabaseClient {
   })
 }
 
-const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering']
+const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt']
 
 const STRINGS = {
   fr: {
@@ -48,7 +49,7 @@ const STRINGS = {
     analyze: "Analyser et générer l'adaptation",
     creating: 'Création de votre CV...',
     groupLabel: 'Choisir un modèle',
-    names: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique'],
+    names: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique', 'Informatique & IT'],
     educationHeading: 'Formation',
   },
   en: {
@@ -60,7 +61,7 @@ const STRINGS = {
     analyze: 'Analyze & Generate Adaptation',
     creating: 'Creating your CV...',
     groupLabel: 'Choose Template',
-    names: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering'],
+    names: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering', 'IT & software'],
     educationHeading: 'Education',
   },
 } as const
@@ -224,6 +225,14 @@ async function checkedTemplates(page: Page): Promise<(string | null)[]> {
   )
 }
 
+/**
+ * The education heading a thumbnail draws: the label as every template draws
+ * it, except swissIt, which draws its headings "// label" in lower case.
+ */
+async function educationHeadingOf(thumbnail: Locator, label: string, locale: 'fr' | 'en'): Promise<string> {
+  return (await thumbnail.getAttribute('data-template')) === 'swissIt' ? swissItHeading(label, locale) : label
+}
+
 /** Open the modal from "Créer un CV" and wait until every thumbnail is drawn. */
 async function openFromCreateCV(page: Page, locale: TestLocale): Promise<number> {
   const started = Date.now()
@@ -264,7 +273,7 @@ test('fr "Créer un CV": the picker defaults to Professional, is frozen while cr
   expect(await thumbnails(page).evaluateAll((elements) => elements.map((element) => element.getAttribute('data-template')))).toEqual(ORDER)
   for (const thumbnail of await thumbnails(page).all()) {
     await expect(thumbnail).toHaveAttribute('aria-hidden', 'true')
-    await expect(thumbnail).toContainText(STRINGS.fr.educationHeading)
+    await expect(thumbnail).toContainText(await educationHeadingOf(thumbnail, STRINGS.fr.educationHeading, 'fr'))
   }
 
   // The picker sits between the company field and the submit button.
@@ -393,7 +402,7 @@ test('en: the label, the names and the thumbnail headings are in English', async
   }
   expect(await checkedTemplates(page)).toEqual(['professional'])
   for (const thumbnail of await thumbnails(page).all()) {
-    await expect(thumbnail).toContainText(STRINGS.en.educationHeading)
+    await expect(thumbnail).toContainText(await educationHeadingOf(thumbnail, STRINGS.en.educationHeading, 'en'))
   }
 
   expect(problems).toEqual([])

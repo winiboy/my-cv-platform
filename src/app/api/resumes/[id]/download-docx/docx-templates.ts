@@ -19,6 +19,7 @@ export const SUPPORTED_TEMPLATES = [
   'swissHealth',
   'swissFinance',
   'swissEngineering',
+  'swissIt',
 ] as const satisfies readonly BuiltResumeTemplate[]
 
 export type DocxTemplateId = (typeof SUPPORTED_TEMPLATES)[number]
@@ -30,7 +31,6 @@ export type DocxTemplateId = (typeof SUPPORTED_TEMPLATES)[number]
  * is removed here too.
  */
 const UNBUILT_TEMPLATES: Readonly<Record<UnbuiltResumeTemplate, true>> = {
-  swissIt: true,
   swissExecutive: true,
   swissAcademic: true,
   swissFirstJob: true,

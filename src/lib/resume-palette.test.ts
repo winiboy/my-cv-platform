@@ -626,6 +626,31 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     'style backgroundColor: #e2e8f0': { count: 1, palette: 'photoFill' },
     'bg-white': { count: 1, excluded: PAGE },
   },
+  swissIt: {
+    // The band; the bold lead of an entry, a skill label (inline and stacked), a project's name.
+    'style backgroundColor: #0f172a': { count: 1, palette: 'ink' },
+    'style color: #0f172a': { count: 4, palette: 'ink' },
+    // The name, the CV title and the contact lines, on the band.
+    'style color: #ffffff': { count: 1, palette: 'name' },
+    'style color: #4ade80': { count: 1, palette: 'prompt' },
+    'style color: #cbd5e1': { count: 1, palette: 'contact' },
+    // The photo's ring and fill.
+    'style borderColor: #22c55e': { count: 1, palette: 'photoRing' },
+    'style backgroundColor: #334155': { count: 1, palette: 'photoFill' },
+    // The text of every heading.
+    'style color: #15803d': { count: 1, palette: 'heading' },
+    // A tag: its text, fill and outline.
+    'style color: #166534': { count: 1, palette: 'tagText' },
+    'style backgroundColor: #f0fdf4': { count: 1, palette: 'tagFill' },
+    'style borderColor: #86efac': { count: 1, palette: 'tagBorder' },
+    // Rich text, bullets, and the last section.
+    'style color: #1e293b': { count: 3, palette: 'body' },
+    // An entry's dates and second line; a project's link.
+    'style color: #64748b': { count: 3, palette: 'muted' },
+    // A project card's border.
+    'style borderColor: #e2e8f0': { count: 1, palette: 'cardBorder' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -711,7 +736,7 @@ describe('PREVIEW_PALETTE', () => {
   )
 
   it('covers every built template', () => {
-    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissCommerce', 'swissEngineering', 'swissFinance', 'swissHealth', 'swissTrades', 'swissVocational'])
+    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissCommerce', 'swissEngineering', 'swissFinance', 'swissHealth', 'swissIt', 'swissTrades', 'swissVocational'])
   })
 
   it('holds each Preview colour of a template once', () => {

@@ -7,6 +7,7 @@ import de from '@/locales/de/common.json'
 import it_ from '@/locales/it/common.json'
 import type { Locale } from '@/lib/i18n'
 import { TEMPLATE_SAMPLE_RESUME } from '@/lib/template-sample-resume'
+import { swissItHeading } from '@/lib/swiss-it-template'
 import { ProfessionalTemplate } from '@/components/dashboard/resume-templates/professional-template'
 import type { ResumeTemplate } from '@/types/database'
 import {
@@ -27,24 +28,23 @@ import {
 const DICTS: Record<Locale, Record<string, unknown>> = { fr, en, de, it: it_ }
 const LOCALES = Object.keys(DICTS) as Locale[]
 /** The five original templates in their original order, then the Swiss templates built so far. */
-const EXPECTED_ORDER: ResumeTemplate[] = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering']
+const EXPECTED_ORDER: ResumeTemplate[] = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt']
 
 /**
  * The Swiss templates whose story has not landed: offered by no creation
  * surface, although the schema accepts them (migration 011).
  */
 const UNBUILT: readonly ResumeTemplate[] = [
-  'swissIt',
   'swissExecutive',
   'swissAcademic',
   'swissFirstJob',
 ]
 
 const EXPECTED_NAMES: Record<Locale, string[]> = {
-  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique'],
-  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering'],
-  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung', 'Technische & handwerkliche Berufe', 'Gesundheit & Soziales', 'Bank, Finanzen & Versicherung', 'Ingenieurwesen & Technik'],
-  it: ['Moderno', 'Classico', 'Minimale', 'Creativo', 'Professionale', 'Formazione professionale (AFC)', 'Commercio e amministrazione', 'Mestieri tecnici e manuali', 'Sanità e sociale', 'Banca, finanza e assicurazioni', 'Ingegneria e tecnica'],
+  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique', 'Informatique & IT'],
+  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering', 'IT & software'],
+  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung', 'Technische & handwerkliche Berufe', 'Gesundheit & Soziales', 'Bank, Finanzen & Versicherung', 'Ingenieurwesen & Technik', 'Informatik & IT'],
+  it: ['Moderno', 'Classico', 'Minimale', 'Creativo', 'Professionale', 'Formazione professionale (AFC)', 'Commercio e amministrazione', 'Mestieri tecnici e manuali', 'Sanità e sociale', 'Banca, finanza e assicurazioni', 'Ingegneria e tecnica', 'Informatica e IT'],
 }
 
 interface RenderedRadio {
@@ -231,7 +231,9 @@ describe('TemplateThumbnailPage', () => {
         }
 
         const resumes = DICTS[locale].resumes as { editor: { sections: Record<string, string> } }
-        expect(decode(html)).toContain(resumes.editor.sections.education)
+        // swissIt draws its headings as the mockup does, "// label" in lower case.
+        const education = resumes.editor.sections.education
+        expect(decode(html)).toContain(template === 'swissIt' ? swissItHeading(education, locale) : education)
       })
     }
   }
@@ -247,12 +249,14 @@ describe('templateIdForKey', () => {
     expect(templateIdForKey('swissTrades', 'ArrowRight')).toBe('swissHealth')
     expect(templateIdForKey('swissHealth', 'ArrowRight')).toBe('swissFinance')
     expect(templateIdForKey('swissFinance', 'ArrowRight')).toBe('swissEngineering')
-    expect(templateIdForKey('swissEngineering', 'ArrowRight')).toBe('modern')
+    expect(templateIdForKey('swissEngineering', 'ArrowRight')).toBe('swissIt')
+    expect(templateIdForKey('swissIt', 'ArrowRight')).toBe('modern')
   })
 
   it('moves back with ArrowLeft and ArrowUp, wrapping from the first option', () => {
     expect(templateIdForKey('classic', 'ArrowLeft')).toBe('modern')
-    expect(templateIdForKey('modern', 'ArrowUp')).toBe('swissEngineering')
+    expect(templateIdForKey('modern', 'ArrowUp')).toBe('swissIt')
+    expect(templateIdForKey('swissIt', 'ArrowLeft')).toBe('swissEngineering')
     expect(templateIdForKey('swissEngineering', 'ArrowLeft')).toBe('swissFinance')
     expect(templateIdForKey('swissFinance', 'ArrowLeft')).toBe('swissHealth')
     expect(templateIdForKey('swissHealth', 'ArrowLeft')).toBe('swissTrades')
@@ -263,7 +267,7 @@ describe('templateIdForKey', () => {
 
   it('jumps to the ends with Home and End', () => {
     expect(templateIdForKey('minimal', 'Home')).toBe('modern')
-    expect(templateIdForKey('minimal', 'End')).toBe('swissEngineering')
+    expect(templateIdForKey('minimal', 'End')).toBe('swissIt')
   })
 
   it('ignores keys that do not move the selection', () => {

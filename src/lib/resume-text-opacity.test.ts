@@ -41,6 +41,7 @@ describe('PREVIEW_TEXT_ALPHA', () => {
       swissHealth: {},
       swissFinance: {},
       swissEngineering: {},
+      swissIt: {},
     })
   })
 

@@ -212,7 +212,6 @@ export type ResumeTemplate = Resume['template']
  * registry lookups resolve an id they do not hold as modern.
  */
 export type UnbuiltResumeTemplate =
-  | 'swissIt'
   | 'swissExecutive'
   | 'swissAcademic'
   | 'swissFirstJob'

@@ -209,7 +209,9 @@
       "swissFinance": "Banca, finanza e assicurazioni",
       "swissFinanceDesc": "Formato classico e sobrio",
       "swissEngineering": "Ingegneria e tecnica",
-      "swissEngineeringDesc": "Progetti chiave in primo piano"
+      "swissEngineeringDesc": "Progetti chiave in primo piano",
+      "swissIt": "Informatica e IT",
+      "swissItDesc": "Tecnologie e progetti in primo piano"
     },
     "new": {
       "title": "Crea nuovo CV",
@@ -380,6 +382,7 @@
     },
     "template": {
       "keyAchievements": "Risultati chiave",
+      "projects": "Progetti",
       "skills": "Competenze",
       "languages": "Lingue",
       "training": "Formazione / Corsi",

@@ -154,6 +154,17 @@ export const SWISS_ENGINEERING_LINE_HEIGHT = {
 } as const
 
 /**
+ * `swiss-it-template.tsx`: the name; the band's title and contact lines, the
+ * section headings and the tags; running text, every entry and card line, and
+ * the last section's lines.
+ */
+export const SWISS_IT_LINE_HEIGHT = {
+  name: 1.15,
+  compact: 1.4,
+  text: 1.5,
+} as const
+
+/**
  * `modern-template.tsx`: the vertical padding, in CSS px, of the accent bar the
  * job title is drawn on (`padding: 4px 12px`). The bar's box is its text line
  * plus this padding above and below.

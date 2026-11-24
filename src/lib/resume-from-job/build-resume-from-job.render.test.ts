@@ -17,11 +17,13 @@ import { SwissTradesTemplate } from '@/components/dashboard/resume-templates/swi
 import { SwissHealthTemplate } from '@/components/dashboard/resume-templates/swiss-health-template'
 import { SwissFinanceTemplate } from '@/components/dashboard/resume-templates/swiss-finance-template'
 import { SwissEngineeringTemplate } from '@/components/dashboard/resume-templates/swiss-engineering-template'
+import { SwissItTemplate } from '@/components/dashboard/resume-templates/swiss-it-template'
 import { presentLabel } from '@/lib/resume-template-strings'
 import { swissTradesSkillContent } from '@/lib/swiss-trades-template'
 import { swissHealthSkillContent } from '@/lib/swiss-health-template'
 import { swissFinanceSkillContent } from '@/lib/swiss-finance-template'
 import { swissEngineeringSkillContent } from '@/lib/swiss-engineering-template'
+import { swissItSkillContent } from '@/lib/swiss-it-template'
 import { buildResumeFromJobOffer, type AiResumeContent, type ResumeDraftContent } from './build-resume-from-job'
 import { RESUME_CONTENT_LANGUAGES, RESUME_SAMPLE_VALUES, type ResumeContentLanguage } from './sample-values'
 
@@ -52,6 +54,7 @@ const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
   swissHealth: SwissHealthTemplate as ComponentType<never>,
   swissFinance: SwissFinanceTemplate as ComponentType<never>,
   swissEngineering: SwissEngineeringTemplate as ComponentType<never>,
+  swissIt: SwissItTemplate as ComponentType<never>,
 }
 
 const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
@@ -111,11 +114,11 @@ type DraftName = keyof typeof DRAFTS
  *   description only when it has no achievements, and every built experience
  *   has achievements, so they draw none; modern draws each description;
  * - only classic and the Swiss templates draw an education description;
- * - the Swiss templates draw no projects, except swissEngineering, which draws
- *   each project's description in its card;
+ * - the Swiss templates draw no projects, except swissEngineering and swissIt,
+ *   which draw each project's description in its card;
  * - swissTrades draws a comma-separated skill paragraph as tags, swissHealth
- *   and swissFinance as one line of plain text, and swissEngineering as one
- *   line per skill.
+ *   and swissFinance as one line of plain text, swissEngineering as one line
+ *   per skill, and swissIt as tags.
  */
 const EXPECTED_RICH_FIELDS: Readonly<Record<ResumeTemplate, (draft: ResumeDraftContent) => number>> = {
   classic: (d) => 1 + d.skills.length + d.projects.length + d.education.length,
@@ -132,6 +135,7 @@ const EXPECTED_RICH_FIELDS: Readonly<Record<ResumeTemplate, (draft: ResumeDraftC
   swissFinance: (d) => 1 + d.skills.filter((skill) => swissFinanceSkillContent(skill)?.kind === 'html').length + d.education.length,
   swissEngineering: (d) =>
     1 + d.skills.filter((skill) => swissEngineeringSkillContent(skill)?.kind === 'html').length + d.education.length + d.projects.length,
+  swissIt: (d) => 1 + d.skills.filter((skill) => swissItSkillContent(skill)?.kind === 'html').length + d.education.length + d.projects.length,
 }
 
 type DrawnField =
@@ -181,6 +185,8 @@ const NOT_DRAWN: Readonly<Record<ResumeTemplate, readonly DrawnField[]>> = {
   swissFinance: ['gpa', 'project', 'technology'],
   // Draws the projects as key-achievement cards, their technologies included.
   swissEngineering: ['gpa'],
+  // Draws the projects as cards, their technologies as tags.
+  swissIt: ['gpa'],
 }
 
 /** The first entry of each section's text, as the draft holds it. */
@@ -235,13 +241,15 @@ function renderDraft(template: ResumeTemplate, language: ResumeContentLanguage, 
     updated_at: '2026-10-22T00:00:00.000Z',
     ...draft,
   } as unknown as Resume
+  // A `<wbr>` is a line-break opportunity, not text: the browser reads the
+  // text on both sides of it as one (swissIt marks its links' boundaries so).
   return renderToString(
     createElement(TEMPLATES[template] as ComponentType<{ resume: Resume; locale: string; dict: unknown }>, {
       resume,
       locale: language,
       dict: DICTIONARIES[language],
     })
-  )
+  ).replace(/<wbr\/?>/g, '')
 }
 
 function formattedWrappers(html: string): number {
