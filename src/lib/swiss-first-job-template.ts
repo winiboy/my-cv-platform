@@ -186,6 +186,23 @@ export const SWISS_FIRST_JOB_EMAIL_MIN_HALF_POINTS = 14
 /** Where an email may wrap below the smallest size: after its "@", and before a "." or a "-". */
 const EMAIL_BREAK = /(?<=@)|(?<=.)(?=[.-])/
 
+/**
+ * The widest an email may be drawn at a requested `px`: its Inter width at
+ * that size rounded up to a whole pixel.
+ *
+ * Chromium on Linux, which also renders the production PDFs, lays small text
+ * out at a whole-pixel size. Evidence: PR #130's Linux CI (run 45562287430)
+ * measured 216px for `maximilian.mustermann-gomes@hotmail.com` requested at
+ * 9.33px (7pt). Its exact Inter width at 9.33px is 201.3px — what Windows
+ * draws — and summing its advances each rounded to the nearest pixel gives
+ * 201px, but its exact width at 10px is 215.7px: the 10px layout. Measuring at
+ * the size rounded up bounds both platforms; at a whole-pixel size it is the
+ * exact width.
+ */
+export function swissFirstJobEmailWidthPx(email: string, px: number): number {
+  return interLinkWidthPx(email, Math.ceil(px - 1e-9))
+}
+
 /** The size an email of the sidebar is drawn at, and the parts it is drawn in. */
 export interface SwissFirstJobEmailFit {
   /** Its size in Word's half-points, a whole number. */
@@ -199,15 +216,16 @@ export interface SwissFirstJobEmailFit {
 /**
  * How the sidebar draws an email: never altered, on one line.
  *
- * One that fits the sidebar's text (`SWISS_FIRST_JOB_SIDEBAR_TEXT_WIDTH`, in
- * Inter, with `SWISS_FIRST_JOB_EMAIL_SAFETY_PX` to spare) at the sidebar's
+ * One that fits the sidebar's text (`SWISS_FIRST_JOB_SIDEBAR_TEXT_WIDTH`, with
+ * `SWISS_FIRST_JOB_EMAIL_SAFETY_PX` to spare, measured in Inter at the size
+ * rounded up to a whole pixel: `swissFirstJobEmailWidthPx`) at the sidebar's
  * size keeps it. One wider is drawn at the largest size that fits, stepped in
  * Word's whole half-points so the Preview and Word draw it at the same size,
  * down to 7pt (`SWISS_FIRST_JOB_EMAIL_MIN_HALF_POINTS`). In both, the email is
  * one part: its text is the stored address, character for character, so it is
  * copied and parsed as stored.
  *
- * Only an email too wide even at 7pt (from some 42 characters, by its letters) is cut
+ * Only an email too wide even at 7pt (from some 37 characters, by its letters) is cut
  * after its "@" and before each "." and "-" (`EMAIL_BREAK`), for the Preview
  * to mark with a `<wbr>`, a break opportunity that draws nothing, so it wraps
  * at one of its own boundaries, never at a letter. Word writes that email
@@ -217,7 +235,7 @@ export interface SwissFirstJobEmailFit {
 export function swissFirstJobEmailFit(email: string): SwissFirstJobEmailFit {
   const room = SWISS_FIRST_JOB_SIDEBAR_TEXT_WIDTH - SWISS_FIRST_JOB_EMAIL_SAFETY_PX
   for (let halfPoints = EMAIL_NORMAL_HALF_POINTS; halfPoints >= SWISS_FIRST_JOB_EMAIL_MIN_HALF_POINTS; halfPoints--) {
-    if (interLinkWidthPx(email, halfPoints / 1.5) <= room) return { halfPoints, px: halfPoints / 1.5, parts: [email] }
+    if (swissFirstJobEmailWidthPx(email, halfPoints / 1.5) <= room) return { halfPoints, px: halfPoints / 1.5, parts: [email] }
   }
   const halfPoints = SWISS_FIRST_JOB_EMAIL_MIN_HALF_POINTS
   return { halfPoints, px: halfPoints / 1.5, parts: email.split(EMAIL_BREAK).filter((part) => part !== '') }

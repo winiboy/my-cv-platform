@@ -1075,3 +1075,27 @@ Commit:
 - Commit: THIS_COMMIT
 - Commit message: fix: keep the Premier emploi email on one line on Linux
 FINAL: PASS
+
+## FIX (PR #130 CI round 2, 2026-11-25): the "Premier emploi" email fit is measured at a whole pixel
+Status: PENDING_CI (local e2e blocked by the environment; the PR's Linux E2E on this commit is the deciding run)
+Story: none (CI failure on PR #130 against US-010; no story's `passes` value is changed).
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 7f2fd4f (previous CI fix).
+Cause: CI run 45562287430 (Linux, Chromium) logged an email overflow of 4.00 px past the sidebar's text box (Windows: -10.69 px). The 39-character email requested at 9.33 px was drawn 216 px wide; exact Inter widths are 201.3 px at 9.33 px, 201 px with each glyph rounded to the nearest pixel, and 215.7 px at 10 px: Chromium on Linux laid the size out at the next whole pixel. Production PDFs are rendered by Chromium on Linux too.
+Scope:
+- Scope check: PASS
+- Changed paths (5): `src/lib/swiss-first-job-template.ts` (new `swissFirstJobEmailWidthPx` measures at `ceil(px)`; `swissFirstJobEmailFit` accepts a size only if that width fits 208 px; Word uses the same decision; the evidence is in a code comment), its unit test, `swiss-first-job-template.test.ts`, `docx-swiss-first-job.test.ts`, `e2e/swiss-first-job-template.spec.ts` (fitted path with a 33-character email; a new fallback-path test: text equals the stored value, one `<wbr>` per boundary, each part on one line within 2 px of the text box, on screen and in print; overflows logged).
+- Effect: 33-character emails draw at 8 pt (197 px at 11 px); the fallback (Preview `<wbr>` wrap, Word 7 pt `w:fitText`) now starts at about 37 characters instead of about 42.
+- Not touched: shared helpers, every other template.
+Checks (hash 22969320da8daf9c; logs `checks-ci130-fix3/`):
+- typecheck 0; unit 5985 passed, 27 skipped; integration 80; build 105/105; lint 281 (ceiling 281); visual 30/30; parity MATCH 211, KNOWN 3, NEW 0.
+- e2e: BLOCKED locally by the environment. Run 1: 675 passed, 1 failed (`resume-page-break-pdf-count.spec.ts:93`, "modern", login page timeout). After a local Supabase restart, run 2: 674 passed, 2 failed (`cover-letter-swiss-pdf.spec.ts:213` with `net::ERR_NO_BUFFER_SPACE` on `page.goto /en/login`, Windows socket exhaustion; `cv-from-job-application.spec.ts:149`, dashboard redirect timeout). None renders swissFirstJob. Every swissFirstJob e2e test passed in both runs; logged overflows -21.00 px (fitted) and -10.66 px (fallback widest part), screen and print.
+Agents:
+- code-reviewer: no change required; PASS conditional on a green full e2e and the PR's Linux CI showing both overflows <= 2 px.
+- ui-expert: NOT re-run — no component markup changed; only the size threshold moved, and both paths (shrunk, fallback) were validated in US-010 r5.
+Open owner decisions:
+- More emails now take the fallback (about 37+ characters): two lines in the Preview, one compressed line in Word (FR-10 difference already recorded for US-010).
+Commit:
+- Commit: THIS_COMMIT
+- Commit message: fix: measure the Premier emploi email fit at a whole pixel
+FINAL: PENDING_CI

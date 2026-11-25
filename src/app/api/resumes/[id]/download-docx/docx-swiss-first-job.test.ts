@@ -360,8 +360,8 @@ describe('swissFirstJob: Word layout (FR-10)', () => {
   })
 
   it('writes an email wider than the sidebar as the stored address, byte for byte, in one run at the size that fits it', async () => {
-    const email = 'maximilian.mustermann-gomes@hotmail.com'
-    expect(email).toHaveLength(39)
+    const email = 'maximilian.mustermann@hotmail.com'
+    expect(email).toHaveLength(33)
     const fit = swissFirstJobEmailFit(email)
     const xml = await rawDocumentXml(resumeRow({ contact: { name: 'Max', email } }), 'en')
     // The text Word extracts, run by run, holds the exact address: no hidden character, no non-breaking hyphen.
@@ -379,8 +379,9 @@ describe('swissFirstJob: Word layout (FR-10)', () => {
     const emailParagraph = (xml: string, email: string) => paragraphs(xml).find((p) => p.includes(email))
     it.each([
       ['fitting', 'kevin.gomes-lab@exemple.test', pxToHalfPoints(SWISS_FIRST_JOB_SIZES.sidebar)],
-      ['shrunk', 'maximilian.mustermann-gomes@hotmail.com', 14],
-      ['too wide even at 7pt', 'maximilian-alexander.mustermann-gomes@hotmail-example.com', 14],
+      ['shrunk', 'maximilian.mustermann@hotmail.com', 16],
+      ['too wide even at 7pt', 'maximilian.mustermann-gomes@hotmail.com', 14],
+      ['far too wide', 'maximilian-alexander.mustermann-gomes@hotmail-example.com', 14],
     ] as const)('%s: %s', async (_case, email, halfPoints) => {
       const xml = await rawDocumentXml(resumeRow({ contact: { name: 'Max', email } }), 'en')
       const paragraph = emailParagraph(xml, email)!
@@ -405,7 +406,7 @@ describe('swissFirstJob: Word layout (FR-10)', () => {
       const properties = /<w:rPr>([\s\S]*?)<\/w:rPr>/.exec(runOf(xml, wide)!.raw)![1]
       expect(properties.indexOf('<w:fitText')).toBeGreaterThan(properties.indexOf('<w:sz '))
       if (properties.includes('<w:lang')) expect(properties.indexOf('<w:fitText')).toBeLessThan(properties.indexOf('<w:lang'))
-      for (const email of ['kevin.gomes-lab@exemple.test', 'maximilian.mustermann-gomes@hotmail.com']) {
+      for (const email of ['kevin.gomes-lab@exemple.test', 'maximilian.mustermann@hotmail.com']) {
         expect(await rawDocumentXml(resumeRow({ contact: { name: 'Max', email } }), 'en')).not.toContain('w:fitText')
       }
     })

@@ -29,6 +29,7 @@ import {
   swissFirstJobCertificate,
   swissFirstJobContactLines,
   swissFirstJobEmailFit,
+  swissFirstJobEmailWidthPx,
   swissFirstJobLanguageDots,
   swissFirstJobSections,
 } from '@/lib/swiss-first-job-template'
@@ -124,37 +125,47 @@ describe('swissFirstJob joined text', () => {
     }
   })
 
+  it('measures an email at its size rounded up to a whole pixel, as Chromium on Linux lays it out', () => {
+    // The PR #130 Linux CI drew this address 216px wide when asked for 9.33px: the 10px width.
+    const email = 'maximilian.mustermann-gomes@hotmail.com'
+    expect(interLinkWidthPx(email, 14 / 1.5)).toBeCloseTo(201.3, 1)
+    expect(swissFirstJobEmailWidthPx(email, 14 / 1.5)).toBeCloseTo(215.7, 1)
+    expect(swissFirstJobEmailWidthPx(email, 14 / 1.5)).toBe(interLinkWidthPx(email, 10))
+    // A whole-pixel size is measured as it is.
+    expect(swissFirstJobEmailWidthPx(email, 12)).toBe(interLinkWidthPx(email, 12))
+  })
+
   it('shrinks an email wider than the sidebar to the largest whole half-point size that fits it, never altered', () => {
-    for (const email of ['maximilian.mustermann@hotmail.com', 'maximilian.mustermann-gomes@hotmail.com']) {
-      expect(interLinkWidthPx(email, SWISS_FIRST_JOB_SIZES.sidebar), email).toBeGreaterThan(ROOM)
+    for (const email of ['maximilian.mustermann@hotmail.com', 'anne-sophie.vuilleumier@bluewin.ch', 'max.mustermann-gomes@hotmail.com']) {
+      expect(swissFirstJobEmailWidthPx(email, SWISS_FIRST_JOB_SIZES.sidebar), email).toBeGreaterThan(ROOM)
       const fit = swissFirstJobEmailFit(email)
       expect(fit.parts, email).toEqual([email])
       expect(Number.isInteger(fit.halfPoints)).toBe(true)
       expect(fit.px).toBe(fit.halfPoints / 1.5)
       expect(fit.halfPoints).toBeGreaterThanOrEqual(SWISS_FIRST_JOB_EMAIL_MIN_HALF_POINTS)
       expect(fit.halfPoints).toBeLessThan(SWISS_FIRST_JOB_SIZES.sidebar * 1.5)
-      // It fits, and half a point more would not.
-      expect(interLinkWidthPx(email, fit.px), email).toBeLessThanOrEqual(ROOM)
-      expect(interLinkWidthPx(email, (fit.halfPoints + 1) / 1.5), email).toBeGreaterThan(ROOM)
+      // It fits at its whole-pixel layout, and half a point more would not.
+      expect(swissFirstJobEmailWidthPx(email, fit.px), email).toBeLessThanOrEqual(ROOM)
+      expect(swissFirstJobEmailWidthPx(email, (fit.halfPoints + 1) / 1.5), email).toBeGreaterThan(ROOM)
     }
     expect(SWISS_FIRST_JOB_EMAIL_MIN_HALF_POINTS / 2).toBe(7)
-    // The two measured sizes the review records: 8.5pt for the 33-character address, 7pt for the 39-character one.
-    expect(swissFirstJobEmailFit('maximilian.mustermann@hotmail.com').halfPoints).toBe(17)
-    expect(swissFirstJobEmailFit('maximilian.mustermann-gomes@hotmail.com').halfPoints).toBe(14)
+    // The 33-character address: 8pt, laid out at 11px.
+    expect(swissFirstJobEmailFit('maximilian.mustermann@hotmail.com').halfPoints).toBe(16)
   })
 
   it('cuts only an email too wide even at 7pt, and only after its "@" and before a "." or "-" (a recorded limit)', () => {
     const cuts = {
+      'maximilian.mustermann-gomes@hotmail.com': ['maximilian', '.mustermann', '-gomes@', 'hotmail', '.com'],
       'maximilian.mustermann.ausbildung@hotmail.com': ['maximilian', '.mustermann', '.ausbildung@', 'hotmail', '.com'],
       'anne-sophie.vuilleumier-ochsenbein.ausbildung@bluewin.ch': ['anne', '-sophie', '.vuilleumier', '-ochsenbein', '.ausbildung@', 'bluewin', '.ch'],
     }
     for (const [email, parts] of Object.entries(cuts)) {
-      expect(interLinkWidthPx(email, SWISS_FIRST_JOB_EMAIL_MIN_HALF_POINTS / 1.5)).toBeGreaterThan(ROOM)
+      expect(swissFirstJobEmailWidthPx(email, SWISS_FIRST_JOB_EMAIL_MIN_HALF_POINTS / 1.5)).toBeGreaterThan(ROOM)
       const fit = swissFirstJobEmailFit(email)
       expect(fit.halfPoints).toBe(SWISS_FIRST_JOB_EMAIL_MIN_HALF_POINTS)
       expect(fit.parts.join('')).toBe(email)
       expect(fit.parts).toEqual(parts)
-      for (const part of fit.parts) expect(interLinkWidthPx(part, fit.px), part).toBeLessThanOrEqual(SWISS_FIRST_JOB_SIDEBAR_TEXT_WIDTH)
+      for (const part of fit.parts) expect(swissFirstJobEmailWidthPx(part, fit.px), part).toBeLessThanOrEqual(SWISS_FIRST_JOB_SIDEBAR_TEXT_WIDTH)
     }
   })
 

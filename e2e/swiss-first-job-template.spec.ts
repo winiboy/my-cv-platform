@@ -230,8 +230,9 @@ test('de: long words of the sidebar are never split, and no date wraps, on scree
 })
 
 test('en: an email wider than the sidebar is drawn as stored on exactly one line, shrunk to fit, on screen and in print', async ({ page, authedUser }) => {
-  const EMAIL = 'maximilian.mustermann-gomes@hotmail.com'
+  const EMAIL = 'maximilian.mustermann@hotmail.com'
   const fit = swissFirstJobEmailFit(EMAIL)
+  expect(fit.parts, 'the shrunk path').toEqual([EMAIL])
   const resume = await seedFixtureResume(authedUser.id, 'swissFirstJob', CONTENT)
   await updateResume(resume.id, { contact: { ...FIXTURE_CONTACT, email: EMAIL } })
   const cv = await expectPreviewDocument(page, resume.id, 'en')
@@ -272,6 +273,51 @@ test('en: an email wider than the sidebar is drawn as stored on exactly one line
     expect(fontSize, media).toBeCloseTo(fit.px, 2)
     // On one line, inside the sidebar's text box, with 2px of tolerance.
     expect(overflow, `${media}: px past the sidebar's text box`).toBeLessThanOrEqual(2)
+  }
+})
+
+test('en: an email too wide even at 7pt wraps only at its boundaries, each part whole and inside the sidebar, its text as stored', async ({ page, authedUser }) => {
+  const EMAIL = 'maximilian.mustermann-gomes@hotmail.com'
+  const fit = swissFirstJobEmailFit(EMAIL)
+  expect(fit.parts, 'the fallback path').toEqual(['maximilian', '.mustermann', '-gomes@', 'hotmail', '.com'])
+  const resume = await seedFixtureResume(authedUser.id, 'swissFirstJob', CONTENT)
+  await updateResume(resume.id, { contact: { ...FIXTURE_CONTACT, email: EMAIL } })
+  const cv = await expectPreviewDocument(page, resume.id, 'en')
+  const line = cv.locator('aside p').filter({ hasText: EMAIL })
+  await expect(line).toHaveCount(1)
+  // The stored address: a <wbr> draws nothing and adds no text.
+  expect(await line.textContent()).toBe(EMAIL)
+  await expect(line.locator('wbr')).toHaveCount(fit.parts.length - 1)
+
+  /** For each part: how many line boxes it spans (1 when it is not cut inside its letters), and how far it runs past the text box. */
+  const partsDrawn = () =>
+    line.evaluate((element, parts) => {
+      const aside = element.closest('aside')
+      if (!aside) throw new Error('The email is not in the sidebar')
+      const textRight = aside.getBoundingClientRect().right - parseFloat(getComputedStyle(aside).paddingRight)
+      const nodes: Text[] = []
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node as Text)
+      return parts.map((part) => {
+        const node = nodes.find((candidate) => candidate.textContent === part)
+        if (!node) return { part, lines: 0, overflow: Infinity }
+        const range = document.createRange()
+        range.selectNodeContents(node)
+        const rects = [...range.getClientRects()]
+        return { part, lines: new Set(rects.map((rect) => Math.round(rect.top))).size, overflow: Math.max(...rects.map((rect) => rect.right)) - textRight }
+      })
+    }, fit.parts)
+  await page.evaluate(async () => {
+    await document.fonts.ready
+  })
+  for (const media of ['screen', 'print'] as const) {
+    await page.emulateMedia({ media })
+    const drawn = await partsDrawn()
+    console.log(`swissFirstJob fallback email, widest part overflow (${media}): ${Math.max(...drawn.map((d) => d.overflow)).toFixed(2)}px`)
+    for (const { part, lines, overflow } of drawn) {
+      expect(lines, `${media}: "${part}" on one line`).toBe(1)
+      expect(overflow, `${media}: "${part}" px past the sidebar's text box`).toBeLessThanOrEqual(2)
+    }
   }
 })
 

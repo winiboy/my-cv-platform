@@ -219,20 +219,22 @@ describe('swissFirstJob never cuts a word (owner rule, any language)', () => {
   })
 
   it('draws an email wider than the sidebar as stored, with no <wbr>, shrunk to the size that fits it', () => {
-    const email = 'maximilian.mustermann-gomes@hotmail.com'
+    const email = 'maximilian.mustermann@hotmail.com'
     const fit = swissFirstJobEmailFit(email)
     expect(fit.px).toBeLessThan(SWISS_FIRST_JOB_SIZES.sidebar)
+    expect(fit.parts).toEqual([email])
     const html = render(resume({ contact: { name: 'Max', email } }))
     // Never wrapped, not even at its hyphen.
     expect(html).toContain(`<p style="margin-top:0"><span class="whitespace-nowrap" style="font-size:${fit.px}px">${email}</span></p>`)
   })
 
   it('wraps an email too wide even at 7pt only at its boundaries, marked with <wbr>, and lets it wrap', () => {
-    const email = 'maximilian-alexander.mustermann-gomes@hotmail-example.com'
-    const fit = swissFirstJobEmailFit(email)
-    expect(fit.parts.length).toBeGreaterThan(1)
-    const html = render(resume({ contact: { name: 'Max', email } }))
-    expect(html).toContain(`<p style="margin-top:0"><span style="font-size:${fit.px}px">${fit.parts.join('<wbr/>')}</span></p>`)
+    for (const email of ['maximilian.mustermann-gomes@hotmail.com', 'maximilian-alexander.mustermann-gomes@hotmail-example.com']) {
+      const fit = swissFirstJobEmailFit(email)
+      expect(fit.parts.length).toBeGreaterThan(1)
+      const html = render(resume({ contact: { name: 'Max', email } }))
+      expect(html).toContain(`<p style="margin-top:0"><span style="font-size:${fit.px}px">${fit.parts.join('<wbr/>')}</span></p>`)
+    }
   })
 
   it('draws a fitting email whole and marks a link’s boundaries with <wbr>; keeps every date on one line', () => {
