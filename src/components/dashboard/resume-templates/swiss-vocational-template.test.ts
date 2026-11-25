@@ -1,0 +1,69 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { describe, expect, it } from 'vitest'
+
+/**
+ * The print and alignment rules `swiss-vocational-template.tsx` was fixed to
+ * hold (swiss-cv-templates US-001 review), pinned in its source.
+ *
+ * Source-level, as `resume-page-size.test.ts` pins the template's page width:
+ * a page break and a text alignment are only observable in a browser's print,
+ * which the unit suite does not have, and the PDF and visual suites only see
+ * them for the fixtures they render. Each assertion names the rule it holds.
+ */
+
+const SOURCE = readFileSync(
+  path.join(process.cwd(), 'src/components/dashboard/resume-templates/swiss-vocational-template.tsx'),
+  'utf8',
+)
+
+/** The body of the `case '<id>':` branch of the section switch, up to the next case. */
+function sectionCase(id: string): string {
+  const start = SOURCE.indexOf(`case '${id}': {`)
+  if (start < 0) throw new Error(`No case '${id}' in the template`)
+  const next = SOURCE.indexOf('\n      case ', start + 1)
+  return SOURCE.slice(start, next < 0 ? undefined : next)
+}
+
+describe('swissVocational keeps its sections together on a printed page', () => {
+  it('keeps each dated entry on one page when it fits', () => {
+    expect(SOURCE).toMatch(/const datedRow = [\s\S]*?className="grid break-inside-avoid"/)
+  })
+
+  it('keeps each entry heading with its first entry, in one unbreakable block', () => {
+    const helper = /const entrySection = [\s\S]*?<\/section>\n {2}\)/.exec(SOURCE)?.[0]
+    expect(helper).toBeDefined()
+    expect(helper).toMatch(/<div className="break-inside-avoid">\s*\{heading\(label\)\}\s*\{entries\[0\]\}\s*<\/div>\s*\{entries\.slice\(1\)\}/)
+    for (const id of ['experience', 'education', 'training']) {
+      expect(sectionCase(id), id).toContain(`entrySection(\n            swissHeading(dict, '${id}'),`)
+      expect(sectionCase(id), id).not.toContain('{heading(')
+    }
+  })
+
+  it('keeps the summary, the skills and the languages each in one unbreakable block', () => {
+    expect(sectionCase('summary')).toMatch(/<section className="break-inside-avoid">\s*\{heading\(swissHeading\(dict, 'summary'\)\)\}/)
+    const block = sectionCase('skillsAndLanguages')
+    expect(block).toMatch(/<section className="break-inside-avoid">\s*\{heading\(swissHeading\(dict, 'skills'\)\)\}/)
+    expect(block).toMatch(/<section className="break-inside-avoid">\s*\{heading\(swissHeading\(dict, 'languages'\)\)\}/)
+  })
+})
+
+describe('swissVocational aligns its text as the mockup and the Word export do', () => {
+  it('draws achievements, descriptions and skills ragged-right', () => {
+    expect(sectionCase('experience')).toContain('renderFormattedText(achievement, { justify: false })')
+    expect(sectionCase('experience')).toContain('renderFormattedText(exp.description, { justify: false })')
+    expect(sectionCase('education')).toContain('renderFormattedText(edu.description, { justify: false })')
+    expect(sectionCase('skillsAndLanguages')).toContain('renderFormattedText(skill.content.html, { justify: false })')
+  })
+
+  it('keeps the summary justified', () => {
+    const summary = sectionCase('summary')
+    expect(summary).toContain('className="text-justify text-slate-700"')
+    expect(summary).toContain('renderFormattedText(resume.summary)')
+  })
+
+  it('justifies nothing else: every other rich-text call opts out', () => {
+    const calls = [...SOURCE.matchAll(/renderFormattedText\(([^)]*)\)/g)].map(([, args]) => args)
+    expect(calls.filter((args) => !args.includes('justify: false'))).toEqual(['resume.summary'])
+  })
+})

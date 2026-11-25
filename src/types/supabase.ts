@@ -85,7 +85,7 @@ export type Database = {
           id: string
           user_id: string
           title: string
-          template: 'modern' | 'classic' | 'minimal' | 'creative' | 'professional'
+          template: 'modern' | 'classic' | 'minimal' | 'creative' | 'professional' | 'swissVocational' | 'swissCommerce' | 'swissTrades' | 'swissHealth' | 'swissFinance' | 'swissEngineering' | 'swissIt' | 'swissExecutive' | 'swissAcademic' | 'swissFirstJob'
           contact: Json
           summary: string | null
           experience: Json
@@ -107,7 +107,7 @@ export type Database = {
           id?: string
           user_id: string
           title?: string
-          template?: 'modern' | 'classic' | 'minimal' | 'creative' | 'professional'
+          template?: 'modern' | 'classic' | 'minimal' | 'creative' | 'professional' | 'swissVocational' | 'swissCommerce' | 'swissTrades' | 'swissHealth' | 'swissFinance' | 'swissEngineering' | 'swissIt' | 'swissExecutive' | 'swissAcademic' | 'swissFirstJob'
           contact?: Json
           summary?: string | null
           experience?: Json
@@ -129,7 +129,7 @@ export type Database = {
           id?: string
           user_id?: string
           title?: string
-          template?: 'modern' | 'classic' | 'minimal' | 'creative' | 'professional'
+          template?: 'modern' | 'classic' | 'minimal' | 'creative' | 'professional' | 'swissVocational' | 'swissCommerce' | 'swissTrades' | 'swissHealth' | 'swissFinance' | 'swissEngineering' | 'swissIt' | 'swissExecutive' | 'swissAcademic' | 'swissFirstJob'
           contact?: Json
           summary?: string | null
           experience?: Json

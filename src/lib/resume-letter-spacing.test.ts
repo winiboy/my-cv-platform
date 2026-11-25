@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import type { ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate } from '@/types/database'
+import { templateComponentFile } from '@/test/resume-template-files'
 import { PREVIEW_TRACKING, TAILWIND_TRACKING, type TailwindTrackingUtility } from './resume-letter-spacing'
 
 /**
@@ -38,8 +39,8 @@ const tailwindTheme = read('node_modules/tailwindcss/theme.css')
 const tailwindPreflight = read('node_modules/tailwindcss/preflight.css')
 const globals = read('src/app/globals.css')
 
-const TEMPLATES: readonly ResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative']
-const template = (name: ResumeTemplate) => read(`src/components/dashboard/resume-templates/${name}-template.tsx`)
+const TEMPLATES: readonly BuiltResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
+const template = (name: BuiltResumeTemplate) => read(templateComponentFile(name))
 
 /** A theme letter spacing, in em: `--tracking-wide: 0.025em`. */
 function themeTracking(utility: TailwindTrackingUtility): number {
@@ -87,8 +88,17 @@ describe('the templates draw with these letter spacings and no others', () => {
     }
   })
 
-  it.each(['professional', 'classic', 'minimal', 'creative'] as const)('%s writes no letter spacing inline', (name) => {
+  it.each(['professional', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissIt'] as const)('%s writes no letter spacing inline', (name) => {
     expect(template(name)).not.toMatch(/letterSpacing/)
+  })
+
+  it('swissFinance gives letterSpacing only the heading constant it imports', () => {
+    const source = template('swissFinance')
+    expect(source).toMatch(/const TRACKING = PREVIEW_TRACKING\.swissFinance/)
+    const values = [...source.matchAll(/letterSpacing\s*[:=]\s*([^\n]+)/g)].map((m) => m[1].trim().replace(/,$/, ''))
+    expect(values).toEqual(['`${TRACKING.heading}em`'])
+    // The name's spacing is the `tracking-widest` utility, read by the test below.
+    expect(source).toContain('uppercase tracking-widest')
   })
 
   it.each(TEMPLATES)('%s uses only tracking utilities this module declares for it', (name) => {
@@ -97,6 +107,11 @@ describe('the templates draw with these letter spacings and no others', () => {
     const used = new Set(
       [...template(name).matchAll(/(?<![\w-])(tracking-(?:\[[^\]]*\]|\([^)]*\)|[\w-]+))/g)].map((m) => m[1]),
     )
+    if (declared.length === 0) {
+      // A template that declares no letter spacing draws none.
+      expect([...used], `${name} declares no letter spacing`).toEqual([])
+      return
+    }
     expect(used.size, `${name} uses no tracking utility`).toBeGreaterThan(0)
     for (const utility of used) {
       expect(Object.keys(TAILWIND_TRACKING), utility).toContain(utility)
@@ -115,6 +130,16 @@ describe('the values themselves', () => {
       classic: { title: 0.025 },
       minimal: { title: -0.025, heading: 0.1 },
       creative: { title: -0.025 },
+      swissVocational: { caps: 0.1 },
+      swissCommerce: { caps: 0.1 },
+      swissTrades: { caps: 0.1 },
+      swissHealth: { caps: 0.1 },
+      swissFinance: { name: 0.1, heading: 0.25 },
+      swissEngineering: { caps: 0.1 },
+      swissIt: {},
+      swissExecutive: { caps: 0.1 },
+      swissAcademic: { caps: 0.1 },
+      swissFirstJob: { caps: 0.1 },
     })
   })
 })

@@ -118,7 +118,8 @@ async function printPreview(page: Page, resumeId: string, storage: Record<string
     await document.fonts.ready
     await Promise.all(Array.from(document.images).map((image) => image.decode().catch(() => undefined)))
   })
-  await expect(page.getByTestId('controls-toggle')).toBeChecked()
+  // The Preview has no controls switch and draws no editing control (swiss-cv-templates FR-13).
+  await expect(page.getByTestId('controls-toggle')).toHaveCount(0)
   await page.emulateMedia({ media: 'print' })
   const pdf = await page.pdf({ preferCSSPageSize: true })
   await page.emulateMedia({ media: 'screen' })

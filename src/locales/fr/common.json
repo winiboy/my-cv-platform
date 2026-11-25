@@ -195,7 +195,27 @@
       "professional": "Professionnel",
       "professionalDesc": "Modèle pour cadres avec barre latérale et section des réalisations clés",
       "creative": "Créatif",
-      "creativeDesc": "Design audacieux pour les professionnels créatifs"
+      "creativeDesc": "Design audacieux pour les professionnels créatifs",
+      "swissVocational": "Formation professionnelle (CFC)",
+      "swissVocationalDesc": "Format suisse, idéal après un CFC",
+      "swissCommerce": "Commerce & administration",
+      "swissCommerceDesc": "Format suisse pour le bureau",
+      "swissTrades": "Métiers techniques & manuels",
+      "swissTradesDesc": "Compétences et certificats en avant",
+      "swissHealth": "Santé & social",
+      "swissHealthDesc": "Diplômes et formations en avant",
+      "swissFinance": "Banque, finance & assurance",
+      "swissFinanceDesc": "Format classique et sobre",
+      "swissEngineering": "Ingénierie & technique",
+      "swissEngineeringDesc": "Projets clés en avant",
+      "swissIt": "Informatique & IT",
+      "swissItDesc": "Technologies et projets en avant",
+      "swissExecutive": "Cadre & direction",
+      "swissExecutiveDesc": "Réalisations clés en avant",
+      "swissAcademic": "Académique & recherche",
+      "swissAcademicDesc": "Recherche et publications en avant",
+      "swissFirstJob": "Premier emploi",
+      "swissFirstJobDesc": "Compétences et formation en avant"
     },
     "new": {
       "title": "Créer un nouveau CV",
@@ -334,6 +354,20 @@
       "aiOptimizedSummary": "Résumé optimisé par IA",
       "useThisVersion": "Utiliser cette version",
       "keepOriginal": "Conserver l'original",
+      "uploadPhoto": "Ajouter une photo",
+      "changePhoto": "Changer la photo",
+      "photoTooLarge": "La photo doit faire moins de 2 Mo.",
+      "photoRow": "Photo",
+      "showOnCv": {
+        "title": "Afficher le titre professionnel sur le CV",
+        "email": "Afficher l'e-mail sur le CV",
+        "phone": "Afficher le téléphone sur le CV",
+        "location": "Afficher la localisation sur le CV",
+        "linkedin": "Afficher LinkedIn sur le CV",
+        "github": "Afficher GitHub sur le CV",
+        "website": "Afficher le site web sur le CV",
+        "photo": "Afficher la photo sur le CV"
+      },
       "richTextToolbar": {
         "bold": "Gras (Ctrl+B)",
         "italic": "Italique (Ctrl+I)",
@@ -352,6 +386,9 @@
     },
     "template": {
       "keyAchievements": "Réalisations clés",
+      "projects": "Projets",
+      "publications": "Publications et projets",
+      "distinctions": "Distinctions",
       "skills": "Compétences",
       "languages": "Langues",
       "training": "Formation / Cours",
@@ -385,7 +422,6 @@
         "olive": "Olive"
       }
     },
-    "showControls": "Afficher les contrôles",
     "pdfExportComingSoon": "Export PDF bientôt disponible !",
     "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce CV ?",
     "association": {

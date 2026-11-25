@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import type { ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate as ResumeTemplate } from '@/types/database'
+import { templateComponentFile } from '@/test/resume-template-files'
 import { PREVIEW_PALETTE, TAILWIND_DEFAULT_TOKENS, THEME_TOKENS, type PreviewColour } from './resume-palette'
 import { PREVIEW_TEXT_ALPHA, type PreviewAlpha } from './resume-text-opacity'
 
@@ -91,7 +92,7 @@ const tailwindDefaults = colourTokens(
 )
 
 const TEMPLATES = Object.keys(PREVIEW_PALETTE) as ResumeTemplate[]
-const templateFile = (template: ResumeTemplate) => `src/components/dashboard/resume-templates/${template}-template.tsx`
+const templateFile = (template: ResumeTemplate) => templateComponentFile(template)
 
 // ---------------------------------------------------------------------------
 // Scanning a template for the colours it draws
@@ -503,6 +504,203 @@ const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> =
     // The header's decorative circles, drawn as floating PNG discs (US-007).
     'bg-white/10': { count: 2, excluded: RASTER },
   },
+  swissVocational: {
+    // The accent strip and the square before each section heading.
+    'bg-red-700': { count: 2, palette: 'red-700' },
+    // The CV title and each skill category label (FR-15).
+    'text-red-700': { count: 2, palette: 'red-700' },
+    // Name, contact labels, headings, position, degree, certification name, language.
+    'text-slate-900': { count: 7, palette: 'slate-900' },
+    // Contact values, summary, achievements, experience and education descriptions, skill items.
+    'text-slate-700': { count: 6, palette: 'slate-700' },
+    // Dates, company, school, issuer, language level.
+    'text-slate-600': { count: 5, palette: 'slate-600' },
+    // The rule under the header.
+    'border-slate-800': { count: 1, palette: 'slate-800' },
+    // The section heading rule and the dotted rule under each language.
+    'border-slate-300': { count: 2, palette: 'slate-300' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
+  swissCommerce: {
+    // The header band; each section heading and its rule; each skill category label.
+    'style backgroundColor: #1f3a5f': { count: 1, palette: 'navy' },
+    'style color: #1f3a5f': { count: 2, palette: 'navy' },
+    'style borderColor: #1f3a5f': { count: 1, palette: 'navy' },
+    // The name, on the band.
+    'text-white': { count: 1, palette: 'white' },
+    // The CV title, and the ring round the photo.
+    'text-blue-300': { count: 1, palette: 'blue-300' },
+    'border-blue-300': { count: 1, palette: 'blue-300' },
+    // The contact row.
+    'text-blue-100': { count: 1, palette: 'blue-100' },
+    // A language pill's border and fill.
+    'border-blue-200': { count: 1, palette: 'blue-200' },
+    'bg-blue-50': { count: 1, palette: 'blue-50' },
+    // Position, degree, certification name.
+    'text-slate-900': { count: 3, palette: 'slate-900' },
+    // Summary, achievements, experience and education descriptions, skills, language pill text.
+    'text-slate-800': { count: 6, palette: 'slate-800' },
+    // Dates, company, school, issuer.
+    'text-slate-500': { count: 4, palette: 'slate-500' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
+  swissTrades: {
+    // The dark column, and the text it draws.
+    'style backgroundColor: #334155': { count: 1, palette: 'sidebar' },
+    'style color: #f1f5f9': { count: 1, palette: 'sidebarText' },
+    // A skill tag's fill.
+    'style backgroundColor: #475569': { count: 1, palette: 'tag' },
+    // The photo's border; an entry's meta line under its title.
+    'style borderColor: #64748b': { count: 1, palette: 'muted' },
+    'style color: #64748b': { count: 1, palette: 'muted' },
+    // The headings of the dark column.
+    'style color: #fdba74': { count: 1, palette: 'sidebarHeading' },
+    // The CV title and the dates.
+    'style color: #c2410c': { count: 2, palette: 'accent' },
+    // The rule after each main heading.
+    'style backgroundColor: #fed7aa': { count: 1, palette: 'rule' },
+    // The name, the main headings, an entry's title.
+    'style color: #0f172a': { count: 3, palette: 'ink' },
+    // Summary, achievements, experience and education descriptions.
+    'style color: #1e293b': { count: 4, palette: 'body' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
+  swissHealth: {
+    // The name, the text of every heading pill, a skill category's caption.
+    'style color: #134e4a': { count: 3, palette: 'heading' },
+    // A heading pill's fill.
+    'style backgroundColor: #ccfbf1': { count: 1, palette: 'pill' },
+    // The bar down the left of an entry; the photo's ring.
+    'style borderLeftColor: #99f6e4': { count: 1, palette: 'rule' },
+    'style borderColor: #99f6e4': { count: 1, palette: 'rule' },
+    // The photo's fill.
+    'style backgroundColor: #f0fdfa': { count: 1, palette: 'photoFill' },
+    // The CV title and the dates.
+    'style color: #0f766e': { count: 2, palette: 'accent' },
+    // The bold first line of an education, an experience and a certificate.
+    'style color: #0f172a': { count: 3, palette: 'ink' },
+    // The school, the employer and the issuer after that line.
+    'style color: #64748b': { count: 3, palette: 'muted' },
+    // The contact line.
+    'style color: #475569': { count: 1, palette: 'contact' },
+    // Achievements, descriptions, summary, skills and languages.
+    'style color: #1e293b': { count: 5, palette: 'body' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
+  swissFinance: {
+    // The CV title and the text of every heading.
+    'style color: #166534': { count: 2, palette: 'accent' },
+    // The double rule under the header.
+    'style borderBottomColor: #166534': { count: 1, palette: 'accent' },
+    // The name, an entry's bold lead, a table row's label.
+    'style color: #0f172a': { count: 3, palette: 'ink' },
+    // The contact line, the dates, the school under a degree.
+    'style color: #475569': { count: 3, palette: 'muted' },
+    // The rest of an entry's first line, bullets, descriptions, the summary and a table row's value.
+    'style color: #1e293b': { count: 5, palette: 'body' },
+    // The rule under each heading; the photo's border.
+    'style borderBottomColor: #cbd5e1': { count: 1, palette: 'rule' },
+    'style borderColor: #cbd5e1': { count: 1, palette: 'rule' },
+    // The photo's fill.
+    'style backgroundColor: #f8fafc': { count: 1, palette: 'photoFill' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
+  swissEngineering: {
+    // The CV title and the text of every heading, in both columns.
+    'style color: #1d4ed8': { count: 2, palette: 'accent' },
+    // The light column's bar; a project card's thick left edge.
+    'style borderLeftColor: #2563eb': { count: 2, palette: 'bar' },
+    // The light column.
+    'style backgroundColor: #f1f5f9': { count: 1, palette: 'column' },
+    // A project card's fill and its thin border.
+    'style backgroundColor: #f8fafc': { count: 1, palette: 'card' },
+    'style borderColor: #bfdbfe': { count: 1, palette: 'cardBorder' },
+    // The name; an education's lead, a skill category's caption; a project's name; an experience's first line.
+    'style color: #0f172a': { count: 5, palette: 'ink' },
+    // A project's technologies and link; an experience's dates and company line.
+    'style color: #64748b': { count: 3, palette: 'muted' },
+    // Every line of the light column; the summary, a project's description, bullets and descriptions.
+    'style color: #1e293b': { count: 5, palette: 'body' },
+    // The photo's ring and fill.
+    'style borderColor: #cbd5e1': { count: 1, palette: 'photoRing' },
+    'style backgroundColor: #e2e8f0': { count: 1, palette: 'photoFill' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
+  swissIt: {
+    // The band; the bold lead of an entry, a skill label (inline and stacked), a project's name.
+    'style backgroundColor: #0f172a': { count: 1, palette: 'ink' },
+    'style color: #0f172a': { count: 4, palette: 'ink' },
+    // The name, the CV title and the contact lines, on the band.
+    'style color: #ffffff': { count: 1, palette: 'name' },
+    'style color: #4ade80': { count: 1, palette: 'prompt' },
+    'style color: #cbd5e1': { count: 1, palette: 'contact' },
+    // The photo's ring and fill.
+    'style borderColor: #22c55e': { count: 1, palette: 'photoRing' },
+    'style backgroundColor: #334155': { count: 1, palette: 'photoFill' },
+    // The text of every heading.
+    'style color: #15803d': { count: 1, palette: 'heading' },
+    // A tag: its text, fill and outline.
+    'style color: #166534': { count: 1, palette: 'tagText' },
+    'style backgroundColor: #f0fdf4': { count: 1, palette: 'tagFill' },
+    'style borderColor: #86efac': { count: 1, palette: 'tagBorder' },
+    // Rich text, bullets, and the last section.
+    'style color: #1e293b': { count: 3, palette: 'body' },
+    // An entry's dates and second line; a project's link.
+    'style color: #64748b': { count: 3, palette: 'muted' },
+    // A project card's border.
+    'style borderColor: #e2e8f0': { count: 1, palette: 'cardBorder' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
+  swissExecutive: {
+    // The name; the bold first line of an entry and of an achievement card.
+    'style color: #0f172a': { count: 3, palette: 'ink' },
+    // The CV title and the text of every heading.
+    'style color: #9f1239': { count: 2, palette: 'accent' },
+    // The contact line, the dates, an entry's second line, a card's technologies and link.
+    'style color: #64748b': { count: 4, palette: 'muted' },
+    // The summary, rich text, bullets, and the last section.
+    'style color: #1e293b': { count: 4, palette: 'body' },
+    // The summary's box and its bar; the header's rule and the cards' rules; the photo's ring and fill.
+    'style backgroundColor: #faf6ee': { count: 1, palette: 'cream' },
+    'style borderLeftColor: #a16207': { count: 1, palette: 'gold' },
+    'style borderTopColor: #a16207': { count: 2, palette: 'gold' },
+    'style borderColor: #a16207': { count: 1, palette: 'gold' },
+    'style backgroundColor: #f5efe3': { count: 1, palette: 'photoFill' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
+  swissAcademic: {
+    // The name, the headings, a bold lead (entry, publication), a skill or languages label.
+    'style color: #0f172a': { count: 7, palette: 'ink' },
+    // Rich text, entry lines, bullets, publications and the last section.
+    'style color: #1e293b': { count: 5, palette: 'body' },
+    // The title, the contact line, the dates, the field of study, a publication's technologies and link.
+    'style color: #475569': { count: 5, palette: 'muted' },
+    // The rule under every heading.
+    'style borderBottomColor: #94a3b8': { count: 1, palette: 'rule' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
+  swissFirstJob: {
+    // The sidebar's fill.
+    'style backgroundColor: #f5f3ff': { count: 1, palette: 'sidebar' },
+    // The name.
+    'style color: #4c1d95': { count: 1, palette: 'name' },
+    // The CV title, the headings of both columns, an entry's date line.
+    'style color: #6d28d9': { count: 4, palette: 'accent' },
+    // A heading's circle; a language's filled dots.
+    'style backgroundColor: #7c3aed': { count: 2, palette: 'mark' },
+    // A language's empty dots.
+    'style backgroundColor: #ddd6fe': { count: 1, palette: 'emptyDot' },
+    // The photo's ring and fill.
+    'style borderColor: #c4b5fd': { count: 1, palette: 'soft' },
+    'style backgroundColor: #ede9fe': { count: 1, palette: 'photoFill' },
+    // A skill category's caption; an entry's bold title.
+    'style color: #0f172a': { count: 2, palette: 'ink' },
+    // Every line of the sidebar; rich text and bullets.
+    'style color: #1e293b': { count: 3, palette: 'body' },
+    // An entry's second line.
+    'style color: #475569': { count: 1, palette: 'muted' },
+    'bg-white': { count: 1, excluded: PAGE },
+  },
 }
 
 // ---------------------------------------------------------------------------
@@ -587,8 +785,8 @@ describe('PREVIEW_PALETTE', () => {
     Object.entries(PREVIEW_PALETTE[template]).map(([name, colour]: [string, PreviewColour]) => ({ template, name, colour })),
   )
 
-  it('covers all five templates', () => {
-    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional'])
+  it('covers every built template', () => {
+    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissAcademic', 'swissCommerce', 'swissEngineering', 'swissExecutive', 'swissFinance', 'swissFirstJob', 'swissHealth', 'swissIt', 'swissTrades', 'swissVocational'])
   })
 
   it('holds each Preview colour of a template once', () => {

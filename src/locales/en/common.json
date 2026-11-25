@@ -197,7 +197,27 @@
       "professional": "Professional",
       "professionalDesc": "Executive template with sidebar and key achievements section",
       "creative": "Creative",
-      "creativeDesc": "Bold design for creative professionals"
+      "creativeDesc": "Bold design for creative professionals",
+      "swissVocational": "Vocational training (VET)",
+      "swissVocationalDesc": "Sober Swiss format, ideal after an apprenticeship",
+      "swissCommerce": "Business & administration",
+      "swissCommerceDesc": "Sober Swiss format for office and admin roles",
+      "swissTrades": "Technical & skilled trades",
+      "swissTradesDesc": "Puts your skills and certificates first",
+      "swissHealth": "Health & social care",
+      "swissHealthDesc": "Puts your diplomas and training first",
+      "swissFinance": "Banking, finance & insurance",
+      "swissFinanceDesc": "Classic, conservative format",
+      "swissEngineering": "Engineering",
+      "swissEngineeringDesc": "Puts your key projects first",
+      "swissIt": "IT & software",
+      "swissItDesc": "Puts your stack and projects first",
+      "swissExecutive": "Executive & management",
+      "swissExecutiveDesc": "Puts your key achievements first",
+      "swissAcademic": "Academic & research",
+      "swissAcademicDesc": "Puts your research and publications first",
+      "swissFirstJob": "First job",
+      "swissFirstJobDesc": "Puts your skills and training first"
     },
     "new": {
       "title": "Create New Resume",
@@ -336,6 +356,20 @@
       "aiOptimizedSummary": "AI-Optimized Summary",
       "useThisVersion": "Use This Version",
       "keepOriginal": "Keep Original",
+      "uploadPhoto": "Upload photo",
+      "changePhoto": "Change photo",
+      "photoTooLarge": "The photo must be under 2 MB.",
+      "photoRow": "Photo",
+      "showOnCv": {
+        "title": "Show professional title on CV",
+        "email": "Show e-mail on CV",
+        "phone": "Show phone on CV",
+        "location": "Show location on CV",
+        "linkedin": "Show LinkedIn on CV",
+        "github": "Show GitHub on CV",
+        "website": "Show website on CV",
+        "photo": "Show photo on CV"
+      },
       "richTextToolbar": {
         "bold": "Bold (Ctrl+B)",
         "italic": "Italic (Ctrl+I)",
@@ -354,6 +388,9 @@
     },
     "template": {
       "keyAchievements": "Key Achievements",
+      "projects": "Projects",
+      "publications": "Publications and projects",
+      "distinctions": "Distinctions",
       "skills": "Skills",
       "languages": "Languages",
       "training": "Training / Courses",
@@ -387,7 +424,6 @@
         "olive": "Olive"
       }
     },
-    "showControls": "Show Controls",
     "association": {
       "linkedCoverLetters": "Linked Cover Letters",
       "noCoverLetters": "No cover letters linked to this resume yet",

@@ -197,7 +197,27 @@
       "professional": "Professionell",
       "professionalDesc": "Vorlage für Führungskräfte mit Seitenleiste und Abschnitt für wichtige Erfolge",
       "creative": "Kreativ",
-      "creativeDesc": "Mutiges Design für kreative Profis"
+      "creativeDesc": "Mutiges Design für kreative Profis",
+      "swissVocational": "Berufslehre (EFZ)",
+      "swissVocationalDesc": "Schlichtes Schweizer Format, ideal nach einer EFZ-Lehre",
+      "swissCommerce": "Kaufmännisch & Verwaltung",
+      "swissCommerceDesc": "Schweizer Format für Büro und Verwaltung",
+      "swissTrades": "Technische & handwerkliche Berufe",
+      "swissTradesDesc": "Fähigkeiten und Zertifikate zuerst",
+      "swissHealth": "Gesundheit & Soziales",
+      "swissHealthDesc": "Diplome und Weiterbildungen zuerst",
+      "swissFinance": "Bank, Finanzen & Versicherung",
+      "swissFinanceDesc": "Klassisches, seriöses Format",
+      "swissEngineering": "Ingenieurwesen & Technik",
+      "swissEngineeringDesc": "Schlüsselprojekte zuerst",
+      "swissIt": "Informatik & IT",
+      "swissItDesc": "Technologien und Projekte zuerst",
+      "swissExecutive": "Kader & Geschäftsleitung",
+      "swissExecutiveDesc": "Wichtige Erfolge zuerst",
+      "swissAcademic": "Akademisch & Forschung",
+      "swissAcademicDesc": "Forschung und Publikationen zuerst",
+      "swissFirstJob": "Erste Stelle",
+      "swissFirstJobDesc": "Fähigkeiten und Ausbildung zuerst"
     },
     "new": {
       "title": "Neuen Lebenslauf erstellen",
@@ -336,6 +356,20 @@
       "aiOptimizedSummary": "KI-optimierte Zusammenfassung",
       "useThisVersion": "Diese Version verwenden",
       "keepOriginal": "Original behalten",
+      "uploadPhoto": "Foto hinzufügen",
+      "changePhoto": "Foto ändern",
+      "photoTooLarge": "Das Foto muss kleiner als 2 MB sein.",
+      "photoRow": "Foto",
+      "showOnCv": {
+        "title": "Berufsbezeichnung im Lebenslauf anzeigen",
+        "email": "E-Mail im Lebenslauf anzeigen",
+        "phone": "Telefon im Lebenslauf anzeigen",
+        "location": "Standort im Lebenslauf anzeigen",
+        "linkedin": "LinkedIn im Lebenslauf anzeigen",
+        "github": "GitHub im Lebenslauf anzeigen",
+        "website": "Website im Lebenslauf anzeigen",
+        "photo": "Foto im Lebenslauf anzeigen"
+      },
       "richTextToolbar": {
         "bold": "Fett (Strg+B)",
         "italic": "Kursiv (Strg+I)",
@@ -354,6 +388,9 @@
     },
     "template": {
       "keyAchievements": "Wichtige Erfolge",
+      "projects": "Projekte",
+      "publications": "Publikationen und Projekte",
+      "distinctions": "Auszeichnungen",
       "skills": "Fähigkeiten",
       "languages": "Sprachen",
       "training": "Schulung / Kurse",
@@ -387,7 +424,6 @@
         "olive": "Olivgrün"
       }
     },
-    "showControls": "Steuerungen anzeigen",
     "association": {
       "linkedCoverLetters": "Verknüpfte Anschreiben",
       "noCoverLetters": "Noch keine Anschreiben mit diesem Lebenslauf verknüpft",

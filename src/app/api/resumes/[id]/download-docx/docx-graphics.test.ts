@@ -15,6 +15,16 @@ import { solidColourPng, translucentDiscPng } from './docx-disc'
 import type { DocxGeneratorSettings } from './docx-helpers'
 import { hslToHex } from './docx-helpers'
 import { generateModernDocx } from './docx-modern'
+import { generateSwissVocationalDocx } from './docx-swiss-vocational'
+import { generateSwissCommerceDocx } from './docx-swiss-commerce'
+import { generateSwissTradesDocx } from './docx-swiss-trades'
+import { generateSwissHealthDocx } from './docx-swiss-health'
+import { generateSwissFinanceDocx } from './docx-swiss-finance'
+import { generateSwissEngineeringDocx } from './docx-swiss-engineering'
+import { generateSwissItDocx } from './docx-swiss-it'
+import { generateSwissExecutiveDocx } from './docx-swiss-executive'
+import { generateSwissAcademicDocx } from './docx-swiss-academic'
+import { generateSwissFirstJobDocx } from './docx-swiss-first-job'
 import { DOCX_PALETTE } from './docx-palette'
 
 /**
@@ -228,7 +238,10 @@ function documentXml(key: string, generate: Generator, sidebar: SidebarName | nu
       const zip = await JSZip.loadAsync(await generate(row, settingsFor(row, sidebar)))
       const part = zip.file('word/document.xml')
       if (part === null) throw new Error(`The ${key} artifact has no word/document.xml`)
-      return part.async('string')
+      // A header's drawings are drawn on every page too (swissFirstJob's sidebar
+      // fill), so the header parts are read with the body.
+      const headers = await Promise.all(zip.file(/^word\/header\d*\.xml$/).map((header) => header.async('string')))
+      return [await part.async('string'), ...headers].join('')
     })()
     documents.set(key, cached)
   }
@@ -575,17 +588,31 @@ describe('every recorded form is the shape the generator emits', () => {
     'shaded-cells': (xml) => bars(xml).length > 0,
     'shaded-run': (xml) => paragraphs(xml).some((p) => p.runs.some((run) => run.shading !== null)),
     'paragraph-border': (xml) => paragraphs(xml).some((p) => p.leftBorderColour !== null),
+    'cell-border': (xml) => elements(xml, 'w:tcBorders').some((borders) => /<w:left\b[^>]*w:val="single"/.test(borders)),
+    'paragraph-bottom-border': (xml) =>
+      elements(xml, 'w:p').some((p) => /<w:pBdr>(?:(?!<\/w:pBdr>)[\s\S])*?<w:bottom\b[^>]*w:val="(?:single|double)"/.test(p)),
     'shaded-cell': (xml) => elements(xml, 'w:tcPr').some((cell) => /<w:tcBorders>/.test(cell) && /<w:shd\b/.test(cell)),
     'floating-raster': (xml) => elements(xml, 'w:drawing').length > 0,
+    'page-border': (xml) => /<w:pgBorders\b[\s\S]*?<w:left\b[^>]*w:val="single"/.test(xml),
     'not-drawn': () => true,
   }
 
   it.each([
     ['modern', () => documentXml('modern-green', generateModernDocx, 'green')] as const,
     ['creative', () => documentXml('creative', generateCreativeDocx, null)] as const,
+    ['swissVocational', () => documentXml('swissVocational', generateSwissVocationalDocx, null)] as const,
+    ['swissCommerce', () => documentXml('swissCommerce', generateSwissCommerceDocx, null)] as const,
+    ['swissTrades', () => documentXml('swissTrades', generateSwissTradesDocx, null)] as const,
+    ['swissHealth', () => documentXml('swissHealth', generateSwissHealthDocx, null)] as const,
+    ['swissFinance', () => documentXml('swissFinance', generateSwissFinanceDocx, null)] as const,
+    ['swissEngineering', () => documentXml('swissEngineering', generateSwissEngineeringDocx, null)] as const,
+    ['swissIt', () => documentXml('swissIt', generateSwissItDocx, null)] as const,
+    ['swissExecutive', () => documentXml('swissExecutive', generateSwissExecutiveDocx, null)] as const,
+    ['swissAcademic', () => documentXml('swissAcademic', generateSwissAcademicDocx, null)] as const,
+    ['swissFirstJob', () => documentXml('swissFirstJob', generateSwissFirstJobDocx, null)] as const,
   ])('%s emits the shape it records for each of its graphics', async (template, load) => {
     const xml = await load()
-    const graphics = PREVIEW_GRAPHICS[template as 'modern' | 'creative']
+    const graphics = PREVIEW_GRAPHICS[template as 'modern' | 'creative' | 'swissVocational' | 'swissCommerce' | 'swissTrades' | 'swissHealth' | 'swissFinance' | 'swissEngineering' | 'swissIt' | 'swissExecutive' | 'swissAcademic' | 'swissFirstJob']
     expect(Object.keys(graphics).length, `${template} records no graphics`).toBeGreaterThan(0)
     for (const [key, graphic] of Object.entries(graphics)) {
       expect(EVIDENCE[graphic.form as DocxGraphicForm], `${template}.${key}: "${graphic.form}" is not a known form`).toBeDefined()
@@ -598,13 +625,13 @@ describe('every recorded form is the shape the generator emits', () => {
 
   it('names a form the generators actually use, and no form they do not', () => {
     const recorded = new Set(
-      (['professional', 'modern', 'classic', 'minimal', 'creative'] as const).flatMap((template) =>
+      (['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob'] as const).flatMap((template) =>
         Object.values(PREVIEW_GRAPHICS[template]).map((graphic) => graphic.form as string),
       ),
     )
     // Every form the union offers is either used by a graphic or gone from it.
     expect([...recorded].sort()).toEqual(
-      ['floating-raster', 'not-drawn', 'paragraph-border', 'shaded-cell', 'shaded-cells', 'shaded-run'],
+      ['cell-border', 'floating-raster', 'not-drawn', 'page-border', 'paragraph-border', 'paragraph-bottom-border', 'shaded-cell', 'shaded-cells', 'shaded-run'],
     )
   })
 })

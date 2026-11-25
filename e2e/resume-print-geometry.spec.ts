@@ -18,11 +18,9 @@ import { nextFontInterFallbackFamily } from '../src/lib/pdf/font-substitutes'
  * padding change moves them all; a wrap change alters the height of the block
  * that wrapped, including the last one in a column.
  *
- * Each side is measured in the state that matters: the Preview with the editing
- * controls off (the document itself), and print as shipped, with the controls
- * on, because that is what a user downloads. A control that left layout behind
- * in print would fail here. Only geometry is compared: some slider labels sit
- * inside a heading and change its text, not its box.
+ * The Preview draws no editing control (swiss-cv-templates FR-13), so both
+ * sides measure the document itself, as a user downloads it. Only geometry is
+ * compared.
  */
 
 const TEMPLATES: ResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative']
@@ -36,9 +34,8 @@ for (const template of TEMPLATES) {
   }) => {
     const resume = await seedFixtureResume(authedUser.id, template)
     await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
-    const controls = page.getByTestId('controls-toggle')
-    // As shipped, the controls are on; assert it rather than assume it.
-    await expect(controls).toBeChecked()
+    // The Preview has no controls switch and draws no editing control (swiss-cv-templates FR-13).
+    await expect(page.getByTestId('controls-toggle')).toHaveCount(0)
     const document = page.getByTestId('resume-document')
     await expect(document).toBeVisible()
     await page.evaluate(() => globalThis.document.fonts.ready)
@@ -61,12 +58,9 @@ for (const template of TEMPLATES) {
         })
       })
 
-    // `force` because the checkbox is `sr-only`, the real control behind the label.
-    await controls.uncheck({ force: true })
     await page.emulateMedia({ media: 'screen' })
     const screen = await measure()
 
-    await controls.check({ force: true })
     await page.emulateMedia({ media: 'print' })
     const print = await measure()
 

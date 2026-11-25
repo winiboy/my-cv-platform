@@ -181,7 +181,7 @@ describe('applyLayoutChange', () => {
 
   it('applies changes to every property of the model', () => {
     /**
-     * Nineteen properties, one setter each, and no property that silently does
+     * Twenty properties, one setter each, and no property that silently does
      * nothing. The failure this forecloses is a property that the owner holds
      * but cannot change — which is how a control ends up moving on screen while
      * nothing reaches the cache or the account.
@@ -207,10 +207,11 @@ describe('applyLayoutChange', () => {
       mainContentOrder: ['experience', 'summary', 'education'],
       hiddenSidebarSections: ['training'],
       hiddenMainSections: ['education'],
+      hiddenContactFields: ['email', 'photo'],
     }
 
     const keys = Object.keys(model) as (keyof ResumeLayoutModel)[]
-    expect(keys).toHaveLength(19)
+    expect(keys).toHaveLength(20)
 
     for (const key of keys) {
       const value = changed[key]

@@ -3,7 +3,8 @@ import path from 'node:path'
 import { isValidElement } from 'react'
 import { describe, expect, it } from 'vitest'
 import { renderFormattedText } from '@/lib/format-text'
-import type { ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate } from '@/types/database'
+import { templateComponentFile } from '@/test/resume-template-files'
 import {
   CREATIVE_HEADING_BAR_STEP,
   FORMATTED_CONTENT_LINE_HEIGHT,
@@ -13,6 +14,16 @@ import {
   tailwindHeightPx,
   PREFLIGHT_LINE_HEIGHT,
   PROFESSIONAL_LINE_HEIGHT,
+  SWISS_COMMERCE_LINE_HEIGHT,
+  SWISS_ENGINEERING_LINE_HEIGHT,
+  SWISS_FINANCE_LINE_HEIGHT,
+  SWISS_HEALTH_LINE_HEIGHT,
+  SWISS_IT_LINE_HEIGHT,
+  SWISS_EXECUTIVE_LINE_HEIGHT,
+  SWISS_ACADEMIC_LINE_HEIGHT,
+  SWISS_FIRST_JOB_LINE_HEIGHT,
+  SWISS_TRADES_LINE_HEIGHT,
+  SWISS_VOCATIONAL_LINE_HEIGHT,
   TAILWIND_LEADING,
   TAILWIND_TEXT_LINE_HEIGHT,
   formattedTextLineHeight,
@@ -55,8 +66,8 @@ const tailwindTheme = read('node_modules/tailwindcss/theme.css')
 const tailwindPreflight = read('node_modules/tailwindcss/preflight.css')
 const globals = read('src/app/globals.css')
 
-const TEMPLATES: readonly ResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative']
-const template = (name: ResumeTemplate) => read(`src/components/dashboard/resume-templates/${name}-template.tsx`)
+const TEMPLATES: readonly BuiltResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
+const template = (name: BuiltResumeTemplate) => read(templateComponentFile(name))
 
 /** A CSS number or `calc(a / b)`, as the Tailwind theme writes line heights. */
 function cssNumber(value: string): number {
@@ -135,6 +146,106 @@ describe('the templates draw with these line heights and no others', () => {
     expect(button).toMatch(/print:hidden/)
     for (const key of ['title', 'compact', 'text']) expect(source).toContain(`MODERN_LINE_HEIGHT.${key}`)
     expect(MODERN_LINE_HEIGHT).toEqual({ title: 1.2, compact: 1.4, text: 1.5 })
+  })
+
+  it('swissVocational gives lineHeight only the constants it imports', () => {
+    const source = template('swissVocational')
+    expect(source).toMatch(/const LINE_HEIGHT = SWISS_VOCATIONAL_LINE_HEIGHT/)
+    const values = lineHeightValues(source)
+    expect(values.length).toBeGreaterThan(0)
+    for (const { value } of values) expect(value).toMatch(/^LINE_HEIGHT\.(name|compact|text)$/)
+    for (const key of ['name', 'compact', 'text']) expect(source).toContain(`LINE_HEIGHT.${key}`)
+    expect(SWISS_VOCATIONAL_LINE_HEIGHT).toEqual({ name: 1.15, compact: 1.4, text: 1.5 })
+  })
+
+  it('swissCommerce gives lineHeight only the constants it imports', () => {
+    const source = template('swissCommerce')
+    expect(source).toMatch(/const LINE_HEIGHT = SWISS_COMMERCE_LINE_HEIGHT/)
+    const values = lineHeightValues(source)
+    expect(values.length).toBeGreaterThan(0)
+    for (const { value } of values) expect(value).toMatch(/^LINE_HEIGHT\.(name|compact|text)$/)
+    for (const key of ['name', 'compact', 'text']) expect(source).toContain(`LINE_HEIGHT.${key}`)
+    expect(SWISS_COMMERCE_LINE_HEIGHT).toEqual({ name: 1.15, compact: 1.4, text: 1.5 })
+  })
+
+  it('swissTrades gives lineHeight only the constants it imports', () => {
+    const source = template('swissTrades')
+    expect(source).toMatch(/const LINE_HEIGHT = SWISS_TRADES_LINE_HEIGHT/)
+    const values = lineHeightValues(source)
+    expect(values.length).toBeGreaterThan(0)
+    for (const { value } of values) expect(value).toMatch(/^LINE_HEIGHT\.(name|compact|text)$/)
+    for (const key of ['name', 'compact', 'text']) expect(source).toContain(`LINE_HEIGHT.${key}`)
+    expect(SWISS_TRADES_LINE_HEIGHT).toEqual({ name: 1.15, compact: 1.4, text: 1.5 })
+  })
+
+  it('swissHealth gives lineHeight only the constants it imports', () => {
+    const source = template('swissHealth')
+    expect(source).toMatch(/const LINE_HEIGHT = SWISS_HEALTH_LINE_HEIGHT/)
+    const values = lineHeightValues(source)
+    expect(values.length).toBeGreaterThan(0)
+    for (const { value } of values) expect(value).toMatch(/^LINE_HEIGHT\.(name|compact|text)$/)
+    for (const key of ['name', 'compact', 'text']) expect(source).toContain(`LINE_HEIGHT.${key}`)
+    expect(SWISS_HEALTH_LINE_HEIGHT).toEqual({ name: 1.15, compact: 1.4, text: 1.5 })
+  })
+
+  it('swissFinance gives lineHeight only the constants it imports', () => {
+    const source = template('swissFinance')
+    expect(source).toMatch(/const LINE_HEIGHT = SWISS_FINANCE_LINE_HEIGHT/)
+    const values = lineHeightValues(source)
+    expect(values.length).toBeGreaterThan(0)
+    for (const { value } of values) expect(value).toMatch(/^LINE_HEIGHT\.(name|compact|text)$/)
+    for (const key of ['name', 'compact', 'text']) expect(source).toContain(`LINE_HEIGHT.${key}`)
+    expect(SWISS_FINANCE_LINE_HEIGHT).toEqual({ name: 1.15, compact: 1.4, text: 1.5 })
+  })
+
+  it('swissEngineering gives lineHeight only the constants it imports', () => {
+    const source = template('swissEngineering')
+    expect(source).toMatch(/const LINE_HEIGHT = SWISS_ENGINEERING_LINE_HEIGHT/)
+    const values = lineHeightValues(source)
+    expect(values.length).toBeGreaterThan(0)
+    for (const { value } of values) expect(value).toMatch(/^LINE_HEIGHT\.(name|compact|text)$/)
+    for (const key of ['name', 'compact', 'text']) expect(source).toContain(`LINE_HEIGHT.${key}`)
+    expect(SWISS_ENGINEERING_LINE_HEIGHT).toEqual({ name: 1.15, compact: 1.4, text: 1.5 })
+  })
+
+  it('swissIt gives lineHeight only the constants it imports', () => {
+    const source = template('swissIt')
+    expect(source).toMatch(/const LINE_HEIGHT = SWISS_IT_LINE_HEIGHT/)
+    const values = lineHeightValues(source)
+    expect(values.length).toBeGreaterThan(0)
+    for (const { value } of values) expect(value).toMatch(/^LINE_HEIGHT\.(name|compact|text)$/)
+    for (const key of ['name', 'compact', 'text']) expect(source).toContain(`LINE_HEIGHT.${key}`)
+    expect(SWISS_IT_LINE_HEIGHT).toEqual({ name: 1.15, compact: 1.4, text: 1.5 })
+  })
+
+  it('swissExecutive gives lineHeight only the constants it imports', () => {
+    const source = template('swissExecutive')
+    expect(source).toMatch(/const LINE_HEIGHT = SWISS_EXECUTIVE_LINE_HEIGHT/)
+    const values = lineHeightValues(source)
+    expect(values.length).toBeGreaterThan(0)
+    for (const { value } of values) expect(value).toMatch(/^LINE_HEIGHT\.(name|compact|text)$/)
+    for (const key of ['name', 'compact', 'text']) expect(source).toContain(`LINE_HEIGHT.${key}`)
+    expect(SWISS_EXECUTIVE_LINE_HEIGHT).toEqual({ name: 1.15, compact: 1.4, text: 1.5 })
+  })
+
+  it('swissAcademic gives lineHeight only the constants it imports', () => {
+    const source = template('swissAcademic')
+    expect(source).toMatch(/const LINE_HEIGHT = SWISS_ACADEMIC_LINE_HEIGHT/)
+    const values = lineHeightValues(source)
+    expect(values.length).toBeGreaterThan(0)
+    for (const { value } of values) expect(value).toMatch(/^LINE_HEIGHT\.(name|compact|text)$/)
+    for (const key of ['name', 'compact', 'text']) expect(source).toContain(`LINE_HEIGHT.${key}`)
+    expect(SWISS_ACADEMIC_LINE_HEIGHT).toEqual({ name: 1.15, compact: 1.4, text: 1.5 })
+  })
+
+  it('swissFirstJob gives lineHeight only the constants it imports', () => {
+    const source = template('swissFirstJob')
+    expect(source).toMatch(/const LINE_HEIGHT = SWISS_FIRST_JOB_LINE_HEIGHT/)
+    const values = lineHeightValues(source)
+    expect(values.length).toBeGreaterThan(0)
+    for (const { value } of values) expect(value).toMatch(/^LINE_HEIGHT\.(name|compact|text)$/)
+    for (const key of ['name', 'compact', 'text']) expect(source).toContain(`LINE_HEIGHT.${key}`)
+    expect(SWISS_FIRST_JOB_LINE_HEIGHT).toEqual({ name: 1.15, compact: 1.4, text: 1.5 })
   })
 
   it('modern draws its job-title bar with the padding the DOCX adds to its line', () => {

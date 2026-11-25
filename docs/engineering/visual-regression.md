@@ -28,8 +28,8 @@ cookies, none of which move when a column shifts by 40 pixels.
 | Both media: screen, and print via `emulateMedia` | Page breaking, `@page` margins, headers/footers |
 | Section order, spacing, typography, colour as rendered | The editor surface |
 | The full document height, top to bottom, in each medium | Cover letter templates |
-| Layout settings resolved the way a real request resolves them | 24 of the 26 template `print:hidden` sites — see below |
-| 2 of the 26 template `print:hidden` sites, with an assertion that reports it if that number moves — on a local run, like everything else here | — |
+| Layout settings resolved the way a real request resolves them | In-template editing controls: the Preview route draws none (see below) |
+| The absence of any editing control in the document on the Preview route, asserted before every capture | — |
 
 The DOCX export draws from a separate generator (`download-docx/`) and needs its
 own evidence. A green visual run says nothing about it.
@@ -63,160 +63,25 @@ confined to a `print:` utility would pass the whole suite green.
 Print baselines are named `{template}-print.png`, beside the screen
 `{template}.png`.
 
-### The print capture keeps the editing controls ON
+### No editing controls on the Preview route
 
-This is the one place where the two captures deliberately differ in setup, and
-it is not a detail.
+The Preview page renders the stored layout read-only (swiss-cv-templates
+FR-13): it has no "Show Controls" switch, and `resume-preview-wrapper.tsx`
+passes no layout setter to any template, so no slider, resize handle or upload
+control is drawn in the document — on screen or in print.
 
-`showControls` defaults to `true` (`resume-preview-page-client.tsx`), so a user
-who hits Download PDF prints with the controls on, and `print:hidden` is the
-sole mechanism keeping sliders and drag chevrons out of their document. It is
-also the largest class of print utility in `src` — 33 sites, 28 of them across
-the five templates, the preview wrapper and the preview page.
+`expectNoEditingControls` asserts this under **screen** media before every
+capture, for every template: no `controls-toggle` on the page, and no
+`input[type="range"]`, no `input`/`button`/`select`/`textarea`/`[role="button"]` and no
+`cursor-ew-resize`/`cursor-ns-resize` handle inside
+`[data-testid=resume-document]`. Screen media because a `print:hidden` control
+still has a box there; under print it would be `display: none` and the check
+would see nothing.
 
-Turning the controls off does not merely neutralise `print:hidden`, it removes
-the elements from the DOM: the templates render them as
-`{setSectionDescFontSize && (…)}` and the wrapper passes
-`showControls ? setSectionDescFontSize : undefined`. A print baseline captured
-with the controls off is therefore blind to the utility — delete `print:hidden`
-anywhere and both baselines stay byte-identical while every subsequent PDF
-ships with UI chrome baked into it.
-
-Coverage and determinism point the same way here. Under print media,
-`print:hidden` is exactly what removes the nondeterministic slider thumbs, so a
-controls-on print capture is stable *because* the utility works, and goes red
-the moment it stops.
-
-**With the controls on, the print capture is byte-identical to the controls-off
-capture.** That equality is the evidence that every control which reaches the
-document carries `print:hidden`; it is not evidence that nothing rendered. See
-the mutation below.
-
-### How much of `print:hidden` is actually observed: 2 of 26
-
-Measured, not assumed — see *Proving it can fail*. Of the 26 `print:hidden`
-sites inside the five templates, an element screenshot of the document can
-reach two: the two `creative` font-size sliders. The other 24 cannot be reached
-at all, for structural reasons:
-
-| Sites | Why they cannot appear in the capture |
-|---|---|
-| 12 — classic ×5, minimal ×5, creative ×2 | `position: absolute; left: 100%; margin-left: 48px` off a **full-width** ancestor, which lands them on or past the document's 816px edge (`minimal`'s overlap it by 3px and are excluded by strict containment — see below). An element screenshot clips there. The two observed `creative` sliders use the identical rule off the **one-third-width** left column of a `grid-cols-3` body, which is why they land inside |
-| 8 — professional | Gated on `setSidebarWidth` / `setSidebarTopMargin` / `setMainContentTopMargin`, none of which `resume-preview-wrapper.tsx` passes at any value of `showControls`. They never render on this route |
-| 4 — modern | Three are `opacity-0` until hover; one renders only during background removal |
-
-The remaining 7 of the 33 — that is, everything left once the 26 template sites
-are accounted for — are page chrome outside `[data-testid=resume-document]`: the
-dashboard layout, the preview page header, the unsaved-changes banner, the
-formatting ribbon, the achievements toolbar, the branch indicator. No element
-screenshot of the document can see them.
-
-So the claim this suite supports is: *`print:hidden` is under observation where
-it is observable*, and the boundary is written down rather than rounded up.
-
-### The two observable sites are asserted, not assumed
-
-A coverage of 2 of 26 is only worth stating if it cannot quietly become 0 of 26,
-and on its own it can. Both observed sliders carry `print:hidden`, so by
-construction neither appears in `creative-print.png`. Remove them, stop passing
-`setSectionTitleFontSize` / `setSectionDescFontSize`, or relocate them off a
-wider ancestor so they fall outside the 816px box, and the committed PNG stays
-**byte-identical**, every test stays green, and the suite guards nothing on this
-front. Nothing in a golden-image comparison can report the disappearance of
-something it was never allowed to draw.
-
-Every print test therefore counts first:
-
-```ts
-const OBSERVABLE_CONTROLS: Record<ResumeTemplate, number> = {
-  professional: 0, modern: 0, classic: 0, minimal: 0, creative: 2,
-}
-```
-
-`expectPrintHiddenStaysObserved` runs under **screen** media, before
-`emulateMedia`, and asserts that exactly that many `input[type="range"]`
-controls are drawn inside the document's own box.
-
-**How far that selector reaches, since the zeros are not all alike.** Range
-inputs exist in three templates only — classic 5, minimal 5, creative 4, one per
-`print:hidden` site in each, so **14 of the 26 sites are inside the selector at
-all**. `professional` contains no `<input>` element (its 8 sites are drag-arrow
-`<span>`s) and `modern`'s 4 are three `<div>`s and a `<button>`. The zeros therefore
-mean two different things:
-
-- `classic: 0` and `minimal: 0` are **measured**. Their sliders render — fewer
-  than five each, because the description slider appears in both mutually
-  exclusive branches of an `achievements?.length ? … : description ? …` ternary
-  and this fixture takes the first — and every one that does render is excluded
-  by geometry alone. One relocating inside the box would redden the suite, which
-  is the drift worth catching: it would make the "2 of 26" above wrong.
-- `professional: 0` and `modern: 0` are **structural**. The selector matches
-  nothing in either template, so these two numbers cannot move whatever their
-  twelve sites (professional 8, modern 4) do — passing `professional`'s setters
-  would put its resize handles inside the document and this count would still
-  read zero. They keep
-  the `Record` exhaustive; they are not coverage.
-
-Three choices in the check are deliberate:
-
-- **Drawn, not merely present.** Whether a control reaches the image is decided
-  by whether it lands inside the element being screenshotted — which is why
-  twelve of the 26 (classic 5, minimal 5, creative 2) are unreachable on
-  geometry alone — so containment in the document's
-  rect is the first test. But `getBoundingClientRect` reports a full-size box
-  for something `visibility: hidden` or `opacity: 0`; only `display: none`
-  collapses it, and either state is one where deleting `print:hidden` produces
-  no pixel diff while a geometry-only count still says two. Hence
-  `checkVisibility`. `toBeAttached()` alone would pass for all of it. The shape
-  is not invented — `modern` uses `print:hidden opacity-0
-  group-hover:opacity-100` at three sites — though those particular sites are
-  outside this selector and were never at risk of being miscounted; they are the
-  in-house pattern `creative`'s sliders could plausibly be unified onto. What is
-  *not* covered is clipping by an intermediate `overflow: hidden` ancestor —
-  which a hit-test would not catch either, since the clipped control's centre
-  still lands on the document's own painted area — nor a control straddling the
-  document's edge, since containment is strict and a partly-drawn control counts
-  as zero rather than as a half. **Both limits have live instances**, which is
-  the honest version of this paragraph and the useful one:
-
-  | Limit | Instance today | Why it is harmless so far |
-  |---|---|---|
-  | `overflow: hidden` ancestor | `creative`'s header (`creative-template.tsx:53`) clips the two header sliders at `:62` and `:96` | They also land 21px outside the 816px box, so geometry rejects them first |
-  | Straddling the edge | `minimal`'s `p-16` puts each rendered slider's input **3px inside** the right edge under screen media (measured: input left 1173, edge 1176); all four are partly drawn and count as nothing. `classic`'s `p-12` lands its inputs 13px clear, so it does not straddle | Those sliders are `print:hidden`, and the screen capture runs with controls off |
-
-  Three pixels is a coincidence, not a design. Move either case inward and the
-  count starts reporting a control that is never painted, or discarding one that
-  is — which is the thing to check first if this number ever surprises you.
-- **Screen media, not print.** Under print these controls are `display: none`
-  and have no box. That is the utility working; measuring there would return
-  zero every run.
-- **`input[type="range"]`, not the `print:hidden` class.** Selecting on the
-  class would make *deleting* `print:hidden` fail at the assertion, before
-  `toHaveScreenshot` runs — and for that case the pixel diff is the better
-  failure, because it shows the chrome baked into the document. The assertion
-  answers the other question: is there still anything for `print:hidden` to hide
-  where the capture can see it. Mutation 3 below demonstrates both halves.
-
-And the count is asserted for exact equality rather than as a floor, because a
-number that drifts upward unnoticed makes this page wrong just as surely as one
-that drifts down: if `classic`'s or `minimal`'s sliders ever land inside the
-box, the "2 of 26" above is stale and the suite should say so. One caveat on
-that, stated because the spec states it too: `expect.poll` stops at the first
-matching sample, so it waits for `creative`'s count to *reach* two but satisfies
-the zeros immediately. Upward drift is caught if it is present at first paint,
-not if it only appears after the wrapper's post-mount settle. Neither template
-moves its sliders after first paint today, so nothing turns on it — but note
-that `minimal`'s are only 3px from being counted, so this is the pair to
-re-measure if layout work ever shifts them.
-
-This matters now rather than in the abstract: Milestone C Part 2
-(`tasks/prds/milestone-c-part-2-exports-and-parity.md`) changes layout state
-ownership across these components, including the setter props that gate both
-sliders.
-
-If a change legitimately alters the count, correct `OBSERVABLE_CONTROLS`, update
-this document, and re-run the mutations below. Deleting the assertion to obtain
-a green run has the same status as widening a threshold to obtain one.
+The in-template controls (classic, minimal and creative's size sliders,
+professional's resize handles, modern's photo zone) still exist and still
+carry `print:hidden`; they render only in the Editor's live preview, which this
+suite does not capture.
 
 ### What else differentiates the two captures
 
@@ -261,14 +126,9 @@ are pinned:
    baseline.
 2. **Fonts** — the spec waits on `document.fonts.ready`. A capture taken
    mid-swap produces a baseline no later run reproduces.
-3. **Controls** — the preview renders editing controls *inside* the template
-   (sliders, drag chevrons). On **screen** they are toggled off: they are chrome
-   rather than document, and a slider thumb is a moving target. In **print**
-   they are left on, because `print:hidden` removes them there and that is the
-   whole point of the print baseline — see *The print capture keeps the editing
-   controls ON*. The print test asserts the toggle is checked rather than
-   assuming it, so a change to the `showControls` default fails loudly instead
-   of quietly deleting the coverage.
+3. **Controls** — none: the Preview route draws no editing control in the
+   document, and `expectNoEditingControls` asserts it before every capture —
+   see *No editing controls on the Preview route*.
 4. **Animations** — disabled by the config.
 5. **Viewport, scale, locale, timezone, colour scheme** — all fixed in
    `playwright.visual.config.ts`.
@@ -362,6 +222,10 @@ put back on classic's content wrapper. Screen **passed**; print **failed**
 removes); and `e2e/resume-print-geometry.spec.ts` for classic **failed**. The
 mutation was reverted.
 
+*Mutations 2 and 3 are a historical record: they exercised the Preview's former
+"Show Controls" switch and the `expectPrintHiddenStaysObserved` guard, both
+removed by swiss-cv-templates FR-13. They no longer apply as written.*
+
 ### Mutation 2 — `print:hidden`, and what it revealed
 
 The padding mutation proves print media is in effect. It says nothing about
@@ -441,11 +305,9 @@ differentiates the two captures*):
   measures the same in both media, so it is not a layout difference.
 
 A consequence to keep in mind: a print baseline that is nearly identical to its
-screen baseline no longer shows, on its own, that print media took effect —
-minimal's difference is inside the 120-pixel tolerance. The suite still shows
-it through creative, whose two sliders (asserted present by
-`expectPrintHiddenStaysObserved`) would be drawn into its print capture if
-`print:hidden` did not apply, and through Mutation 1.
+screen baseline does not show, on its own, that print media took effect —
+minimal's difference is inside the 120-pixel tolerance. Mutation 1 is the
+evidence that print media is in effect.
 
 Pixel counts are deliberately not recorded here: they describe one set of
 baselines and go stale with the next update. Measure the current pair if you

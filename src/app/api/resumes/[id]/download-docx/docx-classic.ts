@@ -18,6 +18,7 @@ import {
   PageOrientation,
   TableLayoutType,
 } from 'docx'
+import { visibleContactDetails } from '@/lib/contact-visibility'
 import {
   pxToHalfPoints,
   pxToTwips,
@@ -165,7 +166,11 @@ export async function generateClassicDocx(
   const dict = getTranslations(locale as Locale, 'common')
   const classicDict = CLASSIC_DICT[locale] || CLASSIC_DICT.en
 
-  const contact = resume.contact || {}
+  const { contact, title, titleVisible } = visibleContactDetails(resume, settings.hiddenContactFields)
+  // The heading: the CV title (or its placeholder) while it is ticked, else the
+  // full name, which cannot be hidden and is drawn nowhere else (FR-14), as on
+  // the Preview. Nothing when there is no name either.
+  const heading = titleVisible ? title || 'CV TITLE' : contact.name ?? ''
 
   // Filter visible items only (matching Preview behavior)
   const experiences = (resume.experience || []).filter((exp: any) => exp.visible !== false)
@@ -313,25 +318,27 @@ export async function generateClassicDocx(
   // ----------------------------------------------------------
   // HEADER: CV Title (centered, serif, bold, uppercase)
   // ----------------------------------------------------------
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: (resume.title || 'CV TITLE').toUpperCase(),
-          bold: true,
-          size: scaledFontSizes.title,
-          color: PALETTE['slate-900'],
-          font: headingFont,
-          characterSpacing: trackingSpacing(TRACKING.title, scaledFontSizes.title),
-        }),
-      ],
-      alignment: AlignmentType.CENTER,
-      spacing: {
-        after: pxToTwips(SPACING.HEADER_MB),
-        ...exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.title]),
-      },
-    })
-  )
+  if (heading) {
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: heading.toUpperCase(),
+            bold: true,
+            size: scaledFontSizes.title,
+            color: PALETTE['slate-900'],
+            font: headingFont,
+            characterSpacing: trackingSpacing(TRACKING.title, scaledFontSizes.title),
+          }),
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: {
+          after: pxToTwips(SPACING.HEADER_MB),
+          ...exactLineSpacing([LINE_HEIGHT.inherited, lineFontSizes.title]),
+        },
+      })
+    )
+  }
 
   // ----------------------------------------------------------
   // HEADER: Contact information (centered, with emoji + bullet separators)

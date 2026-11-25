@@ -24,12 +24,15 @@ import {
   TEMPLATE_APPLIED_SIZE_KEYS,
   TEMPLATE_EDITOR_SECTIONS,
   templateEditorSections,
+  TEMPLATE_DRAWS_PHOTO,
   TEMPLATE_LAYOUT_CONTROLS,
+  templateDrawsPhoto,
   templateOffersLayoutControl,
   toStoredLayout,
   type EditorMainId,
   type ResumeLayoutModel,
 } from './layout-settings'
+import { CONTACT_FIELD_IDS } from './contact-visibility'
 
 /**
  * The default sidebar order declared at every editor/preview call site
@@ -230,12 +233,13 @@ describe('parseStoredLayout', () => {
 
   it('admits the largest model the layout controls can produce', () => {
     // Every list full and the longest font stack the validation accepts.
-    // Measured at 752 bytes against a bound of 4096.
+    // Measured at 849 bytes against a bound of 4096.
     const worstCase = serializeLayoutModel({
       ...DEFAULT_RESUME_LAYOUT,
       fontFamily: LONGEST_FONT_STACK,
       hiddenSidebarSections: [...DEFAULT_RESUME_LAYOUT.sidebarOrder],
       hiddenMainSections: [...DEFAULT_RESUME_LAYOUT.mainContentOrder],
+      hiddenContactFields: [...CONTACT_FIELD_IDS],
     })
     expect(LONGEST_FONT_STACK).toHaveLength(200)
     expect(Buffer.byteLength(worstCase, 'utf8')).toBeLessThan(MAX_LAYOUT_BLOB_LENGTH)
@@ -247,7 +251,7 @@ describe('parseStoredLayout', () => {
     // The controls emit short numbers, but `parseLayoutModel` accepts any
     // finite value in range, and a double can print eighteen characters. This
     // is the real ceiling on a blob this application can be handed and still
-    // read back in full. Measured at 977 bytes against a bound of 4096.
+    // read back in full. Measured at 1074 bytes against a bound of 4096.
     const LONG_DOUBLE = 1.2999999999999998
     expect(JSON.stringify(LONG_DOUBLE)).toHaveLength(18)
 
@@ -272,6 +276,7 @@ describe('parseStoredLayout', () => {
       fontFamily: LONGEST_FONT_STACK,
       hiddenSidebarSections: [...DEFAULT_RESUME_LAYOUT.sidebarOrder],
       hiddenMainSections: [...DEFAULT_RESUME_LAYOUT.mainContentOrder],
+      hiddenContactFields: [...CONTACT_FIELD_IDS],
     })
     expect(Buffer.byteLength(serialized, 'utf8')).toBeLessThan(MAX_LAYOUT_BLOB_LENGTH)
     expect(parseStoredLayout(serialized).titleFontSize).toBe(LONG_DOUBLE)
@@ -797,6 +802,9 @@ const HISTORICAL_DEFAULTS: ResumeLayoutModel = {
   mainContentOrder: ['summary', 'experience', 'education'],
   hiddenSidebarSections: [],
   hiddenMainSections: [],
+  // Not one of the consolidated copies: added by swiss-cv-templates FR-14,
+  // empty so that every CV stored before it renders as it did.
+  hiddenContactFields: [],
 }
 
 /**
@@ -1286,6 +1294,107 @@ describe('which layout controls a template offers (Part 3 US-014)', () => {
     expect(Object.keys(TEMPLATE_LAYOUT_CONTROLS).sort()).toEqual(
       Object.keys(TEMPLATE_APPLIED_SIZE_KEYS).sort(),
     )
+  })
+
+  it('offers the font carousel and font size on the five original templates and not on a Swiss one (FR-12)', () => {
+    for (const template of ['professional', 'modern', 'classic', 'minimal', 'creative'] as const) {
+      expect(templateOffersLayoutControl(template, 'font'), template).toBe(true)
+    }
+    expect(templateOffersLayoutControl('swissVocational', 'font')).toBe(false)
+    expect(TEMPLATE_LAYOUT_CONTROLS.swissVocational).toEqual(['sidebarSections'])
+    expect(templateOffersLayoutControl('swissCommerce', 'font')).toBe(false)
+    expect(TEMPLATE_LAYOUT_CONTROLS.swissCommerce).toEqual(['sidebarSections'])
+    expect(templateOffersLayoutControl('swissTrades', 'font')).toBe(false)
+    expect(TEMPLATE_LAYOUT_CONTROLS.swissTrades).toEqual(['sidebarSections'])
+    expect(templateOffersLayoutControl('swissHealth', 'font')).toBe(false)
+    expect(TEMPLATE_LAYOUT_CONTROLS.swissHealth).toEqual(['sidebarSections'])
+    expect(templateOffersLayoutControl('swissFinance', 'font')).toBe(false)
+    expect(TEMPLATE_LAYOUT_CONTROLS.swissFinance).toEqual(['sidebarSections'])
+    expect(templateOffersLayoutControl('swissEngineering', 'font')).toBe(false)
+    expect(TEMPLATE_LAYOUT_CONTROLS.swissEngineering).toEqual(['sidebarSections'])
+    expect(LAYOUT_CONTROL_KEYS.font).toEqual(['fontFamily', 'fontScale'])
+  })
+})
+
+describe('contact visibility in the layout model (swiss-cv-templates FR-14)', () => {
+  it('defaults to nothing hidden, so a CV that never set it renders as before', () => {
+    expect(DEFAULT_RESUME_LAYOUT.hiddenContactFields).toEqual([])
+    expect(resolveLayoutModel({}).hiddenContactFields).toEqual([])
+    expect(parseLayoutModel({ fontScale: 1.1 })).not.toHaveProperty('hiddenContactFields')
+    expect(resolveResumeLayout({ layout_settings: null, custom_sections: null }, null).hiddenContactFields).toEqual([])
+  })
+
+  it('keeps every known field, in the order stored, without repeats', () => {
+    expect(parseLayoutModel({ hiddenContactFields: ['photo', 'email', 'title', 'email'] }).hiddenContactFields).toEqual([
+      'photo',
+      'email',
+      'title',
+    ])
+    expect(parseLayoutModel({ hiddenContactFields: [...CONTACT_FIELD_IDS] }).hiddenContactFields).toEqual([...CONTACT_FIELD_IDS])
+  })
+
+  it('drops unknown and non-string entries, and the full name, which cannot be hidden', () => {
+    expect(
+      parseLayoutModel({ hiddenContactFields: ['name', 'nationality', 7, null, 'phone', { email: true }] }).hiddenContactFields,
+    ).toEqual(['phone'])
+  })
+
+  it('keeps an explicitly empty list, and ignores a value that is not a list', () => {
+    expect(parseLayoutModel({ hiddenContactFields: [] })).toEqual({ hiddenContactFields: [] })
+    expect(parseLayoutModel({ hiddenContactFields: 'email' })).toEqual({})
+  })
+
+  it('round-trips through the stored blob and the account column', () => {
+    const model = { ...DEFAULT_RESUME_LAYOUT, hiddenContactFields: ['email', 'photo'] as const }
+    expect(toStoredLayout(model).hiddenContactFields).toEqual(['email', 'photo'])
+    expect(parseStoredLayout(serializeLayoutModel(model)).hiddenContactFields).toEqual(['email', 'photo'])
+    expect(
+      resolveResumeLayout({ layout_settings: toStoredLayout(model), custom_sections: null }, null).hiddenContactFields,
+    ).toEqual(['email', 'photo'])
+  })
+
+  it('lets the account win over the browser cache, as for every property', () => {
+    const cached = serializeLayoutModel({ ...DEFAULT_RESUME_LAYOUT, hiddenContactFields: ['phone'] })
+    expect(
+      resolveResumeLayout({ layout_settings: { hiddenContactFields: ['website'] }, custom_sections: null }, cached).hiddenContactFields,
+    ).toEqual(['website'])
+  })
+})
+
+describe('which templates draw the photo (swiss-cv-templates FR-5, FR-14)', () => {
+  it('is modern and the Swiss templates, not the four others', () => {
+    expect(TEMPLATE_DRAWS_PHOTO).toEqual({
+      professional: false,
+      modern: true,
+      classic: false,
+      minimal: false,
+      creative: false,
+      swissVocational: true,
+      swissCommerce: true,
+      swissTrades: true,
+      swissHealth: true,
+      swissFinance: true,
+      swissEngineering: true,
+      swissIt: true,
+      swissExecutive: true,
+      swissAcademic: false,
+      swissFirstJob: true,
+    })
+  })
+
+  it('covers every built template', () => {
+    expect(Object.keys(TEMPLATE_DRAWS_PHOTO).sort()).toEqual(Object.keys(TEMPLATE_LAYOUT_CONTROLS).sort())
+  })
+
+  it('resolves an unknown template as modern, which the editor draws for it', () => {
+    expect(templateDrawsPhoto('brochure')).toBe(true)
+    expect(templateDrawsPhoto('classic')).toBe(false)
+    expect(templateDrawsPhoto('swissVocational')).toBe(true)
+    expect(templateDrawsPhoto('swissCommerce')).toBe(true)
+    expect(templateDrawsPhoto('swissTrades')).toBe(true)
+    expect(templateDrawsPhoto('swissHealth')).toBe(true)
+    expect(templateDrawsPhoto('swissFinance')).toBe(true)
+    expect(templateDrawsPhoto('swissEngineering')).toBe(true)
   })
 })
 

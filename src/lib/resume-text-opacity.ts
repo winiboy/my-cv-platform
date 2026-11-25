@@ -1,4 +1,4 @@
-import type { ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate } from '@/types/database'
 
 /**
  * The translucency the resume Preview draws its secondary white text with, as
@@ -111,7 +111,17 @@ export const PREVIEW_TEXT_ALPHA = {
     /** The second header contact row: LinkedIn, GitHub and website. */
     headerLinks: colourModifier('text-white/80'),
   },
-} as const satisfies Readonly<Record<ResumeTemplate, Readonly<Record<string, PreviewAlpha>>>>
+  swissVocational: {},
+  swissCommerce: {},
+  swissTrades: {},
+  swissHealth: {},
+  swissFinance: {},
+  swissEngineering: {},
+  swissIt: {},
+  swissExecutive: {},
+  swissAcademic: {},
+  swissFirstJob: {},
+} as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewAlpha>>>>
 
 /**
  * The templates that draw translucent text at all.

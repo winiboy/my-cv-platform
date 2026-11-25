@@ -1,13 +1,23 @@
 import { createElement, type ComponentType } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import type { Resume, ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate as ResumeTemplate, Resume } from '@/types/database'
 import en from '@/locales/en/common.json'
 import { ClassicTemplate } from '@/components/dashboard/resume-templates/classic-template'
 import { CreativeTemplate } from '@/components/dashboard/resume-templates/creative-template'
 import { MinimalTemplate } from '@/components/dashboard/resume-templates/minimal-template'
 import { ModernTemplate } from '@/components/dashboard/resume-templates/modern-template'
 import { ProfessionalTemplate } from '@/components/dashboard/resume-templates/professional-template'
+import { SwissVocationalTemplate } from '@/components/dashboard/resume-templates/swiss-vocational-template'
+import { SwissCommerceTemplate } from '@/components/dashboard/resume-templates/swiss-commerce-template'
+import { SwissTradesTemplate } from '@/components/dashboard/resume-templates/swiss-trades-template'
+import { SwissHealthTemplate } from '@/components/dashboard/resume-templates/swiss-health-template'
+import { SwissFinanceTemplate } from '@/components/dashboard/resume-templates/swiss-finance-template'
+import { SwissEngineeringTemplate } from '@/components/dashboard/resume-templates/swiss-engineering-template'
+import { SwissItTemplate } from '@/components/dashboard/resume-templates/swiss-it-template'
+import { SwissExecutiveTemplate } from '@/components/dashboard/resume-templates/swiss-executive-template'
+import { SwissAcademicTemplate } from '@/components/dashboard/resume-templates/swiss-academic-template'
+import { SwissFirstJobTemplate } from '@/components/dashboard/resume-templates/swiss-first-job-template'
 
 /**
  * Part 3 US-016: every template's Preview reads the rich text the editor saved.
@@ -36,15 +46,28 @@ const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
   minimal: MinimalTemplate as ComponentType<never>,
   modern: ModernTemplate as ComponentType<never>,
   professional: ProfessionalTemplate as ComponentType<never>,
+  swissVocational: SwissVocationalTemplate as ComponentType<never>,
+  swissCommerce: SwissCommerceTemplate as ComponentType<never>,
+  swissTrades: SwissTradesTemplate as ComponentType<never>,
+  swissHealth: SwissHealthTemplate as ComponentType<never>,
+  swissFinance: SwissFinanceTemplate as ComponentType<never>,
+  swissEngineering: SwissEngineeringTemplate as ComponentType<never>,
+  swissIt: SwissItTemplate as ComponentType<never>,
+  swissExecutive: SwissExecutiveTemplate as ComponentType<never>,
+  swissAcademic: SwissAcademicTemplate as ComponentType<never>,
+  swissFirstJob: SwissFirstJobTemplate as ComponentType<never>,
 }
 
 const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
 
 /** Templates that render a project description at all. Professional has no projects section. */
-const RENDERS_PROJECT_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'creative', 'minimal', 'modern']
+const RENDERS_PROJECT_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'creative', 'minimal', 'modern', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic']
+
+/** Templates whose mockup draws no skills section, so they render no skill at all (swiss-cv-templates US-008). */
+const DRAWS_NO_SKILLS: readonly ResumeTemplate[] = ['swissExecutive']
 
 /** Templates that render an education description at all. */
-const RENDERS_EDUCATION_DESCRIPTION: readonly ResumeTemplate[] = ['classic']
+const RENDERS_EDUCATION_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
 
 function buildResume(overrides: Partial<Record<string, unknown>>): Resume {
   return {
@@ -100,7 +123,23 @@ describe('rich text in the Preview', () => {
   })
 
   describe.each(TEMPLATE_IDS)('%s', (template) => {
-    it('renders a category saved as skillsHtml through the sanitiser', () => {
+    it.runIf(DRAWS_NO_SKILLS.includes(template))('draws no skill category, rich or plain', () => {
+      const html = render(
+        template,
+        buildResume({
+          skills: [
+            { category: 'Engineering', items: [], skillsHtml: HTML_SKILLS, visible: true },
+            { category: 'Operations', items: PLAIN_ITEMS, visible: true },
+          ],
+        })
+      )
+
+      expect(html).not.toContain('Engineering')
+      expect(html).not.toContain('Operations')
+      for (const item of PLAIN_ITEMS) expect(html).not.toContain(item)
+    })
+
+    it.skipIf(DRAWS_NO_SKILLS.includes(template))('renders a category saved as skillsHtml through the sanitiser', () => {
       const html = render(
         template,
         buildResume({ skills: [{ category: 'Engineering', items: [], skillsHtml: HTML_SKILLS, visible: true }] })
@@ -113,7 +152,7 @@ describe('rich text in the Preview', () => {
       expect(html).not.toContain('&lt;p&gt;')
     })
 
-    it('falls back to items when no skillsHtml is stored', () => {
+    it.skipIf(DRAWS_NO_SKILLS.includes(template))('falls back to items when no skillsHtml is stored', () => {
       const html = render(
         template,
         buildResume({ skills: [{ category: 'Operations', items: PLAIN_ITEMS, visible: true }] })

@@ -68,8 +68,9 @@ function statePairPattern(key: string): RegExp {
 }
 
 describe('the layout model has exactly one owner', () => {
-  it('covers all nineteen properties', () => {
-    expect(LAYOUT_KEYS).toHaveLength(19)
+  it('covers all twenty properties', () => {
+    // Nineteen consolidated by US-002, and `hiddenContactFields` (swiss-cv-templates FR-14).
+    expect(LAYOUT_KEYS).toHaveLength(20)
   })
 
   for (const surface of SURFACES) {

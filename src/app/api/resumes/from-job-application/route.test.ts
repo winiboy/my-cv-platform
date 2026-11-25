@@ -267,6 +267,102 @@ describe('POST /api/resumes/from-job-application', () => {
     expect(writes()).toEqual([])
   })
 
+  it('creates a CV with the swissVocational template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply('<p>x</p>'))
+
+    const response = await POST(createRequest({ ...VALID_BODY, template: 'swissVocational' }))
+
+    expect(response.status).toBe(201)
+    expect(insertedResume().template).toBe('swissVocational')
+  })
+
+  it('creates a CV with the swissCommerce template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply('<p>x</p>'))
+
+    const response = await POST(createRequest({ ...VALID_BODY, template: 'swissCommerce' }))
+
+    expect(response.status).toBe(201)
+    expect(insertedResume().template).toBe('swissCommerce')
+  })
+
+  it('creates a CV with the swissTrades template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply('<p>x</p>'))
+
+    const response = await POST(createRequest({ ...VALID_BODY, template: 'swissTrades' }))
+
+    expect(response.status).toBe(201)
+    expect(insertedResume().template).toBe('swissTrades')
+  })
+
+  it('creates a CV with the swissHealth template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply('<p>x</p>'))
+
+    const response = await POST(createRequest({ ...VALID_BODY, template: 'swissHealth' }))
+
+    expect(response.status).toBe(201)
+    expect(insertedResume().template).toBe('swissHealth')
+  })
+
+  it('creates a CV with the swissFinance template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply('<p>x</p>'))
+
+    const response = await POST(createRequest({ ...VALID_BODY, template: 'swissFinance' }))
+
+    expect(response.status).toBe(201)
+    expect(insertedResume().template).toBe('swissFinance')
+  })
+
+  it('creates a CV with the swissEngineering template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply('<p>x</p>'))
+
+    const response = await POST(createRequest({ ...VALID_BODY, template: 'swissEngineering' }))
+
+    expect(response.status).toBe(201)
+    expect(insertedResume().template).toBe('swissEngineering')
+  })
+
+  it('creates a CV with the swissIt template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply('<p>x</p>'))
+
+    const response = await POST(createRequest({ ...VALID_BODY, template: 'swissIt' }))
+
+    expect(response.status).toBe(201)
+    expect(insertedResume().template).toBe('swissIt')
+  })
+
+  it('creates a CV with the swissExecutive template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply('<p>x</p>'))
+
+    const response = await POST(createRequest({ ...VALID_BODY, template: 'swissExecutive' }))
+
+    expect(response.status).toBe(201)
+    expect(insertedResume().template).toBe('swissExecutive')
+  })
+
+  it('creates a CV with the swissAcademic template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply('<p>x</p>'))
+
+    const response = await POST(createRequest({ ...VALID_BODY, template: 'swissAcademic' }))
+
+    expect(response.status).toBe(201)
+    expect(insertedResume().template).toBe('swissAcademic')
+  })
+
+  it('creates a CV with the swissFirstJob template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply('<p>x</p>'))
+
+    const response = await POST(createRequest({ ...VALID_BODY, template: 'swissFirstJob' }))
+
+    expect(response.status).toBe(201)
+    expect(insertedResume().template).toBe('swissFirstJob')
+  })
+
+  it('refuses a template id outside the ones the schema accepts, and writes nothing', async () => {
+    const response = await POST(createRequest({ ...VALID_BODY, template: 'swissUnknown' }))
+    expect(response.status).toBe(400)
+    expect(writes()).toEqual([])
+  })
+
   it('ignores job content sent by the client', async () => {
     generateResumeFromJobDescription.mockResolvedValueOnce(aiReply('<p>x</p>'))
     await POST(createRequest({ ...VALID_BODY, jobDescription: 'Injected', job_title: 'Injected' }))

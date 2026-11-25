@@ -1,0 +1,104 @@
+# Ralph progress — cover-letter-save-status-below-title
+
+Contract: tasks/ralph/prd.json (branch ralph/cover-letter-save-status-below-title)
+PRD: tasks/prds/cover-letter-save-status-below-title.md (Status: APPROVED 2026-11-18, written by the owner in GitHub's web editor, commit 3ae3683 on prd/cover-letter-save-status-below-title)
+Format: docs/engineering/progress-log-format.md
+Branch setup: from prd/cover-letter-save-status-below-title 3ae3683 (origin/main e928c82, #128 merged, plus the PRD draft d325af7 and the owner's approval commit). The first commit archives the merged cover-letter-alignment-and-job-banner contract; the second adds this contract.
+Contract note: nested sub-bullets in the PRD are folded into their parent criterion, and bold markers are dropped; wording unchanged.
+
+## US-001: The save status sits below the letter's title and never hides it
+Status: PASS
+Priority: 1
+Branch: ralph/cover-letter-save-status-below-title
+Baseline HEAD: 399de6a (contract commit; origin/main e928c82)
+
+Scope:
+- Scope check: PASS
+- Changed paths: story diff sha256 prefix 446bb74e2700ef7f. The hash covers `git diff -- src e2e`, then "== <path>" and the content of each untracked file under src/ and e2e/.
+  - **`src/components/dashboard/cover-letter-editor.tsx`, header title column:** now a vertical flex column (`flex min-w-40 flex-1 flex-col max-xl:min-w-0`).
+    - The title `<input>` is `w-full`, so it fills its column and is cut only where the column ends, not where the status began.
+    - The status is one always-rendered `<p className="min-h-4 truncate text-xs …">` below it, as in the CV editor. It holds "Unsaved changes" (amber), "Saved <time>" (slate) or, before any status, nothing. The reserved 16 px line keeps the title from moving on the first edit.
+    - The time is `toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })`, the same call as `resume-editor.tsx`, using the editor's interface `locale`.
+    - The header comments are rewritten. The 6rem title minimum and the "status beside the title while it fits" rule are gone. The 13.5rem group rule, the 44 px row below xl and the 320 px ellipsis are kept, with their reasons.
+  - **`e2e/cover-letter-editor-mobile.spec.ts`:** the long-title header test also checks the status is under the title and left-aligned with it. No coverage removed.
+  - **New `e2e/cover-letter-save-status-below-title.spec.ts` (4 tests):** fr, en, de, it at 1440, 1280, 1024, 768, 375 and 320, on load, unsaved and saved. It checks:
+    - the status is under the title, left within 2 px, with no overlap, and stays inside the header;
+    - the title fills its column;
+    - no horizontal scroll on the page or `<main>`;
+    - below xl, the header is 64 px or less, with 44×44 back link and menu on one row;
+    - at 1280 and 1440, the six buttons sit on the title group's row;
+    - the empty status line holds its place on load, and the first edit moves neither the title nor the header height (within 0.5 px);
+    - the time has hours and minutes, with no seconds, and equals the same Intl call in the browser.
+- Not touched: the CV editor, the header's buttons, the "•••" menu, the back link, the bottom bar, saving and autosave, the labels, the locales, the database and the exports.
+- No version change, no push or merge. Three temporary capture specs (screenshots, 1280 and first-edit captures, keyboard and accessibility trace) were each run alone and deleted; none is in the diff.
+
+Checks:
+- Final run on diff 446bb74e2700ef7f, alone, after the review fixes. The hash was the same after each run, and no code changed afterwards.
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 3982 passed, 5 skipped.
+  - pnpm test:integration: PASS — 80 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 285 problems (219 errors, 66 warnings), against the tracked ceiling of 286.
+  - pnpm test:e2e: PASS — 590 passed, 0 failed (16.9 min), on the rerun.
+    - The first run had 589 passed and 1 failed: `auth.spec.ts` "a hostile destination is refused: https://evil.test", which timed out waiting for the login page's `#email`. That spec does not touch the editor.
+    - `auth.spec.ts` alone then passed 22/22, and the full rerun on the same hash passed 590/0.
+  - pnpm test:visual: PASS — 10 passed. The visual suite does not cover the cover letter editor.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+- Earlier runs, not evidence for this diff: before the review fixes (c48b99c7), the mobile spec 25/25 and the new spec 4/4.
+
+Specialized validation:
+- Browser: PASS — the two specs above, plus captures with the long title (scratchpad `ss-shots/`):
+  - fr at 1440, 1280, 1024, 768, 375 and 320, saved and unsaved; en, de and it at 1440 and 375; fr on load and after the first edit at 1440 and 375; the CV editor header at 1440;
+  - a Tab trace and header aria snapshots, fr, at 1440 and 375, on load, unsaved and saved.
+  - Measured header heights: 69 px at 1440 and 1280, 61 px below xl, the same on load, unsaved and saved.
+- Visual: PASS — `pnpm test:visual` 10/10, parity unchanged.
+- Export: NOT_APPLICABLE — no export path touched.
+- Database: NOT_APPLICABLE — no schema or stored value changes.
+- Security: NOT_APPLICABLE — layout and time formatting only; no route, input or trust boundary.
+
+Agents:
+- senior-coder: implementation, review fix round (1280 coverage, reserved status line, comment), captures.
+- ui-expert:
+  - round 1 BLOCKED: no 1280 evidence;
+  - round 2 BLOCKED: no keyboard or accessibility-tree evidence;
+  - round 3 PASS, 7/7 conditions, after the captures. It advised against `aria-hidden` on the empty status line: an empty paragraph is not announced, and a conditional attribute adds risk.
+- code-reviewer: round 1 FAIL (no 1280 check); round 2 PASS on 446bb74e2700ef7f, no Critical or Major.
+
+Acceptance criteria:
+- AC-01 (Saved below the title, left-aligned, at all six widths): PASS — new spec in four locales; captures.
+- AC-02 (Unsaved in the same place): PASS — new spec; captures.
+- AC-03 (no overlap; status below the title's bottom): PASS — new spec at all six widths.
+- AC-04 (a long title is no longer cut where the status began): PASS.
+  - At 1440, fr reads "Lettre de motivation - Médecin adjoint·e e…", cut where the button group starts. The owner's screenshot was cut at "Médec".
+  - The spec checks the title fills its column.
+- AC-05 (hours and minutes in the interface locale, the CV editor's format): PASS.
+  - fr, de and it show "16:10"; en shows "04:10 PM".
+  - The leading zero comes from the CV editor's own `2-digit` call, which the criterion requires matching.
+- AC-06 (below xl one row, no horizontal overflow, 44 px back link and menu): PASS — both specs; 61 px header.
+- AC-07 (at xl the buttons keep their position and wrapping): PASS — the spec checks the six buttons on the title group's row at 1280 and 1440; the button markup is unchanged.
+- AC-08 (status still announced): PASS — aria snapshots show "Modifications non enregistrées" and "Enregistré 17:06" as paragraph text; no `aria-hidden`; no live region added or removed; Tab order unchanged in the header.
+- FR-1 to FR-3: PASS.
+- Regression constraints: PASS — CV editor unchanged; buttons, menu and bottom bar unchanged; title editing and saving covered by the full e2e; the mobile spec updated, not deleted; parity and visual unchanged.
+- FAIL and BLOCKER conditions: none triggered. The BLOCKER does not apply: two lines, 28 + 16 px, make exactly the 44 px row below xl.
+
+Decision:
+- **One status line, always there.** The status is always on its own line under the title, as in the CV editor. Its 16 px line is reserved before any status, so the title never moves when the first status appears.
+- **The CV editor's time format, exactly.** "Same format as the CV editor" is the binding part of AC-05, so en shows "04:10 PM" rather than the PRD example's "3:51 PM".
+
+Open owner decisions:
+- **Header height at xl:** the header is 69 px at xl, about 4 px taller than before by code review's estimate (not measured). The two-line title column is taller than the buttons, so the buttons sit about 2 px lower. Their order and row are unchanged.
+- **Room for the title at 1280:** about 230 px. The title is now cut only at the button group; more room would mean changing the buttons, which this PRD rules out.
+- **en time:** "04:10 PM" carries a leading zero, as in the CV editor. Dropping it means changing both editors to `hour: 'numeric'`.
+- Follow-ups noted by ui-expert, both older than this story:
+  - the title input's accessible name is its placeholder, "Lettre sans titre", even with a typed title; a translated `aria-label` would fix it;
+  - the amber "unsaved" text is about 3.2:1 on white in both editors, below AA for 12 px; `amber-700` would give about 5.0:1.
+- Minor code-review point left as it is: the new spec logs header heights with `console.log`.
+
+Environment notes:
+- Docker Desktop was relaunched for local Supabase.
+- The checks ran alone. The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 The save status sits below the letter's title and never hides it
+FINAL: PASS

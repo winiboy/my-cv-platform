@@ -7,6 +7,16 @@ import { ClassicTemplate } from './resume-templates/classic-template'
 import { MinimalTemplate } from './resume-templates/minimal-template'
 import { CreativeTemplate } from './resume-templates/creative-template'
 import { ProfessionalTemplate } from './resume-templates/professional-template'
+import { SwissVocationalTemplate } from './resume-templates/swiss-vocational-template'
+import { SwissCommerceTemplate } from './resume-templates/swiss-commerce-template'
+import { SwissTradesTemplate } from './resume-templates/swiss-trades-template'
+import { SwissHealthTemplate } from './resume-templates/swiss-health-template'
+import { SwissFinanceTemplate } from './resume-templates/swiss-finance-template'
+import { SwissEngineeringTemplate } from './resume-templates/swiss-engineering-template'
+import { SwissItTemplate } from './resume-templates/swiss-it-template'
+import { SwissExecutiveTemplate } from './resume-templates/swiss-executive-template'
+import { SwissAcademicTemplate } from './resume-templates/swiss-academic-template'
+import { SwissFirstJobTemplate } from './resume-templates/swiss-first-job-template'
 import {
   chosenFontFamily,
   DEFAULT_RESUME_LAYOUT,
@@ -16,6 +26,7 @@ import {
   type ModernMainId,
   type ModernSidebarId,
 } from '@/lib/layout-settings'
+import type { ContactFieldId } from '@/lib/contact-visibility'
 
 type SidebarSectionId = EditorSidebarId
 type MainContentSectionId = EditorMainId
@@ -28,44 +39,39 @@ type MainContentSectionId = EditorMainId
  */
 const DEFAULT_SIDEBAR_COLOR = `hsl(${DEFAULT_RESUME_LAYOUT.sidebarHue}, ${DEFAULT_RESUME_LAYOUT.sidebarSaturation}%, ${DEFAULT_RESUME_LAYOUT.sidebarBrightness}%)`
 
+/**
+ * Read-only by construction (swiss-cv-templates FR-13): no layout setter and no
+ * photo handler is accepted, so no template drawn through here renders an
+ * in-page editing control. The Editor renders its templates itself.
+ */
 interface ResumePreviewProps {
   resume: Resume
   locale: Locale
   dict: any
   titleFontSize?: number
-  setTitleFontSize?: (size: number) => void
   titleGap?: number
-  setTitleGap?: (gap: number) => void
   contactFontSize?: number
-  setContactFontSize?: (size: number) => void
   sectionTitleFontSize?: number
-  setSectionTitleFontSize?: (size: number) => void
   sectionDescFontSize?: number
-  setSectionDescFontSize?: (size: number) => void
   sectionGap?: number
-  setSectionGap?: (gap: number) => void
   headerGap?: number
-  setHeaderGap?: (gap: number) => void
   sidebarColor?: string
-  setSidebarColor?: (color: string) => void
   fontScale?: number
   fontFamily?: string
   sidebarOrder?: readonly SidebarSectionId[]
   mainContentOrder?: readonly MainContentSectionId[]
   sidebarTopMargin?: number
-  setSidebarTopMargin?: (margin: number) => void
   mainContentTopMargin?: number
-  setMainContentTopMargin?: (margin: number) => void
   sidebarWidth?: number
-  setSidebarWidth?: (width: number) => void
   hiddenSidebarSections?: readonly SidebarSectionId[]
   hiddenMainSections?: readonly MainContentSectionId[]
   modernSidebarOrder?: ModernSidebarId[]
   modernMainContentOrder?: ModernMainId[]
   hiddenModernSidebarSections?: ModernSidebarId[]
   hiddenModernMainSections?: ModernMainId[]
+  /** The layout model's contact visibility (FR-14); every template reads it. */
+  hiddenContactFields?: readonly ContactFieldId[]
   photoUrl?: string
-  onPhotoChange?: (dataUrl: string) => void
 }
 
 export function ResumePreview({
@@ -73,39 +79,28 @@ export function ResumePreview({
   locale,
   dict,
   titleFontSize = DEFAULT_RESUME_LAYOUT.titleFontSize,
-  setTitleFontSize,
   titleGap = DEFAULT_RESUME_LAYOUT.titleGap,
-  setTitleGap,
   contactFontSize = DEFAULT_RESUME_LAYOUT.contactFontSize,
-  setContactFontSize,
   sectionTitleFontSize = DEFAULT_RESUME_LAYOUT.sectionTitleFontSize,
-  setSectionTitleFontSize,
   sectionDescFontSize = DEFAULT_RESUME_LAYOUT.sectionDescFontSize,
-  setSectionDescFontSize,
   sectionGap = DEFAULT_RESUME_LAYOUT.sectionGap,
-  setSectionGap,
   headerGap = DEFAULT_RESUME_LAYOUT.headerGap,
-  setHeaderGap,
   sidebarColor = DEFAULT_SIDEBAR_COLOR,
-  setSidebarColor,
   fontScale = DEFAULT_RESUME_LAYOUT.fontScale,
   fontFamily = DEFAULT_RESUME_LAYOUT.fontFamily,
   sidebarOrder = DEFAULT_RESUME_LAYOUT.sidebarOrder,
   mainContentOrder = DEFAULT_RESUME_LAYOUT.mainContentOrder,
   sidebarTopMargin = DEFAULT_RESUME_LAYOUT.sidebarTopMargin,
-  setSidebarTopMargin,
   mainContentTopMargin = DEFAULT_RESUME_LAYOUT.mainContentTopMargin,
-  setMainContentTopMargin,
   sidebarWidth = DEFAULT_RESUME_LAYOUT.sidebarWidth,
-  setSidebarWidth,
   hiddenSidebarSections = DEFAULT_RESUME_LAYOUT.hiddenSidebarSections,
   hiddenMainSections = DEFAULT_RESUME_LAYOUT.hiddenMainSections,
   modernSidebarOrder,
   modernMainContentOrder,
   hiddenModernSidebarSections,
   hiddenModernMainSections,
+  hiddenContactFields = DEFAULT_RESUME_LAYOUT.hiddenContactFields,
   photoUrl,
-  onPhotoChange
 }: ResumePreviewProps) {
   /**
    * The font to impose on a template that has one of its own (Part 3 US-012).
@@ -125,21 +120,55 @@ export function ResumePreview({
   // Render the appropriate template based on the resume's template field
   switch (resume.template) {
     case 'modern':
-      return <ModernTemplate resume={resume} locale={locale} dict={dict} sidebarColor={sidebarColor} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} sidebarOrder={modernSidebarOrder} mainContentOrder={modernMainContentOrder} hiddenSidebarSections={hiddenModernSidebarSections} hiddenMainSections={hiddenModernMainSections} sidebarWidth={sidebarWidth} setSidebarWidth={setSidebarWidth} sidebarTopMargin={sidebarTopMargin} setSidebarTopMargin={setSidebarTopMargin} mainContentTopMargin={mainContentTopMargin} setMainContentTopMargin={setMainContentTopMargin} fontScale={fontScale} fontFamily={fontFamily} photoUrl={photoUrl} onPhotoChange={onPhotoChange} />
+      return <ModernTemplate resume={resume} locale={locale} dict={dict} sidebarColor={sidebarColor} titleFontSize={titleFontSize} contactFontSize={contactFontSize} sectionTitleFontSize={sectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} sidebarOrder={modernSidebarOrder} mainContentOrder={modernMainContentOrder} hiddenSidebarSections={hiddenModernSidebarSections} hiddenMainSections={hiddenModernMainSections} sidebarWidth={sidebarWidth} sidebarTopMargin={sidebarTopMargin} mainContentTopMargin={mainContentTopMargin} fontScale={fontScale} fontFamily={fontFamily} photoUrl={photoUrl} hiddenContactFields={hiddenContactFields} />
     case 'classic':
-      return <ClassicTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} fontScale={fontScale} fontFamily={chosenFont} mainContentOrder={mainContentOrder} hiddenMainSections={hiddenMainSections} />
+      return <ClassicTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} contactFontSize={contactFontSize} sectionTitleFontSize={sectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} fontScale={fontScale} fontFamily={chosenFont} mainContentOrder={mainContentOrder} hiddenMainSections={hiddenMainSections} hiddenContactFields={hiddenContactFields} />
     case 'minimal':
-      return <MinimalTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} fontScale={fontScale} fontFamily={chosenFont} mainContentOrder={mainContentOrder} hiddenMainSections={hiddenMainSections} />
+      return <MinimalTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} contactFontSize={contactFontSize} sectionTitleFontSize={sectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} fontScale={fontScale} fontFamily={chosenFont} mainContentOrder={mainContentOrder} hiddenMainSections={hiddenMainSections} hiddenContactFields={hiddenContactFields} />
     case 'creative': {
       // Part 3 US-015: creative reads the editor vocabulary through the shared
       // mapping, exactly as docx-creative.ts does. Neither surface states a
       // section list of its own, which is what makes the two orders one order.
       const creative = mapEditorOrderToCreative(sidebarOrder, mainContentOrder, hiddenSidebarSections, hiddenMainSections)
-      return <CreativeTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} fontScale={fontScale} fontFamily={chosenFont} sidebarOrder={creative.creativeSidebarOrder} mainContentOrder={creative.creativeMainOrder} hiddenSidebarSections={creative.hiddenCreativeSidebar} hiddenMainSections={creative.hiddenCreativeMain} summaryHidden={creative.summaryHidden} />
+      return <CreativeTemplate resume={resume} locale={locale} dict={dict} titleFontSize={titleFontSize} contactFontSize={contactFontSize} sectionTitleFontSize={sectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} fontScale={fontScale} fontFamily={chosenFont} sidebarOrder={creative.creativeSidebarOrder} mainContentOrder={creative.creativeMainOrder} hiddenSidebarSections={creative.hiddenCreativeSidebar} hiddenMainSections={creative.hiddenCreativeMain} summaryHidden={creative.summaryHidden} hiddenContactFields={hiddenContactFields} />
     }
     case 'professional':
-      return <ProfessionalTemplate resume={resume} locale={locale} dict={dict} sidebarColor={sidebarColor} fontScale={fontScale} fontFamily={fontFamily} sidebarOrder={sidebarOrder} mainContentOrder={mainContentOrder} sidebarTopMargin={sidebarTopMargin} setSidebarTopMargin={setSidebarTopMargin} mainContentTopMargin={mainContentTopMargin} setMainContentTopMargin={setMainContentTopMargin} sidebarWidth={sidebarWidth} setSidebarWidth={setSidebarWidth} hiddenSidebarSections={hiddenSidebarSections} hiddenMainSections={hiddenMainSections} />
+      return <ProfessionalTemplate resume={resume} locale={locale} dict={dict} sidebarColor={sidebarColor} fontScale={fontScale} fontFamily={fontFamily} sidebarOrder={sidebarOrder} mainContentOrder={mainContentOrder} sidebarTopMargin={sidebarTopMargin} mainContentTopMargin={mainContentTopMargin} sidebarWidth={sidebarWidth} hiddenSidebarSections={hiddenSidebarSections} hiddenMainSections={hiddenMainSections} hiddenContactFields={hiddenContactFields} />
+    case 'swissVocational':
+      // It draws its own typeface at its own sizes, so it is passed neither the
+      // font nor the font scale (FR-4). It reads the sections' visibility and
+      // not their order, which is fixed: skills, languages and training are
+      // sidebar ids in the model although it draws no sidebar.
+      return <SwissVocationalTemplate resume={resume} locale={locale} dict={dict} hiddenMainSections={hiddenMainSections} hiddenSidebarSections={hiddenSidebarSections} photoUrl={photoUrl} hiddenContactFields={hiddenContactFields} />
+    case 'swissCommerce':
+      // As swissVocational: no font, no font scale (FR-4); fixed section order.
+      return <SwissCommerceTemplate resume={resume} locale={locale} dict={dict} hiddenMainSections={hiddenMainSections} hiddenSidebarSections={hiddenSidebarSections} photoUrl={photoUrl} hiddenContactFields={hiddenContactFields} />
+    case 'swissTrades':
+      // As swissVocational: no font, no font scale (FR-4); fixed section order.
+      return <SwissTradesTemplate resume={resume} locale={locale} dict={dict} hiddenMainSections={hiddenMainSections} hiddenSidebarSections={hiddenSidebarSections} photoUrl={photoUrl} hiddenContactFields={hiddenContactFields} />
+    case 'swissHealth':
+      // As swissVocational: no font, no font scale (FR-4); fixed section order.
+      return <SwissHealthTemplate resume={resume} locale={locale} dict={dict} hiddenMainSections={hiddenMainSections} hiddenSidebarSections={hiddenSidebarSections} photoUrl={photoUrl} hiddenContactFields={hiddenContactFields} />
+    case 'swissFinance':
+      // As swissVocational: no font, no font scale (FR-4); fixed section order.
+      return <SwissFinanceTemplate resume={resume} locale={locale} dict={dict} hiddenMainSections={hiddenMainSections} hiddenSidebarSections={hiddenSidebarSections} photoUrl={photoUrl} hiddenContactFields={hiddenContactFields} />
+    case 'swissEngineering':
+      // As swissVocational: no font, no font scale (FR-4); fixed section order.
+      return <SwissEngineeringTemplate resume={resume} locale={locale} dict={dict} hiddenMainSections={hiddenMainSections} hiddenSidebarSections={hiddenSidebarSections} photoUrl={photoUrl} hiddenContactFields={hiddenContactFields} />
+    case 'swissIt':
+      // As swissVocational: no font, no font scale (FR-4); fixed section order.
+      return <SwissItTemplate resume={resume} locale={locale} dict={dict} hiddenMainSections={hiddenMainSections} hiddenSidebarSections={hiddenSidebarSections} photoUrl={photoUrl} hiddenContactFields={hiddenContactFields} />
+    case 'swissExecutive':
+      // As swissVocational: no font, no font scale (FR-4); fixed section order.
+      return <SwissExecutiveTemplate resume={resume} locale={locale} dict={dict} hiddenMainSections={hiddenMainSections} hiddenSidebarSections={hiddenSidebarSections} photoUrl={photoUrl} hiddenContactFields={hiddenContactFields} />
+    case 'swissAcademic':
+      // As swissVocational: no font, no font scale (FR-4); fixed section order;
+      // no photo, which it never draws (PRD FR-5 exception).
+      return <SwissAcademicTemplate resume={resume} locale={locale} dict={dict} hiddenMainSections={hiddenMainSections} hiddenSidebarSections={hiddenSidebarSections} hiddenContactFields={hiddenContactFields} />
+    case 'swissFirstJob':
+      // As swissVocational: no font, no font scale (FR-4); fixed section order.
+      return <SwissFirstJobTemplate resume={resume} locale={locale} dict={dict} hiddenMainSections={hiddenMainSections} hiddenSidebarSections={hiddenSidebarSections} photoUrl={photoUrl} hiddenContactFields={hiddenContactFields} />
     default:
-      return <ModernTemplate resume={resume} locale={locale} dict={dict} sidebarColor={sidebarColor} titleFontSize={titleFontSize} setTitleFontSize={setTitleFontSize} contactFontSize={contactFontSize} setContactFontSize={setContactFontSize} sectionTitleFontSize={sectionTitleFontSize} setSectionTitleFontSize={setSectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} setSectionDescFontSize={setSectionDescFontSize} sidebarOrder={modernSidebarOrder} mainContentOrder={modernMainContentOrder} hiddenSidebarSections={hiddenModernSidebarSections} hiddenMainSections={hiddenModernMainSections} sidebarWidth={sidebarWidth} setSidebarWidth={setSidebarWidth} sidebarTopMargin={sidebarTopMargin} setSidebarTopMargin={setSidebarTopMargin} mainContentTopMargin={mainContentTopMargin} setMainContentTopMargin={setMainContentTopMargin} fontScale={fontScale} fontFamily={fontFamily} photoUrl={photoUrl} onPhotoChange={onPhotoChange} />
+      return <ModernTemplate resume={resume} locale={locale} dict={dict} sidebarColor={sidebarColor} titleFontSize={titleFontSize} contactFontSize={contactFontSize} sectionTitleFontSize={sectionTitleFontSize} sectionDescFontSize={sectionDescFontSize} sidebarOrder={modernSidebarOrder} mainContentOrder={modernMainContentOrder} hiddenSidebarSections={hiddenModernSidebarSections} hiddenMainSections={hiddenModernMainSections} sidebarWidth={sidebarWidth} sidebarTopMargin={sidebarTopMargin} mainContentTopMargin={mainContentTopMargin} fontScale={fontScale} fontFamily={fontFamily} photoUrl={photoUrl} hiddenContactFields={hiddenContactFields} />
   }
 }

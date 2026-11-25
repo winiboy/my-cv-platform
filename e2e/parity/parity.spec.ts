@@ -49,7 +49,8 @@ import {
   rowDefinitions,
   type ObservationKey,
 } from './verdicts'
-import type { ResumeTemplate } from '../../src/types/database'
+// Parity pins its references element by element for the five original templates.
+import type { OriginalResumeTemplate as ResumeTemplate } from '../../src/test/resume-template-files'
 
 /**
  * Part 2 US-008: parity across Preview, PDF and DOCX, demonstrated.

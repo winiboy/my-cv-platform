@@ -17,7 +17,8 @@
  *    not an authority — see `resolveResumeLayout`.
  */
 
-import type { ResumeLayoutSettings, ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate, ResumeLayoutSettings } from '@/types/database'
+import { CONTACT_FIELD_IDS, type ContactFieldId } from '@/lib/contact-visibility'
 
 /** Known sidebar section IDs — used for validation and migration. */
 const VALID_SIDEBAR_IDS = ['keyAchievements', 'skills', 'languages', 'training'] as const
@@ -100,6 +101,13 @@ export interface ResumeLayoutModel {
   readonly mainContentOrder: readonly EditorMainId[]
   readonly hiddenSidebarSections: readonly EditorSidebarId[]
   readonly hiddenMainSections: readonly EditorMainId[]
+  /**
+   * The contact details the owner unticked in the Contact tab, which no
+   * output draws (swiss-cv-templates FR-14). Empty means everything is shown,
+   * which is also what a blob written before the list existed resolves to.
+   * Read through `visibleContactDetails` in `@/lib/contact-visibility`.
+   */
+  readonly hiddenContactFields: readonly ContactFieldId[]
 }
 
 /**
@@ -137,6 +145,7 @@ export const DEFAULT_RESUME_LAYOUT: Readonly<ResumeLayoutModel> = Object.freeze(
   mainContentOrder: Object.freeze([...VALID_MAIN_IDS]),
   hiddenSidebarSections: Object.freeze([] as EditorSidebarId[]),
   hiddenMainSections: Object.freeze([] as EditorMainId[]),
+  hiddenContactFields: Object.freeze([] as ContactFieldId[]),
 })
 
 /**
@@ -363,6 +372,11 @@ export function parseLayoutModel(input: unknown): Partial<ResumeLayoutModel> {
     result.hiddenMainSections = hiddenMainSections
   }
 
+  const hiddenContactFields = parseIdList(raw.hiddenContactFields, CONTACT_FIELD_IDS)
+  if (hiddenContactFields !== null) {
+    result.hiddenContactFields = hiddenContactFields
+  }
+
   return result
 }
 
@@ -395,10 +409,10 @@ export function resolveLayoutModel(input: unknown): ResumeLayoutModel {
  * string's length in UTF-16 code units is never greater than its length in
  * UTF-8 bytes, so anything the database accepted passes here too: the two
  * bounds cannot disagree in the direction that would reject a legitimate
- * value. 4096 against a worst case of 977 bytes — nineteen properties with
+ * value. 4096 against a worst case of 1074 bytes — twenty properties with
  * every list full, the longest accepted font stack, and every number as wide
  * as a double can print inside its accepted range. The model the CONTROLS can
- * actually produce is 752 bytes. Both are asserted in `layout-settings.test.ts`
+ * actually produce is 849 bytes. Both are asserted in `layout-settings.test.ts`
  * so this bound cannot be narrowed past a legitimate value without failing.
  */
 export const MAX_LAYOUT_BLOB_LENGTH = 4096
@@ -580,6 +594,7 @@ export function toStoredLayout(model: ResumeLayoutModel): StoredLayoutModel {
     mainContentOrder: [...model.mainContentOrder],
     hiddenSidebarSections: [...model.hiddenSidebarSections],
     hiddenMainSections: [...model.hiddenMainSections],
+    hiddenContactFields: [...model.hiddenContactFields],
   }
 }
 
@@ -1409,12 +1424,14 @@ export const DEFAULT_CREATIVE_MAIN_ORDER: readonly CreativeMainId[] = Object.fre
  * one drag-and-drop panel writes both sidebar-section keys. Gating per group is
  * gating per control, which is what FR-9 is about.
  */
-export type LayoutControlId = 'sidebarColour' | 'perPropertySize' | 'sidebarSections'
+export type LayoutControlId = 'sidebarColour' | 'perPropertySize' | 'sidebarSections' | 'font'
 
 /** The model keys each control writes. Nothing else may write them. */
 export const LAYOUT_CONTROL_KEYS: Readonly<
   Record<LayoutControlId, readonly (keyof ResumeLayoutModel)[]>
 > = Object.freeze({
+  /** The font carousel and the font-size slider above the Editor live preview. */
+  font: Object.freeze(['fontFamily', 'fontScale'] as const),
   sidebarColour: Object.freeze(['sidebarHue', 'sidebarSaturation', 'sidebarBrightness'] as const),
   perPropertySize: Object.freeze([
     'titleFontSize',
@@ -1438,10 +1455,17 @@ export const LAYOUT_CONTROL_KEYS: Readonly<
  * each generator the same model, so what a template is PASSED and what its
  * generator READS is the whole of the question:
  *
- *                     professional  modern   classic  minimal  creative
- *   sidebarColour          yes       yes       no       no       no
- *   perPropertySize        no        no        yes      yes      yes
- *   sidebarSections        yes       yes       no       no       yes
+ *                     professional  modern   classic  minimal  creative  swissVocational  swissCommerce    swissTrades      swissHealth      swissFinance     swissEngineering  swissIt          swissExecutive   swissAcademic    swissFirstJob
+ *   font                   yes       yes       yes      yes      yes         no               no               no               no               no               no                no               no               no               no
+ *   sidebarColour          yes       yes       no       no       no          no               no               no               no               no               no                no               no               no               no
+ *   perPropertySize        no        no        yes      yes      yes         no               no               no               no               no               no                no               no               no               no
+ *   sidebarSections        yes       yes       no       no       yes         visibility only  visibility only  visibility only  visibility only  visibility only  visibility only   visibility only  visibility only  visibility only  visibility only
+ *
+ * font — the five original templates draw the stored font family and font
+ *   scale. A Swiss template draws its own typeface at scale 1.0 in every output
+ *   and ignores both (swiss-cv-templates FR-4, FR-12), so neither the carousel
+ *   nor the slider is offered for it; the stored values stay as they are and
+ *   apply again when one of the five is selected.
  *
  * sidebarColour — professional and modern are the only templates the editor
  *   passes `sidebarColor` to, and the only DOCX generators that paint a sidebar
@@ -1466,21 +1490,56 @@ export const LAYOUT_CONTROL_KEYS: Readonly<
  *   surface today, which is Part 3 US-015's defect to close, not a control to
  *   withdraw.
  *
- * NOT IN THIS MAP, deliberately. `fontScale` and `fontFamily` do not reach the
- * classic, minimal and creative Previews today, and the main-content panel does
- * not reach those three either. Each is a live divergence owned by another Part
- * 3 story — US-011, US-012 and US-009/US-015 respectively — which closes it by
- * making the control APPLY. Hiding them here would pre-empt those stories and
- * remove capability the product is about to gain.
+ * NOT IN THIS MAP: the main-content panel, which the editor offers for every
+ * template; which of its rows each template lists is `TEMPLATE_EDITOR_SECTIONS`.
  */
 export const TEMPLATE_LAYOUT_CONTROLS: Readonly<
-  Record<ResumeTemplate, readonly LayoutControlId[]>
+  Record<BuiltResumeTemplate, readonly LayoutControlId[]>
 > = Object.freeze({
-  professional: Object.freeze(['sidebarColour', 'sidebarSections'] as const),
-  modern: Object.freeze(['sidebarColour', 'sidebarSections'] as const),
-  classic: Object.freeze(['perPropertySize'] as const),
-  minimal: Object.freeze(['perPropertySize'] as const),
-  creative: Object.freeze(['perPropertySize', 'sidebarSections'] as const),
+  professional: Object.freeze(['font', 'sidebarColour', 'sidebarSections'] as const),
+  modern: Object.freeze(['font', 'sidebarColour', 'sidebarSections'] as const),
+  classic: Object.freeze(['font', 'perPropertySize'] as const),
+  minimal: Object.freeze(['font', 'perPropertySize'] as const),
+  creative: Object.freeze(['font', 'perPropertySize', 'sidebarSections'] as const),
+  /**
+   * swissVocational draws its sizes from its own design at scale 1.0 in its
+   * own typeface, renders no in-Preview size input and paints no user colour. It has
+   * no sidebar, but skills, languages and training are SIDEBAR ids in the
+   * model and it honours their stored visibility on every surface, so the
+   * sidebar panel is offered for their visibility toggles only: every row it
+   * lists is fixed in `TEMPLATE_EDITOR_SECTIONS` below, so nothing reorders.
+   */
+  swissVocational: Object.freeze(['sidebarSections'] as const),
+  /** swissCommerce: the same reasoning as swissVocational, with its own fixed rows below. */
+  swissCommerce: Object.freeze(['sidebarSections'] as const),
+  /**
+   * swissTrades: the same reasoning as swissVocational. Its dark column is a
+   * fixed part of its design, not the user's sidebar: it paints no user colour,
+   * and every row it lists is fixed below.
+   */
+  swissTrades: Object.freeze(['sidebarSections'] as const),
+  /** swissHealth: the same reasoning as swissVocational, with its own fixed rows below. */
+  swissHealth: Object.freeze(['sidebarSections'] as const),
+  /** swissFinance: the same reasoning as swissVocational, with its own fixed rows below. */
+  swissFinance: Object.freeze(['sidebarSections'] as const),
+  /**
+   * swissEngineering: the same reasoning as swissTrades. Its light column is a
+   * fixed part of its design, not the user's sidebar: it paints no user colour,
+   * and every row it lists is fixed below.
+   */
+  swissEngineering: Object.freeze(['sidebarSections'] as const),
+  /** swissIt: the same reasoning as swissVocational, with its own fixed rows below. */
+  swissIt: Object.freeze(['sidebarSections'] as const),
+  /** swissExecutive: the same reasoning as swissVocational, with its own fixed rows below. */
+  swissExecutive: Object.freeze(['sidebarSections'] as const),
+  /** swissAcademic: the same reasoning as swissVocational, with its own fixed rows below. */
+  swissAcademic: Object.freeze(['sidebarSections'] as const),
+  /**
+   * swissFirstJob: the same reasoning as swissTrades. Its light violet sidebar
+   * is a fixed part of its design, not the user's sidebar: it paints no user
+   * colour, and every row it lists is fixed below.
+   */
+  swissFirstJob: Object.freeze(['sidebarSections'] as const),
 })
 
 /**
@@ -1493,9 +1552,48 @@ export const TEMPLATE_LAYOUT_CONTROLS: Readonly<
 export function templateOffersLayoutControl(template: string, control: LayoutControlId): boolean {
   const offered =
     template in TEMPLATE_LAYOUT_CONTROLS
-      ? TEMPLATE_LAYOUT_CONTROLS[template as ResumeTemplate]
+      ? TEMPLATE_LAYOUT_CONTROLS[template as BuiltResumeTemplate]
       : TEMPLATE_LAYOUT_CONTROLS.modern
   return offered.includes(control)
+}
+
+/**
+ * Whether a template draws the photo (swiss-cv-templates FR-5, FR-14): modern
+ * and every Swiss template except `swissAcademic`. The editor shows the
+ * Contact tab's photo row exactly where this is true.
+ *
+ * A `Record` over the built templates, so a template added to the set fails
+ * to compile here until its photo is stated.
+ */
+export const TEMPLATE_DRAWS_PHOTO: Readonly<Record<BuiltResumeTemplate, boolean>> = Object.freeze({
+  professional: false,
+  modern: true,
+  classic: false,
+  minimal: false,
+  creative: false,
+  swissVocational: true,
+  swissCommerce: true,
+  swissTrades: true,
+  swissHealth: true,
+  swissFinance: true,
+  swissEngineering: true,
+  swissIt: true,
+  swissExecutive: true,
+  // The PRD's one exception to FR-5: no photo on any output, so the Contact
+  // tab offers neither the photo row nor its tick for it (FR-3).
+  swissAcademic: false,
+  swissFirstJob: true,
+})
+
+/**
+ * Whether `template` draws the photo. Takes a `string` and resolves an unknown
+ * value like `templateOffersLayoutControl` does: as modern, which the editor's
+ * template switch draws for it.
+ */
+export function templateDrawsPhoto(template: string): boolean {
+  return template in TEMPLATE_DRAWS_PHOTO
+    ? TEMPLATE_DRAWS_PHOTO[template as BuiltResumeTemplate]
+    : TEMPLATE_DRAWS_PHOTO.modern
 }
 
 /** The per-property size keys, in the order `LAYOUT_CONTROL_KEYS` lists them. */
@@ -1515,13 +1613,23 @@ export type PerPropertySizeKey =
  * Preview applies and an export does not (Part 3 US-011's divergence).
  */
 export const TEMPLATE_APPLIED_SIZE_KEYS: Readonly<
-  Record<ResumeTemplate, readonly PerPropertySizeKey[]>
+  Record<BuiltResumeTemplate, readonly PerPropertySizeKey[]>
 > = Object.freeze({
   professional: Object.freeze([] as const),
   modern: Object.freeze(['titleFontSize', 'sectionDescFontSize'] as const),
   classic: LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[],
   minimal: LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[],
   creative: LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[],
+  swissVocational: Object.freeze([] as const),
+  swissCommerce: Object.freeze([] as const),
+  swissTrades: Object.freeze([] as const),
+  swissHealth: Object.freeze([] as const),
+  swissFinance: Object.freeze([] as const),
+  swissEngineering: Object.freeze([] as const),
+  swissIt: Object.freeze([] as const),
+  swissExecutive: Object.freeze([] as const),
+  swissAcademic: Object.freeze([] as const),
+  swissFirstJob: Object.freeze([] as const),
 })
 
 // ---------- Which section ids the editor's panels offer ----------
@@ -1577,7 +1685,7 @@ const ALL_EDITOR_SECTIONS: TemplateEditorSections = Object.freeze({
 })
 
 export const TEMPLATE_EDITOR_SECTIONS: Readonly<
-  Record<ResumeTemplate, TemplateEditorSections>
+  Record<BuiltResumeTemplate, TemplateEditorSections>
 > = Object.freeze({
   professional: ALL_EDITOR_SECTIONS,
   modern: ALL_EDITOR_SECTIONS,
@@ -1588,7 +1696,158 @@ export const TEMPLATE_EDITOR_SECTIONS: Readonly<
     main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
     fixed: Object.freeze(['summary'] as const),
   }),
+  /**
+   * swissVocational draws its sections in one fixed sequence (summary,
+   * experience, education, training, then skills and languages), so every
+   * row it lists keeps its visibility toggle and none can be dragged. It does
+   * not draw keyAchievements, so that row is not listed.
+   */
+  swissVocational: Object.freeze({
+    // In the order the template draws them: with every row fixed, the panel
+    // lists them so (`listedEditorSections`), and its numbers are true.
+    sidebar: Object.freeze(['training', 'skills', 'languages'] as const),
+    main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
+    fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'training', 'skills', 'languages'] as const),
+  }),
+  /**
+   * swissCommerce draws summary, experience, education, skills, languages,
+   * then training, in that fixed sequence: every row it lists is fixed. It
+   * does not draw keyAchievements, so that row is not listed.
+   */
+  swissCommerce: Object.freeze({
+    // In the order the template draws them, as for swissVocational.
+    sidebar: Object.freeze(['skills', 'languages', 'training'] as const),
+    main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
+    fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'skills', 'languages', 'training'] as const),
+  }),
+  /**
+   * swissTrades draws summary, experience and education in its main column,
+   * and skills, certifications (`training`) and languages in its dark column,
+   * each in a fixed sequence: every row it lists is fixed. It does not draw
+   * keyAchievements, so that row is not listed.
+   */
+  swissTrades: Object.freeze({
+    // In the order the template draws them, as for swissVocational.
+    sidebar: Object.freeze(['skills', 'training', 'languages'] as const),
+    main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
+    fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'skills', 'training', 'languages'] as const),
+  }),
+  /**
+   * swissHealth draws summary, education, experience, certifications
+   * (`training`), then skills and languages side by side, in that fixed
+   * sequence: every row it lists is fixed, and both panels list their rows in
+   * the order it draws them — education before experience. It does not draw
+   * keyAchievements, so that row is not listed.
+   */
+  swissHealth: Object.freeze({
+    sidebar: Object.freeze(['training', 'skills', 'languages'] as const),
+    main: Object.freeze(['summary', 'education', 'experience'] as const),
+    fixed: Object.freeze(['summary', 'education', 'experience', 'training', 'skills', 'languages'] as const),
+  }),
+  /**
+   * swissFinance draws summary, experience, education, certifications
+   * (`training`), then skills and languages as the rows of one table, in that
+   * fixed sequence: every row it lists is fixed. It does not draw
+   * keyAchievements, so that row is not listed.
+   */
+  swissFinance: Object.freeze({
+    // In the order the template draws them, as for swissVocational.
+    sidebar: Object.freeze(['training', 'skills', 'languages'] as const),
+    main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
+    fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'training', 'skills', 'languages'] as const),
+  }),
+  /**
+   * swissEngineering draws summary, the projects as key-achievement cards
+   * (`keyAchievements`) and experience in its main column, then education,
+   * skills, languages and certifications (`training`) in its light column, each
+   * in a fixed sequence: every row it lists is fixed. It draws
+   * keyAchievements, as swissIt does, so that row is listed: the projects
+   * the editor's Projects tab collects are its content, and hiding the row
+   * hides the cards and their heading.
+   */
+  swissEngineering: Object.freeze({
+    // In the order the template draws them, as for swissVocational.
+    sidebar: Object.freeze(['keyAchievements', 'skills', 'languages', 'training'] as const),
+    main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
+    fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'keyAchievements', 'skills', 'languages', 'training'] as const),
+  }),
+  /**
+   * swissIt draws summary, skills, experience, the projects as cards
+   * (`keyAchievements`, under its own `projects` heading), education, then one
+   * last section for the languages and the certifications (`training`), in a
+   * fixed sequence: every row it lists is fixed. Hiding the projects row hides
+   * the cards and their heading; hiding languages or certifications drops that
+   * part of the last section, and the section with both.
+   */
+  swissIt: Object.freeze({
+    // In the order the template draws them, as for swissVocational.
+    sidebar: Object.freeze(['skills', 'keyAchievements', 'languages', 'training'] as const),
+    main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
+    fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'skills', 'keyAchievements', 'languages', 'training'] as const),
+  }),
+  /**
+   * swissExecutive draws the summary (in its box, with no heading), the
+   * projects as key achievements (`keyAchievements`), experience, education,
+   * then one last section for the languages and the certifications (`training`),
+   * in a fixed sequence: every row it lists is fixed. Its mockup draws no
+   * skills, so the template draws none and the skills row is not listed (FR-3):
+   * a control for a section it does not draw is not offered. The skills the
+   * editor's Skills tab holds stay stored, unchanged, for the other templates.
+   */
+  swissExecutive: Object.freeze({
+    // In the order the template draws them, as for swissVocational.
+    sidebar: Object.freeze(['keyAchievements', 'languages', 'training'] as const),
+    main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
+    fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'keyAchievements', 'languages', 'training'] as const),
+  }),
+  /**
+   * swissAcademic draws summary, education, experience, the projects as its
+   * numbered publications (`keyAchievements`), the certifications as its
+   * distinctions (`training`), then one last section for the skills and the
+   * languages, in a fixed sequence: every row it lists is fixed. Hiding
+   * skills or languages drops that part of the last section, and the section
+   * with both.
+   */
+  swissAcademic: Object.freeze({
+    // In the order the template draws them, as for swissVocational.
+    sidebar: Object.freeze(['keyAchievements', 'training', 'skills', 'languages'] as const),
+    main: Object.freeze(['summary', 'education', 'experience'] as const),
+    fixed: Object.freeze(['summary', 'education', 'experience', 'keyAchievements', 'training', 'skills', 'languages'] as const),
+  }),
+  /**
+   * swissFirstJob draws summary, experience and education in its main column,
+   * then skills, languages and certifications (`training`) in its sidebar, each
+   * in a fixed sequence: every row it lists is fixed. Its mockup draws no
+   * projects, so the template draws none and the projects row is not listed.
+   */
+  swissFirstJob: Object.freeze({
+    // In the order the template draws them, as for swissVocational.
+    sidebar: Object.freeze(['skills', 'languages', 'training'] as const),
+    main: DEFAULT_RESUME_LAYOUT.mainContentOrder,
+    fixed: Object.freeze([...DEFAULT_RESUME_LAYOUT.mainContentOrder, 'skills', 'languages', 'training'] as const),
+  }),
 })
+
+/**
+ * The rows one of the editor's panels lists, in the order it lists them.
+ *
+ * Normally the stored order, filtered to the rows the template lists: the
+ * panel is where that order is changed. A panel whose every row is FIXED
+ * changes no order, and the template draws those rows in a sequence of its
+ * own, so it lists them in that sequence (the template's declared list) and
+ * its row numbers say where each section is drawn. Only the Swiss templates
+ * have such a panel; every other template's panels list exactly as before.
+ *
+ * A display order only: nothing here is written back to the model.
+ */
+export function listedEditorSections<Id extends EditorSidebarId | EditorMainId>(
+  storedOrder: readonly Id[],
+  listed: readonly Id[],
+  fixed: readonly (EditorSidebarId | EditorMainId)[],
+): Id[] {
+  if (listed.length > 0 && listed.every((id) => fixed.includes(id))) return [...listed]
+  return storedOrder.filter((id) => listed.includes(id))
+}
 
 /**
  * The section rows the editor's panels offer while `template` is selected.
@@ -1600,6 +1859,6 @@ export const TEMPLATE_EDITOR_SECTIONS: Readonly<
  */
 export function templateEditorSections(template: string): TemplateEditorSections {
   return template in TEMPLATE_EDITOR_SECTIONS
-    ? TEMPLATE_EDITOR_SECTIONS[template as ResumeTemplate]
+    ? TEMPLATE_EDITOR_SECTIONS[template as BuiltResumeTemplate]
     : TEMPLATE_EDITOR_SECTIONS.modern
 }

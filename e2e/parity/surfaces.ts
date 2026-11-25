@@ -3,7 +3,8 @@ import path from 'node:path'
 import { expect, type Page } from '@playwright/test'
 import JSZip from 'jszip'
 import type { ResumeLayoutModel } from '../../src/lib/layout-settings'
-import type { ResumeTemplate } from '../../src/types/database'
+// Parity pins its references element by element for the five original templates.
+import type { OriginalResumeTemplate as ResumeTemplate } from '../../src/test/resume-template-files'
 import { parsePdf } from '../fixtures/pdf'
 import { coloursAgree, isBlendOf } from './colour'
 import {
@@ -579,10 +580,9 @@ export async function measureSettled(page: Page, probe: SurfaceProbe): Promise<D
 }
 
 /**
- * Open the Preview with its controls off and the layout applied.
+ * Open the Preview with the layout applied.
  *
- * The toggle is only operated once React has hydrated the document — before
- * that, unchecking it changes a DOM checkbox and nothing else, and the page
+ * Measured only once React has hydrated the document — before that the page
  * would still be showing the server render's defaults.
  */
 export async function openPreview(page: Page, resumeId: string): Promise<void> {
@@ -595,10 +595,8 @@ export async function openPreview(page: Page, resumeId: string): Promise<void> {
     undefined,
     { timeout: 30_000 },
   )
-  const toggle = page.getByTestId('controls-toggle')
-  await expect(toggle).toBeChecked()
-  await toggle.uncheck({ force: true })
-  await expect(toggle).not.toBeChecked()
+  // The Preview has no controls switch and draws no editing control (swiss-cv-templates FR-13).
+  await expect(page.getByTestId('controls-toggle')).toHaveCount(0)
   await page.evaluate(() => document.fonts.ready.then(() => undefined))
 }
 
@@ -844,16 +842,15 @@ export function pdfTypography(
 }
 
 /**
- * Print the Preview the way a user downloading a PDF does — controls in their
- * shipped state, print media — sample its computed styles, then produce the PDF.
+ * Print the Preview the way a user downloading a PDF does — print media —
+ * sample its computed styles, then produce the PDF.
  */
 export async function capturePrint(
   page: Page,
   probe: SurfaceProbe,
 ): Promise<{ print: DomMeasurement; pdf: PdfMeasurement; pdfBuffer: Buffer }> {
-  const toggle = page.getByTestId('controls-toggle')
-  await toggle.check({ force: true })
-  await expect(toggle).toBeChecked()
+  // The Preview has no controls switch and draws no editing control (swiss-cv-templates FR-13).
+  await expect(page.getByTestId('controls-toggle')).toHaveCount(0)
   await page.emulateMedia({ media: 'print' })
   const print = await measureSettled(page, probe)
   const pdfBuffer = await page.pdf({ preferCSSPageSize: true })

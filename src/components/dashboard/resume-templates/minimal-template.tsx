@@ -1,6 +1,5 @@
 import type {
   Resume,
-  ResumeContact,
   ResumeExperience,
   ResumeEducation,
   ResumeSkillCategory,
@@ -10,6 +9,7 @@ import type {
 } from '@/types/database'
 import { Fragment, type ReactNode } from 'react'
 import type { Locale } from '@/lib/i18n'
+import { visibleContactDetails, type ContactFieldId } from '@/lib/contact-visibility'
 import { presentLabel } from '@/lib/resume-template-strings'
 import { renderFormattedText } from '@/lib/format-text'
 import { PAGE_WIDTH_CSS } from '@/lib/resume-page-size'
@@ -53,6 +53,8 @@ interface MinimalTemplateProps {
    * `docx-minimal.ts` applies, so the Preview and the export cannot drift.
    */
   mainContentOrder?: readonly EditorMainId[]
+  /** Contact details the owner hid (swiss-cv-templates FR-14); drawn through `visibleContactDetails`. */
+  hiddenContactFields?: readonly ContactFieldId[]
   hiddenMainSections?: readonly EditorMainId[]
 }
 
@@ -71,7 +73,8 @@ export function MinimalTemplate({
   fontScale = DEFAULT_RESUME_LAYOUT.fontScale,
   fontFamily,
   mainContentOrder = DEFAULT_RESUME_LAYOUT.mainContentOrder,
-  hiddenMainSections = DEFAULT_RESUME_LAYOUT.hiddenMainSections
+  hiddenMainSections = DEFAULT_RESUME_LAYOUT.hiddenMainSections,
+  hiddenContactFields,
 }: MinimalTemplateProps) {
   /**
    * The sizes this document DRAWS: the stored size at the model's scale
@@ -87,7 +90,14 @@ export function MinimalTemplate({
   const drawnSectionTitleSize = sectionTitleFontSize * fontScale
   const drawnSectionDescSize = sectionDescFontSize * fontScale
 
-  const contact = (resume.contact as unknown as ResumeContact) || {}
+  const { contact, title, titleVisible } = visibleContactDetails(resume, hiddenContactFields)
+  /**
+   * The header's heading: the CV title (or its placeholder) while it is ticked.
+   * This template draws the full name nowhere else, and the name cannot be
+   * hidden, so with the title unticked the heading falls back to the name, as
+   * creative's does (FR-14). Nothing is drawn when there is no name either.
+   */
+  const heading = titleVisible ? title || 'CV TITLE' : contact.name ?? ''
   // Filter to show only visible items
   const experiences = ((resume.experience as unknown as ResumeExperience[]) || []).filter(exp => exp.visible !== false)
   const education = ((resume.education as unknown as ResumeEducation[]) || []).filter(edu => edu.visible !== false)
@@ -440,9 +450,11 @@ export function MinimalTemplate({
       <div className="space-y-10 p-16">
         {/* Header: CV Title and Contact */}
         <div className="space-y-4 pb-6 border-b border-slate-300" style={{ position: 'relative' }}>
-          <h1 className="font-light tracking-tight text-slate-900 text-center" style={{ fontSize: `${drawnTitleSize}px` }}>
-            {resume.title || 'CV TITLE'}
-          </h1>
+          {heading && (
+            <h1 className="font-light tracking-tight text-slate-900 text-center" style={{ fontSize: `${drawnTitleSize}px` }}>
+              {heading}
+            </h1>
+          )}
 
           {/* Font Size Slider - Positioned outside CV to the right */}
           {setTitleFontSize && (

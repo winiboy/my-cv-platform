@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures/auth'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Locator, Page, Route } from '@playwright/test'
+import { swissItHeading } from '../src/lib/swiss-it-template'
 import {
   LOCAL_SUPABASE_URL,
   LOCAL_SERVICE_KEY,
@@ -36,7 +37,7 @@ function admin(): SupabaseClient {
   })
 }
 
-const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional']
+const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
 
 const STRINGS = {
   fr: {
@@ -48,7 +49,7 @@ const STRINGS = {
     analyze: "Analyser et générer l'adaptation",
     creating: 'Création de votre CV...',
     groupLabel: 'Choisir un modèle',
-    names: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel'],
+    names: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique', 'Informatique & IT', 'Cadre & direction', 'Académique & recherche', 'Premier emploi'],
     educationHeading: 'Formation',
   },
   en: {
@@ -60,7 +61,7 @@ const STRINGS = {
     analyze: 'Analyze & Generate Adaptation',
     creating: 'Creating your CV...',
     groupLabel: 'Choose Template',
-    names: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional'],
+    names: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering', 'IT & software', 'Executive & management', 'Academic & research', 'First job'],
     educationHeading: 'Education',
   },
 } as const
@@ -224,12 +225,20 @@ async function checkedTemplates(page: Page): Promise<(string | null)[]> {
   )
 }
 
-/** Open the modal from "Créer un CV" and wait until all five thumbnails are drawn. */
+/**
+ * The education heading a thumbnail draws: the label as every template draws
+ * it, except swissIt, which draws its headings "// label" in lower case.
+ */
+async function educationHeadingOf(thumbnail: Locator, label: string, locale: 'fr' | 'en'): Promise<string> {
+  return (await thumbnail.getAttribute('data-template')) === 'swissIt' ? swissItHeading(label, locale) : label
+}
+
+/** Open the modal from "Créer un CV" and wait until every thumbnail is drawn. */
 async function openFromCreateCV(page: Page, locale: TestLocale): Promise<number> {
   const started = Date.now()
   await page.getByRole('button', { name: STRINGS[locale].createCV, exact: true }).click()
   await expect(page.getByRole('radiogroup')).toBeVisible()
-  await expect(drawnThumbnails(page)).toHaveCount(5)
+  await expect(drawnThumbnails(page)).toHaveCount(ORDER.length)
   return Date.now() - started
 }
 
@@ -246,14 +255,14 @@ test('fr "Créer un CV": the picker defaults to Professional, is frozen while cr
 
   await openJobSearch(page, 'fr')
   const openMs = await openFromCreateCV(page, 'fr')
-  console.log(`[job-cv-template-picker] "Créer un CV" click to five thumbnails drawn: ${openMs} ms`)
+  console.log(`[job-cv-template-picker] "Créer un CV" click to every thumbnail drawn: ${openMs} ms`)
   expect(openMs).toBeLessThan(10_000)
 
   // The group carries its visible, localized label.
   await expect(page.getByRole('radiogroup', { name: STRINGS.fr.groupLabel })).toBeVisible()
 
-  // Five options in order, named in French; Professional is the default.
-  await expect(radios(page)).toHaveCount(5)
+  // Every option in order, named in French; Professional is the default.
+  await expect(radios(page)).toHaveCount(ORDER.length)
   expect(await radios(page).evaluateAll((elements) => elements.map((element) => element.getAttribute('data-template')))).toEqual(ORDER)
   for (const [index, name] of STRINGS.fr.names.entries()) {
     await expect(radios(page).nth(index)).toHaveAccessibleName(name)
@@ -264,7 +273,7 @@ test('fr "Créer un CV": the picker defaults to Professional, is frozen while cr
   expect(await thumbnails(page).evaluateAll((elements) => elements.map((element) => element.getAttribute('data-template')))).toEqual(ORDER)
   for (const thumbnail of await thumbnails(page).all()) {
     await expect(thumbnail).toHaveAttribute('aria-hidden', 'true')
-    await expect(thumbnail).toContainText(STRINGS.fr.educationHeading)
+    await expect(thumbnail).toContainText(await educationHeadingOf(thumbnail, STRINGS.fr.educationHeading, 'fr'))
   }
 
   // The picker sits between the company field and the submit button.
@@ -369,7 +378,7 @@ test('fr "Adapter mon CV": "Nouveau CV" shows the picker, adapting an existing C
   await page.locator('input[type="radio"][value="new"]').check()
   await page.getByRole('button', { name: STRINGS.fr.newCV, exact: true }).click()
   await expect(page.getByRole('radiogroup', { name: STRINGS.fr.groupLabel })).toBeVisible()
-  await expect(drawnThumbnails(page)).toHaveCount(5)
+  await expect(drawnThumbnails(page)).toHaveCount(ORDER.length)
   expect(await checkedTemplates(page)).toEqual(['professional'])
 
   await radios(page).nth(2).click()
@@ -379,7 +388,7 @@ test('fr "Adapter mon CV": "Nouveau CV" shows the picker, adapting an existing C
   expect(problems).toEqual([])
 })
 
-test('en: the label, the five names and the thumbnail headings are in English', async ({ page, authedUser }) => {
+test('en: the label, the names and the thumbnail headings are in English', async ({ page, authedUser }) => {
   expect(authedUser.id).toBeTruthy()
   const problems = watchConsole(page)
   await stubJobSearch(page)
@@ -393,7 +402,7 @@ test('en: the label, the five names and the thumbnail headings are in English', 
   }
   expect(await checkedTemplates(page)).toEqual(['professional'])
   for (const thumbnail of await thumbnails(page).all()) {
-    await expect(thumbnail).toContainText(STRINGS.en.educationHeading)
+    await expect(thumbnail).toContainText(await educationHeadingOf(thumbnail, STRINGS.en.educationHeading, 'en'))
   }
 
   expect(problems).toEqual([])

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { templateComponentFile, templateDocxFile } from '@/test/resume-template-files'
 import { DEFAULT_RESUME_LAYOUT } from './layout-settings'
 import {
   PAGE_HEIGHT_CSS,
@@ -91,10 +92,18 @@ describe('globals.css prints the same page', () => {
 })
 
 describe('no surface keeps a page of its own', () => {
-  const TEMPLATES = ['professional', 'modern', 'classic', 'minimal', 'creative'] as const
+  const TEMPLATES = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob'] as const
 
-  it.each(TEMPLATES)('%s-template.tsx pins the shared width', (name) => {
-    const source = read(`src/components/dashboard/resume-templates/${name}-template.tsx`)
+  it('swissVocational prints its accent strip from the edge of a document PAGE_WIDTH_PX wide', () => {
+    // Tailwind reads class names statically, so the half width is written out
+    // in the class; this holds it to the shared width.
+    const source = read(templateComponentFile('swissVocational'))
+    expect(source).toContain(`print:left-[max(0px,calc(50%-${PAGE_WIDTH_PX / 2}px))]`)
+    expect(source.match(/calc\(50%-\d+px\)/g)).toEqual([`calc(50%-${PAGE_WIDTH_PX / 2}px)`])
+  })
+
+  it.each(TEMPLATES)('the %s template pins the shared width', (name) => {
+    const source = read(templateComponentFile(name))
     expect(source).toMatch(/width: PAGE_WIDTH_CSS/)
     expect(source).not.toMatch(/816px|8\.5in|1056px/)
   })
@@ -117,8 +126,8 @@ describe('no surface keeps a page of its own', () => {
       return { width: resolve(m[1]), height: resolve(m[2]) }
     })
 
-  it.each(TEMPLATES)('docx-%s.ts declares the shared page size', (name) => {
-    const source = read(`src/app/api/resumes/[id]/download-docx/docx-${name}.ts`)
+  it.each(TEMPLATES)('the %s Word generator declares the shared page size', (name) => {
+    const source = read(templateDocxFile(name))
     const sizes = declaredPageSizes(source)
     expect(sizes.length).toBeGreaterThan(0)
     for (const { width, height } of sizes) {

@@ -13,7 +13,8 @@ import {
   type ResumeLayoutModel,
   type StoredLayoutModel,
 } from '../../src/lib/layout-settings'
-import type { ResumeTemplate } from '../../src/types/database'
+// Parity pins its references element by element for the five original templates.
+import type { OriginalResumeTemplate as ResumeTemplate } from '../../src/test/resume-template-files'
 import {
   FIXTURE_CERTIFICATIONS,
   FIXTURE_CONTACT,

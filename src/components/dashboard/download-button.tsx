@@ -10,6 +10,7 @@ import {
   requestResumePdf,
   type PdfDownloadFailure,
 } from '@/lib/pdf/download-client'
+import { photoForDocx } from '@/lib/photo-for-docx'
 
 interface DownloadButtonDict {
   errors?: {
@@ -65,6 +66,10 @@ export function DownloadButton({ label, wordLabel, dict, pdfMessages }: Download
   const pdfInFlightRef = useRef(false)
   const pdfButtonRef = useRef<HTMLButtonElement>(null)
   const restorePdfFocusRef = useRef(false)
+  const [isGeneratingWord, setIsGeneratingWord] = useState(false)
+  const wordInFlightRef = useRef(false)
+  const wordButtonRef = useRef<HTMLButtonElement>(null)
+  const restoreWordFocusRef = useRef(false)
 
   // A disabled button loses focus. Hand it back once the button is usable
   // again, but only if the user had it and has not moved it elsewhere since, so
@@ -76,6 +81,15 @@ export function DownloadButton({ label, wordLabel, dict, pdfMessages }: Download
       if (focusWasLost) pdfButtonRef.current?.focus()
     }
   }, [isGeneratingPdf])
+
+  // The same for the Word button, which is disabled while its file is made.
+  useEffect(() => {
+    if (!isGeneratingWord && restoreWordFocusRef.current) {
+      restoreWordFocusRef.current = false
+      const focusWasLost = document.activeElement === null || document.activeElement === document.body
+      if (focusWasLost) wordButtonRef.current?.focus()
+    }
+  }, [isGeneratingWord])
 
   const handlePdfDownload = async () => {
     if (pdfInFlightRef.current) return
@@ -127,6 +141,12 @@ export function DownloadButton({ label, wordLabel, dict, pdfMessages }: Download
   }
 
   const handleWordDownload = async () => {
+    // The photo may be re-encoded before the request, which takes long enough
+    // for a second click to land; the ref stops it before React re-renders.
+    if (wordInFlightRef.current) return
+    wordInFlightRef.current = true
+    restoreWordFocusRef.current = document.activeElement === wordButtonRef.current
+    setIsGeneratingWord(true)
     try {
       /**
        * The request describes WHICH resume and in WHAT language, and nothing
@@ -151,13 +171,15 @@ export function DownloadButton({ label, wordLabel, dict, pdfMessages }: Download
        * It is never stored on the account — by the decision of 2026-09-07 it
        * stays in this browser's localStorage — so the request body is the only
        * way it can reach the document. The route bounds its size and type
-       * before it reaches generation.
+       * before it reaches generation; a type Word cannot embed (WebP, AVIF) is
+       * re-encoded here first (`photoForDocx`), on a copy, so the stored photo
+       * is left as it is.
        */
-      let photoBase64: string | undefined
+      let savedPhoto: string | null = null
       try {
-        const savedPhoto = localStorage.getItem(`resume_photo_${resumeId}`)
-        if (savedPhoto) photoBase64 = savedPhoto
+        savedPhoto = localStorage.getItem(`resume_photo_${resumeId}`)
       } catch {}
+      const photoBase64 = await photoForDocx(savedPhoto)
 
       // Use POST when photo data is available (too large for query string)
       const response = photoBase64
@@ -181,6 +203,9 @@ export function DownloadButton({ label, wordLabel, dict, pdfMessages }: Download
     } catch (error) {
       console.error('Error downloading Word document:', error)
       alert(dict?.errors?.api?.downloadDocx || 'Failed to download Word document. Please try again.')
+    } finally {
+      wordInFlightRef.current = false
+      setIsGeneratingWord(false)
     }
   }
 
@@ -223,10 +248,18 @@ export function DownloadButton({ label, wordLabel, dict, pdfMessages }: Download
       </div>
       {wordLabel && (
         <button
+          ref={wordButtonRef}
+          type="button"
           onClick={handleWordDownload}
-          className="flex items-center gap-2 rounded-lg border border-teal-600 bg-white px-4 py-2 text-sm font-medium text-teal-600 transition-colors hover:bg-teal-50"
+          disabled={isGeneratingWord}
+          aria-busy={isGeneratingWord}
+          className="flex items-center gap-2 rounded-lg border border-teal-600 bg-white px-4 py-2 text-sm font-medium text-teal-600 transition-colors hover:bg-teal-50 disabled:cursor-wait disabled:opacity-80 disabled:hover:bg-white"
         >
-          <FileText className="h-4 w-4" />
+          {isGeneratingWord ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <FileText className="h-4 w-4" aria-hidden="true" />
+          )}
           {wordLabel}
         </button>
       )}

@@ -220,11 +220,10 @@ async function openPreview(page: Page, resumeId: string): Promise<void> {
   await page.evaluate(() => globalThis.document.fonts.ready)
 }
 
-/** Print the open Preview as shipped: controls on, print media, the CSS page size. */
+/** Print the open Preview as shipped: print media, the CSS page size. */
 async function printPreview(page: Page, label: string): Promise<Buffer> {
-  const toggle = page.getByTestId('controls-toggle')
-  await toggle.check({ force: true })
-  await expect(toggle).toBeChecked()
+  // The Preview has no controls switch and draws no editing control (swiss-cv-templates FR-13).
+  await expect(page.getByTestId('controls-toggle')).toHaveCount(0)
   await page.emulateMedia({ media: 'print' })
   const pdf = await page.pdf({ preferCSSPageSize: true })
   await page.emulateMedia({ media: 'screen' })

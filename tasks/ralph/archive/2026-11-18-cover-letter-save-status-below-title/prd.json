@@ -1,0 +1,49 @@
+{
+  "project": "my-cv-platform",
+  "branchName": "ralph/cover-letter-save-status-below-title",
+  "description": "In the cover letter editor, the save status (\"Enregistré …\" / \"Modifications non enregistrées\") is shown on its own line below the letter's title, so it never hides the title. The save time is shown in the interface language with hours and minutes, as in the CV editor.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "The save status sits below the letter's title and never hides it",
+      "description": "As a user editing a cover letter, I want the save status below the title, so that I can read my letter's full title.",
+      "acceptanceCriteria": [
+        "After a save, \"Saved <time>\" in the interface language (`/fr` \"Enregistré …\") is shown on its own line directly below the title input, left-aligned with it. This holds at 1440, 1280, 1024, 768, 375 and 320 px.",
+        "With unsaved edits, \"Unsaved changes\" in the interface language is shown in the same place below the title, never beside it.",
+        "The status never overlaps or clips the title: at every width above, the title input's right edge is not covered by the status, and the status's top is below the title input's bottom.",
+        "A long title, such as \"Lettre de motivation - Médecin adjoint·e en pédopsychiatrie\", shows more of its text than before at 1440 px. It is no longer cut where the status began, but only at the end of the space the title area has.",
+        "The save time shows hours and minutes in the interface locale, with no seconds: for example \"15:51\" on `/fr` and `/de`, \"3:51 PM\" on `/en`. It is the same format the CV editor uses for the same time.",
+        "Below xl, the header row still holds the back link, the title with its status, and the \"•••\" menu on one row. Nothing overflows horizontally from 320 to 1279 px, and the back link and menu keep their 44 px size.",
+        "At xl and wider, the header's buttons keep their current position and wrapping behaviour.",
+        "The status is still announced as before: no status text is lost from the accessibility tree.",
+        "FR-1: The status is shown in one place, below the title, at every width. It is never beside the title.",
+        "FR-2: The time is formatted from the interface locale with hours and minutes, matching `resume-editor.tsx`'s format.",
+        "FR-3: The labels come from the existing `coverLetters.editor.lastSaved` and `coverLetters.editor.unsavedChanges` in fr, en, de and it. No string is hard-coded.",
+        "Regression constraint: The CV editor's header is unchanged.",
+        "Regression constraint: The cover letter header's buttons (Generate, Check, Preview, translate, downloads, Save), the \"•••\" menu and the bottom bar behave and look as before.",
+        "Regression constraint: Editing the title still updates and saves it as before.",
+        "Regression constraint: The editor's other e2e specs stay green; any spec that asserted the old inline position is updated to the new layout, not deleted.",
+        "Regression constraint: `pnpm test:parity` and `pnpm test:visual` keep their current results: MATCH 211 / KNOWN 3 / NEW 0, and 10/10.",
+        "Verification: An e2e test, in fr, en, de and it, at 1440, 1024, 768, 375 and 320 px: the status is below the title and left-aligned with it, for both \"Saved\" and \"Unsaved changes\"; the status does not overlap the title; the page has no horizontal overflow; the time format has hours and minutes in the interface locale, with no seconds.",
+        "Verification: Browser evidence (screenshots) of the header with a long title, before and after a save, at those widths.",
+        "Verification: `ui-expert` validation of the header against the CV editor's header.",
+        "Verification: The CLAUDE.md §14 baseline, with lint at or below the tracked ceiling. Also `pnpm test:parity` and `pnpm test:visual`.",
+        "FAIL condition: Beside the title: the status appears beside the title at any width.",
+        "FAIL condition: Title hidden: the status overlaps or clips the title at any width.",
+        "FAIL condition: Wrong time format: the time shows seconds, or a format other than the interface locale's.",
+        "FAIL condition: Header broken: the header overflows horizontally, the \"•••\" menu or back link moves out of the row below xl, or the buttons change at xl.",
+        "FAIL condition: Hard-coded text: a label is hard-coded, or in English on `/fr`, `/de` or `/it`.",
+        "FAIL condition: CV change: the CV editor's header changes.",
+        "BLOCKER condition: The status's own line does not fit the mobile header (below xl) without growing the header past its current row height, and no layout keeps the back link, title and menu usable. In that case the mobile layout must go back to the owner.",
+        "Out of scope: The CV editor's header.",
+        "Out of scope: The header's buttons, the \"•••\" menu, the back link, the bottom bar and the editor's navigation.",
+        "Out of scope: When the letter is saved, autosave, and what counts as an unsaved change.",
+        "Out of scope: The status labels' wording.",
+        "Out of scope: Any database change, any export, the letter's content and template."
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

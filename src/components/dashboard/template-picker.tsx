@@ -1,15 +1,16 @@
 'use client'
 
 import { memo, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Briefcase, FileText, Layout, PenTool, Sparkles, type LucideIcon } from 'lucide-react'
+import { BookOpen, Briefcase, Building2, Crown, DraftingCompass, FileText, GraduationCap, HeartPulse, Landmark, Layout, PenTool, Rocket, Sparkles, Terminal, Wrench, type LucideIcon } from 'lucide-react'
 import { ResumePreview } from '@/components/dashboard/resume-preview'
 import type { Locale } from '@/lib/i18n'
 import { PAGE_HEIGHT_MM, PAGE_WIDTH_MM, PAGE_WIDTH_PX } from '@/lib/resume-page-size'
 import { TEMPLATE_SAMPLE_RESUME } from '@/lib/template-sample-resume'
-import type { Resume, ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate, Resume, ResumeTemplate } from '@/types/database'
 
 interface TemplateOption {
-  id: ResumeTemplate
+  /** Only a template drawn on every surface can be offered: an unbuilt id does not compile here. */
+  id: BuiltResumeTemplate
   icon: LucideIcon
 }
 
@@ -23,6 +24,16 @@ export const TEMPLATE_OPTIONS: readonly TemplateOption[] = [
   { id: 'minimal', icon: Layout },
   { id: 'creative', icon: PenTool },
   { id: 'professional', icon: Briefcase },
+  { id: 'swissVocational', icon: GraduationCap },
+  { id: 'swissCommerce', icon: Building2 },
+  { id: 'swissTrades', icon: Wrench },
+  { id: 'swissHealth', icon: HeartPulse },
+  { id: 'swissFinance', icon: Landmark },
+  { id: 'swissEngineering', icon: DraftingCompass },
+  { id: 'swissIt', icon: Terminal },
+  { id: 'swissExecutive', icon: Crown },
+  { id: 'swissAcademic', icon: BookOpen },
+  { id: 'swissFirstJob', icon: Rocket },
 ]
 
 /**
@@ -230,7 +241,12 @@ export function TemplatePicker({ value, onChange, disabled = false, labelledBy, 
             data-template={option.id}
             onClick={() => select(option.id)}
             onKeyDown={(event) => handleKeyDown(event, option.id)}
-            className={`@container min-w-0 p-3 border-2 rounded-lg text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 ${
+            // scroll-my-px: the card's edges sit on fractional pixels (its
+            // thumbnail is 112px wide at A4's ratio, 158.4px tall), while the
+            // scroller's offset snaps to whole pixels. Scrolled into view at an
+            // edge, a card could stay up to half a pixel out of view; a 1px
+            // scroll margin brings it in whole. It draws nothing.
+            className={`@container min-w-0 scroll-my-px p-3 border-2 rounded-lg text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 ${
               isSelected
                 ? 'border-teal-600 bg-teal-50 dark:bg-teal-900/20'
                 : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'

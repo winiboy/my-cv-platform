@@ -90,6 +90,113 @@ export const MODERN_LINE_HEIGHT = {
 } as const
 
 /**
+ * `swiss-vocational-template.tsx`: the name; the CV title, contact grid and
+ * section headings; running text and every entry line.
+ */
+export const SWISS_VOCATIONAL_LINE_HEIGHT = {
+  name: 1.15,
+  compact: 1.4,
+  text: 1.5,
+} as const
+
+/**
+ * `swiss-commerce-template.tsx`: the name; the CV title, contact row, section
+ * headings and language pills; running text and every entry line.
+ */
+export const SWISS_COMMERCE_LINE_HEIGHT = {
+  name: 1.15,
+  compact: 1.4,
+  text: 1.5,
+} as const
+
+/**
+ * `swiss-trades-template.tsx`: the name; the CV title, every heading, the
+ * skill tags and captions; running text, every entry line and every line of
+ * the dark column.
+ */
+export const SWISS_TRADES_LINE_HEIGHT = {
+  name: 1.15,
+  compact: 1.4,
+  text: 1.5,
+} as const
+
+/**
+ * `swiss-health-template.tsx`: the name; the CV title, the contact line, the
+ * heading pills, the dates and the skill captions; running text, every entry
+ * line, the skills and the languages.
+ */
+export const SWISS_HEALTH_LINE_HEIGHT = {
+  name: 1.15,
+  compact: 1.4,
+  text: 1.5,
+} as const
+
+/**
+ * `swiss-finance-template.tsx`: the name; the CV title, the contact line and
+ * the section headings; running text, every entry line, the dates, and the
+ * rows of the skills and languages table.
+ */
+export const SWISS_FINANCE_LINE_HEIGHT = {
+  name: 1.15,
+  compact: 1.4,
+  text: 1.5,
+} as const
+
+/**
+ * `swiss-engineering-template.tsx`: the name; the CV title and the section
+ * headings of both columns; running text, every entry and card line, the
+ * dates, and every line of the light column.
+ */
+export const SWISS_ENGINEERING_LINE_HEIGHT = {
+  name: 1.15,
+  compact: 1.4,
+  text: 1.5,
+} as const
+
+/**
+ * `swiss-it-template.tsx`: the name; the band's title and contact lines, the
+ * section headings and the tags; running text, every entry and card line, and
+ * the last section's lines.
+ */
+export const SWISS_IT_LINE_HEIGHT = {
+  name: 1.15,
+  compact: 1.4,
+  text: 1.5,
+} as const
+
+/**
+ * `swiss-executive-template.tsx`: the name; the CV title, the contact line and
+ * the section headings; running text, the summary, every entry and card line,
+ * and the last section's lines.
+ */
+export const SWISS_EXECUTIVE_LINE_HEIGHT = {
+  name: 1.15,
+  compact: 1.4,
+  text: 1.5,
+} as const
+
+/**
+ * `swiss-academic-template.tsx`: the name; the CV title, the contact line and
+ * the section headings; running text, every entry and its date, the
+ * publications and the last section's lines.
+ */
+export const SWISS_ACADEMIC_LINE_HEIGHT = {
+  name: 1.15,
+  compact: 1.4,
+  text: 1.5,
+} as const
+
+/**
+ * `swiss-first-job-template.tsx`: the name; the CV title and the headings of
+ * both columns; running text, every entry, and every line of the sidebar.
+ */
+export const SWISS_FIRST_JOB_LINE_HEIGHT = {
+  name: 1.15,
+  compact: 1.4,
+  text: 1.5,
+} as const
+
+/**
  * `modern-template.tsx`: the vertical padding, in CSS px, of the accent bar the
  * job title is drawn on (`padding: 4px 12px`). The bar's box is its text line
  * plus this padding above and below.

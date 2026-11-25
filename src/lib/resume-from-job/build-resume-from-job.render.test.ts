@@ -1,7 +1,7 @@
 import { createElement, type ComponentType } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import type { Resume, ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate as ResumeTemplate, Resume } from '@/types/database'
 import de from '@/locales/de/common.json'
 import en from '@/locales/en/common.json'
 import fr from '@/locales/fr/common.json'
@@ -11,7 +11,22 @@ import { CreativeTemplate } from '@/components/dashboard/resume-templates/creati
 import { MinimalTemplate } from '@/components/dashboard/resume-templates/minimal-template'
 import { ModernTemplate } from '@/components/dashboard/resume-templates/modern-template'
 import { ProfessionalTemplate } from '@/components/dashboard/resume-templates/professional-template'
+import { SwissVocationalTemplate } from '@/components/dashboard/resume-templates/swiss-vocational-template'
+import { SwissCommerceTemplate } from '@/components/dashboard/resume-templates/swiss-commerce-template'
+import { SwissTradesTemplate } from '@/components/dashboard/resume-templates/swiss-trades-template'
+import { SwissHealthTemplate } from '@/components/dashboard/resume-templates/swiss-health-template'
+import { SwissFinanceTemplate } from '@/components/dashboard/resume-templates/swiss-finance-template'
+import { SwissEngineeringTemplate } from '@/components/dashboard/resume-templates/swiss-engineering-template'
+import { SwissItTemplate } from '@/components/dashboard/resume-templates/swiss-it-template'
+import { SwissExecutiveTemplate } from '@/components/dashboard/resume-templates/swiss-executive-template'
+import { SwissAcademicTemplate } from '@/components/dashboard/resume-templates/swiss-academic-template'
+import { SwissFirstJobTemplate } from '@/components/dashboard/resume-templates/swiss-first-job-template'
 import { presentLabel } from '@/lib/resume-template-strings'
+import { swissTradesSkillContent } from '@/lib/swiss-trades-template'
+import { swissHealthSkillContent } from '@/lib/swiss-health-template'
+import { swissFinanceSkillContent } from '@/lib/swiss-finance-template'
+import { swissEngineeringSkillContent } from '@/lib/swiss-engineering-template'
+import { swissItSkillContent } from '@/lib/swiss-it-template'
 import { buildResumeFromJobOffer, type AiResumeContent, type ResumeDraftContent } from './build-resume-from-job'
 import { RESUME_CONTENT_LANGUAGES, RESUME_SAMPLE_VALUES, type ResumeContentLanguage } from './sample-values'
 
@@ -36,6 +51,16 @@ const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
   minimal: MinimalTemplate as ComponentType<never>,
   modern: ModernTemplate as ComponentType<never>,
   professional: ProfessionalTemplate as ComponentType<never>,
+  swissVocational: SwissVocationalTemplate as ComponentType<never>,
+  swissCommerce: SwissCommerceTemplate as ComponentType<never>,
+  swissTrades: SwissTradesTemplate as ComponentType<never>,
+  swissHealth: SwissHealthTemplate as ComponentType<never>,
+  swissFinance: SwissFinanceTemplate as ComponentType<never>,
+  swissEngineering: SwissEngineeringTemplate as ComponentType<never>,
+  swissIt: SwissItTemplate as ComponentType<never>,
+  swissExecutive: SwissExecutiveTemplate as ComponentType<never>,
+  swissAcademic: SwissAcademicTemplate as ComponentType<never>,
+  swissFirstJob: SwissFirstJobTemplate as ComponentType<never>,
 }
 
 const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
@@ -94,7 +119,13 @@ type DraftName = keyof typeof DRAFTS
  * - classic, creative, minimal and professional draw an experience's
  *   description only when it has no achievements, and every built experience
  *   has achievements, so they draw none; modern draws each description;
- * - only classic draws an education description.
+ * - only classic and the Swiss templates draw an education description;
+ * - the Swiss templates draw no projects, except swissEngineering, swissIt,
+ *   swissExecutive and swissAcademic, which draw each project's description;
+ *   swissExecutive draws no skills at all;
+ * - swissTrades draws a comma-separated skill paragraph as tags, swissHealth
+ *   and swissFinance as one line of plain text, swissEngineering as one line
+ *   per skill, and swissIt as tags.
  */
 const EXPECTED_RICH_FIELDS: Readonly<Record<ResumeTemplate, (draft: ResumeDraftContent) => number>> = {
   classic: (d) => 1 + d.skills.length + d.projects.length + d.education.length,
@@ -102,6 +133,19 @@ const EXPECTED_RICH_FIELDS: Readonly<Record<ResumeTemplate, (draft: ResumeDraftC
   minimal: (d) => 1 + d.skills.length + d.projects.length,
   modern: (d) => 1 + d.skills.length + d.projects.length + d.experience.length,
   professional: (d) => 1 + d.skills.length + d.projects.length,
+  swissVocational: (d) => 1 + d.skills.length + d.education.length,
+  swissCommerce: (d) => 1 + d.skills.length + d.education.length,
+  // A skill category whose rich text is one comma-separated paragraph, as
+  // every built one is, is drawn as tags rather than through the sanitizer.
+  swissTrades: (d) => 1 + d.skills.filter((skill) => swissTradesSkillContent(skill)?.kind === 'html').length + d.education.length,
+  swissHealth: (d) => 1 + d.skills.filter((skill) => swissHealthSkillContent(skill)?.kind === 'html').length + d.education.length,
+  swissFinance: (d) => 1 + d.skills.filter((skill) => swissFinanceSkillContent(skill)?.kind === 'html').length + d.education.length,
+  swissEngineering: (d) =>
+    1 + d.skills.filter((skill) => swissEngineeringSkillContent(skill)?.kind === 'html').length + d.education.length + d.projects.length,
+  swissIt: (d) => 1 + d.skills.filter((skill) => swissItSkillContent(skill)?.kind === 'html').length + d.education.length + d.projects.length,
+  swissExecutive: (d) => 1 + d.education.length + d.projects.length,
+  swissAcademic: (d) => 1 + d.skills.filter((skill) => swissFinanceSkillContent(skill)?.kind === 'html').length + d.education.length + d.projects.length,
+  swissFirstJob: (d) => 1 + d.skills.filter((skill) => swissEngineeringSkillContent(skill)?.kind === 'html').length + d.education.length,
 }
 
 type DrawnField =
@@ -143,6 +187,22 @@ const NOT_DRAWN: Readonly<Record<ResumeTemplate, readonly DrawnField[]>> = {
   minimal: ['name'],
   modern: ['gpa'],
   professional: ['technology'],
+  // Its mockup has no projects section and no GPA.
+  swissVocational: ['gpa', 'project', 'technology'],
+  swissCommerce: ['gpa', 'project', 'technology'],
+  swissTrades: ['gpa', 'project', 'technology'],
+  swissHealth: ['gpa', 'project', 'technology'],
+  swissFinance: ['gpa', 'project', 'technology'],
+  // Draws the projects as key-achievement cards, their technologies included.
+  swissEngineering: ['gpa'],
+  // Draws the projects as cards, their technologies as tags.
+  swissIt: ['gpa'],
+  // Draws the projects as key-achievement cards; its mockup has no skills.
+  swissExecutive: ['gpa', 'skillCategory'],
+  // Draws the projects as its numbered publications, their technologies included.
+  swissAcademic: ['gpa'],
+  // Its mockup has no projects section and no GPA.
+  swissFirstJob: ['gpa', 'project', 'technology'],
 }
 
 /** The first entry of each section's text, as the draft holds it. */
@@ -197,13 +257,15 @@ function renderDraft(template: ResumeTemplate, language: ResumeContentLanguage, 
     updated_at: '2026-10-22T00:00:00.000Z',
     ...draft,
   } as unknown as Resume
+  // A `<wbr>` is a line-break opportunity, not text: the browser reads the
+  // text on both sides of it as one (swissIt marks its links' boundaries so).
   return renderToString(
     createElement(TEMPLATES[template] as ComponentType<{ resume: Resume; locale: string; dict: unknown }>, {
       resume,
       locale: language,
       dict: DICTIONARIES[language],
     })
-  )
+  ).replace(/<wbr\/?>/g, '')
 }
 
 function formattedWrappers(html: string): number {

@@ -75,7 +75,8 @@ async function settledIndicators(page: Page): Promise<{ height: number; count: n
 
 /** The PDF a user gets from the Preview page, and the document's height in print media. */
 async function printPdf(page: Page): Promise<{ pages: number; printHeight: number }> {
-  await expect(page.getByTestId('controls-toggle')).toBeChecked()
+  // The Preview has no controls switch and draws no editing control (swiss-cv-templates FR-13).
+  await expect(page.getByTestId('controls-toggle')).toHaveCount(0)
   await page.emulateMedia({ media: 'print' })
   const printHeight = await page
     .getByTestId('resume-document')

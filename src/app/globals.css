@@ -467,6 +467,251 @@
     border-radius: 0 !important;
   }
 
+  /* swissCommerce (swiss-cv-templates US-002) prints its round photo and its
+     rounded language pills as its Preview, Word export and mockup draw them.
+     Scoped to that template's root, so every other template keeps the reset.
+     The pill radius is SWISS_COMMERCE_GEOMETRY.pillRadius, which the template
+     also writes inline for the screen; swiss-commerce-template.test.ts holds
+     the two equal. */
+  .swiss-commerce-template .swiss-commerce-photo {
+    border-radius: 50% !important;
+  }
+
+  .swiss-commerce-template .swiss-commerce-pill {
+    border-radius: 4px !important;
+  }
+
+  /* swissTrades (swiss-cv-templates US-003) prints its rounded skill tags as
+     its Preview and mockup draw them, scoped to that template's root. The
+     radius is SWISS_TRADES_GEOMETRY.tagRadius, which the template also writes
+     inline for the screen; swiss-trades-template.test.ts holds the two equal. */
+  .swiss-trades-template .swiss-trades-tag {
+    border-radius: 4px !important;
+  }
+
+  /* swissHealth (swiss-cv-templates US-004) prints its round photo and its
+     pill-shaped section headings as its Preview and mockup draw them, scoped
+     to that template's root. The pill radius is SWISS_HEALTH_GEOMETRY
+     .pillRadius, which the template also writes inline for the screen;
+     swiss-health-template.test.ts holds the two equal. */
+  .swiss-health-template .swiss-health-photo {
+    border-radius: 50% !important;
+  }
+
+  .swiss-health-template .swiss-health-pill {
+    border-radius: 9999px !important;
+  }
+
+  /* swissTrades' dark column on every printed page, top to foot. As modern's
+     band above: the column is in-flow, so its own background ends where the
+     document ends; the root's background paints every page in full. The
+     colour and width are the template's fixed ones (PREVIEW_PALETTE.swissTrades
+     .sidebar, SWISS_TRADES_GEOMETRY.sidebarWidth); swiss-trades-template.test.ts
+     holds them equal. */
+  html:has(.swiss-trades-template) {
+    background: linear-gradient(
+      to right,
+      white max(0px, 50% - 397px),
+      #334155 max(0px, 50% - 397px),
+      #334155 calc(max(0px, 50% - 397px) + 250px),
+      white calc(max(0px, 50% - 397px) + 250px)
+    ) !important;
+  }
+
+  body:has(.swiss-trades-template),
+  body :has(.swiss-trades-template) {
+    background: transparent !important;
+  }
+
+  /* swissEngineering (swiss-cv-templates US-006) prints its round photo and
+     its rounded project cards as its Preview and mockup draw them, scoped to
+     that template's root. The card radius is SWISS_ENGINEERING_GEOMETRY
+     .cardRadius, which the template also writes inline for the screen;
+     swiss-engineering-template.test.ts holds the two equal. */
+  .swiss-engineering-template .swiss-engineering-photo {
+    border-radius: 50% !important;
+  }
+
+  .swiss-engineering-template .swiss-engineering-card {
+    border-radius: 4px !important;
+  }
+
+  /* swissEngineering's light column, and the blue bar on its left edge, on
+     every printed page, top to foot, as swissTrades' dark column above: the
+     document ends where its content does, and the root's background paints
+     every page in full. The column is the document's last 250px
+     (SWISS_ENGINEERING_GEOMETRY.columnWidth), its first 4px the bar
+     (columnBar); the colours are PREVIEW_PALETTE.swissEngineering .bar and
+     .column. swiss-engineering-template.test.ts holds them equal. */
+  html:has(.swiss-engineering-template) {
+    background: linear-gradient(
+      to right,
+      white calc(max(0px, 50% - 397px) + 544px),
+      #2563eb calc(max(0px, 50% - 397px) + 544px),
+      #2563eb calc(max(0px, 50% - 397px) + 548px),
+      #f1f5f9 calc(max(0px, 50% - 397px) + 548px),
+      #f1f5f9 calc(max(0px, 50% - 397px) + 794px),
+      white calc(max(0px, 50% - 397px) + 794px)
+    ) !important;
+  }
+
+  body:has(.swiss-engineering-template),
+  body :has(.swiss-engineering-template) {
+    background: transparent !important;
+  }
+
+  /* swissIt (swiss-cv-templates US-007) prints its round photo, its pill tags
+     and its rounded project cards as its Preview and mockup draw them, scoped
+     to that template's root. The radii are SWISS_IT_GEOMETRY.tagRadius and
+     .cardRadius, which the template also writes inline for the screen;
+     swiss-it-template.test.ts holds them equal. */
+  .swiss-it-template .swiss-it-photo {
+    border-radius: 50% !important;
+  }
+
+  .swiss-it-template .swiss-it-tag {
+    border-radius: 9999px !important;
+  }
+
+  .swiss-it-template .swiss-it-card {
+    border-radius: 6px !important;
+  }
+
+  /* swissIt prints its first page with no top margin, so its dark band meets
+     the paper's top edge, every later page with a top margin, so the text
+     that continues there does not start at the paper's edge, and every page
+     with a foot margin, so the PDF breaks its pages where the Word export
+     does. The whole document is one named page (`swiss-it`), so no page break
+     is forced; the margins are SWISS_IT_GEOMETRY.pageTop and .pageBottom,
+     which the Word export also uses, and swiss-it-template.test.ts holds them
+     equal. The foot margin replaces the document's own foot padding in print,
+     so the last page does not get both. Print only: the Preview on screen is
+     unchanged. */
+  html:has(.swiss-it-template),
+  body:has(.swiss-it-template) {
+    page: swiss-it;
+  }
+
+  .swiss-it-template {
+    padding-bottom: 0 !important;
+  }
+
+  @page swiss-it {
+    margin-top: 48px;
+    margin-bottom: 48px;
+  }
+
+  @page swiss-it:first {
+    margin-top: 0;
+  }
+
+  /* swissExecutive (swiss-cv-templates US-008) prints its round photo as its
+     Preview and mockup draw it, scoped to that template's root. */
+  .swiss-executive-template .swiss-executive-photo {
+    border-radius: 50% !important;
+  }
+
+  /* swissExecutive prints every page with a top and a foot margin, so the
+     text that continues on page 2 does not start at the paper's edge and the
+     PDF breaks its pages where the Word export does. The whole document is one
+     named page (`swiss-executive`), so no page break is forced; the margins
+     are SWISS_EXECUTIVE_GEOMETRY.pageTop and .pageBottom, which the Word export
+     also uses. In print the document's top padding gives up the page's top
+     margin (56px - 48px), so page 1 starts where it does on screen, and its
+     foot padding gives way to the foot margin. swiss-executive-template.test.ts
+     holds these equal. Print only: the Preview on screen is unchanged. */
+  html:has(.swiss-executive-template),
+  body:has(.swiss-executive-template) {
+    page: swiss-executive;
+  }
+
+  .swiss-executive-template {
+    padding-top: 8px !important;
+    padding-bottom: 0 !important;
+  }
+
+  @page swiss-executive {
+    margin-top: 48px;
+    margin-bottom: 48px;
+  }
+
+  /* swissAcademic (swiss-cv-templates US-009) prints every page with a top and
+     a foot margin, as swissExecutive above: one named page
+     (`swiss-academic`), its margins SWISS_ACADEMIC_GEOMETRY.pageTop and
+     .pageBottom, which the Word export also uses; the document's top padding
+     gives up the top margin (56px - 48px) and its foot padding gives way to
+     the foot margin. swiss-academic-template.test.ts holds these equal. Print
+     only: the Preview on screen is unchanged. */
+  html:has(.swiss-academic-template),
+  body:has(.swiss-academic-template) {
+    page: swiss-academic;
+  }
+
+  .swiss-academic-template {
+    padding-top: 8px !important;
+    padding-bottom: 0 !important;
+  }
+
+  @page swiss-academic {
+    margin-top: 48px;
+    margin-bottom: 48px;
+  }
+
+  /* swissFirstJob (swiss-cv-templates US-010) prints its round photo, its
+     headings' circles and its languages' dots as its Preview and mockup draw
+     them, scoped to that template's root. */
+  .swiss-first-job-template .swiss-first-job-photo,
+  .swiss-first-job-template .swiss-first-job-circle,
+  .swiss-first-job-template .swiss-first-job-dot {
+    border-radius: 50% !important;
+  }
+
+  /* swissFirstJob's sidebar down the left of every printed page, from the
+     paper's top edge to its foot, as swissEngineering paints its light
+     column: the page has no margin (the default `@page` above), and the
+     root's background paints every page in full. The sidebar is the
+     document's first 260px (SWISS_FIRST_JOB_GEOMETRY.sidebarWidth) in
+     PREVIEW_PALETTE.swissFirstJob.sidebar. A page margin would cut that band
+     off: Chromium paints no background into a page's margin area. The band
+     is anchored at the page's left edge, where the page-wide document
+     starts: centring it on the background's positioning area, as the bands
+     above do, moved it a few px right on pages whose positioning area was
+     wider than the page, leaving a white strip at the paper's edge. */
+  html:has(.swiss-first-job-template) {
+    background: linear-gradient(to right, #f5f3ff 260px, white 260px) !important;
+  }
+
+  /* Nothing above the root's band paints over it: not the ancestors, not the
+     document's white, not the sidebar's own fill, which would end where the
+     sidebar's content does. */
+  body:has(.swiss-first-job-template),
+  body :has(.swiss-first-job-template),
+  .swiss-first-job-template,
+  .swiss-first-job-template > aside.swiss-first-job-column {
+    background: transparent !important;
+  }
+
+  /* The text's top and foot margins on every page, SWISS_FIRST_JOB_GEOMETRY
+     .pageTop and .pageBottom, which the Word export uses as its page margins,
+     so both break their pages at the same place: the document's own padding,
+     repeated on each page's piece of it (`box-decoration-break: clone`)
+     instead of the page's margins. The columns' own padding gives way to it.
+     The document's on-screen page height would open an empty page 2.
+     swiss-first-job-template.test.ts holds these equal. Print only: the
+     Preview on screen is unchanged. */
+  .swiss-first-job-template {
+    min-height: 0 !important;
+    padding-top: 48px !important;
+    padding-bottom: 48px !important;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  .swiss-first-job-template .swiss-first-job-column {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
   /* Preserve colors in CV templates */
   * {
     print-color-adjust: exact !important;

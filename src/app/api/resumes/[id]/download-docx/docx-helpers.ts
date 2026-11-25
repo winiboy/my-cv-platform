@@ -10,6 +10,7 @@ import {
 } from 'docx'
 import type { Locale } from '@/lib/i18n'
 import { chosenFontFamily } from '@/lib/layout-settings'
+import type { ContactFieldId } from '@/lib/contact-visibility'
 
 // ============================================================
 // SHARED TYPES FOR ALL DOCX GENERATORS
@@ -49,6 +50,13 @@ export interface DocxGeneratorSettings {
   hiddenMainSections: string[]
   /** Base64-encoded photo data (data URL or raw base64) for embedding in sidebar */
   photoBase64?: string
+  /**
+   * The layout model's `hiddenContactFields` (swiss-cv-templates FR-14). Each
+   * generator draws its CV title, contact details and photo through
+   * `visibleContactDetails`, as the Preview does. Absent means nothing is
+   * hidden, which is what the stored list says for every CV that never set it.
+   */
+  hiddenContactFields?: readonly ContactFieldId[]
 }
 
 // ============================================================

@@ -152,6 +152,104 @@ describe('POST /api/ai/generate-from-job-description', () => {
     expect((resume.certifications as unknown[]).length).toBe(1)
   })
 
+  it('creates a CV with the swissVocational template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply())
+
+    const response = await POST(createRequest({ ...MODAL_BODY, template: 'swissVocational' }))
+
+    expect(response.status).toBe(200)
+    expect(inserted().template).toBe('swissVocational')
+  })
+
+  it('creates a CV with the swissCommerce template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply())
+
+    const response = await POST(createRequest({ ...MODAL_BODY, template: 'swissCommerce' }))
+
+    expect(response.status).toBe(200)
+    expect(inserted().template).toBe('swissCommerce')
+  })
+
+  it('creates a CV with the swissTrades template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply())
+
+    const response = await POST(createRequest({ ...MODAL_BODY, template: 'swissTrades' }))
+
+    expect(response.status).toBe(200)
+    expect(inserted().template).toBe('swissTrades')
+  })
+
+  it('creates a CV with the swissHealth template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply())
+
+    const response = await POST(createRequest({ ...MODAL_BODY, template: 'swissHealth' }))
+
+    expect(response.status).toBe(200)
+    expect(inserted().template).toBe('swissHealth')
+  })
+
+  it('creates a CV with the swissFinance template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply())
+
+    const response = await POST(createRequest({ ...MODAL_BODY, template: 'swissFinance' }))
+
+    expect(response.status).toBe(200)
+    expect(inserted().template).toBe('swissFinance')
+  })
+
+  it('creates a CV with the swissEngineering template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply())
+
+    const response = await POST(createRequest({ ...MODAL_BODY, template: 'swissEngineering' }))
+
+    expect(response.status).toBe(200)
+    expect(inserted().template).toBe('swissEngineering')
+  })
+
+  it('creates a CV with the swissIt template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply())
+
+    const response = await POST(createRequest({ ...MODAL_BODY, template: 'swissIt' }))
+
+    expect(response.status).toBe(200)
+    expect(inserted().template).toBe('swissIt')
+  })
+
+  it('creates a CV with the swissExecutive template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply())
+
+    const response = await POST(createRequest({ ...MODAL_BODY, template: 'swissExecutive' }))
+
+    expect(response.status).toBe(200)
+    expect(inserted().template).toBe('swissExecutive')
+  })
+
+  it('creates a CV with the swissAcademic template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply())
+
+    const response = await POST(createRequest({ ...MODAL_BODY, template: 'swissAcademic' }))
+
+    expect(response.status).toBe(200)
+    expect(inserted().template).toBe('swissAcademic')
+  })
+
+  it('creates a CV with the swissFirstJob template', async () => {
+    generateResumeFromJobDescription.mockResolvedValueOnce(aiReply())
+
+    const response = await POST(createRequest({ ...MODAL_BODY, template: 'swissFirstJob' }))
+
+    expect(response.status).toBe(200)
+    expect(inserted().template).toBe('swissFirstJob')
+  })
+
+  it('refuses a template id outside the ones the schema accepts, before calling the AI', async () => {
+    const response = await POST(createRequest({ ...MODAL_BODY, template: 'swissUnknown' }))
+
+    expect(response.status).toBe(400)
+    expect(generateResumeFromJobDescription).not.toHaveBeenCalled()
+    expect(state.db.table('resumes')).toEqual([])
+  })
+
   it('sanitizes the AI content through the builder', async () => {
     const reply = aiReply()
     reply.resumeData.summary = '<p onclick="x()">Profil<script>alert(1)</script><img src=x onerror=alert(1)></p>'

@@ -1,12 +1,10 @@
 'use client'
 
-import { useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import type { Locale } from '@/lib/i18n'
 import { ResumePreviewWrapper } from '@/components/dashboard/resume-preview-wrapper'
 import { DownloadButton } from '@/components/dashboard/download-button'
-import { ControlsToggle } from '@/components/dashboard/controls-toggle'
 import type { Resume } from '@/types/database'
 
 interface ResumePreviewPageClientProps {
@@ -16,8 +14,6 @@ interface ResumePreviewPageClientProps {
 }
 
 export function ResumePreviewPageClient({ resume, locale, dict }: ResumePreviewPageClientProps) {
-  const [showControls, setShowControls] = useState(true)
-
   return (
     <>
       {/* Header - Hidden when printing */}
@@ -37,15 +33,6 @@ export function ResumePreviewPageClient({ resume, locale, dict }: ResumePreviewP
                 {dict.resumes?.preview || 'Preview'}
               </p>
             </div>
-          </div>
-
-          {/* Center: Controls Toggle */}
-          <div className="absolute left-1/2 -translate-x-1/2">
-            <ControlsToggle
-              showControls={showControls}
-              onToggle={setShowControls}
-              label={dict?.resumes?.showControls || 'Show Controls'}
-            />
           </div>
 
           {/* Right: Download Button */}
@@ -70,7 +57,6 @@ export function ResumePreviewPageClient({ resume, locale, dict }: ResumePreviewP
           initialResume={resume}
           locale={locale}
           dict={dict}
-          showControls={showControls}
         />
       </div>
     </>

@@ -1,4 +1,4 @@
-import type { ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate } from '@/types/database'
 
 /**
  * The letter spacing the resume Preview draws, as the source that sets it
@@ -88,4 +88,48 @@ export const PREVIEW_TRACKING = {
     /** The header title, the document's `h1`. Creative's headings draw none. */
     title: TAILWIND_TRACKING['tracking-tight'],
   },
-} as const satisfies Readonly<Record<ResumeTemplate, Readonly<Record<string, number>>>>
+  swissVocational: {
+    /** The CV title under the name, and every section heading. */
+    caps: TAILWIND_TRACKING['tracking-widest'],
+  },
+  swissCommerce: {
+    /** The CV title in the header band, and every section heading. */
+    caps: TAILWIND_TRACKING['tracking-widest'],
+  },
+  swissTrades: {
+    /** The CV title under the name, and every heading of both columns. */
+    caps: TAILWIND_TRACKING['tracking-widest'],
+  },
+  swissHealth: {
+    /** The text of every heading pill. */
+    caps: TAILWIND_TRACKING['tracking-widest'],
+  },
+  swissFinance: {
+    /** The name, the document's `h1`, in spaced capitals. */
+    name: TAILWIND_TRACKING['tracking-widest'],
+    /**
+     * Every section heading `h2`: the mockup spaces its capitals far wider
+     * than any Tailwind `tracking-*` utility, so the template imports this
+     * value and writes it inline, as modern does.
+     */
+    heading: 0.25,
+  },
+  swissEngineering: {
+    /** Every section heading of both columns. */
+    caps: TAILWIND_TRACKING['tracking-widest'],
+  },
+  /** No letter spacing: its monospace headings are drawn as typed, lower case. */
+  swissIt: {},
+  swissExecutive: {
+    /** The CV title's spaced capitals. */
+    caps: TAILWIND_TRACKING['tracking-widest'],
+  },
+  swissAcademic: {
+    /** Every section heading's letter-spaced small capitals. */
+    caps: TAILWIND_TRACKING['tracking-widest'],
+  },
+  swissFirstJob: {
+    /** Every heading of the sidebar, in spaced capitals. */
+    caps: TAILWIND_TRACKING['tracking-widest'],
+  },
+} as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, number>>>>

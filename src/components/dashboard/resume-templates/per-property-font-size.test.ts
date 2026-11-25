@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server'
 import JSZip from 'jszip'
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/common.json'
-import type { Resume, ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate as ResumeTemplate, Resume } from '@/types/database'
 import {
   DEFAULT_RESUME_LAYOUT,
   LAYOUT_CONTROL_KEYS,
@@ -15,11 +15,31 @@ import { ClassicTemplate } from '@/components/dashboard/resume-templates/classic
 import { CreativeTemplate } from '@/components/dashboard/resume-templates/creative-template'
 import { MinimalTemplate } from '@/components/dashboard/resume-templates/minimal-template'
 import { ModernTemplate } from '@/components/dashboard/resume-templates/modern-template'
+import { SwissVocationalTemplate } from '@/components/dashboard/resume-templates/swiss-vocational-template'
+import { SwissCommerceTemplate } from '@/components/dashboard/resume-templates/swiss-commerce-template'
+import { SwissTradesTemplate } from '@/components/dashboard/resume-templates/swiss-trades-template'
+import { SwissHealthTemplate } from '@/components/dashboard/resume-templates/swiss-health-template'
+import { SwissFinanceTemplate } from '@/components/dashboard/resume-templates/swiss-finance-template'
+import { SwissEngineeringTemplate } from '@/components/dashboard/resume-templates/swiss-engineering-template'
+import { SwissItTemplate } from '@/components/dashboard/resume-templates/swiss-it-template'
+import { SwissExecutiveTemplate } from '@/components/dashboard/resume-templates/swiss-executive-template'
+import { SwissAcademicTemplate } from '@/components/dashboard/resume-templates/swiss-academic-template'
+import { SwissFirstJobTemplate } from '@/components/dashboard/resume-templates/swiss-first-job-template'
 import { generateClassicDocx } from '@/app/api/resumes/[id]/download-docx/docx-classic'
 import { generateCreativeDocx } from '@/app/api/resumes/[id]/download-docx/docx-creative'
 import { generateMinimalDocx } from '@/app/api/resumes/[id]/download-docx/docx-minimal'
 import { generateModernDocx } from '@/app/api/resumes/[id]/download-docx/docx-modern'
 import { generateProfessionalDocx } from '@/app/api/resumes/[id]/download-docx/docx-professional'
+import { generateSwissVocationalDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-vocational'
+import { generateSwissCommerceDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-commerce'
+import { generateSwissTradesDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-trades'
+import { generateSwissHealthDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-health'
+import { generateSwissFinanceDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-finance'
+import { generateSwissEngineeringDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-engineering'
+import { generateSwissItDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-it'
+import { generateSwissExecutiveDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-executive'
+import { generateSwissAcademicDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-academic'
+import { generateSwissFirstJobDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-first-job'
 import { pxToHalfPoints, type DocxGeneratorSettings } from '@/app/api/resumes/[id]/download-docx/docx-helpers'
 
 /**
@@ -58,13 +78,23 @@ const BUMPED: Readonly<Record<PerPropertySizeKey, number>> = {
 
 const SIZE_KEYS = LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[]
 
-const TEMPLATES: readonly ResumeTemplate[] = ['classic', 'minimal', 'creative', 'modern', 'professional']
+const TEMPLATES: readonly ResumeTemplate[] = ['classic', 'minimal', 'creative', 'modern', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
 
 const PREVIEWS: Readonly<Partial<Record<ResumeTemplate, ComponentType<never>>>> = {
   classic: ClassicTemplate as ComponentType<never>,
   minimal: MinimalTemplate as ComponentType<never>,
   creative: CreativeTemplate as ComponentType<never>,
   modern: ModernTemplate as ComponentType<never>,
+  swissVocational: SwissVocationalTemplate as ComponentType<never>,
+  swissCommerce: SwissCommerceTemplate as ComponentType<never>,
+  swissTrades: SwissTradesTemplate as ComponentType<never>,
+  swissHealth: SwissHealthTemplate as ComponentType<never>,
+  swissFinance: SwissFinanceTemplate as ComponentType<never>,
+  swissEngineering: SwissEngineeringTemplate as ComponentType<never>,
+  swissIt: SwissItTemplate as ComponentType<never>,
+  swissExecutive: SwissExecutiveTemplate as ComponentType<never>,
+  swissAcademic: SwissAcademicTemplate as ComponentType<never>,
+  swissFirstJob: SwissFirstJobTemplate as ComponentType<never>,
 }
 
 const GENERATORS: Readonly<
@@ -75,6 +105,16 @@ const GENERATORS: Readonly<
   creative: generateCreativeDocx,
   modern: generateModernDocx,
   professional: generateProfessionalDocx,
+  swissVocational: generateSwissVocationalDocx,
+  swissCommerce: generateSwissCommerceDocx,
+  swissTrades: generateSwissTradesDocx,
+  swissHealth: generateSwissHealthDocx,
+  swissFinance: generateSwissFinanceDocx,
+  swissEngineering: generateSwissEngineeringDocx,
+  swissIt: generateSwissItDocx,
+  swissExecutive: generateSwissExecutiveDocx,
+  swissAcademic: generateSwissAcademicDocx,
+  swissFirstJob: generateSwissFirstJobDocx,
 }
 
 const RESUME = {

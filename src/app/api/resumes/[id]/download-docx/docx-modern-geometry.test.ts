@@ -542,7 +542,7 @@ describe('modern DOCX font sizes', () => {
   const SCALED_SIZE = /fontSize: `\$\{([\d.]+) \* (?:fontScale|activeScale)\}px`/g
 
   const SCALED: Record<keyof typeof FONT_SIZES, Element[]> = {
-    JOB_TITLE_BAR: [{ renders: '{resume.title}' }],
+    JOB_TITLE_BAR: [{ from: '{/* Job title', renders: '{title}' }],
     LOCATION: [{ from: '{/* Address line', renders: '{contact.location}' }],
     MAIN_SECTION_TITLE: [{ from: 'function MainSectionHeader', renders: '{title}' }],
     SIDEBAR_SECTION_TITLE: [{ from: 'function SidebarSectionHeader', renders: '{title}' }],

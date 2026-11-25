@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures/auth'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Locator, Page } from '@playwright/test'
+import { swissItHeading } from '../src/lib/swiss-it-template'
 import {
   LOCAL_SUPABASE_URL,
   LOCAL_SERVICE_KEY,
@@ -30,15 +31,15 @@ function admin(): SupabaseClient {
   })
 }
 
-const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional']
+const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
 
 const NAMES = {
-  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel'],
-  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional'],
-  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell'],
+  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique', 'Informatique & IT', 'Cadre & direction', 'Académique & recherche', 'Premier emploi'],
+  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering', 'IT & software', 'Executive & management', 'Academic & research', 'First job'],
+  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung', 'Technische & handwerkliche Berufe', 'Gesundheit & Soziales', 'Bank, Finanzen & Versicherung', 'Ingenieurwesen & Technik', 'Informatik & IT', 'Kader & Geschäftsleitung', 'Akademisch & Forschung', 'Erste Stelle'],
 } as const
 
-/** The fr `resumes.editor.sections.education` heading every template draws. */
+/** The fr `resumes.editor.sections.education` heading every template draws (swissIt as "// formation"). */
 const FR_EDUCATION_HEADING = 'Formation'
 
 /**
@@ -80,32 +81,40 @@ async function expectOnlyChecked(page: Page, template: string): Promise<void> {
   expect(checked).toEqual([template])
 }
 
+/**
+ * The education heading a thumbnail draws: the label as every template draws
+ * it, except swissIt, which draws its headings "// label" in lower case.
+ */
+async function educationHeadingOf(thumbnail: Locator, label: string, locale: 'fr' | 'en'): Promise<string> {
+  return (await thumbnail.getAttribute('data-template')) === 'swissIt' ? swissItHeading(label, locale) : label
+}
+
 /** Every thumbnail has drawn its template's page. */
 async function expectThumbnailsDrawn(page: Page): Promise<void> {
-  await expect(thumbnails(page)).toHaveCount(5)
+  await expect(thumbnails(page)).toHaveCount(ORDER.length)
   for (const thumbnail of await thumbnails(page).all()) {
     await expect(thumbnail.getByTestId('resume-document')).toHaveCount(1)
   }
 }
 
-test('fr: five live thumbnails, keyboard and pointer selection, and the CV is created with the chosen template', async ({ page, authedUser }) => {
+test('fr: every option has a live thumbnail, keyboard and pointer selection, and the CV is created with the chosen template', async ({ page, authedUser }) => {
   const problems = watchConsole(page)
   await openPicker(page, 'fr')
 
-  // Five options, in order, named in French; Modern is the default.
-  await expect(radios(page)).toHaveCount(5)
+  // Every option, in order, named in French; Modern is the default.
+  await expect(radios(page)).toHaveCount(ORDER.length)
   expect(await radios(page).evaluateAll((elements) => elements.map((element) => element.getAttribute('data-template')))).toEqual(ORDER)
   for (const [index, name] of NAMES.fr.entries()) {
     await expect(radios(page).nth(index)).toHaveAccessibleName(name)
   }
   await expectOnlyChecked(page, 'modern')
 
-  // Five thumbnails, each drawing its own option's template with fr headings.
+  // One thumbnail per option, each drawing its own option's template with fr headings.
   await expectThumbnailsDrawn(page)
   expect(await thumbnails(page).evaluateAll((elements) => elements.map((element) => element.getAttribute('data-template')))).toEqual(ORDER)
   for (const thumbnail of await thumbnails(page).all()) {
     await expect(thumbnail).toHaveAttribute('aria-hidden', 'true')
-    await expect(thumbnail).toContainText(FR_EDUCATION_HEADING)
+    await expect(thumbnail).toContainText(await educationHeadingOf(thumbnail, FR_EDUCATION_HEADING, 'fr'))
   }
 
   // Nothing inside a thumbnail can take focus, even when asked to directly.
@@ -181,7 +190,7 @@ test('fr: without touching the picker the CV is created as modern', async ({ pag
 })
 
 for (const locale of ['en', 'de'] as const) {
-  test(`${locale}: the five options carry their ${locale} names, Professional included`, async ({ page, authedUser }) => {
+  test(`${locale}: every option carries its ${locale} names, Professional included`, async ({ page, authedUser }) => {
     expect(authedUser.id).toBeTruthy()
     const problems = watchConsole(page)
     await openPicker(page, locale)

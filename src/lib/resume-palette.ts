@@ -1,4 +1,4 @@
-import type { ResumeTemplate } from '@/types/database'
+import type { BuiltResumeTemplate } from '@/types/database'
 
 /**
  * The colours the resume Preview renders for text, borders and fills, as the
@@ -74,6 +74,11 @@ export const TAILWIND_DEFAULT_TOKENS = {
   'purple-100': 'oklch(94.6% 0.033 307.174)',
   'purple-300': 'oklch(82.7% 0.119 306.383)',
   'purple-700': 'oklch(49.6% 0.265 301.924)',
+  'red-700': 'oklch(50.5% 0.213 27.518)',
+  'blue-50': 'oklch(97% 0.014 254.604)',
+  'blue-100': 'oklch(93.2% 0.032 255.585)',
+  'blue-200': 'oklch(88.2% 0.059 254.128)',
+  'blue-300': 'oklch(80.9% 0.105 251.813)',
 } as const
 
 export type ThemeToken = keyof typeof THEME_TOKENS
@@ -167,4 +172,263 @@ export const PREVIEW_PALETTE = {
     /** The project card's fill (US-007). */
     'slate-50': theme('slate-50'),
   },
-} as const satisfies Readonly<Record<ResumeTemplate, Readonly<Record<string, PreviewColour>>>>
+  swissVocational: {
+    /** The accent strip at the left edge, the CV title and the square before each section heading. */
+    'red-700': tailwind('red-700'),
+    /** Name, contact labels, section headings, entry titles, skill categories, languages. */
+    'slate-900': theme('slate-900'),
+    /** The rule under the header. */
+    'slate-800': theme('slate-800'),
+    /** Contact values, summary, descriptions, achievements, skill items. */
+    'slate-700': theme('slate-700'),
+    /** Dates, companies, schools, issuers, language levels. */
+    'slate-600': theme('slate-600'),
+    /** Section heading rules and the dotted rule under each language. */
+    'slate-300': theme('slate-300'),
+  },
+  swissCommerce: {
+    /**
+     * The header band, the section headings and their rules, and the skill
+     * category labels. Inline: no Tailwind token is this navy, and the slate
+     * tokens `globals.css` redefines are neutral greys.
+     */
+    navy: inline('#1f3a5f'),
+    /** The name, on the band. */
+    white: tailwind('white'),
+    /** The CV title on the band, and the ring round the photo. */
+    'blue-300': tailwind('blue-300'),
+    /** The contact details on the band. */
+    'blue-100': tailwind('blue-100'),
+    /** A language pill's border. */
+    'blue-200': tailwind('blue-200'),
+    /** A language pill's fill. */
+    'blue-50': tailwind('blue-50'),
+    /** Positions, degrees, certification names. */
+    'slate-900': theme('slate-900'),
+    /** Summary, descriptions, achievements, skills, language pill text. */
+    'slate-800': theme('slate-800'),
+    /** Dates, companies, schools, issuers. */
+    'slate-500': theme('slate-500'),
+  },
+  /**
+   * Every colour is inline: the mockup's slate is blue-grey and its oranges
+   * are fixed, and the slate tokens `globals.css` redefines are neutral greys.
+   */
+  swissTrades: {
+    /** The dark column. */
+    sidebar: inline('#334155'),
+    /** A skill tag's fill. */
+    tag: inline('#475569'),
+    /** The photo's thin border; companies and schools under their entry's title. */
+    muted: inline('#64748b'),
+    /** Every line of the dark column: contact, captions, tags, certificates, languages. */
+    sidebarText: inline('#f1f5f9'),
+    /** The headings of the dark column. */
+    sidebarHeading: inline('#fdba74'),
+    /**
+     * The CV title and the dates: orange-700, darker than the mockup's
+     * orange-600 so small text on white meets WCAG AA (about 5.2:1).
+     */
+    accent: inline('#c2410c'),
+    /** The rule that follows each main heading. */
+    rule: inline('#fed7aa'),
+    /** The name, the main headings, and each entry's bold first line. */
+    ink: inline('#0f172a'),
+    /** Summary, achievements and descriptions. */
+    body: inline('#1e293b'),
+  },
+  /**
+   * Every colour is inline: the mockup's teals are fixed, and the slate tokens
+   * `globals.css` redefines are neutral greys where the mockup's are blue-grey.
+   * Every text colour meets WCAG AA (4.5:1) on what it is drawn on.
+   */
+  swissHealth: {
+    /** The name, the text of every heading pill, and the skill captions: teal-900, 9.5:1 on white, 8.4:1 on the pill. */
+    heading: inline('#134e4a'),
+    /**
+     * The CV title and the dates: teal-700, darker than the mockup's teal
+     * (about 3.1:1 on white) so small text meets WCAG AA (5.5:1).
+     */
+    accent: inline('#0f766e'),
+    /** A heading pill's fill. */
+    pill: inline('#ccfbf1'),
+    /** The bar down the left of each entry, and the photo's ring. */
+    rule: inline('#99f6e4'),
+    /** The photo's fill, seen where the photo is transparent. */
+    photoFill: inline('#f0fdfa'),
+    /** Each entry's bold first line and a certificate's name: 17.9:1 on white. */
+    ink: inline('#0f172a'),
+    /** Schools, employers and issuers: 4.8:1 on white. */
+    muted: inline('#64748b'),
+    /** The contact line: 7.6:1 on white. */
+    contact: inline('#475569'),
+    /** Summary, achievements, descriptions, skills and languages: 14.6:1 on white. */
+    body: inline('#1e293b'),
+  },
+  /**
+   * Every colour is inline: the mockup's dark green is fixed, and the slate
+   * tokens `globals.css` redefines are neutral greys where the mockup's are
+   * blue-grey. Every text colour meets WCAG AA (4.5:1) on what it is drawn on.
+   */
+  swissFinance: {
+    /** The CV title, every section heading, and the double rule under the header: green-800, 7.1:1 on white. */
+    accent: inline('#166534'),
+    /** The name, and the bold first part of an entry and of a table row: 17.9:1 on white. */
+    ink: inline('#0f172a'),
+    /** The contact line, the dates and the school under a degree: 7.6:1 on white. */
+    muted: inline('#475569'),
+    /** The summary, the rest of an entry's first line, achievements, descriptions, skills and languages: 14.6:1 on white. */
+    body: inline('#1e293b'),
+    /** The thin rule under each section heading, and the photo's border. */
+    rule: inline('#cbd5e1'),
+    /** The photo's fill, seen where the photo is transparent. */
+    photoFill: inline('#f8fafc'),
+  },
+  /**
+   * Every colour is inline: the mockup's blues are fixed, and the slate tokens
+   * `globals.css` redefines are neutral greys where the mockup's are
+   * blue-grey. Every text colour meets WCAG AA (4.5:1) on every background it
+   * is drawn on: white, the light column, a project card.
+   */
+  swissEngineering: {
+    /**
+     * The CV title and every section heading: blue-700, the mockup's heading
+     * blue, 6.7:1 on white and 6.1:1 on the light column. The mockup draws the
+     * title a shade lighter (blue-600, 5.2:1 and 4.7:1); one accent serves both
+     * with a wider margin over AA.
+     */
+    accent: inline('#1d4ed8'),
+    /** The light column's bar down its left edge, and each project card's thick left edge: blue-600. */
+    bar: inline('#2563eb'),
+    /** The light column's fill. */
+    column: inline('#f1f5f9'),
+    /** A project card's fill. */
+    card: inline('#f8fafc'),
+    /** A project card's thin border. */
+    cardBorder: inline('#bfdbfe'),
+    /** The name, and the bold first line of an experience, a project, an education and a skill category: 17.9:1 on white, 16.3:1 on the column. */
+    ink: inline('#0f172a'),
+    /**
+     * Dates, an experience's company line, and a project's technologies and
+     * link: 4.8:1 on white, 4.6:1 on a card. Never drawn on the light column,
+     * where it would fall under 4.5:1.
+     */
+    muted: inline('#64748b'),
+    /** Running text, bullets, descriptions, and every plain line of the light column: 14.6:1 on white, 13.3:1 on the column. */
+    body: inline('#1e293b'),
+    /** The photo's light ring. */
+    photoRing: inline('#cbd5e1'),
+    /** The photo's fill, seen where the photo is transparent. */
+    photoFill: inline('#e2e8f0'),
+  },
+  /**
+   * Every colour is inline, as for swissEngineering. The mockup draws its
+   * headings and tags in a bright green (green-600, 3.3:1 on white), which
+   * fails WCAG AA at their sizes; the green is kept bright only where it
+   * passes or carries no text — the CV title on the dark band, the photo's
+   * ring, a tag's border — and is darkened for text on white. Every text colour
+   * meets AA (4.5:1) on every background it is drawn on: the band, white, a
+   * tag's fill. `swiss-it-template.test.ts` measures each pair.
+   */
+  swissIt: {
+    /**
+     * The band behind the header, and the name of every entry: slate-900.
+     * One colour, so the band's ink and the bold lines read as one dark;
+     * 17.9:1 for the bold lines on white.
+     */
+    ink: inline('#0f172a'),
+    /** The name on the band: 17.9:1. */
+    name: inline('#ffffff'),
+    /** The CV title on the band, behind its "> " prompt: green-400, 10.3:1 on the band. */
+    prompt: inline('#4ade80'),
+    /** The contact lines on the band: slate-300, 12.0:1 on the band. */
+    contact: inline('#cbd5e1'),
+    /** The photo's ring: green-500. Decoration, no text. */
+    photoRing: inline('#22c55e'),
+    /** The photo's fill, seen where the photo is transparent. */
+    photoFill: inline('#334155'),
+    /** Every section heading: green-700, 5.0:1 on white. */
+    heading: inline('#15803d'),
+    /** A tag's text: green-800, 6.8:1 on its fill, 7.1:1 on white. */
+    tagText: inline('#166534'),
+    /** A tag's fill: green-50. */
+    tagFill: inline('#f0fdf4'),
+    /** A tag's outline: green-300. Decoration, no text. */
+    tagBorder: inline('#86efac'),
+    /** Running text, bullets, descriptions and the last section's lines: 14.6:1 on white. */
+    body: inline('#1e293b'),
+    /** Dates, an entry's second line, and a project's link: 4.8:1 on white. */
+    muted: inline('#64748b'),
+    /** A project card's thin border. Decoration, no text. */
+    cardBorder: inline('#e2e8f0'),
+  },
+  /**
+   * Every colour is inline, as for the other Swiss templates. Every text
+   * colour meets WCAG AA (4.5:1) on every background it is drawn on: white
+   * and the summary's cream box. The gold is decoration only — the rule
+   * under the header, the summary's bar, the cards' rules, the photo's ring —
+   * and `swiss-executive-template.test.ts` measures each text pair.
+   */
+  swissExecutive: {
+    /** The name, and the bold first line of an entry and of an achievement card: 17.9:1 on white. */
+    ink: inline('#0f172a'),
+    /** The CV title and every section heading: rose-800, 8.0:1 on white. */
+    accent: inline('#9f1239'),
+    /** The rule under the header, the summary's bar, the cards' rules, the photo's ring: yellow-700. Decoration, no text. */
+    gold: inline('#a16207'),
+    /** The summary's box. */
+    cream: inline('#faf6ee'),
+    /** The photo's fill, seen where the photo is transparent. */
+    photoFill: inline('#f5efe3'),
+    /** Running text, bullets, descriptions, the summary and the last section's lines: 14.6:1 on white, 13.6:1 on the cream box. */
+    body: inline('#1e293b'),
+    /** The contact line, dates, an entry's second line, a card's technologies and link: 4.8:1 on white. Never drawn on the cream box. */
+    muted: inline('#64748b'),
+  },
+  /**
+   * Every colour is inline, as for the other Swiss templates. The page is
+   * white throughout and every text colour meets WCAG AA (4.5:1) on it; the
+   * heading rule carries no text.
+   */
+  swissAcademic: {
+    /** The name, the headings, and the bold lead of an entry, a publication and a skill line: 17.9:1 on white. */
+    ink: inline('#0f172a'),
+    /** Running text, bullets, descriptions, distinctions and the last section's lines: 14.6:1 on white. */
+    body: inline('#1e293b'),
+    /** The CV title, the contact line, the dates, the field of study and a publication's technologies and link: slate-600, 7.6:1 on white. */
+    muted: inline('#475569'),
+    /** The thin rule under every heading: slate-400. Decoration, no text. */
+    rule: inline('#94a3b8'),
+  },
+  /**
+   * Every colour is inline, as for the other Swiss templates. Every text
+   * colour meets WCAG AA (4.5:1) on every background it is drawn on: white
+   * (the main column) and the sidebar's violet tint. The dots, the heading
+   * circles and the photo's ring are decoration. A language's level is shown
+   * by how many dots are filled; the Preview also names it in words for
+   * assistive technology, while in Word it is shown by the dots' count and
+   * colour only.
+   */
+  swissFirstJob: {
+    /** The sidebar's fill: violet-50. */
+    sidebar: inline('#f5f3ff'),
+    /** The name: violet-900, 11.0:1 on white. */
+    name: inline('#4c1d95'),
+    /** The CV title, every heading, and an entry's date line: violet-700, 7.1:1 on white, 6.5:1 on the sidebar. */
+    accent: inline('#6d28d9'),
+    /** A heading's circle and a language's filled dots: violet-600. Decoration (5.7:1 on white, 5.2:1 on the sidebar). */
+    mark: inline('#7c3aed'),
+    /** The photo's ring: violet-300. Decoration, no text. */
+    soft: inline('#c4b5fd'),
+    /** A language's empty dots: violet-200. Decoration: the filled dots' count tells the level, and the Preview names it in words. */
+    emptyDot: inline('#ddd6fe'),
+    /** The photo's fill, seen where the photo is transparent: violet-100. */
+    photoFill: inline('#ede9fe'),
+    /** An entry's bold title and a skill category's caption: 17.9:1 on white, 16.3:1 on the sidebar. */
+    ink: inline('#0f172a'),
+    /** Running text, bullets and every line of the sidebar: 14.6:1 on white, 13.3:1 on the sidebar. */
+    body: inline('#1e293b'),
+    /** An entry's second line: slate-600, 7.6:1 on white, 6.9:1 on the sidebar. */
+    muted: inline('#475569'),
+  },
+} as const satisfies Readonly<Record<BuiltResumeTemplate, Readonly<Record<string, PreviewColour>>>>

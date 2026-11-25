@@ -1,4 +1,5 @@
-import type { ResumeTemplate } from '../../src/types/database'
+// Parity pins its references element by element for the five original templates.
+import type { OriginalResumeTemplate as ResumeTemplate } from '../../src/test/resume-template-files'
 import {
   TEMPLATE_APPLIED_SIZE_KEYS,
   templateOffersLayoutControl,
