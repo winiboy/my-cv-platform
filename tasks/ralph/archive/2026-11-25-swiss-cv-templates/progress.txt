@@ -1,0 +1,1101 @@
+# Ralph progress — swiss-cv-templates
+
+Contract: tasks/ralph/prd.json (branch ralph/swiss-cv-templates)
+PRD: tasks/prds/swiss-cv-templates.md (Status: APPROVED 2026-11-18, written by the owner in GitHub's web editor, commit fc98226 on prd/swiss-cv-templates)
+Format: docs/engineering/progress-log-format.md
+Branch setup: from prd/swiss-cv-templates fc98226 (origin/main f0a2e75, #129 merged, plus the PRD draft d7567cf with the ten mockups, and the owner's approval commit). The first commit archives the merged cover-letter-save-status-below-title contract; the second adds this contract.
+Contract note: nested sub-bullets and follow-on paragraphs in the PRD are folded into their parent criterion, and bold markers are dropped; wording unchanged.
+
+## US-001: The "Formation professionnelle (CFC)" template is available and the template set is ready for the ten Swiss templates
+Status: PASS
+Priority: 1
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 94d4185 (contract commit; origin/main f0a2e75)
+
+Scope:
+- Scope check: PASS
+- Changed paths: story diff sha256 prefix 06bfd5b50a5c22a5. The hash covers `git diff -- src e2e`, then "== <path>" and the content of each untracked file under src/ and e2e/.
+  - **Migration:** `supabase/migrations/011_add_swiss_cv_templates.sql` drops and re-adds `resumes_template_check` with the five existing values and the ten Swiss ids. No row, column or policy changes.
+    - Its rollback note names both statements of 002 (the CHECK and the `COMMENT ON COLUMN`).
+    - The note was edited (comment only) after the migration was applied locally; it was never committed or deployed before this commit.
+  - **Types:** `src/types/supabase.ts` lists the fifteen values in Row, Insert and Update. `src/types/database.ts` adds:
+    - `UnbuiltResumeTemplate`: the nine ids without a story yet;
+    - `BuiltResumeTemplate`: the six with one.
+  - **Registries keyed by `BuiltResumeTemplate`, each with a real `swissVocational` entry:**
+    - the layout registries in `src/lib/layout-settings.ts`;
+    - `resume-palette.ts` (adds `red-700`);
+    - `resume-text-opacity.ts`, `resume-letter-spacing.ts`, `resume-graphics.ts` (new `page-border` form), `resume-line-height.ts`.
+
+    A later story that moves an id out of `UnbuiltResumeTemplate` does not compile until each of these has an entry for it.
+  - **Offered lists:** `swissVocational` only, in four places. Each list is typed so an unbuilt id does not compile.
+    - `TEMPLATE_OPTIONS`, after the five existing templates;
+    - `RESUME_TEMPLATES`, in the job-application route;
+    - `validTemplates`, in the AI route;
+    - `SUPPORTED_TEMPLATES`, moved from `route.ts` to the new `docx-templates.ts` so it can be tested.
+  - **Unbuilt id already in a row:** `docxTemplateFor` exports the nine unbuilt ids as modern, which is what the Editor, Preview and PDF draw for them. Any other unknown value still gets professional, as before.
+  - **Template:**
+    - `src/components/dashboard/resume-templates/swiss-vocational-template.tsx` draws the Editor, Preview and PDF.
+    - `src/lib/swiss-vocational-template.ts` is shared by the Preview and the Word generator: sizes, geometry, section order and visibility, `MM.YYYY` dates, contact entries, level names, the emptiness test and the skill content.
+    - **Layout:**
+      - one column, a red strip at the left edge, and a header with the name, the CV title in red capitals, a labelled two-column contact grid, and the photo (110×140) top right;
+      - sections in this order: summary, experience, education, training (certifications), then skills and languages side by side;
+      - dates in a left column, which, like the contact label column, scales with fontScale.
+    - **Page breaks:** each heading is kept with its first entry (`break-inside-avoid`), and so is each dated row, the summary, and each of the skills and languages sections.
+    - **Alignment:** achievements, descriptions and skill content are left-aligned; the summary is justified, as in the mockup.
+    - **PDF text layer:** a no-break space inside the same string as each left-column text puts a word separator at every column boundary.
+  - **Word:** the new generator `docx-swiss-vocational.ts` reuses the photo helpers that `docx-modern.ts` now exports. Modern itself changes only by gaining the `export` keyword.
+  - **Wiring:** `resume-preview.tsx`, plus the Editor case in `resume-editor.tsx`.
+    - The Editor reuses the existing photo handler and storage key.
+    - Its section panels list fixed rows in the order the template draws them, through `listedEditorSections`.
+    - The five original templates' panels are unchanged (unit test).
+  - **Locales (fr, en, de, it):** the name, the description, and three photo strings (`uploadPhoto`, `changePhoto`, `photoTooLarge`).
+  - **Tests:**
+    - New: `docx-swiss-vocational.test.ts`, `docx-templates.test.ts`, `src/lib/swiss-vocational-template.test.ts`, `swiss-vocational-template.test.ts`, `e2e/swiss-vocational-template.spec.ts`, and the swissVocational cases in `e2e/visual/resume-templates.spec.ts` with their two baselines.
+    - Updated wherever a test lists the offered templates, including the three picker specs and `job-search-mobile.spec.ts`.
+    - The per-element DOCX suites and the parity suite are typed to the five original templates. swissVocational's per-element assertions live in `docx-swiss-vocational.test.ts`.
+- Not touched:
+  - the five existing templates' rendering, Word generators (apart from the export keyword), layout controls, visual baselines and parity;
+  - the cover letter;
+  - the PDF pipeline;
+  - resume fields;
+  - the photo storage.
+- No version change, push or merge.
+- A temporary capture spec (`e2e/zz-capture-swiss-vocational.spec.ts`) was used for the evidence and deleted. It is not in the diff.
+
+Checks:
+- Final run on diff 06bfd5b50a5c22a5, alone, after the last change. The hash was the same before and after each run.
+  - pnpm typecheck: PASS — exit 0.
+  - pnpm test: PASS — 4170 passed, 6 skipped (134 files).
+  - pnpm test:integration: PASS — 80 passed.
+  - pnpm build: PASS — 105/105 static pages.
+  - pnpm lint: PASS — 285 problems (219 errors, 66 warnings), against the tracked ceiling of 286.
+  - pnpm test:e2e: PASS — 596 passed, 0 failed (19.8 min), on the rerun. The first run on the same hash had 595 passed and 1 failed: `font-scale-rendered.spec.ts` "modern: the drawn size follows the stored scale", which timed out waiting for the login page's `#email` (`fixtures/auth.ts:153`). That spec alone then passed 4/4, and the full rerun passed 596/0.
+  - pnpm test:visual: PASS — 12 passed, run alone. The ten existing baselines are unchanged.
+    - The two swissVocational baselines were created in this story and regenerated with `--grep swissVocational` only.
+    - After the last layout change they were re-rendered and are sha256-identical to the previous ones.
+  - pnpm test:parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+- Earlier runs, not evidence for this diff: rounds before the review fixes (hashes 6dcece0c9321c283, bc6da8fc42e0ad93, 0ac16f3fe61bfe67).
+  - **Flakes:** the e2e runs met the known login timeout on `#email` (`fixtures/auth.ts:153`) in cover-letter specs. Each time, the affected specs passed alone and the full rerun on the same hash passed.
+  - **Hard-coded count:** the first run found one real failure, a literal `toHaveCount(5)` in `job-search-mobile.spec.ts`, which is now a named count.
+
+Specialized validation:
+- Database: PASS.
+  - Migration 011 was applied to the local Supabase with `supabase migration up --local`. The constraint definition lists the fifteen values.
+  - A rolled-back transaction inserted all fifteen and rejected `bogus` and `SwissVocational`. No rows changed.
+  - No hosted database was touched.
+- Browser: PASS. Captures with a realistic fictional fixture (scratchpad `us1-shots/`):
+  - **Preview:** fr and de, with and without photo, the hidden variant, and font scales 0.7 and 1.3;
+  - **Editor:** with and without photo, at 768 and 375, plus both section panels and the upload button's focus;
+  - **Picker card:** at 375, 768 and 1440;
+  - **Keyboard trace:** the picker radio group (arrows, Home, End, with `aria-checked` following) and the upload button reached by Tab.
+- Export: PASS.
+  - **Variants:** PDF and DOCX for five variants: full, photo, hidden (one experience `visible:false`, training hidden through `hiddenSidebarSections`, no languages), scale 0.7 and scale 1.3.
+  - **Content:** checked by script against an independent expected list (48 strings, 29 for the hidden variant). In every variant:
+    - every string is in the DOCX and in the PDF text;
+    - the headings are in order;
+    - the hidden content is absent;
+    - the photo media is present only in the photo variant.
+  - **Word render:** each DOCX was rendered by Microsoft Word: one page, two at scale 1.3, the same as the PDF.
+  - **Page break:** at scale 1.3 the PDF and Word both start page 2 with the Compétences and Langues headings and their content.
+  - **PDF text layer:** separates every column. The e2e spec asserts it, for example "Location Lausanne, Switzerland Phone +41 21 555 0142".
+- Visual: PASS — see test:visual above.
+- Security: NOT_APPLICABLE.
+  - No new route, input or trust boundary; the existing template lists only grow, and the routes reject unbuilt ids with 400.
+  - The photo goes through the existing bounded `photoBase64` path. Rich text goes through `renderFormattedText` and the shared DOCX parsers.
+
+Agents:
+- senior-coder: implementation and five fix rounds:
+  - the compact-picker counts and descriptions;
+  - the hidden sidebar sections;
+  - the review fixes;
+  - the PDF text-layer separators;
+  - the page breaks and alignment;
+  - the regression test for the page breaks.
+- ui-expert:
+  - round 1 FAIL: the skills row broke after its label; fixed widths did not follow the font scale; panel order; `MM.YYYY` dates; upload contrast.
+  - round 2 FAIL: a heading was left alone at a PDF page break at scale 1.3; bullets were justified.
+  - round 3 PASS, 7/7 conditions.
+- code-reviewer:
+  - round 1 FAIL: no per-element DOCX coverage; the Word fallback for unbuilt ids was professional.
+  - round 2 PASS.
+  - round 3 PASS (re-review after the page-break change), with one Minor: the page-break fix had no automated test. That test was added in `swiss-vocational-template.test.ts`, which a deliberate mutation shows fails without the fix. All checks were re-run after it.
+
+Acceptance criteria:
+- AC-01 (migration, fifteen values, no row changes, types): PASS — the Database evidence above, and `supabase.ts`.
+- AC-02 (the nine other ids offered nowhere): PASS.
+  - Unit tests check the picker, both routes (400, no write) and `docxTemplateFor`.
+  - Each list is typed with `BuiltResumeTemplate`.
+- AC-03 (swissVocational in the picker after the five, with thumbnail, name and description in four locales; created from the new-CV page and from a job application): PASS.
+  - The e2e spec creates a CV from the picker; the route unit test covers creation from a job application.
+  - Picker specs: compact 20/20, picker, and job-cv-template-picker.
+- AC-04 (Editor, Preview, PDF and Word match `t1-cfc.png`): PASS — ui-expert round 3, comparing the captures and the Word renders with the mockup. The sanctioned differences:
+  - no CFC badge;
+  - the existing labels "Résumé", "Expérience", "Formation", "Formation / Cours" and "Localisation";
+  - no photo frame without a photo, outside the Editor;
+  - no footer.
+- AC-05 (FR-1 to FR-11): PASS.
+  - **FR-1:** only stored fields are drawn.
+  - **FR-2:** `visible`, `hiddenMainSections` and `hiddenSidebarSections` are honoured; empty rich text counts as empty; no heading appears without content.
+  - **FR-3:** the order is fixed; only the section visibility panel is offered, with fixed rows.
+  - **FR-4:** fontScale and the chosen font apply, and the column widths scale.
+  - **FR-5:** the photo top right; no frame without one; the Editor's upload button reuses the existing handler.
+  - **FR-6:** the existing labels.
+  - **FR-7:** the existing level names.
+  - **FR-8:** the four locales, covered by the locale tests.
+  - **FR-9:** `renderFormattedText`; the Preview returns 200.
+  - **FR-10:** its own generator; content checked; per-element tests.
+  - **FR-11:** all four lists.
+- Regression constraints: PASS.
+  - Visual: the ten existing baselines are unchanged.
+  - Parity: MATCH 211, KNOWN 3, NEW 0.
+  - Existing rows: the constraint only grows.
+  - Picker keyboard behaviour: trace and specs.
+  - Modern's photo code: unchanged.
+  - Cover letters: untouched.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **One migration for all fifteen ids.** The PRD asks for the set to be widened once, in US-001.
+  - Until each template's story lands, no surface offers its id.
+  - A row holding one through a direct write renders as modern in every output, Word included.
+- **Compact-picker ceilings counted per option.** The compact-template-picker PRD's 1100 px group ceiling at 375 px was set for five cards.
+  - Six cards measure 1198.3 px at 375 px (fr, en and it on the page; 1208.0 in the de modal), so a fixed 1100 cannot hold.
+  - The ceiling is now 220 px per option (1320 for six). The modal's 1440 px ceiling is per row (650/3, which is 650 for six options, unchanged).
+  - Every per-card assertion is unchanged: at most 200 px, at most 340 at 768, no split words.
+- **Shorter descriptions.** The fr and it descriptions are shortened so the card stays within the 200 px card ceiling: "Format suisse, idéal après un CFC" and "Formato svizzero, ideale dopo un AFC".
+- **The three new FR-6 labels are not added yet.** `projects`, `publications` and `distinctions` come in the stories that first use them (swissIt and swissAcademic).
+- **Dates follow the mockup:** `MM.YYYY` in every locale, read from the stored string, so no time zone can shift the month.
+
+Open owner decisions:
+- **Word font:** Word draws the document in a serif fallback when Inter is not installed. That comes from the shared `APP_BODY_FONT`, so it affects every template. A fontTable hint (`w:family="swiss"`) would fix it; that is a follow-up PRD.
+- **Word skill rows:** wrapped lines start under the label, because Word cannot measure the label width. Word's heading squares are taller than wide; this is documented in `resume-graphics.ts`.
+- **PDF page 2:** there is no top margin at the start of page 2, because `globals.css` sets `@page { margin: 0 }` for every template. The PDF pipeline is out of scope here.
+- **Glued text in the PDF:** the five existing templates very likely run adjacent columns together in their PDF text (for example language and level, or position and date). This was found by reading their markup and was not measured; it hurts copy-paste and ATS parsing. It is not fixed here and is a candidate for its own PRD.
+- **Untranslated panel text:** the section panel's "Edit Sidebar" title and its "drag and drop" text are not translated in any template.
+- **Shared photo helpers:** `docx-swiss-vocational.ts` imports them from `docx-modern.ts`. Moving them to `docx-helpers.ts` is advised before the other nine generators are written.
+
+Environment notes:
+- Docker Desktop was relaunched for local Supabase.
+- The checks ran alone.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+- **Word conversions:** done through COM, one file at a time, with a timeout. A Word process with no window, already running, was left untouched. One document of ours left open in it after a timed-out conversion was closed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 The "Formation professionnelle (CFC)" template is available and the template set is ready
+FINAL: PASS
+
+## US-011: Contact fields and photo can be hidden, and controls that do not belong to a template are gone (amendment 1, executed before US-002)
+Status: PASS
+Priority: 2
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: d89d482 (contract for amendment 1; origin/main f0a2e75 is an ancestor). PRD amendment 1 committed e7e30ff, approved by the owner on GitHub in b2d5295 ("APPROVED 2026-11-19").
+Scope:
+- Scope check: PASS
+- Changed paths (53):
+  - **New:** `src/lib/contact-visibility.ts` (+ test), `src/lib/photo-upload.ts` (+ test), `src/app/api/resumes/[id]/download-docx/docx-contact-visibility.test.ts`, `src/components/dashboard/resume-preview-readonly.test.ts`, `e2e/contact-visibility.spec.ts`.
+  - **Deleted:** `src/components/dashboard/controls-toggle.tsx`.
+  - **Model and wiring:** `src/lib/layout-settings.ts`, `src/lib/hooks/use-resume-layout.ts`, `src/components/dashboard/resume-sections/contact-section.tsx`, `resume-editor.tsx`, `resume-preview.tsx`, `resume-preview-wrapper.tsx`, `resume-preview-page-client.tsx`.
+  - **Templates:** all six in `src/components/dashboard/resume-templates/` (professional, modern, classic, minimal, creative, swiss-vocational); `src/lib/swiss-vocational-template.ts` (comments).
+  - **Word:** `docx-{professional,modern,classic,minimal,creative,swiss-vocational}.ts`, `docx-helpers.ts`, `route.ts`.
+  - **Locales:** `src/locales/{fr,en,de,it}/common.json` (new `resumes.editor.showOnCv.*`, `photoRow`; `showControls` removed).
+  - **Unit tests updated:** `layout-settings`, `resume-layout-ownership`, `resume-layout-store`, `swiss-vocational-template`, `docx-swiss-vocational`, `docx-modern-geometry`, `template-picker`.
+  - **e2e updated:** `swiss-vocational-template`, `layout-persistence`, `fixtures/resume-from-job.ts`, `visual/resume-templates.spec.ts`, and the seven specs that clicked the removed switch (`modern-long-sidebar-print`, `modern-print-sidebar-full-page`, `parity/surfaces.ts`, `resume-page-break-pdf-count`, `resume-pdf-route`, `resume-preview-page-breaks`, `resume-print-geometry`).
+  - **Docs:** `docs/engineering/visual-regression.md` (the `print:hidden` observation mechanism is retired: the Preview route renders no in-template control).
+- Not touched: no migration (`hiddenContactFields` lives in the existing `layout_settings`, worst case 1074 of 4096 bytes); no visual baseline PNG; no parity expectation; no version change; no push or merge of this commit.
+Checks (final diff hash 4c60b6b77468003a, sha256 of `git diff -- src e2e` plus untracked src/e2e files; logs in the session scratchpad `checks-us11-r4/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 4249 passed, 6 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 286 ceiling; 4 fewer than before (unused setter props removed).
+- e2e: PASS — 598 passed, 0 failed (third full run on the same hash). Earlier runs on this hash: 597/1 with the known login flake (`#email` timeout, fixtures/auth.ts:153; `resume-pdf-route.spec.ts` then 21/21 alone), and 597/1 with `net::ERR_NO_BUFFER_SPACE` (Windows socket exhaustion) in `auth.spec.ts` (then 22/22 alone).
+- visual (`pnpm test:visual`): PASS — 12/12, no baseline changed.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier rounds, invalidated by fixes: r1 (e2e 594/4: `layout-persistence` drove a Preview slider FR-13 removed; `cv-from-job-application` fixture waited on the photo row's hidden file input; one login flake), r2 green (2132aa73adf0668c) before the review FAILs, r3 green (a1d8ca46b515c4b3) before the classic/minimal heading fix.
+Specialized validation:
+- Browser: PASS — fr, 1440x1000, 6 templates x (no tick off / all 8 ticks off), Editor live preview + Preview page screenshots (24); 768x1024 and 375x812 Editor Contact tab for modern and swissVocational, Preview at 375: horizontal overflow 0 px on all six; tick rows 44 px tall at 375, 20 px at 768. Keyboard trace at 1440: "Changer la photo" -> Tab -> photo tick -> Space unticks it and the live photo goes 1 -> 0 -> Tab -> `#cvName` (hidden file input skipped) -> Tab -> title tick; Enter on "Changer la photo" fires the file chooser; focus ring visible (`k-focus-photo-tick.png`).
+- Visual: PASS — 12/12 unchanged; the screen and print captures both unchanged now that the Preview draws no in-template control.
+- Export: PASS — per template and state, a PDF and a .docx from the product routes, 24 artifacts (sha256 prefixes PDF/Word): professional shown 7ec247dca3f96c33/d169505fe07c8389, hidden bf47296d4ca7c999/84aa9ce242917563; modern shown bae6be7204d70360/e13ca4482b9e49c5, hidden 5d7c7ff4dfa781ea/13456898b5727185; classic shown 4784eb32f181b92b/f8a2c664c4ccd5db, hidden bc54d46ec0e4c561/ab700222cc6f4e34; minimal shown 4decef184cb31014/afa7c785eac4dc7d, hidden 5b07e5ddbb10a97f/c4642df6ac0b6f82; creative shown f81977b39363f872/6d2aaa46acc69aa9, hidden f1016bc2264b1bb4/cb1138913c8db286; swissVocational shown 620c7f10ce60e0b2/62609856d42a1fe6, hidden ac8642d849751880/ede46fb633ef9463. Presence matrix (live, Preview, PDF, Word; compared on lower-case letters and digits so wraps, NBSP and non-breaking hyphens cannot hide a value): every one of title, e-mail, phone, location, LinkedIn, GitHub, website is 1111 shown and 0000 hidden on all six templates; the full name 1111 in both states. Photo: modern live/Preview 1 -> 0, Word drawings 2 -> 1; swissVocational 1 -> 0, Word 1 -> 0; no "Upload photo" text in any CV.
+- Database: NOT_APPLICABLE — no schema change; the new property is validated in `src/lib/layout-settings.ts` (unknown ids, non-strings and repeats dropped) inside the existing 4096-byte bound.
+- Security: NOT_APPLICABLE — no new route or trust boundary. The Word route reads the hidden list from the stored row, not the request; the request photo stays bounded as before.
+Agents:
+- ui-expert: PASS (round 3).
+  - Round 1 FAIL: modern drew its grey silhouette zone when the photo was unticked (MAJOR); empty 15 px controls bar on Swiss; unclear "nom du CV" title-tick wording; 20 px tap targets.
+  - Round 2 BLOCKED: no tablet/mobile or keyboard evidence. Round 3 PASS on that evidence.
+- code-reviewer: PASS (round 3).
+  - Round 1 FAIL: the same modern MAJOR; dead setter props on `ResumePreview`; duplicated photo reading with an English-only size message; creative hidden-title fallback untested; evidence matrix misread Word values; `[role="button"]` missing from the no-controls check.
+  - Round 2: code PASS, conditional on a 0-failure e2e on the final hash. Round 3 PASS after 598/0.
+- senior-coder: implementation and every fix. Also found by the evidence run: classic and minimal never draw the full name, so an unticked title left their header empty; fixed (see Decision).
+Acceptance criteria:
+- AC-01 Contact ticks: PASS — 7 ticks (CV name, e-mail, phone, location, LinkedIn, GitHub, website), none for Full Name; all ticked by default (e2e `contact-visibility` asserts every box checked on a fresh CV; missing list = []).
+- AC-02 Unticked field leaves all four outputs, value kept, survives save/reopen, re-tick restores: PASS — presence matrix above; e2e unticks, polls the stored `['email','photo']`, reloads, checks the form value, the Preview and Word, re-ticks; unit tests compare hidden output with empty-field output on 6 templates x Preview/Word.
+- AC-03 Photo row with upload/change and "show photo on CV" tick for modern and Swiss: PASS — `contact-photo-row` in the Contact tab, reusing `handleNewPhotoUpload` and `resume_photo_${id}`; unticked photo absent in four outputs (matrix); stored photo kept.
+- AC-04 Swiss photo slot: PASS — no in-CV upload box; frame only with a photo and the tick on (screenshots, `liveUpload` 0, unit tests).
+- AC-05 Swiss font controls hidden, existing templates keep them: PASS — gated on the `font` layout control, offered by the five existing templates only (screenshots, registry test).
+- AC-06 Preview page without "Show Controls" or handles, stored layout still applied: PASS — switch absent on all templates (`showControlsToggle` 0), `expectNoEditingControls` in the visual suite, SSR test, `layout-persistence` reads the stored 42 px on the read-only Preview.
+- AC-07 US-001 evidence re-run for photo, font and contact: PASS — swissVocational rows of the matrix and screenshots above; Swiss template and Word ignore the stored font and scale (unit tests); Swiss baselines unchanged.
+- AC-08 FR-12 to FR-14 and FR-1 to FR-11: PASS — the checks and evidence above; FR-13 `showControls` removed from all four locales (test).
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Hidden is drawn as empty.** One pure helper, `visibleContactDetails`, is called by every template and every Word generator. Each output's own "draw only when it has a value" test then drops the label, icon and separator too. There is no second copy of the choice.
+- **The photo is still sent by the Download buttons.** The server decides from the stored list, as the Preview does, so the stored list stays the only source of truth.
+- **Swiss templates ignore the stored font family and scale** (Inter at scale 1) and leave them stored, so switching back to an existing template restores them.
+- **Upload code shared:** `readPhotoFile` (2 MB limit, localized `photoTooLarge`) replaces modern's English-only alert.
+
+Open owner decisions:
+- **Modern, no photo, tick on:** unchanged, with its silhouette zone and upload overlay. The regression constraint and "modern keeps its existing upload zone" were read as overriding FR-5's "no photo frame" for that one case; the baselines stay. With the photo unticked there is no zone in any output.
+- **Classic and minimal, title unticked:** the full name becomes the heading. These two templates have never drawn the name (their heading is the title, or "CV TITLE" when empty), so without this the header would be empty. With the title ticked nothing changes. Creative already falls back the same way.
+- **Uploading a photo ticks "show photo on CV" again.** Someone replacing a photo while it is hidden will see it shown.
+- **Preview page at 375 px (predates this story):** the header does not fit. The title wraps word by word, "Télécharger Word" is cut off at the right edge, and the CV page is clipped rather than scaled. Candidate for its own PRD.
+- **Pre-existing, untouched:** the "CV Name" label and its hint are English in every locale (no locale key exists); classic ends its first contact line with a stray "•".
+- **Tick rows at 768 px are 20 px tall** (44 px only below 640 px). This meets WCAG 2.2 2.5.8; applying 44 px up to `lg` is optional.
+
+Environment notes:
+- The checks ran alone. The local dev server on port 3000 (an orphan of the dev-local launcher) was stopped before them.
+- The evidence specs (`zz-us11-evidence`, `zz-us11-a11y`) were copied into `e2e/` only for their run and deleted. The diff hash was the same before and after each (4c60b6b77468003a).
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-011 Contact fields and photo can be hidden, and controls that do not belong to a template are gone
+FINAL: PASS
+
+## US-012: The "Formation professionnelle (CFC)" skills section shows each category label above its skills (amendment 2, executed before US-002)
+Status: PASS
+Priority: 3
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 941c95f (contract for amendment 2). PRD amendment 2 committed e79e3bd, approved by the owner on GitHub in c92a7af ("APPROVED 2026-11-19").
+Scope:
+- Scope check: PASS
+- Changed paths (8):
+  - **Template:** `src/components/dashboard/resume-templates/swiss-vocational-template.tsx` (skills block), `src/lib/swiss-vocational-template.ts` (`skillGap` 10, `skillLabelGap` 2 in `SWISS_VOCATIONAL_GEOMETRY`; doc comment).
+  - **Word:** `src/app/api/resumes/[id]/download-docx/docx-swiss-vocational.ts` (skills block).
+  - **Unit tests:** `docx-swiss-vocational.test.ts` (stacked structure in both outputs, gap ordering), `src/lib/resume-palette.test.ts` (class counts: `text-red-700` 1 -> 2, `text-slate-900` 8 -> 7).
+  - **e2e:** `e2e/swiss-vocational-template.spec.ts` (expected PDF words "Engineering TypeScript", no colon).
+  - **Visual baselines:** `e2e/visual/__screenshots__/win32/swissVocational.png` and `swissVocational-print.png`, regenerated for the skills block only.
+- Not touched: the other 5 templates and their Word generators, the languages column, shared helpers, stored skill data, parity expectations; no migration; no version change; no push or merge of this commit.
+Checks (final diff hash b06566f3c11e2d1c, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run; logs in the session scratchpad `checks-us12-r3/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 4253 passed, 6 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 286 ceiling; unchanged.
+- e2e: PASS — 598 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 12/12 on the new baselines; only the two swissVocational PNGs differ from HEAD.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged). The first run on this hash had 250/33: one `TimeoutError` (15 s) on the cold-start professional DOCX collect, and 32 rows failing with "No observation" because of it. Re-run alone on the same hash: green (`parity-rerun.log`).
+- Earlier rounds, invalidated by fixes: r1 (hash 87f6dd6f2cad5606, 6 px gap): e2e 597/1, `swiss-vocational-template.spec.ts:286` still expected "Engineering: TypeScript"; r2 stopped when the gap was raised to 10 px.
+Specialized validation:
+- Browser: PASS — owner's sample (6 categories, 1 hidden, 1 legacy-items row, labels up to "Droit du travail et sécurité sociale"), 1440x1000 at 3x, fr and de, Editor live preview and Preview page. Before (pre-US-012 template files temporarily restored from HEAD, then the story files put back; diff hash 7e642b242b1ef737 identical before and after): before-editor-skills-fr aae80a4c4ec7f12d, -de 90cf96f7a74ee90a; before-preview-skills-fr 90af85cfdf2b8295, -de 7043ea6b282a70f3. "Droit du travail et sécurité sociale:" leaves its skills a 5-line column of 1 to 3 words. After: after-editor-skills-fr c30505a4a22efb6e, -de 632f42aaa1aa041e; after-preview-skills-fr 2bd1dc68327f5600, -de 5a66a2f07210a72c. Measured on the Preview page, all 5 visible rows, fr and de: label on 1 line, weight 700, colour red-700; skills start 2 px below the label at offset 0, width 321 = section width; 10 px between categories; hidden row drawn 0; labels with a colon 0.
+- Visual: PASS — before baseline c28a3fe28d8178db, after 388204e2f2c8016b (screen and print). Only the skills block differs; the header, the other sections and the languages column are unchanged.
+- Export: PASS — product routes, fr and de: PDF fr e64aaa413f703f95, de f639112496eaa30f; Word fr 124839bb9fd956bc, de d538eef900e42389; the .docx rendered by Microsoft Word to PDF: fr 6b87629ab360e008, de ee73cf249d8bf8cb (2 pages each). PDF text (pdftotext, saved next to each PDF): each label on its own line with no colon, its skills on the following lines; the hidden row absent. Word XML: each label its own paragraph, one bold run, colour C10007 (red-700), spacing before 150 twips (0 for the first) and after 30; the next paragraph holds the skills; hidden row absent. The trace's `pdf: present=false` lines come from a broken probe in the evidence script and are not evidence.
+- Database: NOT_APPLICABLE — no schema or stored-data change.
+- Security: NOT_APPLICABLE — no new route or trust boundary. The category is rendered as escaped text; rich text still goes through `renderFormattedText` / `parseHtmlToDocxRuns` / `richParagraphs`.
+Agents:
+- ui-expert: PASS (round 3).
+  - Round 1 FAIL: no "before" captures with the owner's sample (MAJOR); the 6 px gap between categories was not visibly larger than the label gap once line height applied (MINOR); a 1x de capture was unreadable.
+  - Round 2 BLOCKED: waiting for the final `pnpm test:visual` output. Round 3 PASS on it.
+- code-reviewer: PASS. Required change: do not cite the trace's PDF probe as evidence (done: pdftotext and the e2e assertion are cited instead).
+- senior-coder: implementation, the e2e expectation fix and the 6 -> 10 px gap change.
+Acceptance criteria:
+- AC-01 Label on its own line, skills below at full column width, in all four outputs: PASS — Preview geometry above; PDF text; Word paragraph structure; Word-rendered PDF.
+- AC-02 Bold red label without colon; skills unchanged: PASS — red-700 / C10007 bold, no colon; rich text as stored and legacy items joined with ", " (unit tests, captures, PDF text).
+- AC-03 Stored order, larger gap between categories than label -> skills, hidden and empty categories left out: PASS — 10 px vs 2 px (150 vs 30 twips); hidden row absent in all four outputs; unit tests for order and empty rows.
+- AC-04 Owner's sample, no word-by-word wrapping, before and after in fr and one other locale: PASS — the captures above; every label on 1 line; the fewest words on any skills line is 1 ("processus", the last word of a paragraph) and no line wraps word by word.
+- AC-05 Languages column unchanged: PASS — no diff in that branch; baseline identical outside the skills block.
+- AC-06 FR-15 and FR-1 to FR-14: PASS — the checks above.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **One geometry source.** `skillGap` and `skillLabelGap` live in `SWISS_VOCATIONAL_GEOMETRY` and are read by both the Preview and the Word generator, so the four outputs space the section the same way.
+- **10 px between categories, not 6.** At 6 px the line height hid the difference (about 13 px between categories against 12 px under a label on the 3x capture); ui-expert asked for a visible grouping.
+- **The label keeps a trailing no-break space** so the PDF text layer reads "Label skills" as separate words.
+
+Open owner decisions:
+- **A category with an empty label** now draws a blank line (Preview) and an empty paragraph (Word), where it drew ": ..." before. Both outputs agree; no requirement covers it. Skipping the label when it is blank is a small follow-up.
+- **A label can be left alone at the bottom of a page** if a page break falls between it and its skills. The owner's sample does not hit this (the whole skills block prints on one page). A follow-up could keep each label with its skills (CSS break-inside on each category, `keepNext` in Word).
+- **The owner's sample has a "Langues" skill category** next to the template's own Languages column, so languages appear twice. This comes from the data, not the template.
+- **Pre-existing, untouched:** the Editor's dashed page-break marker can cross a skills line; list skills are 4 px apart in the Preview and 0 in Word.
+
+Environment notes:
+- The checks ran alone. The local dev server on port 3000 was stopped before them; the stopped r2 run left no process behind.
+- The evidence specs (`zz-us12-evidence`, `zz-us12-shots`, and the temporary `-hi`/`-before` variants) were copied into `e2e/` only for their run and deleted. For the "before" capture the three pre-US-012 template files were written from HEAD and the saved story versions copied back; the diff hash was identical before and after.
+- The swissVocational baselines were regenerated with `playwright test --config playwright.visual.config.ts -g swissVocational --update-snapshots` (`pnpm test:visual:update -- -g` does not forward the filter); the other 10 baselines were not rewritten.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-012 The CFC skills section shows each category label above its skills
+FINAL: PASS
+
+## US-002: The "Commerce & administration" template is available
+Status: PASS
+Priority: 4
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 6430a5f (US-012 story commit).
+Scope:
+- Scope check: PASS
+- Changed paths (52 under src/ and e2e/, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-commerce-template.ts` (geometry, colours, section order), `src/components/dashboard/resume-templates/swiss-commerce-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-commerce.ts`, each with its unit test.
+  - **Wiring:** `src/types/database.ts` (swissCommerce no longer unbuilt), `resume-editor.tsx`, `resume-preview.tsx`, `template-picker.tsx` (Building2 icon), `layout-settings.ts`, `resume-palette.ts`, `resume-graphics.ts`, `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route, the four `common.json` locale files.
+  - **Print CSS:** `src/app/globals.css`, two print-only rules scoped to `.swiss-commerce-template .swiss-commerce-photo` (50%) and `.swiss-commerce-template .swiss-commerce-pill` (4px), after the untouched global `* { border-radius: 0 !important }` reset.
+  - **Test lists:** unit tests for layout-settings, palette, graphics, line-height, letter-spacing, page-size, text-opacity, swiss-vocational-template, build-resume-from-job.render, template-picker, rich-text, per-property-font-size, docx-graphics, docx-templates, docx-contact-visibility, both route tests, template-names; e2e template-picker, template-picker-compact (7 options), job-cv-template-picker, job-search-mobile (7 options), visual/resume-templates.
+  - **e2e:** new `e2e/swiss-commerce-template.spec.ts` (7 tests, including creation from the picker and the print-media radius assertion).
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissCommerce.png` (sha256 1686a86a9c0ebd38), `swissCommerce-print.png` (1eaa7c16e86fa888).
+- Not touched: the five original templates and swissVocational (renderers, Word generators, baselines, parity verdicts), the shared docx and format helpers, stored data; no migration; no version change; no push or merge of this commit.
+Checks (final diff hash 34d82b45531f646d, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run; logs in the session scratchpad `checks-us02-r5/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 4412 passed, 7 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 286 ceiling; unchanged.
+- e2e: PASS — 605 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 14/14; only the two new swissCommerce PNGs were added, the other 12 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged; parity covers the five original templates only).
+- Earlier rounds, invalidated by fixes: r1 (a406bf16543c13f9) e2e 602/2 (the PDF text layer read "Engineering:TypeScript" and the pills ran together; the de picker card was 350.39 px against the 340 px ceiling). r2 (ec76788a4b3a9561) and r3 (a82f8f6e8d3cf53e) green, then the Word photo and pill fix and the print-radius fix. r4 (1547938c6e7246e8) green, then the print baseline re-capture (ffabc85c406b4d79, visual 14/14) and the code-review fix.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample "Marc Dubois", close to t2-commerce.png, with one hidden experience, one hidden skill category, one hidden language, plain-text skills ("Abacus, Bexio"; "Rédaction" + line break + "Traduction") and an education entry with no degree. Cases full-photo-fr, full-photo-de, full-nophoto-en, empty-nophoto-fr (no certifications, every language hidden). Preview HTTP 200 in all four; the photo cases draw 1 img in the Editor and Preview, the no-photo cases 0; hidden text absent. Preview captures: full-photo-fr b2fdada68cf2a878, full-photo-de 31fc6f0f80d61c23, full-nophoto-en fde94a35df1717a3, empty-nophoto-fr 93e091059af22d2b. Picker (fr, de): order modern, classic, minimal, creative, professional, swissVocational, swissCommerce; fr "Commerce & administration / Format suisse pour le bureau", de "Kaufmännisch & Verwaltung / Schweizer Format für Büro und Verwaltung"; picker-card-fr 74c7e3e81ad1a5a3, picker-card-de 4b815eec8b7086f0. Creation from the picker: `e2e/swiss-commerce-template.spec.ts:115`.
+- Visual: PASS — the new baselines were captured on the final template code. The print baseline's pill corner at (52,852) is anti-aliased (255,255,255,251,236,224,219,219), identical to the screen baseline. The first print capture (d70265cd…, taken before the print fix) had hard square corners and was replaced with `--update-snapshots=all`.
+- Export: PASS.
+  - PDF: full-photo-fr 78be44e668f067fb, full-photo-de 588e5457fb05a1e6, full-nophoto-en ba9e5af149e0e97b, empty-nophoto-fr 78b6ff3b36616b48; 1 page each; round photo with its blue ring, rounded pills; the PDF text reads "Logiciels: Abacus, Bexio" and "Langages: Rédaction" then "Traduction".
+  - Word: full-photo-fr 46e4860a38b430d4, full-photo-de 99f1391e3e57165d, full-nophoto-en 158aaac7eb7a2a16, empty-nophoto-fr 831626f1828a2ba4. The photo is one PNG under word/media (the second zip entry is the folder itself), drawn as an ellipse; no media without a photo.
+  - Rendered by Microsoft Word to PDF: full-photo-fr d990f776f66b94a8, full-photo-de b609c90166406e70, empty-nophoto-fr af7057848725842d; 1 page each. The full circle sits inside the navy band; the skills are in two columns with the same line placement as the PDF; the pills are shaded and bordered.
+- Database: NOT_APPLICABLE — no schema or stored-data change; only existing fields are read.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text goes through `renderFormattedText` (client-only sanitizer; the e2e asserts the Preview returns 200) and `parseHtmlToDocxRuns` / `richParagraphs`; the photo goes through the Word route's existing `boundedPhoto`, and non-image data draws no frame.
+Agents:
+- ui-expert: PASS (round 4).
+  - Round 1 FAIL: the product PDF printed the photo and pills square because of the global print radius reset (MAJOR).
+  - Round 2 FAIL: the print baseline had been captured before that fix (MAJOR).
+  - Round 3 PASS, with WCAG contrast computed for every text colour (lowest 4.76, slate-500 on white).
+  - Round 4 PASS after the code-review fix.
+- code-reviewer: PASS (round 2). Round 1 FAIL: plain-text `skillsHtml` dropped below its label in the Preview and PDF while Word kept it inline (critical); an empty degree drew an empty line in the Preview only; Word joined plain-text lines. All three fixed, with tests on both outputs that fail on the old code.
+- senior-coder: implementation; the Word photo clipping (exact line height) and pill shading fix; the scoped print-radius rules and their e2e assertion; the plain-text skills and empty-degree fix.
+Acceptance criteria:
+- AC-01 The picker shows swissCommerce after swissVocational with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-commerce-template.spec.ts:115`.
+- AC-02 Editor, Preview, PDF and Word match t2-commerce.png (navy band with round photo, name, title and contact; one column with a date column; skills in two columns; languages as labelled pills): PASS — the captures, PDFs and Word renders above; ui-expert side-by-side comparison.
+- AC-03 FR-1 to FR-11: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing headings reused (FR-6: "Résumé", "Formation / Cours").
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **One geometry and colour source.** `SWISS_COMMERCE_GEOMETRY` and the template colours live in `src/lib/swiss-commerce-template.ts`; the Preview and the Word generator both read them.
+- **The print radius exception is scoped to this template.** The global print reset stays, so the five original templates and swissVocational print exactly as before; the e2e asserts the photo (50%) and pill (4px) radius under print media.
+- **Dates are MM.YYYY in every section,** from the stored data. The mockup shows years only for education; no per-section format was invented.
+- **A skill label and its skills share one line** in all four outputs, for `items`, HTML and plain text. A list starts below its label in both outputs.
+
+Open owner decisions:
+- **Word drops text outside the list items in rich text that mixes paragraphs and a list** (`<p>Intro</p><ul>…</ul>` loses "Intro"). The cause is the shared `parseHtmlListToParagraphs` in `docx-helpers.ts`, which the classic, minimal, creative and swissVocational generators also use. Fixing it changes the existing templates' Word output, which is out of scope here; it needs its own story.
+- **A job location without a company** is drawn in neither the Preview nor Word.
+- **Word limits:** the pills have square corners and Word's own line height; Word substitutes a serif font where Inter is not installed (as for US-001).
+- **Small differences from the mockup:** the title blue is brighter than the mockup's; skill labels read "Bureautique:" where the French mockup has "Bureautique :".
+- **swissVocational under the print reset:** the same global rule applies to US-001's template; its evidence should be checked for any shape that is meant to be round.
+
+Environment notes:
+- The checks ran alone; the local dev server was stopped before them.
+- The evidence spec (`zz-us02-evidence.spec.ts`) was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- `--update-snapshots` without a value rewrites only failing snapshots, so a change under `maxDiffPixels` (120) keeps the old picture. New baselines are captured with `--update-snapshots=all`.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 The "Commerce & administration" template is available
+FINAL: PASS
+
+## US-003: The "Métiers techniques & manuels" template is available
+Status: PASS
+Priority: 5
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 1a292aa (US-002 story commit).
+Scope:
+- Scope check: PASS
+- Changed paths (52 under src/ and e2e/, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-trades-template.ts` (geometry, section order, skill-tag parsing), `src/components/dashboard/resume-templates/swiss-trades-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-trades.ts`, each with its unit test.
+  - **Wiring:** `src/types/database.ts` (swissTrades no longer unbuilt), `resume-editor.tsx`, `resume-preview.tsx`, `template-picker.tsx` (Wrench icon), `layout-settings.ts`, `resume-palette.ts`, `resume-graphics.ts`, `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route, the four `common.json` locale files.
+  - **Shared picker:** `template-picker.tsx` adds `scroll-my-px` (1px scroll margin, draws nothing) to every card. With 8 options the 8th card (186.4px tall, a fractional height) stopped 0.125px short of the viewport at 375px because the dashboard `<main>` scrolls in whole pixels.
+  - **Print CSS:** `src/app/globals.css`, print-only rules scoped to `.swiss-trades-template`: the tag radius exception after the untouched global `* { border-radius: 0 !important }` reset, and a page-height band in the dark column colour (as modern does).
+  - **Test lists:** unit tests for layout-settings, palette, graphics, line-height, letter-spacing, page-size, text-opacity, swiss-vocational-template, build-resume-from-job.render, template-picker, rich-text, per-property-font-size, docx-graphics, docx-templates, docx-contact-visibility, both route tests, template-names; e2e template-picker, template-picker-compact (8 options), job-cv-template-picker, job-search-mobile, visual/resume-templates.
+  - **e2e:** new `e2e/swiss-trades-template.spec.ts`.
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissTrades.png` (sha256 0f5aeffc20ea4261), `swissTrades-print.png` (3ea65bd58e58b640).
+- Not touched: the five original templates, swissVocational and swissCommerce (renderers, Word generators, baselines, parity verdicts), the shared docx and format helpers, stored data; no migration; no version change; no push or merge of this commit.
+Checks (final diff hash 014e93d05621d900, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run; logs in the session scratchpad `checks-us03-r4/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 4580 passed, 8 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 281 baseline; unchanged.
+- e2e: PASS — 613 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 16/16; only the two new swissTrades PNGs were added, the other 14 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier rounds, invalidated by fixes: r1 (14d0d74a2cbe97dc) e2e 611/2: the de swissTrades card was 204px against the 200px ceiling in the 375px "Create CV from Job" modal, and the 8th picker card scrolled to a 0.99933 viewport ratio at 375px. r2 (4f934686287eb093) green, then the Word fixes below. r3 (e04170997b81a10b) green, then the ui-expert fixes.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample "Nicolas Rey", close to t3-technique-manuel.png, with one hidden experience, one hidden skill category, one hidden certificate, one hidden language, a comma-separated plain skillsHtml ("Fraisage, Maintenance, Contrôle qualité"), a rich skillsHtml (paragraph with bold plus a list) and an education entry with no degree. Cases full-photo-fr, full-photo-de, full-nophoto-en, empty-nophoto-fr (no certifications, every language hidden). Preview HTTP 200 in all four; the photo cases draw 1 img in the Editor and Preview, the no-photo cases 0; hidden text absent. Preview captures: full-photo-fr e8c533ecf3ebd65e, full-photo-de c4e1f71fa7cf3274, full-nophoto-en 48eeaa8ceea92002, empty-nophoto-fr 57823fb6f586476b. Picker (fr, de): order modern, classic, minimal, creative, professional, swissVocational, swissCommerce, swissTrades; fr "Métiers techniques & manuels / Compétences et certificats en avant", de "Technische & handwerkliche Berufe / Fähigkeiten und Zertifikate zuerst"; picker-card-fr 195093160047ec12, picker-card-de f7de432813747db9. At 375px: covered by the e2e picker specs (every card 186.4px, all 8 options scroll fully into view). Creation from the picker: `e2e/swiss-trades-template.spec.ts`.
+- Visual: PASS — the new baselines were captured with `--update-snapshots=all` on the final template code (after the accent colour change); the r1 baselines (9eb4944e…, bc35a296…) were replaced.
+- Export: PASS.
+  - PDF: full-photo-fr 3f761bb46ff89aec, full-photo-de 543b25e452dd3341, full-nophoto-en 919f69e08a24968b, empty-nophoto-fr c416649c6966e8a1; 1 page each; dark column to the foot of the page, rectangular photo, rounded tags.
+  - Word: full-photo-fr 14742178804c2f37, full-photo-de 93cd5dc27281c896, full-nophoto-en 60d82f23bf4a206f, empty-nophoto-fr 8a150895c1dedd74. Media: the dark-column fill image always, plus one photo PNG only in the photo cases.
+  - Rendered by Microsoft Word to PDF: full-photo-fr c841e2bca8dd8416, full-photo-de c19649a8a68dca19, empty-nophoto-fr 5759cb171edf9734; 1 page each. Two columns with the dark fill, photo in the column, tags shaded with a gap between rows, "Consignation **électrique**" kept above "• Travail en hauteur".
+  - Word defects found in the r2 render and fixed: the paragraph beside a list in rich text was dropped (the generator now uses the existing `formattedBlocks` splitter instead of the shared `parseHtmlListToParagraphs`); "Contrôle qualité" broke inside the tag (no-break spaces inside a tag, a zero-width space between tags); wrapped tag rows touched (auto line spacing 323/240).
+- Database: NOT_APPLICABLE — no schema or stored-data change; `swissTrades` was already accepted by the US-001 constraint.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text goes through `renderFormattedText` (Preview stays server-renderable; e2e asserts 200) and `formattedBlocks` / `parseHtmlToDocxRuns` in Word; tags are React text nodes; the photo goes through the Word route's existing `boundedPhoto`.
+Agents:
+- ui-expert: PASS (round 2).
+  - Round 1 FAIL: accent text #ea580c on white is 3.56:1 for the 14px title and 12px dates (MAJOR, WCAG AA); minors: a degree-less education entry read as a continuation; Word tag rows touched.
+  - Round 2 PASS: accent #c2410c, 5.18:1; all four outputs consistent; 7/7 conditions evaluated.
+- code-reviewer: PASS (round 1), no critical or major finding; minors recorded below.
+- senior-coder: implementation; the picker scroll margin and the de description; the three Word fixes; the accent colour, title-less entries and tag line spacing.
+Acceptance criteria:
+- AC-01 The picker shows swissTrades after swissCommerce with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-trades-template.spec.ts`.
+- AC-02 Editor, Preview, PDF and Word match t3-technique-manuel.png (dark left column: photo, contact, skills as tags, certificates, languages; main column: name, orange CV title, summary, experience, education): PASS — the captures, PDFs and Word renders above; ui-expert side-by-side comparison; accent darkened for contrast (Decision).
+- AC-03 FR-1 to FR-11: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing headings reused (FR-6: "Résumé", "Formation / Cours" for certificates, the editor's "Contact").
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Accent text #c2410c instead of the mockup's #ea580c.** The mockup's orange is 3.56:1 on white and fails WCAG AA at the title and date sizes; orange-700 is 5.18:1. The light heading rules (#fed7aa) and the dark-column headings (#fdba74) keep the mockup's colours.
+- **One colour source.** `PREVIEW_PALETTE.swissTrades` holds the colours; the Word palette derives from it, and `resume-palette.test.ts` counts every inline hex in the template against it, as for swissCommerce.
+- **Skills:** rich `skillsHtml` wins over `items`, as in every template. A single plain comma-separated line is drawn as tags; any other rich text is drawn as sanitized prose; `items` without `skillsHtml` become tags. Each visible category's label is a small caption above its tags in all four outputs, since the category name is stored content.
+- **An entry without a position or degree** shows the company or school as its bold first line beside the dates.
+
+Open owner decisions:
+- **The certificates heading reads "Formation / Cours"** (FR-6: `training` is the only existing label, as in swissVocational and swissCommerce). The French page shows it beside the main column's "FORMATION". A dedicated `certifications` label would need a PRD change.
+- **Word text differs invisibly from the Preview:** tags contain no-break spaces and a zero-width space separates them, so text copied from Word or parsed by an applicant-tracking system can carry U+00A0 / U+200B. The description of the Word tag in `PREVIEW_GRAPHICS.swissTrades.skillTag` (`resume-graphics.ts`) still describes the earlier spacing; to be corrected in a later change.
+- **A blank visible entry shows a lone "Présent"** through the shared `formatSwissDateRange` (empty end date read as current). Same in swissVocational and swissCommerce; fixing it changes all three.
+- **Rich-text skill categories are prose, not tags** (consistent in all four outputs).
+- **Word limits:** square tag corners and different tag wrapping from the Preview; Word substitutes a serif font where Inter is not installed (as for US-001 and US-002); at 96 dpi the thick-underline rule under one heading rasterises 1px tall and looks grey (a 4x render shows the same #fed7aa).
+- **Invisible characters written literally** in `docx-swiss-trades.ts` (U+200B, U+00A0) rather than as `\u` escapes (code-review minor).
+
+Environment notes:
+- The checks ran alone; the local dev server was stopped before them.
+- The evidence spec was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- senior-coder ran `git stash push` on an untracked file (no stash created) and then `git stash pop`, which tried the pre-existing `stash@{0}` (WIP on ralph/tools-page) and aborted; that stash is unchanged and nothing was applied.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 The "Métiers techniques & manuels" template is available
+FINAL: PASS
+
+## US-004: The "Santé & social" template is available
+Status: PASS
+Priority: 6
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 35304be (US-003 story commit).
+Scope:
+- Scope check: PASS
+- Changed paths (52 under src/ and e2e/, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-health-template.ts` (geometry, section order, contrast table), `src/components/dashboard/resume-templates/swiss-health-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-health.ts`, each with its unit test.
+  - **Wiring:** `src/types/database.ts` (swissHealth no longer unbuilt), `resume-editor.tsx`, `resume-preview.tsx`, `template-picker.tsx` (HeartPulse icon), `layout-settings.ts`, `resume-palette.ts`, `resume-graphics.ts` (new additive `cell-border` graphic kind for the entry bar), `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route, the four `common.json` locale files.
+  - **Print CSS:** `src/app/globals.css`, print-only radius rules scoped to `.swiss-health-template .swiss-health-photo` (50%) and `.swiss-health-template .swiss-health-pill` (9999px), after the untouched global `* { border-radius: 0 !important }` reset.
+  - **Test lists:** the unit tests that enumerate templates (layout-settings, palette, graphics, line-height, letter-spacing, page-size, text-opacity, swiss-vocational-template, build-resume-from-job.render, template-picker, rich-text, per-property-font-size, docx-graphics, docx-templates, docx-contact-visibility, both route tests, template-names); e2e template-picker, template-picker-compact (9 options), job-cv-template-picker, job-search-mobile, visual/resume-templates.
+  - **e2e:** new `e2e/swiss-health-template.spec.ts` (8 tests).
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissHealth.png` (sha256 125f37eb80d35581), `swissHealth-print.png` (c89ab4ba5b23ed3e).
+- Not touched: the five original templates, swissVocational, swissCommerce and swissTrades (renderers, Word generators, baselines, parity verdicts), the shared docx and format helpers, stored data; no migration; no version change; no push or merge of this commit.
+Checks (final diff hash 3fa2db020f6c3ccc, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run; logs in the session scratchpad `checks-us04-r2/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 4756 passed, 9 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 281 baseline; unchanged.
+- e2e: PASS — 621 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 18/18; only the two new swissHealth PNGs were added, the other 16 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier round, invalidated by a fix: r1 (0f8c9d8a0c533646) e2e 619 passed, 2 failed, both timing out in the shared login fixture (`e2e/fixtures/auth.ts:160`, waitForURL dashboard): `cover-letter-preview-zoom.spec.ts:369` (unrelated) and `swiss-health-template.spec.ts:255`; neither failed in r2. The r1 evidence showed the skills and languages text at the browser's 16px instead of the 13px body size; fixed, with a test that every text block carries a size.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample "Sofia Marchetti", close to t4-sante-social.png, with one hidden experience, one hidden skill category, one hidden certificate, one hidden language, an experience description mixing a paragraph and a list, a comma-separated plain skillsHtml and an education entry with no degree. Cases full-photo-fr, full-photo-de, full-nophoto-en, empty-nophoto-fr (no certifications, every language hidden). Preview HTTP 200 in all four; the photo cases draw 1 img in the Editor and Preview, the no-photo cases 0; hidden text absent. Preview captures: full-photo-fr 23e986d6a17c97f0, full-photo-de 49859c0a4ca84f15, full-nophoto-en 2e91f766e0afcfb3, empty-nophoto-fr 13af63c31fb7d428. Picker (fr, de): order modern, classic, minimal, creative, professional, swissVocational, swissCommerce, swissTrades, swissHealth; fr "Santé & social / Diplômes et formations en avant", de "Gesundheit & Soziales / Diplome und Weiterbildungen zuerst"; picker-card-fr aea3ec2f9dc36c0b, picker-card-de aa064e217ab3ec7b. At 375px: covered by the e2e picker specs (all 9 options).
+- Visual: PASS — the new baselines were captured with `--update-snapshots=all` on the final template code; the r1 baselines (5a8a23c7…, 94429d1f…) were replaced after the font-size fix.
+- Export: PASS.
+  - PDF: full-photo-fr 554e4d63093bc13d, full-photo-de 4a1a34bc1235989b, full-nophoto-en 51c141a2d1b35724, empty-nophoto-fr 9c81e585d61c8479; 1 page each; round photo with ring, rounded pills, entry bars, skills and languages side by side.
+  - Word: full-photo-fr 659b220fdee476f9, full-photo-de 5b03d351207adc76, full-nophoto-en b971913e9d18b1f7, empty-nophoto-fr 18aacb4b6e6c171d. One photo PNG drawn as an ellipse in the photo cases (the trace's `media=2` counts the `word/media/` folder entry); no media without a photo.
+  - Rendered by Microsoft Word to PDF: full-photo-fr c53804671dc32ec9, full-photo-de 160eb04b5370c87c, empty-nophoto-fr 12bf38ccb0c8c8ad; 1 page each. Round photo with ring, shaded pill headings with centred text, bars beside each dated entry, the paragraph and the list of the mixed description both present; in the empty case skills take the full width.
+- Database: NOT_APPLICABLE — no schema or stored-data change; `swissHealth` was already accepted by the US-001 constraint.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text goes through `renderFormattedText` (Preview server-renderable; SSR test plus e2e 200) and `formattedBlocks` / `parseHtmlToDocxRuns` in Word; the photo goes through the Word route's existing `boundedPhoto`.
+Agents:
+- ui-expert: PASS (round 1), 7/7 conditions evaluated, 0 MAJOR, 3 MINOR (recorded below); contrast recomputed (lowest text 4.76:1).
+- code-reviewer: PASS (round 1), no critical finding; its one required item is the FR-10 findings below.
+- senior-coder: implementation; the skills/languages font-size fix and the Word pill text raise.
+Acceptance criteria:
+- AC-01 The picker shows swissHealth after swissTrades with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-health-template.spec.ts`.
+- AC-02 Editor, Preview, PDF and Word match t4-sante-social.png (one column, teal accent, round photo beside the name, pill headings; summary, education, experience, continuing education, then skills and languages side by side): PASS — the captures, PDFs and Word renders above; ui-expert side-by-side comparison; title and dates darkened for contrast (Decision).
+- AC-03 FR-1 to FR-11: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing headings reused (FR-6: "Résumé", "Formation / Cours" for continuing education).
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Title and date text #0f766e instead of the mockup's teal.** The mockup's teal is about 3.1:1 on white and fails WCAG AA; teal-700 is 5.47:1. Decorative fills (pill #ccfbf1, bars and ring #99f6e4, photo fill #f0fdfa) keep the mockup's colours. `swiss-health-template.test.ts` asserts every text colour is at least 4.5:1.
+- **One colour source:** `PREVIEW_PALETTE.swissHealth`; the Word palette derives from it and `resume-palette.test.ts` counts the template's inline hexes against it.
+- **Skills reuse swissTrades' content logic** (imported, not duplicated) and are joined with " · "; each visible category's stored name is a small caption above its skills.
+- **When skills or languages is empty or hidden, the other is drawn alone at full width.**
+- **Certificate dates use the stored MM.YYYY**, as in the other Swiss templates; the mockup shows the year only.
+- **A certificate is drawn when it has a name, an issuer or a date;** an entry without a position or degree shows the company or school as its bold first line.
+
+Open owner decisions:
+- **FR-10 finding, Word pill ends are square** (shaded runs; Word cannot round them).
+- **FR-10 finding, Word substitutes a serif font where Inter is not installed** (as for US-001 to US-003); semibold captions become bold and the medium-weight title and dates regular.
+- **FR-10 finding, bullet spacing differs** between achievement lists (about 20 CSS px apart) and lists inside a description (about 18 px), in the Preview, PDF and Word alike.
+- **Word pill text is raised 2.25pt** (`PILL_TEXT_RAISE`, written as `w:position="2.25pt"`). ISO/IEC 29500 Transitional accepts a universal measure there and Microsoft Word renders it; the existing generators only ever write whole half-points, and LibreOffice and Google Docs were not exercised. Rounding to 2.5pt would stay on the half-point grid.
+- **An experience with both achievements and a description draws only the achievements**, as in swissTrades and the original templates.
+- **A certificate with only a date** draws an empty content cell beside the date.
+- **The `cell-border` evidence check in `docx-graphics.test.ts`** does not assert the cell or colour; the template's own test does.
+
+Environment notes:
+- Docker Desktop and the local Supabase stack were restarted before the checks (the machine had rebooted); the checks ran alone, with no dev server running.
+- The evidence spec (`zz-us04-evidence.spec.ts`) was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-004 The "Santé & social" template is available
+FINAL: PASS
+
+## US-005: The "Banque, finance & assurance" template is available
+Status: PASS
+Priority: 7
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 3116d5e (US-004 story commit).
+Scope:
+- Scope check: PASS
+- Changed paths (53 under src/ and e2e/, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-finance-template.ts` (geometry, section order, first-line helper, label-column width rule), `src/components/dashboard/resume-templates/swiss-finance-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-finance.ts`, each with its unit test.
+  - **New data module:** `src/lib/georgia-advance-widths.ts` (+ test): Georgia advance widths per face, used to size the Word label cell like the browser does.
+  - **Wiring:** `src/types/database.ts` (swissFinance no longer unbuilt), `resume-editor.tsx`, `resume-preview.tsx`, `template-picker.tsx` (Landmark icon), `layout-settings.ts`, `resume-palette.ts`, `resume-graphics.ts` (new additive `paragraph-bottom-border` graphic kind), `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route, the four `common.json` locale files.
+  - **Print CSS:** none; the photo and rules are square, `globals.css` is unchanged and a test asserts the template sets no radius.
+  - **Test lists:** the unit tests that enumerate templates; e2e template-picker, template-picker-compact (10 options), job-cv-template-picker, job-search-mobile, visual/resume-templates.
+  - **e2e:** new `e2e/swiss-finance-template.spec.ts` (7 tests).
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissFinance.png` (sha256 b408d1eecca06fbb), `swissFinance-print.png` (8c2d12ce04344490).
+- Not touched: the five original templates, swissVocational, swissCommerce, swissTrades and swissHealth (renderers, Word generators, baselines, parity verdicts), the shared docx and format helpers, stored data; no migration; no new dependency; no version change; no push or merge of this commit.
+Checks (final diff hash dfab8cf5dba4b2fe, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run; logs in the session scratchpad `checks-us05-r4/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 4953 passed, 10 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 281 baseline; unchanged.
+- e2e: PASS — 628 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 20/20; only the two new swissFinance PNGs were added, the other 18 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier rounds, invalidated by fixes: r1 (e154de7cf72eb2ee) all green, ui-expert and code-reviewer PASS; then the **owner FAILED it in the real app**: German skill labels were split mid-word ("HR Fachkenntniss / e") in the fixed 120px label column. r2 (f4ed672381f068f4) green with a fit-content column; code-reviewer FAIL (critical): the column had no upper bound, so a label with one very long unbroken word squeezed the values to 0 px and made a negative Word table width (invalid OOXML). r4 (dfab8cf5dba4b2fe) is the final code.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample "Thomas Keller", close to t5-finance.png, with one hidden experience, one hidden skill category, one hidden certificate, one hidden language, a description mixing a paragraph and a list, a comma-separated plain skillsHtml, an education entry with no degree, and German labels "HR Fachkenntnisse", "Kommunikationsfähigkeiten", "Kommunikations- und Verhandlungskompetenzen im Finanzbereich" (over the 38% cap) and "Finanzdienstleistungsaufsichtskompetenz" (one long word); the empty variant adds a 120-character label with no spaces. Cases full-photo-fr, full-photo-de, full-nophoto-en, empty-nophoto-fr (no certifications, every language hidden). Preview HTTP 200 in all four; photo 1/1/0/0 img; hidden text absent. Preview captures: full-photo-fr 941584044fb57829, full-photo-de 1ebf77feaad175cc, full-nophoto-en 169102c85f0b86b4, empty-nophoto-fr 9f9ca14512d1c20c. Picker (fr, de): swissFinance after swissHealth; fr "Banque, finance & assurance / Format classique et sobre", de "Bank, Finanzen & Versicherung / Klassisches, seriöses Format"; picker-card-fr 50fda188991824dd, picker-card-de 11e05cf6e4240de5. At 375px: covered by the e2e picker specs (all 10 options).
+- Visual: PASS — the baselines were captured with `--update-snapshots=all` on the final template code; the r1 baselines (e5c42abc…, b098f4b8…) were replaced after the label-column change (the sample in the baseline has short labels, so r2 and r4 produced the same images).
+- Export: PASS.
+  - PDF: full-photo-fr 396dcf390a15e961, full-photo-de f8912cf09393715d, full-nophoto-en ef19cce5b5749141, empty-nophoto-fr c70eb8ee33347921; 1 page each.
+  - Word: full-photo-fr 7a19732d6f1772ed, full-photo-de 34fedcaf4b742dde, full-nophoto-en ae48bb43da25853a, empty-nophoto-fr bd53504b234361ea. One rectangular photo in the photo cases (the trace's `media=2` counts the `word/media/` folder entry); no media without a photo.
+  - Rendered by Microsoft Word to PDF: full-photo-fr a6126605df923029, full-photo-de 8423b7cf3b2dceb3, empty-nophoto-fr d346629a2c4d612a; 1 page each. Georgia, capitals name, italic green title, double green rule, right-aligned italic dates, one skills-and-languages table; every label under the cap whole; the multi-word over-cap label wraps at spaces only; the long single word whole; the 120-character no-space label breaks inside the 337px maximum with the values at full width; Word opened the file normally.
+- Database: NOT_APPLICABLE — no schema or stored-data change; `swissFinance` was already accepted by the US-001 constraint.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text goes through `renderFormattedText` (Preview server-renderable; SSR test plus e2e 200) and `formattedBlocks` / `parseHtmlToDocxRuns` in Word; the photo goes through the Word route's existing `boundedPhoto`.
+Agents:
+- ui-expert: PASS (round 4). Round 1 PASS (the fixed 120px column was passed without a long label rendered — the owner then failed it); round 2 BLOCKED (the over-cap branch was not rendered); round 4 PASS after r3/r4 evidence with the over-cap labels; 7/7 conditions.
+- code-reviewer: PASS (round 3). Round 1 PASS on r1; round 2 FAIL (unbounded label column, critical); round 3 PASS.
+- senior-coder: implementation; the word-split fix (fit-content column, Georgia advance widths for Word); the hard 50% maximum, whitespace-only word split and Word slack.
+Acceptance criteria:
+- AC-01 The picker shows swissFinance after swissHealth with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-finance-template.spec.ts`.
+- AC-02 Editor, Preview, PDF and Word match t5-finance.png (serif, dark-green accent; name in capitals, italic title, double rule, small rectangular photo on the right; right-aligned dates; summary, experience, education, certifications, then skills and languages in one table): PASS — the captures, PDFs and Word renders above; ui-expert side-by-side comparison.
+- AC-03 FR-1 to FR-11: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing headings reused (FR-6).
+- Owner requirement during the story, verbatim: "il faut s'assurer que les mots ne soit pas tronqué, peu importe la langue": PASS within the bounds below — no word is split in the label column below its 337px maximum, in any output or locale.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Typeface:** Tailwind `font-serif` (Georgia in Chromium; the server PDF substitutes metric-compatible Gelasio) and Georgia in Word, as `classic` does; no font download or dependency.
+- **Label column of the skills-and-languages table:** as wide as the widest label up to 38% of the text width; above that, labels wrap at spaces only; a longer single word widens the column; hard maximum 50% (337px), leaving the values at least 321px. Only a word wider than 337px is broken. Word sizes the cell with the same rule from Georgia's advance widths plus 2px slack.
+- **Combined heading:** the existing skills and languages labels joined with " & "; one label alone when only one part is drawn; no heading and no table when neither has content.
+- **Certifications heading** uses the existing `training` label ("Formation / Cours"), as in the other Swiss templates; the summary label replaces "Profil".
+- **Colours (all AA on white):** accent #166534 7.13:1, ink #0f172a 17.85:1, muted #475569 7.58:1, body #1e293b 14.63:1.
+- **Dates** use the stored MM.YYYY; language levels keep the dictionary's capitals ("Langue maternelle"); an entry without a position or degree leads with the company or school.
+
+Open owner decisions:
+- **Provenance of the Georgia advance widths:** `georgia-advance-widths.ts` holds advance widths only (no outlines, hinting or font program data), read on 2026-11-22 from the Windows Georgia font files. Gelasio (SIL OFL, already a dependency) differs on 7 to 11 glyphs per face, so it was not used. Whether taking these numbers from Microsoft's licensed font files is acceptable is the owner's call; the fallback is Gelasio widths plus a per-glyph margin.
+- **Where a word can still be cut:** a label with no spaces wider than 337px (about 40 bold characters, e.g. a slash-joined tool list) breaks inside it; the name in the header breaks when a single word exceeds about 21 spaced capitals beside the photo (26 without); value cells and the title only for words of about 55+ characters (URLs). Shrinking the name to fit would be new behaviour (PRD change).
+- **FR-10 findings, Word vs Preview:** Word draws 13px text at 10pt, so its label column is a few px wider and over-long text breaks at different letters ("Mur|ex" vs "Mure|x"); line breaks, bullet glyph and 1–3px spacings differ; the double rule's gap is set by Word. LibreOffice without Georgia or Gelasio was not exercised and may split labels.
+- **The " & " join is not localized** (Italian reads "Competenze & Lingue", while the template name uses "e"); FR-6 forbids new keys.
+- **Mockup differences:** the label column is wider than the mockup's whenever a label needs it; dates are MM.YYYY, not years only; the school line shows school and field (education has no city field).
+- **Achievements rendered inline in Word** (as in every generator); an achievement holding a list would differ from the Preview.
+
+Environment notes:
+- The checks ran alone; the local dev server (the owner's session) was stopped before each run and restarted afterwards.
+- The evidence spec was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards. The r3 evidence run (over-cap labels, no code change) used the r2 code hash f4ed672381f068f4.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-005 The "Banque, finance & assurance" template is available
+FINAL: PASS
+
+## FIX (owner report, 2026-11-23): a WebP or AVIF photo is missing from the Word export
+Status: PASS
+Story: none (owner-reported defect against FR-5 / FR-10: the photo shows in the Preview and the PDF but not in Word). No story's `passes` value is changed.
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 7786061 (US-005 story commit).
+Cause: the photo is kept browser-locally as the uploaded file's data URL (`resume_photo_${id}`). The Word route accepts only `data:image/(jpeg|jpg|png|gif|bmp)` because the docx image run supports only those; a WebP or AVIF photo was dropped silently (HTTP 200, no image). Reproduced on the local stack: the same canvas image POSTed as image/jpeg was embedded, as image/webp it was not.
+Scope:
+- Scope check: PASS
+- Changed paths (7): `src/lib/photo-for-docx.ts` (+ test; shared `DOCX_PHOTO_DATA_URL` and `MAX_DOCX_PHOTO_LENGTH`, `photoForDocx`), `src/app/api/resumes/[id]/download-docx/docx-photo-bound.ts` (+ test; the route's existing `boundedPhoto` moved out unchanged so it can be tested), `src/app/api/resumes/[id]/download-docx/route.ts` (imports both), `src/components/dashboard/download-button.tsx` (Word download passes the stored photo through `photoForDocx`; in-flight guard and busy state like the PDF button), `e2e/docx-photo-format.spec.ts` (3 tests).
+- Not touched (approved PRD constraint): the photo upload handler, background removal, the storage key and the stored value; the PDF path; the route's accepted types and size limit (not widened).
+Change: before the Word request, a WebP/AVIF (any type the route refuses) is decoded in the browser on a copy, scaled to at most 1024 px on its long edge (never enlarged) and encoded as JPEG (quality 0.9) when opaque or PNG when any pixel is transparent; JPEG/PNG/GIF/BMP pass through byte for byte; a decode failure or a result still over the limit sends no photo, as before.
+Checks (final diff hash 1effb48b09eb99fa, same method as the stories; logs in the session scratchpad `checks-photo-fix-r2/`):
+- typecheck: PASS — 0 errors.
+- unit: PASS — 5020 passed, 10 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings), equal to the ceiling.
+- e2e: PASS — 631 passed, 0 failed, including `docx-photo-format.spec.ts`: a 3000×4000 WebP (stored under 2 MB) sent as a 768×1024 JPEG and embedded; a transparent 300×400 WebP sent as PNG at its own size with alpha and embedded; a JPEG sent and embedded byte for byte; the stored value unchanged in each.
+- visual: PASS — 20/20, no baseline changed.
+- parity: PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0.
+- Earlier round, invalidated: r1 (c256dcac535f61cc, full-size PNG re-encode) all green, then code-reviewer FAIL (major): a realistic WebP re-encoded to full-size PNG exceeds the route's 8 MB limit and is still dropped silently.
+- Browser: before the fix, a WebP photo on a swissHealth CV gave a .docx with no image; after it, "Télécharger Word" posted `data:image/png` and the .docx contained the image (built-in browser, local stack).
+Agents:
+- code-reviewer: PASS (round 2). Round 1 FAIL as above.
+- ui-expert: NOT_APPLICABLE — no rendered change beyond the Word button's existing spinner pattern; the template outputs are unchanged.
+Open owner decisions:
+- `src/lib/pdf/photo.ts` keeps its own copy of the 8 MB limit and a comment that is now stale ("that route may not change and does not export it"); the PDF path was left untouched under the PRD; aligning it is a separate scoped change.
+- The earlier report in this session (a photo that never reached the Preview) was the browser storage being full ("Failed to save photo. Image may be too large."), resolved by the owner with a smaller image; shrinking photos at upload would need a PRD amendment, since the upload handler is frozen.
+Environment notes:
+- The checks ran alone; the owner's local dev server was stopped for each run and restarted afterwards.
+Commit:
+- Commit: THIS_COMMIT
+- Commit message: fix: embed WebP and AVIF photos in the Word export
+FINAL: PASS
+
+## US-006: The "Ingénierie & technique" template is available
+Status: PASS
+Priority: 8
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 362122a (fix commit for WebP/AVIF photos in Word, after the US-005 story commit 7786061).
+Scope:
+- Scope check: PASS
+- Changed paths (54 under src/ and e2e/, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-engineering-template.ts` (geometry, section order, `swissEngineeringDates`), `src/components/dashboard/resume-templates/swiss-engineering-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-engineering.ts`, each with its unit test; `src/test/inter-advance-widths.ts` (test-only: Inter advance widths read from the installed `@fontsource/inter` files, used to prove long words fit the column).
+  - **Wiring:** `src/types/database.ts` (swissEngineering no longer unbuilt), `resume-editor.tsx`, `resume-preview.tsx`, `template-picker.tsx` (DraftingCompass icon), `layout-settings.ts`, `resume-palette.ts`, `resume-graphics.ts`, `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route, the four `common.json` locale files; the shared `swissHeading` type now also accepts `keyAchievements` (type only, no runtime change).
+  - **Print CSS:** `src/app/globals.css`, print-only rules scoped to `.swiss-engineering-template` (photo and card radius, the light column with its blue bar to the page foot).
+  - **Test lists:** the unit tests that enumerate templates; e2e template-picker, template-picker-compact (11 options), job-cv-template-picker, job-search-mobile, visual/resume-templates.
+  - **e2e:** new `e2e/swiss-engineering-template.spec.ts` (8 tests).
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissEngineering.png` and `swissEngineering-print.png`, byte-identical (sha256 8839d8fb424c3ae1): the element screenshot cannot see the print-only page band, and the radii are set inline, so nothing differs inside the captured box. The print rules are asserted by computed styles in the e2e and by unit tests, not by this baseline.
+- Not touched: the five original templates and the five earlier Swiss templates (renderers, Word generators, baselines, parity verdicts), the shared date helper `formatSwissDateRange`, the shared docx and format helpers, stored data; no migration; no new dependency; no version change; no push or merge of this commit.
+Checks (final diff hash 18b136cee341febe, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run; logs in the session scratchpad `checks-us06-r2/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 5228 passed, 10 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 281 baseline; unchanged.
+- e2e: PASS — 639 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 22/22; only the two new swissEngineering PNGs were added, the other 20 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier round, invalidated by fixes: r1 (b613b9ba594740b7) e2e 638 passed, 1 failed with `net::ERR_NO_BUFFER_SPACE` on `page.goto /en/login` in `job-applications-link-resume.spec.ts:168` (unrelated, environment); the Word render showed the light column and its blue bar ending at about 920 of 1123 px with the bar starting 48 px below the top, then (after a first fix) two offset bars. Fixed by anchoring both page-high drawings in the first header cell, removing the column cell's own shading and left border, stacking the bar above the fill (relativeHeight 2 over 1) and placing the bar at 544 px.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample "Julien Moret", close to t6-ingenierie.png, with one hidden experience, skill category, language, certificate and project; a project with technologies and a url; a description mixing a paragraph and a list; an education entry with no degree; long German words in the narrow column ("Kommunikationsfähigkeiten", "Weiterbildungsstudiengang Brückenbauingenieurwesen"). Cases full-photo-fr, full-photo-de, full-nophoto-en, empty-nophoto-fr (no projects, no certifications, every language hidden). Preview HTTP 200 in all four; photo 1/1/0/0 img; hidden text absent (the PDF check rerun with whitespace removed, because the PDF text layer is letter-spaced: 0 hits in all four). Preview captures: full-photo-fr 9e6927e91f4eac24, full-photo-de 22ae86219528f548, full-nophoto-en 636a7623f3eb7866, empty-nophoto-fr d42cff9f7c5a5317. Picker: swissEngineering after swissFinance; fr "Ingénierie & technique / Projets clés en avant", de "Ingenieurwesen & Technik / Schlüsselprojekte zuerst"; picker-card-fr ac37c31fcad24d87, picker-card-de ff0714b56be3cdf7. At 375px: covered by the e2e picker specs (all 11 options, 186.4 px cards).
+- Visual: PASS — baselines captured with `--update-snapshots=all` on the template code; the Preview did not change after r1 (the later fixes were Word-only), and the r2 visual run matched them.
+- Export: PASS.
+  - PDF: full-photo-fr dab4eaea49944e87, full-photo-de a7dec4bb18f2dc30, full-nophoto-en b275f2a50c3506b2, empty-nophoto-fr a8bc25db27efe766; 1 page each.
+  - Word: full-photo-fr ea84fca2b530dda1, full-photo-de 99ec6c6fe33db93b, full-nophoto-en c81e646d5c17ecbb, empty-nophoto-fr f487995969978b14. Media: the bar and fill images always, plus one photo drawn as an ellipse in the photo cases.
+  - Rendered by Microsoft Word to PDF: full-photo-fr defb7e90bc6d8b23, full-photo-de 8d469f8bbad430ea, empty-nophoto-fr 266c628397c4ed99; 1 page each. One blue bar and the light fill from the page top to its foot (pixels sampled at y=1 and y=1121), round photo with ring, project cards with the blue stripe, long German words whole.
+- Database: NOT_APPLICABLE — no schema or stored-data change; `swissEngineering` was already accepted by the US-001 constraint.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text through `renderFormattedText` (SSR test plus e2e 200) and `formattedBlocks` in Word; the project url is drawn as plain text, not a link; the photo goes through the Word route's existing bound.
+Agents:
+- ui-expert: PASS (round 1), 7/7 conditions, 0 MAJOR, 5 MINOR (recorded below); contrast recomputed (lowest text pair in use 4.55:1, muted on the card).
+- code-reviewer: PASS (round 1), no critical or major finding; minors recorded below.
+- senior-coder: implementation; the Word page-high column and bar fixes.
+Acceptance criteria:
+- AC-01 The picker shows swissEngineering after swissFinance with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-engineering-template.spec.ts`.
+- AC-02 Editor, Preview, PDF and Word match t6-ingenierie.png except the skill bars (main: name, CV title, summary, key achievements as cards, experience; light column: round photo, contact, education, skills, languages, certifications): PASS — the captures, PDFs and Word renders above; ui-expert side-by-side comparison; no bars (PRD out of scope).
+- AC-03 FR-1 to FR-11: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing headings reused (FR-6: `keyAchievements` for the projects, `training` for certifications).
+- Owner rule (no word split mid-word, any locale): PASS for every word that fits the 202 px column text width; only a single token wider than the column can break (last resort, not rendered in the evidence).
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Key achievements are the stored `projects`,** edited in the existing Projects tab and laid out under the existing `keyAchievements` row (as `professional` already does). A card shows the name, the description, then the technologies and the url as muted lines (stored content; the mockup shows name and description only); project dates are not drawn.
+- **Skills:** the category caption, then one skill per line, no level bars (PRD out of scope), as the other Swiss templates stack them.
+- **Colours (AA):** accent #1d4ed8 for the title and headings (6.70:1 on white, 6.12:1 on the column; the mockup's title blue is lighter), ink #0f172a, body #1e293b; the muted #64748b (4.34:1 on the column) is never used on the column, which a test enforces.
+- **Column width 250 px** (mockup about 238 px), so the long German words of the sample fit whole.
+- **An entry with no stored dates shows no date,** through a local wrapper (`swissEngineeringDates`); the shared `formatSwissDateRange` is unchanged.
+
+Open owner decisions:
+- **FR-10, Word only:** the page-anchored column and bar were verified in Microsoft Word only. Renderers that drop anchored drawings in table cells (Google Docs, some LibreOffice versions, Pages) would show a white column with no bar (text still readable); swissTrades keeps a cell-shading fallback, swissEngineering cannot without Word painting it over the bar.
+- **FR-10, Word typeface:** Word falls back to a serif face where Inter is not installed (all Swiss templates; the shared `docx-helpers.ts` writes no font-table hint). The no-split proof for Word measures Inter; the fallback face was narrower in the renders but no test proves it.
+- **Breaks at stored hyphens and in URLs:** CSS and Word break after an in-word hyphen ("HEIG-VD", "linkedin.com/in/example-alex-rivera"); this is not a cut inside letters, but a strict reading of the no-split rule would need non-breaking hyphens in every template.
+- **A date range can wrap before its en dash in the narrow column** ("09.2012" / "– 06.2014" in the baseline); non-breaking spaces around the dash would keep it whole.
+- **A single token wider than the column** (a very long email or URL) is the only case where letters can be split, by `overflow-wrap: break-word`; the e2e does not render such a token.
+- **Stale code comments:** the header comment of `docx-swiss-engineering.ts` (lines ~139-146) still describes the column cell as shaded with a bordered bar; the "how both columns wrap" block in `swiss-engineering-template.tsx` (~44-54) is a JSDoc attached to the props type. To be fixed in a later change.
+- **Editor panels:** "Edit Sidebar" lists Key achievements (drawn in the main column) and "Edit Main Content" lists Education (drawn in the light column), a consequence of the fixed layout id vocabularies.
+- **Pre-existing:** the shared `formatSwissDateRange` shows "present" for a start date with no end date even when `current` is false (all Swiss templates); a follow-up covering all of them would be needed.
+
+Environment notes:
+- The checks ran alone; the owner's local dev server was stopped for each run and restarted afterwards.
+- The evidence spec was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards. Two quick single-case evidence runs (folder `us06-evidence-q`) were used to check the Word column between fixes.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-006 The "Ingénierie & technique" template is available
+FINAL: PASS
+
+## US-007: The "Informatique & IT" template is available
+Status: PASS
+Priority: 9
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 8f5198f (US-006 story commit).
+Scope:
+- Scope check: PASS
+- Changed paths (55 under src/ and e2e/, 11 of them new, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-it-template.ts` (sizes, geometry, section order, `swissItHeading`, `swissItLinkParts`), `src/components/dashboard/resume-templates/swiss-it-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-it.ts`, each with its unit test; `src/lib/inter-link-widths.ts` (+ test: Inter advance widths for printable ASCII, checked against the installed `@fontsource/inter` file, used by the Word export to decide whether a project URL fits its card).
+  - **Wiring:** `src/types/database.ts` (swissIt no longer unbuilt), `resume-editor.tsx`, `resume-preview.tsx`, `template-picker.tsx` (Terminal icon), `layout-settings.ts`, `resume-palette.ts`, `resume-graphics.ts`, `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `swiss-vocational-template.ts` (shared Swiss lists), `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route, the four `common.json` locale files.
+  - **New locale label:** `resumes.template.projects` — fr "Projets", en "Projects", de "Projekte", it "Progetti" (FR-6: no existing label named the projects section for this layout).
+  - **Print CSS:** `src/app/globals.css`, print-only rules scoped to `.swiss-it-template`: named page `swiss-it` with 48 px top and foot margins, `:first` top 0 so the band meets the paper edge, print foot padding 0, photo/tag/card radii.
+  - **Test lists:** the unit tests that enumerate templates; e2e template-picker, template-picker-compact (12 options), job-cv-template-picker, job-search-mobile, visual/resume-templates; the picker specs expect the "// label" heading form for swissIt; the render and contact-visibility tests strip `<wbr>`/U+200B before comparing text.
+  - **e2e:** new `e2e/swiss-it-template.spec.ts` (10 tests, including the two-page margins and a long project URL).
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissIt.png` (sha256 4e5455f27c05c661) and `swissIt-print.png` (b03a92f6279a9a64).
+- Not touched: the five original templates and the six earlier Swiss templates (renderers, Word generators, baselines, parity verdicts), the shared date helper, the shared docx and format helpers, stored data; no migration; no new dependency; no version change; no push or merge of this commit.
+Checks (final diff hash 9c7a1e4f96ae03ad, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run and re-verified by the code-reviewer; logs in the session scratchpad `checks-us07-r5/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 5469 passed, 10 skipped (160 files).
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 281 baseline; unchanged.
+- e2e: PASS — 649 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 24/24; only the two new swissIt PNGs were added, the other 22 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier rounds r1–r4, each invalidated by a fix: e2e picker expectations for the "// label" heading; page 2 of the PDF and Word had no top margin (fixed by the named print page and the Word section margins with a floating band table); the PDF hidden-text assertion did not cope with letter-spaced text; code-review FAIL on the page foot (fixed with the 48 px foot margin); URLs broken mid-letter (fixed with break points at URL boundaries); code-review FAIL on U+200B inside contact values and ui-expert MAJOR on U+200B in the email and in links that fit (fixed: Word writes break points only into a contact value wider than the band line or a URL wider than its card, never into the email). One parity cold-start timeout in an earlier round was environmental and passed on rerun.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample close to t7-informatique.png with one hidden experience, skill category, language, certificate and project; GitHub and website filled; a project with technologies and an 87-character URL; long German words in skills and project cards ("Infrastrukturautomatisierung", "Energieverbrauchsüberwachungsplattform", "Kubernetes-Operatoren"). Cases full-photo-fr, full-photo-de, full-nophoto-en, empty-nophoto-fr. Preview HTTP 200 in all four; photo img 1/1/0/0; hidden text absent in Preview, PDF and Word (trace.txt). Preview captures: full-photo-fr b1b4b81f5becab3a, full-photo-de 0d355d20adba6cf8, full-nophoto-en 3ed641f4eef51d65, empty-nophoto-fr 409894c56b369ad5. Picker: swissIt after swissEngineering; fr "Informatique & IT / Technologies et projets en avant", de "Informatik & IT / Technologien und Projekte zuerst"; picker-card-fr 7f523cea01b4c2fd, picker-card-de f777e92213c6fc78. At 375 px: covered by the e2e picker specs (all 12 options).
+- Visual: PASS — baselines captured with `--update-snapshots=all` on the template code; the r5 visual run matched them.
+- Export: PASS (evidence folder `us07-evidence-r5/`).
+  - PDF: full-photo-fr 64c19c501d49ae19, full-photo-de e03a3cce5b2e8535, full-nophoto-en 82f2d02353b684b3 (2 pages each), empty-nophoto-fr f1fc4cf1443003ce (1 page).
+  - Word: full-photo-fr f5f2571d413252c4, full-photo-de a89214eb30635ef5, full-nophoto-en b83b305c951747b7, empty-nophoto-fr dc02d686326c1e51. Photo drawn as an ellipse in the photo cases.
+  - Text of the Word files (`*.docx.txt`): the email and every link that fits are byte-identical to the stored values; U+200B appears only between tags and inside the 87-character URL.
+  - Rendered by Microsoft Word to PDF: full-photo-fr 72b98d52c413e34a, full-photo-de 9c1728582af1cec0, empty-nophoto-fr 4e1a93a8d0b85e3d. Dark band at the page top, 48 px top margin on page 2, 48 px foot margin on both pages, monospace headings, tags, two-column project cards; the long URL wraps after "/" and "-", never inside letters; long German words whole.
+- Database: NOT_APPLICABLE — no schema or stored-data change; `swissIt` was already accepted by the US-001 constraint.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text through `renderFormattedText` (SSR test plus e2e 200) and `formattedBlocks` in Word; GitHub, website and project URLs are drawn as plain text, not links; the photo goes through the Word route's existing bound.
+Agents:
+- ui-expert: PASS (round 5), 0 MAJOR; minors recorded below. Earlier round: MAJOR on U+200B in the email and in links that fit, fixed in r5.
+- code-reviewer: PASS (round 3), no critical or major finding; minors recorded below. Earlier rounds: FAIL on the page foot, then FAIL on break points inside contact values.
+- senior-coder: implementation and the fixes listed above.
+Acceptance criteria:
+- AC-01 The picker shows swissIt after swissEngineering with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-it-template.spec.ts`.
+- AC-02 Editor live preview, Preview, PDF and Word match t7-informatique.png (dark band with name, monospace CV title, contact incl. GitHub and website, round photo; monospace headings; skills as tags; projects as two-column cards with technology tags; order summary, skills, experience, projects, education, then languages and certifications): PASS — the captures, PDFs and Word renders above; ui-expert side-by-side comparison.
+- AC-03 FR-1 to FR-11: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing headings reused, certifications under `training`, plus the one new `projects` label in four locales (FR-6).
+- Owner rule (no word split mid-word, any locale): PASS for every word in the evidence; a URL wider than its card breaks only after "/", "-", "." or similar boundaries; only a single token wider than its line with no boundary can break inside letters (last resort).
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Projects** are the stored `projects`, edited in the existing Projects tab, drawn as two-column cards (name, description, technologies as tags, url as a muted line); project dates are not drawn.
+- **Headings** are the existing localized labels, lowercased with a "// " prefix in the monospace face (as the mockup shows); the stored and translated label text is unchanged.
+- **Monospace face:** the system stack `ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace` (no font download); Word names Consolas.
+- **Page margins:** 48 px top on every page but the first and 48 px foot on every page, in the PDF (`@page swiss-it`) and Word (section margins), so both break pages at the same place.
+- **Break points in Word:** a contact value is kept whole with no-break spaces and moves to the next line as a unit, as on the Preview; only a value wider than the whole band line gets break points; the email never does; a project URL gets break points only when wider than its card by Inter's measure (4 px margin).
+
+Open owner decisions:
+- **FR-10, Word typeface:** Word falls back to a serif face where Inter is not installed (all Swiss templates; Inter is neither installed there nor embedded). The URL threshold is measured in Inter; a URL within a few px of the card width could fit by Inter's measure, get no break points, and be cut at a letter in a wider fallback face. Embedding Inter in Word exports (a cross-template change) would remove it.
+- **FR-10, Consolas fallback:** contact widths are exact only where Consolas is installed; Courier New is about 9 % wider. The same applies to the dates at the right tab stop.
+- **FR-10, page 1 break:** the PDF and the Word render break page 1 at slightly different lines because of the serif fallback.
+- **FR-10, floating band:** the Word band is a floating table; renderers that ignore floating tables (Google Docs, some LibreOffice versions, Pages) may place it inline or lose the page-1 top-edge alignment.
+- **Email difference:** the Preview keeps `<wbr>` in the email; Word never breaks the email. The two differ only for an email wider than about 87 Consolas characters.
+- **Phone in Word:** the phone number keeps no-break spaces in the Word text (it never wraps); a copy-paste from Word carries U+00A0.
+- **Readability (code):** the email check in `docx-swiss-it.ts` is an inline test on the dot suffix; returning each contact value with its key would be clearer.
+- **Carried over from earlier stories:** swissCommerce has no page-2 top margin; swissEngineering URLs can break at in-word hyphens; stale comments in `docx-swiss-engineering.ts` and `swiss-engineering-template.tsx`; the shared `formatSwissDateRange` shows "present" for a missing end date when `current` is false; shrinking photos at upload needs a PRD amendment.
+
+Environment notes:
+- The checks ran alone; the owner's local dev server was stopped for each run and restarted afterwards.
+- The evidence spec was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-007 The "Informatique & IT" template is available
+FINAL: PASS
+
+## US-008: The "Cadre & direction" template is available
+Status: PASS
+Priority: 10
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: e0bc1b8 (US-007 story commit).
+Scope:
+- Scope check: PASS
+- Changed paths (52 under src/ and e2e/, 9 of them new, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-executive-template.ts`, `src/components/dashboard/resume-templates/swiss-executive-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-executive.ts`, each with its unit test.
+  - **Wiring:** `src/types/database.ts` (swissExecutive no longer unbuilt), `resume-editor.tsx`, `resume-preview.tsx`, `template-picker.tsx` (Crown icon), `layout-settings.ts`, `resume-palette.ts`, `resume-graphics.ts`, `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route, the four `common.json` locale files (name and description only; no new heading label).
+  - **Print CSS:** `src/app/globals.css`, print-only rules scoped to `.swiss-executive-template`: named page `swiss-executive` with 48 px top and foot margins, print top padding 8 px, print foot padding 0, round photo.
+  - **Test lists:** the unit tests that enumerate templates (`rich-text.test.ts` skips its two skills cases for swissExecutive only and adds one case asserting no skill text is drawn: skipped count 10 → 24, no other template loses a case); `docx-contact-visibility.test.ts` reads `w:noBreakHyphen` as "-"; e2e template-picker, template-picker-compact (13 options), job-cv-template-picker, job-search-mobile, visual/resume-templates.
+  - **e2e:** new `e2e/swiss-executive-template.spec.ts`.
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissExecutive.png` (sha256 5e792b6e38fc40f7) and `swissExecutive-print.png` (c51f4fa46422005a).
+- Not touched: the five original templates and the seven earlier Swiss templates (renderers, Word generators, baselines, parity verdicts), the shared docx and format helpers, stored data; no migration; no new dependency; no version change; no push or merge of this commit.
+Checks (final diff hash 72049d7665059d24, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run and re-verified by the code-reviewer; logs in the session scratchpad `checks-us08-r2/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 5641 passed, 24 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 281 baseline; unchanged.
+- e2e: PASS — 658 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 26/26; only the two new swissExecutive PNGs were added, the other 24 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier round, invalidated by a fix: r1 (ced67c514df8b581) all checks green, but the Microsoft Word render split the website "catherine-imhof.ch" at its hyphen across two lines while the Preview and PDF moved it whole. Fixed in the Word generator only: a contact value or project link that fits its line has its hyphens written as `w:noBreakHyphen`.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample close to t8-cadre-direction.png ("Catherine Imhof") with one hidden experience, skill category, language, certificate and project; LinkedIn and website filled; a project with technologies and a long URL; long German words ("Unternehmensentwicklung und Restrukturierungsprogramme", "Kommunikationsfähigkeiten"); stored skills (never drawn). Cases full-photo-fr, full-photo-de, full-nophoto-en, empty-nophoto-fr (no projects, no certifications, every language hidden). Preview HTTP 200 in all four; photo img 1/1/0/0; hidden text and skills absent in Preview, PDF and Word (trace.txt, whitespace-insensitive match). Preview captures: full-photo-fr 33ee429735557514, full-photo-de ca72991f717e7519, full-nophoto-en 5d35695723400942, empty-nophoto-fr 28132d524b32f825. Picker: swissExecutive after swissIt; fr "Cadre & direction / Réalisations clés en avant", de "Kader & Geschäftsleitung / Wichtige Erfolge zuerst"; picker-card-fr 352ff5c229bfc257, picker-card-de df0788d160691726. Keyboard: ArrowRight reaches option 12 and wraps (ui-expert live check). At 375 px: covered by the e2e picker specs (all 13 options).
+- Visual: PASS — baselines captured with `--update-snapshots=all` on the template code before r1; the r2 visual run matched them (the r1→r2 fix was Word-only).
+- Export: PASS (evidence folder `us08-evidence-r2/`).
+  - PDF: full-photo-fr 1be30b2d53b1936f, full-photo-de b61def3e7de4b934, full-nophoto-en 9368d255615ae027 (2 pages each), empty-nophoto-fr c26716dbb291479f (1 page).
+  - Word: full-photo-fr e19ab5b2e8872e42, full-photo-de 4e5b97810e573a46, full-nophoto-en c1cd45cab504a8e3, empty-nophoto-fr 14b9e1a2b3d78caa. Photo drawn as an ellipse with a gold outline in the photo cases.
+  - Rendered by Microsoft Word to PDF: full-photo-fr 30ac43dd119c5c54, full-photo-de d57a0bfad5cf8e97 (2 pages each), empty-nophoto-fr 0e845fbd37842234 (1 page). Header, gold rule, italic cream summary box, two-column achievement cards with gold rules, experience, education; the last section on page 2 in both the PDF and Word; "catherine-imhof.ch" whole on its line; the long URL breaks only after "/" and its own hyphens; long German words whole.
+- Database: NOT_APPLICABLE — no schema or stored-data change; `swissExecutive` was already accepted by the US-001 constraint.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text through `renderFormattedText` (Preview, e2e 200) and `parseHtmlToDocxRuns` (Word); LinkedIn, website and project URLs are drawn as plain text, not links; the photo goes through the Word route's existing bound.
+Agents:
+- ui-expert: PASS (round 1, on r2), 6/7 conditions PASS, 1 NOT_APPLICABLE (responsive: fixed A4 document), 0 MAJOR, 4 MINOR (recorded below); contrast recomputed.
+- code-reviewer: PASS (round 1, on r2), no critical or major finding; 6 minors recorded below.
+- senior-coder: implementation and the round-1 Word hyphen fix.
+Acceptance criteria:
+- AC-01 The picker shows swissExecutive after swissIt with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-executive-template.spec.ts`.
+- AC-02 Editor live preview, Preview, PDF and Word match t8-cadre-direction.png (large serif name, burgundy capital title, round photo; summary in a highlighted box under a gold rule; key achievements as the projects in a two-column grid; then experience, education, then languages and certifications): PASS — the captures, PDFs and Word renders above; ui-expert side-by-side comparison.
+- AC-03 FR-1 to FR-11: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing headings only (FR-6: the summary has no heading; projects under `keyAchievements`; the last section joins the languages and `training` labels).
+- Owner rule (no word split mid-word, any locale): PASS for every word in the evidence, Preview, PDF and Word.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Skills are not drawn** in any output, plain or rich: the story's section order (key achievements, experience, education, languages and certifications) has no skills section and the mockup shows none. `TEMPLATE_EDITOR_SECTIONS.swissExecutive` lists only `keyAchievements`, `languages` and `training`, so no skills visibility row is offered (FR-3). The Skills tab and the stored skills are unchanged; switching to another template draws them again.
+- **Key achievements are the stored `projects`,** under the existing `keyAchievements` label: bold name, description, then technologies (joined by ", ") and the url as muted lines (stored content; the mockup shows name and description only); project dates are not drawn.
+- **Summary:** no heading (FR-6: it is the summary), italic, in a cream box with a gold left bar. In Word the box is a one-cell table whose runs are made italic by a scoped post-pass on the generated XML, because the shared rich-text helper writes "not italic" on every run.
+- **Colours (AA):** burgundy #9f1239 for the title and headings (8.02:1 on white, 7.44:1 on the cream #faf6ee), ink #0f172a, body #1e293b (13.57:1 on cream); muted #64748b (4.76:1 on white) only on white, never on the cream box (4.41:1 there); gold #a16207 for rules, the bar and the photo ring only, never text.
+- **Type:** name and headings in serif (Georgia in Word), the rest in Inter; title in capitals with 0.1em letter spacing.
+- **Geometry:** page padding 64 px (content 666 px); two cards of 323 px each with a 20 px gap; the date column as wide as its widest date (Word: measured in Inter plus 4 px, non-ASCII counted as the widest glyph).
+- **Last section:** heading built from the existing labels "languages & training" (only the part that has content is shown); languages joined by " · "; certificates "Name, Issuer (MM.YYYY)".
+- **Contact line:** location, phone, email, LinkedIn, then GitHub and website, honouring FR-14. In Word a value that fits its line keeps its hyphens unbreakable (`w:noBreakHyphen`) and moves as one unit, as on the Preview; a value wider than its line gets zero-width break points at its boundaries; the email never gets break points.
+- **Page margins:** 48 px top on every page and 48 px foot, in the PDF (`@page swiss-executive`) and Word (section margins); page 1 starts at 56 px in both.
+
+Open owner decisions:
+- **FR-10, Word typeface:** Word falls back to a serif face where Inter is not installed (all Swiss templates; Inter is neither installed there nor embedded). The fit checks (held contact values, the date column) are measured in Inter with a 4 px margin; a fallback face wider than Inter could still force a break inside a held value. Not seen in the evidence. Embedding Inter in Word exports (a cross-template change) would remove it.
+- **FR-10, copy-paste and ATS:** a value written with `w:noBreakHyphen` (e.g. "catherine-imhof.ch", or a hyphenated email that fits) is split into text nodes; Word and python-docx read it as "-", but extractors that read only `w:t` lose the hyphen (a hyphenated email would read wrong). Same mechanism as `docx-modern.ts`.
+- **FR-10, over-wide links:** a URL wider than its line carries U+200B in Word (behaviour shared with swissIt); copied out of Word it is no longer a working link.
+- **swissIt latent issue (not fixed here):** `docx-swiss-it.ts` writes fitting contact values and card links with ordinary hyphens, so Word can break e.g. "aline-" / "berset.dev" at a line end while the Preview moves the value whole. The swissExecutive fix would apply there in a follow-up.
+- **Skills absent:** a user switching to swissExecutive no longer sees their skills in any output, while the Skills tab stays editable (PRD-scoped; recorded so the behaviour is known).
+- **French heading:** the last section reads "Langues & Formation / Cours" after a section titled "Formation" (education), as FR-6 requires existing labels; a label change would need a PRD amendment.
+- **Contact separator:** a wrapped contact line can end with a dangling "·" (consistent across all four outputs); binding each separator to the following item would avoid it.
+- **Code:** the entry filtering is written in both the renderer and the Word generator (guarded by a "same text in the same order" test); the summary italic post-pass could be replaced by an optional `italic` option on the shared docx text helper in a separate change; the hyphen reader in `docx-swiss-executive.test.ts` handles only a hyphen between two text nodes, unlike the reader in `docx-contact-visibility.test.ts`.
+- **Evidence gaps:** the Preview captures cover page 1 only (the last section is evidenced by the PDF, which prints the Preview route); no Word render and no PDF image for the en case (text dumps only).
+- **Carried over from earlier stories:** swissCommerce has no page-2 top margin; swissEngineering URLs can break at in-word hyphens; stale comments in `docx-swiss-engineering.ts` and `swiss-engineering-template.tsx`; the shared `formatSwissDateRange` shows "present" for a missing end date when `current` is false; shrinking photos at upload needs a PRD amendment.
+
+Environment notes:
+- The checks ran alone; the owner's local dev server was stopped for each run and restarted afterwards.
+- The evidence spec was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- The code-reviewer could not run a single vitest file (permission denied); it verified the skipped count from `checks-us08-r2/test.log` arithmetically.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-008 The "Cadre & direction" template is available
+FINAL: PASS
+
+## US-009: The "Académique & recherche" template is available
+Status: PASS
+Priority: 11
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: b3f77be (US-008 story commit).
+Scope:
+- Scope check: PASS
+- Changed paths (53 under src/ and e2e/, 9 of them new, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-academic-template.ts`, `src/components/dashboard/resume-templates/swiss-academic-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-academic.ts`, each with its unit test.
+  - **Wiring:** `src/types/database.ts` (swissAcademic no longer unbuilt), `resume-editor.tsx` and `resume-preview.tsx` (no photo passed to this template), `template-picker.tsx` (BookOpen icon), `layout-settings.ts` (including `TEMPLATE_DRAWS_PHOTO.swissAcademic = false`), `resume-palette.ts`, `resume-graphics.ts`, `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `swiss-vocational-template.ts` (`swissHeading` type accepts `publications` and `distinctions`; no runtime change), `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route.
+  - **Locales:** the four `common.json` files: template name and description, and the two new heading labels FR-6 provides for — `resumes.template.publications` (fr "Publications et projets", en "Publications and projects", de "Publikationen und Projekte", it "Pubblicazioni e progetti") and `resumes.template.distinctions` (fr "Distinctions", en "Distinctions", de "Auszeichnungen", it "Riconoscimenti").
+  - **Print CSS:** `src/app/globals.css`, print-only rules scoped to `.swiss-academic-template`: named page `swiss-academic` with 48 px top and foot margins, print top padding 8 px, print foot padding 0.
+  - **Test lists:** the unit tests that enumerate templates; e2e template-picker, template-picker-compact (14 options), job-cv-template-picker, job-search-mobile, visual/resume-templates.
+  - **e2e:** new `e2e/swiss-academic-template.spec.ts`, including a stored, ticked photo that must draw no image in the Editor, the Preview and the .docx.
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissAcademic.png` (sha256 238ac5abdaa71920) and `swissAcademic-print.png` (3466d144ddec5f8e), regenerated with `--update-snapshots=all` in each round because the Preview changed.
+- Not touched: the five original templates and the eight earlier Swiss templates (renderers, Word generators, baselines, parity verdicts), the shared date, docx and format helpers, the stored photo, stored data; no migration; no new dependency; no version change; no push or merge of this commit.
+Checks (final diff hash 63bd94b71fc84368, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run and re-verified by the code-reviewer; logs in the session scratchpad `checks-us09-r3/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 5800 passed, 25 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 281 baseline; unchanged.
+- e2e: PASS — 666 passed, 0 failed (`e2e-full4.log`). Three earlier full runs on the same hash each had 665 passed and 1 failed, a different test each time, none rendering swissAcademic, all at the login step (the login page stayed on its loading skeleton, or the dashboard redirect timed out): `resume-page-break-pdf-count.spec.ts:93` (professional), `job-search-mobile.spec.ts:553` (375 px), `layout-persistence.spec.ts:174`. Each failing spec passed when rerun alone on the same hash (10/10, 20/20). The clean full run followed a restart of the local Supabase stack, which had been running for days.
+- visual (`pnpm test:visual`): PASS — 28/28; only the two new swissAcademic PNGs were added, the other 26 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier rounds, each invalidated by a fix:
+  - r1 (ea0494c206336b06): all green, but the Microsoft Word render wrapped "09.2013 – 06.2015" and "09.2010 – 06.2013" in the date column, which was measured at the Preview's 13 px while Word draws 10 pt. Fixed: measured at Word's half-point size plus 4 px, no-break spaces around the en dash, zero cell margins.
+  - r2 (adbd799fb1eb96ae): all green, ui-expert PASS, code-reviewer FAIL: (Critical) in Word a nameless project whose description opens with a list got no number, renumbering every later publication against the Preview's list; (Major) a free-text stored date wider than the 160 px column could wrap. Fixed: every item gets exactly one number (a numbered lead paragraph above a list), every space in a drawn date is a no-break space, the column grows to the widest date up to 242 px in both outputs; plus no-break space after the skill and language labels in Word, no break points in the Preview email, one bullet geometry in Word, a no-break space before the em dash.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample close to t9-academique.png ("Dr Elena Rossi"), plus a hidden experience, education entry, skill category, language, certificate and project; an ORCID-style website; a long DOI URL; a nameless project whose description is an HTML list; a distinction with the free-text date "Wintersemester 2021/2022"; long German words ("Neurowissenschaftsforschungsprogramm", "Datenauswertungsverfahren", "Gedächtniskonsolidierung"). Cases full-photo-fr and full-photo-de store a ticked photo; full-nophoto-en; empty-nophoto-fr (no projects, no certifications, every language hidden). Preview HTTP 200 in all four; photo img 0 in the Editor and Preview and Word media 0 in all four (photo never drawn); hidden text absent in Preview, PDF and Word (trace.txt). Preview captures: full-photo-fr 38d94eb081e0a643, full-photo-de d37a764e47b7afe3, full-nophoto-en af1ffaf94d7297bb, empty-nophoto-fr 070954f371384193. Picker: swissAcademic after swissExecutive; fr "Académique & recherche / Recherche et publications en avant", de "Akademisch & Forschung / Forschung und Publikationen zuerst"; picker-card-fr bf37352d90bfe872, picker-card-de 7afc3d631b0912dc. Live (ui-expert): the Contact tab shows no photo row for this template; the picker keeps one tab stop and arrow navigation over 14 options; no overflow at 1920, 768 and 375 px.
+- Visual: PASS — baselines regenerated in r3 on the final template code; the r3 visual run matched them.
+- Export: PASS (evidence folder `us09-evidence-r3/`).
+  - PDF: full-photo-fr 9476ad6f628ee3e9, full-photo-de 80145b657a1db3d8, full-nophoto-en f6defeab43c9f8b6 (2 pages each), empty-nophoto-fr fddc61b36ba235e8 (1 page).
+  - Word: full-photo-fr e6fc6b5a3a7fa66d, full-photo-de ca544ed4399cd1ff, full-nophoto-en 2130214d4b066fd2, empty-nophoto-fr c345da7e0a159740; no media in any.
+  - Rendered by Microsoft Word to PDF: full-photo-fr b12de77e7613df11, full-photo-de 7b741e2e5ef1548a, full-nophoto-en ddac9cdbda978fb9 (2 pages each), empty-nophoto-fr 6b8bed0c3e3eed43 (1 page). Serif type, small-caps headings with rules, one aligned date column on every section with no date wrapped, publications numbered 1–4 as in the Preview and the PDF, the last section on page 2 with its 48 px top margin in the PDF and in Word, long German words and the DOI URL whole.
+- Database: NOT_APPLICABLE — no schema or stored-data change; `swissAcademic` was already accepted by the US-001 constraint.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text through `renderFormattedText` (Preview, e2e 200) and the shared docx parsers; website and project URLs are drawn as plain text, not links; the photo is never read by this template's generator.
+Agents:
+- ui-expert: PASS (round 2, on r3), 7/7 conditions, 0 MAJOR, 4 MINOR (recorded below). Round 1 (on r2): PASS with 5 MINOR, of which the bullet indent and the em-dash break were fixed in r3.
+- code-reviewer: PASS (round 2, on r3, confirmed after the clean full e2e run). Round 1 (on r2): FAIL (Critical numbering, Major date wrap), fixed in r3.
+- senior-coder: implementation and the r1 and r2 fixes.
+Acceptance criteria:
+- AC-01 The picker shows swissAcademic after swissExecutive with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-academic-template.spec.ts`.
+- AC-02 Editor live preview, Preview, PDF and Word match t9-academique.png (serif type, no photo even when the CV has one; order summary, education, experience, "Publications and projects" as a numbered list, "Distinctions", skills and languages): PASS — the captures, PDFs and Word renders above; trace img 0 / media 0 with a stored ticked photo; ui-expert side-by-side comparison.
+- AC-03 FR-1 to FR-11 except the FR-5 photo requirement: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing labels plus the two FR-6 labels; the photo control not offered (FR-3).
+- Owner rule (no word split mid-word, dates never wrap, any locale): PASS for every word and date in the evidence, Preview, PDF and Word.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **No photo:** `TEMPLATE_DRAWS_PHOTO.swissAcademic = false` hides the Contact tab's photo row (upload and tick), so no photo control is offered (FR-3); the Editor and Preview pass no photo, the Word generator ignores `photoBase64`; the stored photo is unchanged and reappears with another template.
+- **Typeface and colours (AA, all on white):** serif stack (Georgia first) on the Preview, Georgia in Word. Ink #0f172a (17.85:1) for the name, headings and bold leads; body #1e293b (14.63:1); muted #475569 (7.58:1) for the title, contact line, dates, field of study and project extras; #94a3b8 for the heading rules (decoration only).
+- **Headings:** bold small capitals with 0.1em letter spacing and a 1 px rule; the summary under the existing summary label (FR-6: "Profil de recherche" reads as the summary); the last section from the existing labels "skills & languages".
+- **Date column:** one column for the whole page, as wide as the widest drawn date measured in Georgia at Word's size plus 4 px, up to 242 px (the entries keep at least 60 % of the 666 px content width); the Preview grid and Word's column and cell widths use the same value; every space in a drawn date is a no-break space; no dates, no column. Distinction dates MM.YYYY as the other Swiss templates print them.
+- **Entries:** education "**degree** — school", then the stored field of study in grey italics (where a "Thèse : …" text lives); experience "**position** — company, location", then bullets or description; a no-break space before every em dash.
+- **Publications and projects:** the stored `projects` as a numbered list: name in bold on its own line, the description, then technologies and the url as muted lines; project dates not drawn. Word uses a real decimal numbered list; an item whose text opens with a list gets its number on a lead paragraph of its own.
+- **Last section:** "**Category:** skills" per visible category (rich `skillsHtml` under its label), then "**Languages:** language (level), …" with the existing level names (FR-7); a no-break space after each label.
+- **Links:** a contact value or link that fits its line keeps its hyphens unbreakable in Word (`w:noBreakHyphen`); a wider one gets break points at its boundaries; the email never gets break points, in either output.
+
+Open owner decisions:
+- **Date wider than 242 px (code comment wrong):** a single stored free-text date wider than 242 px (about 38+ characters) overflows its column on the Preview, but Word cannot overflow a fixed-layout cell and would split it inside a word, against the owner rule. The comment in `swiss-academic-template.ts` (~77-83, 189-190) says it overflows in both. The editor stores dates as months, so only AI or imported data can reach it. Correcting the comment, or wrapping such a date at its spaces in both outputs, is a follow-up.
+- **FR-10, numbered item opening with a list:** in Word the number sits alone on its line above the list; the Preview and the PDF put it on the first list line. Content and numbering match.
+- **Wide date column:** one long free-text date widens the whole page's date column (about 190 px in the sample against about 102 px in the mockup), so long positions take an extra line; this follows from "dates never wrap" and one aligned column.
+- **Summary alignment:** left-aligned; the mockup justifies it. Kept left-aligned for long German compounds.
+- **FR-10, Word typeface:** Georgia is a Windows/Office face; where it is missing Word substitutes, and the date-column fit is measured in Georgia with a 4 px margin.
+- **Test strength:** the page-2 margin e2e check (`swiss-academic-template.spec.ts:319`) has a lower bound only; an upper bound would catch a doubled margin.
+- **Code:** the entry building is written in both the renderer and the Word generator (the r3 date fix had to edit both); the Word route still decodes `photoBase64` for this template although the generator ignores it.
+- **e2e flakiness:** three full runs each lost one unrelated test at login after the local Supabase stack had run for days; a restart cleared it. Worth tracking outside this initiative.
+- **Carried over from earlier stories:** the swissIt latent hyphen break in Word contact values; Inter not embedded in Word; swissCommerce has no page-2 top margin; swissEngineering URLs can break at in-word hyphens; stale comments in `docx-swiss-engineering.ts` and `swiss-engineering-template.tsx`; the shared `formatSwissDateRange` shows "present" for a missing end date when `current` is false; shrinking photos at upload needs a PRD amendment.
+
+Environment notes:
+- The checks ran alone; the owner's local dev server was stopped for each run and restarted afterwards. One stop interrupted the owner while using it (a CV created from a job application had already been saved, HTTP 201).
+- The local Supabase stack was restarted (stop/start, data kept) before the clean e2e run.
+- The evidence spec was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- ui-expert left a throwaway local account (uiexp-us009-…@example.test) with one CV on the local stack only.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-009 The "Académique & recherche" template is available
+FINAL: PASS
+
+## US-010: The "Premier emploi" template is available
+Status: PASS
+Priority: 12
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 0d5e33e (US-009 story commit).
+Scope:
+- Scope check: PASS
+- Changed paths (52 under src/ and e2e/, 9 of them new, plus this log and tasks/ralph/prd.json):
+  - **New template:** `src/lib/swiss-first-job-template.ts`, `src/components/dashboard/resume-templates/swiss-first-job-template.tsx`, `src/app/api/resumes/[id]/download-docx/docx-swiss-first-job.ts`, each with its unit test.
+  - **Wiring:** `src/types/database.ts` (`UnbuiltResumeTemplate` is now `never`: all 15 templates are built), `resume-editor.tsx`, `resume-preview.tsx`, `template-picker.tsx` (Rocket icon), `layout-settings.ts`, `resume-palette.ts` (new `emptyDot`), `resume-graphics.ts`, `resume-line-height.ts`, `resume-letter-spacing.ts`, `resume-text-opacity.ts`, `src/test/resume-template-files.ts`, the Word `route.ts` and `docx-templates.ts`, the from-job-application route, the AI generate-from-job-description route, the four `common.json` locale files (name and description only; no new heading label).
+  - **Print CSS:** `src/app/globals.css`, print-only rules scoped to `.swiss-first-job-template` (or `:has()` of it): no page margins; a page-wide band `linear-gradient(to right, #f5f3ff 260px, white 260px)` on the root, anchored at the page's left edge; the body and ancestors transparent; 48 px top and foot text padding repeated on every page with `box-decoration-break: clone`; round photo.
+  - **Test lists:** the unit tests that enumerate templates (the unbuilt-template tests became "every schema id is built"); `docx-graphics.test.ts` also reads header parts; e2e template-picker, template-picker-compact (15 options, eight rows), job-cv-template-picker, job-search-mobile, visual/resume-templates.
+  - **e2e:** new `e2e/swiss-first-job-template.spec.ts` (9 tests, including the sidebar band rasterised edge to edge on every page of a two-page PDF, and the wide email on one line).
+  - **Visual baselines (new):** `e2e/visual/__screenshots__/win32/swissFirstJob.png` (sha256 83dca1336bb69e41) and `swissFirstJob-print.png` (ff5acd1ee4a5f8bf), regenerated in each round.
+  - `docx-helpers.ts` is byte-identical to 0d5e33e (an opt-in change made in r3 was reverted in r4).
+- Not touched: the five original templates and the nine earlier Swiss templates (renderers, Word generators, baselines, parity verdicts), the shared docx and format helpers, stored data; no migration; no new dependency; no version change; no push or merge of this commit.
+Checks (final diff hash e60163f478998059, sha256 of `git diff -- src e2e` plus untracked src/e2e files, identical before and after every run and re-verified by the code-reviewer; logs in the session scratchpad `checks-us10-r5/`):
+- typecheck: PASS — 0 errors.
+- unit (`pnpm test`): PASS — 5982 passed, 27 skipped.
+- integration: PASS — 80 passed.
+- build: PASS — 105/105 static pages.
+- lint: PASS — 281 problems (219 errors, 62 warnings) against the 281 baseline; unchanged.
+- e2e: PASS — 675 passed, 0 failed.
+- visual (`pnpm test:visual`): PASS — 30/30; only the two new swissFirstJob PNGs were added, the other 28 baselines are unmodified.
+- parity (`pnpm test:parity`): PASS — 283 passed; MATCH 211, KNOWN 3, NEW 0 (unchanged).
+- Earlier rounds, each invalidated by a fix:
+  - r1 (f9b0d9e8e55655f2): all green; the PDF sidebar fill stopped about 48 px short of the paper's top and foot (page margins), and the language dots were mismatched glyphs. Fixed: no print page margins, an edge-anchored page band, per-page cloned padding; equal 7 px CSS circles (Preview/PDF) and one Arial "●" glyph in two colours (Word).
+  - r2 (e58ff4bff0d52f44): all green, ui-expert PASS, code-reviewer FAIL (Critical): an ordinary long email (33+ characters) was cut at an arbitrary letter in the 212 px sidebar in both outputs.
+  - r3 (1291f304407997d7): all green; email wrapped at its boundaries with ZWSP in Word; ui-expert FAIL (MAJOR): the extracted Word text no longer equalled the email; keepNext for Word entries had no effect.
+  - r4 (ec8071ff0b41ce5a): all green; email shrunk to fit; ui-expert FAIL (MAJOR): an email too long even at 7 pt still fell back to ZWSP in Word.
+Specialized validation:
+- Browser: PASS — product routes on the local stack, 1440 viewport at 2x. Sample close to t10-premier-emploi.png ("Kevin Gomes"), plus hidden items in every section, a visible project (never drawn), long German words ("Kommunikationsfähigkeiten", "Lagerbewirtschaftung und Kommissionierung"), a 39-character email (fr, de) and a 57-character email (en); enough experience for a second page. Cases full-photo-fr, full-photo-de, full-nophoto-en, empty-nophoto-fr. Preview HTTP 200 in all four; photo img 1/1/0/0; hidden text and the project absent in Preview, PDF and Word (trace.txt); Word holds 20 dot glyphs. Preview captures: full-photo-fr 4202a01275be902a, full-photo-de a4d50ef39f91d2cb, full-nophoto-en fee568ffa8aff469, empty-nophoto-fr c768bd4c2d276dcf. Picker: swissFirstJob after swissAcademic; fr "Premier emploi / Compétences et formation en avant", de "Erste Stelle / Fähigkeiten und Ausbildung zuerst"; picker-card-fr 7bd1b4d5b20ae1c4, picker-card-de 69662137069175d3. Live (ui-expert): the Contact tab offers the photo row; the panels list only sections the template draws, no projects row; the picker keeps one tab stop and arrow navigation over 15 options; no overflow at 1920, 768 and 375 px.
+- Visual: PASS — baselines regenerated in r5 on the final template code; the r5 visual run matched them.
+- Export: PASS (evidence folder `us10-evidence-r5/`).
+  - PDF: full-photo-fr 23d8c25c36ae0226, full-photo-de 88ba9eac0138fbe0, full-nophoto-en adf73c653db16c72 (2 pages each), empty-nophoto-fr 9d30c7baaa9117c0 (1 page).
+  - Word: full-photo-fr cbed957dcf0a3c6c, full-photo-de 743d1586b66ac3f5, full-nophoto-en 616effb34d1efa08, empty-nophoto-fr fb4af4d8a1efa9da. The email in every file equals the stored value byte for byte (no U+200B, no noBreakHyphen); the 57-character email carries `w:fitText` 3180 twips.
+  - Rendered by Microsoft Word to PDF: full-photo-fr 94d57a445946b5a4, full-photo-de c7d1f8821c3921df, full-nophoto-en 18c096111fe3c394 (2 pages each), empty-nophoto-fr 43ac7a5911077405 (1 page). Violet sidebar from the paper's top to its foot on both pages, round photo with ring, "✓" skills, equal dots (5/5/2/1), certificates under "Schulung / Kurse"; the PDF and Word break pages at the same entry in fr and de; long German words whole; no date wrapped.
+- Database: NOT_APPLICABLE — no schema or stored-data change; `swissFirstJob` was already accepted by the US-001 constraint.
+- Security: NOT_APPLICABLE as a separate gate — no new route or trust boundary. Rich text through `renderFormattedText` (Preview, e2e 200) and the shared docx parsers; contact URLs drawn as plain text; the photo goes through the Word route's existing bound.
+Agents:
+- ui-expert: PASS (round 5, on r5), 7/7 conditions, 0 MAJOR, 5 MINOR (recorded below). Rounds on r2 PASS; r3 FAIL (Word email text altered by ZWSP; Word entry split); r4 FAIL (fallback email still altered).
+- code-reviewer: PASS (round 2, on r5). Round 1 (on r2): FAIL (Critical: long email cut at an arbitrary letter).
+- senior-coder: implementation and the r1–r4 fixes.
+Acceptance criteria:
+- AC-01 The picker shows swissFirstJob after swissAcademic with its localized name and description, and a CV can be created with it: PASS — picker traces fr and de; `template-picker.spec.ts` order and names; creation in `swiss-first-job-template.spec.ts`.
+- AC-02 Editor live preview, Preview, PDF and Word match t10-premier-emploi.png (light violet left column: round photo, contact, skills, languages with five dots per FR-7, certificates; main column: name, CV title, summary, experience, education): PASS — the captures, PDFs and Word renders above; ui-expert side-by-side comparison.
+- AC-03 FR-1 to FR-11: PASS — the checks above; hidden items and empty sections absent in all four outputs; existing labels only (contact: `resumes.editor.sections.contact`; certificates: `training`); FR-7 mapping unit-tested.
+- Owner rule (no word split mid-word, any locale; dates never wrap): PASS for every word, date and email in the evidence, Preview, PDF and Word.
+- FAIL and BLOCKER conditions: none triggered.
+
+Decision:
+- **Colours (AA):** sidebar tint #f5f3ff; name #4c1d95 (10.95:1 white); title, headings and date lines #6d28d9 (7.10:1 white, 6.48:1 tint); bold #0f172a; body #1e293b (13.34:1 tint); muted #475569 (6.91:1 tint). The mockup's title violet #8b5cf6 and slate-500 on the tint fail AA and were darkened. Filled dots #7c3aed (5.20:1 on the tint, 4.10:1 against empty dots) carry the level; empty dots #ddd6fe, photo ring #c4b5fd and the heading circle are decoration.
+- **Geometry:** sidebar 260 px with 24 px padding (212 px of text); main column 40 px padding left and right; 48 px top and foot text margins on every page in both outputs.
+- **Word sidebar fill:** a page-high 260 px picture in the section's default header, anchored to the page at 0/0 behind the text, so it repeats on every page; swissEngineering's technique is unchanged.
+- **Language dots (FR-7):** Native 5, Fluent 4, Professional 3, Intermediate 2, Basic 1, any other value 0. Preview/PDF: five equal 7 px circles with a 4 px gap and the localized level name as the accessible name. Word: five "●" in Arial at a fixed size, coloured.
+- **Skills:** a category caption in bold when one is stored, then one "✓" item per skill; rich `skillsHtml` through the shared helpers.
+- **Certificates:** "name · issuer · MM.YYYY", each part only when stored, under the existing `training` label.
+- **Contact:** one value per line, honouring FR-14. The email is never broken and never altered: drawn at the largest whole half-point size that fits the sidebar, down to 7 pt, the same size in both outputs. Below 7 pt the Preview wraps it at its own boundaries with `<wbr>` (after the "@", before "." and "-"), and Word keeps one run with `w:fitText` (written by a scoped post-pass that marks exactly one run). Other links keep the swissExecutive rule.
+- **Projects:** not drawn (not in the story's sections); no projects row in the editor.
+
+Open owner decisions:
+- **Email size:** a long email is drawn smaller than the other contact lines (7 pt for the 39-character sample) and, beyond about 42 characters, compressed further in Word. Chosen so the address is never cut or altered; it needs owner acceptance.
+- **FR-10, long-email fallback:** for an email that does not fit even at 7 pt, Word shows one compressed line while the Preview and PDF wrap after the "@". A single part without "@", "." or "-" wider than the sidebar at 7 pt (about 38+ characters) would still be cut at a letter in the Preview (Word compresses it).
+- **FR-10, Word entry split:** an entry can split across pages in Word (seen in the en render: "Aide agricole saisonnier"), while the PDF moves it whole. The main column is one table cell, where keep-with-next has no effect; a keepNext change was tried and reverted.
+- **FR-10, level in Word:** the level is shown by the dots' count and colour only; text extraction gets five identical glyphs.
+- **FR-10, Word typeface:** Word substitutes Cambria where Inter is not installed (all Swiss templates; Inter not embedded).
+- **Visual baseline:** `swissFirstJob-print.png` shows only a thin violet strip, because the root band is positioned against the viewport in the screenshot; the real PDF band is guarded by the e2e at `swiss-first-job-template.spec.ts:283`.
+- **Cross-template (US-007/US-008 path):** contact values held with `w:noBreakHyphen` in Word (e.g. "Yverdon-les-Bains", the LinkedIn URL) lose or change their hyphens when copied or extracted; a follow-up should stop exports from altering contact values.
+- **Code:** `UNBUILT_TEMPLATES` in `docx-templates.ts` is now an empty mechanism kept as a hook; it can be removed when the PRD closes.
+- **Outside this story:** the Editor's page-break indicator can predict a break mid-entry where the PDF moves the whole entry; "Créer le CV" stayed on "Création..." for 15+ s in two live runs (the CV was created).
+- **Carried over from earlier stories:** the swissAcademic over-242 px date comment; swissCommerce has no page-2 top margin; swissEngineering URLs can break at in-word hyphens; stale comments in `docx-swiss-engineering.ts` and `swiss-engineering-template.tsx`; the shared `formatSwissDateRange` shows "present" for a missing end date when `current` is false; shrinking photos at upload needs a PRD amendment.
+
+Environment notes:
+- The checks ran alone; the owner's local dev server was stopped for each run and restarted afterwards (one stop interrupted the owner using the cover-letter generator).
+- senior-coder ran only `e2e/swiss-first-job-template.spec.ts` between rounds, with the dev server stopped and nothing else running.
+- The evidence spec was copied into `e2e/` only for its runs and deleted; the diff hash was identical afterwards.
+- The Word renders used Microsoft Word through `word-one.ps1`, which stops only the Word process it started.
+- ui-expert used its throwaway local account (CV "Probe firstjob" now holds a 57-character email) on the local stack only.
+- The e2e build rewrites `next-env.d.ts`, which is not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-010 The "Premier emploi" template is available
+FINAL: PASS
+
+## FIX (PR #130 CI, 2026-11-25): the "Premier emploi" email wrapped on the Linux runner
+Status: PASS
+Story: none (CI failure on PR #130 against US-010; no story's `passes` value is changed).
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: ad8f71b (US-010 story commit).
+Cause: CI run 45511754625 (Linux, Chromium) failed one e2e test, `e2e/swiss-first-job-template.spec.ts` "an email wider than the sidebar is drawn as stored on exactly one line": the shrunk 39-character email rendered on 2 lines on screen (1 on Windows). The test measured before `document.fonts.ready`, and the email could wrap at its hyphen.
+Scope:
+- Scope check: PASS
+- Changed paths (3): `src/components/dashboard/resume-templates/swiss-first-job-template.tsx` (an email drawn whole sits in a `whitespace-nowrap` span; the below-7pt fallback with `<wbr>` is unchanged), its unit test, `e2e/swiss-first-job-template.spec.ts` (waits for `document.fonts.ready`; asserts nowrap, one line, the fitted size, and that the email's right edge stays within the sidebar's text edge + 2 px on screen and in print, logging the overflow).
+- Not touched: Word output, shared helpers, every other template.
+Checks:
+- On hash 5d0eed88ba9f91f6 (template + unit test + first spec change; logs `checks-ci130-fix/`): typecheck 0; unit 5983 passed, 27 skipped; integration 80; build 105/105; lint 281 (ceiling 281); e2e 675 passed, 0 failed; visual 30/30; parity MATCH 211, KNOWN 3, NEW 0.
+- On the final hash 798b1d0689dcb259 (only the e2e spec changed since; logs `checks-ci130-fix2/`): typecheck 0; lint 281; e2e 675 passed, 0 failed; logged overflow -10.69 px on screen and in print (Windows). Unit, integration, build, visual and parity do not read the e2e spec.
+Agents:
+- code-reviewer: PASS (round 2). Round 1 FAIL (Major): with nowrap the one-line assertion could no longer fail; fixed by the bounds check.
+- ui-expert: NOT_APPLICABLE — no rendered change for an email that fits (it already drew on one line on Windows).
+Open owner decisions:
+- The Linux job must log an overflow within 2 px; if it does not, the font loading or the measurement needs fixing, not the tolerance.
+Environment notes:
+- `.claude/settings.local.json` has a working-copy change that empties the `ask` list and allows `gh pr *`; it is not part of this commit (flagged by the code-reviewer).
+Commit:
+- Commit: THIS_COMMIT
+- Commit message: fix: keep the Premier emploi email on one line on Linux
+FINAL: PASS
+
+## FIX (PR #130 CI round 2, 2026-11-25): the "Premier emploi" email fit is measured at a whole pixel
+Status: PENDING_CI (local e2e blocked by the environment; the PR's Linux E2E on this commit is the deciding run)
+Story: none (CI failure on PR #130 against US-010; no story's `passes` value is changed).
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: 7f2fd4f (previous CI fix).
+Cause: CI run 45562287430 (Linux, Chromium) logged an email overflow of 4.00 px past the sidebar's text box (Windows: -10.69 px). The 39-character email requested at 9.33 px was drawn 216 px wide; exact Inter widths are 201.3 px at 9.33 px, 201 px with each glyph rounded to the nearest pixel, and 215.7 px at 10 px: Chromium on Linux laid the size out at the next whole pixel. Production PDFs are rendered by Chromium on Linux too.
+Scope:
+- Scope check: PASS
+- Changed paths (5): `src/lib/swiss-first-job-template.ts` (new `swissFirstJobEmailWidthPx` measures at `ceil(px)`; `swissFirstJobEmailFit` accepts a size only if that width fits 208 px; Word uses the same decision; the evidence is in a code comment), its unit test, `swiss-first-job-template.test.ts`, `docx-swiss-first-job.test.ts`, `e2e/swiss-first-job-template.spec.ts` (fitted path with a 33-character email; a new fallback-path test: text equals the stored value, one `<wbr>` per boundary, each part on one line within 2 px of the text box, on screen and in print; overflows logged).
+- Effect: 33-character emails draw at 8 pt (197 px at 11 px); the fallback (Preview `<wbr>` wrap, Word 7 pt `w:fitText`) now starts at about 37 characters instead of about 42.
+- Not touched: shared helpers, every other template.
+Checks (hash 22969320da8daf9c; logs `checks-ci130-fix3/`):
+- typecheck 0; unit 5985 passed, 27 skipped; integration 80; build 105/105; lint 281 (ceiling 281); visual 30/30; parity MATCH 211, KNOWN 3, NEW 0.
+- e2e: BLOCKED locally by the environment. Run 1: 675 passed, 1 failed (`resume-page-break-pdf-count.spec.ts:93`, "modern", login page timeout). After a local Supabase restart, run 2: 674 passed, 2 failed (`cover-letter-swiss-pdf.spec.ts:213` with `net::ERR_NO_BUFFER_SPACE` on `page.goto /en/login`, Windows socket exhaustion; `cv-from-job-application.spec.ts:149`, dashboard redirect timeout). None renders swissFirstJob. Every swissFirstJob e2e test passed in both runs; logged overflows -21.00 px (fitted) and -10.66 px (fallback widest part), screen and print.
+Agents:
+- code-reviewer: no change required; PASS conditional on a green full e2e and the PR's Linux CI showing both overflows <= 2 px.
+- ui-expert: NOT re-run — no component markup changed; only the size threshold moved, and both paths (shrunk, fallback) were validated in US-010 r5.
+Open owner decisions:
+- More emails now take the fallback (about 37+ characters): two lines in the Preview, one compressed line in Word (FR-10 difference already recorded for US-010).
+Commit:
+- Commit: THIS_COMMIT
+- Commit message: fix: measure the Premier emploi email fit at a whole pixel
+FINAL: PENDING_CI
