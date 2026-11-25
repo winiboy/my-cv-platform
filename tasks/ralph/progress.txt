@@ -1050,3 +1050,28 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-010 The "Premier emploi" template is available
 FINAL: PASS
+
+## FIX (PR #130 CI, 2026-11-25): the "Premier emploi" email wrapped on the Linux runner
+Status: PASS
+Story: none (CI failure on PR #130 against US-010; no story's `passes` value is changed).
+Branch: ralph/swiss-cv-templates
+Baseline HEAD: ad8f71b (US-010 story commit).
+Cause: CI run 45511754625 (Linux, Chromium) failed one e2e test, `e2e/swiss-first-job-template.spec.ts` "an email wider than the sidebar is drawn as stored on exactly one line": the shrunk 39-character email rendered on 2 lines on screen (1 on Windows). The test measured before `document.fonts.ready`, and the email could wrap at its hyphen.
+Scope:
+- Scope check: PASS
+- Changed paths (3): `src/components/dashboard/resume-templates/swiss-first-job-template.tsx` (an email drawn whole sits in a `whitespace-nowrap` span; the below-7pt fallback with `<wbr>` is unchanged), its unit test, `e2e/swiss-first-job-template.spec.ts` (waits for `document.fonts.ready`; asserts nowrap, one line, the fitted size, and that the email's right edge stays within the sidebar's text edge + 2 px on screen and in print, logging the overflow).
+- Not touched: Word output, shared helpers, every other template.
+Checks:
+- On hash 5d0eed88ba9f91f6 (template + unit test + first spec change; logs `checks-ci130-fix/`): typecheck 0; unit 5983 passed, 27 skipped; integration 80; build 105/105; lint 281 (ceiling 281); e2e 675 passed, 0 failed; visual 30/30; parity MATCH 211, KNOWN 3, NEW 0.
+- On the final hash 798b1d0689dcb259 (only the e2e spec changed since; logs `checks-ci130-fix2/`): typecheck 0; lint 281; e2e 675 passed, 0 failed; logged overflow -10.69 px on screen and in print (Windows). Unit, integration, build, visual and parity do not read the e2e spec.
+Agents:
+- code-reviewer: PASS (round 2). Round 1 FAIL (Major): with nowrap the one-line assertion could no longer fail; fixed by the bounds check.
+- ui-expert: NOT_APPLICABLE — no rendered change for an email that fits (it already drew on one line on Windows).
+Open owner decisions:
+- The Linux job must log an overflow within 2 px; if it does not, the font loading or the measurement needs fixing, not the tolerance.
+Environment notes:
+- `.claude/settings.local.json` has a working-copy change that empties the `ask` list and allows `gh pr *`; it is not part of this commit (flagged by the code-reviewer).
+Commit:
+- Commit: THIS_COMMIT
+- Commit message: fix: keep the Premier emploi email on one line on Linux
+FINAL: PASS

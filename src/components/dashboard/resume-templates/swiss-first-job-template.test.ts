@@ -151,7 +151,8 @@ describe('swissFirstJob draws the mockup’s two columns', () => {
 
   it('lists the contact details one per line, and each skill behind a check mark', () => {
     const aside = withoutWbr(asideOf(render(resume())))
-    for (const value of ['Oxbridge', '+41 00 000 00 10', 'kevin@gomes.test', 'github.test/kevin']) expect(aside).toContain(`>${value}</p>`)
+    for (const value of ['Oxbridge', '+41 00 000 00 10', 'github.test/kevin']) expect(aside).toContain(`>${value}</p>`)
+    expect(aside).toContain('<span class="whitespace-nowrap">kevin@gomes.test</span></p>')
     expect(aside).toContain('<span aria-hidden="true" class="shrink-0" style="width:14px">✓</span><span class="min-w-0">Handling and carrying</span>')
     expect(aside).not.toContain('Hidden skill')
   })
@@ -222,12 +223,21 @@ describe('swissFirstJob never cuts a word (owner rule, any language)', () => {
     const fit = swissFirstJobEmailFit(email)
     expect(fit.px).toBeLessThan(SWISS_FIRST_JOB_SIZES.sidebar)
     const html = render(resume({ contact: { name: 'Max', email } }))
-    expect(html).toContain(`<p style="margin-top:0"><span style="font-size:${fit.px}px">${email}</span></p>`)
+    // Never wrapped, not even at its hyphen.
+    expect(html).toContain(`<p style="margin-top:0"><span class="whitespace-nowrap" style="font-size:${fit.px}px">${email}</span></p>`)
+  })
+
+  it('wraps an email too wide even at 7pt only at its boundaries, marked with <wbr>, and lets it wrap', () => {
+    const email = 'maximilian-alexander.mustermann-gomes@hotmail-example.com'
+    const fit = swissFirstJobEmailFit(email)
+    expect(fit.parts.length).toBeGreaterThan(1)
+    const html = render(resume({ contact: { name: 'Max', email } }))
+    expect(html).toContain(`<p style="margin-top:0"><span style="font-size:${fit.px}px">${fit.parts.join('<wbr/>')}</span></p>`)
   })
 
   it('draws a fitting email whole and marks a link’s boundaries with <wbr>; keeps every date on one line', () => {
     const plain = render(resume())
-    expect(plain).toContain('>kevin@gomes.test</p>')
+    expect(plain).toContain('<span class="whitespace-nowrap">kevin@gomes.test</span></p>')
     expect(plain).toContain('github<wbr/>.test/<wbr/>kevin')
     expect(ancestorsOf(html, `01.2024 – ${de.resumes.template.present}`).at(-1)).toContain('whitespace-nowrap')
   })

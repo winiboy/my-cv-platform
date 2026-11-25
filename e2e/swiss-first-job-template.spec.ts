@@ -241,20 +241,37 @@ test('en: an email wider than the sidebar is drawn as stored on exactly one line
   expect(await line.textContent()).toBe(EMAIL)
   await expect(line.locator('wbr')).toHaveCount(0)
 
-  /** The line boxes the address spans, and the size it is drawn at. */
+  /**
+   * The line boxes the address spans, the size it is drawn at, and how far its
+   * right edge runs past the sidebar's text box (its right edge less its right
+   * padding, read from its style): negative while it fits.
+   */
   const drawn = () =>
     line.evaluate((element) => {
       const range = document.createRange()
       range.selectNodeContents(element)
       const lines = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size
       const text = element.querySelector('span') ?? element
-      return { lines, fontSize: parseFloat(getComputedStyle(text).fontSize) }
+      const style = getComputedStyle(text)
+      const aside = element.closest('aside')
+      if (!aside) throw new Error('The email is not in the sidebar')
+      const textRight = aside.getBoundingClientRect().right - parseFloat(getComputedStyle(aside).paddingRight)
+      return { lines, fontSize: parseFloat(style.fontSize), whiteSpace: style.whiteSpace, overflow: text.getBoundingClientRect().right - textRight }
     })
+  // Measured once Inter has loaded: a fallback face would measure other widths.
+  await page.evaluate(async () => {
+    await document.fonts.ready
+  })
   for (const media of ['screen', 'print'] as const) {
     await page.emulateMedia({ media })
-    const { lines, fontSize } = await drawn()
+    const { lines, fontSize, whiteSpace, overflow } = await drawn()
+    // On record in every run, so a platform's real width shows: negative is room to spare.
+    console.log(`swissFirstJob email overflow (${media}): ${overflow.toFixed(2)}px`)
+    expect(whiteSpace, media).toBe('nowrap')
     expect(lines, media).toBe(1)
     expect(fontSize, media).toBeCloseTo(fit.px, 2)
+    // On one line, inside the sidebar's text box, with 2px of tolerance.
+    expect(overflow, `${media}: px past the sidebar's text box`).toBeLessThanOrEqual(2)
   }
 })
 

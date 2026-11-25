@@ -145,7 +145,18 @@ export function SwissFirstJobTemplate({
    */
   const emailText = (email: string) => {
     const fit = swissFirstJobEmailFit(email)
-    return fit.px === size.sidebar ? withBreaks(fit.parts) : <span style={{ fontSize: `${fit.px}px` }}>{withBreaks(fit.parts)}</span>
+    // Too wide even at the smallest size: wrapped at its boundaries only.
+    if (fit.parts.length > 1) return <span style={{ fontSize: `${fit.px}px` }}>{withBreaks(fit.parts)}</span>
+    // Drawn whole: never wrapped, not even at its hyphen, on screen and in
+    // print, so a rasteriser's sub-pixel difference from the measured width
+    // cannot push its end onto a second line.
+    return fit.px === size.sidebar ? (
+      <span className="whitespace-nowrap">{email}</span>
+    ) : (
+      <span className="whitespace-nowrap" style={{ fontSize: `${fit.px}px` }}>
+        {email}
+      </span>
+    )
   }
 
   // ----------------------------------------------------------
