@@ -444,10 +444,11 @@ export function excludeFromUnicodeRange(unicodeRange: string, codePoints: readon
 }
 
 /**
- * A read done once per server instance. A failed read is forgotten, so the
- * next request tries again.
+ * A read of the installed Fontsource packages done once per server instance. A
+ * failed read is forgotten, so the next request tries again. Also used by the
+ * Word export, which embeds Inter (`docx-fonts.ts`).
  */
-function readOncePerInstance<T>(read: (fontsourceRoot: string) => Promise<T>): () => Promise<T> {
+export function readOncePerInstance<T>(read: (fontsourceRoot: string) => Promise<T>): () => Promise<T> {
   let cached: Promise<T> | null = null
   return () => {
     // `process.cwd()` is the app's root under `next start` and in a Vercel

@@ -286,9 +286,14 @@ const nextConfig = {
   // `node_modules/@fontsource/<package>`, the path named here. And the hyphen
   // supplements of next/font's Inter: `@fontsource/inter`'s stylesheets and
   // latin WOFF files for INTER_FACE_STYLES, upright 100 to 900.
+  //
+  // And the Inter faces the resume's Word export embeds, read at runtime from
+  // `node_modules/@fontsource/inter` (INTER_DOCX_FACES in
+  // src/app/api/resumes/[id]/download-docx/docx-fonts.ts, which this list must match).
   outputFileTracingIncludes: {
     "/api/resumes/*/download-pdf": pdfRendererTracedFiles(),
     "/api/cover-letters/*/download-pdf": pdfRendererTracedFiles(),
+    "/api/resumes/*/download-docx": ["./node_modules/@fontsource/inter/files/inter-latin-{400,700}-normal.woff"],
   },
 
   env: {

@@ -60,16 +60,22 @@ import {
 import { visibleContactDetails } from '@/lib/contact-visibility'
 import {
   APP_BODY_FONT,
+  KEEP_LINES,
+  KEEP_WITH_NEXT,
   NO_TEXT_LINE,
   exactLineSpacing,
   extractAlignment,
+  keepAt,
+  noBreakHyphenChildren,
   parseHtmlToDocxRuns,
   parsePlainTextListToParagraphs,
   pxToHalfPoints,
   pxToTwips,
   trackingSpacing,
   type DocxGeneratorSettings,
+  type ParagraphKeep,
 } from './docx-helpers'
+import { interDocxFonts, pairInterFaces } from './docx-fonts'
 import { DOCX_PALETTE } from './docx-palette'
 import { FORMATTED_LIST_INDENT_PX, FORMATTED_LIST_MARKER_EM, bareInlineFormatTags, formattedBlocks } from './docx-preview-metrics'
 import { TAG_BREAK } from './docx-swiss-trades'
@@ -122,7 +128,7 @@ const pxToEighths = (px: number) => Math.round(px * 0.75 * 8)
 const emptyParagraph = () => new Paragraph({ children: [], spacing: { before: 0, after: 0, ...NO_TEXT_LINE } })
 
 /** A paragraph drawing no text that carries a vertical gap of `twips`. */
-const spacer = (twips: number) => new Paragraph({ children: [], spacing: { before: 0, after: twips, ...NO_TEXT_LINE } })
+const spacer = (twips: number, keep?: ParagraphKeep) => new Paragraph({ children: [], spacing: { before: 0, after: twips, ...NO_TEXT_LINE }, ...keep })
 
 /**
  * How much narrower than its line a link or a date must measure in Inter to be
@@ -151,7 +157,7 @@ export function swissExecutiveLinkChildren(text: string, linePx: number, halfPoi
   if (interLinkWidthPx(text, halfPoints / 1.5) > linePx - SWISS_EXECUTIVE_SAFETY_PX) {
     return [isEmail ? text : swissItLinkParts(text).join(TAG_BREAK)]
   }
-  return text.split('-').flatMap((part, index) => [...(index > 0 ? [new NoBreakHyphen()] : []), ...(part ? [part] : [])])
+  return noBreakHyphenChildren(text)
 }
 
 /**
@@ -262,16 +268,23 @@ export async function generateSwissExecutiveDocx(resume: unknown, settings: Docx
    * item's marker hanging at the list's indent. Plain text: `formatText`'s
    * rules — its lists as items, its other blocks as paragraphs. As
    * `docx-swiss-engineering.ts` draws it.
+   * `keep`: the keep rules of the last paragraph, inside a block print keeps
+   * whole (`keepAt`).
    */
-  const richParagraphs = (text: string, color: string, options: { size: number; line: number; spacingBefore?: number }): Paragraph[] => {
+  const richParagraphs = (
+    text: string,
+    color: string,
+    options: { size: number; line: number; spacingBefore?: number; keep?: ParagraphKeep },
+  ): Paragraph[] => {
+    const { keep } = options
     const runOptions = { size: options.size, color, font }
     const lineSpacing = exactLineSpacing([formattedTextLineHeight(text, LINE_HEIGHT.text), options.line])
     const alignment = extractAlignment(text)
     const markerHang = pxToTwips(FORMATTED_LIST_MARKER_EM * (options.size / 1.5))
     const paragraphs = !rendersAsFormattedContent(text)
-      ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing })
+      ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing, keep })
       : formattedBlocks(text).map(
-          (block) =>
+          (block, index, blocks) =>
             new Paragraph({
               children: [
                 ...(block.marker === null ? [] : [new TextRun({ ...runOptions, text: `${block.marker}\t` })]),
@@ -283,9 +296,10 @@ export async function generateSwissExecutiveDocx(resume: unknown, settings: Docx
                   ? undefined
                   : { left: pxToTwips(FORMATTED_LIST_INDENT_PX * block.depth), hanging: block.marker === null ? 0 : markerHang },
               spacing: { after: 0, ...lineSpacing },
+              ...keepAt(keep, index, blocks.length),
             }),
         )
-    if (options.spacingBefore && paragraphs.length > 0) paragraphs.unshift(spacer(options.spacingBefore))
+    if (options.spacingBefore && paragraphs.length > 0) paragraphs.unshift(spacer(options.spacingBefore, keep ? KEEP_WITH_NEXT : undefined))
     return paragraphs
   }
 
@@ -297,17 +311,19 @@ export async function generateSwissExecutiveDocx(resume: unknown, settings: Docx
       keepNext: true,
     })
 
-  const textLine = (text: string, color: string, before = 0) =>
-    new Paragraph({ children: [run(text, color)], spacing: { before, after: 0, ...bodyLine } })
+  const textLine = (text: string, color: string, before = 0, keep?: ParagraphKeep) =>
+    new Paragraph({ children: [run(text, color)], spacing: { before, after: 0, ...bodyLine }, ...keep })
 
   /**
    * An entry's first line: its bold title in a cell taking the rest of the
    * line, the dates in grey in a right-aligned cell as wide as the section's
    * widest date, so a date never wraps and a long title wraps at its spaces
-   * beside it, as on the Preview. With no dates, the title alone.
+   * beside it, as on the Preview. With no dates, the title alone. `keep`
+   * goes on both cells' paragraphs: kept with the next paragraph, they keep
+   * the one-row table with what follows it.
    */
-  const firstLine = (lead: string, dates: string, dateColumn: number): Paragraph | Table => {
-    const leadParagraph = new Paragraph({ children: lead ? [run(lead, PALETTE.ink, { bold: true })] : [], spacing: { after: 0, ...bodyLine } })
+  const firstLine = (lead: string, dates: string, dateColumn: number, keep: ParagraphKeep): Paragraph | Table => {
+    const leadParagraph = new Paragraph({ children: lead ? [run(lead, PALETTE.ink, { bold: true })] : [], spacing: { after: 0, ...bodyLine }, ...keep })
     if (!dates) return leadParagraph
     const leadWidth = contentWidth - dateColumn
     return new Table({
@@ -336,6 +352,7 @@ export async function generateSwissExecutiveDocx(resume: unknown, settings: Docx
                   children: [run(dates, PALETTE.muted, { size: size.date })],
                   alignment: AlignmentType.RIGHT,
                   spacing: { after: 0, ...bodyLine },
+                  ...keep,
                 }),
               ],
             }),
@@ -522,7 +539,7 @@ export async function generateSwissExecutiveDocx(resume: unknown, settings: Docx
     })
   }
 
-  /** An entry's details: its achievements as bullets, or else its description. */
+  /** An entry's details: its achievements as bullets, or else its description; they end the entry, kept whole. */
   const details = (achievements: readonly string[], description: string | null): Paragraph[] => {
     if (achievements.length > 0) {
       const indent = pxToTwips(GEOMETRY.bulletIndent)
@@ -537,10 +554,13 @@ export async function generateSwissExecutiveDocx(resume: unknown, settings: Docx
               after: 0,
               ...exactLineSpacing([formattedTextLineHeight(achievement, LINE_HEIGHT.text), line.body]),
             },
+            ...keepAt(KEEP_LINES, i, achievements.length),
           }),
       )
     }
-    return description ? richParagraphs(description, PALETTE.body, { size: size.body, line: line.body, spacingBefore: pxToTwips(GEOMETRY.detailGap) }) : []
+    return description
+      ? richParagraphs(description, PALETTE.body, { size: size.body, line: line.body, spacingBefore: pxToTwips(GEOMETRY.detailGap), keep: KEEP_LINES })
+      : []
   }
 
   const sectionBlocks = (sectionId: SwissExecutiveSectionId): (Paragraph | Table)[] => {
@@ -605,9 +625,11 @@ export async function generateSwissExecutiveDocx(resume: unknown, settings: Docx
         experiences.forEach((exp, index) => {
           // The space between two entries: a spacer, since a built paragraph's spacing cannot be changed.
           if (index > 0) blocks.push(spacer(pxToTwips(GEOMETRY.entryGap)))
-          if (exp.lead || exp.dates) blocks.push(firstLine(exp.lead, exp.dates, dateColumn))
-          if (exp.detail) blocks.push(textLine(exp.detail, PALETTE.muted))
-          blocks.push(...details(exp.achievements, exp.description))
+          // The entry is kept whole, as print keeps it.
+          const below = details(exp.achievements, exp.description)
+          if (exp.lead || exp.dates) blocks.push(firstLine(exp.lead, exp.dates, dateColumn, exp.detail || below.length > 0 ? KEEP_WITH_NEXT : KEEP_LINES))
+          if (exp.detail) blocks.push(textLine(exp.detail, PALETTE.muted, 0, below.length > 0 ? KEEP_WITH_NEXT : KEEP_LINES))
+          blocks.push(...below)
         })
         return blocks
       }
@@ -621,10 +643,13 @@ export async function generateSwissExecutiveDocx(resume: unknown, settings: Docx
         const blocks: (Paragraph | Table)[] = [heading(swissHeading(dict, 'education'))]
         education.forEach((edu, index) => {
           if (index > 0) blocks.push(spacer(pxToTwips(GEOMETRY.entryGap)))
-          if (edu.lead || edu.dates) blocks.push(firstLine(edu.lead, edu.dates, dateColumn))
-          if (edu.detail) blocks.push(textLine(edu.detail, PALETTE.muted))
+          // The entry is kept whole, as print keeps it.
+          if (edu.lead || edu.dates) blocks.push(firstLine(edu.lead, edu.dates, dateColumn, edu.detail || edu.description ? KEEP_WITH_NEXT : KEEP_LINES))
+          if (edu.detail) blocks.push(textLine(edu.detail, PALETTE.muted, 0, edu.description ? KEEP_WITH_NEXT : KEEP_LINES))
           if (edu.description) {
-            blocks.push(...richParagraphs(edu.description, PALETTE.body, { size: size.body, line: line.body, spacingBefore: pxToTwips(GEOMETRY.detailGap) }))
+            blocks.push(
+              ...richParagraphs(edu.description, PALETTE.body, { size: size.body, line: line.body, spacingBefore: pxToTwips(GEOMETRY.detailGap), keep: KEEP_LINES }),
+            )
           }
         })
         return blocks
@@ -638,10 +663,11 @@ export async function generateSwissExecutiveDocx(resume: unknown, settings: Docx
           languages.length > 0,
           certificates.length > 0,
         )
+        // Kept whole with its heading, as print keeps the section.
         const blocks: (Paragraph | Table)[] = [heading(label)]
-        if (languages.length > 0) blocks.push(textLine(swissItLanguagesLine(languages), PALETTE.body))
+        if (languages.length > 0) blocks.push(textLine(swissItLanguagesLine(languages), PALETTE.body, 0, certificates.length > 0 ? KEEP_WITH_NEXT : KEEP_LINES))
         if (certificates.length > 0) {
-          blocks.push(textLine(swissItCertificationsLine(certificates), PALETTE.body, languages.length > 0 ? pxToTwips(GEOMETRY.lastRowGap) : 0))
+          blocks.push(textLine(swissItCertificationsLine(certificates), PALETTE.body, languages.length > 0 ? pxToTwips(GEOMETRY.lastRowGap) : 0, KEEP_LINES))
         }
         return blocks
       }
@@ -664,6 +690,8 @@ export async function generateSwissExecutiveDocx(resume: unknown, settings: Docx
   // ASSEMBLE
   // ----------------------------------------------------------
   const doc = new Document({
+    // Inter travels with the file, so Word draws it on any computer (`docx-fonts.ts`).
+    fonts: await interDocxFonts(),
     styles: {
       default: {
         document: {
@@ -708,7 +736,7 @@ export async function generateSwissExecutiveDocx(resume: unknown, settings: Docx
   // crop is written from `calculateCoverCropPercents` (`docx-photo.ts`).
   if (photo) xml = roundPhoto(xml, photo.crop, PALETTE.gold, PALETTE.photoFill)
   zip.file('word/document.xml', xml)
-  return (await zip.generateAsync({ type: 'nodebuffer' })) as Buffer
+  return pairInterFaces((await zip.generateAsync({ type: 'nodebuffer' })) as Buffer)
 }
 
 /**

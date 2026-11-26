@@ -53,16 +53,22 @@ import {
 import { visibleContactDetails } from '@/lib/contact-visibility'
 import {
   APP_BODY_FONT,
+  contactValueChildren,
+  KEEP_LINES,
+  KEEP_WITH_NEXT,
   NO_TEXT_LINE,
   exactLineSpacing,
   extractAlignment,
+  keepAt,
   parseHtmlToDocxRuns,
   parsePlainTextListToParagraphs,
   pxToHalfPoints,
   pxToTwips,
   trackingSpacing,
   type DocxGeneratorSettings,
+  type ParagraphKeep,
 } from './docx-helpers'
+import { interDocxFonts, pairInterFaces } from './docx-fonts'
 import { DOCX_PALETTE } from './docx-palette'
 import { FORMATTED_LIST_INDENT_PX, FORMATTED_LIST_MARKER_EM, bareInlineFormatTags, formattedBlocks } from './docx-preview-metrics'
 import {
@@ -135,7 +141,7 @@ const spaceWidening = (px: number, halfPoints: number) => Math.max(0, Math.round
 const emptyParagraph = () => new Paragraph({ children: [], spacing: { before: 0, after: 0, ...NO_TEXT_LINE } })
 
 /** A paragraph drawing no text that carries a vertical gap of `twips`. */
-const spacer = (twips: number) => new Paragraph({ children: [], spacing: { before: 0, after: twips, ...NO_TEXT_LINE } })
+const spacer = (twips: number, keep?: ParagraphKeep) => new Paragraph({ children: [], spacing: { before: 0, after: twips, ...NO_TEXT_LINE }, ...keep })
 
 /**
  * Generate the Word export of the "Santé & social" template.
@@ -220,16 +226,19 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
    * each with its inline formatting, a list item's marker hanging at the
    * list's indent. Plain text: `formatText`'s rules — its lists as items, its
    * other blocks as paragraphs whose lines keep their breaks.
+   * `keep`: the keep rules of the last paragraph, inside a block print keeps
+   * whole (`keepAt`).
    */
-  const richParagraphs = (text: string, options: { spacingBefore?: number } = {}): Paragraph[] => {
+  const richParagraphs = (text: string, options: { spacingBefore?: number; keep?: ParagraphKeep } = {}): Paragraph[] => {
+    const { keep } = options
     const runOptions = { size: size.body, color: PALETTE.body, font }
     const lineSpacing = exactLineSpacing([formattedTextLineHeight(text, LINE_HEIGHT.text), line.body])
     const alignment = extractAlignment(text)
     const markerHang = pxToTwips(FORMATTED_LIST_MARKER_EM * SIZES.body)
     const paragraphs = !rendersAsFormattedContent(text)
-      ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing })
+      ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing, keep })
       : formattedBlocks(text).map(
-          (block) =>
+          (block, index, blocks) =>
             new Paragraph({
               children: [
                 ...(block.marker === null ? [] : [new TextRun({ ...runOptions, text: `${block.marker}\t` })]),
@@ -242,9 +251,10 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
                   ? undefined
                   : { left: pxToTwips(FORMATTED_LIST_INDENT_PX * block.depth), hanging: block.marker === null ? 0 : markerHang },
               spacing: { after: 0, ...lineSpacing },
+              ...keepAt(keep, index, blocks.length),
             }),
         )
-    if (options.spacingBefore && paragraphs.length > 0) paragraphs.unshift(spacer(options.spacingBefore))
+    if (options.spacingBefore && paragraphs.length > 0) paragraphs.unshift(spacer(options.spacingBefore, keep ? KEEP_WITH_NEXT : undefined))
     return paragraphs
   }
 
@@ -431,13 +441,15 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
   }
   if (contactEntries.length > 0) {
     // One line of values, as the Preview's wrapping flex row; each gap is one
-    // breakable space widened to the Preview's column gap.
+    // breakable space widened to the Preview's column gap, and each value is
+    // held whole when it fits the name block's line (`contactValueChildren`).
+    const linePx = (contentWidth - (photo ? pxToTwips(GEOMETRY.photo + GEOMETRY.photoGap) : 0)) / 15
     const runs: TextRun[] = []
     contactEntries.forEach((entry, index) => {
       if (index > 0) {
         runs.push(new TextRun({ text: ' ', font, size: size.contact, characterSpacing: spaceWidening(GEOMETRY.contactGap, size.contact) }))
       }
-      runs.push(run(entry.value, PALETTE.contact, { size: size.contact }))
+      runs.push(new TextRun({ children: contactValueChildren(entry.value, linePx, size.contact, entry.key === 'email'), color: PALETTE.contact, font, size: size.contact }))
     })
     headerText.push(
       new Paragraph({
@@ -539,7 +551,8 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
     switch (sectionId) {
       case 'summary':
         if (!swissHasText(row.summary)) return []
-        return [pill(swissHeading(dict, 'summary')), ...richParagraphs(row.summary)]
+        // Kept whole with its heading, as print keeps the section.
+        return [pill(swissHeading(dict, 'summary')), ...richParagraphs(row.summary, { keep: KEEP_LINES })]
 
       case 'education':
         if (education.length === 0) return []
@@ -645,6 +658,8 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
   // ASSEMBLE
   // ----------------------------------------------------------
   const doc = new Document({
+    // Inter travels with the file, so Word draws it on any computer (`docx-fonts.ts`).
+    fonts: await interDocxFonts(),
     styles: {
       default: {
         document: {
@@ -695,7 +710,7 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
     buffer = (await zip.generateAsync({ type: 'nodebuffer' })) as Buffer
   }
 
-  return buffer
+  return pairInterFaces(buffer)
 }
 
 /**

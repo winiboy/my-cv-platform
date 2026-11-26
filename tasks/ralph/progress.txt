@@ -214,3 +214,59 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-004 Word keeps every paragraph of an experience
 FINAL: PASS
+
+## US-005: Word shows the template's typeface and breaks its pages where the PDF does
+Status: PASS
+Priority: 5
+Branch: ralph/swiss-templates-only-page-fidelity
+Baseline HEAD: 180cc60 (US-004)
+Scope:
+- Scope check: PASS — the ten Swiss Word generators, the shared Word helpers, the new Word font module (docx-fonts.ts) and its tests, the new cross-template Word fidelity test, sfnt.ts (one cmap reader added), font-substitutes.ts (one existing helper exported), next.config.js (the two Inter font files traced into the Word route's serverless bundle). Full list: this commit's `git show --stat`.
+- Negatives: no Preview, print CSS, PDF route, screen or print baseline in the diff; no stored field or migration; no i18n key; no version change; no push or merge.
+Checks (run of record checks-us5-r4; code diff hash 7d75bbf02471c216 before and after):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 5129 passed, 17 skipped
+- pnpm test:integration: PASS — 80/80
+- pnpm build: PASS — 105/105 static pages
+- pnpm lint: PASS — 135 problems (93 errors, 42 warnings), under the PRD ceiling of 281
+- pnpm test:e2e: PASS — 697 passed, 0 failed
+- pnpm test:visual: PASS — 20/20
+Specialized validation:
+- Export: PASS — audit fixture through the real routes on the final code (scratchpad us5/final/), 10 templates x fr/de, Word opened by Microsoft Word 16.0 build 16.0.20625 via COM and exported to PDF: 20/20 Word page count = PDF page count (2 = 2); the first line of page 2 is the same entry in Word and PDF in all 20 (pdftotext of Word's own PDF vs the route PDF; academic's heading extracts in capitals from Word, same heading); Word renders were made after the run-of-record chain on the same code hash. Inter is not installed on the machine (absent from C:\Windows\Fonts, the per-user font folder and both font registry keys); Word's PDFs of the eight Inter templates draw with ___WRD_EMBED_SUB_45 (Word's name for a font loaded from the document) regular and ,Bold (weight 700, own metrics), where before this story they drew Cambria; swissFinance and swissAcademic draw Georgia/Arial as before. Opening without repair: us5/a3/word-open.log — Documents.Open(ConfirmConversions=False, ReadOnly=True, AddToRecentFiles=False, Revert=False, Visible=False, OpenAndRepair=False, NoEncodingDialog=True), DisplayAlerts=0, 20/20 files: no COM exception, non-empty content, 2 pages. File size (de, route output, before -> after, bytes): academic 11774 -> 11804, finance 110712 -> 111350, commerce 106918 -> 109426, engineering 101794 -> 111221, executive 102501 -> 109288, first-job 101520 -> 110717, health 113029 -> 109311, IT 99035 -> 109510, trades 101213 -> 110899, vocational 121729 -> 109755; every growth is under the ~66.4 KB of compressed font data (some files shrink because the post-processed package is now re-zipped with compression).
+- Export, oversized fixture (us5/a2big/: one experience with 60 bullets, 40 skill categories, 30 languages): 0 of 170 checked strings missing in Word or PDF; swissVocational 7 Word / 7 PDF pages, pages 1-4 start on the same text; swissCommerce 5 Word / 6 PDF pages (see Known limitations).
+- Browser: NOT_APPLICABLE — Word output only; nothing rendered on screen changed (the e2e and visual suites above cover the unchanged Preview and PDF).
+- Visual: PASS — 20/20, no baseline changed.
+- Database: NOT_APPLICABLE — no schema or data change.
+- Security: PASS (code-reviewer) — resume text still reaches document.xml only as TextRun text; fontTable.xml, its relationships and settings.xml contain only constant or generated values; the embedded font bytes are read from the installed @fontsource package, not from user input.
+Agents:
+- senior-coder: implementation + 3 fix rounds.
+- code-reviewer round 1: FAIL — Word-render evidence not yet recorded; the vocational skills/languages row made non-splittable (risk of Word clipping an over-tall row). Fixed: rows splittable again, entries kept whole by keep rules on their paragraphs; also <w:embedTrueTypeFonts/> added so the fonts survive a re-save in Word, gap paragraphs only when content exists, heading-to-first-entry tests per section. The implementer then rendered the old non-splittable rows with the oversized fixture in this Word build and saw no clipping; the change stands as the safer form.
+- Chain checks-us5-r1: superseded (e2e aborted: Chromium workers exited 0xC0000142 before running tests).
+- code-reviewer round 2: FAIL — Word broke `linkedin.com/in/sophie-marchand` at its hyphen in swissCommerce and swissHealth (Preview and PDF keep it whole): no-word-splitting rule. Fixed: hyphens of a contact value that fits its line written as Word non-breaking hyphens (shared helper).
+- Chain checks-us5-r2: superseded (stopped for the fix; its e2e web server had exited 0xC0000142).
+- code-reviewer round 3: PASS.
+- Chain checks-us5-r3: e2e 696/1 — contact-visibility.spec.ts:81 could not find the phone "+41 21 555 0142" in document.xml because held contact values wrote no-break spaces. Fixed in code (spaces stay U+0020, only hyphens change; IT contact output back to HEAD); the test was not changed.
+- code-reviewer round 4: PASS.
+- ui-expert: NOT_APPLICABLE — no screen change; Word rendering compared side by side in us5/final/SHEET-*.png (Preview | PDF | Word).
+Acceptance criteria:
+- AC-01 Inter faces embedded as obfuscated TrueType; Word without Inter renders Inter; Georgia/Arial templates unchanged: PASS — docx-word-fidelity.test.ts de-obfuscates each stored face back to the exact converted TrueType and asserts one Inter entry with regular+bold in the eight Inter templates and none in finance/academic; Word render on a machine without Inter (above)
+- AC-02 entries kept whole, heading kept with first entry: PASS — docx-word-fidelity.test.ts per template (keep-lines and keep-with-next inside entries, none on an entry's last paragraph, heading chained to the first entry for summary/experience/education/projects); 7 tests fail with keep-with-next turned off
+- AC-03 Word page count = PDF page count and the first entry of each page equal, 10 templates x fr/de, Microsoft Word render: PASS — us5/final/ (final code): 20/20 pages equal (2 = 2), page-2 first entry equal in 20/20, Word COM render; side-by-side sheets SHEET-*.png
+- AC-04 opens without repair; size grows by no more than the font data: PASS — word-open.log and the size table above
+Decision (AC-01): embed only Inter 400 and 700 (the weights Word can select; 500/600 runs fall to them as before), converted from the same @fontsource WOFF files the PDF uses, loaded once per server instance; the docx library's two Inter font entries are merged into one regular+bold entry by a post-processing step that throws on any unexpected fontTable shape rather than writing a damaged file.
+Decision (AC-02): keep rules live on paragraphs, not on table rows; rows may split, so Word never has to clip an over-tall row. Commerce and Vocational entries became one-row tables with a spacer paragraph before, so page 2 no longer starts lower than the PDF (left from US-002).
+Decision (no word splitting): a contact value that fits its line gets non-breaking hyphens; spaces and e-mails are written as stored, so the file's text (copy, applicant-tracking parsers) keeps the value as typed.
+Known limitations:
+- Word text sizes are whole half-points (existing design), e.g. 13 px is written as 10 pt (2.6 % wider); a line that nearly fills its column can wrap one word earlier in Word (measured: one line in Trades and Engineering on the audit fixture, page breaks unaffected). The likeliest cause of a real CV breaking one entry differently in Word.
+- swissCommerce oversized fixture: Word 5 pages vs PDF 6 — print moves the whole skills section (then languages) to a new page; Word keeps it pair-row by pair-row and packs tighter. No text lost. Skills/languages in Commerce, Finance and Health are kept row by row, not as one block.
+- Contact values wider than their column (Engineering/Trades/Vocational e-mail, Vocational LinkedIn) break after a hyphen in the Preview, the PDF and Word alike; keeping them whole needs a Preview change.
+- Word's line on page 2 of Trades starts 14 px lower than the PDF (page 1 runs fuller in Word, so the entry-gap spacer moves to page 2); same entry.
+- The Word package is unzipped and re-zipped twice per request in the generators that already post-process it (cost, not correctness). A missing Inter font file makes the Inter templates' Word export fail (500) rather than export without the font — deliberate fail-loud.
+- docx-helpers.test.ts:398 writes a literal U+00A0 inside quotes in `not.toContain`; reads like a plain space (code-reviewer round 4, readability only).
+Open owner decisions recorded by this story:
+- The Preview breaks contact values wider than their column after a hyphen (above); a Preview change outside this initiative.
+Environment notes: two chain runs (us5-r1, us5-r2) lost their e2e step to Windows process-launch failures (0xC0000142) before any test ran; no leftover processes were found and the final run was clean.
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-005 Word shows the template's typeface and breaks its pages where the PDF does
+FINAL: PASS

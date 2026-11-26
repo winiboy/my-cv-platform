@@ -1,10 +1,16 @@
-import { AlignmentType, Document, Packer, Paragraph } from 'docx'
+import { AlignmentType, Document, NoBreakHyphen, Packer, Paragraph } from 'docx'
 import JSZip from 'jszip'
 import { isValidElement, type ReactElement, type ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
 import { formatText } from '@/lib/format-text'
 import {
+  CONTACT_FIT_SAFETY_PX,
+  KEEP_LINES,
+  KEEP_WITH_NEXT,
+  contactValueChildren,
   exactLineSpacing,
+  keepAt,
+  noBreakHyphenChildren,
   NO_TEXT_LINE,
   extractAlignment,
   formatDateRange,
@@ -365,6 +371,60 @@ describe('parseHtmlToDocxRuns inline formatting', () => {
   })
 })
 
+describe('noBreakHyphenChildren', () => {
+  it('writes each hyphen as a non-breaking hyphen between the text around it', () => {
+    const children = noBreakHyphenChildren('in/sophie-marchand-keller')
+    expect(children.map((child) => (child instanceof NoBreakHyphen ? 'NBH' : child))).toEqual(['in/sophie', 'NBH', 'marchand', 'NBH', 'keller'])
+  })
+
+  it('keeps text without a hyphen as one string, and writes no empty text around a hyphen at either end', () => {
+    expect(noBreakHyphenChildren('Lausanne')).toEqual(['Lausanne'])
+    expect(noBreakHyphenChildren('-a-').map((child) => (child instanceof NoBreakHyphen ? 'NBH' : child))).toEqual(['NBH', 'a', 'NBH'])
+  })
+})
+
+describe('contactValueChildren', () => {
+  const asText = (children: ReturnType<typeof contactValueChildren>) => children.map((child) => (child instanceof NoBreakHyphen ? '[NBH]' : child)).join('')
+  const SIZE = 18 // half-points: 9pt, 12px
+
+  it('holds a value that fits its line together at its hyphens', () => {
+    const children = contactValueChildren('linkedin.com/in/sophie-marchand', 600, SIZE)
+    expect(asText(children)).toBe('linkedin.com/in/sophie[NBH]marchand')
+  })
+
+  it('keeps the spaces a value was typed with: plain U+0020, so the stored text is in the file as typed', () => {
+    const children = contactValueChildren('+41 21 555-0142', 600, SIZE)
+    expect(asText(children)).toBe('+41 21 555[NBH]0142')
+    expect(asText(children)).not.toContain(' ')
+    expect(contactValueChildren('+41 21 555 0142', 600, SIZE)).toEqual(['+41 21 555 0142'])
+  })
+
+  it('writes a value wider than its line as stored, as the Preview wraps it inside', () => {
+    expect(contactValueChildren('linkedin.com/in/sophie-marchand', 60, SIZE)).toEqual(['linkedin.com/in/sophie-marchand'])
+    // Within the safety margin of the line is too wide as well.
+    expect(CONTACT_FIT_SAFETY_PX).toBeGreaterThan(0)
+  })
+
+  it('writes an e-mail address as stored, whatever its width', () => {
+    expect(contactValueChildren('sophie.marchand-keller@exemple.ch', 600, SIZE, true)).toEqual(['sophie.marchand-keller@exemple.ch'])
+  })
+
+  it('trims the value as the Preview draws it', () => {
+    expect(contactValueChildren('  Lausanne ', 600, SIZE)).toEqual(['Lausanne'])
+  })
+})
+
+describe('keepAt', () => {
+  it('keeps every paragraph of a kept block with the next, and gives the last the rules it is given', () => {
+    expect([0, 1, 2].map((index) => keepAt(KEEP_LINES, index, 3))).toEqual([KEEP_WITH_NEXT, KEEP_WITH_NEXT, KEEP_LINES])
+    expect([0, 1].map((index) => keepAt(KEEP_WITH_NEXT, index, 2))).toEqual([KEEP_WITH_NEXT, KEEP_WITH_NEXT])
+  })
+
+  it('gives no rules outside a kept block', () => {
+    expect(keepAt(undefined, 0, 1)).toEqual({})
+  })
+})
+
 describe('parsePlainTextListToParagraphs', () => {
   const runOptions = { size: 20, color: '333333', font: 'Arial' }
   const layout = { spacingAfterItem: 60, spacingAfterLast: 480, lineSpacing: exactLineSpacing([1.5, 20]) }
@@ -387,6 +447,25 @@ describe('parsePlainTextListToParagraphs', () => {
     )
     return { texts, xml: body }
   }
+
+  it('inside a kept block, keeps every paragraph with the next but the last, which takes the rules it is given', async () => {
+    const doc = new Document({
+      sections: [{ children: parsePlainTextListToParagraphs('Intro\n\n- a\n- b', runOptions, { ...layout, keep: KEEP_LINES }) }],
+    })
+    const body = await (await JSZip.loadAsync(await Packer.toBuffer(doc))).file('word/document.xml')!.async('string')
+    const pPrs = (body.match(/<w:p>[\s\S]*?<\/w:p>|<w:p [\s\S]*?<\/w:p>/g) ?? []).map((p) => /<w:pPr>([\s\S]*?)<\/w:pPr>/.exec(p)?.[1] ?? '')
+    expect(pPrs.map((pPr) => [pPr.includes('<w:keepNext/>'), pPr.includes('<w:keepLines/>')])).toEqual([
+      [true, true],
+      [true, true],
+      [false, true],
+    ])
+  })
+
+  it('outside a kept block, writes no keep rule', async () => {
+    const doc = new Document({ sections: [{ children: parsePlainTextListToParagraphs('Intro\n\n- a', runOptions, layout) }] })
+    const body = await (await JSZip.loadAsync(await Packer.toBuffer(doc))).file('word/document.xml')!.async('string')
+    expect(body).not.toMatch(/<w:keep(Next|Lines)/)
+  })
 
   it('emits one paragraph per list item and per text block', () => {
     expect(parsePlainTextListToParagraphs('Intro\n\n- a\n- b', runOptions, layout)).toHaveLength(3)

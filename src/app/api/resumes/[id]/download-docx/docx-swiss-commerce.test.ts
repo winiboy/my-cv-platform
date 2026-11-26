@@ -144,7 +144,9 @@ async function documentXml(row: Row, locale: Locale, extra: Partial<DocxGenerato
   const zip = await JSZip.loadAsync(await generateSwissCommerceDocx(row, settingsFor(row, locale, extra)))
   const part = zip.file('word/document.xml')
   if (part === null) throw new Error('The artifact has no word/document.xml')
-  return part.async('string')
+  // A non-breaking hyphen is a hyphen of the text, written as an element of its
+  // own between two text nodes: read it back into its text node.
+  return (await part.async('string')).replace(/<\/w:t><w:noBreakHyphen\/><w:t xml:space="preserve">/g, '-')
 }
 
 /** The document's text, run by run, in document order. */

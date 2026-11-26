@@ -57,15 +57,19 @@ import {
 } from '@/lib/swiss-finance-template'
 import { visibleContactDetails } from '@/lib/contact-visibility'
 import {
+  KEEP_LINES,
+  KEEP_WITH_NEXT,
   NO_TEXT_LINE,
   exactLineSpacing,
   extractAlignment,
+  keepAt,
   parseHtmlToDocxRuns,
   parsePlainTextListToParagraphs,
   pxToHalfPoints,
   pxToTwips,
   trackingSpacing,
   type DocxGeneratorSettings,
+  type ParagraphKeep,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
 import { FORMATTED_LIST_INDENT_PX, FORMATTED_LIST_MARKER_EM, bareInlineFormatTags, formattedBlocks } from './docx-preview-metrics'
@@ -129,7 +133,7 @@ const pxToEighths = (px: number) => Math.round(px * 0.75 * 8)
 const emptyParagraph = () => new Paragraph({ children: [], spacing: { before: 0, after: 0, ...NO_TEXT_LINE } })
 
 /** A paragraph drawing no text that carries a vertical gap of `twips`. */
-const spacer = (twips: number) => new Paragraph({ children: [], spacing: { before: 0, after: twips, ...NO_TEXT_LINE } })
+const spacer = (twips: number, keep?: ParagraphKeep) => new Paragraph({ children: [], spacing: { before: 0, after: twips, ...NO_TEXT_LINE }, ...keep })
 
 /**
  * Generate the Word export of the "Banque, finance & assurance" template.
@@ -215,16 +219,19 @@ export async function generateSwissFinanceDocx(resume: unknown, settings: DocxGe
    * each with its inline formatting, a list item's marker hanging at the
    * list's indent. Plain text: `formatText`'s rules — its lists as items, its
    * other blocks as paragraphs whose lines keep their breaks.
+   * `keep`: the keep rules of the last paragraph, inside a block print keeps
+   * whole (`keepAt`).
    */
-  const richParagraphs = (text: string, options: { spacingBefore?: number } = {}): Paragraph[] => {
+  const richParagraphs = (text: string, options: { spacingBefore?: number; keep?: ParagraphKeep } = {}): Paragraph[] => {
+    const { keep } = options
     const runOptions = { size: size.body, color: PALETTE.body, font }
     const lineSpacing = exactLineSpacing([formattedTextLineHeight(text, LINE_HEIGHT.text), line.body])
     const alignment = extractAlignment(text)
     const markerHang = pxToTwips(FORMATTED_LIST_MARKER_EM * SIZES.body)
     const paragraphs = !rendersAsFormattedContent(text)
-      ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing })
+      ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing, keep })
       : formattedBlocks(text).map(
-          (block) =>
+          (block, index, blocks) =>
             new Paragraph({
               children: [
                 ...(block.marker === null ? [] : [new TextRun({ ...runOptions, text: `${block.marker}\t` })]),
@@ -237,9 +244,10 @@ export async function generateSwissFinanceDocx(resume: unknown, settings: DocxGe
                   ? undefined
                   : { left: pxToTwips(FORMATTED_LIST_INDENT_PX * block.depth), hanging: block.marker === null ? 0 : markerHang },
               spacing: { after: 0, ...lineSpacing },
+              ...keepAt(keep, index, blocks.length),
             }),
         )
-    if (options.spacingBefore && paragraphs.length > 0) paragraphs.unshift(spacer(options.spacingBefore))
+    if (options.spacingBefore && paragraphs.length > 0) paragraphs.unshift(spacer(options.spacingBefore, keep ? KEEP_WITH_NEXT : undefined))
     return paragraphs
   }
 
@@ -272,7 +280,7 @@ export async function generateSwissFinanceDocx(resume: unknown, settings: DocxGe
       keepNext: true,
     })
 
-  /** An entry's achievements as bullets, or else its description, under its first line. */
+  /** An entry's achievements as bullets, or else its description, under its first line; they end the entry, kept whole. */
   const details = (achievements: readonly string[], description: string | undefined): Paragraph[] => {
     if (achievements.length > 0) {
       const indent = pxToTwips(GEOMETRY.bulletIndent)
@@ -287,10 +295,11 @@ export async function generateSwissFinanceDocx(resume: unknown, settings: DocxGe
               after: 0,
               ...exactLineSpacing([formattedTextLineHeight(achievement, LINE_HEIGHT.text), line.body]),
             },
+            ...keepAt(KEEP_LINES, i, achievements.length),
           }),
       )
     }
-    return swissHasText(description) ? richParagraphs(description, { spacingBefore: pxToTwips(GEOMETRY.detailGap) }) : []
+    return swissHasText(description) ? richParagraphs(description, { spacingBefore: pxToTwips(GEOMETRY.detailGap), keep: KEEP_LINES }) : []
   }
 
   /**
@@ -318,7 +327,7 @@ export async function generateSwissFinanceDocx(resume: unknown, settings: DocxGe
               borders: NO_CELL_BORDERS,
               verticalAlign: VerticalAlign.TOP,
               // Kept with what the entry draws below, as the Preview keeps the entry whole.
-              children: [new Paragraph({ children: runs, spacing: { after: 0, ...bodyLine }, keepNext: below.length > 0 })],
+              children: [new Paragraph({ children: runs, spacing: { after: 0, ...bodyLine }, ...(below.length > 0 ? KEEP_WITH_NEXT : KEEP_LINES) })],
             }),
             new TableCell({
               width: { size: dateWidth, type: WidthType.DXA },
@@ -330,7 +339,7 @@ export async function generateSwissFinanceDocx(resume: unknown, settings: DocxGe
                   children: dates ? [run(dates, PALETTE.muted, { italics: true, size: size.date })] : [],
                   alignment: AlignmentType.RIGHT,
                   spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.text, line.date]) },
-                  keepNext: below.length > 0,
+                  ...(below.length > 0 ? KEEP_WITH_NEXT : KEEP_LINES),
                 }),
               ],
             }),
@@ -532,7 +541,8 @@ export async function generateSwissFinanceDocx(resume: unknown, settings: DocxGe
     switch (sectionId) {
       case 'summary':
         if (!swissHasText(row.summary)) return []
-        return [heading(swissHeading(dict, 'summary')), ...richParagraphs(row.summary)]
+        // Kept whole with its heading, as print keeps the section.
+        return [heading(swissHeading(dict, 'summary')), ...richParagraphs(row.summary, { keep: KEEP_LINES })]
 
       case 'experience':
         if (experiences.length === 0) return []
@@ -554,9 +564,12 @@ export async function generateSwissFinanceDocx(resume: unknown, settings: DocxGe
           education.map((edu) => {
             const degree = edu.degree?.trim() ?? ''
             const school = [edu.school?.trim(), edu.field?.trim()].filter(Boolean).join(', ')
-            const below: Paragraph[] = []
-            if (degree && school) below.push(new Paragraph({ children: [run(school, PALETTE.muted)], spacing: { after: 0, ...bodyLine } }))
-            below.push(...details([], edu.description))
+            const below: Paragraph[] = details([], edu.description)
+            if (degree && school) {
+              below.unshift(
+                new Paragraph({ children: [run(school, PALETTE.muted)], spacing: { after: 0, ...bodyLine }, ...(below.length > 0 ? KEEP_WITH_NEXT : KEEP_LINES) }),
+              )
+            }
             return datedEntry({ lead: degree || school, rest: '' }, formatSwissDateRange(edu.startDate, edu.endDate, false, dict), below)
           }),
         )

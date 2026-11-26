@@ -55,18 +55,24 @@ import {
 import { visibleContactDetails } from '@/lib/contact-visibility'
 import {
   APP_BODY_FONT,
+  contactValueChildren,
+  KEEP_LINES,
+  KEEP_WITH_NEXT,
   NO_TEXT_LINE,
   exactLineSpacing,
   extractAlignment,
   isHtmlList,
   isPlainTextList,
+  keepAt,
   parseHtmlToDocxRuns,
   parsePlainTextListToParagraphs,
   pxToHalfPoints,
   pxToTwips,
   trackingSpacing,
   type DocxGeneratorSettings,
+  type ParagraphKeep,
 } from './docx-helpers'
+import { interDocxFonts, pairInterFaces } from './docx-fonts'
 import { DOCX_PALETTE } from './docx-palette'
 import { bareInlineFormatTags, formattedBlocks } from './docx-preview-metrics'
 import {
@@ -201,18 +207,21 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
    * helper drops — each list item written as that helper writes it, its
    * marker before its text. A plain-text list as one paragraph per item,
    * anything else as one paragraph of formatted runs.
+   * `keep`: the keep rules of the last paragraph, inside a block print keeps
+   * whole (`keepAt`).
    */
   const richParagraphs = (
     text: string,
     color: string,
-    options: { spacingBefore?: number; justify?: boolean } = {},
+    options: { spacingBefore?: number; justify?: boolean; keep?: ParagraphKeep } = {},
   ): Paragraph[] => {
     const runOptions = { size: size.body, color, font }
     const lineSpacing = richLine(text)
     const alignment = extractAlignment(text) ?? (options.justify ? AlignmentType.JUSTIFIED : undefined)
+    const { keep } = options
     const paragraphs = isHtmlList(text)
       ? formattedBlocks(text).map(
-          (block) =>
+          (block, index, blocks) =>
             new Paragraph({
               children: [
                 ...(block.marker === null ? [] : [new TextRun({ ...runOptions, text: `${block.marker} ` })]),
@@ -220,14 +229,15 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
               ],
               alignment: block.alignment ?? alignment,
               spacing: { after: 0, ...lineSpacing },
+              ...keepAt(keep, index, blocks.length),
             }),
         )
       : isPlainTextList(text)
-        ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing })
-        : [new Paragraph({ children: parseHtmlToDocxRuns(text, runOptions), alignment, spacing: { after: 0, ...lineSpacing } })]
+        ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing, keep })
+        : [new Paragraph({ children: parseHtmlToDocxRuns(text, runOptions), alignment, spacing: { after: 0, ...lineSpacing }, ...keep })]
     if (options.spacingBefore && paragraphs.length > 0) {
       // The Preview's `mt-1`: a spacer, since a built paragraph's spacing cannot be changed.
-      paragraphs.unshift(new Paragraph({ children: [], spacing: { before: 0, after: options.spacingBefore, ...NO_TEXT_LINE } }))
+      paragraphs.unshift(new Paragraph({ children: [], spacing: { before: 0, after: options.spacingBefore, ...NO_TEXT_LINE }, ...(keep ? KEEP_WITH_NEXT : {}) }))
     }
     return paragraphs
   }
@@ -270,37 +280,50 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
       keepNext: true,
     })
 
-  /** One borderless table of dated rows: the dates in the left column, the content on the right. */
-  const datedRows = (rows: { dates: string; content: Paragraph[] }[]) => {
+  /**
+   * Dated rows: each a borderless one-row table, the dates in the left column,
+   * the content on the right. The gap between two is a spacer paragraph
+   * between their tables, not the next row's top margin, so a row that starts
+   * a page starts at its top margin, as print drops the margin before an
+   * entry at a page break; it also keeps Word from merging the tables.
+   *
+   * The entry is kept whole by its paragraphs' keep rules (`keepAt`), which
+   * the content carries, not by a row that cannot split: Word clips such a
+   * row at the page's foot when it is taller than a page, where print breaks
+   * it. A paragraph kept with the next one in its row's last cell would keep
+   * the row with the next row, so the content's last paragraph has none.
+   */
+  const datedRows = (rows: { dates: string; content: Paragraph[] }[]): (Paragraph | Table)[] => {
     const dateWidth = pxToTwips(GEOMETRY.dateColumn)
-    return new Table({
-      width: { size: contentWidth, type: WidthType.DXA },
-      columnWidths: [dateWidth, contentWidth - dateWidth],
-      layout: TableLayoutType.FIXED,
-      borders: NO_BORDERS,
-      rows: rows.map(
-        ({ dates, content }, index) =>
+    return rows.flatMap(({ dates, content }, index) => [
+      ...(index > 0 ? [new Paragraph({ children: [], spacing: { before: 0, after: pxToTwips(GEOMETRY.entryGap), ...NO_TEXT_LINE } })] : []),
+      new Table({
+        width: { size: contentWidth, type: WidthType.DXA },
+        columnWidths: [dateWidth, contentWidth - dateWidth],
+        layout: TableLayoutType.FIXED,
+        borders: NO_BORDERS,
+        rows: [
           new TableRow({
-            cantSplit: true,
             children: [
               new TableCell({
                 width: { size: dateWidth, type: WidthType.DXA },
-                margins: { ...NO_MARGINS, top: index === 0 ? 0 : pxToTwips(GEOMETRY.entryGap) },
+                margins: NO_MARGINS,
                 borders: NO_CELL_BORDERS,
                 verticalAlign: VerticalAlign.TOP,
-                children: [new Paragraph({ children: dates ? [run(dates, PALETTE['slate-600'])] : [], spacing: { after: 0, ...bodyLine } })],
+                children: [new Paragraph({ children: dates ? [run(dates, PALETTE['slate-600'])] : [], spacing: { after: 0, ...bodyLine }, ...KEEP_LINES })],
               }),
               new TableCell({
                 width: { size: contentWidth - dateWidth, type: WidthType.DXA },
-                margins: { ...NO_MARGINS, top: index === 0 ? 0 : pxToTwips(GEOMETRY.entryGap) },
+                margins: NO_MARGINS,
                 borders: NO_CELL_BORDERS,
                 verticalAlign: VerticalAlign.TOP,
                 children: content.length > 0 ? content : [emptyParagraph()],
               }),
             ],
           }),
-      ),
-    })
+        ],
+      }),
+    ])
   }
 
   const children: (Paragraph | Table)[] = []
@@ -399,20 +422,25 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
     switch (sectionId) {
       case 'summary':
         if (!swissHasText(row.summary)) return []
-        return [heading(swissHeading(dict, 'summary')), ...richParagraphs(row.summary, PALETTE['slate-700'], { justify: true })]
+        // Kept whole with its heading, as print keeps the section.
+        return [heading(swissHeading(dict, 'summary')), ...richParagraphs(row.summary, PALETTE['slate-700'], { justify: true, keep: KEEP_LINES })]
 
       case 'experience':
         if (experiences.length === 0) return []
         return [
           heading(swissHeading(dict, 'experience')),
-          datedRows(
+          ...datedRows(
             experiences.map((exp) => {
               const titleRuns = [run(exp.position || '', PALETTE['slate-900'], { bold: true })]
               if (exp.company) {
                 titleRuns.push(run(` · ${exp.company}${exp.location ? `, ${exp.location}` : ''}`, PALETTE['slate-600']))
               }
-              const content: Paragraph[] = [new Paragraph({ children: titleRuns, spacing: { after: 0, ...bodyLine } })]
               const achievements = (exp.achievements ?? []).filter(swissHasText)
+              // The entry is kept whole, as print keeps it.
+              const hasDetails = achievements.length > 0 || swissHasText(exp.description)
+              const content: Paragraph[] = [
+                new Paragraph({ children: titleRuns, spacing: { after: 0, ...bodyLine }, ...(hasDetails ? KEEP_WITH_NEXT : KEEP_LINES) }),
+              ]
               if (achievements.length > 0) {
                 achievements.forEach((achievement, index) => {
                   content.push(
@@ -421,11 +449,12 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
                       indent: { left: pxToTwips(20), hanging: pxToTwips(20) },
                       tabStops: [{ type: TabStopType.LEFT, position: pxToTwips(20) }],
                       spacing: { before: index === 0 ? pxToTwips(4) : 0, after: 0, ...richLine(achievement) },
+                      ...keepAt(KEEP_LINES, index, achievements.length),
                     }),
                   )
                 })
               } else if (swissHasText(exp.description)) {
-                content.push(...richParagraphs(exp.description, PALETTE['slate-700'], { spacingBefore: pxToTwips(4) }))
+                content.push(...richParagraphs(exp.description, PALETTE['slate-700'], { spacingBefore: pxToTwips(4), keep: KEEP_LINES }))
               }
               return { dates: formatSwissDateRange(exp.startDate, exp.endDate, exp.current, dict), content }
             }),
@@ -436,18 +465,28 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
         if (education.length === 0) return []
         return [
           heading(swissHeading(dict, 'education')),
-          datedRows(
+          ...datedRows(
             education.map((edu) => {
+              // The entry is kept whole, as print keeps it.
               const content: Paragraph[] = []
-              if (edu.degree) {
-                content.push(new Paragraph({ children: [run(edu.degree, PALETTE['slate-900'], { bold: true })], spacing: { after: 0, ...bodyLine } }))
-              }
               const schoolLine = [edu.school, edu.field].filter(Boolean).join(' · ')
+              const hasDescription = swissHasText(edu.description)
+              if (edu.degree) {
+                content.push(
+                  new Paragraph({
+                    children: [run(edu.degree, PALETTE['slate-900'], { bold: true })],
+                    spacing: { after: 0, ...bodyLine },
+                    ...(schoolLine || hasDescription ? KEEP_WITH_NEXT : KEEP_LINES),
+                  }),
+                )
+              }
               if (schoolLine) {
-                content.push(new Paragraph({ children: [run(schoolLine, PALETTE['slate-600'])], spacing: { after: 0, ...bodyLine } }))
+                content.push(
+                  new Paragraph({ children: [run(schoolLine, PALETTE['slate-600'])], spacing: { after: 0, ...bodyLine }, ...(hasDescription ? KEEP_WITH_NEXT : KEEP_LINES) }),
+                )
               }
               if (swissHasText(edu.description)) {
-                content.push(...richParagraphs(edu.description, PALETTE['slate-700'], { spacingBefore: pxToTwips(4) }))
+                content.push(...richParagraphs(edu.description, PALETTE['slate-700'], { spacingBefore: pxToTwips(4), keep: KEEP_LINES }))
               }
               return { dates: formatSwissDateRange(edu.startDate, edu.endDate, false, dict), content }
             }),
@@ -458,13 +497,13 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
         if (certifications.length === 0) return []
         return [
           heading(swissHeading(dict, 'training')),
-          datedRows(
+          ...datedRows(
             certifications.map((cert) => {
               const runs = [run(cert.name || '', PALETTE['slate-900'], { bold: true })]
               if (cert.issuer) runs.push(run(` · ${cert.issuer}`, PALETTE['slate-600']))
               return {
                 dates: cert.date ? formatSwissMonth(cert.date) : '',
-                content: [new Paragraph({ children: runs, spacing: { after: 0, ...bodyLine } })],
+                content: [new Paragraph({ children: runs, spacing: { after: 0, ...bodyLine }, ...KEEP_LINES })],
               }
             }),
           ),
@@ -489,18 +528,21 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
                   after: pxToTwips(GEOMETRY.skillLabelGap),
                   ...bodyLine,
                 },
+                ...KEEP_WITH_NEXT,
               }),
             )
+            // The section is kept whole with its heading, as print keeps it.
+            const keep = index === skills.length - 1 ? KEEP_LINES : KEEP_WITH_NEXT
             const { content } = skill
             if (content.kind === 'html' && (isHtmlList(content.html) || isPlainTextList(content.html))) {
-              column.push(...richParagraphs(content.html, PALETTE['slate-700']))
+              column.push(...richParagraphs(content.html, PALETTE['slate-700'], { keep }))
             } else {
               const runs =
                 content.kind === 'html'
                   ? parseHtmlToDocxRuns(content.html, { size: size.body, color: PALETTE['slate-700'], font })
                   : [run(content.text, PALETTE['slate-700'])]
               const lineSpacing = content.kind === 'html' ? richLine(content.html) : bodyLine
-              column.push(new Paragraph({ children: runs, spacing: { after: 0, ...lineSpacing } }))
+              column.push(new Paragraph({ children: runs, spacing: { after: 0, ...lineSpacing }, ...keep }))
             }
           })
           columns.push(column)
@@ -528,6 +570,10 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
             columnWidths: [columnWidth, gap, columnWidth],
             layout: TableLayoutType.FIXED,
             borders: NO_BORDERS,
+            // The row may split, as print breaks the grid where a column is
+            // taller than a page; each column's section is kept whole by its
+            // paragraphs' keep rules. A row that cannot split is clipped by
+            // Word at the page's foot when it is taller than a page.
             rows: [new TableRow({ children: [cell(columns[0], columnWidth), cell(undefined, gap), cell(columns[1], columnWidth)] })],
           }),
         ]
@@ -546,12 +592,24 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
     const pairWidth = Math.round((width - pairGap) / 2)
     const valueWidth = pairWidth - labelWidth
     const contactLine = exactLineSpacing([LINE_HEIGHT.compact, line.contact])
+    /** A label, or a value held whole when it fits its cell (`contactValueChildren`). */
     const textCell = (text: string, color: string, bold: boolean, cellWidth: number, top: number) =>
       new TableCell({
         width: { size: cellWidth, type: WidthType.DXA },
         margins: { ...NO_MARGINS, top },
         borders: NO_CELL_BORDERS,
-        children: [new Paragraph({ children: text ? [run(text, color, { bold, size: size.contact })] : [], spacing: { after: 0, ...contactLine } })],
+        children: [
+          new Paragraph({
+            children: text
+              ? [
+                  bold
+                    ? run(text, color, { bold, size: size.contact })
+                    : new TextRun({ children: contactValueChildren(text, cellWidth / 15, size.contact, text.trim() === contact.email?.trim()), color, font, size: size.contact }),
+                ]
+              : [],
+            spacing: { after: 0, ...contactLine },
+          }),
+        ],
       })
     const rows: TableRow[] = []
     for (let index = 0; index < entries.length; index += 2) {
@@ -579,32 +637,33 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
     })
   }
 
-  /** The languages: name left, localized level right, a dotted rule under each. */
+  /** The languages: name left, localized level right, a dotted rule under each; kept whole with their heading, as print keeps the section. */
   function languageTable(entries: ResumeLanguage[], width: number): Table {
     const dotted: IBorderOptions = { style: BorderStyle.DOTTED, size: pxToEighths(1), color: PALETTE['slate-300'] }
     const half = Math.round(width / 2)
-    const cell = (text: string, color: string, alignment: (typeof AlignmentType)[keyof typeof AlignmentType], cellWidth: number) =>
+    const cell = (text: string, color: string, alignment: (typeof AlignmentType)[keyof typeof AlignmentType], cellWidth: number, keep: ParagraphKeep) =>
       new TableCell({
         width: { size: cellWidth, type: WidthType.DXA },
         margins: { top: pxToTwips(4), bottom: pxToTwips(4), left: 0, right: 0 },
         borders: { ...NO_CELL_BORDERS, bottom: dotted },
-        children: [new Paragraph({ children: [run(text, color)], alignment, spacing: { after: 0, ...bodyLine } })],
+        children: [new Paragraph({ children: [run(text, color)], alignment, spacing: { after: 0, ...bodyLine }, ...keep })],
       })
     return new Table({
       width: { size: width, type: WidthType.DXA },
       columnWidths: [half, width - half],
       layout: TableLayoutType.FIXED,
       borders: NO_BORDERS,
-      rows: entries.map(
-        (lang) =>
-          new TableRow({
-            cantSplit: true,
-            children: [
-              cell(lang.language, PALETTE['slate-900'], AlignmentType.LEFT, half),
-              cell(swissLanguageLevel(dict, lang.level), PALETTE['slate-600'], AlignmentType.RIGHT, width - half),
-            ],
-          }),
-      ),
+      rows: entries.map((lang, index) => {
+        // Kept with the next row, the last row with nothing after it.
+        const keep = index < entries.length - 1 ? KEEP_WITH_NEXT : KEEP_LINES
+        return new TableRow({
+          cantSplit: true,
+          children: [
+            cell(lang.language, PALETTE['slate-900'], AlignmentType.LEFT, half, keep),
+            cell(swissLanguageLevel(dict, lang.level), PALETTE['slate-600'], AlignmentType.RIGHT, width - half, keep),
+          ],
+        })
+      }),
     })
   }
 
@@ -612,6 +671,8 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
   // ASSEMBLE
   // ----------------------------------------------------------
   const doc = new Document({
+    // Inter travels with the file, so Word draws it on any computer (`docx-fonts.ts`).
+    fonts: await interDocxFonts(),
     styles: {
       default: {
         document: {
@@ -668,7 +729,7 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
     }
   }
 
-  return buffer
+  return pairInterFaces(buffer)
 }
 
 /**

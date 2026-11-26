@@ -1,4 +1,5 @@
 import {
+  NoBreakHyphen,
   Paragraph,
   TextRun,
   AlignmentType,
@@ -10,6 +11,7 @@ import {
 } from 'docx'
 import type { Locale } from '@/lib/i18n'
 import type { ContactFieldId } from '@/lib/contact-visibility'
+import { interLinkWidthPx } from '@/lib/inter-link-widths'
 
 // ============================================================
 // SHARED TYPES FOR ALL DOCX GENERATORS
@@ -149,6 +151,37 @@ export function trackingSpacing(em: number, halfPoints: number): number {
   return Math.round(em * halfPoints * 10)
 }
 
+/**
+ * The keep rules of a paragraph inside a block the printed Preview keeps whole
+ * (`break-inside: avoid`), so Word moves the block to the next page whole as
+ * the PDF does: every paragraph keeps its lines together and stays with the
+ * next paragraph, except the block's last, after which a page may break.
+ *
+ * Word honours both rules inside a table cell too (Word → PDF, 2026-11-26),
+ * which is where the two-column templates draw their entries.
+ */
+export interface ParagraphKeep {
+  readonly keepLines: true
+  readonly keepNext?: true
+}
+
+/** A paragraph of a kept block that is not its last. */
+export const KEEP_WITH_NEXT: ParagraphKeep = Object.freeze({ keepLines: true, keepNext: true })
+
+/** The last paragraph of a kept block. */
+export const KEEP_LINES: ParagraphKeep = Object.freeze({ keepLines: true })
+
+/**
+ * The keep rules of paragraph `index` of `count` built together for a kept
+ * block, `last` being those of the last one: the block's own last paragraph,
+ * or one that more of the block follows. No rules when `last` is absent: the
+ * paragraphs are not inside a kept block.
+ */
+export function keepAt(last: ParagraphKeep | undefined, index: number, count: number): ParagraphKeep | Record<string, never> {
+  if (!last) return {}
+  return index === count - 1 ? last : KEEP_WITH_NEXT
+}
+
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
@@ -159,6 +192,49 @@ export function trackingSpacing(em: number, halfPoints: number): number {
  * the Preview, and therefore what its DOCX must write when no font is chosen.
  */
 export const APP_BODY_FONT = 'Inter'
+
+/**
+ * `text` as a run's children with every hyphen a Word non-breaking hyphen
+ * (`w:noBreakHyphen`), which Word draws as the hyphen glyph of the run's font
+ * and never breaks a line after: Word otherwise breaks after a hyphen
+ * ("sophie-" / "marchand").
+ */
+export function noBreakHyphenChildren(text: string): (string | NoBreakHyphen)[] {
+  return text.split('-').flatMap((part, index) => [...(index > 0 ? [new NoBreakHyphen()] : []), ...(part ? [part] : [])])
+}
+
+/**
+ * How much narrower than its line a contact value must measure in Inter to be
+ * held whole: a margin for what an unkerned sum and Word's own layout may
+ * differ by, in CSS px.
+ */
+export const CONTACT_FIT_SAFETY_PX = 4
+
+/**
+ * A contact value drawn in Inter (an address, a phone number, an e-mail, a
+ * link), as a run's children.
+ *
+ * The Preview draws each value as one item a line wraps as a whole. In a
+ * value that fits `linePx` in Inter at Word's size (`halfPoints`, whole
+ * half-points), with `CONTACT_FIT_SAFETY_PX` to spare, each hyphen is
+ * therefore a non-breaking hyphen, so Word never splits a link or an address
+ * after one ("sophie-" / "marchand"). Its spaces stay the spaces it was typed
+ * with, so the stored text (a phone number, an address) is in the file as
+ * typed. A value wider than its line on its own is written as stored: the
+ * Preview then wraps it inside, at its spaces and after its hyphens, as Word
+ * does.
+ *
+ * An e-mail address is always written as stored (`isEmail`): read from the
+ * file by an applicant-tracking parser, or copied, it must be the stored
+ * address, and a non-breaking hyphen is an element of its own, not a "-" in
+ * the text (FR-10, as `swissItContactRunText` and `swissExecutiveLinkChildren`
+ * write it).
+ */
+export function contactValueChildren(value: string, linePx: number, halfPoints: number, isEmail = false): (string | NoBreakHyphen)[] {
+  const stored = value.trim()
+  if (isEmail || interLinkWidthPx(stored, halfPoints / 1.5) > linePx - CONTACT_FIT_SAFETY_PX) return [stored]
+  return noBreakHyphenChildren(stored)
+}
 
 /**
  * Strip HTML tags from text
@@ -372,6 +448,8 @@ export interface PlainTextParagraphLayout {
    * a whole block runs behind its list items too (US-007).
    */
   border?: IBordersOptions
+  /** The keep rules of the last paragraph, when the text is inside a block print keeps whole (`keepAt`). */
+  keep?: ParagraphKeep
 }
 
 /**
@@ -435,6 +513,7 @@ export function parsePlainTextListToParagraphs(
       alignment: layout.alignment,
       shading: layout.shading,
       border: layout.border,
+      ...keepAt(layout.keep, index, paragraphChildren.length),
     })
   )
 }
