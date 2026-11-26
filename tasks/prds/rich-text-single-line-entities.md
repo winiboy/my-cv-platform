@@ -1,6 +1,6 @@
 # PRD: A single typed line shows its symbols, not their codes
 
-**Status:** DRAFT
+**Status:** APPROVED 2026-11-26
 
 ## Objective
 
