@@ -59,7 +59,6 @@ import {
   extractAlignment,
   isHtmlList,
   isPlainTextList,
-  parseHtmlListToParagraphs,
   parseHtmlToDocxRuns,
   parsePlainTextBlocks,
   parsePlainTextListToParagraphs,
@@ -69,6 +68,7 @@ import {
   type DocxGeneratorSettings,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
+import { bareInlineFormatTags, formattedBlocks } from './docx-preview-metrics'
 import {
   EXIF_ORIENTATION_NONE,
   EXIF_PHOTO_TRANSFORMS,
@@ -199,15 +199,29 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
 
   /**
    * Rich text (summary, descriptions, `skillsHtml`) as the Preview's
-   * `renderFormattedText` draws it: an HTML list or a plain-text list as one
-   * paragraph per item, anything else as one paragraph of formatted runs.
+   * `renderFormattedText` draws it. HTML with a list: one paragraph per block
+   * the browser draws (`formattedBlocks`), in order — every `<p>` and every
+   * list item, so a paragraph beside a list is kept, which the shared list
+   * helper drops — each list item written as that helper writes it, its
+   * marker before its text. A plain-text list as one paragraph per item,
+   * anything else as one paragraph of formatted runs.
    */
   const richParagraphs = (text: string, color: string, options: { spacingBefore?: number } = {}): Paragraph[] => {
     const runOptions = { size: size.body, color, font }
     const lineSpacing = richLine(text)
     const alignment = extractAlignment(text)
     const paragraphs = isHtmlList(text)
-      ? parseHtmlListToParagraphs(text, runOptions, 0, 0, lineSpacing, undefined, alignment)
+      ? formattedBlocks(text).map(
+          (block) =>
+            new Paragraph({
+              children: [
+                ...(block.marker === null ? [] : [new TextRun({ ...runOptions, text: `${block.marker} ` })]),
+                ...parseHtmlToDocxRuns(bareInlineFormatTags(block.html), runOptions),
+              ],
+              alignment: block.alignment ?? alignment,
+              spacing: { after: 0, ...lineSpacing },
+            }),
+        )
       : isPlainTextList(text)
         ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing })
         : [new Paragraph({ children: parseHtmlToDocxRuns(text, runOptions), alignment, spacing: { after: 0, ...lineSpacing } })]

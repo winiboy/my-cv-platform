@@ -169,3 +169,48 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-003 The Preview shows the real pages
 FINAL: PASS
+
+## US-004: Word keeps every paragraph of an experience
+Status: PASS
+Priority: 4
+Branch: ralph/swiss-templates-only-page-fidelity
+Baseline HEAD: 5fc15ad (US-003)
+Scope:
+- Scope check: PASS — swissVocational and swissCommerce Word generators and their tests; the shared Word helper parseHtmlToDocxRuns (docx-helpers.ts) and its tests. Full list: this commit's `git show --stat`.
+- Negatives: no other generator changed (the other eight already keep paragraph and list in order — checked by the implementer with a temporary test and independently by code-reviewer reading each generator against its Preview component); no Preview, print CSS, PDF, page geometry, Word font or page-break change (US-005); no cover-letter code calls the helper; no version change; no push or merge.
+Checks (run of record checks-us4-r2; code diff hash 65193b8625c087e4 before and after):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 4994 passed, 17 skipped
+- pnpm test:integration: PASS — 80/80
+- pnpm build: PASS — 105/105 static pages
+- pnpm lint: PASS — 135 problems (93 errors, 42 warnings), under the PRD ceiling of 281
+- pnpm test:e2e: PASS — 697 passed, 0 failed
+- pnpm test:visual: PASS — 20/20
+Specialized validation:
+- Export: PASS — audit fixture through the real routes on the final code (scratchpad audit4b/): swissVocational and swissCommerce, fr and de, Word opened by Microsoft Word (COM, exported to PDF, no repair prompt): 2 pages each (PDF 2 each); "Gestion des commandes de matériel médical et suivi des stocks." present once in each Word render, above "Inventaires trimestriels" / "Relations avec les fournisseurs" as in the Preview and the PDF (SHEET-swissCommerce-fr.png in audit4/ shows Preview | PDF | Word).
+- Browser: NOT_APPLICABLE — Word output only; nothing rendered on screen changed.
+- Visual: PASS — 20/20, no baseline changed.
+- Database: NOT_APPLICABLE — no schema or data change.
+- Security: PASS (code-reviewer) — decoded text reaches document.xml only as TextRun text, which the docx library XML-escapes; a test with `&lt;/w:t&gt;&lt;w:t&gt;` and `&lt;script&gt;` in the text yields one escaped <w:t>.
+Agents:
+- senior-coder: implementation + 1 follow-up round.
+- Chain checks-us4-r1: green (697/697, 20/20) on the first diff; superseded by the follow-up.
+- code-reviewer round 1: PASS (code), with: summary and HTML skill-row paths fixed but untested; pre-existing text loss in parseHtmlToDocxRuns (decode-then-strip deletes text typed as `<word>`), which violates the PRD FAIL condition "Word loses any text the Preview shows". Both done in this story.
+- code-reviewer round 2: PASS.
+- ui-expert: NOT_APPLICABLE — no screen change.
+Acceptance criteria:
+- AC-01 every Swiss template's Word keeps an experience's (and education/project's, where drawn) description paragraph and list, in the Preview's order, no text lost: PASS — vocational and commerce fixed (formattedBlocks splitter, as the other eight use); other eight verified unchanged-correct; summary and HTML skill rows in the two templates fixed too
+- AC-02 unit test per affected generator asserts the paragraph text in word/document.xml; Word render of the audit fixture shows it: PASS — 8 tests in each of docx-swiss-vocational.test.ts and docx-swiss-commerce.test.ts (10/102 fail with the generators reverted); 7 in docx-helpers.test.ts (6 fail on the old helper); Word render above
+Decision (AC-01): in vocational and commerce, description HTML containing a list now goes through formattedBlocks (one Word paragraph per <p> and per <li>, source order) instead of the list-only helper that kept only <li>. List items keep their old form ("• " + text, no indent) so line widths and page breaks do not move in this story.
+Decision (no text lost): parseHtmlToDocxRuns strips real tags on the raw input and decodes entities afterwards in one pass; `&lt;mot&gt;` now shows as `<mot>` (was deleted) and `&amp;lt;` as `&lt;` (was decoded twice). This reverses the decode-first order of a5dc3ef for one data shape: text stored with only encoded tags (`&lt;p&gt;Hi&lt;/p&gt;`, no real `<`) now shows the tags as text in Word, as the Preview's formatText already shows them; before, Word showed "Hi". No text is lost either way.
+Known limitations:
+- vocational and commerce Word lists are not indented (Preview indents 1.25rem per level), so nested lists lose their visual hierarchy; the text is complete. For US-005 or later.
+- `<br>` inside a list item becomes two Word paragraphs (was one with a line break); same text, same look without indent.
+Open owner decisions recorded by this story:
+- Pre-existing Preview/PDF defect, outside this initiative: a single line typed into an empty rich-text field without pressing Enter is saved tagless with entities (`R&amp;D &lt; 5%`, rich-text-editor.tsx handleInput stores innerHTML); renderFormattedText then routes it to formatText, which shows the entities literally in the Preview and the PDF, and on reload migrateTextToHtml re-wraps it. Word shows "R&D < 5%". Proposed as a separate fix.
+- Before release, check whether any stored description, summary or achievement starts with `&lt;` (encoded tags only); if none exist the reversed a5dc3ef behaviour above never shows. Production data was not read.
+Environment notes: none.
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-004 Word keeps every paragraph of an experience
+FINAL: PASS

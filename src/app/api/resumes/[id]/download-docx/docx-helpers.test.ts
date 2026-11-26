@@ -314,6 +314,55 @@ describe('parseHtmlToDocxRuns inline formatting', () => {
   it('writes no break or space after the last line', async () => {
     expect(await renderText('<p><b>A</b></p><p> </p><p></p>')).toBe('A')
   })
+
+  /** The text Word shows: `renderText`, with the XML escaping of `<w:t>` undone in one pass. */
+  async function visibleText(html: string): Promise<string> {
+    const xmlEscapes: Readonly<Record<string, string>> = { '&lt;': '<', '&gt;': '>', '&amp;': '&', '&quot;': '"', '&apos;': "'" }
+    return (await renderText(html)).replace(/&(?:lt|gt|amp|quot|apos);/g, entity => xmlEscapes[entity])
+  }
+
+  // The Preview sets rich HTML as innerHTML: the browser decodes each entity
+  // once into a text node, and the sanitizer keeps text nodes as they are.
+  it('keeps text typed as a tag, as the Preview shows it, rather than taking it for a tag (swiss-templates-only-page-fidelity US-004)', async () => {
+    expect(await visibleText('<p>A &lt;script&gt; &amp; B</p>')).toBe('A <script> & B')
+    expect(await visibleText('<p>Le mot &lt;mot&gt; reste</p>')).toBe('Le mot <mot> reste')
+    expect(await visibleText('<p>&quot;cité&quot; &#39;x&#x27;</p>')).toBe('"cité" \'x\'')
+  })
+
+  it('decodes each entity once: an escaped ampersand stays text (US-004)', async () => {
+    expect(await visibleText('<p>&amp;lt;x&amp;gt;</p>')).toBe('&lt;x&gt;')
+    expect(await visibleText('<p>&amp;amp; &amp;nbsp;</p>')).toBe('&amp; &nbsp;')
+  })
+
+  it('writes decoded text only through escaped runs, so it never becomes markup (US-004)', async () => {
+    const runs = parseHtmlToDocxRuns('<p>&lt;/w:t&gt;&lt;w:t&gt;x &lt;script&gt;</p>', { size: 20, color: '333333', font: 'Arial' })
+    const doc = new Document({ sections: [{ children: [new Paragraph({ children: runs })] }] })
+    const body = await (await JSZip.loadAsync(await Packer.toBuffer(doc))).file('word/document.xml')!.async('string')
+    expect(body).toContain('&lt;/w:t&gt;&lt;w:t&gt;x &lt;script&gt;')
+    expect(body).not.toContain('<script')
+    expect((body.match(/<w:t[ >]/g) ?? []).length).toBe(1)
+  })
+
+  it('keeps an encoded tag inside formatting as text, formatted (US-004)', async () => {
+    const runs = await renderRuns('<p><strong>&lt;b&gt;</strong> after</p>')
+    expect(runs.map(run => run.text)).toEqual(['&lt;b&gt;', ' after'])
+    expect(runs[0].bold).toBe(true)
+    expect(runs[1].bold).toBe(false)
+  })
+
+  it('keeps a list item that is an encoded tag, and still skips one that is only a no-break space (US-004)', async () => {
+    expect(await visibleText('<ul><li>&lt;a&gt;</li><li>&nbsp;</li><li>b</li></ul>')).toBe('• <a>\n• b')
+    expect(await visibleText('<ol><li>&nbsp;</li><li>&lt;x&gt;</li></ol>')).toBe('1. <x>')
+  })
+
+  it('still removes the real tags of rich text (US-004)', async () => {
+    expect(await visibleText('<p>a<span style="color: red">b</span><img src="x">c</p>')).toBe('abc')
+  })
+
+  it('keeps tagless text whole, decoded once, instead of taking a decoded `<` for a tag (US-004)', async () => {
+    // Decoded before the tag test, `<mot>` made the text look like HTML and was stripped as a tag.
+    expect(await visibleText('&lt;mot&gt; R&amp;D &amp;lt;')).toBe('<mot> R&D &lt;')
+  })
 })
 
 describe('parsePlainTextListToParagraphs', () => {
