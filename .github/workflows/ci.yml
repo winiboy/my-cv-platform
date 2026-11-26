@@ -195,8 +195,9 @@ jobs:
 
       # playwright.config.ts builds the app and starts it itself, pinned to the
       # local stack. It refuses to run against a non-local Supabase host.
+      # The @parity tests run in their own required job below, not twice.
       - name: Run E2E tests
-        run: pnpm test:e2e
+        run: pnpm test:e2e --grep-invert @parity
 
       - name: Upload report on failure
         if: failure()
@@ -206,15 +207,23 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  # The Preview's sheets against the PDF's pages, for every template in fr and
+  # de (e2e/resume-preview-pdf-pages.spec.ts, the tests tagged @parity;
+  # swiss-templates-only-page-fidelity US-003). Branch protection on `main`
+  # requires a check named exactly "Parity (required)". Set up as the E2E job
+  # above, for the same reasons: the spec prints through the real PDF route.
+  #
+  # The E2E job sets no timeout-minutes, so it inherits GitHub's 360. This one
+  # sets 30. It does what the E2E job does - install, build, start Supabase,
+  # run Playwright - for a subset of the tests, and the E2E job's whole suite
+  # measured 3.98-5.36 min (above), so 30 is several times a normal run while
+  # a hung server or browser stops a required check within half an hour, not
+  # six. Each test's own 180 s timeout still stops a single hung test first.
+  # Raise it with evidence if the parity tests grow past it.
   parity:
     name: Parity (required)
     runs-on: ubuntu-latest
-    # Bounds a hung server or a stalled font download, which would otherwise
-    # hold the runner until GitHub's six-hour default.
     timeout-minutes: 30
-    # Renders the fixture resumes to Preview, PDF and DOCX and fails on any NEW
-    # divergence or any KNOWN entry that no longer reproduces. Setup is the e2e
-    # job's, step for step, plus the fonts the templates declare.
 
     steps:
       - name: Checkout repository
@@ -235,52 +244,28 @@ jobs:
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
-      # The parity fixture chooses Verdana, and the Windows machine the KNOWN
-      # list was recorded on also has Times New Roman. Without them Chromium
-      # falls back to another face and the font-family rows turn NEW, which
-      # would be a property of the runner, not of the code. The EULA is
-      # pre-accepted so the install cannot block on an interactive prompt.
-      # The package downloads the fonts from SourceForge at install time, so a
-      # failure of this step is infrastructure, not a parity result.
-      - name: Install Microsoft core fonts
+      # As in the E2E job: the PDF route's Chromium needs its sandbox.
+      - name: Allow Chromium's sandbox (unprivileged user namespaces)
         run: |
-          set -euo pipefail
-          echo ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true | sudo debconf-set-selections
-          sudo apt-get update
-          sudo apt-get install -y ttf-mscorefonts-installer
-          sudo fc-cache -f
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
 
-      # Fails fast if either family is missing, rather than letting the suite
-      # report font rows NEW. The fc-match lines are the log's proof of what
-      # each name resolves to; the report's environment block records the same
-      # resolution as Chromium saw it.
-      - name: Check font resolution
+      - name: Check a sandboxed Chromium launches
         run: |
-          set -euo pipefail
-          fc-match Verdana
-          fc-match "Times New Roman"
-          fc-list | grep -qi verdana
-          fc-list | grep -qi "times new roman"
+          node -e "require('playwright-core').chromium.launch({ chromiumSandbox: true }).then((browser) => browser.close())"
 
-      # Same flags as the e2e job, so the stack under test is the same one.
+      # Auth and the resumes table only: no mail is read here.
       - name: Start Supabase
-        run: pnpm supabase start -x studio,imgproxy,realtime,vector,edge-runtime,logflare,supavisor,postgres-meta
+        run: pnpm supabase start -x studio,imgproxy,mailpit,realtime,vector,edge-runtime,logflare,supavisor,postgres-meta
 
-      # playwright.parity.config.ts builds the app into .next-parity and starts
-      # it itself, pinned to the local stack.
-      - name: Run parity check
-        run: pnpm test:parity
+      - name: Run parity tests
+        run: pnpm test:e2e --grep @parity
 
-      # Uploaded on success too: the report and its environment block are the
-      # evidence a green run is judged by, not only a failure's diagnostics.
-      - name: Upload parity results
-        if: always()
+      - name: Upload report on failure
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: parity-results
-          path: test-results-parity/
+          name: parity-report
+          path: playwright-report/
           retention-days: 7
-
-      - name: Stop Supabase
-        if: always()
-        run: pnpm supabase stop --no-backup

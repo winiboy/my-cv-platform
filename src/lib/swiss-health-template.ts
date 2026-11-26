@@ -42,6 +42,18 @@ export const SWISS_HEALTH_GEOMETRY = {
   paddingX: 52,
   paddingTop: 44,
   paddingBottom: 48,
+  /**
+   * The printed page's margins, top and foot, in the PDF (globals.css) and in
+   * Word (the section's margins), so both break their pages at the same
+   * place: every page keeps `pageBottom` at its foot, and every page but the
+   * first keeps `pageTop` at its top. Page 1's top stays `paddingTop`, as the
+   * screen draws it: in Word the header floats there. In the PDF the
+   * document's own padding is repeated on every page (`paddingBottom` equals
+   * `pageBottom`), and every page but the first adds a page margin of
+   * `pageTop - paddingTop` above it (`@page swiss-health`).
+   */
+  pageTop: 48,
+  pageBottom: 48,
   /** The round photo's diameter and its light ring's width. */
   photo: 112,
   photoRing: 2,

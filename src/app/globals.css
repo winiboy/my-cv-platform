@@ -264,114 +264,6 @@
   margin-left: 1.25rem !important;
 }
 
-/* Custom Slider Styles for CV Editor */
-.color-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 28px;
-  height: 28px;
-  background: url('/hand-cursor.png') no-repeat center;
-  background-size: contain;
-  cursor: grab;
-  border: none;
-  border-radius: 0;
-}
-
-.color-slider::-moz-range-thumb {
-  width: 28px;
-  height: 28px;
-  background: url('/hand-cursor.png') no-repeat center;
-  background-size: contain;
-  cursor: grab;
-  border: none;
-  border-radius: 0;
-}
-
-.color-slider:active::-webkit-slider-thumb {
-  cursor: grabbing;
-}
-
-.color-slider:active::-moz-range-thumb {
-  cursor: grabbing;
-}
-
-.font-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 28px;
-  height: 28px;
-  background: url('/hand-cursor.png') no-repeat center;
-  background-size: contain;
-  cursor: grab;
-  border: none;
-  border-radius: 0;
-}
-
-.font-slider::-moz-range-thumb {
-  width: 28px;
-  height: 28px;
-  background: url('/hand-cursor.png') no-repeat center;
-  background-size: contain;
-  cursor: grab;
-  border: none;
-  border-radius: 0;
-}
-
-.font-slider:active::-webkit-slider-thumb {
-  cursor: grabbing;
-}
-
-.font-slider:active::-moz-range-thumb {
-  cursor: grabbing;
-}
-
-.brightness-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 24px;
-  height: 24px;
-  background: url('/hand-cursor.png') no-repeat center;
-  background-size: contain;
-  cursor: grab;
-  border: none;
-  border-radius: 0;
-}
-
-.brightness-slider::-moz-range-thumb {
-  width: 24px;
-  height: 24px;
-  background: url('/hand-cursor.png') no-repeat center;
-  background-size: contain;
-  cursor: grab;
-  border: none;
-  border-radius: 0;
-}
-
-.brightness-slider:active::-webkit-slider-thumb {
-  cursor: grabbing;
-}
-
-.brightness-slider:active::-moz-range-thumb {
-  cursor: grabbing;
-}
-
-/* Color Swatch Buttons - Hover effect for color picker swatches */
-.swatch-button:hover {
-  transform: scale(1.15);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15) !important;
-}
-
-.swatch-button:focus-visible {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
-}
-
-/* Professional Template Font Inheritance - Ensure CV uses selected font */
-.professional-template,
-.professional-template * {
-  font-family: inherit;
-}
-
 /* Tool Animations - Badge stagger animation for skill badges */
 @keyframes badge-appear {
   from {
@@ -413,58 +305,26 @@
     background: white !important;
   }
 
-  /* Professional template sidebar band - only applies when professional-template class exists.
-     The colour comes from --professional-print-sidebar-color, which
-     professional-template.tsx declares on this same element from the user's
-     stored sidebar colour (Part 3 US-013); this file cannot read the layout
-     model, so the fixed oklch stays as the fallback for when nothing declares
-     it. The band's geometry is still fixed and does not follow sidebarWidth. */
-  body:has(.professional-template) {
-    background: linear-gradient(
-      to right,
-      white calc(50% - 397px),
-      var(--professional-print-sidebar-color, oklch(0.25 0.05 240)) calc(50% - 397px),
-      var(--professional-print-sidebar-color, oklch(0.25 0.05 240)) calc(50% - 397px + 238.2px),
-      white calc(50% - 397px + 238.2px)
-    ) !important;
-  }
-
-  /* Modern template sidebar band - only applies when modern-template class exists.
-     Modern's sidebar is an in-flow column of the document, so its background
-     ends where the document ends; on a last page the document only partly
-     fills, the rest of the band would be paper. The root's background paints
-     the canvas, which covers every printed page in full, so the band is drawn
-     there and the document's own sidebar lies over it in the same colour.
-     Colour and width come from --modern-print-sidebar-color and
-     --modern-print-sidebar-width, which modern-template.tsx declares on this
-     same element from the user's stored sidebar colour and sidebarWidth. With
-     neither declared the band has no width and the page stays white. The band
-     starts where the centred 794px document does: max() because an A4 page is
-     793.7px wide, so mx-auto resolves to 0 and the document starts at the
-     page edge, and the band must end exactly where the sidebar does.
-     body and every other ancestor of the document are left transparent, so
-     the band, not white, lies directly under it: the page shells paint white
-     in print to the document's height, and the document's anti-aliased bottom
-     edge would blend with that white and print a light seam across the band
-     where the content ends. */
-  html:has(.modern-template) {
-    background: linear-gradient(
-      to right,
-      white max(0px, 50% - 397px),
-      var(--modern-print-sidebar-color, white) max(0px, 50% - 397px),
-      var(--modern-print-sidebar-color, white) calc(max(0px, 50% - 397px) + var(--modern-print-sidebar-width, 0px)),
-      white calc(max(0px, 50% - 397px) + var(--modern-print-sidebar-width, 0px))
-    ) !important;
-  }
-
-  body:has(.modern-template),
-  body :has(.modern-template) {
-    background: transparent !important;
-  }
-
   /* Remove all border radius in print */
   * {
     border-radius: 0 !important;
+  }
+
+  /* swissVocational's top and foot margins on every printed page,
+     SWISS_VOCATIONAL_GEOMETRY.pageTop and .pageBottom, which the Word export
+     uses as its page margins, so both break their pages at the same place:
+     the document's own padding, repeated on each page's piece of it
+     (`box-decoration-break: clone`), as swissFirstJob does below. Not `@page`
+     margins: Chromium paints no background into a page's margin area, so the
+     red strip, fixed to every page, would stop short of the paper's top and
+     foot. They equal the screen's padding, so page 1 is unchanged.
+     swiss-vocational-template.test.ts holds these equal. Print only: the
+     Preview on screen is unchanged. */
+  .swiss-vocational-template {
+    padding-top: 48px !important;
+    padding-bottom: 48px !important;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
   }
 
   /* swissCommerce (swiss-cv-templates US-002) prints its round photo and its
@@ -479,6 +339,35 @@
 
   .swiss-commerce-template .swiss-commerce-pill {
     border-radius: 4px !important;
+  }
+
+  /* swissCommerce prints its first page with no top margin, so its navy band
+     meets the paper's top edge, every later page with a top margin, so the
+     text that continues there does not start at the paper's edge, and every
+     page with a foot margin. The top margin is the page's, as swissIt's below:
+     one named page (`swiss-commerce`), so no page break is forced, its first
+     page without it. The foot margin is the document's own foot padding,
+     repeated on each page's piece of it (`box-decoration-break: clone`), so
+     the document prints at its screen size. They are
+     SWISS_COMMERCE_GEOMETRY.pageTop and .pageBottom (= paddingBottom), which
+     the Word export uses as its page margins; swiss-commerce-template.test.ts
+     holds them equal. Print only: the Preview on screen is unchanged. */
+  html:has(.swiss-commerce-template),
+  body:has(.swiss-commerce-template) {
+    page: swiss-commerce;
+  }
+
+  .swiss-commerce-template {
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  @page swiss-commerce {
+    margin-top: 48px;
+  }
+
+  @page swiss-commerce:first {
+    margin-top: 0;
   }
 
   /* swissTrades (swiss-cv-templates US-003) prints its rounded skill tags as
@@ -502,25 +391,106 @@
     border-radius: 9999px !important;
   }
 
-  /* swissTrades' dark column on every printed page, top to foot. As modern's
-     band above: the column is in-flow, so its own background ends where the
-     document ends; the root's background paints every page in full. The
-     colour and width are the template's fixed ones (PREVIEW_PALETTE.swissTrades
-     .sidebar, SWISS_TRADES_GEOMETRY.sidebarWidth); swiss-trades-template.test.ts
-     holds them equal. */
+  /* swissHealth prints every page with a foot margin, and every page after
+     the first with a top margin, so the text that continues there does not
+     start at the paper's edge: SWISS_HEALTH_GEOMETRY.pageTop and .pageBottom,
+     which the Word export uses as its page margins. The document's own
+     padding, repeated on each page's piece of it (`box-decoration-break:
+     clone`), gives every page its foot margin (paddingBottom = pageBottom)
+     and its top padding (paddingTop); every page but the first adds a page
+     margin of the rest (pageTop - paddingTop = 4px) above it: one named page
+     (`swiss-health`), so no page break is forced, its first page without it.
+     So page 1 starts where it does on screen and the document prints at its
+     screen size. swiss-health-template.test.ts holds these equal. Print
+     only: the Preview on screen is unchanged. */
+  html:has(.swiss-health-template),
+  body:has(.swiss-health-template) {
+    page: swiss-health;
+  }
+
+  .swiss-health-template {
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  @page swiss-health {
+    margin-top: 4px;
+  }
+
+  @page swiss-health:first {
+    margin-top: 0;
+  }
+
+  /* swissFinance prints every page with a top and a foot margin,
+     SWISS_FINANCE_GEOMETRY.pageTop and .pageBottom, which the Word export uses
+     as its page margins: the document's own padding, which they equal,
+     repeated on each page's piece of it (`box-decoration-break: clone`), so
+     page 1 and the document's size are as on screen.
+     swiss-finance-template.test.ts holds these equal. Print only: the Preview
+     on screen is unchanged. */
+  .swiss-finance-template {
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  /* swissTrades' dark column on every printed page, top to foot. The column is
+     an in-flow column of the document, so its own background ends where the
+     document ends; on a last page the document only partly fills, the rest of
+     the column would be paper. The root's background paints the canvas, which
+     covers every printed page in full, so the column is drawn there and the
+     document's own column lies over it in the same colour. It is one solid
+     layer the column's width, repeated down the canvas. Its edges are the
+     layer's own, not colour stops, which a PDF stores as a sampled shading
+     that pdf.js draws blurred over tens of px: the page's top and foot
+     margins (swiss-templates-only-page-fidelity US-002) show this background,
+     not the document's column, above and below the text on every page. It
+     starts where the centred 794px document does, max(0px, 50% - 397px) of
+     the canvas: 0 on an A4 page, 793.7px wide, where mx-auto resolves to 0,
+     and the document's edge in a wider viewport. A background position's 50%
+     is half of the canvas less the layer's width, so half the layer's width
+     is added back: 50% + 125px - 397px. body and every other ancestor of the document are
+     left transparent (below), so the column, not white, lies directly under
+     it and no light seam prints where the content ends. The colour and width
+     are the template's fixed ones (PREVIEW_PALETTE.swissTrades.sidebar,
+     SWISS_TRADES_GEOMETRY.sidebarWidth); swiss-trades-template.test.ts holds
+     them equal. */
   html:has(.swiss-trades-template) {
-    background: linear-gradient(
-      to right,
-      white max(0px, 50% - 397px),
-      #334155 max(0px, 50% - 397px),
-      #334155 calc(max(0px, 50% - 397px) + 250px),
-      white calc(max(0px, 50% - 397px) + 250px)
-    ) !important;
+    background: linear-gradient(#334155, #334155) max(0px, 50% - 272px) 0 / 250px 100% repeat-y, white !important;
   }
 
   body:has(.swiss-trades-template),
   body :has(.swiss-trades-template) {
     background: transparent !important;
+  }
+
+  /* swissTrades' top and foot margins on every printed page,
+     SWISS_TRADES_GEOMETRY.pageTop and .pageBottom, which the Word export uses
+     as its page margins, so both break their pages at the same place: the
+     document's own padding, repeated on each page's piece of it
+     (`box-decoration-break: clone`), as swissFirstJob does below. Not `@page`
+     margins: Chromium paints no background into a page's margin area, so the
+     dark column above would stop short of the paper's top and foot. The
+     columns' own top and foot padding gives way to it; the dark column starts
+     8px higher on page 1, as on screen (sidebarPaddingTop 40px - pageTop
+     48px). The document's on-screen page height would open an empty page 2.
+     swiss-trades-template.test.ts holds these equal. Print only: the Preview
+     on screen is unchanged. */
+  .swiss-trades-template {
+    min-height: 0 !important;
+    padding-top: 48px !important;
+    padding-bottom: 48px !important;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  .swiss-trades-template > aside,
+  .swiss-trades-template > main {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  .swiss-trades-template > aside {
+    margin-top: -8px !important;
   }
 
   /* swissEngineering (swiss-cv-templates US-006) prints its round photo and
@@ -542,22 +512,47 @@
      every page in full. The column is the document's last 250px
      (SWISS_ENGINEERING_GEOMETRY.columnWidth), its first 4px the bar
      (columnBar); the colours are PREVIEW_PALETTE.swissEngineering .bar and
-     .column. swiss-engineering-template.test.ts holds them equal. */
+     .column. swiss-engineering-template.test.ts holds them equal. Each is one
+     solid layer repeated down the canvas, so its edges are sharp in every PDF
+     reader, placed from where the centred document starts, as swissTrades'
+     column above: max(<offset>, 50% + <offset> + half its width - 397px),
+     0 on an A4 page. */
   html:has(.swiss-engineering-template) {
-    background: linear-gradient(
-      to right,
-      white calc(max(0px, 50% - 397px) + 544px),
-      #2563eb calc(max(0px, 50% - 397px) + 544px),
-      #2563eb calc(max(0px, 50% - 397px) + 548px),
-      #f1f5f9 calc(max(0px, 50% - 397px) + 548px),
-      #f1f5f9 calc(max(0px, 50% - 397px) + 794px),
-      white calc(max(0px, 50% - 397px) + 794px)
-    ) !important;
+    background:
+      linear-gradient(#2563eb, #2563eb) max(544px, 50% + 149px) 0 / 4px 100% repeat-y,
+      linear-gradient(#f1f5f9, #f1f5f9) max(548px, 50% + 274px) 0 / 246px 100% repeat-y,
+      white !important;
   }
 
   body:has(.swiss-engineering-template),
   body :has(.swiss-engineering-template) {
     background: transparent !important;
+  }
+
+  /* swissEngineering's top and foot margins on every printed page,
+     SWISS_ENGINEERING_GEOMETRY.pageTop and .pageBottom, as swissTrades' above:
+     the document's own padding, repeated on each page's piece of it, so the
+     light column and its bar still reach the paper's top and foot; the
+     columns' own top and foot padding gives way to it, and the light column
+     starts 4px higher on page 1, as on screen (columnPaddingTop 44px - pageTop
+     48px). swiss-engineering-template.test.ts holds these equal. Print only:
+     the Preview on screen is unchanged. */
+  .swiss-engineering-template {
+    min-height: 0 !important;
+    padding-top: 48px !important;
+    padding-bottom: 48px !important;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  .swiss-engineering-template > aside,
+  .swiss-engineering-template > main {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  .swiss-engineering-template > aside {
+    margin-top: -4px !important;
   }
 
   /* swissIt (swiss-cv-templates US-007) prints its round photo, its pill tags

@@ -4,7 +4,7 @@ import en from '@/locales/en/common.json'
 import de from '@/locales/de/common.json'
 import it_ from '@/locales/it/common.json'
 import type { Locale } from '@/lib/i18n'
-import type { ResumeTemplate } from '@/types/database'
+import { RESUME_TEMPLATES } from '@/lib/resume-templates'
 import {
   DEFAULT_RESUME_LAYOUT,
   TEMPLATE_APPLIED_SIZE_KEYS,
@@ -29,15 +29,11 @@ import {
 
 const DICTS: Record<Locale, unknown> = { fr, en, de, it: it_ }
 
-const ORIGINAL = ['professional', 'modern', 'classic', 'minimal', 'creative'] as const
 
 
 describe('swissVocational in the template x control registries (FR-3)', () => {
   it('offers only the sections panel: it paints no user colour, draws no size input and applies no stored font (FR-12)', () => {
     expect(TEMPLATE_LAYOUT_CONTROLS.swissVocational).toEqual(['sidebarSections'])
-    expect(templateOffersLayoutControl('swissVocational', 'font')).toBe(false)
-    expect(templateOffersLayoutControl('swissVocational', 'sidebarColour')).toBe(false)
-    expect(templateOffersLayoutControl('swissVocational', 'perPropertySize')).toBe(false)
     expect(templateOffersLayoutControl('swissVocational', 'sidebarSections')).toBe(true)
   })
 
@@ -54,9 +50,8 @@ describe('swissVocational in the template x control registries (FR-3)', () => {
     expect([...sections.fixed].sort()).toEqual([...sections.main, ...sections.sidebar].sort())
   })
 
-  it('has a registry entry for every id the schema accepts: no Swiss template is left unbuilt', () => {
-    const schema: readonly ResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
-    for (const id of schema) {
+  it('has a registry entry for every id the schema accepts', () => {
+    for (const id of RESUME_TEMPLATES) {
       expect(Object.keys(TEMPLATE_LAYOUT_CONTROLS), id).toContain(id)
       expect(Object.keys(TEMPLATE_APPLIED_SIZE_KEYS), id).toContain(id)
       expect(Object.keys(TEMPLATE_EDITOR_SECTIONS), id).toContain(id)
@@ -75,13 +70,14 @@ describe('the order the sections panels list their rows in', () => {
     ['education', 'summary', 'experience'],
   ]
 
-  it.each(ORIGINAL)('keeps the stored order for %s, exactly as before', (template) => {
-    const sections = TEMPLATE_EDITOR_SECTIONS[template]
+  it('keeps the stored order, filtered to the listed rows, when a row is not fixed', () => {
+    const sidebar: readonly EditorSidebarId[] = ['skills', 'languages']
+    const main: readonly EditorMainId[] = ['summary', 'experience', 'education']
     for (const order of SIDEBAR_ORDERS) {
-      expect(listedEditorSections(order, sections.sidebar, sections.fixed)).toEqual(order.filter((id) => sections.sidebar.includes(id)))
+      expect(listedEditorSections(order, sidebar, [])).toEqual(order.filter((id) => sidebar.includes(id)))
     }
     for (const order of MAIN_ORDERS) {
-      expect(listedEditorSections(order, sections.main, sections.fixed)).toEqual(order.filter((id) => sections.main.includes(id)))
+      expect(listedEditorSections(order, main, ['summary'])).toEqual(order)
     }
   })
 

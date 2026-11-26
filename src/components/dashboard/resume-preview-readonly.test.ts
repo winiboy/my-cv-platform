@@ -8,7 +8,7 @@ import fr from '@/locales/fr/common.json'
 import de from '@/locales/de/common.json'
 import it_ from '@/locales/it/common.json'
 import type { Resume } from '@/types/database'
-import { SUPPORTED_TEMPLATES } from '@/app/api/resumes/[id]/download-docx/docx-templates'
+import { RESUME_TEMPLATES } from '@/lib/resume-templates'
 import { ResumePreviewWrapper } from './resume-preview-wrapper'
 
 /**
@@ -41,7 +41,7 @@ function resume(template: string): Resume {
 }
 
 describe('the Preview renders the layout read-only (FR-13)', () => {
-  it.each(SUPPORTED_TEMPLATES)('%s: no slider, button, input or resize handle in the document', (template) => {
+  it.each(RESUME_TEMPLATES)('%s: no slider, button, input or resize handle in the document', (template) => {
     const markup = renderToStaticMarkup(
       createElement(ResumePreviewWrapper, { initialResume: resume(template), locale: 'en', dict: en }),
     )

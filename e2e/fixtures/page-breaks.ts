@@ -1,4 +1,3 @@
-import { expect } from '@playwright/test'
 import {
   FIXTURE_EDUCATION,
   FIXTURE_EXPERIENCE,
@@ -8,11 +7,12 @@ import {
   type FixtureExperience,
 } from './resume'
 import { PAGE_HEIGHT_PX } from '../../src/lib/resume-page-size'
+import { SHEET_GAP_PX as SHEET_GAP } from '../../src/lib/resume-sheets'
 
 /**
- * Content and page arithmetic shared by the page-break indicator specs, so the
- * editor and the Preview page are exercised on the same documents and judged
- * by the same rule.
+ * Content and sheet arithmetic shared by the page-break specs, so the editor
+ * and the Preview page are exercised on the same documents and judged by the
+ * same rule.
  */
 
 /**
@@ -40,21 +40,20 @@ export const ONE_PAGE: FixtureContentOverrides = {
 }
 
 /**
- * The page count FR-2 gives for this height, written independently of the app:
- * every sheet edge the document passes by more than 1 px starts a new page.
+ * The number of sheets a Preview or Editor frame of this unscaled height
+ * draws (swiss-templates-only-page-fidelity US-003): n A4 sheets and the
+ * n − 1 gaps between them, the last sheet full height. Written from the page
+ * size and the gap, not from the app's arithmetic. `null` for a height that is
+ * not a whole number of sheets within a px: the frame always fills its last
+ * sheet, so such a height is not settled, or wrong.
  */
-export function expectedPages(unscaledHeight: number): number {
-  let pages = 1
-  while (unscaledHeight > pages * PAGE_HEIGHT_PX + 1) pages++
-  return pages
+export function sheetsForHeight(unscaledHeight: number): number | null {
+  const sheets = Math.max(1, Math.round((unscaledHeight + SHEET_GAP) / (PAGE_HEIGHT_PX + SHEET_GAP)))
+  const exact = sheets * PAGE_HEIGHT_PX + (sheets - 1) * SHEET_GAP
+  return Math.abs(exact - unscaledHeight) <= 1 ? sheets : null
 }
 
-/**
- * Precondition for a multi-page case: the height is clear of every page edge,
- * so the count cannot pass on the tolerance band or a rounding coincidence.
- */
-export function expectClearOfPageEdge(unscaledHeight: number): void {
-  const distance = unscaledHeight % PAGE_HEIGHT_PX
-  expect(distance, `height ${unscaledHeight} is within a px of a page edge`).toBeGreaterThan(1)
-  expect(PAGE_HEIGHT_PX - distance).toBeGreaterThan(1)
+/** The unscaled y where sheet `page` (1-based) starts. */
+export function sheetTopFor(page: number): number {
+  return (page - 1) * (PAGE_HEIGHT_PX + SHEET_GAP)
 }

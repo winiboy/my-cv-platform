@@ -3,7 +3,7 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
-  HeightRule,
+  Header,
   HorizontalPositionRelativeFrom,
   ImageRun,
   LineRuleType,
@@ -41,6 +41,7 @@ import { SWISS_ENGINEERING_LINE_HEIGHT, formattedTextLineHeight, rendersAsFormat
 import { formatSwissMonth, swissContactEntries, swissHeading, swissHasText, swissLanguageLevel } from '@/lib/swiss-vocational-template'
 import { swissTradesContactHeading, swissTradesLanguageLine } from '@/lib/swiss-trades-template'
 import {
+  SWISS_ENGINEERING_COLUMN_TEXT_WIDTH,
   SWISS_ENGINEERING_GEOMETRY as GEOMETRY,
   SWISS_ENGINEERING_SIZES as SIZES,
   swissEngineeringCertificateLine,
@@ -55,16 +56,22 @@ import {
 import { visibleContactDetails } from '@/lib/contact-visibility'
 import {
   APP_BODY_FONT,
+  contactValueChildren,
+  KEEP_LINES,
+  KEEP_WITH_NEXT,
   NO_TEXT_LINE,
   exactLineSpacing,
   extractAlignment,
   parseHtmlToDocxRuns,
   parsePlainTextListToParagraphs,
   pxToHalfPoints,
+  keepAt,
   pxToTwips,
   trackingSpacing,
   type DocxGeneratorSettings,
+  type ParagraphKeep,
 } from './docx-helpers'
+import { interDocxFonts, pairInterFaces } from './docx-fonts'
 import { DOCX_PALETTE } from './docx-palette'
 import { FORMATTED_LIST_INDENT_PX, FORMATTED_LIST_MARKER_EM, bareInlineFormatTags, formattedBlocks } from './docx-preview-metrics'
 import { solidColourPng } from './docx-disc'
@@ -76,7 +83,7 @@ import {
   extractBase64Data,
   parseImageDimensions,
   readJpegOrientation,
-} from './docx-modern'
+} from './docx-photo'
 
 /** The stored columns this generator reads, typed as the application writes them. */
 interface StoredResume {
@@ -136,12 +143,11 @@ interface Flow {
  * headings, dates, level names, project cards and skill lines, read from
  * `@/lib/swiss-engineering-template` and the shared Swiss helpers.
  *
- * Layout in Word: the page has no margin at the top or sides, as the printed
- * Preview has none; the body is one two-column table — the main column, then
- * the light column, its cell shaded the column's colour with the blue bar as
- * its left border. The column and its bar are also page-high rasters behind
- * the text, repeated on every page through a 1-twip header row, as
- * `docx-swiss-trades.ts` draws its dark column. The photo is a round inline
+ * Layout in Word: every page has the printed Preview's top and foot margins
+ * and no side margin; the body is one two-column table — the main column,
+ * then the light column. The column and its blue bar are page-high rasters
+ * anchored to the page behind the text in the section's header, which Word
+ * repeats on every page, as `docx-swiss-trades.ts` draws its dark column. The photo is a round inline
  * drawing centred at the top of the light column; each project is a shaded
  * one-cell table with a thick blue left border; dates sit at a right tab stop.
  */
@@ -236,16 +242,16 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
   const richParagraphs = (
     text: string,
     color: string,
-    options: { size: number; line: number; elementLineHeight: number; spacingBefore?: number },
+    options: { size: number; line: number; elementLineHeight: number; spacingBefore?: number; keep?: ParagraphKeep },
   ): Paragraph[] => {
     const runOptions = { size: options.size, color, font }
     const lineSpacing = exactLineSpacing([formattedTextLineHeight(text, options.elementLineHeight), options.line])
     const alignment = extractAlignment(text)
     const markerHang = pxToTwips(FORMATTED_LIST_MARKER_EM * (options.size / 1.5))
     const paragraphs = !rendersAsFormattedContent(text)
-      ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing })
+      ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing, keep: options.keep })
       : formattedBlocks(text).map(
-          (block) =>
+          (block, index, blocks) =>
             new Paragraph({
               children: [
                 ...(block.marker === null ? [] : [new TextRun({ ...runOptions, text: `${block.marker}\t` })]),
@@ -258,11 +264,14 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
                   ? undefined
                   : { left: pxToTwips(FORMATTED_LIST_INDENT_PX * block.depth), hanging: block.marker === null ? 0 : markerHang },
               spacing: { after: 0, ...lineSpacing },
+              ...keepAt(options.keep, index, blocks.length),
             }),
         )
     if (options.spacingBefore && paragraphs.length > 0) {
       // The Preview's top margin: a spacer, since a built paragraph's spacing cannot be changed.
-      paragraphs.unshift(new Paragraph({ children: [], spacing: { before: 0, after: options.spacingBefore, ...NO_TEXT_LINE } }))
+      paragraphs.unshift(
+        new Paragraph({ children: [], spacing: { before: 0, after: options.spacingBefore, ...NO_TEXT_LINE }, ...(options.keep ? KEEP_WITH_NEXT : {}) }),
+      )
     }
     return paragraphs
   }
@@ -369,7 +378,8 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
       case 'summary':
         if (!swissHasText(row.summary)) return false
         main.push(heading(swissHeading(dict, 'summary'), mainFlow.before))
-        main.push(...richParagraphs(row.summary, PALETTE.body, { size: size.body, line: line.body, elementLineHeight: LINE_HEIGHT.text }))
+        // Kept whole with its heading, as print keeps the section.
+        main.push(...richParagraphs(row.summary, PALETTE.body, { size: size.body, line: line.body, elementLineHeight: LINE_HEIGHT.text, keep: KEEP_LINES }))
         return true
 
       case 'keyAchievements':
@@ -386,7 +396,10 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
         if (experiences.length === 0) return false
         main.push(heading(swissHeading(dict, 'experience'), mainFlow.before))
         experiences.forEach((exp, index) => {
+          // The entry is kept whole, as print keeps it (`break-inside: avoid`).
           const paragraphs: Paragraph[] = []
+          const hasDetails = exp.achievements.length > 0 || Boolean(exp.description)
+          const hasMeta = Boolean(exp.position && exp.meta)
           const first = exp.position || exp.meta
           if (first || exp.dates) {
             const runs: TextRun[] = []
@@ -395,10 +408,19 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
               runs.push(new TextRun({ children: [new Tab()], font, size: size.date }), run(exp.dates, PALETTE.muted, { size: size.date }))
             }
             paragraphs.push(
-              new Paragraph({ children: runs, tabStops: [{ type: TabStopType.RIGHT, position: mainContentWidth }], spacing: { after: 0, ...bodyLine } }),
+              new Paragraph({
+                children: runs,
+                tabStops: [{ type: TabStopType.RIGHT, position: mainContentWidth }],
+                spacing: { after: 0, ...bodyLine },
+                ...(hasMeta || hasDetails ? KEEP_WITH_NEXT : KEEP_LINES),
+              }),
             )
           }
-          if (exp.position && exp.meta) paragraphs.push(new Paragraph({ children: [run(exp.meta, PALETTE.muted)], spacing: { after: 0, ...bodyLine } }))
+          if (hasMeta) {
+            paragraphs.push(
+              new Paragraph({ children: [run(exp.meta, PALETTE.muted)], spacing: { after: 0, ...bodyLine }, ...(hasDetails ? KEEP_WITH_NEXT : KEEP_LINES) }),
+            )
+          }
           if (exp.achievements.length > 0) {
             const indent = pxToTwips(GEOMETRY.bulletIndent)
             exp.achievements.forEach((achievement, i) => {
@@ -412,6 +434,7 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
                     after: 0,
                     ...exactLineSpacing([formattedTextLineHeight(achievement, LINE_HEIGHT.text), line.body]),
                   },
+                  ...keepAt(KEEP_LINES, i, exp.achievements.length),
                 }),
               )
             })
@@ -422,6 +445,7 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
                 line: line.body,
                 elementLineHeight: LINE_HEIGHT.text,
                 spacingBefore: pxToTwips(GEOMETRY.detailGap),
+                keep: KEEP_LINES,
               }),
             )
           }
@@ -446,21 +470,31 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
   const photo = photoVisible && photoBase64 ? photoRun(photoBase64) : null
   const contactEntries = swissContactEntries(contact, dict)
 
-  /** Lines of the light column, the space between two lines its row gap. */
-  const columnLines = (lines: string[]) => {
+  /**
+   * Lines of the light column, the space between two lines its row gap; kept
+   * together when they end a block print keeps whole (`keep`, see `keepAt`).
+   * Contact values are each held whole when they fit the column (`whole`,
+   * see `contactValueChildren`).
+   */
+  const columnLines = (lines: string[], keep?: ParagraphKeep, whole = false) => {
     lines.forEach((text, index) => {
       side.push(
         new Paragraph({
-          children: [run(text, PALETTE.body, { size: size.column })],
+          children: [
+            whole
+              ? new TextRun({ children: contactValueChildren(text, SWISS_ENGINEERING_COLUMN_TEXT_WIDTH, size.column, text.trim() === contact.email?.trim()), color: PALETTE.body, font, size: size.column })
+              : run(text, PALETTE.body, { size: size.column }),
+          ],
           spacing: { before: index === 0 ? 0 : pxToTwips(GEOMETRY.columnRowGap), after: 0, ...columnLine },
+          ...keepAt(keep, index, lines.length),
         }),
       )
     })
   }
 
-  /** A bold line of the light column: an education's lead, a skill category's caption. */
+  /** A bold line of the light column: an education's lead, a skill category's caption; kept with what follows. */
   const columnLead = (text: string, before: number, after = 0) =>
-    new Paragraph({ children: [run(text, PALETTE.ink, { bold: true, size: size.column })], spacing: { before, after, ...columnLine }, keepNext: true })
+    new Paragraph({ children: [run(text, PALETTE.ink, { bold: true, size: size.column })], spacing: { before, after, ...columnLine }, ...KEEP_WITH_NEXT })
 
   if (photo) {
     // Single (auto) spacing: under the document's default exact line, Word
@@ -480,8 +514,8 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
 
   if (contactEntries.length > 0) {
     side.push(heading(swissTradesContactHeading(dict), sideFlow.before))
-    // The mockup draws the values without labels.
-    columnLines(contactEntries.map((entry) => entry.value))
+    // The mockup draws the values without labels. Kept whole with its heading, as print keeps the section.
+    columnLines(contactEntries.map((entry) => entry.value), KEEP_LINES, true)
     markDrawn()
   }
 
@@ -494,11 +528,20 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
           const before = index === 0 ? 0 : pxToTwips(GEOMETRY.columnEntryGap)
           const paragraphs: Paragraph[] = []
           if (edu.lead) paragraphs.push(columnLead(edu.lead, 0))
+          // The entry is kept whole, as print keeps it.
           if (edu.detail) {
-            paragraphs.push(new Paragraph({ children: [run(edu.detail, PALETTE.body, { size: size.column })], spacing: { after: 0, ...columnLine } }))
+            paragraphs.push(
+              new Paragraph({
+                children: [run(edu.detail, PALETTE.body, { size: size.column })],
+                spacing: { after: 0, ...columnLine },
+                ...(edu.description ? KEEP_WITH_NEXT : KEEP_LINES),
+              }),
+            )
           }
           if (edu.description) {
-            paragraphs.push(...richParagraphs(edu.description, PALETTE.body, { size: size.column, line: line.column, elementLineHeight: LINE_HEIGHT.text }))
+            paragraphs.push(
+              ...richParagraphs(edu.description, PALETTE.body, { size: size.column, line: line.column, elementLineHeight: LINE_HEIGHT.text, keep: KEEP_LINES }),
+            )
           }
           if (before > 0) side.push(spacer(before))
           side.push(...paragraphs)
@@ -516,18 +559,21 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
           // is drawn as a caption on its own line above its skills (FR-1, FR-15).
           if (skill.category) side.push(columnLead(skill.category, before, pxToTwips(GEOMETRY.skillCaptionGap)))
           const contentBefore = skill.category ? 0 : before
+          // The entry is kept whole, as print keeps it; the gap before it is not
+          // part of it, so a page may break there. Rich text that draws nothing
+          // has no gap either.
           if (skill.content.kind === 'lines') {
             if (contentBefore > 0) side.push(spacer(contentBefore))
-            columnLines(skill.content.lines)
+            columnLines(skill.content.lines, KEEP_LINES)
           } else {
-            side.push(
-              ...richParagraphs(skill.content.html, PALETTE.body, {
-                size: size.column,
-                line: line.column,
-                elementLineHeight: LINE_HEIGHT.text,
-                spacingBefore: contentBefore,
-              }),
-            )
+            const paragraphs = richParagraphs(skill.content.html, PALETTE.body, {
+              size: size.column,
+              line: line.column,
+              elementLineHeight: LINE_HEIGHT.text,
+              keep: KEEP_LINES,
+            })
+            if (contentBefore > 0 && paragraphs.length > 0) side.push(spacer(contentBefore))
+            side.push(...paragraphs)
           }
         })
         markDrawn()
@@ -537,7 +583,11 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
       case 'languages': {
         if (languages.length === 0) return
         side.push(heading(swissHeading(dict, 'languages'), sideFlow.before))
-        columnLines(languages.map((lang) => swissTradesLanguageLine(lang.language, swissLanguageLevel(dict, lang.level))))
+        // Kept whole with its heading, as print keeps the section.
+        columnLines(
+          languages.map((lang) => swissTradesLanguageLine(lang.language, swissLanguageLevel(dict, lang.level))),
+          KEEP_LINES,
+        )
         markDrawn()
         return
       }
@@ -545,7 +595,8 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
       case 'training': {
         if (certifications.length === 0) return
         side.push(heading(swissHeading(dict, 'training'), sideFlow.before))
-        columnLines(certifications)
+        // Kept whole with its heading, as print keeps the section.
+        columnLines(certifications, KEEP_LINES)
         markDrawn()
         return
       }
@@ -559,12 +610,16 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
   // ----------------------------------------------------------
 
   /**
-   * A page-high solid fill anchored to the page behind the text, `fromPx` from
-   * the page's left edge and `widthPx` wide, at stacking order `zIndex` (a
-   * higher one is drawn in front; both stay behind the text). A cell's fill
-   * ends where the row's part on a page ends, so the light column and its bar
-   * are drawn this way only, held by a 1-twip header row that Word repeats on
-   * every page the table spans — `docx-swiss-trades.ts`'s dark column.
+   * A page-high solid fill anchored to the page's own origin behind the text,
+   * `fromPx` from the page's left edge and `widthPx` wide, at stacking order
+   * `zIndex` (a higher one is drawn in front; both stay behind the text). The
+   * fills sit in the section's header, which Word repeats on every page, so
+   * the light column and its bar run from the paper's top edge to its foot,
+   * its top and foot margins included, as `docx-swiss-first-job.ts` draws its
+   * sidebar. Not in a table cell: a cell's fill ends where the row's part on a
+   * page ends, and Word places a drawing anchored in a table cell from that
+   * cell whatever `layoutInCell` says (Word → PDF, 2026-11-23), and no cell
+   * starts at the paper's edge once the page has a top margin.
    */
   const pageFill = (colourHex: string, fromPx: number, widthPx: number, id: string, zIndex: number) =>
     new ImageRun({
@@ -579,7 +634,6 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
         wrap: { type: TextWrappingType.NONE },
         behindDocument: true,
         allowOverlap: true,
-        // Positioned on the page, not clipped to this 1-twip cell.
         layoutInCell: false,
         // `relativeHeight`: without it docx writes each drawing's height there,
         // the same for both, and Word drew the fill over the bar.
@@ -590,44 +644,13 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
   /** The column's left edge on the page, where the Preview's bar starts: 544px. */
   const columnLeftPx = PAGE_WIDTH_PX - GEOMETRY.columnWidth
 
-  // Both fills are anchored in the row's FIRST cell, whose origin is the
-  // page's own (0, 0), as `docx-swiss-trades.ts` anchors its dark column.
-  // Anchored in the column's cell, as first written, Word did not draw the
-  // fills where their page offsets put them (Word → PDF, 2026-11-23): the
-  // column and its bar ended with the row's content, short of the page's foot,
-  // which is where the cell's own shading and left border end. The likely
-  // reading is that Word 2013+ layout (compatibility mode 15, this document's)
-  // places a drawing anchored in a table cell from that cell whatever
-  // `layoutInCell` says. From a cell at the page's origin the page offsets and
-  // the cell offsets are the same numbers, so the fills land in the same place
-  // in either reading — the arrangement Word draws correctly for swissTrades.
-  const fillRow = new TableRow({
-    tableHeader: true,
-    cantSplit: true,
-    height: { value: 1, rule: HeightRule.EXACT },
+  const columnFill = new Paragraph({
     children: [
-      new TableCell({
-        width: { size: mainWidth, type: WidthType.DXA },
-        margins: NO_MARGINS,
-        borders: NO_CELL_BORDERS,
-        children: [
-          new Paragraph({
-            children: [
-              // The bar in front of the fill, side by side as the Preview draws them.
-              pageFill(PALETTE.bar, columnLeftPx, GEOMETRY.columnBar, '2', 2),
-              pageFill(PALETTE.column, columnLeftPx + GEOMETRY.columnBar, GEOMETRY.columnWidth - GEOMETRY.columnBar, '3', 1),
-            ],
-            spacing: NO_TEXT_LINE,
-          }),
-        ],
-      }),
-      new TableCell({
-        width: { size: columnWidth, type: WidthType.DXA },
-        margins: NO_MARGINS,
-        borders: NO_CELL_BORDERS,
-        children: [emptyParagraph()],
-      }),
+      // The bar in front of the fill, side by side as the Preview draws them.
+      pageFill(PALETTE.bar, columnLeftPx, GEOMETRY.columnBar, '2', 2),
+      pageFill(PALETTE.column, columnLeftPx + GEOMETRY.columnBar, GEOMETRY.columnWidth - GEOMETRY.columnBar, '3', 1),
     ],
+    spacing: NO_TEXT_LINE,
   })
 
   const body = new Table({
@@ -637,18 +660,14 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
     borders: NO_BORDERS,
     margins: NO_MARGINS,
     rows: [
-      fillRow,
       new TableRow({
         cantSplit: false,
         children: [
           new TableCell({
             width: { size: mainWidth, type: WidthType.DXA },
-            margins: {
-              top: pxToTwips(GEOMETRY.mainPaddingTop),
-              bottom: pxToTwips(GEOMETRY.mainPaddingBottom),
-              left: mainPaddingLeft,
-              right: mainPaddingRight,
-            },
+            // Its top and foot are the page's margins, as in the printed
+            // Preview, where the columns' own padding gives way to them.
+            margins: { top: 0, bottom: 0, left: mainPaddingLeft, right: mainPaddingRight },
             borders: NO_CELL_BORDERS,
             verticalAlign: VerticalAlign.TOP,
             children: main,
@@ -658,8 +677,8 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
             // The text starts after the bar and the column's padding, and ends
             // the padding from the page's edge: SWISS_ENGINEERING_COLUMN_TEXT_WIDTH.
             margins: {
-              top: pxToTwips(GEOMETRY.columnPaddingTop),
-              bottom: pxToTwips(GEOMETRY.columnPaddingBottom),
+              top: 0,
+              bottom: 0,
               left: pxToTwips(GEOMETRY.columnBar + GEOMETRY.columnPaddingX),
               right: pxToTwips(GEOMETRY.columnPaddingX),
             },
@@ -677,6 +696,8 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
   })
 
   const doc = new Document({
+    // Inter travels with the file, so Word draws it on any computer (`docx-fonts.ts`).
+    fonts: await interDocxFonts(),
     styles: {
       default: {
         document: {
@@ -690,11 +711,14 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
         properties: {
           page: {
             size: { width: pageWidthTwips, height: pageHeightTwips, orientation: PageOrientation.PORTRAIT },
-            // No margin: the light column meets the paper's edges, and the
-            // printed Preview's pages start at the edge too (`@page` margin 0).
-            margin: { top: 0, right: 0, bottom: 0, left: 0, header: 0, footer: 0 },
+            // The printed Preview's top and foot margins (its document's
+            // padding, repeated on every printed page), so both break their
+            // pages at the same place; no side margin, so the light column
+            // meets the paper's right edge.
+            margin: { top: pxToTwips(GEOMETRY.pageTop), right: 0, bottom: pxToTwips(GEOMETRY.pageBottom), left: 0, header: 0, footer: 0 },
           },
         },
+        headers: { default: new Header({ children: [columnFill] }) },
         // OOXML ends a body with a paragraph; after a table it carries no line.
         children: [body, emptyParagraph()],
       },
@@ -706,7 +730,7 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
   // `docx` writes the photo as a rectangle with no outline or fill and has no
   // API for either, so its geometry is set to an ellipse — Word's own "crop to
   // shape" — with the Preview's ring and fill, and the object-fit: cover crop
-  // is written as `docx-modern.ts` does.
+  // is written from `calculateCoverCropPercents` (`docx-photo.ts`).
   if (photo) {
     const zip = await JSZip.loadAsync(buffer)
     const file = zip.file('word/document.xml')
@@ -716,7 +740,7 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
     buffer = (await zip.generateAsync({ type: 'nodebuffer' })) as Buffer
   }
 
-  return buffer
+  return pairInterFaces(buffer)
 }
 
 /**
@@ -783,7 +807,7 @@ function photoRun(photoBase64: string): { image: ImageRun; crop: { l: number; t:
     const displayed = swapsAxes ? { width: dimensions.height, height: dimensions.width } : dimensions
     const displayedCrop = calculateCoverCropPercents(displayed.width, displayed.height, box, box)
     // srcRect is in the stored image's axes, which a 90° turn swaps; the cover
-    // crop is centred, so the mapping is the one `docx-modern.ts` documents.
+    // crop is centred, so the mapping is the one `EXIF_PHOTO_TRANSFORMS` (`docx-photo.ts`) documents.
     const stored = swapsAxes
       ? { l: displayedCrop.t, r: displayedCrop.b, t: displayedCrop.l, b: displayedCrop.r }
       : displayedCrop

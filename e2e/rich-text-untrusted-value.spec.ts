@@ -88,7 +88,7 @@ async function storedDescription(resumeId: string): Promise<string> {
 }
 
 async function seedDescription(userId: string, description: string) {
-  return seedFixtureResume(userId, 'classic', {
+  return seedFixtureResume(userId, 'swissCommerce', {
     experience: [{ ...FIXTURE_EXPERIENCE[0], description }],
   })
 }
@@ -259,7 +259,7 @@ test('the Key Achievements AI previews strip markup out of the model response', 
   authedUser,
 }, testInfo) => {
   const { dialogs } = failOnDialog(page)
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
 
   await page.route('**/api/ai/optimize-description', (route) =>
     route.fulfill({

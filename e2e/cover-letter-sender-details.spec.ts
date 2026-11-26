@@ -103,7 +103,7 @@ async function insertLetter(userId: string, fields: Record<string, unknown> = {}
 async function insertResume(userId: string, title: string, contact: Record<string, string>): Promise<string> {
   const { data, error } = await admin()
     .from('resumes')
-    .insert({ user_id: userId, title, template: 'modern', contact })
+    .insert({ user_id: userId, title, template: 'swissCommerce', contact })
     .select('id')
     .single()
   expect(error, error?.message).toBeNull()
@@ -303,7 +303,7 @@ test('a letter never given sender details shows its CV ones, unchanged, download
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'professional')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
   const letterId = await insertLetter(authedUser.id, { resume_id: resume.id })
 
   await openEditor(page, 'fr', letterId)
@@ -345,7 +345,7 @@ test('a stored sender detail is never replaced by the CV one; the others fall ba
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'professional')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
   const letterId = await insertLetter(authedUser.id, { resume_id: resume.id, sender_phone: '+41 79 000 00 00' })
 
   await openEditor(page, 'en', letterId)
@@ -360,7 +360,7 @@ test('linking, re-linking and unlinking a CV move the fallback and keep what the
   page,
   authedUser,
 }) => {
-  const resumeA = await seedFixtureResume(authedUser.id, 'professional')
+  const resumeA = await seedFixtureResume(authedUser.id, 'swissCommerce')
   const resumeB = await insertResume(authedUser.id, 'CV B', OTHER_CONTACT)
   const letterId = await insertLetter(authedUser.id)
 
@@ -402,7 +402,7 @@ test('linking, re-linking and unlinking a CV move the fallback and keep what the
 })
 
 test('a field typed while a CV link is being stored is kept (fr)', async ({ page, authedUser }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'professional')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
   const letterId = await insertLetter(authedUser.id)
 
   // Hold the link's write until the user has typed.

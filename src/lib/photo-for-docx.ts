@@ -7,9 +7,9 @@
  * other type without an error — so a WebP or AVIF photo, which the Preview and
  * the browser-drawn PDF show, used to vanish from the Word document alone.
  *
- * The stored value may not change (the upload handler, background removal and
- * the storage key are fixed by the approved PRD), so the conversion happens
- * here, per download, on a copy: the browser decodes the photo it can already
+ * The stored value is left as it is (the upload handler and the storage key
+ * are fixed by the approved PRD), so the conversion happens here, per
+ * download, on a copy: the browser decodes the photo it can already
  * display and re-encodes it in a type Word embeds.
  *
  * Kept free of server-only imports and of top-level DOM access: the route's
@@ -33,12 +33,12 @@ export const DOCX_PHOTO_DATA_URL = /^data:image\/(?:jpeg|jpg|png|gif|bmp);base64
  * produce, so that it can never cost a user their photo, while still bounding
  * what an attacker can make the server decode.
  *
- * The application's own limit is 2 MB of BINARY, enforced on the file picker in
- * `modern-template.tsx`. Base64 inflates that by 4/3, to roughly 2.8 MB of
- * characters. The stored value can legitimately be larger than the uploaded
- * file — background removal re-encodes the image as PNG and writes the result
- * back under the same key — so the bound is set well above that re-encode
- * rather than at the upload limit itself.
+ * The application's own limit is `MAX_PHOTO_BYTES` of BINARY, enforced on the
+ * Contact tab's file picker (`photo-upload.ts`). Base64 inflates that by 4/3, to roughly 2.8 MB of
+ * characters. The bound holds for every stored photo, including one a former
+ * background-removal step re-encoded as PNG and wrote back under the same key,
+ * which can be larger than the file uploaded — so it is set well above that
+ * re-encode rather than at the upload limit itself.
  *
  * 8 MB of characters is also above what a browser could have stored: the value
  * is held in localStorage, whose per-origin quota is around 5 MB in every
@@ -112,7 +112,7 @@ export type DocxPhotoReencoder = (dataUrl: string) => Promise<string>
 /**
  * Re-encodes an image data URL with the browser's decoder: scaled down to
  * `DOCX_PHOTO_MAX_EDGE` (never up), as PNG when any pixel is transparent — a
- * background-removed photo keeps its transparency — and as JPEG otherwise,
+ * stored photo with a transparent background keeps it — and as JPEG otherwise,
  * which is several times smaller for a photograph.
  *
  * Transparency is read off the scaled canvas, so the scan is bounded by the

@@ -169,13 +169,13 @@ async function expectIdle(page: Page, copy: Copy): Promise<void> {
 
 test.describe('PDF button: downloads the file', () => {
   test("downloads the route's PDF, named after the title, and never prints", async ({ page, authedUser }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'modern')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     await openPreview(page, resume.id)
     const requests = recordRequests(page, 'download-pdf')
 
     const download = await clickAndDownload(page)
 
-    expect(download.suggestedFilename()).toBe('Visual baseline - modern.pdf')
+    expect(download.suggestedFilename()).toBe('Visual baseline - swissCommerce.pdf')
     const bytes = await downloadedBytes(download)
     expect(bytes.subarray(0, 5).toString('latin1')).toBe('%PDF-')
     expect(await printCalls(page), 'window.print() calls').toBe(0)
@@ -194,7 +194,7 @@ test.describe('PDF button: downloads the file', () => {
   })
 
   test('an unsaved draft and a photo in this browser are in the downloaded PDF', async ({ page, authedUser }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'modern')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     const before = await storedRow(resume.id)
     const draftSummary = 'Unsaved summary from the download button test.'
     const draftName = 'Draft Name Okafor'
@@ -225,7 +225,7 @@ test.describe('PDF button: downloads the file', () => {
   })
 
   test('a WebP photo is in the downloaded PDF', async ({ page, authedUser }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'modern')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
 
     await openPreview(page, resume.id)
     const plain = await readPdf(await downloadedBytes(await clickAndDownload(page)))
@@ -264,7 +264,7 @@ test.describe('PDF button: busy state', () => {
     page,
     authedUser,
   }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'classic')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     await openPreview(page, resume.id)
     const { release } = await holdPdfRoute(page)
     const requests = recordRequests(page, 'download-pdf')
@@ -307,7 +307,7 @@ test.describe('PDF button: failures', () => {
     page,
     authedUser,
   }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'classic')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     await openPreview(page, resume.id)
     await page.route(PDF_ROUTE, (route) =>
       route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"Failed to generate PDF"}' }),
@@ -332,7 +332,7 @@ test.describe('PDF button: failures', () => {
     page,
     authedUser,
   }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'classic')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     await openPreview(page, resume.id)
     await page.route(PDF_ROUTE, (route) => route.abort('failed'))
 
@@ -351,7 +351,7 @@ test.describe('PDF button: failures', () => {
     page,
     authedUser,
   }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'classic')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     // Fake timers that still flow in real time, so the page loads as usual and
     // the test can then jump past the timeout instead of waiting it out.
     await page.clock.install()
@@ -376,7 +376,7 @@ test.describe('PDF button: failures', () => {
     page,
     authedUser,
   }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'modern')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     await openPreview(page, resume.id, 'en', { [`resume_photo_${resume.id}`]: PHOTO })
     // What Vercel answers for a body over 4.5 MB, before the route runs.
     await page.route(PDF_ROUTE, (route) =>
@@ -399,7 +399,7 @@ test.describe('PDF button: failures', () => {
       authedUser,
     }) => {
       const copy = COPY[locale]
-      const resume = await seedFixtureResume(authedUser.id, 'modern')
+      const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
       const svg = `data:image/svg+xml;base64,${Buffer.from(
         '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>',
       ).toString('base64')}`
@@ -431,7 +431,7 @@ test.describe('PDF button: localized copy', () => {
   for (const locale of ['fr', 'de'] as const) {
     test(`${locale}: the busy label and the error are translated`, async ({ page, authedUser }) => {
       const copy = COPY[locale]
-      const resume = await seedFixtureResume(authedUser.id, 'classic')
+      const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
       await openPreview(page, resume.id, locale)
       const requests = recordRequests(page, 'download-pdf')
 
@@ -463,7 +463,7 @@ test.describe('PDF button: localized copy', () => {
 
 test.describe('Word button: behaves exactly as before', () => {
   test('without a photo: a GET with the locale only, saved as resume.docx', async ({ page, authedUser }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'classic')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     await openPreview(page, resume.id, 'fr')
     const docx = recordRequests(page, 'download-docx')
     const pdf = recordRequests(page, 'download-pdf')
@@ -484,7 +484,7 @@ test.describe('Word button: behaves exactly as before', () => {
   })
 
   test('with a photo: a POST of { photoBase64 } only, saved as resume.docx', async ({ page, authedUser }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'modern')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     await openPreview(page, resume.id, 'en', {
       [`resume_photo_${resume.id}`]: PHOTO,
       [`resume_draft_${resume.id}`]: JSON.stringify(await storedRow(resume.id)),
@@ -508,7 +508,7 @@ test.describe('Word button: behaves exactly as before', () => {
     page,
     authedUser,
   }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'classic')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     await openPreview(page, resume.id, 'fr')
     await page.route(DOCX_ROUTE, (route) => route.fulfill({ status: 500, body: 'x' }))
 

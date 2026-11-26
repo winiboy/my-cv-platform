@@ -1,19 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { ResumeLayoutSettings } from '@/types/database'
 import {
-  chosenFontFamily,
-  DEFAULT_CREATIVE_MAIN_ORDER,
-  DEFAULT_CREATIVE_SIDEBAR_ORDER,
-  DEFAULT_MODERN_MAIN_ORDER,
-  DEFAULT_MODERN_SIDEBAR_ORDER,
   DEFAULT_RESUME_LAYOUT,
   extractLayoutSettings,
   LAYOUT_CONTROL_KEYS,
   LAYOUT_CONTROL_RANGES,
-  mapEditorOrderToClassic,
-  mapEditorOrderToCreative,
-  mapEditorOrderToMinimal,
-  mapEditorOrderToModern,
   MAX_LAYOUT_BLOB_LENGTH,
   migrateSidebarOrder,
   parseLayoutModel,
@@ -33,11 +24,11 @@ import {
   type ResumeLayoutModel,
 } from './layout-settings'
 import { CONTACT_FIELD_IDS } from './contact-visibility'
+import { RESUME_TEMPLATES } from './resume-templates'
 
 /**
  * The default sidebar order declared at every editor/preview call site
- * (resume-editor, resume-preview-wrapper, resume-preview, professional-template,
- * download-docx route). Written out literally rather than imported, so that
+ * (resume-editor, resume-preview-wrapper, resume-preview, download-docx route). Written out literally rather than imported, so that
  * reordering VALID_SIDEBAR_IDS in the module under test fails these tests
  * instead of silently redefining the default.
  */
@@ -364,7 +355,7 @@ describe('resolveResumeLayout', () => {
   /**
    * The legacy blob speaks for the account and the cache speaks for this
    * browser, so the account wins — even though only the editor, and only under
-   * the Modern template, ever wrote the legacy blob, which means it can be the
+   * a since-removed pre-Swiss template, ever wrote the legacy blob, which means it can be the
    * older of the two. That is the inversion US-003 asks for, not the failure
    * the previous test guards: the value that wins here is a real choice the
    * user made, not an empty default.
@@ -464,286 +455,13 @@ describe('toStoredLayout', () => {
   })
 })
 
-describe('mapEditorOrderToModern', () => {
-  it('always leads the sidebar with contact then education', () => {
-    const { modernSidebarOrder } = mapEditorOrderToModern(
-      ['skills', 'languages', 'training'],
-      ['summary', 'experience'],
-      [],
-      [],
-    )
-    expect(modernSidebarOrder.slice(0, 2)).toEqual(['contact', 'education'])
-  })
-
-  it('keeps the editor order of the shared sidebar sections', () => {
-    const { modernSidebarOrder } = mapEditorOrderToModern(
-      ['training', 'languages', 'skills'],
-      ['summary'],
-      [],
-      [],
-    )
-    expect(modernSidebarOrder).toEqual([
-      'contact',
-      'education',
-      'training',
-      'languages',
-      'skills',
-    ])
-  })
-
-  it('drops keyAchievements, which the Modern sidebar does not have', () => {
-    const { modernSidebarOrder } = mapEditorOrderToModern(
-      ['keyAchievements', 'skills'],
-      ['summary'],
-      [],
-      [],
-    )
-    expect(modernSidebarOrder).not.toContain('keyAchievements')
-    expect(modernSidebarOrder).toEqual(['contact', 'education', 'skills'])
-  })
-
-  it('moves education out of main, since Modern renders it in the sidebar', () => {
-    const { modernMainOrder } = mapEditorOrderToModern(
-      ['skills'],
-      ['summary', 'education', 'experience'],
-      [],
-      [],
-    )
-    expect(modernMainOrder).toEqual(['summary', 'experience'])
-  })
-
-  it('hides education in the Modern sidebar when it is hidden in editor main', () => {
-    const { hiddenModernSidebar } = mapEditorOrderToModern(
-      ['skills'],
-      ['summary', 'experience'],
-      [],
-      ['education'],
-    )
-    expect(hiddenModernSidebar).toContain('education')
-  })
-
-  it('carries hidden shared sidebar sections across', () => {
-    const { hiddenModernSidebar } = mapEditorOrderToModern(
-      ['skills', 'languages', 'training'],
-      ['summary'],
-      ['languages'],
-      [],
-    )
-    expect(hiddenModernSidebar).toContain('languages')
-    expect(hiddenModernSidebar).not.toContain('skills')
-  })
-
-  it('does not report a hidden section that is absent from the order', () => {
-    const { hiddenModernSidebar } = mapEditorOrderToModern(
-      ['skills'],
-      ['summary'],
-      ['training'],
-      [],
-    )
-    expect(hiddenModernSidebar).not.toContain('training')
-  })
-
-  it('never reports a hidden section the template cannot render', () => {
-    const { modernSidebarOrder, hiddenModernSidebar, hiddenModernMain } =
-      mapEditorOrderToModern(
-        ['keyAchievements', 'skills'],
-        ['summary', 'education'],
-        ['keyAchievements'],
-        ['education'],
-      )
-    expect(hiddenModernSidebar).not.toContain('keyAchievements')
-    expect(hiddenModernMain).not.toContain('education')
-    for (const id of hiddenModernSidebar) {
-      expect(modernSidebarOrder).toContain(id)
-    }
-  })
-
-  it('handles fully empty input without producing a broken sidebar', () => {
-    const result = mapEditorOrderToModern([], [], [], [])
-    expect(result.modernSidebarOrder).toEqual(['contact', 'education'])
-    expect(result.modernMainOrder).toEqual([])
-    expect(result.hiddenModernSidebar).toEqual([])
-    expect(result.hiddenModernMain).toEqual([])
-  })
-})
-
 /**
- * The Modern default orders, written out literally rather than derived.
- *
- * `modern-template.tsx` held exactly these two literals as its own defaults
- * until US-007 replaced them with the shared derivation. This case is the proof
- * that the derivation reproduces them, so the Preview's fallback did not move;
- * a later change to `DEFAULT_RESUME_LAYOUT` or to `mapEditorOrderToModern` that
- * shifts either default fails here rather than silently on both Modern surfaces.
+ * Part 3 US-002, criterion 3: the stored main-content order is the editor's
+ * vocabulary only. Every stored value that parsed before still parses to the
+ * same thing, and nothing new is admitted — which is what keeps every saved
+ * resume loadable and every stored order intact.
  */
-describe('Modern default section orders', () => {
-  it('derive to the literals the template previously declared', () => {
-    expect(DEFAULT_MODERN_SIDEBAR_ORDER).toEqual([
-      'contact',
-      'education',
-      'skills',
-      'languages',
-      'training',
-    ])
-    expect(DEFAULT_MODERN_MAIN_ORDER).toEqual(['summary', 'experience'])
-  })
-
-  it('are frozen, since both Modern surfaces share them by reference', () => {
-    expect(Object.isFrozen(DEFAULT_MODERN_SIDEBAR_ORDER)).toBe(true)
-    expect(Object.isFrozen(DEFAULT_MODERN_MAIN_ORDER)).toBe(true)
-  })
-})
-
-/**
- * The Classic mapping, relocated here from `docx-classic.ts` by US-005.
- *
- * It had no coverage at all while it lived in the generator — nothing imported
- * it, and the only way to exercise it was to generate a whole document. These
- * cases pin the rule, so a later edit to it fails here rather than silently in
- * an export nobody diffs.
- */
-describe('mapEditorOrderToClassic', () => {
-  /**
-   * Part 3 US-002. Until then this case pinned the DEFECT: the default order
-   * mapped to summary, experience, education and the combined section, and no
-   * skills or projects — while `classic-template.tsx` renders both. The
-   * sequence below is the Preview's, section for section.
-   */
-  it("maps the shared default order to the Preview's own sequence, skills and projects included", () => {
-    expect(mapEditorOrderToClassic(DEFAULT_RESUME_LAYOUT.mainContentOrder)).toEqual([
-      'summary',
-      'experience',
-      'education',
-      'skills',
-      'projects',
-      'languagesAndCerts',
-    ])
-  })
-
-  it('permutes the editor sections among their own slots and leaves the others in theirs', () => {
-    expect(mapEditorOrderToClassic(['experience', 'education', 'summary'])).toEqual([
-      'experience',
-      'education',
-      'summary',
-      'skills',
-      'projects',
-      'languagesAndCerts',
-    ])
-  })
-
-  it('keeps skills and projects for any order the editor can produce', () => {
-    const editorIds: EditorMainId[] = ['summary', 'experience', 'education']
-    const permutations = editorIds.flatMap((a) =>
-      editorIds
-        .filter((b) => b !== a)
-        .map((b) => [a, b, editorIds.find((c) => c !== a && c !== b) as EditorMainId]),
-    )
-    expect(permutations).toHaveLength(6)
-    for (const order of permutations) {
-      const mapped = mapEditorOrderToClassic(order)
-      expect(mapped.slice(0, 3)).toEqual(order)
-      expect(mapped.slice(3)).toEqual(['skills', 'projects', 'languagesAndCerts'])
-    }
-  })
-
-  it('does not render an editor section the stored order leaves out', () => {
-    expect(mapEditorOrderToClassic(['summary'])).toEqual([
-      'summary',
-      'skills',
-      'projects',
-      'languagesAndCerts',
-    ])
-  })
-
-  it('never returns an empty order, which the generator relies on', () => {
-    expect(mapEditorOrderToClassic([])).toEqual(['skills', 'projects', 'languagesAndCerts'])
-  })
-
-  it('ignores ids Classic has no section for', () => {
-    expect(mapEditorOrderToClassic(['keyAchievements', 'summary'])).toEqual([
-      'summary',
-      'skills',
-      'projects',
-      'languagesAndCerts',
-    ])
-  })
-
-  it('de-duplicates a repeated id', () => {
-    expect(mapEditorOrderToClassic(['summary', 'summary', 'experience'])).toEqual([
-      'summary',
-      'experience',
-      'skills',
-      'projects',
-      'languagesAndCerts',
-    ])
-  })
-
-  /**
-   * Out-of-vocabulary ids no writer produces, kept as Part 2 kept them. One the
-   * input names is positioned by the input like any other, rather than kept in
-   * its own slot; each still appears once.
-   */
-  it('collapses languages and certifications into one combined section the input positions', () => {
-    expect(mapEditorOrderToClassic(['languages', 'summary', 'certifications'])).toEqual([
-      'languagesAndCerts',
-      'skills',
-      'projects',
-      'summary',
-    ])
-  })
-})
-
-/**
- * Minimal shares Classic's rule and vocabulary and differs only in its
- * sequence: `minimal-template.tsx` draws projects between experience and
- * education, where Classic draws it after skills.
- */
-describe('mapEditorOrderToMinimal', () => {
-  /** Part 3 US-002: until then this mapped to no skills and no projects. */
-  it("maps the shared default order to the Preview's own sequence, skills and projects included", () => {
-    expect(mapEditorOrderToMinimal(DEFAULT_RESUME_LAYOUT.mainContentOrder)).toEqual([
-      'summary',
-      'experience',
-      'projects',
-      'education',
-      'skills',
-      'languagesAndCerts',
-    ])
-  })
-
-  it('permutes the editor sections among their own slots and leaves the others in theirs', () => {
-    expect(mapEditorOrderToMinimal(['experience', 'summary', 'education'])).toEqual([
-      'experience',
-      'summary',
-      'projects',
-      'education',
-      'skills',
-      'languagesAndCerts',
-    ])
-  })
-
-  it('never returns an empty order', () => {
-    expect(mapEditorOrderToMinimal([])).toEqual(['projects', 'skills', 'languagesAndCerts'])
-  })
-
-  it('leaves Classic untouched: the two templates differ only where their Previews do', () => {
-    const order = DEFAULT_RESUME_LAYOUT.mainContentOrder
-    const classic = mapEditorOrderToClassic(order)
-    const minimal = mapEditorOrderToMinimal(order)
-    expect([...minimal].sort()).toEqual([...classic].sort())
-    expect(minimal).not.toEqual(classic)
-  })
-})
-
-/**
- * Part 3 US-002, criterion 3: the stored layout is untouched by the fix.
- *
- * The omission was closed in the single-column mapping, not by widening
- * `VALID_MAIN_IDS` or `parseLayoutModel`'s filter. Every stored value that
- * parsed before still parses to the same thing, and nothing new is admitted —
- * which is what keeps every saved resume loadable and every stored order intact.
- */
-describe('stored main-content order after the single-column fix', () => {
+describe('stored main-content order', () => {
   it('round-trips a stored order and hidden list unchanged', () => {
     const stored = {
       ...toStoredLayout(DEFAULT_RESUME_LAYOUT),
@@ -756,7 +474,7 @@ describe('stored main-content order after the single-column fix', () => {
     expect(JSON.parse(serializeLayoutModel(resolveLayoutModel(stored)))).toEqual(stored)
   })
 
-  it('still admits no single-column-only id into the stored main lists', () => {
+  it('admits no id outside the editor vocabulary into the stored main lists', () => {
     const parsed = parseLayoutModel({
       mainContentOrder: ['skills', 'summary', 'projects', 'languagesAndCerts'],
       hiddenMainSections: ['skills', 'projects'],
@@ -808,15 +526,14 @@ const HISTORICAL_DEFAULTS: ResumeLayoutModel = {
 }
 
 /**
- * The font stacks offered by `FONTS` in `components/ui/font-carousel-3d.tsx`,
- * copied rather than imported: that module is a client component and this
- * suite runs in a Node environment with no JSX transform.
+ * The font stacks the editor's font picker offered before it was removed with
+ * the legacy templates. Stored resumes still carry them, and the stored
+ * `fontFamily` field and its validation stay (swiss-templates-only-page-fidelity,
+ * Out of Scope), so no stack a resume was saved with may become invalid.
  *
- * They are here because the editor's default font used to be written as
- * `FONTS[4].family` while the preview wrapper and the DOCX route wrote the
- * literal `'Arial, Helvetica, sans-serif'`. The two were byte-identical, and
- * the case below pins that. The rest exist so that no stack the font picker
- * can produce is ever rejected by the font-family validation.
+ * The editor's default font was written as the fifth of them while the preview
+ * wrapper and the DOCX route wrote the literal `'Arial, Helvetica, sans-serif'`.
+ * The two were byte-identical, and the case below pins that.
  */
 const SHIPPED_FONT_STACKS = [
   "'Inter', sans-serif",
@@ -840,7 +557,7 @@ describe('DEFAULT_RESUME_LAYOUT', () => {
     expect(DEFAULT_RESUME_LAYOUT).toEqual(HISTORICAL_DEFAULTS)
   })
 
-  it('matches the editor default font, which was written as FONTS[4].family', () => {
+  it('matches the editor default font, which was written as the fifth picker stack', () => {
     expect(DEFAULT_RESUME_LAYOUT.fontFamily).toBe(SHIPPED_FONT_STACKS[4])
   })
 
@@ -964,7 +681,7 @@ describe('parseLayoutModel - malformed numbers', () => {
    * The previous version of these tests picked comfortable interior values and
    * the shipped defaults, and so read as complete while never touching a drag
    * range. That is exactly where the bug was: `mainContentTopMargin` has a
-   * NEGATIVE floor (-20, professional-template.tsx:168) and the accepted range
+   * NEGATIVE floor (-20, the main-content drag) and the accepted range
    * started at 0, so every value from -20 to -1 was rejected and restored as
    * the default 24 — a silent 44px jump with no user action.
    *
@@ -1026,7 +743,7 @@ describe('parseLayoutModel - malformed numbers', () => {
       sidebarTopMargin: 64,
       mainContentTopMargin: 24,
     })
-    // The five templates seed h1 sizes between 22 and 48.
+    // The original templates' size controls stored h1 sizes between 22 and 48.
     for (const value of [22, 24, 36, 48]) {
       expect(parseLayoutModel({ titleFontSize: value })).toEqual({ titleFontSize: value })
     }
@@ -1244,75 +961,39 @@ describe('serializeLayoutModel', () => {
 })
 
 describe('which layout controls a template offers (Part 3 US-014)', () => {
-  it('offers the sidebar colour only on the templates that paint a sidebar', () => {
-    expect(templateOffersLayoutControl('professional', 'sidebarColour')).toBe(true)
-    expect(templateOffersLayoutControl('modern', 'sidebarColour')).toBe(true)
-    for (const template of ['classic', 'minimal', 'creative'] as const) {
-      expect(templateOffersLayoutControl(template, 'sidebarColour')).toBe(false)
+  it.each(RESUME_TEMPLATES)('%s offers the sidebar sections panel and nothing else (FR-12)', (template) => {
+    expect(TEMPLATE_LAYOUT_CONTROLS[template]).toEqual(['sidebarSections'])
+    expect(templateOffersLayoutControl(template, 'sidebarSections')).toBe(true)
+  })
+
+  it('defines no font, colour or size control: no template draws those stored values (FR-12)', () => {
+    expect(Object.keys(LAYOUT_CONTROL_KEYS)).toEqual(['sidebarSections'])
+  })
+
+  it('resolves a template identifier it does not know as the default template, swissCommerce', () => {
+    // `resumes.template` is stored text; a value outside the ten identifiers
+    // still renders, as swissCommerce on every surface.
+    for (const stored of ['brochure', 'modern', 'professional', '', 'toString']) {
+      expect(templateOffersLayoutControl(stored, 'sidebarSections'), stored).toBe(
+        templateOffersLayoutControl('swissCommerce', 'sidebarSections'),
+      )
     }
-  })
-
-  it('offers the per-property sizes only where an input is rendered for them', () => {
-    for (const template of ['classic', 'minimal', 'creative'] as const) {
-      expect(templateOffersLayoutControl(template, 'perPropertySize')).toBe(true)
-    }
-    expect(templateOffersLayoutControl('professional', 'perPropertySize')).toBe(false)
-    expect(templateOffersLayoutControl('modern', 'perPropertySize')).toBe(false)
-  })
-
-  it('offers the sidebar sections only where a sidebar is drawn, creative pending US-015', () => {
-    expect(templateOffersLayoutControl('professional', 'sidebarSections')).toBe(true)
-    expect(templateOffersLayoutControl('modern', 'sidebarSections')).toBe(true)
-    expect(templateOffersLayoutControl('creative', 'sidebarSections')).toBe(true)
-    expect(templateOffersLayoutControl('classic', 'sidebarSections')).toBe(false)
-    expect(templateOffersLayoutControl('minimal', 'sidebarSections')).toBe(false)
-  })
-
-  it('resolves a template identifier it does not know the way the editor does, as modern', () => {
-    // `resumes.template` is stored text; a row outside the five identifiers
-    // still renders, through the editor's default branch.
-    expect(templateOffersLayoutControl('brochure', 'sidebarColour')).toBe(true)
-    expect(templateOffersLayoutControl('brochure', 'perPropertySize')).toBe(false)
   })
 
   it('names a real model key for every control', () => {
     for (const keys of Object.values(LAYOUT_CONTROL_KEYS)) {
       for (const key of keys) expect(key in DEFAULT_RESUME_LAYOUT).toBe(true)
     }
+    expect(LAYOUT_CONTROL_KEYS.sidebarSections).toEqual(['sidebarOrder', 'hiddenSidebarSections'])
   })
 
-  it('applies a per-property size only where the template reads it', () => {
-    // Modern is the one template that applies sizes it offers no control for.
-    expect(TEMPLATE_APPLIED_SIZE_KEYS.professional).toEqual([])
-    expect(TEMPLATE_APPLIED_SIZE_KEYS.modern).toEqual(['titleFontSize', 'sectionDescFontSize'])
-    for (const template of ['classic', 'minimal', 'creative'] as const) {
-      expect(TEMPLATE_APPLIED_SIZE_KEYS[template]).toEqual(LAYOUT_CONTROL_KEYS.perPropertySize)
-    }
+  it('applies no per-property size on any template: each draws its own sizes', () => {
+    for (const template of RESUME_TEMPLATES) expect(TEMPLATE_APPLIED_SIZE_KEYS[template], template).toEqual([])
   })
 
   it('covers every template exactly once', () => {
-    expect(Object.keys(TEMPLATE_LAYOUT_CONTROLS).sort()).toEqual(
-      Object.keys(TEMPLATE_APPLIED_SIZE_KEYS).sort(),
-    )
-  })
-
-  it('offers the font carousel and font size on the five original templates and not on a Swiss one (FR-12)', () => {
-    for (const template of ['professional', 'modern', 'classic', 'minimal', 'creative'] as const) {
-      expect(templateOffersLayoutControl(template, 'font'), template).toBe(true)
-    }
-    expect(templateOffersLayoutControl('swissVocational', 'font')).toBe(false)
-    expect(TEMPLATE_LAYOUT_CONTROLS.swissVocational).toEqual(['sidebarSections'])
-    expect(templateOffersLayoutControl('swissCommerce', 'font')).toBe(false)
-    expect(TEMPLATE_LAYOUT_CONTROLS.swissCommerce).toEqual(['sidebarSections'])
-    expect(templateOffersLayoutControl('swissTrades', 'font')).toBe(false)
-    expect(TEMPLATE_LAYOUT_CONTROLS.swissTrades).toEqual(['sidebarSections'])
-    expect(templateOffersLayoutControl('swissHealth', 'font')).toBe(false)
-    expect(TEMPLATE_LAYOUT_CONTROLS.swissHealth).toEqual(['sidebarSections'])
-    expect(templateOffersLayoutControl('swissFinance', 'font')).toBe(false)
-    expect(TEMPLATE_LAYOUT_CONTROLS.swissFinance).toEqual(['sidebarSections'])
-    expect(templateOffersLayoutControl('swissEngineering', 'font')).toBe(false)
-    expect(TEMPLATE_LAYOUT_CONTROLS.swissEngineering).toEqual(['sidebarSections'])
-    expect(LAYOUT_CONTROL_KEYS.font).toEqual(['fontFamily', 'fontScale'])
+    expect(Object.keys(TEMPLATE_LAYOUT_CONTROLS).sort()).toEqual([...RESUME_TEMPLATES].sort())
+    expect(Object.keys(TEMPLATE_APPLIED_SIZE_KEYS).sort()).toEqual([...RESUME_TEMPLATES].sort())
   })
 })
 
@@ -1362,13 +1043,8 @@ describe('contact visibility in the layout model (swiss-cv-templates FR-14)', ()
 })
 
 describe('which templates draw the photo (swiss-cv-templates FR-5, FR-14)', () => {
-  it('is modern and the Swiss templates, not the four others', () => {
+  it('is every template except swissAcademic', () => {
     expect(TEMPLATE_DRAWS_PHOTO).toEqual({
-      professional: false,
-      modern: true,
-      classic: false,
-      minimal: false,
-      creative: false,
       swissVocational: true,
       swissCommerce: true,
       swissTrades: true,
@@ -1382,19 +1058,16 @@ describe('which templates draw the photo (swiss-cv-templates FR-5, FR-14)', () =
     })
   })
 
-  it('covers every built template', () => {
-    expect(Object.keys(TEMPLATE_DRAWS_PHOTO).sort()).toEqual(Object.keys(TEMPLATE_LAYOUT_CONTROLS).sort())
+  it('covers every template', () => {
+    expect(Object.keys(TEMPLATE_DRAWS_PHOTO).sort()).toEqual([...RESUME_TEMPLATES].sort())
   })
 
-  it('resolves an unknown template as modern, which the editor draws for it', () => {
-    expect(templateDrawsPhoto('brochure')).toBe(true)
-    expect(templateDrawsPhoto('classic')).toBe(false)
-    expect(templateDrawsPhoto('swissVocational')).toBe(true)
+  it('resolves an unknown template as swissCommerce, which every surface draws for it', () => {
+    expect(templateDrawsPhoto('swissAcademic')).toBe(false)
     expect(templateDrawsPhoto('swissCommerce')).toBe(true)
-    expect(templateDrawsPhoto('swissTrades')).toBe(true)
-    expect(templateDrawsPhoto('swissHealth')).toBe(true)
-    expect(templateDrawsPhoto('swissFinance')).toBe(true)
-    expect(templateDrawsPhoto('swissEngineering')).toBe(true)
+    for (const stored of ['brochure', 'classic', 'professional', '', 'constructor']) {
+      expect(templateDrawsPhoto(stored), stored).toBe(TEMPLATE_DRAWS_PHOTO.swissCommerce)
+    }
   })
 })
 
@@ -1403,6 +1076,22 @@ describe('a hidden control keeps its stored value (Part 3 US-014)', () => {
   // value a hidden control wrote survives a template switch and applies again.
   // Asserted on the model rather than on the editor because this suite runs in
   // node with no renderer — see resume-layout-store.ts's docblock.
+  const PER_PROPERTY_SIZE_KEYS = [
+    'titleFontSize',
+    'contactFontSize',
+    'sectionTitleFontSize',
+    'sectionDescFontSize',
+  ] as const satisfies readonly (keyof ResumeLayoutModel)[]
+  // The stored fields whose editor controls were removed with the legacy
+  // templates. They stay in the model and must still be written and reloaded.
+  const UNOFFERED_STORED_KEYS = [
+    'fontFamily',
+    'fontScale',
+    'sidebarHue',
+    'sidebarSaturation',
+    'sidebarBrightness',
+    ...PER_PROPERTY_SIZE_KEYS,
+  ] as const satisfies readonly (keyof ResumeLayoutModel)[]
   const chosen: ResumeLayoutModel = {
     ...DEFAULT_RESUME_LAYOUT,
     sidebarHue: 12,
@@ -1413,222 +1102,52 @@ describe('a hidden control keeps its stored value (Part 3 US-014)', () => {
     sectionDescFontSize: 11,
   }
 
-  it('persists and reloads the sidebar colour while a template that hides it is selected', () => {
-    expect(templateOffersLayoutControl('classic', 'sidebarColour')).toBe(false)
-
-    // What the editor writes while classic is selected.
+  it('persists and reloads the sidebar colour, which no template offers a control for', () => {
+    // What the editor writes: the model as loaded, the hidden values included.
     const stored = toStoredLayout(chosen)
     expect(stored.sidebarHue).toBe(12)
     expect(stored.sidebarSaturation).toBe(34)
     expect(stored.sidebarBrightness).toBe(45)
 
-    // What the next load resolves, on a template that offers the control again.
     const reloaded = resolveResumeLayout({ layout_settings: stored, custom_sections: null }, null)
-    expect(templateOffersLayoutControl('professional', 'sidebarColour')).toBe(true)
     expect(reloaded.sidebarHue).toBe(12)
     expect(reloaded.sidebarSaturation).toBe(34)
     expect(reloaded.sidebarBrightness).toBe(45)
   })
 
-  it('persists and reloads the per-property sizes while modern hides their controls', () => {
-    expect(templateOffersLayoutControl('modern', 'perPropertySize')).toBe(false)
-
+  it('persists and reloads the per-property sizes, which no template offers a control for', () => {
     const stored = toStoredLayout(chosen)
     const reloaded = resolveResumeLayout({ layout_settings: stored, custom_sections: null }, null)
-    expect(templateOffersLayoutControl('minimal', 'perPropertySize')).toBe(true)
-    for (const key of LAYOUT_CONTROL_KEYS.perPropertySize) {
+    for (const key of PER_PROPERTY_SIZE_KEYS) {
       expect(reloaded[key]).toBe(chosen[key])
     }
   })
 
   it('serializes the hidden keys for every template, so nothing is dropped on the way out', () => {
     const written = JSON.parse(serializeLayoutModel(chosen))
-    for (const keys of Object.values(LAYOUT_CONTROL_KEYS)) {
-      for (const key of keys) expect(key in written).toBe(true)
+    for (const key of [...UNOFFERED_STORED_KEYS, ...LAYOUT_CONTROL_KEYS.sidebarSections]) {
+      expect(key in written, key).toBe(true)
     }
   })
 })
 
-/**
- * Part 3 US-012: whether a font was chosen.
- *
- * The saved layout records the answer in `fontFamily` itself — the stack equal
- * to the documented default records "no choice" — so these pin the rule, the
- * round trip that criterion 6 rests on, and the back-to-default case.
- */
-describe('chosenFontFamily', () => {
-  const CHOSEN = 'Verdana, Geneva, sans-serif'
-
-  it("reads today's default as no font chosen", () => {
-    expect(DEFAULT_RESUME_LAYOUT.fontFamily).toBe('Arial, Helvetica, sans-serif')
-    expect(chosenFontFamily(DEFAULT_RESUME_LAYOUT.fontFamily)).toBeNull()
-  })
-
-  it('returns the stack a resume actually chose', () => {
-    expect(chosenFontFamily(CHOSEN)).toBe(CHOSEN)
-  })
-
-  it('reads a resume that never stored a font as no font chosen', () => {
-    // No blob at all: the resolved model carries the default, which is the
-    // state every resume written before US-012 is in.
-    const resolved = resolveResumeLayout({ layout_settings: null, custom_sections: null }, null)
-    expect(chosenFontFamily(resolved.fontFamily)).toBeNull()
-  })
-
-  it('does not change the answer across a load, save and reload', () => {
-    for (const stack of [DEFAULT_RESUME_LAYOUT.fontFamily, CHOSEN]) {
-      const loaded = resolveResumeLayout(
-        { layout_settings: { ...toStoredLayout(DEFAULT_RESUME_LAYOUT), fontFamily: stack }, custom_sections: null },
-        null,
-      )
-      const saved = toStoredLayout(loaded)
-      const reloaded = resolveResumeLayout({ layout_settings: saved, custom_sections: null }, null)
-      expect(saved.fontFamily).toBe(stack)
-      expect(reloaded.fontFamily).toBe(stack)
-      expect(chosenFontFamily(reloaded.fontFamily)).toBe(chosenFontFamily(stack))
+describe('the section rows the editor lists for a template', () => {
+  it('resolves an unknown stored template as swissCommerce, as the editor switch does', () => {
+    for (const stored of ['something-else', 'modern', 'creative', '', 'toString']) {
+      expect(templateEditorSections(stored), stored).toBe(TEMPLATE_EDITOR_SECTIONS.swissCommerce)
     }
   })
 
-  it('reads choosing the default again as no font chosen, so a choice can be undone', () => {
-    const chosenModel: ResumeLayoutModel = { ...DEFAULT_RESUME_LAYOUT, fontFamily: CHOSEN }
-    expect(chosenFontFamily(chosenModel.fontFamily)).toBe(CHOSEN)
-
-    // The owner picks the template default again. Nothing else about the model
-    // moves, and the resume is back to drawing its template's own font.
-    const backToDefault: ResumeLayoutModel = {
-      ...chosenModel,
-      fontFamily: DEFAULT_RESUME_LAYOUT.fontFamily,
-    }
-    const reloaded = resolveResumeLayout(
-      { layout_settings: toStoredLayout(backToDefault), custom_sections: null },
-      null,
-    )
-    expect(reloaded.fontFamily).toBe(DEFAULT_RESUME_LAYOUT.fontFamily)
-    expect(chosenFontFamily(reloaded.fontFamily)).toBeNull()
-  })
-
-  it('stays within the stored blob the column accepts, since nothing was added to it', () => {
-    const stored = toStoredLayout({ ...DEFAULT_RESUME_LAYOUT, fontFamily: CHOSEN })
-    expect('fontChosen' in stored).toBe(false)
-    expect(Object.keys(stored)).toEqual(Object.keys(toStoredLayout(DEFAULT_RESUME_LAYOUT)))
-    expect(JSON.stringify(stored).length).toBeLessThanOrEqual(MAX_LAYOUT_BLOB_LENGTH)
-  })
-})
-
-describe("Part 3 US-015: creative's section vocabulary", () => {
-  it("maps the shared default onto the sequence creative's two surfaces already drew", () => {
-    expect([...DEFAULT_CREATIVE_SIDEBAR_ORDER]).toEqual(['skills', 'languages', 'certifications'])
-    expect([...DEFAULT_CREATIVE_MAIN_ORDER]).toEqual(['experience', 'projects', 'education'])
-
-    const mapped = mapEditorOrderToCreative(
-      DEFAULT_RESUME_LAYOUT.sidebarOrder,
-      DEFAULT_RESUME_LAYOUT.mainContentOrder,
-      DEFAULT_RESUME_LAYOUT.hiddenSidebarSections,
-      DEFAULT_RESUME_LAYOUT.hiddenMainSections,
-    )
-    expect(mapped.hiddenCreativeSidebar).toEqual([])
-    expect(mapped.hiddenCreativeMain).toEqual([])
-    expect(mapped.summaryHidden).toBe(false)
-  })
-
-  it('permutes the sections the editor can position and leaves the others in their slots', () => {
-    const mapped = mapEditorOrderToCreative(
-      ['languages', 'skills', 'training', 'keyAchievements'],
-      ['education', 'experience', 'summary'],
-      [],
-      [],
-    )
-    // certifications keeps slot 3 of the left column, projects slot 2 of the right.
-    expect(mapped.creativeSidebarOrder).toEqual(['languages', 'skills', 'certifications'])
-    expect(mapped.creativeMainOrder).toEqual(['education', 'projects', 'experience'])
-  })
-
-  it('drops the ids creative does not render and keeps summary out of both columns', () => {
-    const mapped = mapEditorOrderToCreative(
-      ['keyAchievements', 'skills', 'languages', 'training'],
-      ['summary', 'experience', 'education'],
-      ['keyAchievements', 'training'],
-      [],
-    )
-    expect(mapped.creativeSidebarOrder).not.toContain('keyAchievements')
-    expect(mapped.creativeSidebarOrder).not.toContain('training')
-    expect(mapped.creativeMainOrder).not.toContain('summary')
-    // Hiding an id creative does not render hides nothing on creative.
-    expect(mapped.hiddenCreativeSidebar).toEqual([])
-  })
-
-  it('carries visibility for every id the editor can hide on creative', () => {
-    const mapped = mapEditorOrderToCreative(
-      DEFAULT_RESUME_LAYOUT.sidebarOrder,
-      DEFAULT_RESUME_LAYOUT.mainContentOrder,
-      ['languages'],
-      ['summary', 'education'],
-    )
-    expect(mapped.hiddenCreativeSidebar).toEqual(['languages'])
-    expect(mapped.hiddenCreativeMain).toEqual(['education'])
-    expect(mapped.summaryHidden).toBe(true)
-  })
-
-  it('round-trips through the store: what is written is what maps back', () => {
-    const model: ResumeLayoutModel = {
-      ...DEFAULT_RESUME_LAYOUT,
-      sidebarOrder: ['languages', 'skills', 'training', 'keyAchievements'],
-      mainContentOrder: ['education', 'experience', 'summary'],
-      hiddenSidebarSections: ['skills'],
-      hiddenMainSections: ['summary'],
-    }
-    const stored = toStoredLayout(model)
-    expect(JSON.stringify(stored).length).toBeLessThanOrEqual(MAX_LAYOUT_BLOB_LENGTH)
-
-    const reloaded = resolveResumeLayout({ layout_settings: stored, custom_sections: null }, null)
-    const before = mapEditorOrderToCreative(
-      model.sidebarOrder,
-      model.mainContentOrder,
-      model.hiddenSidebarSections,
-      model.hiddenMainSections,
-    )
-    const after = mapEditorOrderToCreative(
-      reloaded.sidebarOrder,
-      reloaded.mainContentOrder,
-      reloaded.hiddenSidebarSections,
-      reloaded.hiddenMainSections,
-    )
-    expect(after).toEqual(before)
-  })
-
-  it('renders a column rather than nothing when the stored order names none of its sections', () => {
-    const mapped = mapEditorOrderToCreative([], [], [], [])
-    // Only the sections the editor cannot position survive, which is what keeps
-    // an unusable stored order from producing an empty document.
-    expect(mapped.creativeSidebarOrder).toEqual(['certifications'])
-    expect(mapped.creativeMainOrder).toEqual(['projects'])
-  })
-
-  it('offers creative neither keyAchievements nor training, and does not let summary be dragged', () => {
-    const creative = templateEditorSections('creative')
-    expect([...creative.sidebar]).toEqual(['skills', 'languages'])
-    expect(creative.sidebar).not.toContain('keyAchievements')
-    expect(creative.sidebar).not.toContain('training')
-    expect([...creative.main]).toEqual([...DEFAULT_RESUME_LAYOUT.mainContentOrder])
-    expect([...creative.fixed]).toEqual(['summary'])
-  })
-
-  it('leaves every other template the whole vocabulary, so no other editor panel moves', () => {
-    for (const template of ['professional', 'modern', 'classic', 'minimal'] as const) {
+  it('lists, for every template, only rows it fixes in place', () => {
+    for (const template of RESUME_TEMPLATES) {
       const sections = TEMPLATE_EDITOR_SECTIONS[template]
-      expect([...sections.sidebar]).toEqual([...DEFAULT_RESUME_LAYOUT.sidebarOrder])
-      expect([...sections.main]).toEqual([...DEFAULT_RESUME_LAYOUT.mainContentOrder])
-      expect([...sections.fixed]).toEqual([])
+      for (const id of [...sections.sidebar, ...sections.main]) expect(sections.fixed, `${template} ${id}`).toContain(id)
     }
-  })
-
-  it('resolves an unknown stored template the way the editor switch does', () => {
-    expect(templateEditorSections('something-else')).toBe(TEMPLATE_EDITOR_SECTIONS.modern)
   })
 
   it('does not narrow what may be stored: every editor id still parses', () => {
-    // The gate above is a DISPLAY filter. A creative resume must not lose the
-    // positions it already holds for the ids creative does not render.
+    // The listing is a DISPLAY filter. A resume must not lose the positions it
+    // already holds for the ids its template does not render.
     const parsed = parseLayoutModel({
       sidebarOrder: ['training', 'keyAchievements', 'skills', 'languages'],
       hiddenSidebarSections: ['training'],

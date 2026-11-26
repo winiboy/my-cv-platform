@@ -17,7 +17,7 @@ import { SWISS_VOCATIONAL_GEOMETRY, SWISS_VOCATIONAL_SIZES } from '@/lib/swiss-v
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import { SWISS_VOCATIONAL_LINE_HEIGHT } from '@/lib/resume-line-height'
 import { solidColourPng } from './docx-disc'
-import { pxToHalfPoints, trackingSpacing, type DocxGeneratorSettings } from './docx-helpers'
+import { pxToHalfPoints, pxToTwips, trackingSpacing, type DocxGeneratorSettings } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
 import { generateSwissVocationalDocx } from './docx-swiss-vocational'
 
@@ -336,6 +336,15 @@ describe('swissVocational: Word layout', () => {
     expect(borders?.[1]).toMatch(new RegExp(`<w:left\\b[^>]*w:val="single"[^>]*w:color="${DOCX_PALETTE.swissVocational['red-700']}"`, 'i'))
   })
 
+  it('gives every page the PDF’s top and foot margins, so both break pages alike (swiss-templates-only-page-fidelity US-002)', async () => {
+    const xml = await documentXml(resumeRow(), 'en')
+    const g = SWISS_VOCATIONAL_GEOMETRY
+    expect(xml).toMatch(
+      new RegExp(`<w:pgMar w:top="${pxToTwips(g.pageTop)}" w:right="${pxToTwips(g.paddingX)}" w:bottom="${pxToTwips(g.pageBottom)}" w:left="${pxToTwips(g.paddingX)}"`),
+    )
+    expect(xml.split('<w:pgMar').length - 1).toBe(1)
+  })
+
   it('ignores the stored font scale: every size is its own design (FR-4)', async () => {
     const row = resumeRow()
     const nameRun = (xml: string) => /<w:r>(?:(?!<\/w:r>)[\s\S])*?<w:sz w:val="(\d+)"\/>(?:(?!<\/w:r>)[\s\S])*?<w:t[^>]*>Robin Halvorsen<\/w:t>/.exec(xml)?.[1]
@@ -375,8 +384,7 @@ describe('swissVocational: Word layout', () => {
 // ---------------------------------------------------------------------------
 // Per element: colour, letter spacing and line height, against the registries
 // the Preview draws from (resume-palette.ts, resume-letter-spacing.ts,
-// resume-line-height.ts), as the per-element suites check the five original
-// templates.
+// resume-line-height.ts).
 // ---------------------------------------------------------------------------
 
 const PALETTE = DOCX_PALETTE.swissVocational
@@ -668,5 +676,97 @@ describe('swissVocational: the column separator is written in the same text node
     expect(uses - 1).toBe(interpolated)
     expect(interpolated).toBe(5)
     expect(source).not.toMatch(/\{COLUMN_BREAK\}(?!`)/)
+  })
+})
+
+describe('swissVocational: a description paragraph beside its list is kept, in the Preview’s order (swiss-templates-only-page-fidelity US-004)', () => {
+  // The audit fixture's entry: Word dropped its paragraph and kept only the list.
+  const MIXED = '<p>Gestion des commandes de matériel <strong>médical</strong> et suivi des stocks.</p><ul><li>Inventaires trimestriels</li><li>Relations avec les fournisseurs</li></ul>'
+  const PARAGRAPH = 'Gestion des commandes de matériel médical et suivi des stocks.'
+  // A description's list items, as the shared list helper has always written them.
+  const ITEMS = ['• Inventaires trimestriels', '• Relations avec les fournisseurs']
+  // An experience's achievements, as the template writes them.
+  const BULLETS = ['•\tInventaires trimestriels', '•\tRelations avec les fournisseurs']
+
+  const allParagraphs = (xml: string) => [...xml.matchAll(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/g)].map(([p]) => p)
+  const runsIn = (paragraph: string) =>
+    [...paragraph.matchAll(/<w:r>((?:(?!<\/w:r>)[\s\S])*?)<\/w:r>/g)].map(([, inner]) => ({
+      text: [...inner.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>|<w:tab\/>/g)].map(([tag, t]) => (tag === '<w:tab/>' ? '\t' : decode(t))).join(''),
+      bold: /<w:b\/>/.test(inner),
+    }))
+  const textIn = (paragraph: string) => runsIn(paragraph).map((r) => r.text).join('')
+  /** The paragraphs that draw text, with their text, in document order. */
+  const drawn = async (overrides: Partial<Row>) =>
+    allParagraphs(await documentXml(resumeRow(overrides), 'fr'))
+      .map((xml) => ({ xml, text: textIn(xml) }))
+      .filter(({ text }) => text !== '')
+  const experience = (fields: Record<string, unknown>) => ({
+    experience: [{ company: 'Clinique du Lac', position: 'Acheteuse', startDate: '2008-01', endDate: '2010-06', current: false, visible: true, ...fields }],
+  })
+
+  it('draws an experience’s paragraph, then its list, under its title, with the paragraph’s bold run', async () => {
+    const paragraphs = await drawn(experience({ achievements: [], description: MIXED }))
+    const at = paragraphs.findIndex(({ text }) => text === PARAGRAPH)
+    expect(at, 'the paragraph is drawn').toBeGreaterThanOrEqual(0)
+    expect(paragraphs.findIndex(({ text }) => text.startsWith('Acheteuse'))).toBeLessThan(at)
+    expect(paragraphs.slice(at, at + 3).map(({ text }) => text)).toEqual([PARAGRAPH, ...ITEMS])
+    expect(runsIn(paragraphs[at].xml).find((r) => r.text === 'médical')?.bold).toBe(true)
+    // The items keep the list helper's form, and the paragraph sits at the same edge.
+    for (const { xml } of paragraphs.slice(at, at + 3)) expect(xml).not.toContain('<w:ind ')
+  })
+
+  it('draws an education’s paragraph, then its list', async () => {
+    const paragraphs = await drawn({
+      education: [{ school: 'HEG Genève', degree: 'Bachelor', field: 'Gestion', startDate: '2007-09', endDate: '2010-06', description: MIXED, visible: true }],
+    })
+    const at = paragraphs.findIndex(({ text }) => text === PARAGRAPH)
+    expect(at, 'the paragraph is drawn').toBeGreaterThanOrEqual(0)
+    expect(paragraphs.slice(at, at + 3).map(({ text }) => text)).toEqual([PARAGRAPH, ...ITEMS])
+  })
+
+  it('keeps a paragraph after the list after it, and every paragraph of a longer description', async () => {
+    const description = '<p>Avant.</p><ul><li>Un</li><li>Deux</li></ul><p>Après.</p><p>Fin.</p>'
+    const texts = (await drawn(experience({ achievements: [], description }))).map(({ text }) => text)
+    const at = texts.indexOf('Avant.')
+    expect(texts.slice(at, at + 5)).toEqual(['Avant.', '• Un', '• Deux', 'Après.', 'Fin.'])
+  })
+
+  it('leaves an entry with only a description paragraph as one paragraph of formatted runs', async () => {
+    const paragraphs = await drawn(experience({ achievements: [], description: `<p>${PARAGRAPH}</p>` }))
+    const matches = paragraphs.filter(({ text }) => text.includes('Gestion des commandes'))
+    expect(matches.map(({ text }) => text)).toEqual([PARAGRAPH])
+    expect(matches[0].xml).not.toContain('<w:ind ')
+  })
+
+  it('leaves an entry with only a list as its items, with no paragraph added', async () => {
+    const description = '<ul><li>Inventaires trimestriels</li><li>Relations avec les fournisseurs</li></ul>'
+    const texts = (await drawn(experience({ achievements: [], description }))).map(({ text }) => text)
+    const at = texts.indexOf(ITEMS[0])
+    expect(texts[at - 1]).toMatch(/^Acheteuse/)
+    expect(texts.slice(at, at + 2)).toEqual(ITEMS)
+  })
+
+  it('draws a summary’s paragraph, then its list', async () => {
+    const texts = (await drawn({ summary: MIXED })).map(({ text }) => text)
+    const at = texts.indexOf(PARAGRAPH)
+    expect(at, 'the paragraph is drawn').toBeGreaterThanOrEqual(0)
+    expect(texts.slice(at, at + 3)).toEqual([PARAGRAPH, ...ITEMS])
+  })
+
+  it('draws an HTML skill row’s paragraph, then its list, under its label', async () => {
+    const skillsHtml = '<p>Outils <strong>ERP</strong></p><ul><li>SAP</li><li>Abacus</li></ul>'
+    const paragraphs = await drawn({ skills: [{ category: 'Logistique', items: [], skillsHtml, visible: true }] })
+    const at = paragraphs.findIndex(({ text }) => text === 'Outils ERP')
+    expect(at, 'the paragraph is drawn').toBeGreaterThanOrEqual(0)
+    expect(paragraphs[at - 1].text).toMatch(/^Logistique/)
+    expect(paragraphs.slice(at, at + 3).map(({ text }) => text)).toEqual(['Outils ERP', '• SAP', '• Abacus'])
+    expect(runsIn(paragraphs[at].xml).find((r) => r.text === 'ERP')?.bold).toBe(true)
+  })
+
+  it('leaves an entry with only achievements as its bullets, unchanged', async () => {
+    const paragraphs = await drawn(experience({ achievements: ['Inventaires trimestriels', 'Relations avec les fournisseurs'] }))
+    const at = paragraphs.findIndex(({ text }) => text === BULLETS[0])
+    expect(paragraphs.slice(at, at + 2).map(({ text }) => text)).toEqual(BULLETS)
+    expect(paragraphs[at].xml).toContain(`<w:ind w:left="${pxToTwips(20)}" w:hanging="${pxToTwips(20)}"/>`)
   })
 })

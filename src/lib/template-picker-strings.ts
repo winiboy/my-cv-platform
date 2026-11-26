@@ -1,7 +1,7 @@
 /**
  * What a page that does not otherwise load the `common` dictionary must hand a
  * `TemplatePicker`: the visible label of the group and the part of `common`
- * the picker and the five templates read.
+ * the picker and the templates read.
  */
 export interface TemplatePickerStrings {
   /** Visible label of the picker group (`common.json -> resumes.new.templateLabel`). */
@@ -13,7 +13,7 @@ export interface TemplatePickerStrings {
 /**
  * The `common.json -> resumes` entries the picker and the thumbnails read:
  * `templates` for the option names and descriptions, and `editor` and
- * `template` for what the five templates draw (section headings, contact
+ * `template` for what the templates draw (section headings, contact
  * labels, "present" in date ranges, language levels).
  *
  * A template that starts reading another `resumes` key must have it added

@@ -39,9 +39,7 @@ const DICTS = { fr, en, de, it: it_ } as const
 describe('swissFirstJob in the template x control registries (FR-3)', () => {
   it('offers only the sections panel: no user colour, no size input, no stored font (FR-4, FR-12)', () => {
     expect(TEMPLATE_LAYOUT_CONTROLS.swissFirstJob).toEqual(['sidebarSections'])
-    expect(templateOffersLayoutControl('swissFirstJob', 'font')).toBe(false)
-    expect(templateOffersLayoutControl('swissFirstJob', 'sidebarColour')).toBe(false)
-    expect(templateOffersLayoutControl('swissFirstJob', 'perPropertySize')).toBe(false)
+    expect(templateOffersLayoutControl('swissFirstJob', 'sidebarSections')).toBe(true)
     expect(TEMPLATE_APPLIED_SIZE_KEYS.swissFirstJob).toEqual([])
   })
 

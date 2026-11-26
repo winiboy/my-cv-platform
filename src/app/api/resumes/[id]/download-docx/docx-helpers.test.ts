@@ -1,21 +1,21 @@
-import { AlignmentType, Document, Packer, Paragraph } from 'docx'
+import { AlignmentType, Document, NoBreakHyphen, Packer, Paragraph } from 'docx'
 import JSZip from 'jszip'
 import { isValidElement, type ReactElement, type ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
 import { formatText } from '@/lib/format-text'
-import { DEFAULT_RESUME_LAYOUT } from '@/lib/layout-settings'
 import {
-  APP_BODY_FONT,
+  CONTACT_FIT_SAFETY_PX,
+  KEEP_LINES,
+  KEEP_WITH_NEXT,
+  contactValueChildren,
   exactLineSpacing,
+  keepAt,
+  noBreakHyphenChildren,
   NO_TEXT_LINE,
   extractAlignment,
-  extractPrimaryFont,
-  resolveDocxFont,
   formatDateRange,
-  hslToHex,
   isHtmlList,
   isPlainTextList,
-  oklchToHex,
   parseHtmlToDocxRuns,
   parsePlainTextBlocks,
   parsePlainTextListToParagraphs,
@@ -28,12 +28,10 @@ import {
 } from './docx-helpers'
 
 /**
- * These helpers are shared by all five DOCX generators, so a regression here
+ * These helpers are shared by every DOCX generator, so a regression here
  * changes every export at once. They are pure, which makes them the highest
  * value unit-test target in the export path.
  */
-
-const HEX_6 = /^[0-9A-F]{6}$/
 
 describe('pxToHalfPoints', () => {
   it('converts px to half-points at 96 DPI (1px = 1.5 half-points)', () => {
@@ -65,111 +63,6 @@ describe('pxToTwips', () => {
 
   it('always returns an integer', () => {
     expect(Number.isInteger(pxToTwips(3.7))).toBe(true)
-  })
-})
-
-describe('hslToHex', () => {
-  it('converts the primary hues', () => {
-    expect(hslToHex(0, 100, 50)).toBe('FF0000')
-    expect(hslToHex(120, 100, 50)).toBe('00FF00')
-    expect(hslToHex(240, 100, 50)).toBe('0000FF')
-  })
-
-  it('converts the secondary hues', () => {
-    expect(hslToHex(60, 100, 50)).toBe('FFFF00')
-    expect(hslToHex(180, 100, 50)).toBe('00FFFF')
-    expect(hslToHex(300, 100, 50)).toBe('FF00FF')
-  })
-
-  it('renders zero saturation as grey regardless of hue', () => {
-    for (const hue of [0, 90, 180, 270]) {
-      const hex = hslToHex(hue, 0, 50)
-      expect(hex.slice(0, 2)).toBe(hex.slice(2, 4))
-      expect(hex.slice(2, 4)).toBe(hex.slice(4, 6))
-    }
-  })
-
-  it('renders lightness extremes as black and white', () => {
-    expect(hslToHex(200, 85, 0)).toBe('000000')
-    expect(hslToHex(200, 85, 100)).toBe('FFFFFF')
-  })
-
-  it('returns bare uppercase 6-digit hex with no leading hash', () => {
-    for (const [h, s, l] of [[240, 85, 35], [17, 42, 61], [300, 10, 5]]) {
-      const hex = hslToHex(h, s, l)
-      expect(hex).toMatch(HEX_6)
-      expect(hex.startsWith('#')).toBe(false)
-    }
-  })
-
-  it('pads single-digit channels to two characters', () => {
-    expect(hslToHex(240, 85, 35)).toBe('0D0DA5')
-  })
-
-  // The sidebar hue slider is min="0" max="360", so 360 is a value the user can
-  // actually select, and Preview renders it as red. Before hue normalization the
-  // branch chain stopped at `h < 360`, leaving r/g/b at 0 and exporting a
-  // near-black sidebar instead.
-  it('treats hue 360 as red rather than black', () => {
-    expect(hslToHex(360, 100, 50)).toBe('FF0000')
-  })
-
-  it('produces the same colour for hue 360 as for hue 0', () => {
-    expect(hslToHex(360, 85, 35)).toBe(hslToHex(0, 85, 35))
-  })
-
-  it('wraps hues above 360 back into the circle', () => {
-    expect(hslToHex(420, 100, 50)).toBe(hslToHex(60, 100, 50))
-    expect(hslToHex(720, 100, 50)).toBe(hslToHex(0, 100, 50))
-  })
-
-  it('wraps negative hues back into the circle', () => {
-    expect(hslToHex(-60, 100, 50)).toBe(hslToHex(300, 100, 50))
-    expect(hslToHex(-360, 100, 50)).toBe(hslToHex(0, 100, 50))
-  })
-})
-
-describe('oklchToHex', () => {
-  it('returns a grey, with all three channels equal', () => {
-    for (const l of [0.2, 0.3, 0.5, 0.8]) {
-      const hex = oklchToHex(l)
-      expect(hex.slice(0, 2)).toBe(hex.slice(2, 4))
-      expect(hex.slice(2, 4)).toBe(hex.slice(4, 6))
-    }
-  })
-
-  it('increases monotonically with lightness', () => {
-    const values = [0.1, 0.3, 0.5, 0.7, 0.9].map((l) => parseInt(oklchToHex(l).slice(0, 2), 16))
-    const sorted = [...values].sort((a, b) => a - b)
-    expect(values).toEqual(sorted)
-  })
-
-  it('returns bare uppercase 6-digit hex', () => {
-    expect(oklchToHex(0.2)).toMatch(HEX_6)
-    expect(oklchToHex(0)).toMatch(HEX_6)
-  })
-})
-
-describe('extractPrimaryFont', () => {
-  it('takes the first font from a stack', () => {
-    expect(extractPrimaryFont("'Arial', Helvetica, sans-serif")).toBe('Arial')
-  })
-
-  it('strips single and double quotes', () => {
-    expect(extractPrimaryFont('"Times New Roman", serif')).toBe('Times New Roman')
-    expect(extractPrimaryFont("'Courier New', monospace")).toBe('Courier New')
-  })
-
-  it('handles a bare single font', () => {
-    expect(extractPrimaryFont('Georgia')).toBe('Georgia')
-  })
-
-  it('trims surrounding whitespace', () => {
-    expect(extractPrimaryFont('  Verdana  , sans-serif')).toBe('Verdana')
-  })
-
-  it('preserves internal spaces in multi-word names', () => {
-    expect(extractPrimaryFont('Noto Sans, sans-serif')).toBe('Noto Sans')
   })
 })
 
@@ -427,6 +320,109 @@ describe('parseHtmlToDocxRuns inline formatting', () => {
   it('writes no break or space after the last line', async () => {
     expect(await renderText('<p><b>A</b></p><p> </p><p></p>')).toBe('A')
   })
+
+  /** The text Word shows: `renderText`, with the XML escaping of `<w:t>` undone in one pass. */
+  async function visibleText(html: string): Promise<string> {
+    const xmlEscapes: Readonly<Record<string, string>> = { '&lt;': '<', '&gt;': '>', '&amp;': '&', '&quot;': '"', '&apos;': "'" }
+    return (await renderText(html)).replace(/&(?:lt|gt|amp|quot|apos);/g, entity => xmlEscapes[entity])
+  }
+
+  // The Preview sets rich HTML as innerHTML: the browser decodes each entity
+  // once into a text node, and the sanitizer keeps text nodes as they are.
+  it('keeps text typed as a tag, as the Preview shows it, rather than taking it for a tag (swiss-templates-only-page-fidelity US-004)', async () => {
+    expect(await visibleText('<p>A &lt;script&gt; &amp; B</p>')).toBe('A <script> & B')
+    expect(await visibleText('<p>Le mot &lt;mot&gt; reste</p>')).toBe('Le mot <mot> reste')
+    expect(await visibleText('<p>&quot;cité&quot; &#39;x&#x27;</p>')).toBe('"cité" \'x\'')
+  })
+
+  it('decodes each entity once: an escaped ampersand stays text (US-004)', async () => {
+    expect(await visibleText('<p>&amp;lt;x&amp;gt;</p>')).toBe('&lt;x&gt;')
+    expect(await visibleText('<p>&amp;amp; &amp;nbsp;</p>')).toBe('&amp; &nbsp;')
+  })
+
+  it('writes decoded text only through escaped runs, so it never becomes markup (US-004)', async () => {
+    const runs = parseHtmlToDocxRuns('<p>&lt;/w:t&gt;&lt;w:t&gt;x &lt;script&gt;</p>', { size: 20, color: '333333', font: 'Arial' })
+    const doc = new Document({ sections: [{ children: [new Paragraph({ children: runs })] }] })
+    const body = await (await JSZip.loadAsync(await Packer.toBuffer(doc))).file('word/document.xml')!.async('string')
+    expect(body).toContain('&lt;/w:t&gt;&lt;w:t&gt;x &lt;script&gt;')
+    expect(body).not.toContain('<script')
+    expect((body.match(/<w:t[ >]/g) ?? []).length).toBe(1)
+  })
+
+  it('keeps an encoded tag inside formatting as text, formatted (US-004)', async () => {
+    const runs = await renderRuns('<p><strong>&lt;b&gt;</strong> after</p>')
+    expect(runs.map(run => run.text)).toEqual(['&lt;b&gt;', ' after'])
+    expect(runs[0].bold).toBe(true)
+    expect(runs[1].bold).toBe(false)
+  })
+
+  it('keeps a list item that is an encoded tag, and still skips one that is only a no-break space (US-004)', async () => {
+    expect(await visibleText('<ul><li>&lt;a&gt;</li><li>&nbsp;</li><li>b</li></ul>')).toBe('• <a>\n• b')
+    expect(await visibleText('<ol><li>&nbsp;</li><li>&lt;x&gt;</li></ol>')).toBe('1. <x>')
+  })
+
+  it('still removes the real tags of rich text (US-004)', async () => {
+    expect(await visibleText('<p>a<span style="color: red">b</span><img src="x">c</p>')).toBe('abc')
+  })
+
+  it('keeps tagless text whole, decoded once, instead of taking a decoded `<` for a tag (US-004)', async () => {
+    // Decoded before the tag test, `<mot>` made the text look like HTML and was stripped as a tag.
+    expect(await visibleText('&lt;mot&gt; R&amp;D &amp;lt;')).toBe('<mot> R&D &lt;')
+  })
+})
+
+describe('noBreakHyphenChildren', () => {
+  it('writes each hyphen as a non-breaking hyphen between the text around it', () => {
+    const children = noBreakHyphenChildren('in/sophie-marchand-keller')
+    expect(children.map((child) => (child instanceof NoBreakHyphen ? 'NBH' : child))).toEqual(['in/sophie', 'NBH', 'marchand', 'NBH', 'keller'])
+  })
+
+  it('keeps text without a hyphen as one string, and writes no empty text around a hyphen at either end', () => {
+    expect(noBreakHyphenChildren('Lausanne')).toEqual(['Lausanne'])
+    expect(noBreakHyphenChildren('-a-').map((child) => (child instanceof NoBreakHyphen ? 'NBH' : child))).toEqual(['NBH', 'a', 'NBH'])
+  })
+})
+
+describe('contactValueChildren', () => {
+  const asText = (children: ReturnType<typeof contactValueChildren>) => children.map((child) => (child instanceof NoBreakHyphen ? '[NBH]' : child)).join('')
+  const SIZE = 18 // half-points: 9pt, 12px
+
+  it('holds a value that fits its line together at its hyphens', () => {
+    const children = contactValueChildren('linkedin.com/in/sophie-marchand', 600, SIZE)
+    expect(asText(children)).toBe('linkedin.com/in/sophie[NBH]marchand')
+  })
+
+  it('keeps the spaces a value was typed with: plain U+0020, so the stored text is in the file as typed', () => {
+    const children = contactValueChildren('+41 21 555-0142', 600, SIZE)
+    expect(asText(children)).toBe('+41 21 555[NBH]0142')
+    expect(asText(children)).not.toContain(' ')
+    expect(contactValueChildren('+41 21 555 0142', 600, SIZE)).toEqual(['+41 21 555 0142'])
+  })
+
+  it('writes a value wider than its line as stored, as the Preview wraps it inside', () => {
+    expect(contactValueChildren('linkedin.com/in/sophie-marchand', 60, SIZE)).toEqual(['linkedin.com/in/sophie-marchand'])
+    // Within the safety margin of the line is too wide as well.
+    expect(CONTACT_FIT_SAFETY_PX).toBeGreaterThan(0)
+  })
+
+  it('writes an e-mail address as stored, whatever its width', () => {
+    expect(contactValueChildren('sophie.marchand-keller@exemple.ch', 600, SIZE, true)).toEqual(['sophie.marchand-keller@exemple.ch'])
+  })
+
+  it('trims the value as the Preview draws it', () => {
+    expect(contactValueChildren('  Lausanne ', 600, SIZE)).toEqual(['Lausanne'])
+  })
+})
+
+describe('keepAt', () => {
+  it('keeps every paragraph of a kept block with the next, and gives the last the rules it is given', () => {
+    expect([0, 1, 2].map((index) => keepAt(KEEP_LINES, index, 3))).toEqual([KEEP_WITH_NEXT, KEEP_WITH_NEXT, KEEP_LINES])
+    expect([0, 1].map((index) => keepAt(KEEP_WITH_NEXT, index, 2))).toEqual([KEEP_WITH_NEXT, KEEP_WITH_NEXT])
+  })
+
+  it('gives no rules outside a kept block', () => {
+    expect(keepAt(undefined, 0, 1)).toEqual({})
+  })
 })
 
 describe('parsePlainTextListToParagraphs', () => {
@@ -451,6 +447,25 @@ describe('parsePlainTextListToParagraphs', () => {
     )
     return { texts, xml: body }
   }
+
+  it('inside a kept block, keeps every paragraph with the next but the last, which takes the rules it is given', async () => {
+    const doc = new Document({
+      sections: [{ children: parsePlainTextListToParagraphs('Intro\n\n- a\n- b', runOptions, { ...layout, keep: KEEP_LINES }) }],
+    })
+    const body = await (await JSZip.loadAsync(await Packer.toBuffer(doc))).file('word/document.xml')!.async('string')
+    const pPrs = (body.match(/<w:p>[\s\S]*?<\/w:p>|<w:p [\s\S]*?<\/w:p>/g) ?? []).map((p) => /<w:pPr>([\s\S]*?)<\/w:pPr>/.exec(p)?.[1] ?? '')
+    expect(pPrs.map((pPr) => [pPr.includes('<w:keepNext/>'), pPr.includes('<w:keepLines/>')])).toEqual([
+      [true, true],
+      [true, true],
+      [false, true],
+    ])
+  })
+
+  it('outside a kept block, writes no keep rule', async () => {
+    const doc = new Document({ sections: [{ children: parsePlainTextListToParagraphs('Intro\n\n- a', runOptions, layout) }] })
+    const body = await (await JSZip.loadAsync(await Packer.toBuffer(doc))).file('word/document.xml')!.async('string')
+    expect(body).not.toMatch(/<w:keep(Next|Lines)/)
+  })
 
   it('emits one paragraph per list item and per text block', () => {
     expect(parsePlainTextListToParagraphs('Intro\n\n- a\n- b', runOptions, layout)).toHaveLength(3)
@@ -634,31 +649,3 @@ describe('formatDateRange', () => {
   })
 })
 
-/**
- * Part 3 US-012: which family a generator writes.
- *
- * The chosen/not-chosen rule itself is pinned in `layout-settings.test.ts`;
- * what matters here is that a generator asks it rather than applying the
- * stored stack unconditionally, and that an unchosen font yields the family
- * the template's Preview draws.
- */
-describe('resolveDocxFont', () => {
-  it("writes the template's own font when no font was chosen", () => {
-    expect(resolveDocxFont(DEFAULT_RESUME_LAYOUT.fontFamily, APP_BODY_FONT)).toBe('Inter')
-    expect(resolveDocxFont(DEFAULT_RESUME_LAYOUT.fontFamily, 'Georgia')).toBe('Georgia')
-  })
-
-  it('writes the primary family of a chosen stack, on every template', () => {
-    for (const designed of [APP_BODY_FONT, 'Georgia']) {
-      expect(resolveDocxFont('Verdana, Geneva, sans-serif', designed)).toBe('Verdana')
-      expect(resolveDocxFont("'Times New Roman', serif", designed)).toBe('Times New Roman')
-    }
-  })
-
-  it("falls back to the template's font when a chosen stack names none", () => {
-    // Not reachable through `parseLayoutModel`, which rejects a blank stack;
-    // the fallback exists so an unusable value degrades to what the Preview
-    // draws rather than to a family no surface uses.
-    expect(resolveDocxFont('   ', 'Georgia')).toBe('Georgia')
-  })
-})

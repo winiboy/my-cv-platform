@@ -56,16 +56,21 @@ import {
 import { visibleContactDetails } from '@/lib/contact-visibility'
 import {
   APP_BODY_FONT,
+  KEEP_LINES,
+  KEEP_WITH_NEXT,
   NO_TEXT_LINE,
   exactLineSpacing,
   extractAlignment,
+  keepAt,
   parseHtmlToDocxRuns,
   parsePlainTextListToParagraphs,
   pxToHalfPoints,
   pxToTwips,
   trackingSpacing,
   type DocxGeneratorSettings,
+  type ParagraphKeep,
 } from './docx-helpers'
+import { interDocxFonts, pairInterFaces } from './docx-fonts'
 import { DOCX_PALETTE } from './docx-palette'
 import { FORMATTED_LIST_INDENT_PX, FORMATTED_LIST_MARKER_EM, bareInlineFormatTags, formattedBlocks } from './docx-preview-metrics'
 import { solidColourPng } from './docx-disc'
@@ -78,7 +83,7 @@ import {
   extractBase64Data,
   parseImageDimensions,
   readJpegOrientation,
-} from './docx-modern'
+} from './docx-photo'
 
 /** The stored columns this generator reads, typed as the application writes them. */
 interface StoredResume {
@@ -141,7 +146,7 @@ const NO_MARGINS = { top: 0, bottom: 0, left: 0, right: 0 }
 const emptyParagraph = () => new Paragraph({ children: [], spacing: { before: 0, after: 0, ...NO_TEXT_LINE } })
 
 /** A paragraph drawing no text that carries a vertical gap of `twips`. */
-const spacer = (twips: number) => new Paragraph({ children: [], spacing: { before: 0, after: twips, ...NO_TEXT_LINE } })
+const spacer = (twips: number, keep?: ParagraphKeep) => new Paragraph({ children: [], spacing: { before: 0, after: twips, ...NO_TEXT_LINE }, ...keep })
 
 /**
  * Generate the Word export of the "Premier emploi" template.
@@ -247,14 +252,18 @@ export async function generateSwissFirstJobDocx(resume: unknown, settings: DocxG
    * list item's marker hanging by its measured width with a tab stop at the
    * text; plain text by `formatText`'s rules.
    */
-  const richParagraphs = (text: string, color: string, options: { size: number; line: number; spacingBefore?: number }): Paragraph[] => {
+  const richParagraphs = (
+    text: string,
+    color: string,
+    options: { size: number; line: number; spacingBefore?: number; keep?: ParagraphKeep },
+  ): Paragraph[] => {
     const runOptions = { size: options.size, color, font }
     const lineSpacing = exactLineSpacing([formattedTextLineHeight(text, LINE_HEIGHT.text), options.line])
     const alignment = extractAlignment(text)
     const hang = pxToTwips(FORMATTED_LIST_MARKER_EM * (options.size / 1.5))
     const paragraphs = !rendersAsFormattedContent(text)
-      ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing })
-      : formattedBlocks(text).map((block) => {
+      ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing, keep: options.keep })
+      : formattedBlocks(text).map((block, index, blocks) => {
           const left = pxToTwips(FORMATTED_LIST_INDENT_PX * block.depth)
           return new Paragraph({
             children: [
@@ -265,9 +274,10 @@ export async function generateSwissFirstJobDocx(resume: unknown, settings: DocxG
             indent: block.depth === 0 ? undefined : { left, hanging: block.marker === null ? 0 : hang },
             ...(block.marker === null ? {} : { tabStops: [{ type: TabStopType.LEFT, position: left }] }),
             spacing: { after: 0, ...lineSpacing },
+            ...keepAt(options.keep, index, blocks.length),
           })
         })
-    if (options.spacingBefore && paragraphs.length > 0) paragraphs.unshift(spacer(options.spacingBefore))
+    if (options.spacingBefore && paragraphs.length > 0) paragraphs.unshift(spacer(options.spacingBefore, options.keep ? KEEP_WITH_NEXT : undefined))
     return paragraphs
   }
 
@@ -348,6 +358,8 @@ export async function generateSwissFirstJobDocx(resume: unknown, settings: DocxG
             }),
           ],
           index === 0,
+          // Kept whole with its heading, as print keeps the section.
+          keepAt(KEEP_LINES, index, contactLines.length),
         ),
       )
     })
@@ -368,25 +380,31 @@ export async function generateSwissFirstJobDocx(resume: unknown, settings: DocxG
               new Paragraph({
                 children: [run(skill.category, PALETTE.ink, { bold: true, size: size.sidebar })],
                 spacing: { before, after: pxToTwips(GEOMETRY.skillCaptionGap), ...sidebarLine },
-                keepNext: true,
+                ...KEEP_WITH_NEXT,
               }),
             )
           }
+          // The entry is kept whole, as print keeps it.
           const contentBefore = skill.category ? 0 : before
           if (skill.content.kind === 'lines') {
             const indent = pxToTwips(GEOMETRY.checkIndent)
-            skill.content.lines.forEach((text, i) => {
+            skill.content.lines.forEach((text, i, lines) => {
               sidebar.push(
                 new Paragraph({
                   children: [run(`${SWISS_FIRST_JOB_CHECK}\t`, PALETTE.body, { size: size.sidebar }), run(text, PALETTE.body, { size: size.sidebar })],
                   indent: { left: indent, hanging: indent },
                   tabStops: [{ type: TabStopType.LEFT, position: indent }],
                   spacing: { before: i === 0 ? contentBefore : pxToTwips(GEOMETRY.sidebarRowGap), after: 0, ...sidebarLine },
+                  ...keepAt(KEEP_LINES, i, lines.length),
                 }),
               )
             })
           } else {
-            sidebar.push(...richParagraphs(skill.content.html, PALETTE.body, { size: size.sidebar, line: line.sidebar, spacingBefore: contentBefore }))
+            // The gap before the entry is not part of it, so a page may break
+            // there; rich text that draws nothing has no gap.
+            const paragraphs = richParagraphs(skill.content.html, PALETTE.body, { size: size.sidebar, line: line.sidebar, keep: KEEP_LINES })
+            if (contentBefore > 0 && paragraphs.length > 0) sidebar.push(spacer(contentBefore))
+            sidebar.push(...paragraphs)
           }
         })
         markDrawn()
@@ -406,7 +424,8 @@ export async function generateSwissFirstJobDocx(resume: unknown, settings: DocxG
           const runs = [run(lang.language.trim(), PALETTE.body, { size: size.sidebar }), dotRun('\u00A0', PALETTE.body, dotLeadSpacing)]
           if (dots.filled) runs.push(dotRun(DOT_GLYPH.repeat(dots.filled), PALETTE.mark, dotSpacing))
           if (dots.empty) runs.push(dotRun(DOT_GLYPH.repeat(dots.empty), PALETTE.emptyDot, dotSpacing))
-          sidebar.push(sidebarParagraph(runs, index === 0))
+          // Kept whole with its heading, as print keeps the section.
+          sidebar.push(sidebarParagraph(runs, index === 0, keepAt(KEEP_LINES, index, languages.length)))
         })
         markDrawn()
         return
@@ -415,7 +434,10 @@ export async function generateSwissFirstJobDocx(resume: unknown, settings: DocxG
       case 'training': {
         if (certificates.length === 0) return
         sidebarHeading(swissHeading(dict, 'training'))
-        certificates.forEach((text, index) => sidebar.push(sidebarParagraph([run(text, PALETTE.body, { size: size.sidebar })], index === 0)))
+        // Kept whole with its heading, as print keeps the section.
+        certificates.forEach((text, index) =>
+          sidebar.push(sidebarParagraph([run(text, PALETTE.body, { size: size.sidebar })], index === 0, keepAt(KEEP_LINES, index, certificates.length))),
+        )
         markDrawn()
         return
       }
@@ -462,11 +484,20 @@ export async function generateSwissFirstJobDocx(resume: unknown, settings: DocxG
     )
   }
 
-  /** An entry: its date line in violet, its bold title, its grey second line. */
-  const entryHead = (dates: string, lead: string, detail: string) => {
-    if (dates) main.push(new Paragraph({ children: [run(dates, PALETTE.accent, { size: size.date })], spacing: { after: 0, ...bodyLine }, keepNext: true }))
-    if (lead) main.push(new Paragraph({ children: [run(lead, PALETTE.ink, { bold: true })], spacing: { after: 0, ...bodyLine }, keepNext: true }))
-    if (detail) main.push(new Paragraph({ children: [run(detail, PALETTE.muted)], spacing: { after: 0, ...bodyLine } }))
+  /**
+   * An entry's head: its date line in violet, its bold title, its grey second
+   * line. The entry is kept whole, as print keeps it; `endsEntry` when nothing
+   * of the entry follows its head.
+   */
+  const entryHead = (dates: string, lead: string, detail: string, endsEntry: boolean) => {
+    const lines = [
+      ...(dates ? [[run(dates, PALETTE.accent, { size: size.date })]] : []),
+      ...(lead ? [[run(lead, PALETTE.ink, { bold: true })]] : []),
+      ...(detail ? [[run(detail, PALETTE.muted)]] : []),
+    ]
+    lines.forEach((children, index) =>
+      main.push(new Paragraph({ children, spacing: { after: 0, ...bodyLine }, ...keepAt(endsEntry ? KEEP_LINES : KEEP_WITH_NEXT, index, lines.length) })),
+    )
   }
 
   const mainSection = (sectionId: SwissFirstJobMainSectionId): boolean => {
@@ -474,7 +505,8 @@ export async function generateSwissFirstJobDocx(resume: unknown, settings: DocxG
       case 'summary':
         if (!swissHasText(row.summary)) return false
         heading(swissHeading(dict, 'summary'))
-        main.push(...richParagraphs(row.summary, PALETTE.body, { size: size.body, line: line.body }))
+        // Kept whole with its heading, as print keeps the section.
+        main.push(...richParagraphs(row.summary, PALETTE.body, { size: size.body, line: line.body, keep: KEEP_LINES }))
         return true
 
       case 'experience':
@@ -482,7 +514,7 @@ export async function generateSwissFirstJobDocx(resume: unknown, settings: DocxG
         heading(swissHeading(dict, 'experience'))
         experiences.forEach((exp, index) => {
           if (index > 0) main.push(spacer(pxToTwips(GEOMETRY.entryGap)))
-          entryHead(exp.dates, exp.lead, exp.detail)
+          entryHead(exp.dates, exp.lead, exp.detail, exp.achievements.length === 0 && !exp.description)
           if (exp.achievements.length > 0) {
             exp.achievements.forEach((achievement, i) => {
               main.push(
@@ -496,11 +528,14 @@ export async function generateSwissFirstJobDocx(resume: unknown, settings: DocxG
                     after: 0,
                     ...exactLineSpacing([formattedTextLineHeight(achievement, LINE_HEIGHT.text), line.body]),
                   },
+                  ...keepAt(KEEP_LINES, i, exp.achievements.length),
                 }),
               )
             })
           } else if (exp.description) {
-            main.push(...richParagraphs(exp.description, PALETTE.body, { size: size.body, line: line.body, spacingBefore: pxToTwips(GEOMETRY.detailGap) }))
+            main.push(
+              ...richParagraphs(exp.description, PALETTE.body, { size: size.body, line: line.body, spacingBefore: pxToTwips(GEOMETRY.detailGap), keep: KEEP_LINES }),
+            )
           }
         })
         return true
@@ -510,9 +545,11 @@ export async function generateSwissFirstJobDocx(resume: unknown, settings: DocxG
         heading(swissHeading(dict, 'education'))
         education.forEach((edu, index) => {
           if (index > 0) main.push(spacer(pxToTwips(GEOMETRY.entryGap)))
-          entryHead(edu.dates, edu.lead, edu.detail)
+          entryHead(edu.dates, edu.lead, edu.detail, !edu.description)
           if (edu.description) {
-            main.push(...richParagraphs(edu.description, PALETTE.body, { size: size.body, line: line.body, spacingBefore: pxToTwips(GEOMETRY.detailGap) }))
+            main.push(
+              ...richParagraphs(edu.description, PALETTE.body, { size: size.body, line: line.body, spacingBefore: pxToTwips(GEOMETRY.detailGap), keep: KEEP_LINES }),
+            )
           }
         })
         return true
@@ -585,6 +622,8 @@ export async function generateSwissFirstJobDocx(resume: unknown, settings: DocxG
   })
 
   const doc = new Document({
+    // Inter travels with the file, so Word draws it on any computer (`docx-fonts.ts`).
+    fonts: await interDocxFonts(),
     styles: {
       default: {
         document: {
@@ -616,7 +655,7 @@ export async function generateSwissFirstJobDocx(resume: unknown, settings: DocxG
   // `docx` writes the photo as a rectangle with no outline or fill and has no
   // API for either, so its geometry is set to an ellipse — Word's own "crop to
   // shape" — with the Preview's light ring and fill, and the object-fit: cover
-  // crop is written as `docx-modern.ts` does. It has no API for `w:fitText`
+  // crop is written from `calculateCoverCropPercents` (`docx-photo.ts`). It has no API for `w:fitText`
   // either, which an email too wide for the sidebar even at 7pt is given.
   if (photo || fitsEmail) {
     const zip = await JSZip.loadAsync(buffer)
@@ -629,7 +668,7 @@ export async function generateSwissFirstJobDocx(resume: unknown, settings: DocxG
     buffer = (await zip.generateAsync({ type: 'nodebuffer' })) as Buffer
   }
 
-  return buffer
+  return pairInterFaces(buffer)
 }
 
 /**
@@ -732,7 +771,7 @@ function photoRun(photoBase64: string): { image: ImageRun; crop: { l: number; t:
     const displayed = swapsAxes ? { width: dimensions.height, height: dimensions.width } : dimensions
     const displayedCrop = calculateCoverCropPercents(displayed.width, displayed.height, box, box)
     // srcRect is in the stored image's axes, which a 90° turn swaps; the cover
-    // crop is centred, so the mapping is the one `docx-modern.ts` documents.
+    // crop is centred, so the mapping is the one `EXIF_PHOTO_TRANSFORMS` (`docx-photo.ts`) documents.
     const stored = swapsAxes
       ? { l: displayedCrop.t, r: displayedCrop.b, t: displayedCrop.l, b: displayedCrop.r }
       : displayedCrop

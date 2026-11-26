@@ -114,7 +114,7 @@ interface Seeded {
 /** A French letter linked both ways to an application, and to a CV. */
 async function seedLinkedLetter(userId: string, fields: Record<string, unknown> = {}): Promise<Seeded> {
   const db = admin()
-  const resume = await seedFixtureResume(userId, 'professional')
+  const resume = await seedFixtureResume(userId, 'swissCommerce')
   const { data: letter, error: letterError } = await db
     .from('cover_letters')
     .insert({ user_id: userId, title: LETTER_TITLE, resume_id: resume.id, ...FRENCH_LETTER, ...fields })

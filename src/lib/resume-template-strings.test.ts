@@ -8,8 +8,8 @@ import type { ResumeLanguage } from '@/types/database'
 import { CONTACT_LABEL_KEYS, contactLabel, presentLabel } from './resume-template-strings'
 
 /**
- * The words the five templates and their Word generators draw from `common`
- * beyond section headings: "present", Modern's contact labels and the language
+ * The words the templates and their Word generators draw from `common`
+ * beyond section headings: "present", the contact labels and the language
  * levels. Every locale must hold each of them, and en must still spell them
  * the way the templates hard-coded them before they were read from `common`.
  */

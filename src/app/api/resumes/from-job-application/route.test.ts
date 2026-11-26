@@ -120,7 +120,7 @@ function createRequest(body: unknown): NextRequest {
   })
 }
 
-const VALID_BODY = { jobApplicationId: APPLICATION_ID, title: 'Mein Lebenslauf', template: 'classic', locale: 'fr' }
+const VALID_BODY = { jobApplicationId: APPLICATION_ID, title: 'Mein Lebenslauf', template: 'swissFinance', locale: 'fr' }
 
 function aiReply(summary: string) {
   return {
@@ -194,7 +194,7 @@ describe('POST /api/resumes/from-job-application', () => {
     expect(resume).toMatchObject({
       user_id: USER_ID,
       title: 'Mein Lebenslauf',
-      template: 'classic',
+      template: 'swissFinance',
       job_application_id: APPLICATION_ID,
       summary: '<p>KI-Profil für Data Engineer</p>',
     })
@@ -257,6 +257,11 @@ describe('POST /api/resumes/from-job-application', () => {
   it.each([
     ['a non-uuid id', { ...VALID_BODY, jobApplicationId: 'not-a-uuid' }],
     ['an unknown template', { ...VALID_BODY, template: 'fancy' }],
+    ['the removed template professional', { ...VALID_BODY, template: 'professional' }],
+    ['the removed template modern', { ...VALID_BODY, template: 'modern' }],
+    ['the removed template classic', { ...VALID_BODY, template: 'classic' }],
+    ['the removed template minimal', { ...VALID_BODY, template: 'minimal' }],
+    ['the removed template creative', { ...VALID_BODY, template: 'creative' }],
     ['an unknown locale', { ...VALID_BODY, locale: 'es' }],
     ['a title that is not a string', { ...VALID_BODY, title: 42 }],
     ['a blank title', { ...VALID_BODY, title: '   ' }],

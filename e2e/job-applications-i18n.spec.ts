@@ -751,7 +751,7 @@ async function seedDetail(userId: string): Promise<{ linkedId: string; bareId: s
   const db = admin()
   const { data: resume, error: resumeError } = await db
     .from('resumes')
-    .insert({ user_id: userId, title: DETAIL_RESUME_TITLE, template: 'professional' })
+    .insert({ user_id: userId, title: DETAIL_RESUME_TITLE, template: 'swissCommerce' })
     .select('id')
     .single()
   if (resumeError || !resume) throw new Error(`Could not create a resume: ${resumeError?.message ?? 'no row'}`)

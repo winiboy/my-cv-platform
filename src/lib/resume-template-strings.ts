@@ -1,7 +1,7 @@
 /**
  * The words a resume template draws that are not resume content and not a
- * section heading: the "present" end of a date range and Modern's contact
- * labels.
+ * section heading: the "present" end of a date range and the contact labels
+ * swissVocational draws.
  *
  * The Preview templates (and therefore PDF, which prints them) and the Word
  * generators read them here, from the locale's `common` dictionary, so the
@@ -11,7 +11,7 @@
  * to another language; `resume-template-strings.test.ts` checks every locale.
  */
 
-/** The `common.json -> resumes.editor` keys Modern labels its contact entries with. */
+/** The `common.json -> resumes.editor` keys swissVocational labels its contact entries with. */
 export const CONTACT_LABEL_KEYS = ['phone', 'email', 'website', 'linkedin', 'github', 'location'] as const
 
 export type ContactLabelKey = (typeof CONTACT_LABEL_KEYS)[number]
@@ -34,7 +34,7 @@ export function presentLabel(dict: unknown): string {
   return translation(dict, ['resumes', 'template', 'present'])
 }
 
-/** A Modern contact entry's label (`resumes.editor.<key>`), before the uppercase transform both outputs apply. */
+/** A swissVocational contact entry's label (`resumes.editor.<key>`), before the uppercase transform both outputs apply. */
 export function contactLabel(dict: unknown, key: ContactLabelKey): string {
   return translation(dict, ['resumes', 'editor', key])
 }

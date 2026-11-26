@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/toast'
 import { toLocale } from '@/lib/i18n'
 import { cutResumeTitle, RESUME_TITLE_MAX_LENGTH } from '@/lib/resume-from-job/resume-title'
 import type { ResumeInsert, ResumeTemplate, JobApplication } from '@/types/database'
+import { DEFAULT_RESUME_TEMPLATE } from '@/lib/resume-templates'
 
 /** Long enough to read on the editor after the redirect. */
 const NOT_TAILORED_NOTICE_DURATION_MS = 12_000
@@ -33,7 +34,7 @@ export function CreateResumeForm({ locale, dict, jobApplication }: CreateResumeF
   // A job title can be longer than a CV title may be, so it is cut to the
   // length the route keeps, and the input enforces the same limit.
   const [title, setTitle] = useState(jobApplication ? cutResumeTitle(jobApplication.job_title) : '')
-  const [selectedTemplate, setSelectedTemplate] = useState<ResumeTemplate>('modern')
+  const [selectedTemplate, setSelectedTemplate] = useState<ResumeTemplate>(DEFAULT_RESUME_TEMPLATE)
   const templateLabelId = useId()
   const [isCreating, setIsCreating] = useState(false)
   // A state update is not visible to a second submit fired in the same tick, so

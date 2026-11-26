@@ -102,7 +102,7 @@ async function seedSavedOfferWithOldCv(userId: string): Promise<{ applicationId:
 
   const { data: oldResume, error: resumeError } = await db
     .from('resumes')
-    .insert({ user_id: userId, title: 'Old CV', template: 'classic', job_application_id: application.id })
+    .insert({ user_id: userId, title: 'Old CV', template: 'swissFinance', job_application_id: application.id })
     .select('id')
     .single()
   if (resumeError || !oldResume) throw new Error(`Could not seed a resume: ${resumeError?.message}`)
@@ -173,7 +173,7 @@ for (const locale of ['fr', 'de'] as const) {
     const [resume] = await resumesOf(authedUser.id)
     // The request fields of before: the CV title the modal sends, the template it defaults to.
     expect(resume.title).toBe(`CV - ${JOB.company}`)
-    expect(resume.template).toBe('professional')
+    expect(resume.template).toBe('swissCommerce')
     expectCompleteRow(resume)
 
     // The stub's German text and achievements, as the AI's would be.

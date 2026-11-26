@@ -25,13 +25,12 @@ import { buildCmap, cmapGlyphId, decodeWoff, encodeSfnt } from './sfnt'
  * which can therefore be checked on any machine; whether the serverless
  * build's FreeType reads WOFF2 as a system font cannot.
  *
- * WHICH. Only the families a printed resume can reach where the replaced font
+ * WHICH. Only the families a printed page can reach where the replaced font
  * is absent (docs/engineering/pdf-export-runtime.md, "Fonts on the server"):
  *
- *   - Arial: the "Arial" picker entry, and the end of the "Helvetica" one.
- *   - Calibri: the "Calibri" picker entry, ahead of its Outfit fallback.
- *   - Georgia: Classic's default title and section headings (`font-serif`,
- *     whose first installed family on Windows and macOS is Georgia).
+ *   - Georgia: the serif the Swiss resume templates draw in, and one of the
+ *     cover letter's typefaces.
+ *   - Arial and Calibri: the cover letter's other typefaces.
  *
  * Only the faces the replaced fonts have: regular, italic, bold and bold
  * italic. Registering a 500 or 600 the real font lacks would print a weight
@@ -61,8 +60,7 @@ import { buildCmap, cmapGlyphId, decodeWoff, encodeSfnt } from './sfnt'
  * INTER. Not a substitute: the app's own `next/font` Inter is served to the
  * headless page as to the user, and prints. Its latin subset, too, claims
  * U+2000–206F without drawing U+2010–2012, so a resume printed in Inter
- * (Classic's body text, and Minimal's and Creative's when no font is chosen)
- * showed the same box. Inter therefore gets the same supplement, built from
+ * (the sans-serif the Swiss templates draw in) showed the same box. Inter therefore gets the same supplement, built from
  * `@fontsource/inter` (the same font revision as next/font's), but none of
  * its own faces are registered or replaced. Because next/font names the
  * family in the page's CSS, the resume renderer reads that name from the
@@ -71,12 +69,10 @@ import { buildCmap, cmapGlyphId, decodeWoff, encodeSfnt } from './sfnt'
  * through to that family for a character Inter has no glyph for. Only the
  * resume renderer: the cover letter prints in Georgia, Arial and Calibri.
  *
- * Only Inter inherited from `<body>` is covered. The font picker's own "Inter"
- * entry (`'Inter', sans-serif`) never reaches that fallback family, so a CV
- * where the user picks Inter still prints the box for U+2010–2012 there.
- * Covering it would change the picker's stack, out of this scope; registering
- * in the Inter family itself is not done, as a face there can displace
- * next/font's variable face.
+ * Only Inter reached through next/font's family name is covered. A stack
+ * that names `'Inter'` literally never reaches that fallback family, so it
+ * would still print the box for U+2010–2012. Registering in the Inter family
+ * itself is not done, as a face there can displace next/font's variable face.
  */
 
 export interface FontSubstitute {
@@ -448,10 +444,11 @@ export function excludeFromUnicodeRange(unicodeRange: string, codePoints: readon
 }
 
 /**
- * A read done once per server instance. A failed read is forgotten, so the
- * next request tries again.
+ * A read of the installed Fontsource packages done once per server instance. A
+ * failed read is forgotten, so the next request tries again. Also used by the
+ * Word export, which embeds Inter (`docx-fonts.ts`).
  */
-function readOncePerInstance<T>(read: (fontsourceRoot: string) => Promise<T>): () => Promise<T> {
+export function readOncePerInstance<T>(read: (fontsourceRoot: string) => Promise<T>): () => Promise<T> {
   let cached: Promise<T> | null = null
   return () => {
     // `process.cwd()` is the app's root under `next start` and in a Vercel

@@ -3,18 +3,13 @@ import { renderToString } from 'react-dom/server'
 import JSZip from 'jszip'
 import { describe, expect, it } from 'vitest'
 import en from '@/locales/en/common.json'
-import type { BuiltResumeTemplate as ResumeTemplate, Resume } from '@/types/database'
+import type { ResumeTemplate, Resume } from '@/types/database'
 import {
   DEFAULT_RESUME_LAYOUT,
-  LAYOUT_CONTROL_KEYS,
   TEMPLATE_APPLIED_SIZE_KEYS,
   resolveResumeLayout,
   type PerPropertySizeKey,
 } from '@/lib/layout-settings'
-import { ClassicTemplate } from '@/components/dashboard/resume-templates/classic-template'
-import { CreativeTemplate } from '@/components/dashboard/resume-templates/creative-template'
-import { MinimalTemplate } from '@/components/dashboard/resume-templates/minimal-template'
-import { ModernTemplate } from '@/components/dashboard/resume-templates/modern-template'
 import { SwissVocationalTemplate } from '@/components/dashboard/resume-templates/swiss-vocational-template'
 import { SwissCommerceTemplate } from '@/components/dashboard/resume-templates/swiss-commerce-template'
 import { SwissTradesTemplate } from '@/components/dashboard/resume-templates/swiss-trades-template'
@@ -25,11 +20,6 @@ import { SwissItTemplate } from '@/components/dashboard/resume-templates/swiss-i
 import { SwissExecutiveTemplate } from '@/components/dashboard/resume-templates/swiss-executive-template'
 import { SwissAcademicTemplate } from '@/components/dashboard/resume-templates/swiss-academic-template'
 import { SwissFirstJobTemplate } from '@/components/dashboard/resume-templates/swiss-first-job-template'
-import { generateClassicDocx } from '@/app/api/resumes/[id]/download-docx/docx-classic'
-import { generateCreativeDocx } from '@/app/api/resumes/[id]/download-docx/docx-creative'
-import { generateMinimalDocx } from '@/app/api/resumes/[id]/download-docx/docx-minimal'
-import { generateModernDocx } from '@/app/api/resumes/[id]/download-docx/docx-modern'
-import { generateProfessionalDocx } from '@/app/api/resumes/[id]/download-docx/docx-professional'
 import { generateSwissVocationalDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-vocational'
 import { generateSwissCommerceDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-commerce'
 import { generateSwissTradesDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-trades'
@@ -41,10 +31,12 @@ import { generateSwissExecutiveDocx } from '@/app/api/resumes/[id]/download-docx
 import { generateSwissAcademicDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-academic'
 import { generateSwissFirstJobDocx } from '@/app/api/resumes/[id]/download-docx/docx-swiss-first-job'
 import { pxToHalfPoints, type DocxGeneratorSettings } from '@/app/api/resumes/[id]/download-docx/docx-helpers'
+import { RESUME_TEMPLATES } from '@/lib/resume-templates'
 
 /**
  * Part 3 US-011: the font scale and the four per-property sizes reach every
- * surface of every template that draws them.
+ * surface of every template that draws them — and no Swiss template draws any
+ * of them, so a stored size must move neither its Preview nor its DOCX.
  *
  * `TEMPLATE_APPLIED_SIZE_KEYS` (US-014) is the contract both halves are held
  * to, and it is read here rather than restated: a template that applies a key
@@ -76,15 +68,11 @@ const BUMPED: Readonly<Record<PerPropertySizeKey, number>> = {
   sectionDescFontSize: 15,
 }
 
-const SIZE_KEYS = LAYOUT_CONTROL_KEYS.perPropertySize as readonly PerPropertySizeKey[]
+const SIZE_KEYS = Object.keys(CHOSEN) as readonly PerPropertySizeKey[]
 
-const TEMPLATES: readonly ResumeTemplate[] = ['classic', 'minimal', 'creative', 'modern', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
+const TEMPLATES: readonly ResumeTemplate[] = RESUME_TEMPLATES
 
-const PREVIEWS: Readonly<Partial<Record<ResumeTemplate, ComponentType<never>>>> = {
-  classic: ClassicTemplate as ComponentType<never>,
-  minimal: MinimalTemplate as ComponentType<never>,
-  creative: CreativeTemplate as ComponentType<never>,
-  modern: ModernTemplate as ComponentType<never>,
+const PREVIEWS: Readonly<Record<ResumeTemplate, ComponentType<never>>> = {
   swissVocational: SwissVocationalTemplate as ComponentType<never>,
   swissCommerce: SwissCommerceTemplate as ComponentType<never>,
   swissTrades: SwissTradesTemplate as ComponentType<never>,
@@ -100,11 +88,6 @@ const PREVIEWS: Readonly<Partial<Record<ResumeTemplate, ComponentType<never>>>> 
 const GENERATORS: Readonly<
   Record<ResumeTemplate, (resume: unknown, settings: DocxGeneratorSettings) => Promise<Buffer>>
 > = {
-  classic: generateClassicDocx,
-  minimal: generateMinimalDocx,
-  creative: generateCreativeDocx,
-  modern: generateModernDocx,
-  professional: generateProfessionalDocx,
   swissVocational: generateSwissVocationalDocx,
   swissCommerce: generateSwissCommerceDocx,
   swissTrades: generateSwissTradesDocx,
@@ -121,7 +104,7 @@ const RESUME = {
   id: 'r1',
   user_id: 'u1',
   title: 'Font sizes',
-  template: 'classic',
+  template: 'swissCommerce',
   contact: {
     fullName: 'Sam Doe',
     name: 'Sam Doe',
@@ -185,13 +168,11 @@ function settingsFor(layout: Layout): DocxGeneratorSettings {
 /** Every inline font size the Preview writes, in px, in document order. */
 function previewSizes(template: ResumeTemplate, layout: Layout): number[] {
   const component = PREVIEWS[template]
-  if (!component) throw new Error(`${template} has no Preview in this suite`)
   const html = renderToString(
     createElement(component as ComponentType<Record<string, unknown>>, {
       resume: RESUME,
       locale: 'en',
       dict: en,
-      sidebarColor: 'hsl(240, 85%, 35%)',
       titleFontSize: layout.titleFontSize,
       contactFontSize: layout.contactFontSize,
       sectionTitleFontSize: layout.sectionTitleFontSize,
@@ -214,14 +195,14 @@ const count = (sizes: readonly number[], value: number) => sizes.filter((size) =
 
 describe('the per-property sizes each template applies', () => {
   it('is the same question for the Preview and the DOCX', () => {
-    // Guards the premise of every test below: the suite covers all five
-    // templates and all four keys, so a key added to the model cannot slip
-    // past unexercised.
+    // Guards the premise of every test below: the suite covers every template
+    // and all four keys, so a key added to the model cannot slip past
+    // unexercised.
     expect(Object.keys(TEMPLATE_APPLIED_SIZE_KEYS).sort()).toEqual([...TEMPLATES].sort())
     expect(SIZE_KEYS).toHaveLength(4)
   })
 
-  describe.each(TEMPLATES.filter((template) => PREVIEWS[template]))('%s Preview', (template) => {
+  describe.each(TEMPLATES)('%s Preview', (template) => {
     const applied = TEMPLATE_APPLIED_SIZE_KEYS[template]
 
     it.each(applied)('draws %s at the stored size times the model scale', (key) => {
@@ -236,9 +217,8 @@ describe('the per-property sizes each template applies', () => {
 
     it('is unmoved by a size the map says it does not apply', () => {
       // By response rather than by absence: a stock size the template draws
-      // may coincide with an unapplied stored one (modern's 16px section
-      // heading is 24px at this scale, and so is contactFontSize), and a
-      // coincidence is not an application.
+      // may coincide with an unapplied stored one, and a coincidence is not an
+      // application.
       const base = previewSizes(template, layoutFor({ fontScale: SCALE }))
       for (const key of SIZE_KEYS) {
         if (applied.includes(key)) continue

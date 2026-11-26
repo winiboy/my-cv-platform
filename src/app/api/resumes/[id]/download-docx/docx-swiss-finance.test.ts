@@ -649,14 +649,17 @@ describe('swissFinance: Word layout (FR-10)', () => {
     expect(texts.slice(at, at + 4)).toEqual(['First paragraph.', '•\tOne', '•\tTwo', 'Last paragraph.'])
   })
 
-  it('sets the page margins to the Preview’s padding', async () => {
+  it('gives every page the PDF’s top and foot margins, the Preview’s padding, so both break pages alike (swiss-templates-only-page-fidelity US-002)', async () => {
     const xml = await documentXml(resumeRow(), 'en')
     const g = SWISS_FINANCE_GEOMETRY
+    expect(g.pageTop).toBe(g.paddingTop)
+    expect(g.pageBottom).toBe(g.paddingBottom)
     expect(xml).toMatch(
       new RegExp(
-        `<w:pgMar [^>]*w:top="${pxToTwips(g.paddingTop)}"[^>]*w:right="${pxToTwips(g.paddingX)}"[^>]*w:bottom="${pxToTwips(g.paddingBottom)}"[^>]*w:left="${pxToTwips(g.paddingX)}"`,
+        `<w:pgMar w:top="${pxToTwips(g.pageTop)}" w:right="${pxToTwips(g.paddingX)}" w:bottom="${pxToTwips(g.pageBottom)}" w:left="${pxToTwips(g.paddingX)}" w:header="0" w:footer="0"`,
       ),
     )
+    expect(xml.split('<w:pgMar').length - 1).toBe(1)
   })
 
   it('writes run positions and border distances only in whole units Word keeps', async () => {

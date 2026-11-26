@@ -1,16 +1,11 @@
 import { createElement, type ComponentType } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import type { BuiltResumeTemplate as ResumeTemplate, Resume } from '@/types/database'
+import type { ResumeTemplate, Resume } from '@/types/database'
 import de from '@/locales/de/common.json'
 import en from '@/locales/en/common.json'
 import fr from '@/locales/fr/common.json'
 import it_ from '@/locales/it/common.json'
-import { ClassicTemplate } from '@/components/dashboard/resume-templates/classic-template'
-import { CreativeTemplate } from '@/components/dashboard/resume-templates/creative-template'
-import { MinimalTemplate } from '@/components/dashboard/resume-templates/minimal-template'
-import { ModernTemplate } from '@/components/dashboard/resume-templates/modern-template'
-import { ProfessionalTemplate } from '@/components/dashboard/resume-templates/professional-template'
 import { SwissVocationalTemplate } from '@/components/dashboard/resume-templates/swiss-vocational-template'
 import { SwissCommerceTemplate } from '@/components/dashboard/resume-templates/swiss-commerce-template'
 import { SwissTradesTemplate } from '@/components/dashboard/resume-templates/swiss-trades-template'
@@ -31,7 +26,7 @@ import { buildResumeFromJobOffer, type AiResumeContent, type ResumeDraftContent 
 import { RESUME_CONTENT_LANGUAGES, RESUME_SAMPLE_VALUES, type ResumeContentLanguage } from './sample-values'
 
 /**
- * The builder's resume, rendered by each of the five templates exactly as the
+ * The builder's resume, rendered by each template exactly as the
  * Preview renders a stored resume (server render, as in `rich-text.test.ts`),
  * for a draft built from sample values only and for one built with AI content.
  *
@@ -46,11 +41,6 @@ import { RESUME_CONTENT_LANGUAGES, RESUME_SAMPLE_VALUES, type ResumeContentLangu
  */
 
 const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
-  classic: ClassicTemplate as ComponentType<never>,
-  creative: CreativeTemplate as ComponentType<never>,
-  minimal: MinimalTemplate as ComponentType<never>,
-  modern: ModernTemplate as ComponentType<never>,
-  professional: ProfessionalTemplate as ComponentType<never>,
   swissVocational: SwissVocationalTemplate as ComponentType<never>,
   swissCommerce: SwissCommerceTemplate as ComponentType<never>,
   swissTrades: SwissTradesTemplate as ComponentType<never>,
@@ -114,25 +104,17 @@ type DraftName = keyof typeof DRAFTS
  * The rich-text fields each template sends through the sanitizer, one wrapper
  * each. Taken from the templates as they are (their rendering is out of this
  * story's scope):
- * - every template draws the summary, each skill category's `skillsHtml` and
- *   each project description (professional as its key-achievement entries);
- * - classic, creative, minimal and professional draw an experience's
- *   description only when it has no achievements, and every built experience
- *   has achievements, so they draw none; modern draws each description;
- * - only classic and the Swiss templates draw an education description;
- * - the Swiss templates draw no projects, except swissEngineering, swissIt,
+ * - every template draws the summary and each education description;
+ * - every template draws each skill category's `skillsHtml`, except where a
+ *   template draws a skill paragraph otherwise (below); swissExecutive draws
+ *   no skills at all;
+ * - the templates draw no projects, except swissEngineering, swissIt,
  *   swissExecutive and swissAcademic, which draw each project's description;
- *   swissExecutive draws no skills at all;
  * - swissTrades draws a comma-separated skill paragraph as tags, swissHealth
  *   and swissFinance as one line of plain text, swissEngineering as one line
  *   per skill, and swissIt as tags.
  */
 const EXPECTED_RICH_FIELDS: Readonly<Record<ResumeTemplate, (draft: ResumeDraftContent) => number>> = {
-  classic: (d) => 1 + d.skills.length + d.projects.length + d.education.length,
-  creative: (d) => 1 + d.skills.length + d.projects.length,
-  minimal: (d) => 1 + d.skills.length + d.projects.length,
-  modern: (d) => 1 + d.skills.length + d.projects.length + d.experience.length,
-  professional: (d) => 1 + d.skills.length + d.projects.length,
   swissVocational: (d) => 1 + d.skills.length + d.education.length,
   swissCommerce: (d) => 1 + d.skills.length + d.education.length,
   // A skill category whose rich text is one comma-separated paragraph, as
@@ -181,12 +163,6 @@ type DrawnField =
  * id or URL, or a project's URL, so those are not listed as drawn fields.
  */
 const NOT_DRAWN: Readonly<Record<ResumeTemplate, readonly DrawnField[]>> = {
-  // These three draw the resume title as the headline in place of the name.
-  classic: ['name'],
-  creative: ['name'],
-  minimal: ['name'],
-  modern: ['gpa'],
-  professional: ['technology'],
   // Its mockup has no projects section and no GPA.
   swissVocational: ['gpa', 'project', 'technology'],
   swissCommerce: ['gpa', 'project', 'technology'],

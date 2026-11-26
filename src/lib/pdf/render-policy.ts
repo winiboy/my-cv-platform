@@ -89,6 +89,12 @@ function configuredOrigin(configured: string | undefined): string | null {
  * No resume content, cookie or credential is sent: the requests are
  * cross-origin, so the browser attaches no app cookie, and the referrer is cut
  * to the bare origin by the app's `Referrer-Policy`.
+ *
+ * NO LONGER USED BY ANY RESUME SURFACE. The `<link>` above was removed with
+ * the legacy font picker, and every Swiss template draws in Inter or a system
+ * stack, so the renderer no longer requests either host. The allowance is
+ * kept because swiss-templates-only-page-fidelity leaves the PDF route's
+ * network policy unchanged; narrowing it is a separate change.
  */
 const FONT_STYLESHEET_ORIGIN = 'https://fonts.googleapis.com'
 const FONT_FILE_ORIGIN = 'https://fonts.gstatic.com'

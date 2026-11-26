@@ -3,7 +3,7 @@ import path from 'node:path'
 import { deflateSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
 import { parseSfnt } from '@/test/font-tables'
-import { TRUETYPE_SFNT_VERSION, buildCmap, cmapGlyphId, decodeWoff, encodeSfnt, tableChecksum } from './sfnt'
+import { TRUETYPE_SFNT_VERSION, buildCmap, cmapGlyphId, cmapGlyphIds, decodeWoff, encodeSfnt, tableChecksum } from './sfnt'
 
 const GELASIO_WOFF = readFileSync(
   path.join(process.cwd(), 'node_modules', '@fontsource', 'gelasio', 'files', 'gelasio-latin-400-normal.woff'),
@@ -52,6 +52,24 @@ describe('buildCmap', () => {
     ['the missing glyph', new Map([[0x2010, 0]])],
   ])('refuses %s', (_label, mapping) => {
     expect(() => buildCmap(mapping)).toThrow()
+  })
+})
+
+describe('cmapGlyphIds', () => {
+  it('lists exactly what buildCmap mapped', () => {
+    const mapping = new Map([[0x41, 36], [0x42, 37], [0x2010, 7]])
+    expect(cmapGlyphIds(buildCmap(mapping))).toEqual(mapping)
+  })
+
+  it('gives every code point of a real font the glyph cmapGlyphId gives it, and lists no other', () => {
+    const cmap = decodeWoff(GELASIO_WOFF).get('cmap') as Buffer
+    const glyphIds = cmapGlyphIds(cmap)
+    expect(glyphIds.size).toBeGreaterThan(200)
+    const disagreements: number[] = []
+    for (let codePoint = 0; codePoint < 0xffff; codePoint++) {
+      if ((glyphIds.get(codePoint) ?? 0) !== cmapGlyphId(cmap, codePoint)) disagreements.push(codePoint)
+    }
+    expect(disagreements).toEqual([])
   })
 })
 

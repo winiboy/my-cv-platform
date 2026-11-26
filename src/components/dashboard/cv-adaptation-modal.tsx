@@ -10,10 +10,8 @@ import type { TemplatePickerStrings } from '@/lib/template-picker-strings'
 import { withCategory, type CVAdaptationStrings } from '@/lib/cv-adaptation-strings'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
 import type { ResumeTemplate } from '@/types/database'
+import { DEFAULT_RESUME_TEMPLATE } from '@/lib/resume-templates'
 import type { JobOfferApplicationInput } from '@/lib/job-applications/job-listing-to-application'
-
-/** The template a CV created from a job offer gets unless the user picks another. */
-const CREATE_NEW_CV_DEFAULT_TEMPLATE: ResumeTemplate = 'professional'
 
 const TABBABLE_CANDIDATES = 'a[href], button, input, select, textarea, [tabindex]'
 
@@ -88,7 +86,7 @@ export function CVAdaptationModal({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string>('')
   const [progressMessage, setProgressMessage] = useState('')
-  const [template, setTemplate] = useState<ResumeTemplate>(CREATE_NEW_CV_DEFAULT_TEMPLATE)
+  const [template, setTemplate] = useState<ResumeTemplate>(DEFAULT_RESUME_TEMPLATE)
   const templateLabelId = useId()
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -162,7 +160,7 @@ export function CVAdaptationModal({
       setJobDescription(initialJobDescription)
       setJobTitle(initialJobTitle)
       setCompany(initialCompany)
-      setTemplate(CREATE_NEW_CV_DEFAULT_TEMPLATE)
+      setTemplate(DEFAULT_RESUME_TEMPLATE)
       setStage('input')
       setPatch(null)
       setSelectedPatches(new Set())

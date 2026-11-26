@@ -163,7 +163,7 @@ test('resume editor paragraphs keep the shared zero margin', async ({
   page,
   authedUser,
 }, testInfo) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic', {
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', {
     experience: [{ ...FIXTURE_EXPERIENCE[0], description: RESUME_DESCRIPTION }],
   })
 

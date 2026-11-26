@@ -31,7 +31,7 @@ function seedResume(fields: Row = {}): Row {
     id: crypto.randomUUID(),
     user_id: USER_ID,
     title: 'A CV',
-    template: 'classic',
+    template: 'swissFinance',
     job_application_id: null,
     ...fields,
   })
@@ -183,11 +183,11 @@ describe('linkResumeToJobApplication', () => {
 
   it('returns the linked CV for the caller to show', async () => {
     const application = seedApplication()
-    const resume = seedResume({ title: 'Data CV', template: 'modern' })
+    const resume = seedResume({ title: 'Data CV', template: 'swissEngineering' })
 
     await expect(link(resume, application)).resolves.toEqual({
       ok: true,
-      resume: { id: resume.id, title: 'Data CV', template: 'modern' },
+      resume: { id: resume.id, title: 'Data CV', template: 'swissEngineering' },
       staleLink: null,
     })
   })

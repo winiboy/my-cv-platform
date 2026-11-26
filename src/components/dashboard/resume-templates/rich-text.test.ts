@@ -1,13 +1,8 @@
 import { createElement, type ComponentType } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import type { BuiltResumeTemplate as ResumeTemplate, Resume } from '@/types/database'
+import type { ResumeTemplate, Resume } from '@/types/database'
 import en from '@/locales/en/common.json'
-import { ClassicTemplate } from '@/components/dashboard/resume-templates/classic-template'
-import { CreativeTemplate } from '@/components/dashboard/resume-templates/creative-template'
-import { MinimalTemplate } from '@/components/dashboard/resume-templates/minimal-template'
-import { ModernTemplate } from '@/components/dashboard/resume-templates/modern-template'
-import { ProfessionalTemplate } from '@/components/dashboard/resume-templates/professional-template'
 import { SwissVocationalTemplate } from '@/components/dashboard/resume-templates/swiss-vocational-template'
 import { SwissCommerceTemplate } from '@/components/dashboard/resume-templates/swiss-commerce-template'
 import { SwissTradesTemplate } from '@/components/dashboard/resume-templates/swiss-trades-template'
@@ -41,11 +36,6 @@ interface TemplateProps {
 }
 
 const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
-  classic: ClassicTemplate as ComponentType<never>,
-  creative: CreativeTemplate as ComponentType<never>,
-  minimal: MinimalTemplate as ComponentType<never>,
-  modern: ModernTemplate as ComponentType<never>,
-  professional: ProfessionalTemplate as ComponentType<never>,
   swissVocational: SwissVocationalTemplate as ComponentType<never>,
   swissCommerce: SwissCommerceTemplate as ComponentType<never>,
   swissTrades: SwissTradesTemplate as ComponentType<never>,
@@ -60,21 +50,21 @@ const TEMPLATES: Record<ResumeTemplate, ComponentType<never>> = {
 
 const TEMPLATE_IDS = Object.keys(TEMPLATES) as ResumeTemplate[]
 
-/** Templates that render a project description at all. Professional has no projects section. */
-const RENDERS_PROJECT_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'creative', 'minimal', 'modern', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic']
+/** Templates that render a project description at all. */
+const RENDERS_PROJECT_DESCRIPTION: readonly ResumeTemplate[] = ['swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic']
 
 /** Templates whose mockup draws no skills section, so they render no skill at all (swiss-cv-templates US-008). */
 const DRAWS_NO_SKILLS: readonly ResumeTemplate[] = ['swissExecutive']
 
 /** Templates that render an education description at all. */
-const RENDERS_EDUCATION_DESCRIPTION: readonly ResumeTemplate[] = ['classic', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
+const RENDERS_EDUCATION_DESCRIPTION: readonly ResumeTemplate[] = ['swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
 
 function buildResume(overrides: Partial<Record<string, unknown>>): Resume {
   return {
     id: 'r1',
     user_id: 'u1',
     title: 'Rich text',
-    template: 'classic',
+    template: 'swissCommerce',
     contact: { fullName: 'Ada Lovelace', email: 'ada@example.test' },
     summary: 'Engineer.',
     experience: [

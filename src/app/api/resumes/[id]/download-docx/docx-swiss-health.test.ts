@@ -150,7 +150,9 @@ async function documentXml(row: Row, locale: Locale, extra: Partial<DocxGenerato
   const zip = await JSZip.loadAsync(await generateSwissHealthDocx(row, settingsFor(row, locale, extra)))
   const part = zip.file('word/document.xml')
   if (part === null) throw new Error('The artifact has no word/document.xml')
-  return part.async('string')
+  // A non-breaking hyphen is a hyphen of the text, written as an element of its
+  // own between two text nodes: read it back into its text node.
+  return (await part.async('string')).replace(/<\/w:t><w:noBreakHyphen\/><w:t xml:space="preserve">/g, '-')
 }
 
 /** The document's text, run by run, in document order. */
@@ -422,8 +424,11 @@ describe('swissHealth: the photo (FR-5, FR-14)', () => {
     expect(preview).not.toContain('swiss-health-photo')
     const xml = await documentXml(resumeRow(), 'en')
     expect(photoDrawing(xml)).toBeUndefined()
-    // No photo: the name block is not put in a table at all.
-    expect(xml.indexOf('>Robin Halvorsen<')).toBeLessThan(xml.indexOf('<w:tbl>'))
+    // No photo: the name block alone is the header, a one-cell table, so it floats as the photo's row does.
+    const header = xml.slice(xml.indexOf('<w:tbl>'), xml.indexOf('</w:tbl>'))
+    expect(header).toContain('>Robin Halvorsen<')
+    expect(header).toContain('<w:tblpPr')
+    expect(header.match(/<w:tc>/g)).toHaveLength(1)
   })
 
   it('draws no frame for data that is not an image it can embed', async () => {
@@ -587,14 +592,43 @@ describe('swissHealth: Word layout (FR-10)', () => {
     expect(texts.slice(at, at + 4)).toEqual(['First paragraph.', '•\tOne', '•\tTwo', 'Last paragraph.'])
   })
 
-  it('sets the page margins to the Preview’s padding', async () => {
+  it('gives every page the PDF’s top and foot margins, so page 2 does not start at the paper’s edge and both break pages alike (swiss-templates-only-page-fidelity US-002)', async () => {
     const xml = await documentXml(resumeRow(), 'en')
     const g = SWISS_HEALTH_GEOMETRY
     expect(xml).toMatch(
       new RegExp(
-        `<w:pgMar [^>]*w:top="${pxToTwips(g.paddingTop)}"[^>]*w:right="${pxToTwips(g.paddingX)}"[^>]*w:bottom="${pxToTwips(g.paddingBottom)}"[^>]*w:left="${pxToTwips(g.paddingX)}"`,
+        `<w:pgMar w:top="${pxToTwips(g.pageTop)}" w:right="${pxToTwips(g.paddingX)}" w:bottom="${pxToTwips(g.pageBottom)}" w:left="${pxToTwips(g.paddingX)}" w:header="0" w:footer="0"`,
       ),
     )
+    // One section, so one set of margins for every page.
+    expect(xml.split('<w:pgMar').length - 1).toBe(1)
+  })
+
+  /** A table's floating position, `w:tblpPr`, as its attributes. */
+  const floatOf = (table: string) =>
+    Object.fromEntries([...(/<w:tblpPr\b([^>]*?)\/?>/.exec(table)?.[1] ?? '').matchAll(/w:(\w+)="([^"]*)"/g)].map(([, key, value]) => [key, value]))
+
+  it('starts page 1 at the Preview’s top padding: the header floats there, with the Preview’s gap under it, above the later pages’ top margin', async () => {
+    const g = SWISS_HEALTH_GEOMETRY
+    for (const photoBase64 of [undefined, PHOTO]) {
+      const xml = await documentXml(resumeRow(), 'en', { photoBase64 })
+      const header = xml.slice(xml.indexOf('<w:tbl>'), xml.indexOf('</w:tbl>'))
+      expect(header).toContain('>Robin Halvorsen<')
+      expect(floatOf(header)).toEqual({
+        horzAnchor: 'margin',
+        vertAnchor: 'page',
+        tblpX: '0',
+        tblpY: String(pxToTwips(g.paddingTop)),
+        topFromText: '0',
+        leftFromText: '0',
+        rightFromText: '0',
+        bottomFromText: String(pxToTwips(g.headerGap)),
+      })
+      expect(header).toContain('<w:tblOverlap w:val="never"/>')
+      // The header is the only floating table: the sections flow below it.
+      expect(xml.split('<w:tblpPr').length - 1).toBe(1)
+    }
+    expect(g.paddingTop).toBeLessThan(g.pageTop)
   })
 
   it('ignores the stored font family and scale (FR-4)', async () => {

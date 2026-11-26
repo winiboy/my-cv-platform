@@ -53,9 +53,13 @@ import {
 } from '@/lib/swiss-academic-template'
 import { visibleContactDetails } from '@/lib/contact-visibility'
 import {
+  KEEP_LINES,
+  KEEP_WITH_NEXT,
   NO_TEXT_LINE,
   exactLineSpacing,
   extractAlignment,
+  keepAt,
+  noBreakHyphenChildren,
   parseHtmlToDocxRuns,
   parsePlainTextBlocks,
   parsePlainTextListToParagraphs,
@@ -63,6 +67,7 @@ import {
   pxToTwips,
   trackingSpacing,
   type DocxGeneratorSettings,
+  type ParagraphKeep,
 } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
 import { FORMATTED_LIST_INDENT_PX, FORMATTED_LIST_MARKER_EM, bareInlineFormatTags, formattedBlocks } from './docx-preview-metrics'
@@ -108,7 +113,7 @@ const pxToPoints = (px: number) => Math.round(px * 0.75)
 const emptyParagraph = () => new Paragraph({ children: [], spacing: { before: 0, after: 0, ...NO_TEXT_LINE } })
 
 /** A paragraph drawing no text that carries a vertical gap of `twips`. */
-const spacer = (twips: number) => new Paragraph({ children: [], spacing: { before: 0, after: twips, ...NO_TEXT_LINE } })
+const spacer = (twips: number, keep?: ParagraphKeep) => new Paragraph({ children: [], spacing: { before: 0, after: twips, ...NO_TEXT_LINE }, ...keep })
 
 /**
  * How much narrower than its line a link must measure in Georgia to be held to
@@ -132,7 +137,7 @@ export function swissAcademicLinkChildren(text: string, linePx: number, halfPoin
   if (georgiaTextWidthPx(text, 'regular', halfPoints / 1.5) > linePx - SWISS_ACADEMIC_SAFETY_PX) {
     return [isEmail ? text : swissItLinkParts(text).join(TAG_BREAK)]
   }
-  return text.split('-').flatMap((part, index) => [...(index > 0 ? [new NoBreakHyphen()] : []), ...(part ? [part] : [])])
+  return noBreakHyphenChildren(text)
 }
 
 /**
@@ -245,9 +250,17 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
    * HTML as one paragraph per block the browser draws (`formattedBlocks`),
    * plain text by `formatText`'s rules. `indent` moves every paragraph in by
    * that many twips (a publication's text, under its number), and `numbered`
-   * puts the publication's number on the first paragraph.
+   * puts the publication's number on the first paragraph. `keep`: the keep
+   * rules of the last paragraph, inside a block print keeps whole (`keepAt`).
    */
-  const richParagraphs = (text: string, color: string, options: { spacingBefore?: number; indent?: number; numbered?: boolean } = {}): Paragraph[] => {
+  const richParagraphs = (
+    text: string,
+    color: string,
+    options: { spacingBefore?: number; indent?: number; numbered?: boolean; keep?: ParagraphKeep } = {},
+  ): Paragraph[] => {
+    const { keep } = options
+    /** A paragraph more of the text follows. */
+    const keepInside = keep ? KEEP_WITH_NEXT : {}
     const runOptions = { size: size.body, color, font }
     const lineSpacing = exactLineSpacing([formattedTextLineHeight(text, LINE_HEIGHT.text), line.body])
     const alignment = extractAlignment(text)
@@ -259,7 +272,14 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
      * number and its own marker, and every item is numbered.
      */
     const numberLead = () =>
-      new Paragraph({ children: [], numbering, indent: { left, hanging: left }, alignment, spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.text, line.body]) } })
+      new Paragraph({
+        children: [],
+        numbering,
+        indent: { left, hanging: left },
+        alignment,
+        spacing: { after: 0, ...exactLineSpacing([LINE_HEIGHT.text, line.body]) },
+        ...keepInside,
+      })
     let paragraphs: Paragraph[]
     if (rendersAsFormattedContent(text)) {
       const blocks = formattedBlocks(text)
@@ -283,6 +303,7 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
           // The same tab stop as an experience's bullets: the marker's tab lands on the text.
           ...(block.marker === null ? {} : { tabStops: [{ type: TabStopType.LEFT, position: listLeft }] }),
           spacing: { after: 0, ...lineSpacing },
+          ...keepAt(keep, index, blocks.length),
         })
       })
       if (options.numbered && !numberFirst && paragraphs.length > 0) paragraphs.unshift(numberLead())
@@ -295,7 +316,7 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
       if (options.numbered && first !== undefined && first.type !== 'text') {
         paragraphs = [
           numberLead(),
-          ...parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing, indent: { left } }),
+          ...parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing, indent: { left }, keep }),
         ]
       } else if (options.numbered && first?.type === 'text') {
         const lines = first.lines.length > 1 && first.lines[first.lines.length - 1].trim() === '' ? first.lines.slice(0, -1) : first.lines
@@ -305,11 +326,20 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
           if (textLine) runs.push(new TextRun({ text: textLine, ...runOptions }))
         })
         const tail = text.split(/\n\n+/).slice(1).join('\n\n')
+        const tailParagraphs =
+          tail && rest.length > 0
+            ? parsePlainTextListToParagraphs(tail, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing, indent: { left }, keep })
+            : []
         paragraphs = [
-          new Paragraph({ children: runs, numbering, indent: { left, hanging: left }, alignment, spacing: { after: 0, ...lineSpacing } }),
-          ...(tail && rest.length > 0
-            ? parsePlainTextListToParagraphs(tail, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing, indent: { left } })
-            : []),
+          new Paragraph({
+            children: runs,
+            numbering,
+            indent: { left, hanging: left },
+            alignment,
+            spacing: { after: 0, ...lineSpacing },
+            ...(tailParagraphs.length > 0 ? keepInside : keep),
+          }),
+          ...tailParagraphs,
         ]
       } else {
         paragraphs = parsePlainTextListToParagraphs(text, runOptions, {
@@ -318,10 +348,11 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
           alignment,
           lineSpacing,
           indent: left > 0 ? { left } : undefined,
+          keep,
         })
       }
     }
-    if (options.spacingBefore && paragraphs.length > 0) paragraphs.unshift(spacer(options.spacingBefore))
+    if (options.spacingBefore && paragraphs.length > 0) paragraphs.unshift(spacer(options.spacingBefore, keep ? KEEP_WITH_NEXT : undefined))
     return paragraphs
   }
 
@@ -346,14 +377,23 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
       keepNext: true,
     })
 
+  /**
+   * The keep rules of a dated entry's paragraphs. With a date column each
+   * entry is a table row that does not split, and a paragraph kept with the
+   * next one would keep its row with the next row, so there are none. Without
+   * one, an entry is paragraphs, kept whole as print keeps it: `more` when
+   * more of the entry follows the paragraph.
+   */
+  const entryKeep = (more: boolean): ParagraphKeep | undefined => (dateColumnPx === 0 ? (more ? KEEP_WITH_NEXT : KEEP_LINES) : undefined)
+
   /** An entry's line: its lead (bold when `bold`), then " — " and its place. */
-  const entryLine = (lead: string, rest: string, bold: boolean): Paragraph[] => {
+  const entryLine = (lead: string, rest: string, bold: boolean, keep?: ParagraphKeep): Paragraph[] => {
     if (!lead && !rest) return []
     // Not bold, the line is one run, as the Preview's one text node.
     const runs: TextRun[] = bold ? [] : [run(`${lead}${rest}`, PALETTE.body)]
     if (bold && lead) runs.push(run(lead, PALETTE.ink, { bold }))
     if (bold && rest) runs.push(run(rest, PALETTE.body))
-    return [new Paragraph({ children: runs, spacing: { after: 0, ...bodyLine } })]
+    return [new Paragraph({ children: runs, spacing: { after: 0, ...bodyLine }, ...keep })]
   }
 
   /**
@@ -457,7 +497,8 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
     switch (sectionId) {
       case 'summary':
         if (!swissHasText(row.summary)) return []
-        return [heading(swissHeading(dict, 'summary')), ...richParagraphs(row.summary, PALETTE.body)]
+        // Kept whole with its heading, as print keeps the section.
+        return [heading(swissHeading(dict, 'summary')), ...richParagraphs(row.summary, PALETTE.body, { keep: KEEP_LINES })]
 
       case 'education':
         if (education.length === 0) return []
@@ -467,10 +508,20 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
             education.map((edu) => ({
               dates: edu.dates,
               content: [
-                ...entryLine(edu.lead, edu.rest, true),
+                ...entryLine(edu.lead, edu.rest, true, entryKeep(Boolean(edu.field || edu.description))),
                 // The field of study, as the mockup's thesis line: stored text, italic, grey.
-                ...(edu.field ? [new Paragraph({ children: [run(edu.field, PALETTE.muted, { italics: true })], spacing: { after: 0, ...bodyLine } })] : []),
-                ...(edu.description ? richParagraphs(edu.description, PALETTE.body, { spacingBefore: pxToTwips(GEOMETRY.detailGap) }) : []),
+                ...(edu.field
+                  ? [
+                      new Paragraph({
+                        children: [run(edu.field, PALETTE.muted, { italics: true })],
+                        spacing: { after: 0, ...bodyLine },
+                        ...entryKeep(Boolean(edu.description)),
+                      }),
+                    ]
+                  : []),
+                ...(edu.description
+                  ? richParagraphs(edu.description, PALETTE.body, { spacingBefore: pxToTwips(GEOMETRY.detailGap), keep: entryKeep(false) })
+                  : []),
               ],
             })),
           ),
@@ -482,7 +533,7 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
           heading(swissHeading(dict, 'experience')),
           ...datedRows(
             experiences.map((exp) => {
-              const content: Paragraph[] = [...entryLine(exp.lead, exp.rest, true)]
+              const content: Paragraph[] = [...entryLine(exp.lead, exp.rest, true, entryKeep(exp.achievements.length > 0 || Boolean(exp.description)))]
               if (exp.achievements.length > 0) {
                 // The same bullet geometry as a description's list (`richParagraphs`).
                 const indent = pxToTwips(FORMATTED_LIST_INDENT_PX)
@@ -497,11 +548,12 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
                         after: 0,
                         ...exactLineSpacing([formattedTextLineHeight(achievement, LINE_HEIGHT.text), line.body]),
                       },
+                      ...keepAt(entryKeep(false), i, exp.achievements.length),
                     }),
                   )
                 })
               } else if (exp.description) {
-                content.push(...richParagraphs(exp.description, PALETTE.body, { spacingBefore: pxToTwips(GEOMETRY.detailGap) }))
+                content.push(...richParagraphs(exp.description, PALETTE.body, { spacingBefore: pxToTwips(GEOMETRY.detailGap), keep: entryKeep(false) }))
               }
               return { dates: exp.dates, content }
             }),
@@ -514,7 +566,11 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
         projects.forEach((project, index) => {
           if (index > 0) blocks.push(spacer(pxToTwips(GEOMETRY.publicationGap)))
           // The number on the item's first paragraph — its name, or else its
-          // description — and every further paragraph under it.
+          // description — and every further paragraph under it. The item is
+          // kept whole, as print keeps it.
+          const extras: { children: (string | NoBreakHyphen)[] }[] = []
+          if (project.technologies) extras.push({ children: [project.technologies] })
+          if (project.url) extras.push({ children: swissAcademicLinkChildren(project.url, SWISS_ACADEMIC_CONTENT_WIDTH - GEOMETRY.numberIndent, size.body) })
           if (project.name) {
             blocks.push(
               new Paragraph({
@@ -522,13 +578,19 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
                 numbering: { reference: SWISS_ACADEMIC_PUBLICATIONS_NUMBERING, level: 0 },
                 indent: { left: numberIndent, hanging: numberIndent },
                 spacing: { after: 0, ...bodyLine },
+                ...(project.description || extras.length > 0 ? KEEP_WITH_NEXT : KEEP_LINES),
               }),
             )
           }
-          if (project.description) blocks.push(...richParagraphs(project.description, PALETTE.body, { indent: numberIndent, numbered: !project.name }))
-          const extras: { children: (string | NoBreakHyphen)[] }[] = []
-          if (project.technologies) extras.push({ children: [project.technologies] })
-          if (project.url) extras.push({ children: swissAcademicLinkChildren(project.url, SWISS_ACADEMIC_CONTENT_WIDTH - GEOMETRY.numberIndent, size.body) })
+          if (project.description) {
+            blocks.push(
+              ...richParagraphs(project.description, PALETTE.body, {
+                indent: numberIndent,
+                numbered: !project.name,
+                keep: extras.length > 0 ? KEEP_WITH_NEXT : KEEP_LINES,
+              }),
+            )
+          }
           extras.forEach(({ children: runChildren }, extraIndex) => {
             const numbered = !project.name && !project.description && extraIndex === 0
             blocks.push(
@@ -537,6 +599,7 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
                 ...(numbered ? { numbering: { reference: SWISS_ACADEMIC_PUBLICATIONS_NUMBERING, level: 0 } } : {}),
                 indent: { left: numberIndent, hanging: numbered ? numberIndent : 0 },
                 spacing: { after: 0, ...bodyLine },
+                ...keepAt(KEEP_LINES, extraIndex, extras.length),
               }),
             )
           })
@@ -548,7 +611,7 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
         if (distinctions.length === 0) return []
         return [
           heading(swissHeading(dict, 'distinctions')),
-          ...datedRows(distinctions.map((cert) => ({ dates: cert.dates, content: entryLine(cert.lead, cert.rest, false) }))),
+          ...datedRows(distinctions.map((cert) => ({ dates: cert.dates, content: entryLine(cert.lead, cert.rest, false, entryKeep(false)) }))),
         ]
 
       case 'skillsAndLanguages': {
@@ -556,21 +619,24 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
         const blocks: (Paragraph | Table)[] = [
           heading(swissAcademicLastHeading(swissHeading(dict, 'skills'), swissHeading(dict, 'languages'), skills.length > 0, languages.length > 0)),
         ]
+        // The section is kept whole with its heading, as print keeps it.
         skills.forEach((skill, index) => {
           const before = index === 0 ? 0 : pxToTwips(GEOMETRY.lastRowGap)
+          const keep = index === skills.length - 1 && languages.length === 0 ? KEEP_LINES : KEEP_WITH_NEXT
           const label = skill.category ? run(swissAcademicSkillLabel(skill.category), PALETTE.ink, { bold: true }) : null
           if (skill.content.kind === 'text') {
             blocks.push(
               new Paragraph({
                 children: [...(label ? [label, run('\u00A0', PALETTE.body)] : []), run(skill.content.text, PALETTE.body)],
                 spacing: { before, after: 0, ...bodyLine },
+                ...keep,
               }),
             )
             return
           }
           // Rich text that is not a list of skills stands under its label.
-          if (label) blocks.push(new Paragraph({ children: [label], spacing: { before, after: 0, ...bodyLine }, keepNext: true }))
-          blocks.push(...richParagraphs(skill.content.html, PALETTE.body, { spacingBefore: label ? 0 : before }))
+          if (label) blocks.push(new Paragraph({ children: [label], spacing: { before, after: 0, ...bodyLine }, ...KEEP_WITH_NEXT }))
+          blocks.push(...richParagraphs(skill.content.html, PALETTE.body, { spacingBefore: label ? 0 : before, keep }))
         })
         if (languages.length > 0) {
           blocks.push(
@@ -581,6 +647,7 @@ export async function generateSwissAcademicDocx(resume: unknown, settings: DocxG
                 run(swissAcademicLanguagesText(languages), PALETTE.body),
               ],
               spacing: { before: skills.length > 0 ? pxToTwips(GEOMETRY.lastRowGap) : 0, after: 0, ...bodyLine },
+              ...KEEP_LINES,
             }),
           )
         }

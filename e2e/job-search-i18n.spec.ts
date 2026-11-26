@@ -65,7 +65,7 @@ type JobsDict = typeof en
 type TestLocale = 'fr' | 'de' | 'it' | 'en'
 
 const JOBS: Record<TestLocale, JobsDict> = { fr, de, it: it_, en }
-const TEMPLATE_NAMES: Record<TestLocale, { professional: string; modern: string }> = {
+const TEMPLATE_NAMES: Record<TestLocale, { swissCommerce: string; swissTrades: string }> = {
   fr: frCommon.resumes.templates,
   de: deCommon.resumes.templates,
   it: itCommon.resumes.templates,
@@ -252,7 +252,7 @@ async function stubJobSearch(page: Page): Promise<Stub> {
   return { firstPage: first, secondPage: second, save }
 }
 
-async function createResume(userId: string, title: string, template: 'professional' | 'modern'): Promise<void> {
+async function createResume(userId: string, title: string, template: 'swissCommerce' | 'swissTrades'): Promise<void> {
   const { error } = await admin()
     .from('resumes')
     .insert({ user_id: userId, title, template, updated_at: RESUME_UPDATED_AT, created_at: RESUME_UPDATED_AT })
@@ -289,8 +289,8 @@ const toast = (page: Page, text: string): Locator => page.getByRole('alert').fil
 async function walkJobSearch(page: Page, locale: TestLocale, userId: string): Promise<void> {
   const t = JOBS[locale]
   const stub = await stubJobSearch(page)
-  await createResume(userId, 'Job search i18n, one', 'professional')
-  await createResume(userId, 'Job search i18n, two', 'modern')
+  await createResume(userId, 'Job search i18n, one', 'swissCommerce')
+  await createResume(userId, 'Job search i18n, two', 'swissTrades')
 
   // Loading: the first page is held, so the loading state stays on screen.
   const response = await page.goto(`/${locale}/dashboard/jobs`)
@@ -368,7 +368,7 @@ async function walkJobSearch(page: Page, locale: TestLocale, userId: string): Pr
     .locator('xpath=ancestor::div[contains(@class, "shadow-xl")][1]')
   await expect(selector).toBeVisible()
   const names = TEMPLATE_NAMES[locale]
-  for (const name of [names.professional, names.modern]) {
+  for (const name of [names.swissCommerce, names.swissTrades]) {
     await expect(
       selector.getByText(t.resumeSelector.templateLabel.replace('{template}', name), { exact: true }),
     ).toBeVisible()
@@ -471,12 +471,12 @@ test('en: Job Search text is unchanged', async ({ page, authedUser }) => {
 
   await walkJobSearch(page, 'en', authedUser.id)
 
-  // The selector's template label still reads "Professional Template" on
-  // screen: the row is capitalized by CSS, as before.
+  // The selector's template label reads "Business & Administration Template"
+  // on screen: the row is capitalized by CSS, as before.
   const selector = page
     .getByRole('heading', { level: 2, name: en.createCV.selectResumeTitleWithCreate, exact: true })
     .locator('xpath=ancestor::div[contains(@class, "shadow-xl")][1]')
-  await expect(selector.getByText('Professional template', { exact: true })).toHaveText('Professional Template', {
+  await expect(selector.getByText('Business & administration template', { exact: true })).toHaveText('Business & Administration Template', {
     useInnerText: true,
   })
 })

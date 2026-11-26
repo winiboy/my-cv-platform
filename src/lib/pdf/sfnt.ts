@@ -96,6 +96,36 @@ export function cmapGlyphId(cmap: Buffer, codePoint: number): number {
   return 0
 }
 
+/**
+ * Every code point the Windows Unicode BMP `cmap` subtable maps to a drawable
+ * glyph, with that glyph id: the same answers as `cmapGlyphId`, read segment by
+ * segment instead of one code point at a time.
+ */
+export function cmapGlyphIds(cmap: Buffer): Map<number, number> {
+  const subtable = windowsBmpSubtableOffset(cmap)
+  if (cmap.readUInt16BE(subtable) !== 4) throw new Error('The cmap (3,1) subtable is not format 4')
+  const segCount = cmap.readUInt16BE(subtable + 6) / 2
+  const endCodes = subtable + 14
+  const startCodes = endCodes + segCount * 2 + 2
+  const idDeltas = startCodes + segCount * 2
+  const idRangeOffsets = idDeltas + segCount * 2
+  const glyphIds = new Map<number, number>()
+  for (let segment = 0; segment < segCount; segment++) {
+    const startCode = cmap.readUInt16BE(startCodes + segment * 2)
+    const endCode = cmap.readUInt16BE(endCodes + segment * 2)
+    const idDelta = cmap.readUInt16BE(idDeltas + segment * 2)
+    const idRangeOffsetAt = idRangeOffsets + segment * 2
+    const idRangeOffset = cmap.readUInt16BE(idRangeOffsetAt)
+    // The 0xFFFF segment format 4 requires last maps nothing.
+    for (let codePoint = startCode; codePoint <= endCode && codePoint < 0xffff; codePoint++) {
+      const raw = idRangeOffset === 0 ? codePoint : cmap.readUInt16BE(idRangeOffsetAt + idRangeOffset + (codePoint - startCode) * 2)
+      const glyphId = idRangeOffset !== 0 && raw === 0 ? 0 : (raw + idDelta) & 0xffff
+      if (glyphId !== 0) glyphIds.set(codePoint, glyphId)
+    }
+  }
+  return glyphIds
+}
+
 function windowsBmpSubtableOffset(cmap: Buffer): number {
   const numTables = cmap.readUInt16BE(2)
   for (let index = 0; index < numTables; index++) {

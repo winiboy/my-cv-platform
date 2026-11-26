@@ -2,41 +2,32 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
-import type { BuiltResumeTemplate as ResumeTemplate } from '@/types/database'
+import type { ResumeTemplate } from '@/types/database'
 import { templateComponentFile } from '@/test/resume-template-files'
 import { PREVIEW_PALETTE, TAILWIND_DEFAULT_TOKENS, THEME_TOKENS, type PreviewColour } from './resume-palette'
-import { PREVIEW_TEXT_ALPHA, type PreviewAlpha } from './resume-text-opacity'
+import { RESUME_TEMPLATES } from './resume-templates'
 
 /**
- * Part 3 US-003, extended by US-006: what a template paints may not drift from
- * what the Preview's source declares, in either direction.
+ * Part 3 US-003: what a template paints may not drift from what the Preview's
+ * source declares, in either direction.
  *
  * Forward: every value in `resume-palette.ts` equals what `globals.css`,
  * Tailwind's default theme or the template declares.
  *
  * Reverse: the colours a template draws outside its `print:hidden` editing
  * controls are listed in `DRAWN` below with the number of times the template
- * uses each, and each resolves to a palette entry, to a translucency
- * `resume-text-opacity.ts` declares, or to an exclusion that names its owner.
- * A colour added, removed, or used a different number of times fails here.
+ * uses each, and each resolves to a palette entry or to an exclusion that names
+ * its owner. A colour added, removed, or used a different number of times fails
+ * here.
  *
- * Translucency is part of what is painted, so the scan reads it too (US-006):
- * the `opacity-*` utilities and `opacity` styles a template sets, alongside the
- * colour modifiers (`text-white/90`) and `rgba()` literals it already read. The
- * translucency of TEXT — an `opacity-*` utility, a `text-…/…` modifier, an
- * inline `rgba()` text colour — must be one `PREVIEW_TEXT_ALPHA` declares for
- * that template, written the same way, and every entry it declares must be
- * drawn. A translucent FILL is not text: it keeps an owner, because the colour
- * the DOCX draws for it is a composite over what the DOCX itself draws behind
- * it, not a palette colour.
+ * Translucency is part of what is painted, so the scan reads it too: the
+ * `opacity-*` utilities and `opacity` styles a template sets, alongside colour
+ * modifiers (`text-white/90`) and `rgba()` literals. No Swiss template draws
+ * see-through text, and the scan holds them to that: text drawn translucent
+ * has no single colour the DOCX could write.
  *
- * Since US-007 the bars, pills, chips, rules and cards the Preview draws are
- * palette entries like any other colour, and the only owners left are ones no
- * later story retires: the user's colour, the page paper, the photo zone, the
- * later stops of a gradient, the two the Preview draws see-through, which are
- * drawn but are not opaque colours — modern's skill-bar track, written as a
- * composite, and creative's header circles, drawn as rasters with real alpha —
- * and creative's timeline dot, which is drawable and deliberately not drawn.
+ * The bars, pills, chips, rules and cards the Preview draws are palette
+ * entries like any other colour; the only owner left is the page paper.
  *
  * Covered:
  * - Class lists, read fully or rejected. Every named or arbitrary-value colour
@@ -58,15 +49,9 @@ import { PREVIEW_TEXT_ALPHA, type PreviewAlpha } from './resume-text-opacity'
  *   variable or interpolation in a border shorthand or `boxShadow`, an SVG
  *   `fill` / `stroke`, the HTML `color` attribute. None of these is a text
  *   colour, and none of today's templates uses one.
- * - Which element a colour or a translucency sits on: swapping two elements'
- *   colours without changing the counts passes here. The per-element DOCX tests
- *   and `pnpm test:parity` cover the sampled elements.
- * - Removing a `PREVIEW_TEXT_ALPHA` entry whose written form another entry of
- *   the same template shares — deleting `modern.certDate`, whose
- *   `rgba(255,255,255,0.6)` `modern.contactLabel` also writes. The forms drawn
- *   and the forms declared still match, because this compares forms, not
- *   entries; the DOCX loses the element, which `docx-text-opacity.test.ts`
- *   catches on a generated document, and `tsc` catches at the call site.
+ * - Which element a colour sits on: swapping two elements' colours without
+ *   changing the counts passes here. Each Swiss generator's own test covers
+ *   the elements it writes.
  */
 
 const ROOT = path.resolve(__dirname, '../..')
@@ -211,9 +196,7 @@ function classes(element: ts.JsxOpeningLikeElement): string[] {
  * Colour uses split by element, where one class is used by elements with
  * different owners. The use is keyed `<class> @ <the element's classes, sorted>`.
  */
-const SPLIT_BY_ELEMENT: Readonly<Partial<Record<ResumeTemplate, readonly string[]>>> = {
-  creative: ['text-white', 'bg-white', 'from-purple-500', 'to-pink-500'],
-}
+const SPLIT_BY_ELEMENT: Readonly<Partial<Record<ResumeTemplate, readonly string[]>>> = {}
 
 interface Scan {
   /** Each colour use of the template, counted. */
@@ -356,154 +339,13 @@ function scanTemplate(template: ResumeTemplate): Scan {
 // ---------------------------------------------------------------------------
 
 /** Why a drawn colour has no palette entry, and whose it is. */
-type Owner =
-  | "the user's colour, from the layout model"
-  | "later gradient stops: DOCX shading is solid, so the DOCX takes the first stop (a recorded LIMITATION)"
-  | 'the page paper: the DOCX page is white and writes no fill'
-  | 'the photo zone: the photo is browser-local and not in the DOCX (a recorded DECISION)'
-  | 'a translucent fill: the DOCX draws the composite over what it draws behind it (src/lib/resume-graphics.ts)'
-  | 'a translucent shape: the DOCX draws it as a floating raster whose alpha channel carries the tint (src/lib/resume-graphics.ts)'
-  | 'the experience timeline dot: the DOCX does not draw it, by an owner decision recorded in src/lib/resume-graphics.ts'
+type Owner = 'the page paper: the DOCX page is white and writes no fill'
 
-/**
- * `translucent` marks text the Preview draws see-through: its colour is not a
- * palette entry but the tint `resume-text-opacity.ts` declares, resolved
- * against that module below.
- */
-type Drawn =
-  | { count: number; palette: string }
-  | { count: number; translucent: true }
-  | { count: number; excluded: Owner }
+type Drawn = { count: number; palette: string } | { count: number; excluded: Owner }
 
-const USER: Owner = "the user's colour, from the layout model"
-const STOPS: Owner = 'later gradient stops: DOCX shading is solid, so the DOCX takes the first stop (a recorded LIMITATION)'
 const PAGE: Owner = 'the page paper: the DOCX page is white and writes no fill'
-const PHOTO: Owner = 'the photo zone: the photo is browser-local and not in the DOCX (a recorded DECISION)'
-const COMPOSITE: Owner =
-  'a translucent fill: the DOCX draws the composite over what it draws behind it (src/lib/resume-graphics.ts)'
-const RASTER: Owner =
-  'a translucent shape: the DOCX draws it as a floating raster whose alpha channel carries the tint (src/lib/resume-graphics.ts)'
-const DOT: Owner =
-  'the experience timeline dot: the DOCX does not draw it, by an owner decision recorded in src/lib/resume-graphics.ts'
 
 const DRAWN: Readonly<Record<ResumeTemplate, Readonly<Record<string, Drawn>>>> = {
-  professional: {
-    'text-white': { count: 1, palette: 'white' },
-    'border-white': { count: 4, palette: 'white' },
-    "style color: oklch(0.2 0 0)": { count: 7, palette: 'heading' },
-    "style borderColor: oklch(0.2 0 0)": { count: 3, palette: 'heading' },
-    "style color: oklch(0.3 0 0)": { count: 3, palette: 'body' },
-    "style color: oklch(0.4 0 0)": { count: 4, palette: 'meta' },
-    "style color: oklch(0.5 0 0)": { count: 3, palette: 'date' },
-    'style backgroundColor: white': { count: 1, excluded: PAGE },
-    'style backgroundColor: {activeSidebarColor}': { count: 1, excluded: USER },
-    // Key-achievement descriptions, skill items and language levels.
-    'opacity-80': { count: 3, translucent: true },
-  },
-  modern: {
-    'text-slate-900': { count: 2, palette: 'slate-900' },
-    'text-slate-700': { count: 3, palette: 'slate-700' },
-    'text-white': { count: 1, palette: 'white' },
-    'style color: #1a1a1a': { count: 3, palette: 'heading' },
-    'style color: #6b7280': { count: 3, palette: 'meta' },
-    'style color: #374151': { count: 2, palette: 'experienceBody' },
-    'style color: #FFFFFF': { count: 9, palette: 'white' },
-    'attr stroke: #FFFFFF': { count: 5, palette: 'white' },
-    'attr fill: #FFFFFF': { count: 1, palette: 'white' },
-    // Contact labels and certification dates; language levels and issuers; education schools.
-    'style color: rgba(255,255,255,0.6)': { count: 2, translucent: true },
-    'style color: rgba(255,255,255,0.7)': { count: 2, translucent: true },
-    'style color: rgba(255,255,255,0.8)': { count: 1, translucent: true },
-    // The skill bar's track, drawn over the sidebar fill (US-007).
-    'style backgroundColor: rgba(255,255,255,0.2)': { count: 1, excluded: COMPOSITE },
-    'style color: {accentColor}': { count: 1, excluded: USER },
-    'style backgroundColor: {accentColor}': { count: 6, excluded: USER },
-    'style backgroundColor: {activeSidebarColor}': { count: 1, excluded: USER },
-    'style backgroundColor: white': { count: 2, excluded: PAGE },
-    'style backgroundColor: #444444': { count: 1, excluded: PHOTO },
-    'attr fill: rgba(255,255,255,0.3)': { count: 2, excluded: PHOTO },
-    // The technology chips' fill; the DOCX shades one run per chip.
-    'bg-slate-100': { count: 1, palette: 'slate-100' },
-  },
-  classic: {
-    'text-slate-900': { count: 14, palette: 'slate-900' },
-    'text-slate-800': { count: 6, palette: 'slate-800' },
-    'text-slate-700': { count: 6, palette: 'slate-700' },
-    'text-slate-600': { count: 6, palette: 'slate-600' },
-    'border-slate-900': { count: 1, palette: 'slate-900' },
-    'border-slate-400': { count: 7, palette: 'slate-400' },
-    'bg-white': { count: 1, excluded: PAGE },
-  },
-  minimal: {
-    'text-slate-900': { count: 4, palette: 'slate-900' },
-    'text-slate-700': { count: 6, palette: 'slate-700' },
-    // One per skills branch: the rich-text one US-016 added, and the items list.
-    'text-slate-600': { count: 5, palette: 'slate-600' },
-    'text-slate-500': { count: 7, palette: 'slate-500' },
-    'text-slate-400': { count: 8, palette: 'slate-400' },
-    'bg-slate-400': { count: 1, palette: 'slate-400' },
-    'border-slate-300': { count: 1, palette: 'slate-300' },
-    'border-slate-200': { count: 7, palette: 'slate-200' },
-    'bg-white': { count: 1, excluded: PAGE },
-  },
-  creative: {
-    // The header, whose text is white; the header fill is the gradient below.
-    'text-white @ bg-gradient-to-br from-purple-600 overflow-hidden p-10 relative text-white to-orange-400 via-pink-500':
-      { count: 1, palette: 'white' },
-    // A technology pill: the DOCX shades one run per pill, in the gradient's first stop.
-    'text-white @ bg-gradient-to-r font-semibold from-purple-500 px-3 py-1 rounded-full text-white to-pink-500':
-      { count: 1, palette: 'white' },
-    'from-purple-500 @ bg-gradient-to-r font-semibold from-purple-500 px-3 py-1 rounded-full text-white to-pink-500':
-      { count: 1, palette: 'purple-500' },
-    'to-pink-500 @ bg-gradient-to-r font-semibold from-purple-500 px-3 py-1 rounded-full text-white to-pink-500':
-      { count: 1, excluded: STOPS },
-    // A language level bar segment, filled or empty: shaded cells of a nested table.
-    'from-purple-500 @ bg-gradient-to-r bg-slate-200 from-purple-500 h-1.5 rounded to-pink-500 w-full':
-      { count: 1, palette: 'purple-500' },
-    'to-pink-500 @ bg-gradient-to-r bg-slate-200 from-purple-500 h-1.5 rounded to-pink-500 w-full':
-      { count: 1, excluded: STOPS },
-    // The experience timeline dot. Neither stop is drawn: the DOCX draws the
-    // timeline's rule and no marker. Not STOPS, which is for a gradient whose
-    // first stop the DOCX does take.
-    'from-purple-500 @ absolute bg-gradient-to-br from-purple-500 h-3 left-0 rounded-full to-pink-500 top-1 w-3':
-      { count: 1, excluded: DOT },
-    'to-pink-500 @ absolute bg-gradient-to-br from-purple-500 h-3 left-0 rounded-full to-pink-500 top-1 w-3':
-      { count: 1, excluded: DOT },
-    // The bars before the section headings; the DOCX writes a purple-600 "|" in their place.
-    'to-pink-500 @ bg-gradient-to-b from-purple-600 h-6 to-pink-500 w-1': { count: 3, excluded: STOPS },
-    'to-pink-500 @ bg-gradient-to-b from-purple-600 h-8 to-pink-500 w-1.5': { count: 3, excluded: STOPS },
-    // The page paper.
-    'bg-white @ bg-white mx-auto print:shadow-none shadow-lg': { count: 1, excluded: PAGE },
-    // The three dots between the header's contact items.
-    'bg-white @ bg-white h-1.5 rounded-full w-1.5': { count: 3, palette: 'white' },
-    'text-purple-700': { count: 2, palette: 'purple-700' },
-    'bg-purple-100': { count: 2, palette: 'purple-100' },
-    'text-purple-600': { count: 8, palette: 'purple-600' },
-    // The header gradient's and the heading bars' first stop.
-    'from-purple-600': { count: 7, palette: 'purple-600' },
-    'text-purple-500': { count: 1, palette: 'purple-500' },
-    'text-slate-900': { count: 3, palette: 'slate-900' },
-    'text-slate-800': { count: 3, palette: 'slate-800' },
-    // Includes both skills branches: the rich-text one US-016 added, and the items list.
-    'text-slate-700': { count: 5, palette: 'slate-700' },
-    'text-slate-600': { count: 3, palette: 'slate-600' },
-    'text-slate-500': { count: 1, palette: 'slate-500' },
-    // The header summary, and the header's second contact row.
-    'text-white/90': { count: 1, translucent: true },
-    'text-white/80': { count: 1, translucent: true },
-    // The header gradient's later stops.
-    'via-pink-500': { count: 1, excluded: STOPS },
-    'to-orange-400': { count: 1, excluded: STOPS },
-    // A language level bar's empty segments.
-    'bg-slate-200': { count: 1, palette: 'slate-200' },
-    // The experience timeline line (a left paragraph border, at the gradient's first stop).
-    'from-purple-300': { count: 1, palette: 'purple-300' },
-    // The project card's rule and fill.
-    'border-purple-500': { count: 1, palette: 'purple-500' },
-    'bg-slate-50': { count: 1, palette: 'slate-50' },
-    // The header's decorative circles, drawn as floating PNG discs (US-007).
-    'bg-white/10': { count: 2, excluded: RASTER },
-  },
   swissVocational: {
     // The accent strip and the square before each section heading.
     'bg-red-700': { count: 2, palette: 'red-700' },
@@ -726,7 +568,7 @@ function utilityToken(use: string): string | null {
  * no text at all. Three forms make text see-through: an `opacity-*` utility on
  * the element, an opacity modifier on a text colour (`text-white/90`), and an
  * inline `rgba()` under `color`. A translucent fill, border or SVG paint is not
- * text and keeps its owner in `DRAWN`.
+ * text.
  */
 function textAlpha(use: string): number | null {
   const utility = use.split(' @ ')[0]
@@ -740,11 +582,6 @@ function textAlpha(use: string): number | null {
   const rgba = colour ? /^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\s*\)$/.exec(colour) : null
   if (rgba) return Number(rgba[1])
   return null
-}
-
-/** How `PREVIEW_TEXT_ALPHA` says the template writes one translucency, as the scan keys it. */
-function writtenForm(entry: PreviewAlpha): string {
-  return entry.source === 'inline' ? `style color: ${entry.css}` : entry.utility
 }
 
 /** Whether a drawn colour is the colour of the palette entry it claims. */
@@ -785,8 +622,8 @@ describe('PREVIEW_PALETTE', () => {
     Object.entries(PREVIEW_PALETTE[template]).map(([name, colour]: [string, PreviewColour]) => ({ template, name, colour })),
   )
 
-  it('covers every built template', () => {
-    expect([...TEMPLATES].sort()).toEqual(['classic', 'creative', 'minimal', 'modern', 'professional', 'swissAcademic', 'swissCommerce', 'swissEngineering', 'swissExecutive', 'swissFinance', 'swissFirstJob', 'swissHealth', 'swissIt', 'swissTrades', 'swissVocational'])
+  it('covers every template', () => {
+    expect([...TEMPLATES].sort()).toEqual([...RESUME_TEMPLATES].sort())
   })
 
   it('holds each Preview colour of a template once', () => {
@@ -843,28 +680,10 @@ describe.each(TEMPLATES)('%s-template.tsx draws only colours the palette or an o
     expect(Object.keys(PREVIEW_PALETTE[template]).filter((key) => !claimed.has(key))).toEqual([])
   })
 
-  it('marks every translucent text colour as one, and nothing else', () => {
-    const inventoried = Object.entries(expected)
-      .filter(([, entry]) => 'translucent' in entry)
-      .map(([use]) => use)
-      .sort()
+  it('draws no see-through text', () => {
     expect(
-      Object.keys(drawn).filter((use) => textAlpha(use) !== null).sort(),
-      'A use that draws text see-through is a translucency, not an owned exclusion, and the reverse.',
-    ).toEqual(inventoried)
-  })
-
-  it('draws the translucencies resume-text-opacity.ts declares for it, and no others', () => {
-    const declared: Readonly<Record<string, PreviewAlpha>> = PREVIEW_TEXT_ALPHA[template]
-    const forms = new Map(Object.values(declared).map((entry) => [writtenForm(entry), entry.alpha]))
-    const inventoried = Object.entries(expected).filter(([, entry]) => 'translucent' in entry).map(([use]) => use)
-    expect(
-      inventoried.sort(),
-      `${templateFile(template)} and PREVIEW_TEXT_ALPHA.${template} disagree on which text is translucent ` +
-        'and how it is written. Declare it there, or stop drawing it.',
-    ).toEqual([...forms.keys()].sort())
-    for (const use of inventoried) {
-      expect(textAlpha(use), `${use} draws a different alpha than ${template} declares for it`).toBe(forms.get(use))
-    }
+      Object.keys(drawn).filter((use) => textAlpha(use) !== null),
+      `${templateFile(template)} draws text translucent, which has no single colour the DOCX could write.`,
+    ).toEqual([])
   })
 })

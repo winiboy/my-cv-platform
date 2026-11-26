@@ -37,7 +37,7 @@ function admin(): SupabaseClient {
   })
 }
 
-const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
+const ORDER = ['swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
 
 const STRINGS = {
   fr: {
@@ -49,7 +49,7 @@ const STRINGS = {
     analyze: "Analyser et générer l'adaptation",
     creating: 'Création de votre CV...',
     groupLabel: 'Choisir un modèle',
-    names: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique', 'Informatique & IT', 'Cadre & direction', 'Académique & recherche', 'Premier emploi'],
+    names: ['Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique', 'Informatique & IT', 'Cadre & direction', 'Académique & recherche', 'Premier emploi'],
     educationHeading: 'Formation',
   },
   en: {
@@ -61,7 +61,7 @@ const STRINGS = {
     analyze: 'Analyze & Generate Adaptation',
     creating: 'Creating your CV...',
     groupLabel: 'Choose Template',
-    names: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering', 'IT & software', 'Executive & management', 'Academic & research', 'First job'],
+    names: ['Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering', 'IT & software', 'Executive & management', 'Academic & research', 'First job'],
     educationHeading: 'Education',
   },
 } as const
@@ -139,7 +139,7 @@ function watchConsole(page: Page): string[] {
 async function createResume(userId: string, title: string): Promise<string> {
   const { data, error } = await admin()
     .from('resumes')
-    .insert({ user_id: userId, title, template: 'professional' })
+    .insert({ user_id: userId, title, template: 'swissCommerce' })
     .select('id')
     .single()
   if (error || !data) throw new Error(`Could not create a resume for the test user: ${error?.message ?? 'no row'}`)
@@ -247,7 +247,7 @@ async function submitAndExpectEditor(page: Page, locale: TestLocale, resumeId: s
   await page.waitForURL(new RegExp(`/${locale}/dashboard/resumes/${resumeId}/edit$`), { timeout: 30_000 })
 }
 
-test('fr "Créer un CV": the picker defaults to Professional, is frozen while creating, and posts it', async ({ page, authedUser }) => {
+test('fr "Créer un CV": the picker defaults to swissCommerce, is frozen while creating, and posts it', async ({ page, authedUser }) => {
   const problems = watchConsole(page)
   const stub = await stubJobSearch(page)
   const resumeId = await createResume(authedUser.id, 'Job CV template picker, default')
@@ -261,13 +261,13 @@ test('fr "Créer un CV": the picker defaults to Professional, is frozen while cr
   // The group carries its visible, localized label.
   await expect(page.getByRole('radiogroup', { name: STRINGS.fr.groupLabel })).toBeVisible()
 
-  // Every option in order, named in French; Professional is the default.
+  // Every option in order, named in French; swissCommerce is the default.
   await expect(radios(page)).toHaveCount(ORDER.length)
   expect(await radios(page).evaluateAll((elements) => elements.map((element) => element.getAttribute('data-template')))).toEqual(ORDER)
   for (const [index, name] of STRINGS.fr.names.entries()) {
     await expect(radios(page).nth(index)).toHaveAccessibleName(name)
   }
-  expect(await checkedTemplates(page)).toEqual(['professional'])
+  expect(await checkedTemplates(page)).toEqual(['swissCommerce'])
 
   // Each thumbnail draws its own option's template with French headings.
   expect(await thumbnails(page).evaluateAll((elements) => elements.map((element) => element.getAttribute('data-template')))).toEqual(ORDER)
@@ -302,7 +302,7 @@ test('fr "Créer un CV": the picker defaults to Professional, is frozen while cr
   release()
 
   await page.waitForURL(new RegExp(`/fr/dashboard/resumes/${resumeId}/edit$`), { timeout: 30_000 })
-  expect(stub.bodies).toEqual([{ ...expectedRequestFields('fr'), template: 'professional' }])
+  expect(stub.bodies).toEqual([{ ...expectedRequestFields('fr'), template: 'swissCommerce' }])
 
   expect(problems).toEqual([])
 })
@@ -312,22 +312,22 @@ test('fr "Créer un CV": each other template, chosen by pointer or keyboard, is 
   const stub = await stubJobSearch(page)
 
   const choices: { template: string; choose: () => Promise<void> }[] = [
-    { template: 'modern', choose: () => radios(page).nth(0).click() },
+    { template: 'swissTrades', choose: () => radios(page).nth(2).click() },
     {
-      template: 'classic',
+      template: 'swissAcademic',
       choose: async () => {
-        // Home jumps to the first option, ArrowRight moves to the next.
-        await radios(page).nth(4).focus()
-        await page.keyboard.press('Home')
-        await page.keyboard.press('ArrowRight')
+        // End jumps to the last option, ArrowLeft moves to the previous one.
+        await radios(page).nth(1).focus()
+        await page.keyboard.press('End')
+        await page.keyboard.press('ArrowLeft')
       },
     },
-    { template: 'minimal', choose: () => radios(page).nth(2).click() },
+    { template: 'swissHealth', choose: () => radios(page).nth(3).click() },
     {
-      template: 'creative',
+      template: 'swissVocational',
       choose: async () => {
-        // From the default Professional, ArrowLeft moves to the previous option.
-        await radios(page).nth(4).focus()
+        // From the default swissCommerce, ArrowLeft moves to the previous option.
+        await radios(page).nth(1).focus()
         await page.keyboard.press('ArrowLeft')
       },
     },
@@ -339,7 +339,7 @@ test('fr "Créer un CV": each other template, chosen by pointer or keyboard, is 
 
     await openJobSearch(page, 'fr')
     await openFromCreateCV(page, 'fr')
-    expect(await checkedTemplates(page)).toEqual(['professional'])
+    expect(await checkedTemplates(page)).toEqual(['swissCommerce'])
 
     await choose()
     expect(await checkedTemplates(page)).toEqual([template])
@@ -379,11 +379,11 @@ test('fr "Adapter mon CV": "Nouveau CV" shows the picker, adapting an existing C
   await page.getByRole('button', { name: STRINGS.fr.newCV, exact: true }).click()
   await expect(page.getByRole('radiogroup', { name: STRINGS.fr.groupLabel })).toBeVisible()
   await expect(drawnThumbnails(page)).toHaveCount(ORDER.length)
-  expect(await checkedTemplates(page)).toEqual(['professional'])
+  expect(await checkedTemplates(page)).toEqual(['swissCommerce'])
 
   await radios(page).nth(2).click()
   await submitAndExpectEditor(page, 'fr', createdId)
-  expect(stub.bodies).toEqual([{ ...expectedRequestFields('fr'), template: 'minimal' }])
+  expect(stub.bodies).toEqual([{ ...expectedRequestFields('fr'), template: 'swissTrades' }])
 
   expect(problems).toEqual([])
 })
@@ -400,7 +400,7 @@ test('en: the label, the names and the thumbnail headings are in English', async
   for (const [index, name] of STRINGS.en.names.entries()) {
     await expect(radios(page).nth(index)).toHaveAccessibleName(name)
   }
-  expect(await checkedTemplates(page)).toEqual(['professional'])
+  expect(await checkedTemplates(page)).toEqual(['swissCommerce'])
   for (const thumbnail of await thumbnails(page).all()) {
     await expect(thumbnail).toContainText(await educationHeadingOf(thumbnail, STRINGS.en.educationHeading, 'en'))
   }

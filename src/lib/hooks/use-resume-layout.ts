@@ -3,13 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   DEFAULT_RESUME_LAYOUT,
-  mapEditorOrderToCreative,
-  mapEditorOrderToModern,
   resolveResumeLayout,
   type EditorMainId,
   type EditorSidebarId,
-  type CreativeMappedOrder,
-  type ModernMappedOrder,
   type PersistedLayoutSource,
   type ResumeLayoutModel,
 } from '@/lib/layout-settings'
@@ -18,7 +14,6 @@ import { adoptCachedLayout, usePersistedLayout } from '@/lib/hooks/use-persisted
 import {
   applyLayoutChange,
   readLayoutCache,
-  sidebarColorFrom,
   writeLayoutCache,
   type LayoutUpdate,
 } from '@/lib/resume-layout-store'
@@ -58,7 +53,7 @@ import {
  *
  * The photo. It is not layout state, it stays browser-local by the decision the
  * PRD records, and each surface loads it under its own `resume_photo_*` key.
- * Also the two render switches: the editor renders the five templates itself
+ * Also the two render switches: the editor renders the templates itself
  * and the wrapper renders them through `resume-preview.tsx`. This hook makes
  * the two surfaces read the same STATE; unifying how they render it is a
  * separate question and is not in this story.
@@ -70,11 +65,9 @@ export type LayoutValueSetter<T> = (update: LayoutUpdate<T>) => void
 /**
  * One setter per layout property.
  *
- * Named setters rather than a single `setLayout(key, value)` because that is
- * what the templates take: `classic-template.tsx` and the rest declare props
- * like `setTitleFontSize?: (size: number) => void` and wire them straight to a
- * range input. Handing them a named setter keeps the templates untouched, which
- * is what makes this refactor provably free of rendering change.
+ * Named setters rather than a single `setLayout(key, value)` because each
+ * editor control writes one property, and a named setter is what it is wired
+ * to.
  */
 export interface ResumeLayoutSetters {
   setTitleFontSize: LayoutValueSetter<number>
@@ -103,12 +96,6 @@ export interface ResumeLayoutController {
   /** The complete, current model. Never partial, never undefined. */
   layout: ResumeLayoutModel
   setters: ResumeLayoutSetters
-  /** `layout`'s three HSL components composed into one CSS colour. */
-  sidebarColor: string
-  /** `layout`'s editor-vocabulary section order translated to Modern's. */
-  modern: ModernMappedOrder
-  /** `layout`'s editor-vocabulary section order translated to Creative's (Part 3 US-015). */
-  creative: CreativeMappedOrder
   /**
    * False until the stores have been read.
    *
@@ -214,45 +201,5 @@ export function useResumeLayout(
   // Persist the model to the account. The one writer lives in that hook.
   usePersistedLayout(resumeId, layout, isLoaded)
 
-  const sidebarColor = sidebarColorFrom(layout)
-
-  /**
-   * Memoized on the four section lists rather than on `layout`, so that a
-   * colour or font change does not rebuild four arrays and hand
-   * `modern-template.tsx` new props for a value that did not move.
-   */
-  const modern = useMemo(
-    () =>
-      mapEditorOrderToModern(
-        layout.sidebarOrder,
-        layout.mainContentOrder,
-        layout.hiddenSidebarSections,
-        layout.hiddenMainSections,
-      ),
-    [
-      layout.sidebarOrder,
-      layout.mainContentOrder,
-      layout.hiddenSidebarSections,
-      layout.hiddenMainSections,
-    ],
-  )
-
-  /** Memoized on the same four lists, and for the same reason, as `modern`. */
-  const creative = useMemo(
-    () =>
-      mapEditorOrderToCreative(
-        layout.sidebarOrder,
-        layout.mainContentOrder,
-        layout.hiddenSidebarSections,
-        layout.hiddenMainSections,
-      ),
-    [
-      layout.sidebarOrder,
-      layout.mainContentOrder,
-      layout.hiddenSidebarSections,
-      layout.hiddenMainSections,
-    ],
-  )
-
-  return { layout, setters, sidebarColor, modern, creative, isLoaded }
+  return { layout, setters, isLoaded }
 }

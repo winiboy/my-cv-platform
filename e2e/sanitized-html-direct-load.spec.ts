@@ -148,7 +148,7 @@ test('a resume with HTML content loads directly and renders it sanitized', async
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'professional', {
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', {
     experience: [HTML_EXPERIENCE],
   })
 
@@ -206,7 +206,7 @@ test('a resume whose summary is HTML loads its editor directly and counts the ch
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'professional', {
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', {
     summary: payload(SUMMARY_BOLD),
   })
 

@@ -41,8 +41,8 @@ const PHONE = { width: 375, height: 812 } as const
 const TABLET = { width: 768, height: 1024 } as const
 const DESKTOP = { width: 1440, height: 900 } as const
 
-/** The options TEMPLATE_OPTIONS offers: the five original templates, swissVocational, swissCommerce, swissTrades, swissHealth, swissFinance, swissEngineering, swissIt, swissExecutive, swissAcademic and swissFirstJob. */
-const TEMPLATE_OPTION_COUNT = 15
+/** The options TEMPLATE_OPTIONS offers: the ten Swiss templates. */
+const TEMPLATE_OPTION_COUNT = 10
 
 const STRINGS = {
   fr: {
@@ -135,7 +135,7 @@ function watchConsole(page: Page): string[] {
 async function createResume(userId: string, title: string): Promise<string> {
   const { data, error } = await admin()
     .from('resumes')
-    .insert({ user_id: userId, title, template: 'professional' })
+    .insert({ user_id: userId, title, template: 'swissCommerce' })
     .select('id')
     .single()
   if (error || !data) throw new Error(`Could not create a resume for the test user: ${error?.message ?? 'no row'}`)

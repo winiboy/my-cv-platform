@@ -11,7 +11,8 @@ machinery holds regardless.
 |---|---|---|
 | `Verify (required)` | `.github/workflows/ci.yml` | `pnpm typecheck`, `pnpm test`, `pnpm build`. Required status check on `main` — a PR cannot merge while it is red. |
 | `Integration (required)` | same | `pnpm test:integration` plus the RLS audit, which fails the job on a `FAIL` verdict. |
-| `E2E (required)` | same | `pnpm test:e2e` against a production build on a local Supabase stack. |
+| `E2E (required)` | same | `pnpm test:e2e --grep-invert @parity` against a production build on a local Supabase stack. |
+| `Parity (required)` | same | `pnpm test:e2e --grep @parity`, set up as E2E: the Preview's sheets against the PDF route's pages, for every template in fr and de (`e2e/resume-preview-pdf-pages.spec.ts`). Branch protection requires a check of exactly this name. |
 | Branch protection | GitHub, recorded in `quality-contract.md` | Strict-up-to-date, `enforce_admins: true`, force-push and deletion denied. |
 | Shipping-action gate | `.claude/hooks/pre-tool-guard.ps1` | `ask` for push, merge, PR, release, publish, deploy, hosted-DB push. Denies `.env` access, destructive git, unsafe staging, and any repository mutation on `main`. |
 | Story-state clear | `.claude/hooks/post-commit-governance.ps1` | Ends the story's fast-track scope when its commit lands. |
@@ -41,17 +42,11 @@ checks any of them.
    a lint error passes every machine gate in this repository.
 4. **`pnpm test:visual` runs in no CI job.** It is local-only, and every
    visual claim in `progress.txt` rests on a local run, unreproducible on
-   another machine. `pnpm test:parity` runs in the CI job "Parity
-   (required)" on every push to `main` and every pull request to it, on
-   ubuntu-latest with the Microsoft core fonts installed so that Verdana and
-   Times New Roman resolve as they do on Windows. It is required once the owner
-   adds it to branch protection, which is an owner action. The parity report is
-   still machine-dependent, since font-face resolution depends on installed
-   fonts; its environment block records how each requested family resolved, so
-   a CI report and a local one are not compared blindly. CI's KNOWN set also
-   differs from a local Windows run's: `linux-print-sidebar-column` is active
-   on Linux only, so Linux reports 4 KNOWN rows under 2 ids where Windows
-   reports 3 rows under 1.
+   another machine. The parity suite (`pnpm test:parity`, CI job "Parity")
+   compared the five legacy templates only, and was removed with them by
+   `swiss-templates-only-page-fidelity` US-001; the required check of that
+   name now runs the Preview/PDF page-agreement tests (US-003), which compare
+   text and page counts, not pixels.
 5. **`ui-expert` and `code-reviewer` are agents, not gates.** Their PASS is a
    returned string. Nothing records or verifies that either ran.
 6. **`progress.txt` is written after the fact by the same actor that ran the

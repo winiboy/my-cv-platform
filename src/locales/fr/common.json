@@ -186,16 +186,6 @@
       "description": "Créez votre premier CV professionnel pour commencer à postuler."
     },
     "templates": {
-      "modern": "Moderne",
-      "modernDesc": "Design épuré et professionnel avec une touche contemporaine",
-      "classic": "Classique",
-      "classicDesc": "Format traditionnel privilégié par les secteurs conservateurs",
-      "minimal": "Minimaliste",
-      "minimalDesc": "Simple et élégant avec un accent sur le contenu",
-      "professional": "Professionnel",
-      "professionalDesc": "Modèle pour cadres avec barre latérale et section des réalisations clés",
-      "creative": "Créatif",
-      "creativeDesc": "Design audacieux pour les professionnels créatifs",
       "swissVocational": "Formation professionnelle (CFC)",
       "swissVocationalDesc": "Format suisse, idéal après un CFC",
       "swissCommerce": "Commerce & administration",
@@ -398,29 +388,6 @@
       "present": "Présent",
       "gpa": "Moyenne",
       "in": "en"
-    },
-    "sliders": {
-      "title": "Titre",
-      "contactDetails": "Coordonnées",
-      "sectionTitle": "Titre de section",
-      "description": "Description",
-      "gap": "Espacement"
-    },
-    "colorWheel": {
-      "sidebarColor": "Couleur de la barre latérale",
-      "presetColors": "Couleurs prédéfinies",
-      "presets": {
-        "petrolBlue": "Bleu pétrole",
-        "charcoal": "Anthracite",
-        "forestGreen": "Vert forêt",
-        "burgundy": "Bordeaux",
-        "teal": "Bleu canard",
-        "slate": "Ardoise",
-        "deepPurple": "Violet profond",
-        "darkBrown": "Marron foncé",
-        "wineRed": "Rouge vin",
-        "olive": "Olive"
-      }
     },
     "pdfExportComingSoon": "Export PDF bientôt disponible !",
     "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce CV ?",

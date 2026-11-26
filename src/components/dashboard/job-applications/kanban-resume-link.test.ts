@@ -10,12 +10,12 @@ function card(id: string, resume: { id: string; title: string } | null): JobAppl
     job_title: `Job ${id}`,
     company_name: 'Company',
     resume_id: resume?.id ?? null,
-    resume: resume ? { ...resume, template: 'classic' } : null,
+    resume: resume ? { ...resume, template: 'swissFinance' } : null,
     cover_letter: null,
   } as unknown as JobApplicationWithRelations
 }
 
-const NEW_CV = { id: 'cv-new', title: 'New CV', template: 'modern' as const }
+const NEW_CV = { id: 'cv-new', title: 'New CV', template: 'swissCommerce' as const }
 
 describe('applyResumeLink', () => {
   it('shows the linked CV on its card', () => {

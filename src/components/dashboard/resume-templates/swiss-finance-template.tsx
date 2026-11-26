@@ -87,7 +87,7 @@ interface SwissFinanceTemplateProps {
  * `@/lib/swiss-finance-template`; dates, headings, contact entries and level
  * names from `@/lib/swiss-vocational-template`. `docx-swiss-finance.ts` reads
  * the same. It draws its own typeface — Tailwind's `font-serif` stack, whose
- * first face a reader is given is Georgia, as classic's headings — at its own
+ * first face a reader is given is Georgia — at its own
  * sizes, whatever font and font scale the layout model stores (FR-4): it takes
  * neither.
  */

@@ -225,13 +225,13 @@ test.describe('CV from a saved job application', () => {
 
       // A forged request with the signed-in user's session.
       const response = await page.request.post('/api/resumes/from-job-application', {
-        data: { jobApplicationId: foreign.id, title: 'Forged', template: 'modern', locale: 'fr' },
+        data: { jobApplicationId: foreign.id, title: 'Forged', template: 'swissCommerce', locale: 'fr' },
       })
       expect(response.status()).toBe(404)
 
       // A missing application gets the same answer.
       const missing = await page.request.post('/api/resumes/from-job-application', {
-        data: { jobApplicationId: '00000000-0000-4000-8000-000000000000', title: 'Forged', template: 'modern', locale: 'fr' },
+        data: { jobApplicationId: '00000000-0000-4000-8000-000000000000', title: 'Forged', template: 'swissCommerce', locale: 'fr' },
       })
       expect(missing.status()).toBe(404)
 
@@ -256,7 +256,7 @@ test.describe('CV from a saved job application', () => {
     const [resume] = await resumesOf(authedUser.id)
     expect(resume).toMatchObject({
       title: 'CV vide',
-      template: 'modern',
+      template: 'swissCommerce',
       contact: {},
       summary: '',
       experience: [],

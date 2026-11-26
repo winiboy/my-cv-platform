@@ -1,8 +1,14 @@
 # Visual regression
 
-`pnpm test:visual` renders each of the five resume templates through the real
-preview route and compares the result against a committed PNG — twice per
+`pnpm test:visual` renders each of the ten Swiss resume templates through the
+real preview route and compares the result against a committed PNG — twice per
 template, once under screen media and once under emulated print media.
+
+The committed baselines are `e2e/visual/__screenshots__/win32/<template>.png`
+and `<template>-print.png` for the ten templates `RESUME_TEMPLATES`
+(`src/lib/resume-templates.ts`) lists. The five legacy templates' baselines,
+and the history sections below that name them, are records of a template set
+that no longer exists (see "Removed: the five legacy baselines").
 
 ```bash
 pnpm supabase start
@@ -12,7 +18,7 @@ pnpm test:visual
 ## What it is for
 
 Milestone C unifies resume rendering across the Editor, Live Preview, Preview,
-PDF and DOCX. That work edits layout code shared by five templates at once, and
+PDF and DOCX. That work edits layout code shared by every template at once, and
 its characteristic failure is not a crash — it is a template that still renders,
 still typechecks, still passes every functional test, and is subtly wrong.
 
@@ -24,7 +30,7 @@ cookies, none of which move when a column shifts by 40 pixels.
 
 | Covered | Not covered |
 |---|---|
-| The five templates via `/[locale]/dashboard/resumes/[id]/preview` | The DOCX export |
+| The ten templates via `/[locale]/dashboard/resumes/[id]/preview` | The DOCX export |
 | Both media: screen, and print via `emulateMedia` | Page breaking, `@page` margins, headers/footers |
 | Section order, spacing, typography, colour as rendered | The editor surface |
 | The full document height, top to bottom, in each medium | Cover letter templates |
@@ -85,12 +91,22 @@ suite does not capture.
 
 ### What else differentiates the two captures
 
-Not layout. No template carries a print-only padding any more: each one had a
-`print:p-*` smaller than its screen padding, which made the PDF wrap and align
-differently from the Preview, and all were removed because the Preview is the
-PDF's contract (`.claude/rules/exports.md`). `e2e/resume-print-geometry.spec.ts`
-guards that: it compares the box of every heading, paragraph and list item under
-both media, for all five templates.
+Mostly not layout. The legacy templates' `print:p-*` paddings, which made the
+PDF wrap differently from the Preview, were removed long ago, and the legacy
+templates themselves in 2026-11 (the spec that guarded them,
+`e2e/resume-print-geometry.spec.ts`, went with them).
+
+What the Swiss templates do carry in print is their **page margins**
+(`swiss-templates-only-page-fidelity` US-002, FR-3): a top margin on every page
+after the first and a foot margin on every page, from each template's
+`SWISS_*_GEOMETRY.pageTop/.pageBottom`. Most templates keep page 1's text where
+the screen puts it, so their print capture equals the screen one. Two do not
+keep the capture's height: swissTrades and swissEngineering move their vertical
+padding from the columns to the document root in print and drop the on-screen
+one-page `min-height` (`min-height: 0`, or a short CV would print an empty
+page 2), so their print capture ends at the content's height, not the page's.
+Text positions are unchanged; the column below the content is painted by the
+root background on the real page, which an element capture does not include.
 
 What still differs is paint: `globals.css` sets `border-radius: 0` on everything
 in print (so pills, dots and rounded cards print square), `print:bg-transparent`
@@ -349,6 +365,70 @@ A baseline change is an **approval decision**, not a test fix. The rules:
   is not project state (CLAUDE.md §3). See below.
 - `ui-expert` may run `pnpm test:visual`. It may **not** run
   `test:visual:update` — blessing a baseline is not a validation act.
+
+### Moved: seven screen baselines, 2026-11-26 — the Preview draws real sheets
+
+**Cause.** `swiss-templates-only-page-fidelity` US-003, "The Preview shows the
+real pages". On screen the document now fills a whole number of A4 sheets
+(1123 px each, a 24 px gap between them), and a block that print would move to
+the next page is pushed to that sheet's top margin. All of it is inside
+`@media screen`; none of the ten `-print.png` baselines moved.
+
+| Baseline | Before | After |
+|---|---|---|
+| `swissAcademic.png` | 794×1062 | 794×1123 |
+| `swissCommerce.png` | 794×1037 | 794×1123 |
+| `swissExecutive.png` | 794×1102 | 794×1123 |
+| `swissFinance.png` | 794×927 | 794×1123 |
+| `swissHealth.png` | 794×987 | 794×1123 |
+| `swissVocational.png` | 794×1045 | 794×1123 |
+| `swissIt.png` | 794×1168 | 794×2270 |
+
+**Evidence.** Compared row by row with the previous images:
+
+- **Six one-page templates:** 0 pixels differ in the rows they share, apart
+  from the old image's last row (its bottom edge) on swissCommerce,
+  swissExecutive and swissFinance. The added rows are white, plus the red
+  strip on swissVocational, which now runs to the foot of the sheet.
+- **swissIt:** this fixture ran past the foot margin. Its last section,
+  "languages & training / courses", now starts sheet 2 at the 48 px top
+  margin (y = 1195 = 1123 + 24 + 48), where print puts it. Every row above it
+  is unchanged, and the rest of sheet 2 is white.
+
+swissEngineering, swissFirstJob and swissTrades were already 1123 px and did
+not move.
+
+### Moved: `swissTrades-print.png` and `swissEngineering-print.png`, 2026-11-26 — page margins
+
+**Cause.** `swiss-templates-only-page-fidelity` US-002, "Every printed page has
+margins, in the PDF and in Word". In print, both templates now take their top
+and foot spacing from the document root (`box-decoration-break: clone`, repeated
+on every page) and set `min-height: 0`, so the printed document ends at its
+content.
+
+| Baseline | Before | After |
+|---|---|---|
+| `swissTrades-print.png` | 794×1123 | 794×721 |
+| `swissEngineering-print.png` | 794×1123 | 794×977 |
+
+**Evidence that only the foot moved.** In the rows the old and new captures
+share, 0 pixels differ for both templates. The rows cut from the old images
+contain only the column colours (`#334155` for swissTrades; `#f1f5f9` and the
+`#2563eb` bar for swissEngineering) and white, no text. The AC allows exactly
+this: "the existing visual baselines for the six templates still pass, or the
+diff is limited to the foot margin". The eight other Swiss print baselines and
+all ten screen baselines did not move.
+
+### Removed: the five legacy baselines, 2026-11-25
+
+**Cause.** `swiss-templates-only-page-fidelity` US-001 removed the
+`professional`, `modern`, `classic`, `minimal` and `creative` templates from
+the product. Their ten PNGs (`<template>.png` and `<template>-print.png`) were
+deleted with them, and `e2e/visual/resume-templates.spec.ts` iterates
+`RESUME_TEMPLATES`, so it captures exactly the ten Swiss templates.
+
+**What did not move.** No Swiss baseline was re-blessed: none of the twenty
+Swiss PNGs changed in that commit.
 
 ### Moved: all ten baselines, 2026-09-25 — the page became A4
 

@@ -14,6 +14,7 @@ import {
   SWISS_FINANCE_SIZES,
   SWISS_FINANCE_TEXT_WIDTH,
 } from '@/lib/swiss-finance-template'
+import { readGlobalsCss, ruleDeclarations } from '@/test/print-css'
 import { SwissFinanceTemplate } from './swiss-finance-template'
 
 /**
@@ -229,10 +230,23 @@ describe('swissFinance draws the mockup’s one column', () => {
 })
 
 describe('swissFinance in print', () => {
+  const css = readGlobalsCss()
+  const G = SWISS_FINANCE_GEOMETRY
+
   it('needs no radius exception: its photo and rules are square, as the print reset draws them', () => {
-    const globals = readFileSync(path.join(process.cwd(), 'src/app/globals.css'), 'utf8')
-    expect(globals).not.toContain('swiss-finance')
+    expect(css.print).not.toMatch(/swiss-finance[^{]*\{[^}]*border-radius/)
+    expect(css.screen).not.toMatch(/swiss-finance/)
     expect(SOURCE).not.toMatch(/borderRadius|rounded/)
+  })
+
+  it('prints every page with SWISS_FINANCE_GEOMETRY.pageTop and .pageBottom, the screen’s padding, as Word’s page margins (swiss-templates-only-page-fidelity US-002)', () => {
+    // The document's own padding, which the margins equal, repeated on every printed page.
+    expect(ruleDeclarations(css.print, '.swiss-finance-template')).toEqual(['-webkit-box-decoration-break: clone', 'box-decoration-break: clone'])
+    expect(SOURCE).toContain('padding: `${GEOMETRY.paddingTop}px ${GEOMETRY.paddingX}px ${GEOMETRY.paddingBottom}px`')
+    // No `@page` margin of its own: the default `@page { margin: 0 }` holds.
+    expect(css.print).not.toMatch(/page:\s*swiss-finance|@page swiss-finance/)
+    expect(G.pageTop).toBe(G.paddingTop)
+    expect(G.pageBottom).toBe(G.paddingBottom)
   })
 })
 

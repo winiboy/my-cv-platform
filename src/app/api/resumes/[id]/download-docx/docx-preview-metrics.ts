@@ -1,93 +1,15 @@
-import { AlignmentType, type UniversalMeasure } from 'docx'
-import { extractAlignment, extractPrimaryFont } from './docx-helpers'
+import { AlignmentType } from 'docx'
+import { extractAlignment } from './docx-helpers'
 
 /**
  * What a generator needs to know about how the Preview's browser lays text
- * out, to draw the same lines in Microsoft Word: the metrics of the fonts the
- * picker offers, where each engine puts a baseline inside a line, and how
- * `.formatted-content` splits rich text into blocks.
+ * out, to draw the same lines in Microsoft Word: how `.formatted-content`
+ * splits rich text into blocks, and how far a list indents.
  *
  * Every value here was measured against Word's own render (Word → PDF) and
  * Chromium's on Windows; see `docs/engineering/docx-word-parity.md` for the
  * method. They hold for Microsoft Word on Windows only.
  */
-
-/**
- * Metrics of the families the font picker offers, as the Preview's browser
- * lays them out, in em: OS/2 winAscent and winDescent, and the advance widths
- * of "•" (U+2022) and the space, over unitsPerEm (2048 for every one of them),
- * read from the Windows font files. Helvetica is not a Windows font; the
- * browser and Word both draw it as Arial.
- */
-export interface PreviewFontMetrics {
-  ascent: number
-  descent: number
-  bullet: number
-  space: number
-}
-
-export const PREVIEW_FONT_METRICS: Readonly<Record<string, PreviewFontMetrics>> = {
-  arial: { ascent: 1854 / 2048, descent: 434 / 2048, bullet: 717 / 2048, space: 569 / 2048 },
-  helvetica: { ascent: 1854 / 2048, descent: 434 / 2048, bullet: 717 / 2048, space: 569 / 2048 },
-  'times new roman': { ascent: 1825 / 2048, descent: 443 / 2048, bullet: 717 / 2048, space: 512 / 2048 },
-  georgia: { ascent: 1878 / 2048, descent: 449 / 2048, bullet: 804 / 2048, space: 494 / 2048 },
-  'courier new': { ascent: 1705 / 2048, descent: 615 / 2048, bullet: 1229 / 2048, space: 1229 / 2048 },
-  verdana: { ascent: 2059 / 2048, descent: 430 / 2048, bullet: 1117 / 2048, space: 720 / 2048 },
-  tahoma: { ascent: 2049 / 2048, descent: 423 / 2048, bullet: 931 / 2048, space: 640 / 2048 },
-  calibri: { ascent: 1950 / 2048, descent: 550 / 2048, bullet: 1020 / 2048, space: 463 / 2048 },
-  'segoe ui': { ascent: 2210 / 2048, descent: 514 / 2048, bullet: 832 / 2048, space: 561 / 2048 },
-}
-
-/**
- * The family a generator writes and measures, from a CSS font stack: the first
- * family the metric table knows, which is the one the Preview's browser draws
- * on Windows — it passes over names Windows has no font for, as "System
- * Default" (`-apple-system, BlinkMacSystemFont, "Segoe UI", …`) shows: it
- * draws Segoe UI. Writing that same family keeps Word from substituting a font
- * of its own for `-apple-system` while the raise is computed for Segoe UI. A
- * stack naming no family the table knows keeps its first family, unmeasured.
- */
-export function resolvePreviewFont(fontFamily: string): { name: string; metrics: PreviewFontMetrics | null } {
-  for (const family of fontFamily.split(',')) {
-    const name = family.trim().replace(/['"]/g, '')
-    const metrics = PREVIEW_FONT_METRICS[name.toLowerCase()]
-    if (metrics) return { name, metrics }
-  }
-  return { name: extractPrimaryFont(fontFamily), metrics: null }
-}
-
-/**
- * The raise (`w:position`) that puts a run's baseline in Word where the Preview
- * draws it.
- *
- * - Word, in an exact line, sets the baseline 0.8 of the line below its top.
- * - The browser centres the font's ascent + descent, each rounded to a whole
- *   px, in the line box, and the baseline lands on a whole px of the box.
- *
- * `previewOffsetPx` is how far below the Word line's top the Preview's line box
- * starts (a box's padding, or a flex item centred in a taller row). Word
- * honours a raise in whole half-points only, so the result is rounded to them.
- * A family the metric table does not know gets no raise rather than another
- * font's.
- *
- * @param px the Preview's font size, in px.
- * @param lineHeight the Preview's unitless CSS line height.
- * @param wordLineTwips the exact line the run is drawn in, in twips.
- */
-export function baselineRaise(
-  metrics: PreviewFontMetrics | null,
-  px: number,
-  lineHeight: number,
-  wordLineTwips: number,
-  previewOffsetPx = 0
-): UniversalMeasure {
-  if (!metrics) return '0pt'
-  const ascent = Math.round(metrics.ascent * px)
-  const descent = Math.round(metrics.descent * px)
-  const previewBaseline = previewOffsetPx + Math.floor(ascent + (px * lineHeight - ascent - descent) / 2)
-  const wordBaseline = (0.8 * wordLineTwips) / 15
-  return `${Math.round((wordBaseline - previewBaseline) * 1.5) / 2}pt`
-}
 
 /**
  * One line-level block of formatted (HTML) text as `.formatted-content` lays it

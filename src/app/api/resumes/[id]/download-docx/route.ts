@@ -3,11 +3,6 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { type Locale } from '@/lib/i18n'
 import { resolveResumeLayout } from '@/lib/layout-settings'
 import { type DocxGeneratorSettings } from './docx-helpers'
-import { generateProfessionalDocx } from './docx-professional'
-import { generateModernDocx } from './docx-modern'
-import { generateClassicDocx } from './docx-classic'
-import { generateMinimalDocx } from './docx-minimal'
-import { generateCreativeDocx } from './docx-creative'
 import { generateSwissVocationalDocx } from './docx-swiss-vocational'
 import { generateSwissCommerceDocx } from './docx-swiss-commerce'
 import { generateSwissTradesDocx } from './docx-swiss-trades'
@@ -18,8 +13,7 @@ import { generateSwissItDocx } from './docx-swiss-it'
 import { generateSwissExecutiveDocx } from './docx-swiss-executive'
 import { generateSwissAcademicDocx } from './docx-swiss-academic'
 import { generateSwissFirstJobDocx } from './docx-swiss-first-job'
-// The supported templates and the professional fallback: `docx-templates.ts`.
-import { docxTemplateFor } from './docx-templates'
+import { resolveResumeTemplate } from '@/lib/resume-templates'
 import { boundedPhoto } from './docx-photo-bound'
 
 // ============================================================
@@ -51,7 +45,7 @@ import { boundedPhoto } from './docx-photo-bound'
  *
  * This is the trust boundary. The value arrives as arbitrary JSON from the
  * network — it need not be a string, need not be an image, and need not be
- * small. `docx-modern.ts` does recognise a handful of image prefixes, but it is
+ * small. A generator may recognise a handful of image prefixes, but it is
  * downstream of a `Buffer.from(value, 'base64')` sized entirely by the caller,
  * and it is one generator rather than the door every generator comes through.
  */
@@ -168,34 +162,15 @@ async function handleDocxGeneration(
    * `resume.template` into it, so the browser was echoing this very column
    * back to the server; reading it here directly is the same value by a
    * shorter path, and closes a parameter that could have selected a template
-   * the resume is not.
+   * the resume is not. A value outside the ten ids is exported as the
+   * template the Editor and the Preview draw it as (`resolveResumeTemplate`).
    */
-  const template = docxTemplateFor(resume.template)
+  const template = resolveResumeTemplate(resume.template)
 
   // Dispatch to the appropriate template generator
   let buffer: Buffer
 
   switch (template) {
-    case 'professional':
-      buffer = await generateProfessionalDocx(resume, settings)
-      break
-
-    case 'modern':
-      buffer = await generateModernDocx(resume, settings)
-      break
-
-    case 'classic':
-      buffer = await generateClassicDocx(resume, settings)
-      break
-
-    case 'minimal':
-      buffer = await generateMinimalDocx(resume, settings)
-      break
-
-    case 'creative':
-      buffer = await generateCreativeDocx(resume, settings)
-      break
-
     case 'swissVocational':
       buffer = await generateSwissVocationalDocx(resume, settings)
       break
@@ -234,11 +209,6 @@ async function handleDocxGeneration(
 
     case 'swissFirstJob':
       buffer = await generateSwissFirstJobDocx(resume, settings)
-      break
-
-    default:
-      // Fallback to professional for any unknown template
-      buffer = await generateProfessionalDocx(resume, settings)
       break
   }
 

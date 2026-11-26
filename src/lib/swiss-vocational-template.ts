@@ -35,6 +35,18 @@ export const SWISS_VOCATIONAL_GEOMETRY = {
   paddingX: 56,
   /** The page's padding, top and bottom. */
   paddingY: 48,
+  /**
+   * The printed page's margins, top and foot, in the PDF and in Word (the
+   * section's margins), so both break their pages at the same place: every
+   * page keeps `pageTop` above its text and `pageBottom` below it. In print
+   * they are the document's own padding repeated on every page
+   * (`box-decoration-break: clone` in globals.css), not `@page` margins,
+   * which Chromium paints no background into and so would cut the red strip
+   * short of the paper's edges. They equal `paddingY`, so page 1 prints as
+   * the screen draws it.
+   */
+  pageTop: 48,
+  pageBottom: 48,
   /** The left column that dated rows put their dates in. */
   dateColumn: 128,
   /** The contact grid: each label's column and the gap after it. */

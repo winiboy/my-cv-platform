@@ -3,7 +3,7 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
-  HeightRule,
+  Header,
   HorizontalPositionAlign,
   HorizontalPositionRelativeFrom,
   ImageRun,
@@ -61,16 +61,22 @@ import {
 import { visibleContactDetails } from '@/lib/contact-visibility'
 import {
   APP_BODY_FONT,
+  contactValueChildren,
+  KEEP_LINES,
+  KEEP_WITH_NEXT,
   NO_TEXT_LINE,
   exactLineSpacing,
   extractAlignment,
+  keepAt,
   parseHtmlToDocxRuns,
   parsePlainTextListToParagraphs,
   pxToHalfPoints,
   pxToTwips,
   trackingSpacing,
   type DocxGeneratorSettings,
+  type ParagraphKeep,
 } from './docx-helpers'
+import { interDocxFonts, pairInterFaces } from './docx-fonts'
 import { DOCX_PALETTE } from './docx-palette'
 import { FORMATTED_LIST_INDENT_PX, FORMATTED_LIST_MARKER_EM, bareInlineFormatTags, formattedBlocks } from './docx-preview-metrics'
 import { solidColourPng } from './docx-disc'
@@ -82,7 +88,7 @@ import {
   extractBase64Data,
   parseImageDimensions,
   readJpegOrientation,
-} from './docx-modern'
+} from './docx-photo'
 
 /** The stored columns this generator reads, typed as the application writes them. */
 interface StoredResume {
@@ -149,11 +155,11 @@ interface Flow {
  * dates, level names and skill tags, read from `@/lib/swiss-trades-template`
  * and `@/lib/swiss-vocational-template`.
  *
- * Layout in Word: the page has no margin at the top or sides, as the printed
- * Preview has none; the body is one two-column table, its left cell shaded the
- * dark column's colour, and the column's fill is also a page-high raster
- * behind the text, repeated on every page through a 1-twip header row, as
- * `docx-modern.ts` draws its sidebar. The photo is a drawing centred at the
+ * Layout in Word: every page has the printed Preview's top and foot margins
+ * and no side margin; the body is one two-column table, its left cell shaded
+ * the dark column's colour, and the column's fill is also a page-high raster
+ * anchored to the page behind the text in the section's header, which Word
+ * repeats on every page, so it runs from the paper's top edge to its foot. The photo is a drawing centred at the
  * top of the dark column; skill tags are shaded runs; each main heading's rule
  * is an underlined tab to the column's edge; dates sit at a right tab stop.
  */
@@ -233,16 +239,16 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
   const richParagraphs = (
     text: string,
     color: string,
-    options: { size: number; line: number; elementLineHeight: number; spacingBefore?: number },
+    options: { size: number; line: number; elementLineHeight: number; spacingBefore?: number; keep?: ParagraphKeep },
   ): Paragraph[] => {
     const runOptions = { size: options.size, color, font }
     const lineSpacing = exactLineSpacing([formattedTextLineHeight(text, options.elementLineHeight), options.line])
     const alignment = extractAlignment(text)
     const markerHang = pxToTwips(FORMATTED_LIST_MARKER_EM * (options.size / 1.5))
     const paragraphs = !rendersAsFormattedContent(text)
-      ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing })
+      ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing, keep: options.keep })
       : formattedBlocks(text).map(
-          (block) =>
+          (block, index, blocks) =>
             new Paragraph({
               children: [
                 ...(block.marker === null ? [] : [new TextRun({ ...runOptions, text: `${block.marker}\t` })]),
@@ -255,11 +261,14 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
                   ? undefined
                   : { left: pxToTwips(FORMATTED_LIST_INDENT_PX * block.depth), hanging: block.marker === null ? 0 : markerHang },
               spacing: { after: 0, ...lineSpacing },
+              ...keepAt(options.keep, index, blocks.length),
             }),
         )
     if (options.spacingBefore && paragraphs.length > 0) {
       // The Preview's top margin: a spacer, since a built paragraph's spacing cannot be changed.
-      paragraphs.unshift(new Paragraph({ children: [], spacing: { before: 0, after: options.spacingBefore, ...NO_TEXT_LINE } }))
+      paragraphs.unshift(
+        new Paragraph({ children: [], spacing: { before: 0, after: options.spacingBefore, ...NO_TEXT_LINE }, ...(options.keep ? KEEP_WITH_NEXT : {}) }),
+      )
     }
     return paragraphs
   }
@@ -298,13 +307,17 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
     )
   }
 
-  /** The lines of a list in the dark column, the space between two lines its row gap. */
+  /**
+   * The lines of a list in the dark column, the space between two lines its
+   * row gap; kept whole with its heading, as print keeps each such section.
+   */
   const sidebarLines = (lines: TextRun[][]) => {
     lines.forEach((runs, index) => {
       sidebar.push(
         new Paragraph({
           children: runs,
           spacing: { before: index === 0 ? 0 : pxToTwips(GEOMETRY.sidebarRowGap), after: 0, ...sidebarLine },
+          ...keepAt(KEEP_LINES, index, lines.length),
         }),
       )
     })
@@ -330,7 +343,13 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
   if (contactEntries.length > 0) {
     sidebarHeading(swissTradesContactHeading(dict))
     // The mockup draws the values without labels.
-    sidebarLines(contactEntries.map((entry) => [run(entry.value, PALETTE.sidebarText, { size: size.sidebar })]))
+    // Each value held whole when it fits the column (`contactValueChildren`).
+    const linePx = GEOMETRY.sidebarWidth - 2 * GEOMETRY.sidebarPaddingX
+    sidebarLines(
+      contactEntries.map((entry) => [
+        new TextRun({ children: contactValueChildren(entry.value, linePx, size.sidebar, entry.key === 'email'), color: PALETTE.sidebarText, font, size: size.sidebar }),
+      ]),
+    )
     markDrawn()
   }
 
@@ -352,10 +371,11 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
                   after: pxToTwips(GEOMETRY.skillCaptionGap),
                   ...exactLineSpacing([LINE_HEIGHT.compact, line.skillCaption]),
                 },
-                keepNext: true,
+                ...KEEP_WITH_NEXT,
               }),
             )
           }
+          // The entry is kept whole, as print keeps it.
           const contentBefore = skill.category ? 0 : before
           if (skill.content.kind === 'tags') {
             const runs: TextRun[] = []
@@ -392,17 +412,22 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
                 // Under auto spacing a run's shading is its glyph box, and the
                 // multiple adds the Preview's gap between two rows below it.
                 spacing: { before: contentBefore, after: 0, line: TAG_ROW_LINE, lineRule: LineRuleType.AUTO },
+                ...KEEP_LINES,
               }),
             )
           } else {
-            sidebar.push(
-              ...richParagraphs(skill.content.html, PALETTE.sidebarText, {
-                size: size.sidebar,
-                line: line.sidebar,
-                elementLineHeight: LINE_HEIGHT.text,
-                spacingBefore: contentBefore,
-              }),
-            )
+            // The gap before the entry is not part of it, so a page may break
+            // there; rich text that draws nothing has no gap.
+            const paragraphs = richParagraphs(skill.content.html, PALETTE.sidebarText, {
+              size: size.sidebar,
+              line: line.sidebar,
+              elementLineHeight: LINE_HEIGHT.text,
+              keep: KEEP_LINES,
+            })
+            if (contentBefore > 0 && paragraphs.length > 0) {
+              sidebar.push(new Paragraph({ children: [], spacing: { before: 0, after: contentBefore, ...NO_TEXT_LINE } }))
+            }
+            sidebar.push(...paragraphs)
           }
         })
         markDrawn()
@@ -514,22 +539,31 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
    * One entry: its first line, bold, with the dates at a right tab stop — the
    * title, or the company or school when there is no title, as the Preview
    * draws it — then the meta line under a title, then its details. A value
-   * that is not stored leaves no line (FR-2).
+   * that is not stored leaves no line (FR-2). The entry is kept whole, as
+   * print keeps it: its details carry their own keep rules (`keepAt`).
    */
   const entry = (index: number, titleText: string, meta: string, dates: string, details: Paragraph[]) => {
     const paragraphs: Paragraph[] = []
     const firstIsTitle = titleText !== ''
     const first = firstIsTitle ? titleText : meta
+    const hasMeta = firstIsTitle && meta !== ''
     if (first || dates) {
       const runs: TextRun[] = []
       if (first) runs.push(run(first, PALETTE.ink, { bold: true }))
       if (dates) {
         runs.push(new TextRun({ children: [new Tab()], font, size: size.date }), run(dates, PALETTE.accent, { size: size.date }))
       }
-      paragraphs.push(new Paragraph({ children: runs, tabStops: [{ type: TabStopType.RIGHT, position: mainContentWidth }], spacing: { after: 0, ...bodyLine } }))
+      paragraphs.push(
+        new Paragraph({
+          children: runs,
+          tabStops: [{ type: TabStopType.RIGHT, position: mainContentWidth }],
+          spacing: { after: 0, ...bodyLine },
+          ...(hasMeta || details.length > 0 ? KEEP_WITH_NEXT : KEEP_LINES),
+        }),
+      )
     }
-    if (firstIsTitle && meta) {
-      paragraphs.push(new Paragraph({ children: [run(meta, PALETTE.muted)], spacing: { after: 0, ...bodyLine } }))
+    if (hasMeta) {
+      paragraphs.push(new Paragraph({ children: [run(meta, PALETTE.muted)], spacing: { after: 0, ...bodyLine }, ...(details.length > 0 ? KEEP_WITH_NEXT : KEEP_LINES) }))
     }
     paragraphs.push(...details)
     if (index > 0 && paragraphs.length > 0) {
@@ -544,7 +578,8 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
       case 'summary':
         if (!swissHasText(row.summary)) return false
         heading(swissHeading(dict, 'summary'))
-        main.push(...richParagraphs(row.summary, PALETTE.body, { size: size.body, line: line.body, elementLineHeight: LINE_HEIGHT.text }))
+        // Kept whole with its heading, as print keeps the section.
+        main.push(...richParagraphs(row.summary, PALETTE.body, { size: size.body, line: line.body, elementLineHeight: LINE_HEIGHT.text, keep: KEEP_LINES }))
         return true
 
       case 'experience':
@@ -569,6 +604,7 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
                     after: 0,
                     ...exactLineSpacing([formattedTextLineHeight(achievement, LINE_HEIGHT.text), line.body]),
                   },
+                  ...keepAt(KEEP_LINES, i, achievements.length),
                 }),
               )
             })
@@ -579,6 +615,7 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
                 line: line.body,
                 elementLineHeight: LINE_HEIGHT.text,
                 spacingBefore: pxToTwips(GEOMETRY.detailGap),
+                keep: KEEP_LINES,
               }),
             )
           }
@@ -607,6 +644,7 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
                   line: line.body,
                   elementLineHeight: LINE_HEIGHT.text,
                   spacingBefore: pxToTwips(GEOMETRY.detailGap),
+                  keep: KEEP_LINES,
                 })
               : [],
           )
@@ -623,51 +661,29 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
   // ASSEMBLE
   // ----------------------------------------------------------
 
-  // The dark column's fill on every page, top to foot. A cell's fill ends where
-  // the row's part on a page ends, and after the row it stops altogether, so
-  // the fill is also a page-high drawing anchored to the page behind the text,
-  // held by a 1-twip header row that Word repeats on every page the table
-  // spans — `docx-modern.ts`'s sidebar, measured there.
-  const fillRow = new TableRow({
-    tableHeader: true,
-    cantSplit: true,
-    height: { value: 1, rule: HeightRule.EXACT },
-    children: [
-      new TableCell({
-        width: { size: sidebarWidth, type: WidthType.DXA },
-        margins: NO_MARGINS,
-        borders: NO_CELL_BORDERS,
-        children: [
-          new Paragraph({
-            children: [
-              new ImageRun({
-                type: 'png',
-                data: solidColourPng(PALETTE.sidebar),
-                transformation: { width: GEOMETRY.sidebarWidth, height: pageHeightTwips / TWIPS_PER_PX },
-                // A distinct id keeps the two drawings' wp:docPr ids unique.
-                altText: { name: '', description: '', title: '', id: '2' },
-                floating: {
-                  horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: 0 },
-                  verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: 0 },
-                  wrap: { type: TextWrappingType.NONE },
-                  behindDocument: true,
-                  allowOverlap: true,
-                  // Positioned on the page, not clipped to this 1-twip cell.
-                  layoutInCell: false,
-                },
-              }),
-            ],
-            spacing: NO_TEXT_LINE,
-          }),
-        ],
-      }),
-      new TableCell({
-        width: { size: mainWidth, type: WidthType.DXA },
-        margins: NO_MARGINS,
-        borders: NO_CELL_BORDERS,
-        children: [emptyParagraph()],
-      }),
-    ],
+  /**
+   * The dark column's fill on every page, from the paper's top edge to its
+   * foot, its top and foot margins included: a page-high drawing anchored to
+   * the page's own origin behind the text. It sits in the section's header,
+   * which Word repeats on every page, as `docx-swiss-first-job.ts` draws its
+   * sidebar: a cell's fill ends where the row's part on a page ends, and a
+   * drawing anchored in a table cell is placed from that cell, which no longer
+   * starts at the paper's edge once the page has a top margin.
+   */
+  const sidebarFill = new ImageRun({
+    type: 'png',
+    data: solidColourPng(PALETTE.sidebar),
+    transformation: { width: GEOMETRY.sidebarWidth, height: pageHeightTwips / TWIPS_PER_PX },
+    // A distinct id keeps the two drawings' wp:docPr ids unique.
+    altText: { name: '', description: '', title: '', id: '2' },
+    floating: {
+      horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: 0 },
+      verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: 0 },
+      wrap: { type: TextWrappingType.NONE },
+      behindDocument: true,
+      allowOverlap: true,
+      layoutInCell: false,
+    },
   })
 
   const body = new Table({
@@ -677,18 +693,14 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
     borders: NO_BORDERS,
     margins: NO_MARGINS,
     rows: [
-      fillRow,
       new TableRow({
         cantSplit: false,
         children: [
           new TableCell({
             width: { size: sidebarWidth, type: WidthType.DXA },
-            margins: {
-              top: pxToTwips(GEOMETRY.sidebarPaddingTop),
-              bottom: pxToTwips(GEOMETRY.sidebarPaddingBottom),
-              left: sidebarPaddingX,
-              right: sidebarPaddingX,
-            },
+            // Its top and foot are the page's margins, as in the printed
+            // Preview, where the columns' own padding gives way to them.
+            margins: { top: 0, bottom: 0, left: sidebarPaddingX, right: sidebarPaddingX },
             borders: NO_CELL_BORDERS,
             shading: { type: ShadingType.CLEAR, fill: PALETTE.sidebar, color: 'auto' },
             verticalAlign: VerticalAlign.TOP,
@@ -696,12 +708,7 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
           }),
           new TableCell({
             width: { size: mainWidth, type: WidthType.DXA },
-            margins: {
-              top: pxToTwips(GEOMETRY.mainPaddingTop),
-              bottom: pxToTwips(GEOMETRY.mainPaddingBottom),
-              left: mainPaddingX,
-              right: mainPaddingX,
-            },
+            margins: { top: 0, bottom: 0, left: mainPaddingX, right: mainPaddingX },
             borders: NO_CELL_BORDERS,
             verticalAlign: VerticalAlign.TOP,
             children: main,
@@ -712,6 +719,8 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
   })
 
   const doc = new Document({
+    // Inter travels with the file, so Word draws it on any computer (`docx-fonts.ts`).
+    fonts: await interDocxFonts(),
     styles: {
       default: {
         document: {
@@ -725,11 +734,14 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
         properties: {
           page: {
             size: { width: pageWidthTwips, height: pageHeightTwips, orientation: PageOrientation.PORTRAIT },
-            // No margin: the dark column meets the paper's edges, and the
-            // printed Preview's pages start at the edge too (`@page` margin 0).
-            margin: { top: 0, right: 0, bottom: 0, left: 0, header: 0, footer: 0 },
+            // The printed Preview's top and foot margins (its document's
+            // padding, repeated on every printed page), so both break their
+            // pages at the same place; no side margin, so the dark column
+            // meets the paper's left edge.
+            margin: { top: pxToTwips(GEOMETRY.pageTop), right: 0, bottom: pxToTwips(GEOMETRY.pageBottom), left: 0, header: 0, footer: 0 },
           },
         },
+        headers: { default: new Header({ children: [new Paragraph({ children: [sidebarFill], spacing: NO_TEXT_LINE })] }) },
         // OOXML ends a body with a paragraph; after a table it carries no line.
         children: [body, emptyParagraph()],
       },
@@ -749,7 +761,7 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
     buffer = (await zip.generateAsync({ type: 'nodebuffer' })) as Buffer
   }
 
-  return buffer
+  return pairInterFaces(buffer)
 }
 
 /**
@@ -809,7 +821,7 @@ function photoRun(photoBase64: string): { image: ImageRun; crop: { l: number; t:
     const displayed = swapsAxes ? { width: dimensions.height, height: dimensions.width } : dimensions
     const displayedCrop = calculateCoverCropPercents(displayed.width, displayed.height, boxWidth, boxHeight)
     // srcRect is in the stored image's axes, which a 90° turn swaps; the cover
-    // crop is centred, so the mapping is the one `docx-modern.ts` documents.
+    // crop is centred, so the mapping is the one `EXIF_PHOTO_TRANSFORMS` (`docx-photo.ts`) documents.
     const stored = swapsAxes
       ? { l: displayedCrop.t, r: displayedCrop.b, t: displayedCrop.l, b: displayedCrop.r }
       : displayedCrop

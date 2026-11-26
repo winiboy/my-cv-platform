@@ -1,5 +1,5 @@
 import { test, expect, loginAs } from './fixtures/auth'
-import { FIXTURE_CONTACT, seedFixtureResume } from './fixtures/resume'
+import { FIXTURE_CONTACT, FIXTURE_EXPERIENCE, FIXTURE_LANGUAGES, seedFixtureResume } from './fixtures/resume'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Page } from '@playwright/test'
 import {
@@ -54,42 +54,41 @@ function admin(): SupabaseClient {
 }
 
 /**
- * `classic` throughout: its title-size slider is rendered by the template
- * itself from a setter BOTH surfaces pass, so one control exercises the editor
- * and the preview through the same state. Min 16, max 48, step 2.
+ * `swissCommerce` throughout, and the one layout control every template offers:
+ * the Edit Sidebar panel's visibility toggle, which writes
+ * `hiddenSidebarSections` through the shared owner. Hiding the `languages` row
+ * removes every fixture language from the document, and nothing else in the
+ * fixture names one. (This spec drove the classic template's title-size slider
+ * until swiss-templates-only-page-fidelity US-001 removed that template.)
  */
-const TITLE_SIZE_DEFAULT = 24
-const TITLE_SIZE_CHOSEN = 40
+const HIDDEN = ['languages']
+const LANGUAGES_ROW_LABEL = 'Languages'
+const A_LANGUAGE = FIXTURE_LANGUAGES[FIXTURE_LANGUAGES.length - 1].language
 
 function resumeDocument(page: Page) {
   return page.getByTestId('resume-document')
 }
 
-async function titleFontSizePx(page: Page): Promise<number> {
-  const value = await resumeDocument(page)
-    .locator('h1')
-    .first()
-    .evaluate((element) => window.getComputedStyle(element).fontSize)
-  return Number.parseFloat(value)
+/** Whether the rendered document draws the languages section. */
+async function languagesDrawn(page: Page): Promise<boolean> {
+  const rendered = resumeDocument(page)
+  await expect(rendered).toContainText(FIXTURE_EXPERIENCE[0].company)
+  return ((await rendered.textContent()) ?? '').includes(A_LANGUAGE)
 }
 
 /**
- * Move the slider by keyboard rather than by setting its value, so the same
- * input events a real drag produces drive React state, the localStorage cache
- * and the account write.
+ * Hide the languages section with the panel's own toggle, so the same events a
+ * user's click produces drive React state, the localStorage cache and the
+ * account write.
  */
-async function setTitleSize(page: Page, from: number, to: number): Promise<void> {
-  const slider = resumeDocument(page).locator('input[type="range"]').first()
-  await slider.focus()
-  const step = Number(await slider.getAttribute('step'))
-  const presses = Math.round((to - from) / step)
-  for (let i = 0; i < Math.abs(presses); i++) {
-    await page.keyboard.press(presses > 0 ? 'ArrowRight' : 'ArrowLeft')
-  }
-  await expect(slider).toHaveValue(String(to))
+async function hideLanguages(page: Page): Promise<void> {
+  const row = page.locator('[draggable]').filter({ hasText: LANGUAGES_ROW_LABEL })
+  await expect(row).toHaveCount(1)
+  await row.getByRole('button', { name: 'Hide section' }).click()
+  await expect(row.getByRole('button', { name: 'Show section' })).toBeVisible()
 }
 
-async function persistedTitleFontSize(resumeId: string): Promise<number | null> {
+async function persistedHiddenSidebar(resumeId: string): Promise<unknown> {
   const { data, error } = await admin()
     .from('resumes')
     .select('layout_settings')
@@ -97,7 +96,7 @@ async function persistedTitleFontSize(resumeId: string): Promise<number | null> 
     .single()
   if (error) throw new Error(`Could not read persisted layout settings: ${error.message}`)
   const settings = (data?.layout_settings as Record<string, unknown> | null) ?? null
-  return typeof settings?.titleFontSize === 'number' ? settings.titleFontSize : null
+  return settings?.hiddenSidebarSections ?? null
 }
 
 /** The contact name as the ACCOUNT holds it, past the browser and past RLS. */
@@ -133,32 +132,25 @@ test('AC-3: a layout control in the editor moves the Live Preview', async ({
    * no save, no navigation. If the control and the rendered document were fed by
    * two copies of the state, this is where they would part company.
    */
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
 
-  await page.goto(`/en/dashboard/resumes/${resume.id}/edit`)
+  await page.goto(`/en/dashboard/resumes/${resume.id}/edit?section=editSidebar`)
   await expect(resumeDocument(page)).toBeVisible()
-  expect(await titleFontSizePx(page)).toBe(TITLE_SIZE_DEFAULT)
+  expect(await languagesDrawn(page)).toBe(true)
 
-  await setTitleSize(page, TITLE_SIZE_DEFAULT, TITLE_SIZE_CHOSEN)
+  await hideLanguages(page)
 
-  // The rendered heading, not the slider's own value: the slider agreeing with
-  // itself would prove nothing.
-  await expect.poll(() => titleFontSizePx(page)).toBe(TITLE_SIZE_CHOSEN)
+  // The rendered document, not the toggle's own state: the toggle agreeing
+  // with itself would prove nothing.
+  await expect.poll(() => languagesDrawn(page)).toBe(false)
 
   /**
-   * And it reaches the account.
-   *
-   * This is asserted here deliberately rather than left to US-003's spec. The
-   * title size is one of the seven TYPOGRAPHY properties, and whether the editor
-   * persists them is exactly the behaviour this story was told to preserve
-   * rather than change. Asserting the column pins the answer to what it is
-   * today — persisted — so that a future refactor cannot quietly stop writing
-   * them, and so that the record of what this story preserved is executable
-   * rather than a claim in a comment.
+   * And it reaches the account. Asserting the column pins the answer to what it
+   * is today — persisted — so that a future refactor cannot quietly stop
+   * writing it, and so that the record of what this story preserved is
+   * executable rather than a claim in a comment.
    */
-  await expect
-    .poll(() => persistedTitleFontSize(resume.id), { timeout: 15_000 })
-    .toBe(TITLE_SIZE_CHOSEN)
+  await expect.poll(() => persistedHiddenSidebar(resume.id), { timeout: 15_000 }).toEqual(HIDDEN)
 })
 
 test('AC-1: the preview shows what the editor set, without being told', async ({
@@ -176,19 +168,17 @@ test('AC-1: the preview shows what the editor set, without being told', async ({
    * authoritative copies could still pass a same-browser check by both reading
    * the same cache.
    */
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
 
-  await page.goto(`/en/dashboard/resumes/${resume.id}/edit`)
+  await page.goto(`/en/dashboard/resumes/${resume.id}/edit?section=editSidebar`)
   await expect(resumeDocument(page)).toBeVisible()
-  await setTitleSize(page, TITLE_SIZE_DEFAULT, TITLE_SIZE_CHOSEN)
-  await expect
-    .poll(() => persistedTitleFontSize(resume.id), { timeout: 15_000 })
-    .toBe(TITLE_SIZE_CHOSEN)
+  await hideLanguages(page)
+  await expect.poll(() => persistedHiddenSidebar(resume.id), { timeout: 15_000 }).toEqual(HIDDEN)
 
   // Same browser, other surface.
   await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
   await expect(resumeDocument(page)).toBeVisible()
-  await expect.poll(() => titleFontSizePx(page)).toBe(TITLE_SIZE_CHOSEN)
+  await expect.poll(() => languagesDrawn(page)).toBe(false)
 
   // A browser that has never seen this resume.
   const secondContext = await browser.newContext()
@@ -197,7 +187,7 @@ test('AC-1: the preview shows what the editor set, without being told', async ({
     await loginAs(secondPage, authedUser)
     await secondPage.goto(`/en/dashboard/resumes/${resume.id}/preview`)
     await expect(resumeDocument(secondPage)).toBeVisible()
-    await expect.poll(() => titleFontSizePx(secondPage)).toBe(TITLE_SIZE_CHOSEN)
+    await expect.poll(() => languagesDrawn(secondPage)).toBe(false)
   } finally {
     await secondContext.close()
   }
@@ -207,7 +197,7 @@ test('AC-4: save still writes the account and clears the indicator', async ({
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
   const edited = `${FIXTURE_CONTACT.name} Edited`
 
   await page.goto(`/en/dashboard/resumes/${resume.id}/edit`)
@@ -241,7 +231,7 @@ test('AC-4: an unsaved edit is recovered from the draft on reload', async ({
    * to have set, this is where it shows: the reload must come back holding the
    * edit, and must still say so.
    */
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
   const edited = `${FIXTURE_CONTACT.name} Recovered`
 
   await page.goto(`/en/dashboard/resumes/${resume.id}/edit`)
@@ -272,13 +262,11 @@ test('AC-4: the preview still warns that it is showing an unsaved draft', async 
    * draft blob and renders it in place of the saved row; that reading also moved
    * out of the effect it used to share with the layout load.
    */
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
 
   /**
-   * The CV NAME rather than the contact name, because this test asserts on the
-   * rendered document and `classic-template.tsx` draws `resume.title` as its
-   * heading — it never draws `contact.name`. Asserting a field the template
-   * does not render would fail for a reason that has nothing to do with drafts.
+   * The CV NAME, which swissCommerce draws under the name in its header band, so
+   * the draft's change is visible in the rendered document.
    */
   const cvNameField = page.locator('#cvName')
   const originalTitle = await (async () => {

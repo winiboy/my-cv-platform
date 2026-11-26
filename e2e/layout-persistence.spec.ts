@@ -1,8 +1,13 @@
 import { test, expect, loginAs, type TestUser } from './fixtures/auth'
-import { FIXTURE_EDUCATION, FIXTURE_EXPERIENCE, seedFixtureResume } from './fixtures/resume'
+import {
+  FIXTURE_CONTACT,
+  FIXTURE_EDUCATION,
+  FIXTURE_EXPERIENCE,
+  FIXTURE_LANGUAGES,
+  seedFixtureResume,
+} from './fixtures/resume'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { BrowserContext, Page } from '@playwright/test'
-import type { ResumeTemplate } from '../src/types/database'
 import {
   LOCAL_SUPABASE_URL,
   LOCAL_SERVICE_KEY,
@@ -27,17 +32,27 @@ import {
  *      itself, past the browser, so a value that merely stayed in localStorage
  *      cannot pass.
  *   2. The value comes back on a browser that has never seen it, and comes back
- *      RENDERED — the assertion is on the computed style of the heading, not on
- *      a slider's own value, because it is the document that has to be the same
- *      on the second device.
+ *      RENDERED — the assertion is on the document, not on the control, because
+ *      it is the document that has to be the same on the second device.
  *   3. The account beats the browser. The second context is given a DIFFERENT
  *      value in localStorage before it loads, so the two sources genuinely
  *      conflict and the test can only pass if the persisted one wins. Without
  *      this seeding the test would also pass under "whichever store answers
  *      first", which is not the rule.
  *
- * The DIRECTION of the conflict is the point. A cache that wins would show 24px
- * here — the value this browser has and the account does not.
+ * THE PROPERTY UNDER TEST
+ *
+ * `hiddenSidebarSections`, through the one layout control every template
+ * offers: the Edit Sidebar panel's visibility toggle (`TEMPLATE_LAYOUT_CONTROLS`,
+ * `sidebarSections`). The template is swissCommerce, the default, which draws
+ * the languages as a section of their own; hiding the `languages` row removes
+ * every fixture language from the document, and no other part of the fixture
+ * names one. The Preview renders the stored layout read-only and draws no
+ * control (swiss-cv-templates FR-13).
+ *
+ * This spec exercised the title-size slider of the classic template until
+ * swiss-templates-only-page-fidelity US-001 removed it; no Swiss template offers
+ * a size control, and the sections panel is the control that remains.
  */
 
 const SUPABASE_URL = process.env.TEST_SUPABASE_URL ?? LOCAL_SUPABASE_URL
@@ -51,43 +66,33 @@ function admin(): SupabaseClient {
   })
 }
 
-/**
- * The classic template's title-size slider: min 16, max 48, step 2, and the
- * heading it controls carries the value as an inline font-size.
- *
- * `classic` rather than `modern` because its slider is rendered by the template
- * itself from a setter the Editor passes, so driving it goes through the one
- * layout owner (`useResumeLayout`) that the Editor and the Preview share and
- * that persists the value. The slider is the Editor's: the Preview renders the
- * stored layout read-only and draws no control (swiss-cv-templates FR-13).
- */
-const TITLE_SIZE_DEFAULT = 24
-const TITLE_SIZE_CHOSEN = 42
-/** What the second browser has cached, and must lose with. */
-const TITLE_SIZE_STALE_CACHE = 18
+/** The sidebar section hidden throughout, and the panel row that names it. */
+const HIDDEN = ['languages']
+const LANGUAGES_ROW_LABEL = 'Languages'
+/** A fixture language: present in the document exactly when the languages section is. */
+const A_LANGUAGE = FIXTURE_LANGUAGES[FIXTURE_LANGUAGES.length - 1].language
 
 function layoutCacheKey(resumeId: string): string {
   return `resume_slider_settings_${resumeId}`
 }
 
-/** The heading whose size the slider controls. */
-function titleHeading(page: Page) {
-  return page.getByTestId('resume-document').locator('h1').first()
+function resumeDocument(page: Page) {
+  return page.getByTestId('resume-document')
 }
 
-async function titleFontSizePx(page: Page): Promise<number> {
-  const value = await titleHeading(page).evaluate(
-    (element) => window.getComputedStyle(element).fontSize,
-  )
-  return Number.parseFloat(value)
+/** Whether the rendered document draws the languages section. */
+async function languagesDrawn(page: Page): Promise<boolean> {
+  const rendered = resumeDocument(page)
+  // Read from a document that has finished rendering, never from an empty one.
+  await expect(rendered).toContainText(FIXTURE_EXPERIENCE[0].company)
+  return ((await rendered.textContent()) ?? '').includes(A_LANGUAGE)
 }
 
 /**
  * Read the persisted column directly, past RLS and past the browser.
  *
- * Service-role here is deliberate and is the only place it appears: the point
- * is to observe what the ACCOUNT holds, independently of whether any browser
- * can see it.
+ * Service-role here is deliberate: the point is to observe what the ACCOUNT
+ * holds, independently of whether any browser can see it.
  */
 async function persistedLayout(resumeId: string): Promise<Record<string, unknown> | null> {
   const { data, error } = await admin()
@@ -99,9 +104,8 @@ async function persistedLayout(resumeId: string): Promise<Record<string, unknown
   return (data?.layout_settings as Record<string, unknown> | null) ?? null
 }
 
-async function persistedTitleFontSize(resumeId: string): Promise<number | null> {
-  const settings = await persistedLayout(resumeId)
-  return typeof settings?.titleFontSize === 'number' ? settings.titleFontSize : null
+async function persistedHiddenSidebar(resumeId: string): Promise<unknown> {
+  return (await persistedLayout(resumeId))?.hiddenSidebarSections ?? null
 }
 
 /** Write the column as the account, past the browser. */
@@ -114,38 +118,25 @@ async function seedPersistedLayout(resumeId: string, value: unknown): Promise<vo
 }
 
 /**
- * Move the slider by keyboard rather than by setting its value.
- *
- * A range input driven through the keyboard emits the same input events a user
- * produces, so React state, the localStorage cache and the account write are
- * all exercised by the same path a real drag takes.
+ * Hide the languages section with the Edit Sidebar panel's own toggle, so React
+ * state, the localStorage cache and the account write are all exercised by the
+ * path a user's click takes.
  */
-async function setTitleSize(page: Page, from: number, to: number): Promise<void> {
-  const slider = page.getByTestId('resume-document').locator('input[type="range"]').first()
-  await slider.focus()
-  const step = Number(await slider.getAttribute('step'))
-  const presses = Math.round((to - from) / step)
-  for (let i = 0; i < Math.abs(presses); i++) {
-    await page.keyboard.press(presses > 0 ? 'ArrowRight' : 'ArrowLeft')
-  }
-  await expect(slider).toHaveValue(String(to))
+async function hideLanguagesInEditor(page: Page, resumeId: string): Promise<void> {
+  await page.goto(`/en/dashboard/resumes/${resumeId}/edit?section=editSidebar`)
+  await expect(resumeDocument(page)).toBeVisible()
+  const row = page.locator('[draggable]').filter({ hasText: LANGUAGES_ROW_LABEL })
+  await expect(row).toHaveCount(1)
+  await row.getByRole('button', { name: 'Hide section' }).click()
+  await expect(row.getByRole('button', { name: 'Show section' })).toBeVisible()
 }
 
 /**
- * Give a browser a cached title size before any page script runs, so the
- * wrapper reads it on mount exactly as it would read a value this browser had
- * written itself.
+ * Give a browser a cached layout before any page script runs, so the surface
+ * reads it on mount exactly as it would read a value this browser had written
+ * itself.
  */
 async function seedLayoutCache(
-  context: BrowserContext,
-  resumeId: string,
-  titleFontSize: number,
-): Promise<void> {
-  await seedLayoutCacheValue(context, resumeId, { titleFontSize })
-}
-
-/** The same, for a blob carrying more than one property. */
-async function seedLayoutCacheValue(
   context: BrowserContext,
   resumeId: string,
   value: Record<string, unknown>,
@@ -163,9 +154,9 @@ async function openSecondSession(
   context: BrowserContext,
   user: TestUser,
   resumeId: string,
-  cachedTitleSize: number,
+  cached: Record<string, unknown>,
 ): Promise<Page> {
-  await seedLayoutCache(context, resumeId, cachedTitleSize)
+  await seedLayoutCache(context, resumeId, cached)
   const page = await context.newPage()
   await loginAs(page, user)
   return page
@@ -176,49 +167,44 @@ test('layout settings saved in one session are present in another', async ({
   browser,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
 
   // A resume nobody has customized starts with nothing persisted. If this were
   // already non-null the test below could pass without the first session
   // having written anything.
-  expect(await persistedTitleFontSize(resume.id)).toBeNull()
+  expect(await persistedLayout(resume.id)).toBeNull()
 
   // --- First session: make a choice, in the Editor, where the control is ---
   await page.goto(`/en/dashboard/resumes/${resume.id}/edit`)
-  await expect(page.getByTestId('resume-document')).toBeVisible()
-  expect(await titleFontSizePx(page)).toBe(TITLE_SIZE_DEFAULT)
+  await expect(resumeDocument(page)).toBeVisible()
+  expect(await languagesDrawn(page)).toBe(true)
 
-  await setTitleSize(page, TITLE_SIZE_DEFAULT, TITLE_SIZE_CHOSEN)
-  await expect.poll(() => titleFontSizePx(page)).toBe(TITLE_SIZE_CHOSEN)
+  await hideLanguagesInEditor(page, resume.id)
+  await expect.poll(() => languagesDrawn(page)).toBe(false)
 
   // It reached the account, not just this browser. Polled because the write is
   // debounced; the assertion is on the column, so a value that only ever
   // reached localStorage fails here.
-  await expect
-    .poll(() => persistedTitleFontSize(resume.id), { timeout: 15_000 })
-    .toBe(TITLE_SIZE_CHOSEN)
+  await expect.poll(() => persistedHiddenSidebar(resume.id), { timeout: 15_000 }).toEqual(HIDDEN)
 
   // The same session's Preview renders the stored value, read-only.
   await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
-  await expect(page.getByTestId('resume-document')).toBeVisible()
-  await expect(page.getByTestId('resume-document').locator('input[type="range"]')).toHaveCount(0)
-  await expect.poll(() => titleFontSizePx(page)).toBe(TITLE_SIZE_CHOSEN)
+  await expect(resumeDocument(page)).toBeVisible()
+  await expect(resumeDocument(page).locator('button, input')).toHaveCount(0)
+  await expect.poll(() => languagesDrawn(page)).toBe(false)
 
   // --- Second session: a different browser, holding a conflicting cache ---
   const secondContext = await browser.newContext()
   try {
-    const secondPage = await openSecondSession(
-      secondContext,
-      authedUser,
-      resume.id,
-      TITLE_SIZE_STALE_CACHE,
-    )
+    const secondPage = await openSecondSession(secondContext, authedUser, resume.id, {
+      hiddenSidebarSections: [],
+    })
 
     await secondPage.goto(`/en/dashboard/resumes/${resume.id}/preview`)
-    await expect(secondPage.getByTestId('resume-document')).toBeVisible()
+    await expect(resumeDocument(secondPage)).toBeVisible()
 
-    // The cache says 18, the account says 42, and the account wins.
-    await expect.poll(() => titleFontSizePx(secondPage)).toBe(TITLE_SIZE_CHOSEN)
+    // The cache shows the languages, the account hides them, and the account wins.
+    await expect.poll(() => languagesDrawn(secondPage)).toBe(false)
   } finally {
     await secondContext.close()
   }
@@ -232,35 +218,36 @@ test('a property the account has never persisted keeps its local value', async (
    * The qualification on the precedence rule, end to end.
    *
    * This is the state migration 007 leaves a resume in when it backfills the
-   * four properties the old `custom_sections` blob could hold: the account has
-   * SOME layout settings and not others. An unqualified "persisted wins" would
+   * properties the old `custom_sections` blob could hold: the account has SOME
+   * layout settings and not others. An unqualified "persisted wins" would
    * resolve every unpersisted property from defaults and wipe out a real
    * customization the user can see on screen — the failure US-004 exists to
    * prevent, and the one this asserts cannot happen.
    */
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
 
-  // The account has persisted something — but not the title size.
-  const { error } = await admin()
-    .from('resumes')
-    .update({ layout_settings: { hiddenMainSections: ['education'] } })
-    .eq('id', resume.id)
-  if (error) throw new Error(`Could not seed partial layout settings: ${error.message}`)
+  // The account has persisted something — but not the sidebar visibility.
+  await seedPersistedLayout(resume.id, { hiddenMainSections: ['education'] })
 
-  // This browser holds a title size the account does not. One context is
-  // enough here: the question is which store wins, not which device.
-  await seedLayoutCache(page.context(), resume.id, TITLE_SIZE_CHOSEN)
+  // This browser hides a section the account says nothing about. One context
+  // is enough here: the question is which store wins, not which device.
+  await seedLayoutCache(page.context(), resume.id, { hiddenSidebarSections: HIDDEN })
 
   await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
-  await expect(page.getByTestId('resume-document')).toBeVisible()
+  await expect(resumeDocument(page)).toBeVisible()
 
-  // Not persisted, so the browser's value is adopted rather than reset to 24.
-  await expect.poll(() => titleFontSizePx(page)).toBe(TITLE_SIZE_CHOSEN)
+  // Not persisted, so the browser's value is adopted rather than reset to "shown".
+  await expect.poll(() => languagesDrawn(page)).toBe(false)
+  // And the account's own value still applies.
+  for (const entry of FIXTURE_EDUCATION) {
+    await expect(resumeDocument(page)).not.toContainText(entry.school)
+  }
 })
 
-/** Rendered, not merely mounted: the heading carries the resolved size. */
-async function expectDefaultTitleSize(page: Page): Promise<void> {
-  expect(await titleFontSizePx(page)).toBe(TITLE_SIZE_DEFAULT)
+/** Rendered, not merely mounted: the document draws its default sections. */
+async function expectDefaultLayout(page: Page): Promise<void> {
+  expect(await languagesDrawn(page)).toBe(true)
+  await expect(resumeDocument(page)).toContainText(FIXTURE_EDUCATION[0].school)
 }
 
 /**
@@ -272,7 +259,7 @@ async function expectDefaultTitleSize(page: Page): Promise<void> {
  * `resolveResumeLayout` and the education entries come back.
  */
 async function expectLegacyHiddenEducation(page: Page): Promise<void> {
-  const rendered = page.getByTestId('resume-document')
+  const rendered = resumeDocument(page)
   // Asserted first, so the absences below are read from a document that has
   // finished rendering rather than from one that has not started.
   await expect(rendered).toContainText(FIXTURE_EXPERIENCE[0].company)
@@ -288,28 +275,21 @@ async function expectLegacyHiddenEducation(page: Page): Promise<void> {
  * the loader that now reads two persisted stores instead of one.
  *
  * The wrapped shape is the only one that CARRIES layout settings, so it is the
- * only one able to evidence the legacy read path — and it is seeded on
- * `professional` rather than `classic` because `resume-preview.tsx` hands
- * `hiddenMainSections` only to the templates that honour it. Classic ignores
- * section visibility altogether, so the same assertion made there could only
- * ever be about the title size, which every shape produces identically.
+ * only one able to evidence the legacy read path.
  */
 const LEGACY_CUSTOM_SECTIONS: Array<{
   name: string
-  template: ResumeTemplate
   value: unknown
   assert: (page: Page) => Promise<void>
 }> = [
-  { name: 'null', template: 'classic', value: null, assert: expectDefaultTitleSize },
+  { name: 'null', value: null, assert: expectDefaultLayout },
   {
     name: 'a bare array',
-    template: 'classic',
     value: [{ title: 'Awards', content: 'Employee of the year' }],
-    assert: expectDefaultTitleSize,
+    assert: expectDefaultLayout,
   },
   {
     name: 'the wrapped object that carried layout settings',
-    template: 'professional',
     value: {
       items: [{ title: 'Awards', content: 'Employee of the year' }],
       layoutSettings: { hiddenMainSections: ['education'] },
@@ -323,7 +303,7 @@ for (const shape of LEGACY_CUSTOM_SECTIONS) {
     page,
     authedUser,
   }) => {
-    const resume = await seedFixtureResume(authedUser.id, shape.template)
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     const { error } = await admin()
       .from('resumes')
       .update({ custom_sections: shape.value })
@@ -331,7 +311,7 @@ for (const shape of LEGACY_CUSTOM_SECTIONS) {
     if (error) throw new Error(`Could not seed the legacy shape: ${error.message}`)
 
     await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
-    await expect(page.getByTestId('resume-document')).toBeVisible()
+    await expect(resumeDocument(page)).toBeVisible()
     await shape.assert(page)
   })
 }
@@ -340,27 +320,22 @@ test('a malformed persisted value renders defaults instead of failing', async ({
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
 
   // Shaped like an object so the column's CHECK accepts it, and useless in
   // every other respect: this is what a corrupted or hand-edited row looks
   // like, and it must not be able to break a resume.
-  const { error } = await admin()
-    .from('resumes')
-    .update({
-      layout_settings: {
-        titleFontSize: 'enormous',
-        fontScale: null,
-        sidebarOrder: 'not a list',
-        unknownKey: { nested: true },
-      },
-    })
-    .eq('id', resume.id)
-  if (error) throw new Error(`Could not seed a malformed layout value: ${error.message}`)
+  await seedPersistedLayout(resume.id, {
+    hiddenSidebarSections: 'languages',
+    hiddenMainSections: { education: true },
+    fontScale: null,
+    sidebarOrder: 'not a list',
+    unknownKey: { nested: true },
+  })
 
   await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
-  await expect(page.getByTestId('resume-document')).toBeVisible()
-  expect(await titleFontSizePx(page)).toBe(TITLE_SIZE_DEFAULT)
+  await expect(resumeDocument(page)).toBeVisible()
+  await expectDefaultLayout(page)
 })
 
 /**
@@ -386,8 +361,8 @@ test('a malformed persisted value renders defaults instead of failing', async ({
  * The fifth case is the one the whole per-property design exists for: a row
  * migration 007 BACKFILLED, whose column is non-null but carries only the four
  * properties the legacy blob could hold. Answering "has this resume got
- * persisted settings?" per resume would adopt nothing there and lose the other
- * fifteen. That test fails if anyone reaches for the simpler rule.
+ * persisted settings?" per resume would adopt nothing there and lose the
+ * others. That test fails if anyone reaches for the simpler rule.
  */
 
 /** What the account claims to hold, as a sorted key list. */
@@ -419,17 +394,17 @@ test('a resume with neither local nor persisted settings gains none', async ({
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
 
   await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
-  await expect(page.getByTestId('resume-document')).toBeVisible()
-  expect(await titleFontSizePx(page)).toBe(TITLE_SIZE_DEFAULT)
+  await expect(resumeDocument(page)).toBeVisible()
+  await expectDefaultLayout(page)
 
   await page.waitForTimeout(ADOPTION_SETTLE_MS)
 
-  // Still NULL. Merely looking at a resume must not make it claim nineteen
-  // deliberate values it never had — that would pin it against every future
-  // change to the documented defaults.
+  // Still NULL. Merely looking at a resume must not make it claim deliberate
+  // values it never had — that would pin it against every future change to the
+  // documented defaults.
   expect(await persistedLayout(resume.id)).toBeNull()
 })
 
@@ -437,41 +412,39 @@ test('a resume with only persisted settings is not overwritten by defaults', asy
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
-  await seedPersistedLayout(resume.id, { titleFontSize: 30 })
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
+  await seedPersistedLayout(resume.id, { hiddenSidebarSections: HIDDEN })
 
   await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
-  await expect(page.getByTestId('resume-document')).toBeVisible()
-  expect(await titleFontSizePx(page)).toBe(30)
+  await expect(resumeDocument(page)).toBeVisible()
+  expect(await languagesDrawn(page)).toBe(false)
 
   await page.waitForTimeout(ADOPTION_SETTLE_MS)
 
-  expect(await persistedLayout(resume.id)).toEqual({ titleFontSize: 30 })
+  expect(await persistedLayout(resume.id)).toEqual({ hiddenSidebarSections: HIDDEN })
 })
 
 test('a resume with only local settings adopts them into the account', async ({
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
   expect(await persistedLayout(resume.id)).toBeNull()
 
   // This browser holds a real customization the account has never heard of —
   // the state every existing user is in the moment persistence ships.
-  await seedLayoutCache(page.context(), resume.id, TITLE_SIZE_CHOSEN)
+  await seedLayoutCache(page.context(), resume.id, { hiddenSidebarSections: HIDDEN })
 
   await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
-  await expect(page.getByTestId('resume-document')).toBeVisible()
-  expect(await titleFontSizePx(page)).toBe(TITLE_SIZE_CHOSEN)
+  await expect(resumeDocument(page)).toBeVisible()
+  expect(await languagesDrawn(page)).toBe(false)
 
   // THE MIGRATION. Merely loading the resume moved it onto the account.
-  await expect
-    .poll(() => persistedTitleFontSize(resume.id), { timeout: 15_000 })
-    .toBe(TITLE_SIZE_CHOSEN)
+  await expect.poll(() => persistedHiddenSidebar(resume.id), { timeout: 15_000 }).toEqual(HIDDEN)
 
-  // And it moved ONLY that. The other eighteen properties are still nobody's
-  // choice, so they stay absent rather than being written as though they were.
-  expect(await persistedKeys(resume.id)).toEqual(['titleFontSize'])
+  // And it moved ONLY that. The other properties are still nobody's choice, so
+  // they stay absent rather than being written as though they were.
+  expect(await persistedKeys(resume.id)).toEqual(['hiddenSidebarSections'])
 })
 
 test('the editor adopts local settings too, not only the preview', async ({
@@ -481,51 +454,50 @@ test('the editor adopts local settings too, not only the preview', async ({
   /**
    * The second call site.
    *
-   * Every other test here loads `/preview` to read the result, so without this one the editor's
-   * adoption is covered only through the shared planner's unit tests — and the
-   * editor is the surface that differs, because it resolves its stores from the
-   * server prop while holding a separate `resume` state a draft blob can
-   * replace. A user who customized their resume and never opens the preview
-   * must be migrated just the same.
+   * Every other test here loads `/preview` to read the result, so without this
+   * one the editor's adoption is covered only through the shared planner's unit
+   * tests — and the editor is the surface that differs, because it resolves its
+   * stores from the server prop while holding a separate `resume` state a draft
+   * blob can replace. A user who customized their resume and never opens the
+   * preview must be migrated just the same.
    */
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
   expect(await persistedLayout(resume.id)).toBeNull()
 
-  await seedLayoutCache(page.context(), resume.id, TITLE_SIZE_CHOSEN)
+  await seedLayoutCache(page.context(), resume.id, { hiddenSidebarSections: HIDDEN })
 
   await page.goto(`/en/dashboard/resumes/${resume.id}/edit`)
   // The editor renders the same live document, so the browser's value being on
   // screen here means the same thing it means on the preview.
-  await expect(page.getByTestId('resume-document')).toBeVisible()
-  await expect.poll(() => titleFontSizePx(page)).toBe(TITLE_SIZE_CHOSEN)
+  await expect(resumeDocument(page)).toBeVisible()
+  await expect.poll(() => languagesDrawn(page)).toBe(false)
 
-  await expect
-    .poll(() => persistedTitleFontSize(resume.id), { timeout: 15_000 })
-    .toBe(TITLE_SIZE_CHOSEN)
-  expect(await persistedKeys(resume.id)).toEqual(['titleFontSize'])
+  await expect.poll(() => persistedHiddenSidebar(resume.id), { timeout: 15_000 }).toEqual(HIDDEN)
+  expect(await persistedKeys(resume.id)).toEqual(['hiddenSidebarSections'])
 })
 
 test('a local value does not displace one the account already holds', async ({
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
-  await seedPersistedLayout(resume.id, { titleFontSize: 30 })
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
+  // An explicit empty list is a value: the account shows every sidebar section.
+  await seedPersistedLayout(resume.id, { hiddenSidebarSections: [] })
 
   // The conflict is genuine: two stores, the same property, different values.
-  await seedLayoutCache(page.context(), resume.id, TITLE_SIZE_CHOSEN)
+  await seedLayoutCache(page.context(), resume.id, { hiddenSidebarSections: HIDDEN })
 
   await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
-  await expect(page.getByTestId('resume-document')).toBeVisible()
+  await expect(resumeDocument(page)).toBeVisible()
 
   // The account wins on screen...
-  await expect.poll(() => titleFontSizePx(page)).toBe(30)
+  await expect.poll(() => languagesDrawn(page)).toBe(true)
 
   await page.waitForTimeout(ADOPTION_SETTLE_MS)
 
-  // ...and in the store. The local 42 is not promoted over it, and nothing
+  // ...and in the store. The local value is not promoted over it, and nothing
   // else is written either.
-  expect(await persistedLayout(resume.id)).toEqual({ titleFontSize: 30 })
+  expect(await persistedLayout(resume.id)).toEqual({ hiddenSidebarSections: [] })
 })
 
 test('a backfilled resume adopts the properties the backfill could not carry', async ({
@@ -537,37 +509,34 @@ test('a backfilled resume adopts the properties the backfill could not carry', a
    *
    * The column is NON-NULL, so "does this resume have persisted settings?"
    * answers yes — and answering it per resume would adopt nothing, leaving the
-   * user's typography to resolve from defaults on their next device. Per
-   * property, the four backfilled values win and the fifteen absent ones take
-   * the browser's.
+   * user's other choices to resolve from defaults on their next device. Per
+   * property, the four backfilled values win and the absent ones take the
+   * browser's: here the contact visibility, which the backfill never carried.
    */
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
   await seedPersistedLayout(resume.id, BACKFILLED_LAYOUT)
 
-  await seedLayoutCacheValue(page.context(), resume.id, {
-    titleFontSize: TITLE_SIZE_CHOSEN,
-    fontScale: 1.2,
+  await seedLayoutCache(page.context(), resume.id, {
+    hiddenContactFields: ['email'],
     // The account holds this one. It must lose, exactly as in the test above.
-    sidebarOrder: ['skills', 'languages', 'training', 'keyAchievements'],
+    hiddenSidebarSections: HIDDEN,
   })
 
   await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
-  await expect(page.getByTestId('resume-document')).toBeVisible()
-  // Drawn, not stored: this cache also carries fontScale 1.2, and since
-  // Part 3 US-011 classic applies it. The value adopted is still 42 — the
-  // persisted assertion below is the one about adoption.
-  expect(await titleFontSizePx(page)).toBe(TITLE_SIZE_CHOSEN * 1.2)
+  await expect(resumeDocument(page)).toBeVisible()
+  // The account's empty list wins for the sidebar; the browser's email choice is drawn.
+  expect(await languagesDrawn(page)).toBe(true)
+  await expect(resumeDocument(page)).not.toContainText(FIXTURE_CONTACT.email)
 
   await expect
-    .poll(() => persistedTitleFontSize(resume.id), { timeout: 15_000 })
-    .toBe(TITLE_SIZE_CHOSEN)
+    .poll(async () => (await persistedLayout(resume.id))?.hiddenContactFields ?? null, { timeout: 15_000 })
+    .toEqual(['email'])
 
-  // The backfilled four survive untouched, the two the browser really chose
-  // are adopted, and nothing else is invented.
+  // The backfilled four survive untouched, the one the browser really chose is
+  // adopted, and nothing else is invented.
   expect(await persistedLayout(resume.id)).toEqual({
     ...BACKFILLED_LAYOUT,
-    titleFontSize: TITLE_SIZE_CHOSEN,
-    fontScale: 1.2,
+    hiddenContactFields: ['email'],
   })
 })
 
@@ -579,31 +548,29 @@ test('the migration runs once and cannot re-promote a stale cache', async ({
    * IDEMPOTENCE, stated as the failure it prevents.
    *
    * A second run is not merely wasteful. After the first load both surfaces
-   * re-cache the RESOLVED model, so this browser's blob now carries all
-   * nineteen properties — and if that counted as nineteen local values to
-   * adopt, a change made on another device afterwards would be overwritten by
-   * this browser's stale copy on its next load. So the account is changed
-   * between the two loads, and the second load must leave it alone.
+   * re-cache the RESOLVED model, so this browser's blob now carries every
+   * property — and if that counted as that many local values to adopt, a change
+   * made on another device afterwards would be overwritten by this browser's
+   * stale copy on its next load. So the account is changed between the two
+   * loads, and the second load must leave it alone.
    */
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
-  await seedLayoutCache(page.context(), resume.id, TITLE_SIZE_CHOSEN)
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
+  await seedLayoutCache(page.context(), resume.id, { hiddenSidebarSections: HIDDEN })
 
   await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
-  await expect(page.getByTestId('resume-document')).toBeVisible()
-  await expect
-    .poll(() => persistedTitleFontSize(resume.id), { timeout: 15_000 })
-    .toBe(TITLE_SIZE_CHOSEN)
+  await expect(resumeDocument(page)).toBeVisible()
+  await expect.poll(() => persistedHiddenSidebar(resume.id), { timeout: 15_000 }).toEqual(HIDDEN)
 
   // Somebody else's device changes the same property.
-  await seedPersistedLayout(resume.id, { titleFontSize: 30 })
+  await seedPersistedLayout(resume.id, { hiddenSidebarSections: [] })
 
   // The same browser loads again, its cache now holding the full resolved
-  // model from the first load — including titleFontSize 42.
+  // model from the first load — including the hidden languages.
   await page.reload()
-  await expect(page.getByTestId('resume-document')).toBeVisible()
-  await expect.poll(() => titleFontSizePx(page)).toBe(30)
+  await expect(resumeDocument(page)).toBeVisible()
+  await expect.poll(() => languagesDrawn(page)).toBe(true)
 
   await page.waitForTimeout(ADOPTION_SETTLE_MS)
 
-  expect(await persistedLayout(resume.id)).toEqual({ titleFontSize: 30 })
+  expect(await persistedLayout(resume.id)).toEqual({ hiddenSidebarSections: [] })
 })

@@ -153,7 +153,9 @@ async function documentXml(row: Row, locale: Locale, extra: Partial<DocxGenerato
   const zip = await JSZip.loadAsync(await generateSwissTradesDocx(row, settingsFor(row, locale, extra)))
   const part = zip.file('word/document.xml')
   if (part === null) throw new Error('The artifact has no word/document.xml')
-  return part.async('string')
+  // A non-breaking hyphen is a hyphen of the text, written as an element of its
+  // own between two text nodes: read it back into its text node.
+  return (await part.async('string')).replace(/<\/w:t><w:noBreakHyphen\/><w:t xml:space="preserve">/g, '-')
 }
 
 /** The document's text, run by run, in document order. */
@@ -476,8 +478,8 @@ describe('swissTrades: Word layout (FR-10)', () => {
     const all = tables(xml)
     expect(all).toHaveLength(1)
     const rows = [...all[0].matchAll(/<w:tr\b[\s\S]*?<\/w:tr>/g)].map(([row]) => row)
-    expect(rows).toHaveLength(2)
-    const [sidebar, main] = cells(rows[1])
+    expect(rows).toHaveLength(1)
+    const [sidebar, main] = cells(rows[0])
     expect(sidebar).toMatch(new RegExp(`<w:shd [^>]*w:fill="${PALETTE.sidebar}"`))
     expect(sidebar).toContain('robin@halvorsen.test')
     expect(sidebar).toContain('Kiln licence')
@@ -485,15 +487,37 @@ describe('swissTrades: Word layout (FR-10)', () => {
     expect(main).toContain('Robin Halvorsen')
     expect(main).toContain('Tessellate Freight, Oxbridge')
     expect(all[0]).toContain(`<w:gridCol w:w="${pxToTwips(SWISS_TRADES_GEOMETRY.sidebarWidth)}"/>`)
-    expect(xml).toMatch(/<w:pgMar [^>]*w:top="0"[^>]*w:right="0"[^>]*w:bottom="0"[^>]*w:left="0"/)
   })
 
-  it('paints the dark column the height of every page with a fill drawing repeated by a header row', async () => {
+  it('gives every page the PDF’s top and foot margins and no side margin, the columns’ own top and foot giving way to them (swiss-templates-only-page-fidelity US-002)', async () => {
     const xml = await documentXml(resumeRow(), 'en')
-    const fillRow = /<w:tr\b[\s\S]*?<\/w:tr>/.exec(tables(xml)[0])?.[0] ?? ''
-    expect(fillRow).toContain('<w:tblHeader/>')
-    expect(fillRow).toMatch(/<wp:anchor\b[^>]*behindDoc="1"[^>]*layoutInCell="0"/)
-    expect(fillRow).toContain(`<wp:extent cx="${SWISS_TRADES_GEOMETRY.sidebarWidth * 9525}"`)
+    const G = SWISS_TRADES_GEOMETRY
+    expect(xml).toMatch(new RegExp(`<w:pgMar w:top="${pxToTwips(G.pageTop)}" w:right="0" w:bottom="${pxToTwips(G.pageBottom)}" w:left="0" w:header="0" w:footer="0"`))
+    expect(xml.split('<w:pgMar').length - 1).toBe(1)
+    for (const cell of cells(tables(xml)[0])) {
+      expect(cell).toMatch(/<w:tcMar><w:top w:type="dxa" w:w="0"\/>/)
+      expect(cell).toMatch(/<w:bottom w:type="dxa" w:w="0"\/>/)
+    }
+  })
+
+  it('paints the dark column on every page from the paper’s top edge to its foot: a page-high fill anchored to the page, in the repeated header', async () => {
+    const zip = await JSZip.loadAsync(await generateSwissTradesDocx(resumeRow(), settingsFor(resumeRow(), 'en')))
+    const documentPart = await zip.file('word/document.xml')!.async('string')
+    const headerName = Object.keys(zip.files).find((name) => /^word\/header\d*\.xml$/.test(name))!
+    const header = await zip.file(headerName)!.async('string')
+    const anchors = [...header.matchAll(/<wp:anchor\b[\s\S]*?<\/wp:anchor>/g)].map(([a]) => a)
+    expect(anchors).toHaveLength(1)
+    const [fill] = anchors
+    expect(fill).toMatch(/<wp:anchor\b[^>]*behindDoc="1"[^>]*layoutInCell="0"/)
+    expect(fill).toContain('<wp:positionH relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionH>')
+    expect(fill).toContain('<wp:positionV relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionV>')
+    const pageHeight = Number(/<w:pgSz [^>]*w:h="(\d+)"/.exec(documentPart)?.[1])
+    expect(Number(/<wp:extent cx="(\d+)"/.exec(fill)?.[1]) / 9525).toBe(SWISS_TRADES_GEOMETRY.sidebarWidth)
+    expect(Math.abs(Number(/<wp:extent cx="\d+" cy="(\d+)"/.exec(fill)?.[1]) - pageHeight * 635)).toBeLessThanOrEqual(5)
+    // The header is the section's default one: every page has it; the body repeats no header row.
+    expect(documentPart).toMatch(/<w:headerReference w:type="default"/)
+    expect(documentPart).not.toContain('<w:tblHeader/>')
+    expect(documentPart).not.toMatch(/<wp:anchor\b[^>]*layoutInCell="0"/)
   })
 
   it('draws each skill as a run shaded the tag colour, under its category caption', async () => {

@@ -7,15 +7,13 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { test, expect, createTestUser, deleteTestUser } from './fixtures/auth'
 import { FIXTURE_CONTACT, FIXTURE_SUMMARY, seedFixtureResume, type FixtureContentOverrides } from './fixtures/resume'
 import { LONG_EXPERIENCE } from './fixtures/page-breaks'
-import { A4_PT, rasteriseColumns, readPdf, type ReadPdf, type Rgb } from './fixtures/pdf'
+import { A4_PT, readPdf, type ReadPdf } from './fixtures/pdf'
 import { comparablePageText } from './fixtures/pdf-text'
 import { LOCAL_SUPABASE_URL, LOCAL_SERVICE_KEY, assertLocalSupabase } from '../src/test/local-stack'
-import { resolveLayoutModel } from '../src/lib/layout-settings'
 import { layoutCacheKey } from '../src/lib/resume-layout-store'
-import { PAGE_WIDTH_PX } from '../src/lib/resume-page-size'
 import { MAX_DRAFT_LENGTH, MAX_PDF_REQUEST_BYTES, MAX_PHOTO_LENGTH } from '../src/lib/pdf/payload'
 import enCommon from '../src/locales/en/common.json'
-import type { ResumeTemplate } from '../src/types/database'
+import { RESUME_TEMPLATES } from '../src/lib/resume-templates'
 
 /**
  * US-001 (resume-pdf-direct-download): the server returns the resume PDF the
@@ -33,12 +31,14 @@ import type { ResumeTemplate } from '../src/types/database'
  * Timings of the route are attached to each test as annotations.
  */
 
-const TEMPLATES: readonly ResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative']
+const TEMPLATES = RESUME_TEMPLATES
 
 /**
- * A layout no default produces, in properties every template draws: a picker
- * font served by Google Fonts (so the renderer's one network exception is
- * exercised), a larger type scale and a sidebar colour and width.
+ * A stored layout no default produces: a picker font served by Google Fonts, a
+ * larger type scale and a sidebar colour and width. No Swiss template draws
+ * these (each draws its own typeface, sizes and colours), so the case proves a
+ * stored legacy layout reaches neither surface differently, on a document long
+ * enough to print several pages.
  */
 const NON_DEFAULT_LAYOUT = {
   fontFamily: "'Roboto', sans-serif",
@@ -138,8 +138,8 @@ const pdfText = (pdf: ReadPdf) => flat(pdf.pages.map((p) => p.text).join(''))
 
 /**
  * Image XObjects in the Preview's own print of the stored resume, with nothing
- * in localStorage: what the template embeds without any photo (Modern draws
- * some of its print as images). A photo is one image more than this.
+ * in localStorage: what the template embeds without any photo (a template may
+ * draw some of its print as images). A photo is one image more than this.
  */
 async function imagesWithoutPhoto(page: Page, resumeId: string): Promise<number> {
   return (await readPdf(await printPreview(page, resumeId))).images
@@ -187,68 +187,12 @@ function expectNoPrintChrome(pdf: ReadPdf): void {
 }
 
 // ---------------------------------------------------------------------------
-// Modern: the band reaches the bottom of every page
-// ---------------------------------------------------------------------------
-
-const PT_PER_PX = 0.75
-const PAPER: Rgb = [255, 255, 255]
-const CHANNEL_TOLERANCE = 3
-const agrees = (a: Rgb, b: Rgb) => a.every((v, i) => Math.abs(v - b[i]) <= CHANNEL_TOLERANCE)
-
-/** CSS `hsl()` to sRGB, per CSS Color 4, written independently of the app. */
-function hslToRgb(hue: number, saturation: number, lightness: number): Rgb {
-  const s = saturation / 100
-  const l = lightness / 100
-  const f = (n: number) => {
-    const k = (n + hue / 30) % 12
-    const a = s * Math.min(l, 1 - l)
-    return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))))
-  }
-  return [f(0), f(8), f(4)]
-}
-
-/**
- * The checks `e2e/modern-print-sidebar-full-page.spec.ts` makes, on the
- * route's PDF: inside the band (2pt from the left edge, 4pt inside its right
- * edge) no row of any page is paper, and below the last page's text both
- * columns are exactly the stored colour to the last row while 4pt past the
- * band is paper.
- */
-async function expectModernBand(page: Page, pdf: Buffer, layout: Record<string, unknown> | null): Promise<void> {
-  const model = resolveLayoutModel(layout)
-  const colour = hslToRgb(model.sidebarHue, model.sidebarSaturation, model.sidebarBrightness)
-  const bandPt = (model.sidebarWidth / 100) * PAGE_WIDTH_PX * PT_PER_PX
-  const pages = await rasteriseColumns(page, pdf, [2, bandPt - 4, bandPt + 4])
-
-  expect(pages.length, 'the Modern case prints several pages').toBeGreaterThanOrEqual(2)
-  pages.forEach((p, index) => {
-    for (const [label, column] of [['inside left', p.columns[0]], ['inside right', p.columns[1]]] as const) {
-      const paperRows = column.filter((rgb) => agrees(rgb, PAPER)).length
-      expect(paperRows, `page ${index + 1}, ${label}: paper rows in the band`).toBe(0)
-    }
-  })
-
-  const last = pages[pages.length - 1]
-  expect(last.lowestTextPt, 'the last page carries text').not.toBeNull()
-  const from = Math.ceil((last.lowestTextPt ?? 0) + 20)
-  expect(last.height - from, 'the last page is only partly filled').toBeGreaterThan(100)
-  for (const [label, column, expected] of [
-    ['inside left', last.columns[0], colour],
-    ['inside right', last.columns[1], colour],
-    ['outside', last.columns[2], PAPER],
-  ] as const) {
-    const wrong = column.slice(from).filter((rgb) => !agrees(rgb, expected)).length
-    expect(wrong, `last page below the content, ${label}: rows not ${expected.join(',')}`).toBe(0)
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Access
 // ---------------------------------------------------------------------------
 
 test.describe('resume PDF route: access', () => {
   test('401 without a session, and with a forged one', async ({ page, authedUser, playwright, baseURL }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'classic')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     const anonymous = await playwright.request.newContext({ baseURL })
     try {
       const response = await anonymous.post(pdfUrl(resume.id), { data: {} })
@@ -273,7 +217,7 @@ test.describe('resume PDF route: access', () => {
   }) => {
     const other = await createTestUser()
     try {
-      const theirs = await seedFixtureResume(other.id, 'modern')
+      const theirs = await seedFixtureResume(other.id, 'swissCommerce')
       const response = await requestPdf(page, theirs.id)
       expect(response.status()).toBe(404)
       expect(await response.json()).toEqual({ error: 'Resume not found' })
@@ -282,7 +226,7 @@ test.describe('resume PDF route: access', () => {
       expect((await requestPdf(page, 'not-a-uuid')).status()).toBe(404)
 
       // A draft naming the other user's resume does not reach it either.
-      const mine = await seedFixtureResume(authedUser.id, 'modern')
+      const mine = await seedFixtureResume(authedUser.id, 'swissCommerce')
       const smuggled = await requestPdf(page, theirs.id, { draft: JSON.stringify({ id: mine.id }) })
       expect(smuggled.status()).toBe(404)
     } finally {
@@ -291,8 +235,8 @@ test.describe('resume PDF route: access', () => {
   })
 
   test('the draft is accepted only for the resume in the URL', async ({ page, authedUser }) => {
-    const target = await seedFixtureResume(authedUser.id, 'classic')
-    const another = await seedFixtureResume(authedUser.id, 'classic')
+    const target = await seedFixtureResume(authedUser.id, 'swissCommerce')
+    const another = await seedFixtureResume(authedUser.id, 'swissCommerce')
     const response = await requestPdf(page, target.id, {
       draft: JSON.stringify({ ...(await storedRow(another.id)), summary: 'Wrong resume' }),
     })
@@ -305,7 +249,7 @@ test.describe('resume PDF route: access', () => {
   })
 
   test('415 for a body that is not JSON', async ({ page, authedUser }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'classic')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     const response = await page.request.post(pdfUrl(resume.id), {
       data: 'draft=x',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -314,7 +258,7 @@ test.describe('resume PDF route: access', () => {
   })
 
   test('413 for an oversized body and an oversized draft', async ({ page, authedUser }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'classic')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
 
     const oversizedBody = `{"draft":"${'x'.repeat(MAX_PDF_REQUEST_BYTES)}"}`
     expect((await requestPdf(page, resume.id, oversizedBody)).status()).toBe(413)
@@ -345,7 +289,7 @@ test.describe('resume PDF route: the file', () => {
     page,
     authedUser,
   }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'classic')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     await updateResume(resume.id, { title: 'CV "Zoë" – Zürich' })
 
     const response = await requestPdf(page, resume.id)
@@ -362,7 +306,7 @@ test.describe('resume PDF route: the file', () => {
   })
 
   test('an empty title gives resume.pdf', async ({ page, authedUser }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'minimal')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     await updateResume(resume.id, { title: '' })
 
     const response = await requestPdf(page, resume.id)
@@ -397,7 +341,6 @@ test.describe('resume PDF route: the PDF is the Preview print', () => {
         if (layoutCase.content.experience) {
           expect(route.pages.length, 'the long fixture prints several pages').toBeGreaterThanOrEqual(2)
         }
-        if (template === 'modern') await expectModernBand(page, routePdf, layoutCase.layout)
       })
     }
   }
@@ -415,7 +358,7 @@ test.describe('resume PDF route: the unsaved draft and the photo', () => {
     page,
     authedUser,
   }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'modern')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     const before = await storedRow(resume.id)
     const draft = JSON.stringify({
       ...before,
@@ -445,7 +388,7 @@ test.describe('resume PDF route: the unsaved draft and the photo', () => {
   })
 
   test('not sent: the PDF shows the stored resume and no photo', async ({ page, authedUser }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'modern')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     const route = await readPdf(await okPdf(await requestPdf(page, resume.id)))
     const text = pdfText(route)
     expect(text).toContain(flat(FIXTURE_SUMMARY))
@@ -456,7 +399,7 @@ test.describe('resume PDF route: the unsaved draft and the photo', () => {
   })
 
   test('an oversized photo is bounded: the PDF is produced without it', async ({ page, authedUser }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'modern')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     const prefix = 'data:image/jpeg;base64,'
     const oversized = prefix + 'A'.repeat(MAX_PHOTO_LENGTH - prefix.length + 4)
     const route = await readPdf(await okPdf(await requestPdf(page, resume.id, { photoBase64: oversized })))
@@ -510,7 +453,7 @@ test.describe('resume PDF route: a malicious draft', () => {
       `<svg onload="${RUN}"><image href="${remote}/svg.png"></image></svg>` +
       `<a href="javascript:${RUN}">link</a>`
 
-    const resume = await seedFixtureResume(authedUser.id, 'modern')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     const stored = await storedRow(resume.id)
     const draft = JSON.stringify({
       ...stored,

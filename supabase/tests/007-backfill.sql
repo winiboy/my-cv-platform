@@ -71,19 +71,19 @@ VALUES
 INSERT INTO public.resumes (id, user_id, title, template, custom_sections, layout_settings)
 VALUES
   -- The three legacy custom_sections shapes embedLayoutSettings ever handled.
-  (:'R_NULL',  :'U', '007 legacy: null',    'modern', NULL, NULL),
-  (:'R_ARRAY', :'U', '007 legacy: array',   'modern',
+  (:'R_NULL',  :'U', '007 legacy: null',    'swissCommerce', NULL, NULL),
+  (:'R_ARRAY', :'U', '007 legacy: array',   'swissCommerce',
    '[{"title":"Awards"}]'::jsonb, NULL),
-  (:'R_WRAP',  :'U', '007 legacy: wrapped', 'modern',
+  (:'R_WRAP',  :'U', '007 legacy: wrapped', 'swissCommerce',
    '{"items":[{"title":"Awards"}],"layoutSettings":{"sidebarOrder":["training","skills"],"hiddenMainSections":["education"]}}'::jsonb,
    NULL),
   -- A row the application has already written. The backfill must not touch it,
   -- which is what makes re-application safe rather than merely repeatable.
-  (:'R_DONE',  :'U', '007 legacy: already migrated', 'modern',
+  (:'R_DONE',  :'U', '007 legacy: already migrated', 'swissCommerce',
    '{"items":[],"layoutSettings":{"sidebarOrder":["training"]}}'::jsonb,
    '{"fontScale":1.3,"sidebarOrder":["skills"]}'::jsonb),
   -- A wrapped object with no layoutSettings key at all.
-  (:'R_PLAIN', :'U', '007 legacy: wrapped without settings', 'modern',
+  (:'R_PLAIN', :'U', '007 legacy: wrapped without settings', 'swissCommerce',
    '{"items":[{"title":"Awards"}]}'::jsonb, NULL);
 
 \echo 'PASS  setup: five rows seeded across every pre-migration state'

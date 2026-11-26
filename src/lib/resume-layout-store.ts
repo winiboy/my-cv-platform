@@ -141,16 +141,3 @@ export function applyLayoutChange<K extends keyof ResumeLayoutModel>(
   updated[key] = next
   return updated
 }
-
-/**
- * The sidebar colour a model denotes.
- *
- * Colour is stored as its three HSL components, so every surface that paints a
- * sidebar has to compose them the same way. The editor and the preview wrapper
- * each held their own copy of this expression; it is one expression here so
- * that a change to how colour is composed cannot reach one surface and not the
- * other.
- */
-export function sidebarColorFrom(model: ResumeLayoutModel): string {
-  return `hsl(${model.sidebarHue}, ${model.sidebarSaturation}%, ${model.sidebarBrightness}%)`
-}

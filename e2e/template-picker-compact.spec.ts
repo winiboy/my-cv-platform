@@ -44,8 +44,8 @@ const VIEWPORTS = {
 const TABLET = { width: 768, height: 1024 } as const
 const TABLET_CARD_MAX_HEIGHT = 340
 
-/** The options TEMPLATE_OPTIONS offers: the five original templates, swissVocational, swissCommerce, swissTrades, swissHealth, swissFinance, swissEngineering, swissIt, swissExecutive, swissAcademic and swissFirstJob. */
-const OPTION_COUNT = 15
+/** The options TEMPLATE_OPTIONS offers: the ten Swiss templates. */
+const OPTION_COUNT = 10
 const CARD_MAX_HEIGHT = 200
 /**
  * The radiogroup ceilings, per option rather than as fixed totals.
@@ -54,12 +54,13 @@ const CARD_MAX_HEIGHT = 200
  * them for five options: at most 1,100 px for the create page at 375 px (one
  * column, 220 px an option) and at most 650 px for the modal at 1440 px (two
  * columns, three rows: 650 / 3 px a row). swiss-cv-templates
- * (tasks/prds/swiss-cv-templates.md) adds options to the picker, so the group
- * grows with them; the ceiling a card or a row may take does not.
+ * (tasks/prds/swiss-cv-templates.md) added options to the picker and
+ * swiss-templates-only-page-fidelity removed the five original ones, so the
+ * group follows the option count; the ceiling a card or a row may take does not.
  *
  * The row ceiling is kept as the exact fraction rather than rounded up to
  * 217 px: 3 x 217 would be 651 px, one pixel looser than the 650 px the
- * compact PRD approved for three rows. Fifteen options take eight rows.
+ * compact PRD approved for three rows. Ten options take five rows.
  */
 const PAGE_GROUP_MAX_HEIGHT_PER_OPTION_AT_375 = 220
 const MODAL_GROUP_MAX_HEIGHT_PER_ROW_AT_1440 = 650 / 3

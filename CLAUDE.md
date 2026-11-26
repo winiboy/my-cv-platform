@@ -148,7 +148,6 @@ Current mandatory baseline — the set CI requires, which is the floor, not a ta
 * `pnpm lint`
   Also run every check the active PRD requires for the affected scope, which may add:
 * Visual regression tests (`pnpm test:visual`)
-* Parity tests (`pnpm test:parity`)
   `pnpm lint` exits non-zero at the tracked baseline, so it is judged by comparison, not exit code: record the problem count and the baseline or PRD ceiling it is compared against. A count above baseline is a FAIL.
   Never claim a check passed unless it actually ran successfully.
   What is machine-enforced versus convention: `docs/engineering/ralph-pass-criteria.md`.

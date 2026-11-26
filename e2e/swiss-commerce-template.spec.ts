@@ -153,8 +153,11 @@ test('fr: a CV is created with swissCommerce from the new-CV picker, and the Edi
   await expect(photoRow.getByRole('button', { name: frCommon.resumes.editor.uploadPhoto })).toBeVisible()
   await expect(photoRow.getByRole('checkbox', { name: frCommon.resumes.editor.showOnCv.photo })).toBeChecked()
 
-  // FR-12: no font carousel and no font-size slider above the live preview.
-  await expect(page.getByTestId('resume-editor-preview').locator('input.font-slider')).toHaveCount(0)
+  // FR-12: the live-preview pane holds no font, size or colour control — no
+  // input, picker, slider or dropdown of any kind, only the drawn CV.
+  await expect(
+    page.getByTestId('resume-editor-preview').locator('input, select, textarea, [role="slider"], [role="combobox"], [role="listbox"]'),
+  ).toHaveCount(0)
 })
 
 test('en: the Preview page renders on the server, in order, without hidden content or a photo frame', async ({ page, authedUser }) => {
@@ -318,6 +321,8 @@ test('en: the PDF and the Word downloads are valid files holding the CV and not 
   const docxText = [...xml.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g)].map(([, text]) => text).join('|')
   for (const text of [...visible, ...headings(enCommon)]) expect(docxText, text).toContain(text)
   expect(docxText).not.toContain(HIDDEN_EXPERIENCE.company)
-  // Its own generator: the navy band is a table pulled out across the left margin.
-  expect(xml).toMatch(/<w:tblInd w:type="dxa" w:w="-\d+"\/>/)
+  // Its own generator: the navy band is a table floating at the page's origin,
+  // over the top margin every page keeps (swiss-templates-only-page-fidelity US-002).
+  expect(xml).toMatch(/<w:tblpPr\b(?=[^>]*w:horzAnchor="page")(?=[^>]*w:vertAnchor="page")(?=[^>]*w:tblpX="0")(?=[^>]*w:tblpY="0")/)
+  expect(xml).not.toMatch(/<w:pgMar w:top="0"/)
 })

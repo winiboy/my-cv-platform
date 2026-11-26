@@ -8,15 +8,10 @@ import { resolveResumeLayout } from '@/lib/layout-settings'
 import { contactLabel } from '@/lib/resume-template-strings'
 import type { ContactFieldId } from '@/lib/contact-visibility'
 import { ResumePreview } from '@/components/dashboard/resume-preview'
-import { ModernTemplate } from '@/components/dashboard/resume-templates/modern-template'
 import { solidColourPng } from './docx-disc'
 import type { DocxGeneratorSettings } from './docx-helpers'
-import { SUPPORTED_TEMPLATES, type DocxTemplateId } from './docx-templates'
-import { generateProfessionalDocx } from './docx-professional'
-import { generateModernDocx } from './docx-modern'
-import { generateClassicDocx } from './docx-classic'
-import { generateMinimalDocx } from './docx-minimal'
-import { generateCreativeDocx } from './docx-creative'
+import { RESUME_TEMPLATES } from '@/lib/resume-templates'
+import type { ResumeTemplate } from '@/types/database'
 import { generateSwissVocationalDocx } from './docx-swiss-vocational'
 import { generateSwissCommerceDocx } from './docx-swiss-commerce'
 import { generateSwissTradesDocx } from './docx-swiss-trades'
@@ -38,12 +33,7 @@ import { generateSwissFirstJobDocx } from './docx-swiss-first-job'
  * The fixture is plain text: rich text renders empty outside a browser.
  */
 
-const GENERATORS: Record<DocxTemplateId, (resume: unknown, settings: DocxGeneratorSettings) => Promise<Buffer>> = {
-  professional: generateProfessionalDocx,
-  modern: generateModernDocx,
-  classic: generateClassicDocx,
-  minimal: generateMinimalDocx,
-  creative: generateCreativeDocx,
+const GENERATORS: Record<ResumeTemplate, (resume: unknown, settings: DocxGeneratorSettings) => Promise<Buffer>> = {
   swissVocational: generateSwissVocationalDocx,
   swissCommerce: generateSwissCommerceDocx,
   swissTrades: generateSwissTradesDocx,
@@ -136,7 +126,7 @@ function decode(text: string): string {
 }
 
 async function documentXml(row: Row, photoBase64?: string): Promise<string> {
-  const generate = GENERATORS[row.template as DocxTemplateId]
+  const generate = GENERATORS[row.template as ResumeTemplate]
   const zip = await JSZip.loadAsync(await generate(row, settingsFor(row, photoBase64)))
   const part = zip.file('word/document.xml')
   if (part === null) throw new Error('The artifact has no word/document.xml')
@@ -178,7 +168,7 @@ function previewNodes(row: Row): string[] {
 
 const drawings = (xml: string) => (xml.match(/<w:drawing>/g) ?? []).length
 
-describe.each(SUPPORTED_TEMPLATES)('%s: contact visibility on the Preview and in Word', (template) => {
+describe.each(RESUME_TEMPLATES)('%s: contact visibility on the Preview and in Word', (template) => {
   it('draws every detail and the title when nothing is hidden', async () => {
     const row = resumeRow(template)
     for (const text of [previewNodes(row).join('|'), (await wordParagraphs(row)).join('|')]) {
@@ -227,16 +217,15 @@ describe.each(SUPPORTED_TEMPLATES)('%s: contact visibility on the Preview and in
   })
 })
 
-describe.each(['modern', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissFirstJob'] as const)('%s: the photo tick', (template) => {
+describe.each(['swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissFirstJob'] as const)('%s: the photo tick', (template) => {
   it('draws the stored photo when ticked and draws it as absent when unticked, on both outputs', async () => {
     const shown = resumeRow(template)
     const hidden = resumeRow(template, ['photo'])
 
     expect(previewMarkup(shown, PHOTO)).toContain(`src="${PHOTO}"`)
     expect(previewMarkup(hidden, PHOTO)).not.toContain(PHOTO)
-    // On the Swiss template unticked is exactly "no photo"; modern also drops
-    // its zone, which the describe below pins.
-    if (template !== 'modern') expect(previewMarkup(hidden, PHOTO)).toBe(previewMarkup(shown))
+    // Unticked is exactly "no photo".
+    expect(previewMarkup(hidden, PHOTO)).toBe(previewMarkup(shown))
 
     const withPhoto = drawings(await documentXml(shown, PHOTO))
     const withoutPhoto = drawings(await documentXml(shown))
@@ -245,84 +234,7 @@ describe.each(['modern', 'swissVocational', 'swissCommerce', 'swissTrades', 'swi
   })
 })
 
-describe('modern: an unticked photo draws no photo zone at all (FR-5)', () => {
-  /** Modern's photo zone: the 220px block at the top of the sidebar. */
-  const PHOTO_ZONE = /height:220px;background-color:#444444/
-
-  it('ticked with no photo stored keeps the placeholder zone, as before', () => {
-    expect(previewMarkup(resumeRow('modern'))).toMatch(PHOTO_ZONE)
-  })
-
-  it.each([
-    ['with a photo stored', PHOTO],
-    ['with no photo stored', undefined],
-  ])('unticked %s: no zone, no photo, no placeholder on the Preview', (_case, photo) => {
-    const markup = previewMarkup(resumeRow('modern', ['photo']), photo)
-    expect(markup).not.toMatch(PHOTO_ZONE)
-    expect(markup).not.toContain('<img')
-    expect(markup).not.toContain('<svg width="80" height="80"')
-  })
-
-  it('unticked: no zone and no upload overlay in the Editor live preview either', () => {
-    const row = resumeRow('modern', ['photo'])
-    const editor = renderToStaticMarkup(
-      createElement(ModernTemplate, {
-        resume: row as unknown as Resume,
-        locale: 'en',
-        dict: en,
-        photoUrl: PHOTO,
-        onPhotoChange: () => {},
-        onRemoveBackground: () => {},
-        hiddenContactFields: ['photo'],
-      }),
-    )
-    expect(editor).not.toMatch(PHOTO_ZONE)
-    expect(editor).not.toContain('Upload Photo')
-    expect(editor).not.toMatch(/<input[^>]*type="file"/)
-    expect(editor).not.toContain('<img')
-  })
-
-  it('unticked: Word drops the zone offset, with or without a stored photo', async () => {
-    const unticked = resumeRow('modern', ['photo'])
-    const withPhoto = await documentXml(unticked, PHOTO)
-    const withoutPhoto = await documentXml(unticked)
-    const ticked = await documentXml(resumeRow('modern'))
-    // No picture beyond what a CV with no photo has.
-    expect(drawings(withPhoto)).toBe(drawings(ticked))
-    // The photo sent changes nothing once it is unticked.
-    expect(withPhoto).toBe(withoutPhoto)
-
-    // The sidebar's opening offset is 220px (3300 twips) shorter than with the
-    // tick on, where the zone is kept even with no photo.
-    const openingAfter = (xml: string) => Number(/<w:spacing w:after="(\d+)"/.exec(xml)?.[1])
-    expect(openingAfter(ticked) - openingAfter(withoutPhoto)).toBe(220 * 15)
-  })
-})
-
-describe('creative: the headline with the CV title unticked', () => {
-  /**
-   * Creative's headline is the CV title, else the name, else the existing
-   * "Your Name" placeholder. Unticking the title leaves the name, which cannot
-   * be hidden, so it falls back exactly as a CV with no title always has.
-   */
-  const headline = (markup: string) => decode(/<h1[^>]*>([^<]*)<\/h1>/.exec(markup)?.[1] ?? '')
-
-  it('falls back to the name, on both outputs', async () => {
-    const row = resumeRow('creative', ['title'])
-    expect(headline(previewMarkup(row))).toBe('Robin Halvorsen')
-    const word = await wordParagraphs(row)
-    expect(word).toContain('ROBIN HALVORSEN')
-    expect(word.join('|')).not.toContain(TITLE.toUpperCase())
-  })
-
-  it('falls back to the existing placeholder when there is no name either, on both outputs', async () => {
-    const row = { ...resumeRow('creative', ['title']), contact: { email: EMAIL } }
-    expect(headline(previewMarkup(row))).toBe('Your Name')
-    expect(await wordParagraphs(row)).toContain('YOUR NAME')
-  })
-})
-
-describe.each(SUPPORTED_TEMPLATES)('%s: every hideable field unticked', (template) => {
+describe.each(RESUME_TEMPLATES)('%s: every hideable field unticked', (template) => {
   const ALL_HIDDEN: readonly ContactFieldId[] = ['title', 'email', 'phone', 'location', 'linkedin', 'github', 'website', 'photo']
   const NAME = 'Robin Halvorsen'
   const STORED_VALUES = [EMAIL, PHONE, 'Oxbridge', 'in/robin-halvorsen', 'gh/robin-halvorsen', 'halvorsen.test']

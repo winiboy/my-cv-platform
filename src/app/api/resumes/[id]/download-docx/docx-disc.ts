@@ -1,33 +1,17 @@
 import { deflateSync } from 'node:zlib'
 
 /**
- * A translucent disc as a PNG, for the one Preview graphic that is a shape
- * rather than a box: creative's `bg-white/10 rounded-full` header circles
- * (US-007).
- *
- * WHY A RASTER. OOXML shading fills a run, a paragraph or a table cell, always
- * as the whole rectangle and always opaque, so no fill can be a see-through
- * disc. What OOXML does have is a floating drawing (`w:drawing`), which
- * `docx-modern.ts` already anchors inside a table cell for the photo — and a
- * PNG carries a real alpha channel, which is how the translucency survives.
- * The `docx` package exposes no vector-shape primitive, so the disc is drawn
- * here, pixel by pixel, rather than as `a:prstGeom prst="ellipse"`.
- *
- * Measured in Word 16 before this was written (scratch probes 4 and 5):
- * `behindDocument: true` puts the drawing behind the cell's own fill, where it
- * is invisible; `behindDocument: false` puts it over the fill, and Word clips
- * it to the cell exactly as the Preview's `overflow-hidden` clips the circles.
+ * An opaque PNG of one colour, for a filled rectangle Word has no other way to
+ * draw where a page needs it: a column's fill drawn behind every page, which a
+ * table cell's own fill cannot do (it ends where the row's part on a page ends).
  *
  * The encoder is here rather than in a dependency because the project adds none
- * for this, and because a disc of one colour is a dozen lines of pixel writing
- * plus the PNG container. Every disc is deterministic and cached: the same
- * arguments give the same bytes, in this process and the next, so two exports of
- * the same resume agree in every part but `docProps/core.xml` — which carries
- * the wall-clock stamp `Packer.toBuffer` writes for every template and has never
+ * for this, and because one colour is a dozen lines of pixel writing plus the
+ * PNG container. Every image is deterministic and cached: the same arguments
+ * give the same bytes, in this process and the next, so two exports of the same
+ * resume agree in every part but `docProps/core.xml` — which carries the
+ * wall-clock stamp `Packer.toBuffer` writes for every template and has never
  * been reproducible.
- *
- * `solidColourPng` shares the container: modern's sidebar fill, drawn behind
- * every page (`docx-modern.ts` says why a cell's fill cannot reach the page foot).
  */
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
@@ -68,54 +52,13 @@ function channels(hex: string): [number, number, number] {
 
 const cache = new Map<string, Buffer>()
 
-/**
- * A square RGBA PNG holding a centred disc of `colourHex` at `alpha`, fully
- * transparent outside it, with a one-pixel feathered edge — what a browser
- * antialiases a `rounded-full` into.
- *
- * @param sizePx the image's width and height, which is also the disc's diameter.
- * @param colourHex the disc's colour, six-digit hex with or without a leading `#`.
- * @param alpha a fraction between 0 and 1.
- */
-export function translucentDiscPng(sizePx: number, colourHex: string, alpha: number): Buffer {
-  if (!Number.isInteger(sizePx) || sizePx <= 0) throw new Error(`A disc needs a positive whole size, not ${sizePx}`)
-  if (!(alpha >= 0 && alpha <= 1)) throw new Error(`An alpha of ${alpha} is not a fraction between 0 and 1`)
-
-  const [red, green, blue] = channels(colourHex)
-  const key = `${sizePx}:${red},${green},${blue}:${alpha}`
-  const cached = cache.get(key)
-  if (cached) return cached
-
-  // One filter byte per scanline, then RGBA per pixel.
-  const raw = Buffer.alloc((sizePx * 4 + 1) * sizePx)
-  const radius = sizePx / 2
-  let at = 0
-  for (let y = 0; y < sizePx; y += 1) {
-    raw[at] = 0 // filter type: none
-    at += 1
-    for (let x = 0; x < sizePx; x += 1) {
-      const distance = Math.hypot(x + 0.5 - radius, y + 0.5 - radius)
-      const coverage = Math.min(1, Math.max(0, radius - distance))
-      raw[at] = red
-      raw[at + 1] = green
-      raw[at + 2] = blue
-      raw[at + 3] = Math.round(255 * alpha * coverage)
-      at += 4
-    }
-  }
-
-  const png = rgbaPng(sizePx, sizePx, raw)
-  cache.set(key, png)
-  return png
-}
-
 /** Width of the square `solidColourPng` draws; Word does not draw a 1 × 1 PNG at all (measured). */
 const SOLID_PNG_SIZE_PX = 4
 
 /**
  * An opaque PNG of one colour, for a filled rectangle Word has no other way to
  * draw where a page needs it: stretched by its drawing's extent, so its own
- * size is irrelevant. Deterministic and cached like the disc.
+ * size is irrelevant. Deterministic and cached.
  *
  * @param colourHex six-digit hex with or without a leading `#`.
  */

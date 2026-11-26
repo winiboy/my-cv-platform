@@ -15,7 +15,8 @@ import { detectOfferLanguage } from '@/lib/resume-from-job/detect-offer-language
 import type { ResumeContentLanguage } from '@/lib/resume-from-job/sample-values'
 import { sanitizeUntrustedPlainText } from '@/lib/resume-from-job/untrusted-text'
 import { RESUME_TITLE_MAX_LENGTH } from '@/lib/resume-from-job/resume-title'
-import type { BuiltResumeTemplate, ResumeInsert } from '@/types/database'
+import type { ResumeInsert } from '@/types/database'
+import { RESUME_TEMPLATES } from '@/lib/resume-templates'
 
 /**
  * POST /api/resumes/from-job-application
@@ -44,8 +45,6 @@ export const dynamic = 'force-dynamic'
  * "not a complete job description".
  */
 const MIN_USABLE_DESCRIPTION_LENGTH = 50
-
-const RESUME_TEMPLATES = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob'] as const satisfies readonly BuiltResumeTemplate[]
 
 const requestSchema = z.object({
   jobApplicationId: z.uuid(),

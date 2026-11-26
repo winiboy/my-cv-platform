@@ -1,4 +1,5 @@
 import {
+  NoBreakHyphen,
   Paragraph,
   TextRun,
   AlignmentType,
@@ -9,8 +10,8 @@ import {
   type UniversalMeasure,
 } from 'docx'
 import type { Locale } from '@/lib/i18n'
-import { chosenFontFamily } from '@/lib/layout-settings'
 import type { ContactFieldId } from '@/lib/contact-visibility'
+import { interLinkWidthPx } from '@/lib/inter-link-widths'
 
 // ============================================================
 // SHARED TYPES FOR ALL DOCX GENERATORS
@@ -107,7 +108,7 @@ export type LineSpacing = Required<Pick<ISpacingProperties, 'line' | 'lineRule'>
  * Where one paragraph carries text the Preview draws as several elements side
  * by side — a title and its date in one flex row — the row is as tall as its
  * tallest line box, so the largest is written. An element whose own box is
- * filled and padded (modern's job-title bar) adds its vertical padding, top
+ * filled and padded (a title bar) adds its vertical padding, top
  * plus bottom, so the DOCX shading covers what the Preview fills; height a
  * SIBLING box contributes to the row is space before and after, not leading,
  * or a paragraph that wraps would be spaced at the sibling's height.
@@ -151,67 +152,39 @@ export function trackingSpacing(em: number, halfPoints: number): number {
 }
 
 /**
- * Convert HSL color string to hex (without #)
- * Input: "hsl(240, 85%, 35%)" or computed from hue/brightness
+ * The keep rules of a paragraph inside a block the printed Preview keeps whole
+ * (`break-inside: avoid`), so Word moves the block to the next page whole as
+ * the PDF does: every paragraph keeps its lines together and stays with the
+ * next paragraph, except the block's last, after which a page may break.
+ *
+ * Word honours both rules inside a table cell too (Word → PDF, 2026-11-26),
+ * which is where the two-column templates draw their entries.
  */
-export function hslToHex(h: number, s: number, l: number): string {
-  // Hue is cyclic. The sidebar hue slider is min="0" max="360", so 360 is
-  // user-selectable and must resolve to red like 0, not fall through every
-  // branch below and leave r/g/b at their initial 0 (black).
-  h = ((h % 360) + 360) % 360
-  s /= 100
-  l /= 100
-
-  const c = (1 - Math.abs(2 * l - 1)) * s
-  const x = c * (1 - Math.abs((h / 60) % 2 - 1))
-  const m = l - c / 2
-
-  let r = 0, g = 0, b = 0
-
-  if (0 <= h && h < 60) { r = c; g = x; b = 0 }
-  else if (60 <= h && h < 120) { r = x; g = c; b = 0 }
-  else if (120 <= h && h < 180) { r = 0; g = c; b = x }
-  else if (180 <= h && h < 240) { r = 0; g = x; b = c }
-  else if (240 <= h && h < 300) { r = x; g = 0; b = c }
-  else if (300 <= h && h < 360) { r = c; g = 0; b = x }
-
-  const toHex = (n: number) => {
-    const hex = Math.round((n + m) * 255).toString(16)
-    return hex.length === 1 ? '0' + hex : hex
-  }
-
-  return `${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase()
+export interface ParagraphKeep {
+  readonly keepLines: true
+  readonly keepNext?: true
 }
 
+/** A paragraph of a kept block that is not its last. */
+export const KEEP_WITH_NEXT: ParagraphKeep = Object.freeze({ keepLines: true, keepNext: true })
+
+/** The last paragraph of a kept block. */
+export const KEEP_LINES: ParagraphKeep = Object.freeze({ keepLines: true })
+
 /**
- * Convert oklch to hex - simplified for grayscale (chroma = 0)
- * oklch(L C H) where L is lightness 0-1
- * For our use case, we only use grayscale: oklch(0.2 0 0), oklch(0.3 0 0), etc.
+ * The keep rules of paragraph `index` of `count` built together for a kept
+ * block, `last` being those of the last one: the block's own last paragraph,
+ * or one that more of the block follows. No rules when `last` is absent: the
+ * paragraphs are not inside a kept block.
  */
-export function oklchToHex(lightness: number): string {
-  // For grayscale oklch (chroma = 0), lightness maps roughly to:
-  // oklch lightness is perceptual, roughly: hex = lightness^3 * 255 for dark values
-  // Simplified approximation for our specific values:
-  const gray = Math.round(Math.pow(lightness, 0.5) * 255 * 0.85)
-  const hex = gray.toString(16).padStart(2, '0')
-  return `${hex}${hex}${hex}`.toUpperCase()
+export function keepAt(last: ParagraphKeep | undefined, index: number, count: number): ParagraphKeep | Record<string, never> {
+  if (!last) return {}
+  return index === count - 1 ? last : KEEP_WITH_NEXT
 }
 
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
-
-/**
- * Extract primary font name from CSS font-family stack
- * e.g., "'Arial', Helvetica, sans-serif" -> "Arial"
- */
-export function extractPrimaryFont(fontFamily: string): string {
-  const fonts = fontFamily.split(',')
-  if (fonts.length > 0) {
-    return fonts[0].trim().replace(/['"]/g, '')
-  }
-  return 'Arial'
-}
 
 /**
  * The app's body font: `next/font`'s Inter, set on `<body>` by the root
@@ -221,23 +194,46 @@ export function extractPrimaryFont(fontFamily: string): string {
 export const APP_BODY_FONT = 'Inter'
 
 /**
- * The family a generator writes for a run: the owner's chosen font, or the
- * font the template's Preview draws when they chose none (Part 3 US-012).
- *
- * The choice is `chosenFontFamily`'s to make — one rule, shared with
- * `resume-preview.tsx`, so an export cannot disagree with the Preview about
- * whether a font was chosen. `designedFont` is what that template's Preview
- * shows for the run in question, which is why classic passes two different
- * ones: its headings are serif and its body is Inter.
- *
- * A chosen stack that yields no usable name falls back to the designed font
- * rather than to a generator's private default, so an unusable choice degrades
- * to what the Preview draws instead of to a third font nothing else uses.
+ * `text` as a run's children with every hyphen a Word non-breaking hyphen
+ * (`w:noBreakHyphen`), which Word draws as the hyphen glyph of the run's font
+ * and never breaks a line after: Word otherwise breaks after a hyphen
+ * ("sophie-" / "marchand").
  */
-export function resolveDocxFont(fontFamily: string, designedFont: string): string {
-  const chosen = chosenFontFamily(fontFamily)
-  if (chosen === null) return designedFont
-  return extractPrimaryFont(chosen) || designedFont
+export function noBreakHyphenChildren(text: string): (string | NoBreakHyphen)[] {
+  return text.split('-').flatMap((part, index) => [...(index > 0 ? [new NoBreakHyphen()] : []), ...(part ? [part] : [])])
+}
+
+/**
+ * How much narrower than its line a contact value must measure in Inter to be
+ * held whole: a margin for what an unkerned sum and Word's own layout may
+ * differ by, in CSS px.
+ */
+export const CONTACT_FIT_SAFETY_PX = 4
+
+/**
+ * A contact value drawn in Inter (an address, a phone number, an e-mail, a
+ * link), as a run's children.
+ *
+ * The Preview draws each value as one item a line wraps as a whole. In a
+ * value that fits `linePx` in Inter at Word's size (`halfPoints`, whole
+ * half-points), with `CONTACT_FIT_SAFETY_PX` to spare, each hyphen is
+ * therefore a non-breaking hyphen, so Word never splits a link or an address
+ * after one ("sophie-" / "marchand"). Its spaces stay the spaces it was typed
+ * with, so the stored text (a phone number, an address) is in the file as
+ * typed. A value wider than its line on its own is written as stored: the
+ * Preview then wraps it inside, at its spaces and after its hyphens, as Word
+ * does.
+ *
+ * An e-mail address is always written as stored (`isEmail`): read from the
+ * file by an applicant-tracking parser, or copied, it must be the stored
+ * address, and a non-breaking hyphen is an element of its own, not a "-" in
+ * the text (FR-10, as `swissItContactRunText` and `swissExecutiveLinkChildren`
+ * write it).
+ */
+export function contactValueChildren(value: string, linePx: number, halfPoints: number, isEmail = false): (string | NoBreakHyphen)[] {
+  const stored = value.trim()
+  if (isEmail || interLinkWidthPx(stored, halfPoints / 1.5) > linePx - CONTACT_FIT_SAFETY_PX) return [stored]
+  return noBreakHyphenChildren(stored)
 }
 
 /**
@@ -329,7 +325,7 @@ export function parseHtmlListToParagraphs(
   alignment?: typeof AlignmentType[keyof typeof AlignmentType],
   /**
    * Paragraph borders every item takes, so a rule the Preview draws beside a
-   * whole block runs behind its list items too (US-007, creative's timeline).
+   * whole block runs behind its list items too (US-007).
    */
   border?: IBordersOptions
 ): Paragraph[] {
@@ -449,9 +445,11 @@ export interface PlainTextParagraphLayout {
   shading?: IShadingAttributesProperties
   /**
    * Paragraph borders every paragraph takes, so a rule the Preview draws beside
-   * a whole block runs behind its list items too (US-007, creative's timeline).
+   * a whole block runs behind its list items too (US-007).
    */
   border?: IBordersOptions
+  /** The keep rules of the last paragraph, when the text is inside a block print keeps whole (`keepAt`). */
+  keep?: ParagraphKeep
 }
 
 /**
@@ -515,8 +513,28 @@ export function parsePlainTextListToParagraphs(
       alignment: layout.alignment,
       shading: layout.shading,
       border: layout.border,
+      ...keepAt(layout.keep, index, paragraphChildren.length),
     })
   )
+}
+
+/** The entities `parseHtmlToDocxRuns` decodes (`&nbsp;` is decoded up front). */
+const DOCX_TEXT_ENTITIES: Readonly<Record<string, string>> = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#39;': "'",
+  '&#x27;': "'",
+}
+
+/**
+ * Decode text whose tags are already gone, in one pass, so a decoded `&` never
+ * starts a second entity: `&amp;lt;` is the text `&lt;`, as the browser shows
+ * it. The result is text for a `TextRun`, which escapes it when it is written.
+ */
+function decodeHtmlEntities(text: string): string {
+  return text.replace(/&(?:amp|lt|gt|quot|#39|#x27);/g, (entity) => DOCX_TEXT_ENTITIES[entity] ?? entity)
 }
 
 export function parseHtmlToDocxRuns(
@@ -527,15 +545,12 @@ export function parseHtmlToDocxRuns(
 
   const { size, color, font, position, scale } = options
 
-  // Decode HTML entities first so encoded tags become real tags
-  const decoded = html
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
+  // A no-break space is whitespace to every trim and emptiness test below, as
+  // it always was; it cannot form a tag, so it is safe to decode up front.
+  // Every other entity is decoded only once the real tags are gone
+  // (`decodeHtmlEntities`): decoded first, `&lt;mot&gt;` became a tag and its
+  // text vanished, although the Preview shows it.
+  const decoded = html.replace(/&nbsp;/g, ' ')
 
   // Check if content is HTML
   const isHtml = /<[^>]+>/.test(decoded)
@@ -544,7 +559,7 @@ export function parseHtmlToDocxRuns(
     // Plain text - return single TextRun
     return [
       new TextRun({
-        text: decoded.replace(/\n/g, ' ').trim(),
+        text: decodeHtmlEntities(decoded).replace(/\n/g, ' ').trim(),
         size,
         color,
         font,
@@ -583,7 +598,7 @@ export function parseHtmlToDocxRuns(
     while ((liMatch = liRegex.exec(listContent)) !== null) {
       // Clean the content: remove HTML tags for trimming check, trim whitespace
       const rawContent = liMatch[1]
-      const cleanedContent = rawContent.replace(/<[^>]+>/g, '').trim()
+      const cleanedContent = decodeHtmlEntities(rawContent.replace(/<[^>]+>/g, '')).trim()
       // Skip empty list items
       if (cleanedContent) {
         itemNumber++
@@ -604,7 +619,7 @@ export function parseHtmlToDocxRuns(
     while ((liMatch = liRegex.exec(listContent)) !== null) {
       // Clean the content: remove HTML tags for trimming check, trim whitespace
       const rawContent = liMatch[1]
-      const cleanedContent = rawContent.replace(/<[^>]+>/g, '').trim()
+      const cleanedContent = decodeHtmlEntities(rawContent.replace(/<[^>]+>/g, '')).trim()
       // Skip empty list items
       if (cleanedContent) {
         // Keep original content but trim leading/trailing whitespace
@@ -618,7 +633,7 @@ export function parseHtmlToDocxRuns(
   // Handle any remaining standalone list items (edge case)
   processedHtml = processedHtml
     .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (match, content) => {
-      const cleaned = content.replace(/<[^>]+>/g, '').trim()
+      const cleaned = decodeHtmlEntities(content.replace(/<[^>]+>/g, '')).trim()
       return cleaned ? `• ${content.trim()}` : ''
     })
 
@@ -725,9 +740,11 @@ export function parseHtmlToDocxRuns(
   }
   const lines: LinePiece[][] = [[]]
   for (const segment of segments) {
-    // Clean up the text - remove any remaining HTML tags
-    segment.text.replace(/<[^>]+>/g, '').split('\n').forEach((text, index) => {
+    // Clean up the text - remove any remaining HTML tags, then decode what is
+    // left: only now can a decoded `<` no longer be taken for a tag
+    segment.text.replace(/<[^>]+>/g, '').split('\n').forEach((raw, index) => {
       if (index > 0) lines.push([])
+      const text = decodeHtmlEntities(raw)
       if (text) lines[lines.length - 1].push({ text, segment })
     })
   }

@@ -166,8 +166,11 @@ test('fr: a CV is created with swissTrades from the new-CV picker, and the Edito
   await expect(photoRow.getByRole('button', { name: frCommon.resumes.editor.uploadPhoto })).toBeVisible()
   await expect(photoRow.getByRole('checkbox', { name: frCommon.resumes.editor.showOnCv.photo })).toBeChecked()
 
-  // FR-12: no font carousel and no font-size slider above the live preview.
-  await expect(page.getByTestId('resume-editor-preview').locator('input.font-slider')).toHaveCount(0)
+  // FR-12: the live-preview pane holds no font, size or colour control — no
+  // input, picker, slider or dropdown of any kind, only the drawn CV.
+  await expect(
+    page.getByTestId('resume-editor-preview').locator('input, select, textarea, [role="slider"], [role="combobox"], [role="listbox"]'),
+  ).toHaveCount(0)
 })
 
 test('en: the Preview page renders on the server, in order, without hidden content or a photo frame', async ({ page, authedUser }) => {
@@ -351,6 +354,11 @@ test('en: the PDF and the Word downloads are valid files holding the CV and not 
   const docxText = [...xml.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g)].map(([, text]) => text).join('|')
   for (const text of [...visible, ...headings(enCommon)]) expect(docxText, text).toContain(text)
   for (const text of hidden) expect(docxText).not.toContain(text)
-  // Its own generator: the dark column's fill repeats on every page through a header row.
-  expect(xml).toContain('<w:tblHeader/>')
+  // Its own generator: the dark column's fill repeats on every page in the
+  // section's header, drawn behind the text (swiss-templates-only-page-fidelity US-002).
+  const headerName = Object.keys(zip.files).find((name) => /^word\/header\d*\.xml$/.test(name))
+  expect(headerName, 'the .docx holds a header part').toBeDefined()
+  const header = await zip.file(headerName!)!.async('string')
+  expect([...header.matchAll(/<wp:anchor\b[^>]*behindDoc="1"/g)]).toHaveLength(1)
+  expect(xml).toMatch(/<w:headerReference w:type="default"/)
 })

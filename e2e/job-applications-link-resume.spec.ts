@@ -65,7 +65,7 @@ async function seedApplication(userId: string, jobTitle: string, company: string
 async function seedResume(userId: string, title: string, updatedAt: string): Promise<Seeded> {
   const { data, error } = await admin()
     .from('resumes')
-    .insert({ user_id: userId, title, template: 'classic', updated_at: updatedAt })
+    .insert({ user_id: userId, title, template: 'swissFinance', updated_at: updatedAt })
     .select('id')
     .single()
   if (error || !data) throw new Error(`Could not seed a resume: ${error?.message}`)

@@ -145,8 +145,11 @@ test('fr: a CV is created with swissAcademic from the new-CV picker, and the Edi
   await expect(live.locator('img')).toHaveCount(0)
   await expect(page.getByTestId('contact-photo-row')).toHaveCount(0)
 
-  // FR-12: no font carousel and no font-size slider above the live preview.
-  await expect(page.getByTestId('resume-editor-preview').locator('input.font-slider')).toHaveCount(0)
+  // FR-12: the live-preview pane holds no font, size or colour control — no
+  // input, picker, slider or dropdown of any kind, only the drawn CV.
+  await expect(
+    page.getByTestId('resume-editor-preview').locator('input, select, textarea, [role="slider"], [role="combobox"], [role="listbox"]'),
+  ).toHaveCount(0)
 })
 
 test('en: a photo stored and ticked is drawn neither in the Editor live preview nor on the Preview page', async ({ page, authedUser }) => {

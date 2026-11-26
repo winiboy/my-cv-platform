@@ -479,9 +479,12 @@ for (const viewport of [
 
 test('a CV rich-text field gets no new button: its key-achievements toolbar is unchanged', async ({ page, authedUser }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
-  // The professional template is the one that shows the key-achievements
-  // toolbar above a CV field; every CV field edits without the ribbon.
-  const resume = await seedFixtureResume(authedUser.id, 'professional')
+  // The key-achievements toolbar sits above the skills and project fields on
+  // every template. The summary and experience fields showed it only under the
+  // legacy Professional template, removed by swiss-templates-only-page-fidelity
+  // US-001: on a Swiss template they edit with no toolbar at all, so they must
+  // not have gained one, nor the cover letter's ribbon.
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
   const t = en.resumes.editor.richTextToolbar
   for (const [section, editorId] of [
     ['summary', 'summary-editor'],
@@ -490,14 +493,25 @@ test('a CV rich-text field gets no new button: its key-achievements toolbar is u
     await page.goto(`/en/dashboard/resumes/${resume.id}/edit?section=${section}`)
     await expect(page.locator(`#${editorId}`)).toBeVisible()
     await expect(page.getByTestId('formatting-ribbon-alignment'), section).toHaveCount(0)
+    for (const label of [LEFT, CENTER, RIGHT, JUSTIFY]) {
+      await expect(page.getByRole('button', { name: label, exact: true }), `${section} ${label}`).toHaveCount(0)
+    }
+  }
+  for (const [section, editorId, labels] of [
+    ['skills', 'skill-content-0', [LEFT, CENTER, JUSTIFY, t.bulletList, t.dashList, t.numberedList, t.bold]],
+    ['projects', 'project-description-0', [LEFT, CENTER, JUSTIFY, t.bulletList, t.dashList, t.numberedList, t.bold, t.italic]],
+  ] as const) {
+    await page.goto(`/en/dashboard/resumes/${resume.id}/edit?section=${section}`)
+    await expect(page.locator(`#${editorId}`)).toBeVisible()
+    await expect(page.getByTestId('formatting-ribbon-alignment'), section).toHaveCount(0)
     await expect(page.getByRole('button', { name: RIGHT, exact: true }), section).toHaveCount(0)
     // The toolbar keeps its three alignment buttons and gains no "right".
-    const leftButton = page.getByRole('button', { name: LEFT, exact: true }).first()
-    await expect(leftButton, section).toBeVisible()
+    const leftButton = page.getByRole('button', { name: LEFT, exact: true })
+    await expect(leftButton, section).toHaveCount(1)
     const toolbarLabels = await leftButton
       .locator('xpath=..')
       .getByRole('button')
       .evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label')))
-    expect(toolbarLabels, section).toEqual([LEFT, CENTER, JUSTIFY, t.bulletList, t.dashList, t.numberedList, t.bold, t.italic])
+    expect(toolbarLabels, section).toEqual(labels)
   }
 })

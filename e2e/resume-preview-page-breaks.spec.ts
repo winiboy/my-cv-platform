@@ -6,30 +6,35 @@ import {
   type FixtureContentOverrides,
   type SeededResume,
 } from './fixtures/resume'
-import {
-  LONG_EXPERIENCE,
-  ONE_PAGE,
-  expectClearOfPageEdge,
-  expectedPages,
-} from './fixtures/page-breaks'
+import { LONG_EXPERIENCE, ONE_PAGE, sheetTopFor, sheetsForHeight } from './fixtures/page-breaks'
 import { PAGE_HEIGHT_PX } from '../src/lib/resume-page-size'
+import { SHEET_GAP_PX } from '../src/lib/resume-sheets'
 import type { Page } from '@playwright/test'
 
 /**
- * US-002: the Preview page marks every edge between two printed A4 sheets, as
- * the editor does (US-001), over the document actually rendered on the page.
+ * The Preview page draws the CV as separate A4 sheets, a gap apart
+ * (swiss-templates-only-page-fidelity US-003, replacing the dashed edge
+ * indicators of the page-break US-002), and labels every sheet after the
+ * first in the gutter, over the document actually rendered on the page.
  *
- * The Preview draws the CV unscaled, so the indicators are expected at
- * k × PAGE_HEIGHT_PX below the document's top, within 1 px. As in the editor
- * spec, the expected count is computed here from the measured height, and every
- * multi-page case first asserts that the height is clear of a page edge.
+ * The Preview draws the CV unscaled, so sheet n is expected to start at
+ * (n − 1) × (PAGE_HEIGHT_PX + gap) below the document's top, within 1 px, with
+ * its gap just above. The expected count is computed here from the frame's
+ * measured height, which is a whole number of sheets once settled.
+ *
+ * What this checks is internal consistency: the sheets, gaps and labels agree
+ * with the frame's own height and with each other, and print carries no trace
+ * of them. It does not check that the sheets break where print breaks; that
+ * rests on e2e/resume-page-break-pdf-count.spec.ts (the sheet count against
+ * the printed page count) and e2e/resume-preview-pdf-pages.spec.ts (each
+ * sheet's text against its PDF page's).
  */
 
 interface IndicatorReading {
   page: number
   /** The indicator's offset below the document's top edge. */
   offset: number
-  /** The centre of its drawn line, on the same reference. */
+  /** The centre of the gap drawn above its sheet, on the same reference. */
   lineOffset: number
   label: string
   labelLeft: number
@@ -54,6 +59,8 @@ interface PreviewReading {
   pageOverflowXWithoutOverlay: number
   /** Width of `<main>`'s content box: the room the sheet and its gutter have. */
   mainContentWidth: number
+  /** Sheets drawn behind the document. */
+  sheets: number
   indicators: IndicatorReading[]
 }
 
@@ -109,6 +116,7 @@ async function readPreview(page: Page): Promise<PreviewReading> {
       pageOverflowX,
       pageOverflowXWithoutOverlay,
       mainContentWidth,
+      sheets: frame.querySelectorAll('[data-testid="resume-sheet"]').length,
       indicators,
     }
   })
@@ -119,12 +127,13 @@ async function expectIndicatorsSettled(page: Page): Promise<void> {
   await expect
     .poll(async () => {
       const reading = await readPreview(page)
-      return reading.indicators.length === expectedPages(reading.measuredHeight) - 1
+      const sheets = sheetsForHeight(reading.measuredHeight)
+      return sheets !== null && reading.sheets === sheets && reading.indicators.length === sheets - 1
     })
     .toBe(true)
 }
 
-/** Every indicator sits on its sheet edge, outside the CV, and labels the page below it. */
+/** Every indicator sits on the top of its sheet, outside the CV, and labels it. */
 async function expectIndicatorsAligned(
   page: Page,
   labelFor: (page: number) => string
@@ -134,17 +143,16 @@ async function expectIndicatorsAligned(
   // The frame the page measures is exactly the document: nothing else in it
   // adds height, so the count is the document's.
   expect(reading.measuredHeight).toBe(reading.documentHeight)
-  expectClearOfPageEdge(reading.measuredHeight)
-  const pages = expectedPages(reading.measuredHeight)
+  const pages = sheetsForHeight(reading.measuredHeight) ?? 0
   expect(pages).toBeGreaterThan(1)
   expect(reading.indicators.map((indicator) => indicator.page)).toEqual(
     Array.from({ length: pages - 1 }, (_, index) => index + 2)
   )
 
   for (const indicator of reading.indicators) {
-    const expected = (indicator.page - 1) * PAGE_HEIGHT_PX
+    const expected = sheetTopFor(indicator.page)
     expect(Math.abs(indicator.offset - expected), `page ${indicator.page} offset`).toBeLessThanOrEqual(1)
-    expect(Math.abs(indicator.lineOffset - expected), `page ${indicator.page} line`).toBeLessThanOrEqual(1)
+    expect(Math.abs(indicator.lineOffset - (expected - SHEET_GAP_PX / 2)), `page ${indicator.page} gap`).toBeLessThanOrEqual(1)
     expect(indicator.label).toBe(labelFor(indicator.page))
     expect(indicator.labelVisible).toBe(true)
     expect(indicator.pointerEvents).toBe('none')
@@ -215,29 +223,27 @@ async function printPdf(page: Page): Promise<{ pages: number; texts: string[] }>
 
 const indicators = (page: Page) => page.getByTestId('page-break-indicator')
 
-for (const template of ['professional', 'classic'] as const) {
-  test(`${template}: a one-page CV shows no indicator`, async ({ page, authedUser }) => {
+for (const template of ['swissCommerce', 'swissTrades'] as const) {
+  test(`${template}: a one-page CV shows one full sheet and no indicator`, async ({ page, authedUser }) => {
     const resume = await seedFixtureResume(authedUser.id, template, ONE_PAGE)
     await openPreview(page, resume.id)
+    await expectIndicatorsSettled(page)
 
-    const { measuredHeight } = await readPreview(page)
-    expect(measuredHeight).toBeGreaterThan(0)
-    expect(measuredHeight).toBeLessThanOrEqual(PAGE_HEIGHT_PX)
-    if (template === 'professional') {
-      // Its minimum height: exactly one page, the boundary case of the rule.
-      expect(measuredHeight).toBe(PAGE_HEIGHT_PX)
-      expect(measuredHeight).toBe((await readPreview(page)).documentHeight)
-    }
+    // One sheet, drawn full height whatever the content's own height.
+    const reading = await readPreview(page)
+    expect(reading.measuredHeight).toBe(PAGE_HEIGHT_PX)
+    expect(reading.documentHeight).toBe(PAGE_HEIGHT_PX)
+    expect(reading.sheets).toBe(1)
     await expect(indicators(page)).toHaveCount(0)
     await expect(page.getByTestId('page-break-indicators')).toHaveCount(0)
   })
 }
 
-test('a multi-page CV marks every sheet edge, and its PDF carries no trace of them', async ({
+test('a multi-page CV is drawn on separate sheets, and its PDF carries no trace of them', async ({
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic', { experience: LONG_EXPERIENCE })
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', { experience: LONG_EXPERIENCE })
   await openPreview(page, resume.id)
 
   const reading = await expectIndicatorsAligned(page, (n) => `Page ${n}`)
@@ -245,7 +251,7 @@ test('a multi-page CV marks every sheet edge, and its PDF carries no trace of th
   // Decorative: hidden from assistive technology as a whole.
   await expect(page.getByTestId('page-break-indicators')).toHaveAttribute('aria-hidden', 'true')
 
-  // A click on the line reaches the CV underneath, not the overlay.
+  // A click on a gap reaches the CV underneath, not the overlay.
   const hit = await page.evaluate(() => {
     const line = document.querySelector<HTMLElement>('[data-testid="page-break-indicator"]')
       ?.firstElementChild as HTMLElement | null
@@ -258,13 +264,48 @@ test('a multi-page CV marks every sheet edge, and its PDF carries no trace of th
   })
   expect(hit).toBe(true)
 
-  // Print media: the overlay is gone.
+  // Print media: the gaps, labels and sheets are gone, and the document is
+  // its own height again, not the sheets'.
   await page.emulateMedia({ media: 'print' })
   await expect(page.getByTestId('page-break-indicators')).toBeHidden()
+  await expect(page.getByTestId('resume-sheet').first()).toBeHidden()
+  expect(
+    await page.getByTestId('resume-document').evaluate((element) => (element as HTMLElement).offsetHeight)
+  ).not.toBe(reading.documentHeight)
+  // And directly: no push and no gap between a paragraph's lines applies in
+  // print. An element the pagination pushed keeps the attribute that names
+  // its rule (nothing paginates in print), so each one's top margin is read
+  // in print with the sheets' style sheet on and with it off: the template's
+  // own margin both times, which may itself be non-zero (a section gap).
+  // A broken paragraph's `::before`, the float that opens the gap on screen,
+  // generates no box in print.
+  const printStyles = await page.evaluate(() => {
+    const sheet = document.querySelector<HTMLStyleElement>('style[data-resume-sheets-style]')?.sheet
+    if (!sheet) throw new Error('The sheets style element is missing')
+    const pushed = Array.from(document.querySelectorAll('[data-sheet-push]'))
+    const withSheet = pushed.map((element) => getComputedStyle(element).marginTop)
+    sheet.disabled = true
+    const withoutSheet = pushed.map((element) => getComputedStyle(element).marginTop)
+    sheet.disabled = false
+    const gaps = Array.from(document.querySelectorAll('[data-sheet-lines]')).map((element) => {
+      const before = getComputedStyle(element, '::before')
+      return { content: before.content, float: before.cssFloat, shape: before.shapeOutside }
+    })
+    return { pushes: pushed.length, withSheet, withoutSheet, gaps }
+  })
+  // The fixture runs onto more than one sheet, so something was pushed or a
+  // paragraph broken at the first sheet's foot, or the check proves nothing.
+  expect(printStyles.pushes + printStyles.gaps.length).toBeGreaterThan(0)
+  expect(printStyles.withSheet, 'pushed elements keep their own top margin in print').toEqual(printStyles.withoutSheet)
+  for (const gap of printStyles.gaps) {
+    expect(['none', 'normal'], 'a broken paragraph has no ::before in print').toContain(gap.content)
+    expect(gap.float).toBe('none')
+    expect(gap.shape).toBe('none')
+  }
   await page.emulateMedia({ media: 'screen' })
   await expect(page.getByTestId('page-break-indicators')).toBeVisible()
 
-  // The printed PDF: one page per sheet the indicators mark, and no label on any of them.
+  // The printed PDF: one page per sheet, and no label on any of them.
   const pdf = await printPdf(page)
   expect(pdf.pages).toBe(reading.indicators.length + 1)
   expect(pdf.texts).toHaveLength(pdf.pages)
@@ -281,7 +322,7 @@ test('the overlay adds no horizontal scroll at any window width', async ({ page,
   // Professional draws no editing control outside the sheet on this page, so
   // the sheet alone decides whether <main> overflows. Classic's sliders sit
   // past the sheet's edge and would mask the overlay's overflow with their own.
-  const resume = await seedFixtureResume(authedUser.id, 'professional', {
+  const resume = await seedFixtureResume(authedUser.id, 'swissTrades', {
     experience: LONG_EXPERIENCE,
   })
   await openPreview(page, resume.id)
@@ -294,7 +335,7 @@ test('the overlay adds no horizontal scroll at any window width', async ({ page,
    *   there is no scroll; a label past the sheet's edge would add one;
    * - overflows: the sheet already scrolls; the overlay must not lengthen it;
    * - room: a gutter beside the sheet wide enough for a label, which is drawn.
-   * Below that gutter the Preview drops the labels and keeps the lines.
+   * Below that gutter the Preview drops the labels and keeps the gaps.
    */
   const cases = [
     { width: 1090, sheet: 'fits' },
@@ -320,10 +361,10 @@ test('the overlay adds no horizontal scroll at any window width', async ({ page,
     expect(reading.pageOverflowX, `${width}px: overflow added by the overlay`).toBe(
       reading.pageOverflowXWithoutOverlay
     )
-    // The sheet edges stay marked at every width, labelled or not.
+    // The sheets stay apart at every width, labelled or not.
     expect(reading.indicators.length, `${width}px`).toBeGreaterThan(0)
     for (const indicator of reading.indicators) {
-      const expected = (indicator.page - 1) * PAGE_HEIGHT_PX
+      const expected = sheetTopFor(indicator.page) - SHEET_GAP_PX / 2
       expect(Math.abs(indicator.lineOffset - expected), `${width}px page ${indicator.page}`).toBeLessThanOrEqual(1)
     }
     expect(
@@ -334,7 +375,7 @@ test('the overlay adds no horizontal scroll at any window width', async ({ page,
 })
 
 test('the label follows the Preview locale', async ({ page, authedUser }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic', { experience: LONG_EXPERIENCE })
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', { experience: LONG_EXPERIENCE })
   const words: Record<string, string> = { fr: 'Page', de: 'Seite', it: 'Pagina' }
 
   for (const [locale, word] of Object.entries(words)) {
@@ -345,7 +386,7 @@ test('the label follows the Preview locale', async ({ page, authedUser }) => {
 
 test('a longer draft restored from localStorage drives the indicators', async ({ page, authedUser }) => {
   // Stored: one page. Draft: several. Only the draft can produce an indicator.
-  const resume = await seedFixtureResume(authedUser.id, 'classic', ONE_PAGE)
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', ONE_PAGE)
   await storeDraft(page, resume, { experience: LONG_EXPERIENCE })
   await openPreview(page, resume.id)
 
@@ -360,14 +401,14 @@ test('a shorter draft restored from localStorage removes the indicators', async 
   authedUser,
 }) => {
   // Stored: several pages. Draft: one. The stored content's indicators must not survive.
-  const resume = await seedFixtureResume(authedUser.id, 'classic', { experience: LONG_EXPERIENCE })
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', { experience: LONG_EXPERIENCE })
   await storeDraft(page, resume, ONE_PAGE)
   await openPreview(page, resume.id)
 
   await expect(page.getByText('Preview with unsaved changes')).toBeVisible()
   await expect(page.getByTestId('resume-document')).not.toContainText('Northwind Systems 1')
   await expectIndicatorsSettled(page)
-  expect((await readPreview(page)).measuredHeight).toBeLessThan(PAGE_HEIGHT_PX)
+  expect((await readPreview(page)).measuredHeight).toBe(PAGE_HEIGHT_PX)
   await expect(indicators(page)).toHaveCount(0)
 })
 
@@ -375,7 +416,7 @@ test('an image that finishes loading after the page follows into the indicators 
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic', ONE_PAGE)
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', ONE_PAGE)
 
   // The image is held until the test releases it, so "after load" is not a race.
   let release: () => void = () => {
@@ -397,8 +438,9 @@ test('an image that finishes loading after the page follows into the indicators 
   })
 
   await openPreview(page, resume.id)
+  await expectIndicatorsSettled(page)
   const before = await readPreview(page)
-  expect(before.measuredHeight).toBeLessThan(PAGE_HEIGHT_PX)
+  expect(before.measuredHeight).toBe(PAGE_HEIGHT_PX)
   await expect(indicators(page)).toHaveCount(0)
 
   // Any full navigation would reset this marker; it survives only without a reload.
@@ -416,15 +458,22 @@ test('an image that finishes loading after the page follows into the indicators 
     document.querySelector('[data-testid="resume-document"]')?.appendChild(image)
   })
   await requested
-  // Still loading: the document has not grown, and nothing is marked.
+  // Still loading: the document has not grown past its sheet, and nothing is marked.
   expect((await readPreview(page)).measuredHeight).toBe(before.measuredHeight)
   await expect(indicators(page)).toHaveCount(0)
 
   release()
-  await expect(indicators(page)).toHaveCount(1)
+  // Three sheets, as print draws this document: the image, 1300 px and so
+  // taller than a page's text, cannot fit below the CV on page 1, so print
+  // breaks before it (between siblings) rather than inside it, and it runs
+  // from page 2's top margin onto page 3. Measured 2026-11-26 with this DOM
+  // through page.pdf: 3 pages (2 for the same image at 900 px, which fits
+  // page 2). The PDF is checked here too, so the count is print's, not ours.
+  await expect(indicators(page)).toHaveCount(2)
   await expectIndicatorsAligned(page, (n) => `Page ${n}`)
+  expect((await printPdf(page)).pages).toBe(3)
 
-  // And back: the document shrinks, the indicator goes.
+  // And back: the document shrinks, the indicators go.
   await page.evaluate(() => document.getElementById('e2e-late-image')?.remove())
   await expect(indicators(page)).toHaveCount(0)
 

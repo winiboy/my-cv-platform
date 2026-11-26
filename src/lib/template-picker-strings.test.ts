@@ -47,7 +47,7 @@ describe('templatePickerStrings', () => {
       const render = (source: Record<string, unknown>) =>
         renderToStaticMarkup(
           createElement(TemplatePicker, {
-            value: 'professional',
+            value: 'swissCommerce',
             onChange: () => {},
             labelledBy: 'picker-label',
             locale,
@@ -60,16 +60,17 @@ describe('templatePickerStrings', () => {
   }
 
   // Control: the comparison above does see a key the templates need going
-  // missing, so its passing is not a comparison that can never fail.
-  it('would see the difference if the section headings were left out', () => {
+  // missing, so its passing is not a comparison that can never fail. A Swiss
+  // template throws on a missing label rather than drawing another language.
+  it('would fail if the section headings were left out', () => {
     const { dict } = templatePickerStrings(fr)
     const withoutEditor = Object.fromEntries(
       Object.entries(dict.resumes as Record<string, unknown>).filter(([key]) => key !== 'editor')
     )
     const render = (source: Record<string, unknown>) =>
-      renderToStaticMarkup(createElement(TemplateThumbnailPage, { templateId: 'classic', locale: 'fr', dict: source }))
+      renderToStaticMarkup(createElement(TemplateThumbnailPage, { templateId: 'swissCommerce', locale: 'fr', dict: source }))
 
-    expect(render({ resumes: withoutEditor })).not.toBe(render(fr))
+    expect(() => render({ resumes: withoutEditor })).toThrow(/resumes\.editor/)
   })
 
   it('keeps only the resumes entries the picker and the templates read', () => {
@@ -93,13 +94,13 @@ describe('templateNamesFrom', () => {
   it('returns the localized name of every template, keyed by id, without descriptions', () => {
     const names = templateNamesFrom(templatePickerStrings(fr))
     expect(Object.keys(names).sort()).toEqual(TEMPLATE_OPTIONS.map(({ id }) => id).sort())
-    expect(names.modern).toBe(fr.resumes.templates.modern)
-    expect(names.professional).toBe(fr.resumes.templates.professional)
+    expect(names.swissCommerce).toBe(fr.resumes.templates.swissCommerce)
+    expect(names.swissTrades).toBe(fr.resumes.templates.swissTrades)
   })
 
   it('returns the English names in en, so the en resume selector is unchanged', () => {
     const names = templateNamesFrom(templatePickerStrings(en))
-    expect(names.modern).toBe('Modern')
-    expect(names.professional).toBe('Professional')
+    expect(names.swissCommerce).toBe('Business & administration')
+    expect(names.swissTrades).toBe('Technical & skilled trades')
   })
 })

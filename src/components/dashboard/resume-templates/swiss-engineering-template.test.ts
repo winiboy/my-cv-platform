@@ -10,6 +10,7 @@ import type { Resume } from '@/types/database'
 import { PREVIEW_PALETTE } from '@/lib/resume-palette'
 import { PAGE_WIDTH_PX } from '@/lib/resume-page-size'
 import { SWISS_ENGINEERING_GEOMETRY, SWISS_ENGINEERING_SIZES } from '@/lib/swiss-engineering-template'
+import { readGlobalsCss, ruleDeclarations } from '@/test/print-css'
 import { SwissEngineeringTemplate } from './swiss-engineering-template'
 
 /**
@@ -348,17 +349,14 @@ describe('swissEngineering keeps its round photo, its rounded cards and its ligh
     const band = /html:has\(\.swiss-engineering-template\)\s*\{([\s\S]*?)\}/.exec(printBlock)?.[1] ?? ''
     const columnStart = PAGE_WIDTH_PX - SWISS_ENGINEERING_GEOMETRY.columnWidth
     const barEnd = columnStart + SWISS_ENGINEERING_GEOMETRY.columnBar
-    const at = (px: number) => `calc(max(0px, 50% - ${PAGE_WIDTH_PX / 2}px) + ${px}px)`
-    for (const stop of [
-      `white ${at(columnStart)}`,
-      `${PALETTE.bar.css} ${at(columnStart)}`,
-      `${PALETTE.bar.css} ${at(barEnd)}`,
-      `${PALETTE.column.css} ${at(barEnd)}`,
-      `${PALETTE.column.css} ${at(PAGE_WIDTH_PX)}`,
-      `white ${at(PAGE_WIDTH_PX)}`,
-    ]) {
-      expect(band, stop).toContain(stop)
-    }
+    // One solid layer each, repeated down every page: the bar, then the column to
+    // the document's edge, each `from` px into the centred document of PAGE_WIDTH_PX,
+    // a position's 50% being half of the canvas less the layer's width.
+    const layer = (colour: string, from: number, width: number) =>
+      `linear-gradient(${colour}, ${colour}) max(${from}px, 50% + ${from + width / 2 - PAGE_WIDTH_PX / 2}px) 0 / ${width}px 100% repeat-y`
+    expect(band.replace(/\s+/g, ' ').trim()).toBe(
+      `background: ${layer(PALETTE.bar.css, columnStart, SWISS_ENGINEERING_GEOMETRY.columnBar)}, ${layer(PALETTE.column.css, barEnd, PAGE_WIDTH_PX - barEnd)}, white !important;`,
+    )
   })
 
   it('marks the photo frame and the cards with the classes the print rules and the e2e select', () => {
@@ -391,5 +389,36 @@ describe('swissEngineering draws the photo only when there is one (FR-5, FR-14)'
     expect(html).not.toContain('>Structural engineer</p>')
     expect(html).not.toContain('robin@halvorsen.test')
     expect(html).toContain('+41 00 000 00 07')
+  })
+})
+
+describe('swissEngineering prints a top and a foot margin on every page (swiss-templates-only-page-fidelity US-002)', () => {
+  const css = readGlobalsCss()
+  const G = SWISS_ENGINEERING_GEOMETRY
+
+  it('repeats SWISS_ENGINEERING_GEOMETRY.pageTop and .pageBottom as the document’s padding on every printed page, as Word’s page margins', () => {
+    expect(ruleDeclarations(css.print, '.swiss-engineering-template')).toEqual([
+      'min-height: 0 !important',
+      `padding-top: ${G.pageTop}px !important`,
+      `padding-bottom: ${G.pageBottom}px !important`,
+      '-webkit-box-decoration-break: clone',
+      'box-decoration-break: clone',
+    ])
+    expect(ruleDeclarations(css.print, '.swiss-engineering-template > aside, .swiss-engineering-template > main')).toEqual([
+      'padding-top: 0 !important',
+      'padding-bottom: 0 !important',
+    ])
+    // No `@page` margin: Chromium paints nothing into it, and the light column
+    // and its bar, the root's background, reach the paper's top and foot.
+    expect(css.print).not.toMatch(/page:\s*swiss-engineering|@page swiss-engineering/)
+    expect(css.screen).not.toMatch(/swiss-engineering/)
+  })
+
+  it('prints page 1 as the screen draws it: the main column at its padding, the light column’s text higher by its own', () => {
+    expect(G.pageTop).toBe(G.mainPaddingTop)
+    expect(G.pageBottom).toBe(G.mainPaddingBottom)
+    expect(ruleDeclarations(css.print, '.swiss-engineering-template > aside')).toEqual([`margin-top: ${G.columnPaddingTop - G.pageTop}px !important`])
+    // The main column and the light column are the document's two children, in that order.
+    expect(SOURCE).toMatch(/className="swiss-engineering-template [^"]*"[\s\S]*?>\s*<main\b[\s\S]*<\/main>\s*<aside\b/)
   })
 })

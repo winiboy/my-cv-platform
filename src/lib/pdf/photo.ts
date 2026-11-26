@@ -59,9 +59,9 @@ export function pdfPhotoProblem(value: unknown): 'too-large' | 'unsupported' | n
  * `boundedPhoto()`'s checks, with two differences: the types above, and the
  * data-URL prefix is required. The photo becomes an `<img src>` on the rendered
  * page, and only a data URL is drawn there without a network request; a bare
- * base64 string would be resolved as a relative URL. The application only ever
- * stores data URLs (`FileReader.readAsDataURL` and the background-removal
- * output), so the tightening costs no real photo.
+ * base64 string would be resolved as a relative URL. Every photo the application
+ * has stored is a data URL (from `FileReader.readAsDataURL`, or written back by
+ * a former background-removal step), so the tightening costs no real photo.
  *
  * Like `boundedPhoto()`, an unusable photo is dropped rather than failing the
  * request. The browser checks first with `pdfPhotoProblem` and does not send a

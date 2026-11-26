@@ -5,12 +5,14 @@ import {
   LineRuleType,
   Document,
   ImageRun,
+  OverlapType,
   Packer,
   PageOrientation,
   Paragraph,
   ShadingType,
   TabStopType,
   Table,
+  TableAnchorType,
   TableCell,
   TableLayoutType,
   TableRow,
@@ -52,12 +54,15 @@ import {
 import { visibleContactDetails } from '@/lib/contact-visibility'
 import {
   APP_BODY_FONT,
+  contactValueChildren,
+  KEEP_LINES,
+  KEEP_WITH_NEXT,
   NO_TEXT_LINE,
   exactLineSpacing,
   extractAlignment,
   isHtmlList,
   isPlainTextList,
-  parseHtmlListToParagraphs,
+  keepAt,
   parseHtmlToDocxRuns,
   parsePlainTextBlocks,
   parsePlainTextListToParagraphs,
@@ -65,8 +70,11 @@ import {
   pxToTwips,
   trackingSpacing,
   type DocxGeneratorSettings,
+  type ParagraphKeep,
 } from './docx-helpers'
+import { interDocxFonts, pairInterFaces } from './docx-fonts'
 import { DOCX_PALETTE } from './docx-palette'
+import { bareInlineFormatTags, formattedBlocks } from './docx-preview-metrics'
 import {
   EXIF_ORIENTATION_NONE,
   EXIF_PHOTO_TRANSFORMS,
@@ -75,7 +83,7 @@ import {
   extractBase64Data,
   parseImageDimensions,
   readJpegOrientation,
-} from './docx-modern'
+} from './docx-photo'
 
 /** The stored columns this generator reads, typed as the application writes them. */
 interface StoredResume {
@@ -136,9 +144,10 @@ const emptyParagraph = () => new Paragraph({ children: [], spacing: { before: 0,
  * level names, read from `@/lib/swiss-commerce-template` and
  * `@/lib/swiss-vocational-template`.
  *
- * Layout in Word: the page has no top margin, as the printed Preview has none;
- * the navy band is a table pulled out to both paper edges by a negative indent,
- * its cells shaded navy, with the round photo in its first cell. Dated rows are
+ * Layout in Word: every page has the printed Preview's top and foot margins;
+ * the navy band is a floating table placed at the page's origin, so it meets
+ * the paper's top and side edges on page 1 while later pages keep their
+ * margin, its cells shaded navy, with the round photo in its first cell. Dated rows are
  * borderless two-column tables with the dates on the left; skills are a
  * borderless two-column table; languages are shaded, bordered runs.
  */
@@ -196,21 +205,39 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
 
   /**
    * Rich text (summary, descriptions, `skillsHtml`) as the Preview's
-   * `renderFormattedText` draws it: an HTML list or a plain-text list as one
-   * paragraph per item, anything else as one paragraph of formatted runs.
+   * `renderFormattedText` draws it. HTML with a list: one paragraph per block
+   * the browser draws (`formattedBlocks`), in order — every `<p>` and every
+   * list item, so a paragraph beside a list is kept, which the shared list
+   * helper drops — each list item written as that helper writes it, its
+   * marker before its text. A plain-text list as one paragraph per item,
+   * anything else as one paragraph of formatted runs.
+   * `keep`: the keep rules of the last paragraph, inside a block print keeps
+   * whole (`keepAt`).
    */
-  const richParagraphs = (text: string, color: string, options: { spacingBefore?: number } = {}): Paragraph[] => {
+  const richParagraphs = (text: string, color: string, options: { spacingBefore?: number; keep?: ParagraphKeep } = {}): Paragraph[] => {
     const runOptions = { size: size.body, color, font }
     const lineSpacing = richLine(text)
     const alignment = extractAlignment(text)
+    const { keep } = options
     const paragraphs = isHtmlList(text)
-      ? parseHtmlListToParagraphs(text, runOptions, 0, 0, lineSpacing, undefined, alignment)
+      ? formattedBlocks(text).map(
+          (block, index, blocks) =>
+            new Paragraph({
+              children: [
+                ...(block.marker === null ? [] : [new TextRun({ ...runOptions, text: `${block.marker} ` })]),
+                ...parseHtmlToDocxRuns(bareInlineFormatTags(block.html), runOptions),
+              ],
+              alignment: block.alignment ?? alignment,
+              spacing: { after: 0, ...lineSpacing },
+              ...keepAt(keep, index, blocks.length),
+            }),
+        )
       : isPlainTextList(text)
-        ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing })
-        : [new Paragraph({ children: parseHtmlToDocxRuns(text, runOptions), alignment, spacing: { after: 0, ...lineSpacing } })]
+        ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing, keep })
+        : [new Paragraph({ children: parseHtmlToDocxRuns(text, runOptions), alignment, spacing: { after: 0, ...lineSpacing }, ...keep })]
     if (options.spacingBefore && paragraphs.length > 0) {
       // The Preview's `mt-1`: a spacer, since a built paragraph's spacing cannot be changed.
-      paragraphs.unshift(new Paragraph({ children: [], spacing: { before: 0, after: options.spacingBefore, ...NO_TEXT_LINE } }))
+      paragraphs.unshift(new Paragraph({ children: [], spacing: { before: 0, after: options.spacingBefore, ...NO_TEXT_LINE }, ...(keep ? KEEP_WITH_NEXT : {}) }))
     }
     return paragraphs
   }
@@ -230,7 +257,9 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
         }),
       ],
       spacing: {
-        before: pxToTwips(first ? GEOMETRY.bandGap : GEOMETRY.sectionGap),
+        // The first section's gap under the band is the floating band's own
+        // bottom distance from the text.
+        before: first ? 0 : pxToTwips(GEOMETRY.sectionGap),
         after: pxToTwips(GEOMETRY.headingGap),
         ...exactLineSpacing([LINE_HEIGHT.compact, line.heading]),
       },
@@ -245,42 +274,56 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
       keepNext: true,
     })
 
-  /** One borderless table of dated rows: the dates in the left column, the content on the right. */
-  const datedRows = (rows: { dates: string; content: Paragraph[] }[]) => {
+  /**
+   * Dated rows: each a borderless one-row table, the dates in the left column,
+   * the content on the right. The gap between two is a spacer paragraph
+   * between their tables, not the next row's top margin, so a row that starts
+   * a page starts at its top margin, as print drops the margin before an
+   * entry at a page break; it also keeps Word from merging the tables.
+   *
+   * The entry is kept whole by its paragraphs' keep rules (`keepAt`), which
+   * the content carries, not by a row that cannot split: Word clips such a
+   * row at the page's foot when it is taller than a page, where print breaks
+   * it. A paragraph kept with the next one in its row's last cell would keep
+   * the row with the next row, so the content's last paragraph has none.
+   */
+  const datedRows = (rows: { dates: string; content: Paragraph[] }[]): (Paragraph | Table)[] => {
     const dateWidth = pxToTwips(GEOMETRY.dateColumn)
-    return new Table({
-      width: { size: contentWidth, type: WidthType.DXA },
-      columnWidths: [dateWidth, contentWidth - dateWidth],
-      layout: TableLayoutType.FIXED,
-      borders: NO_BORDERS,
-      rows: rows.map(
-        ({ dates, content }, index) =>
+    return rows.flatMap(({ dates, content }, index) => [
+      ...(index > 0 ? [new Paragraph({ children: [], spacing: { before: 0, after: pxToTwips(GEOMETRY.entryGap), ...NO_TEXT_LINE } })] : []),
+      new Table({
+        width: { size: contentWidth, type: WidthType.DXA },
+        columnWidths: [dateWidth, contentWidth - dateWidth],
+        layout: TableLayoutType.FIXED,
+        borders: NO_BORDERS,
+        rows: [
           new TableRow({
-            cantSplit: true,
             children: [
               new TableCell({
                 width: { size: dateWidth, type: WidthType.DXA },
-                margins: { ...NO_MARGINS, top: index === 0 ? 0 : pxToTwips(GEOMETRY.entryGap) },
+                margins: NO_MARGINS,
                 borders: NO_CELL_BORDERS,
                 verticalAlign: VerticalAlign.TOP,
                 children: [
                   new Paragraph({
                     children: dates ? [run(dates, PALETTE['slate-500'])] : [],
                     spacing: { after: 0, ...bodyLine },
+                    ...KEEP_LINES,
                   }),
                 ],
               }),
               new TableCell({
                 width: { size: contentWidth - dateWidth, type: WidthType.DXA },
-                margins: { ...NO_MARGINS, top: index === 0 ? 0 : pxToTwips(GEOMETRY.entryGap) },
+                margins: NO_MARGINS,
                 borders: NO_CELL_BORDERS,
                 verticalAlign: VerticalAlign.TOP,
                 children: content.length > 0 ? content : [emptyParagraph()],
               }),
             ],
           }),
-      ),
-    })
+        ],
+      }),
+    ])
   }
 
   const children: (Paragraph | Table)[] = []
@@ -323,7 +366,9 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
   }
   if (contactEntries.length > 0) {
     // One row of values, as the Preview's wrapping flex row; each gap is one
-    // breakable space widened to the Preview's column gap.
+    // breakable space widened to the Preview's column gap, and each value is
+    // held whole when it fits the band's line (`contactValueChildren`).
+    const linePx = (contentWidth - (photo ? pxToTwips(GEOMETRY.photo + GEOMETRY.photoGap) : 0)) / 15
     const runs: TextRun[] = []
     contactEntries.forEach((entry, index) => {
       if (index > 0) {
@@ -331,7 +376,7 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
           new TextRun({ text: ' ', font, size: size.contact, characterSpacing: spaceWidening(GEOMETRY.contactGap, size.contact) }),
         )
       }
-      runs.push(run(entry.value, PALETTE['blue-100'], { size: size.contact }))
+      runs.push(new TextRun({ children: contactValueChildren(entry.value, linePx, size.contact, entry.key === 'email'), color: PALETTE['blue-100'], font, size: size.contact }))
     })
     headerText.push(
       new Paragraph({
@@ -384,10 +429,25 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
   )
   children.push(
     new Table({
-      // The band runs from paper edge to paper edge: the table is the page's
-      // width and is pulled left across the side margin.
+      // The band runs from paper edge to paper edge and meets the paper's top:
+      // a floating table, the page's width, placed at the page's own origin,
+      // as `docx-swiss-it.ts` places its band. Page margins are per section,
+      // so this is what lets every page keep its top margin while page 1's
+      // band still starts at the paper's edge: the body flows below the band
+      // (its bottom distance is the Preview's gap), and a page the band is not
+      // on starts at the margin.
       width: { size: pageWidthTwips, type: WidthType.DXA },
-      indent: { size: -marginX, type: WidthType.DXA },
+      float: {
+        horizontalAnchor: TableAnchorType.PAGE,
+        verticalAnchor: TableAnchorType.PAGE,
+        absoluteHorizontalPosition: 0,
+        absoluteVerticalPosition: 0,
+        topFromText: 0,
+        leftFromText: 0,
+        rightFromText: 0,
+        bottomFromText: pxToTwips(GEOMETRY.bandGap),
+        overlap: OverlapType.NEVER,
+      },
       columnWidths: photo ? [photoCellWidth, textCellWidth] : [textCellWidth],
       layout: TableLayoutType.FIXED,
       borders: NO_BORDERS,
@@ -402,20 +462,25 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
     switch (sectionId) {
       case 'summary':
         if (!swissHasText(row.summary)) return []
-        return [heading(swissHeading(dict, 'summary'), first), ...richParagraphs(row.summary, PALETTE['slate-800'])]
+        // Kept whole with its heading, as print keeps the section.
+        return [heading(swissHeading(dict, 'summary'), first), ...richParagraphs(row.summary, PALETTE['slate-800'], { keep: KEEP_LINES })]
 
       case 'experience':
         if (experiences.length === 0) return []
         return [
           heading(swissHeading(dict, 'experience'), first),
-          datedRows(
+          ...datedRows(
             experiences.map((exp) => {
               const titleRuns = [run(exp.position || '', PALETTE['slate-900'], { bold: true })]
               if (exp.company) {
                 titleRuns.push(run(` · ${exp.company}${exp.location ? `, ${exp.location}` : ''}`, PALETTE['slate-500']))
               }
-              const content: Paragraph[] = [new Paragraph({ children: titleRuns, spacing: { after: 0, ...bodyLine } })]
               const achievements = (exp.achievements ?? []).filter(swissHasText)
+              // The entry is kept whole, as print keeps it.
+              const hasDetails = achievements.length > 0 || swissHasText(exp.description)
+              const content: Paragraph[] = [
+                new Paragraph({ children: titleRuns, spacing: { after: 0, ...bodyLine }, ...(hasDetails ? KEEP_WITH_NEXT : KEEP_LINES) }),
+              ]
               if (achievements.length > 0) {
                 achievements.forEach((achievement, index) => {
                   content.push(
@@ -427,11 +492,12 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
                       indent: { left: pxToTwips(20), hanging: pxToTwips(20) },
                       tabStops: [{ type: TabStopType.LEFT, position: pxToTwips(20) }],
                       spacing: { before: index === 0 ? pxToTwips(4) : 0, after: 0, ...richLine(achievement) },
+                      ...keepAt(KEEP_LINES, index, achievements.length),
                     }),
                   )
                 })
               } else if (swissHasText(exp.description)) {
-                content.push(...richParagraphs(exp.description, PALETTE['slate-800'], { spacingBefore: pxToTwips(4) }))
+                content.push(...richParagraphs(exp.description, PALETTE['slate-800'], { spacingBefore: pxToTwips(4), keep: KEEP_LINES }))
               }
               return { dates: formatSwissDateRange(exp.startDate, exp.endDate, exp.current, dict), content }
             }),
@@ -442,18 +508,28 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
         if (education.length === 0) return []
         return [
           heading(swissHeading(dict, 'education'), first),
-          datedRows(
+          ...datedRows(
             education.map((edu) => {
+              // The entry is kept whole, as print keeps it.
               const content: Paragraph[] = []
-              if (edu.degree) {
-                content.push(new Paragraph({ children: [run(edu.degree, PALETTE['slate-900'], { bold: true })], spacing: { after: 0, ...bodyLine } }))
-              }
               const schoolLine = [edu.school, edu.field].filter(Boolean).join(' · ')
+              const hasDescription = swissHasText(edu.description)
+              if (edu.degree) {
+                content.push(
+                  new Paragraph({
+                    children: [run(edu.degree, PALETTE['slate-900'], { bold: true })],
+                    spacing: { after: 0, ...bodyLine },
+                    ...(schoolLine || hasDescription ? KEEP_WITH_NEXT : KEEP_LINES),
+                  }),
+                )
+              }
               if (schoolLine) {
-                content.push(new Paragraph({ children: [run(schoolLine, PALETTE['slate-500'])], spacing: { after: 0, ...bodyLine } }))
+                content.push(
+                  new Paragraph({ children: [run(schoolLine, PALETTE['slate-500'])], spacing: { after: 0, ...bodyLine }, ...(hasDescription ? KEEP_WITH_NEXT : KEEP_LINES) }),
+                )
               }
               if (swissHasText(edu.description)) {
-                content.push(...richParagraphs(edu.description, PALETTE['slate-800'], { spacingBefore: pxToTwips(4) }))
+                content.push(...richParagraphs(edu.description, PALETTE['slate-800'], { spacingBefore: pxToTwips(4), keep: KEEP_LINES }))
               }
               return { dates: formatSwissDateRange(edu.startDate, edu.endDate, false, dict), content }
             }),
@@ -576,6 +652,8 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
             // the glyphs, so the fill sat above the border. Auto spacing makes
             // the two boxes coincide; the pill row's height is then Word's own.
             spacing: { after: 0, line: AUTO_SINGLE_LINE, lineRule: LineRuleType.AUTO },
+            // Kept whole with its heading, as print keeps the section.
+            ...KEEP_LINES,
           }),
         ]
       }
@@ -584,13 +662,13 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
         if (certifications.length === 0) return []
         return [
           heading(swissHeading(dict, 'training'), first),
-          datedRows(
+          ...datedRows(
             certifications.map((cert) => {
               const runs = [run(cert.name || '', PALETTE['slate-900'], { bold: true })]
               if (cert.issuer) runs.push(run(` · ${cert.issuer}`, PALETTE['slate-500']))
               return {
                 dates: cert.date ? formatSwissMonth(cert.date) : '',
-                content: [new Paragraph({ children: runs, spacing: { after: 0, ...bodyLine } })],
+                content: [new Paragraph({ children: runs, spacing: { after: 0, ...bodyLine }, ...KEEP_LINES })],
               }
             }),
           ),
@@ -609,6 +687,8 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
   // ASSEMBLE
   // ----------------------------------------------------------
   const doc = new Document({
+    // Inter travels with the file, so Word draws it on any computer (`docx-fonts.ts`).
+    fonts: await interDocxFonts(),
     styles: {
       default: {
         document: {
@@ -622,10 +702,18 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
         properties: {
           page: {
             size: { width: pageWidthTwips, height: pageHeightTwips, orientation: PageOrientation.PORTRAIT },
-            // No top margin: the band meets the paper's top edge, and the
-            // printed Preview's later pages start at the edge too (`@page`
-            // margin 0). The bottom keeps the Preview's foot padding.
-            margin: { top: 0, right: marginX, bottom: pxToTwips(GEOMETRY.paddingBottom), left: marginX, header: 0, footer: 0 },
+            // The printed Preview's page margins (SWISS_COMMERCE_GEOMETRY), so
+            // both break their pages at the same place: every page's foot and
+            // every page's top, page 1's band floating over the top margin to
+            // the paper's edge.
+            margin: {
+              top: pxToTwips(GEOMETRY.pageTop),
+              right: marginX,
+              bottom: pxToTwips(GEOMETRY.pageBottom),
+              left: marginX,
+              header: 0,
+              footer: 0,
+            },
           },
         },
         // OOXML ends a body with a paragraph; after a table it carries no line.
@@ -639,7 +727,7 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
   // The photo is the document's only drawing. `docx` writes it as a rectangle
   // with no outline and has no API for either, so its geometry is set to an
   // ellipse — Word's own "crop to shape" — with the Preview's blue ring as its
-  // outline, and the object-fit: cover crop is written as `docx-modern.ts` does.
+  // outline, and the object-fit: cover crop is written from `calculateCoverCropPercents` (`docx-photo.ts`).
   if (photo) {
     const zip = await JSZip.loadAsync(buffer)
     const file = zip.file('word/document.xml')
@@ -649,7 +737,7 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
     buffer = (await zip.generateAsync({ type: 'nodebuffer' })) as Buffer
   }
 
-  return buffer
+  return pairInterFaces(buffer)
 }
 
 /**
@@ -705,7 +793,7 @@ function photoRun(photoBase64: string): { image: ImageRun; crop: { l: number; t:
     const displayed = swapsAxes ? { width: dimensions.height, height: dimensions.width } : dimensions
     const displayedCrop = calculateCoverCropPercents(displayed.width, displayed.height, box, box)
     // srcRect is in the stored image's axes, which a 90° turn swaps; the cover
-    // crop is centred, so the mapping is the one `docx-modern.ts` documents.
+    // crop is centred, so the mapping is the one `EXIF_PHOTO_TRANSFORMS` (`docx-photo.ts`) documents.
     const stored = swapsAxes
       ? { l: displayedCrop.t, r: displayedCrop.b, t: displayedCrop.l, b: displayedCrop.r }
       : displayedCrop

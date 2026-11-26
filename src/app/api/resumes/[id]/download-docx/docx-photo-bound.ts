@@ -11,7 +11,7 @@ import { DOCX_PHOTO_DATA_URL, MAX_DOCX_PHOTO_LENGTH } from '@/lib/photo-for-docx
  */
 
 /**
- * The image data-URL forms `docx-modern.ts` can actually decode.
+ * The image data-URL forms `detectImageType` (`docx-photo.ts`) can actually decode.
  *
  * A superset check, not a second implementation of the generator's own
  * detection: anything accepted here is still identified — or rejected — there.

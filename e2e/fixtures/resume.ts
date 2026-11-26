@@ -19,7 +19,7 @@ import type { ResumeTemplate } from '../../src/types/database'
  *
  * COVERAGE. Every section a template can render must be present and non-empty,
  * because a screenshot can only guard what it draws. An empty `certifications`
- * array would leave that branch of all five templates unprotected while still
+ * array would leave that branch of every template unprotected while still
  * producing a green baseline - the exact "matches for the wrong reason" failure
  * this suite exists to avoid. Where a template supports a variant (a current
  * role vs a finished one, a bulleted achievement list vs a plain description),

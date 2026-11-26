@@ -41,7 +41,7 @@ function seedResume(fields: Row = {}): Row {
     id: crypto.randomUUID(),
     user_id: USER_ID,
     title: 'My CV',
-    template: 'classic',
+    template: 'swissFinance',
     job_application_id: null,
     ...fields,
   })
@@ -62,13 +62,13 @@ beforeEach(() => {
 describe('POST /api/job-applications/[id]/link-resume', () => {
   it('links the CV both ways and answers with it', async () => {
     const application = seedApplication()
-    const resume = seedResume({ title: 'Data CV', template: 'modern' })
+    const resume = seedResume({ title: 'Data CV', template: 'swissEngineering' })
 
     const response = await call(application.id as string, { resumeId: resume.id })
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({
-      resume: { id: resume.id, title: 'Data CV', template: 'modern' },
+      resume: { id: resume.id, title: 'Data CV', template: 'swissEngineering' },
     })
     expect(application.resume_id).toBe(resume.id)
     expect(resume.job_application_id).toBe(application.id)

@@ -1,38 +1,31 @@
 import { test, expect } from './fixtures/auth'
 import { parsePdf } from './fixtures/pdf'
 import { seedFixtureResume, type FixtureContentOverrides } from './fixtures/resume'
-import {
-  LONG_EXPERIENCE,
-  ONE_PAGE,
-  expectClearOfPageEdge,
-  expectedPages,
-} from './fixtures/page-breaks'
-import { PAGE_HEIGHT_PX } from '../src/lib/resume-page-size'
+import { LONG_EXPERIENCE, ONE_PAGE, sheetsForHeight } from './fixtures/page-breaks'
 import type { Page } from '@playwright/test'
-import type { ResumeTemplate } from '../src/types/database'
+import { RESUME_TEMPLATES } from '../src/lib/resume-templates'
 
 /**
- * US-003: the printed PDF is the authority on the page-break indicator.
+ * The printed PDF is the authority on the sheets the Preview draws
+ * (swiss-templates-only-page-fidelity US-003; first written for the
+ * page-break indicators' US-003).
  *
  * For every template, one CV that fits one page and one that runs past it are
  * opened on the Preview page and printed from there, as a user downloading the
- * PDF does: print media, the page's own `@page` size, the controls toggle in
- * its shipped state (on; it is `print:hidden`, and resume-print-geometry.spec
- * proves print with controls on lays the document out as the screen does).
- * The number of indicators the Preview draws, plus one, must equal the PDF's
- * page count, and the editor's live preview of the same resume must draw as
- * many indicators as the Preview.
+ * PDF does: print media and the page's own `@page` size. The Preview draws no
+ * editing control (swiss-cv-templates FR-13). The number of sheets the Preview
+ * draws must equal the PDF's page count, and the editor's live preview of the
+ * same resume must draw as many sheets as the Preview.
  *
- * A match only proves something when the document is not sitting on a sheet
- * edge, where a rounding difference could flip the count either way: every
- * multi-page case first asserts its height is clear of an edge, and that the
- * rule gives at least two pages. The one-page case keeps the edge on purpose
- * for professional and modern, whose minimum height is exactly one page.
+ * The sheets are counted three ways that must agree: the frame's height (n
+ * sheets and n − 1 gaps), the sheets drawn, and the page-break indicators
+ * (one per sheet after the first). Which items each sheet holds is asserted
+ * against the PDF by `resume-preview-pdf-pages.spec.ts`.
  *
  * The measurements are attached to each test as annotations.
  */
 
-const TEMPLATES: ResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative']
+const TEMPLATES = RESUME_TEMPLATES
 
 const FIXTURES: { name: string; overrides: FixtureContentOverrides; multiPage: boolean }[] = [
   { name: 'one page', overrides: ONE_PAGE, multiPage: false },
@@ -45,9 +38,8 @@ const VIEWPORT = { width: 1280, height: 900 }
 const indicators = (page: Page) => page.getByTestId('page-break-indicator')
 
 /**
- * The unscaled height each surface measures: `offsetHeight` of the element
- * directly around `resume-document` (the Preview's frame, the editor's scaled
- * wrapper), the input of their indicators.
+ * The unscaled height of the frame directly around `resume-document`, the
+ * sheets' frame on both surfaces: `offsetHeight` ignores the editor's scaling.
  */
 async function measuredHeight(page: Page): Promise<number> {
   return page.getByTestId('resume-document').evaluate((documentElement) => {
@@ -58,16 +50,18 @@ async function measuredHeight(page: Page): Promise<number> {
 }
 
 /**
- * Resolve once the surface draws the indicators its current height calls for,
- * then return that height and the count. Polling covers the layout effect and
- * the ResizeObserver that follow hydration and font loading.
+ * Resolve once the surface's height, sheets and indicators agree, then return
+ * the height and the sheet count. Polling covers the pagination that follows
+ * hydration, font and photo loading.
  */
-async function settledIndicators(page: Page): Promise<{ height: number; count: number }> {
-  let reading = { height: 0, count: -1 }
+async function settledSheets(page: Page): Promise<{ height: number; sheets: number }> {
+  let reading = { height: 0, sheets: -1 }
   await expect
     .poll(async () => {
-      reading = { height: await measuredHeight(page), count: await indicators(page).count() }
-      return reading.height > 0 && reading.count === expectedPages(reading.height) - 1
+      const height = await measuredHeight(page)
+      const sheets = await page.getByTestId('resume-sheet').count()
+      reading = { height, sheets }
+      return sheetsForHeight(height) === sheets && (await indicators(page).count()) === sheets - 1
     })
     .toBe(true)
   return reading
@@ -90,7 +84,7 @@ async function printPdf(page: Page): Promise<{ pages: number; printHeight: numbe
 
 for (const template of TEMPLATES) {
   for (const fixture of FIXTURES) {
-    test(`${template}, ${fixture.name}: indicators + 1 equals the printed PDF's pages, in the Preview and the editor`, async ({
+    test(`${template}, ${fixture.name}: the sheets drawn equal the printed PDF's pages, in the Preview and the editor`, async ({
       page,
       authedUser,
     }) => {
@@ -105,32 +99,26 @@ for (const template of TEMPLATES) {
       await page.goto(`/en/dashboard/resumes/${resume.id}/preview`)
       await expect(page.getByTestId('resume-document')).toBeVisible()
       await page.evaluate(() => document.fonts.ready)
-      const preview = await settledIndicators(page)
-      record('preview', { height: preview.height, indicators: preview.count })
+      const preview = await settledSheets(page)
+      record('preview', { height: preview.height, sheets: preview.sheets })
 
       if (fixture.multiPage) {
-        expectClearOfPageEdge(preview.height)
-        expect(expectedPages(preview.height), 'the long fixture must print on several pages').toBeGreaterThanOrEqual(2)
+        expect(preview.sheets, 'the long fixture must print on several pages').toBeGreaterThanOrEqual(2)
       } else {
-        expect(preview.height).toBeLessThanOrEqual(PAGE_HEIGHT_PX)
-        expect(preview.count).toBe(0)
-        if (template === 'professional' || template === 'modern') {
-          // Their minimum height: exactly one page, the edge case of the rule.
-          expect(preview.height).toBe(PAGE_HEIGHT_PX)
-        }
+        expect(preview.sheets).toBe(1)
       }
 
       const pdf = await printPdf(page)
       record('pdf', { printHeight: pdf.printHeight, pages: pdf.pages })
-      expect(pdf.pages, 'PDF pages vs Preview indicators + 1').toBe(preview.count + 1)
+      expect(pdf.pages, 'PDF pages vs Preview sheets').toBe(preview.sheets)
 
       // The editor's live preview of the same resume.
       await page.goto(`/en/dashboard/resumes/${resume.id}/edit`)
       await expect(page.getByTestId('resume-document')).toBeVisible()
       await page.evaluate(() => document.fonts.ready)
-      const editor = await settledIndicators(page)
-      record('editor', { height: editor.height, indicators: editor.count })
-      expect(editor.count, 'editor indicators vs Preview indicators').toBe(preview.count)
+      const editor = await settledSheets(page)
+      record('editor', { height: editor.height, sheets: editor.sheets })
+      expect(editor.sheets, 'editor sheets vs Preview sheets').toBe(preview.sheets)
     })
   }
 }

@@ -3,17 +3,12 @@ import path from 'node:path'
 import { isValidElement } from 'react'
 import { describe, expect, it } from 'vitest'
 import { renderFormattedText } from '@/lib/format-text'
-import type { BuiltResumeTemplate } from '@/types/database'
+import type { ResumeTemplate } from '@/types/database'
 import { templateComponentFile } from '@/test/resume-template-files'
+import { RESUME_TEMPLATES } from './resume-templates'
 import {
-  CREATIVE_HEADING_BAR_STEP,
   FORMATTED_CONTENT_LINE_HEIGHT,
-  MODERN_LINE_HEIGHT,
-  MODERN_TITLE_BAR_PADDING_Y_PX,
-  TAILWIND_SPACING_PX,
-  tailwindHeightPx,
   PREFLIGHT_LINE_HEIGHT,
-  PROFESSIONAL_LINE_HEIGHT,
   SWISS_COMMERCE_LINE_HEIGHT,
   SWISS_ENGINEERING_LINE_HEIGHT,
   SWISS_FINANCE_LINE_HEIGHT,
@@ -37,26 +32,20 @@ import {
  * - Values that come from CSS a module cannot import — Tailwind's preflight,
  *   `text-*` and `leading-*` utilities, and `globals.css`'s
  *   `.formatted-content` — are read from that CSS here and compared.
- * - Professional's and modern's line heights are imported by their templates;
- *   this test fails if either template gives `lineHeight` any value other than
- *   one of those constants — a number, a string, another identifier — which
- *   would be a second copy. (Modern's Remove BG button, an editor control that
- *   is never part of the document, is the one pinned exception.)
- * - Classic, minimal and creative set no `lineHeight` at all, and every `text-*`
- *   and `leading-*` utility any template uses, arbitrary values (`leading-[1.3]`)
- *   and size/line-height modifiers (`text-sm/6`) included, must be one this
- *   module declares, so a template cannot start drawing at a line height the
- *   generators do not know.
- * - The spacing unit behind creative's heading bars is read from Tailwind's
- *   theme, and the bars' `h-6` / `h-8` are counted in the template.
+ * - Each Swiss template's line heights are imported by the template; this test
+ *   fails if a template gives `lineHeight` any value other than one of its
+ *   constants — a number, a string, another identifier — which would be a
+ *   second copy.
+ * - Every `text-*` and `leading-*` utility any template uses, arbitrary values
+ *   (`leading-[1.3]`) and size/line-height modifiers (`text-sm/6`) included,
+ *   must be one this module declares, so a template cannot start drawing at a
+ *   line height the generators do not know.
  *
- * Not covered: WHICH element uses which value. Moving one of modern's elements
- * from `compact` to `text`, or giving a classic element a `leading-relaxed` it
- * did not have, passes here, because the value is still one the module
- * declares. The title, headings and body text are pinned per element by
- * `docx-line-spacing.test.ts`, and the sampled elements are compared with the
- * browser's computed style by `pnpm test:parity`; any other element is guarded
- * only by review, as US-003 recorded for which element a colour sits on.
+ * Not covered: WHICH element uses which value. Moving one element from
+ * `compact` to `text` passes here, because the value is still one the module
+ * declares. Each Swiss generator's own test pins the paragraphs it writes; any
+ * other element is guarded only by review, as US-003 recorded for which element
+ * a colour sits on.
  */
 
 const ROOT = path.resolve(__dirname, '../..')
@@ -66,8 +55,8 @@ const tailwindTheme = read('node_modules/tailwindcss/theme.css')
 const tailwindPreflight = read('node_modules/tailwindcss/preflight.css')
 const globals = read('src/app/globals.css')
 
-const TEMPLATES: readonly BuiltResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
-const template = (name: BuiltResumeTemplate) => read(templateComponentFile(name))
+const TEMPLATES: readonly ResumeTemplate[] = RESUME_TEMPLATES
+const template = (name: ResumeTemplate) => read(templateComponentFile(name))
 
 /** A CSS number or `calc(a / b)`, as the Tailwind theme writes line heights. */
 function cssNumber(value: string): number {
@@ -82,13 +71,6 @@ function themeVariable(name: string): number {
   const match = new RegExp(`${name}:\\s*([^;]+);`).exec(tailwindTheme)
   if (!match) throw new Error(`tailwindcss/theme.css declares no ${name}`)
   return cssNumber(match[1])
-}
-
-/** A theme length in CSS px at the 16px root: `0.25rem` → 4. */
-function themeLength(name: string): number {
-  const match = new RegExp(`${name}:\\s*([\\d.]+)(rem|px);`).exec(tailwindTheme)
-  if (!match) throw new Error(`tailwindcss/theme.css declares no ${name} in rem or px`)
-  return Number(match[1]) * (match[2] === 'rem' ? 16 : 1)
 }
 
 /** The declarations of the first rule whose selector list is exactly `selector`. */
@@ -124,29 +106,6 @@ describe('the templates draw with these line heights and no others', () => {
   /** Every `lineHeight` value in a style object or JSX attribute, as written, with its offset. */
   const lineHeightValues = (source: string) =>
     [...source.matchAll(/lineHeight\s*[:=]\s*([^,}\n]+)/g)].map((m) => ({ value: m[1].trim(), index: m.index ?? 0 }))
-
-  it('professional gives lineHeight only the constants it imports', () => {
-    const source = template('professional')
-    expect(source).toMatch(/const BODY_LINE_HEIGHT = PROFESSIONAL_LINE_HEIGHT\.body/)
-    expect(source).toMatch(/const HEADING_LINE_HEIGHT = PROFESSIONAL_LINE_HEIGHT\.heading/)
-    const values = lineHeightValues(source)
-    expect(values.length).toBeGreaterThan(0)
-    for (const { value } of values) expect(['BODY_LINE_HEIGHT', 'HEADING_LINE_HEIGHT'], value).toContain(value)
-    expect(PROFESSIONAL_LINE_HEIGHT).toEqual({ heading: 1.2, body: 1.35 })
-  })
-
-  it('modern gives lineHeight only the constants it imports, bar one editor control', () => {
-    const source = template('modern')
-    const values = lineHeightValues(source)
-    const others = values.filter(({ value }) => !/^MODERN_LINE_HEIGHT\.(title|compact|text)$/.test(value))
-    expect(others.map((o) => o.value)).toEqual(['1.4'])
-    // The Remove BG button: print:hidden, never part of the document.
-    const button = source.slice(source.lastIndexOf('<button', others[0].index), others[0].index)
-    expect(button).toMatch(/aria-label="Remove photo background"/)
-    expect(button).toMatch(/print:hidden/)
-    for (const key of ['title', 'compact', 'text']) expect(source).toContain(`MODERN_LINE_HEIGHT.${key}`)
-    expect(MODERN_LINE_HEIGHT).toEqual({ title: 1.2, compact: 1.4, text: 1.5 })
-  })
 
   it('swissVocational gives lineHeight only the constants it imports', () => {
     const source = template('swissVocational')
@@ -248,15 +207,6 @@ describe('the templates draw with these line heights and no others', () => {
     expect(SWISS_FIRST_JOB_LINE_HEIGHT).toEqual({ name: 1.15, compact: 1.4, text: 1.5 })
   })
 
-  it('modern draws its job-title bar with the padding the DOCX adds to its line', () => {
-    expect(template('modern')).toMatch(/padding: `\$\{MODERN_TITLE_BAR_PADDING_Y_PX\}px 12px`/)
-    expect(MODERN_TITLE_BAR_PADDING_Y_PX).toBe(4)
-  })
-
-  it.each(['classic', 'minimal', 'creative'] as const)('%s writes no line height inline', (name) => {
-    expect(template(name)).not.toMatch(/lineHeight/)
-  })
-
   it.each(TEMPLATES)('%s uses only text-* and leading-* utilities this module declares', (name) => {
     const source = template(name)
     const sizes = new Set([...source.matchAll(/(?<![\w-])(text-(?:xs|sm|base|lg|xl|[2-9]xl))(?![\w-])/g)].map((m) => m[1]))
@@ -268,17 +218,6 @@ describe('the templates draw with these line heights and no others', () => {
     // height. A colour's opacity modifier (`text-white/80`) is not a size and is not matched.
     const sizeWithLeading = /(?<![\w-])text-(?:xs|sm|base|lg|xl|[2-9]xl|\[[^\]]*\])\/[\w[\].()-]+/g
     expect(source.match(sizeWithLeading) ?? [], 'text-*/<line-height> modifiers').toEqual([])
-  })
-
-  it('creative’s heading bars are the h-6 and h-8 the DOCX row heights take', () => {
-    expect(themeLength('--spacing')).toBe(TAILWIND_SPACING_PX)
-    const source = template('creative')
-    const bars = (step: number) =>
-      source.match(new RegExp(`<h2 [^>]*>\\s*<div className="h-${step.toString().replace('.', '\\.')} w-[\\d.]+ bg-gradient-to-b`, 'g')) ?? []
-    expect(bars(CREATIVE_HEADING_BAR_STEP.sidebar), 'left-column heading bars').toHaveLength(3)
-    expect(bars(CREATIVE_HEADING_BAR_STEP.main), 'right-column heading bars').toHaveLength(3)
-    expect(tailwindHeightPx(CREATIVE_HEADING_BAR_STEP.sidebar)).toBe(24)
-    expect(tailwindHeightPx(CREATIVE_HEADING_BAR_STEP.main)).toBe(32)
   })
 })
 

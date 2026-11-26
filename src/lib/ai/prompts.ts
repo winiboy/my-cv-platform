@@ -477,10 +477,9 @@ export interface JobDescriptionToResumeInput {
    * Asks for a complete resume, built through `buildResumeFromJobOffer` (PRD
    * cv-from-job-complete, US-002 and US-003): 2-3 `achievements` per
    * experience, a one-paragraph description, and a summary that names the
-   * target job title. Four of the five templates draw an experience's
-   * description only when it has no achievements, and the builder fills sample
-   * achievements when the AI sends none, so without this the AI's own
-   * experience text would be hidden behind sample bullets there.
+   * target job title. The builder fills sample achievements when the AI sends
+   * none, so without this the AI's own experience text would sit behind sample
+   * bullets.
    *
    * Implied by `targetJobTitle`. Set alone when the caller does not know the
    * job title (Job Search), and the AI takes it from the description.

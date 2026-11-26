@@ -134,7 +134,7 @@ test.describe('signed in, every legacy URL reaches its live page', () => {
   let resumeId: string
 
   test.beforeEach(async ({ authedUser }) => {
-    const seeded = await seedFixtureResume(authedUser.id, 'modern')
+    const seeded = await seedFixtureResume(authedUser.id, 'swissCommerce')
     resumeId = seeded.id
   })
 

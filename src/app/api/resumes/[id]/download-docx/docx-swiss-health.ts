@@ -4,12 +4,14 @@ import {
   Document,
   ImageRun,
   LineRuleType,
+  OverlapType,
   Packer,
   PageOrientation,
   Paragraph,
   ShadingType,
   TabStopType,
   Table,
+  TableAnchorType,
   TableCell,
   TableLayoutType,
   TableRow,
@@ -51,16 +53,22 @@ import {
 import { visibleContactDetails } from '@/lib/contact-visibility'
 import {
   APP_BODY_FONT,
+  contactValueChildren,
+  KEEP_LINES,
+  KEEP_WITH_NEXT,
   NO_TEXT_LINE,
   exactLineSpacing,
   extractAlignment,
+  keepAt,
   parseHtmlToDocxRuns,
   parsePlainTextListToParagraphs,
   pxToHalfPoints,
   pxToTwips,
   trackingSpacing,
   type DocxGeneratorSettings,
+  type ParagraphKeep,
 } from './docx-helpers'
+import { interDocxFonts, pairInterFaces } from './docx-fonts'
 import { DOCX_PALETTE } from './docx-palette'
 import { FORMATTED_LIST_INDENT_PX, FORMATTED_LIST_MARKER_EM, bareInlineFormatTags, formattedBlocks } from './docx-preview-metrics'
 import {
@@ -71,7 +79,7 @@ import {
   extractBase64Data,
   parseImageDimensions,
   readJpegOrientation,
-} from './docx-modern'
+} from './docx-photo'
 
 /** The stored columns this generator reads, typed as the application writes them. */
 interface StoredResume {
@@ -133,7 +141,7 @@ const spaceWidening = (px: number, halfPoints: number) => Math.max(0, Math.round
 const emptyParagraph = () => new Paragraph({ children: [], spacing: { before: 0, after: 0, ...NO_TEXT_LINE } })
 
 /** A paragraph drawing no text that carries a vertical gap of `twips`. */
-const spacer = (twips: number) => new Paragraph({ children: [], spacing: { before: 0, after: twips, ...NO_TEXT_LINE } })
+const spacer = (twips: number, keep?: ParagraphKeep) => new Paragraph({ children: [], spacing: { before: 0, after: twips, ...NO_TEXT_LINE }, ...keep })
 
 /**
  * Generate the Word export of the "Santé & social" template.
@@ -143,9 +151,9 @@ const spacer = (twips: number) => new Paragraph({ children: [], spacing: { befor
  * and skill text, read from `@/lib/swiss-health-template` and
  * `@/lib/swiss-vocational-template`.
  *
- * Layout in Word: the page margins are the Preview's padding. The header is a
- * borderless two-column table holding the round photo and the name block, or
- * the name block alone. Each heading pill is a run of spaced capitals shaded
+ * Layout in Word: the page margins are the printed Preview's. The header is a
+ * borderless table floating at the Preview's top padding from the paper's top
+ * edge, holding the round photo and the name block, or the name block alone. Each heading pill is a run of spaced capitals shaded
  * the pill colour, padded by widened no-break spaces, on a line as tall as the
  * pill. Each dated entry is a borderless one-row table: the dates in its left
  * cell, whose left border is the entry's light-teal bar, so the bar runs the
@@ -218,16 +226,19 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
    * each with its inline formatting, a list item's marker hanging at the
    * list's indent. Plain text: `formatText`'s rules — its lists as items, its
    * other blocks as paragraphs whose lines keep their breaks.
+   * `keep`: the keep rules of the last paragraph, inside a block print keeps
+   * whole (`keepAt`).
    */
-  const richParagraphs = (text: string, options: { spacingBefore?: number } = {}): Paragraph[] => {
+  const richParagraphs = (text: string, options: { spacingBefore?: number; keep?: ParagraphKeep } = {}): Paragraph[] => {
+    const { keep } = options
     const runOptions = { size: size.body, color: PALETTE.body, font }
     const lineSpacing = exactLineSpacing([formattedTextLineHeight(text, LINE_HEIGHT.text), line.body])
     const alignment = extractAlignment(text)
     const markerHang = pxToTwips(FORMATTED_LIST_MARKER_EM * SIZES.body)
     const paragraphs = !rendersAsFormattedContent(text)
-      ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing })
+      ? parsePlainTextListToParagraphs(text, runOptions, { spacingAfterItem: 0, spacingAfterLast: 0, alignment, lineSpacing, keep })
       : formattedBlocks(text).map(
-          (block) =>
+          (block, index, blocks) =>
             new Paragraph({
               children: [
                 ...(block.marker === null ? [] : [new TextRun({ ...runOptions, text: `${block.marker}\t` })]),
@@ -240,9 +251,10 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
                   ? undefined
                   : { left: pxToTwips(FORMATTED_LIST_INDENT_PX * block.depth), hanging: block.marker === null ? 0 : markerHang },
               spacing: { after: 0, ...lineSpacing },
+              ...keepAt(keep, index, blocks.length),
             }),
         )
-    if (options.spacingBefore && paragraphs.length > 0) paragraphs.unshift(spacer(options.spacingBefore))
+    if (options.spacingBefore && paragraphs.length > 0) paragraphs.unshift(spacer(options.spacingBefore, keep ? KEEP_WITH_NEXT : undefined))
     return paragraphs
   }
 
@@ -429,13 +441,15 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
   }
   if (contactEntries.length > 0) {
     // One line of values, as the Preview's wrapping flex row; each gap is one
-    // breakable space widened to the Preview's column gap.
+    // breakable space widened to the Preview's column gap, and each value is
+    // held whole when it fits the name block's line (`contactValueChildren`).
+    const linePx = (contentWidth - (photo ? pxToTwips(GEOMETRY.photo + GEOMETRY.photoGap) : 0)) / 15
     const runs: TextRun[] = []
     contactEntries.forEach((entry, index) => {
       if (index > 0) {
         runs.push(new TextRun({ text: ' ', font, size: size.contact, characterSpacing: spaceWidening(GEOMETRY.contactGap, size.contact) }))
       }
-      runs.push(run(entry.value, PALETTE.contact, { size: size.contact }))
+      runs.push(new TextRun({ children: contactValueChildren(entry.value, linePx, size.contact, entry.key === 'email'), color: PALETTE.contact, font, size: size.contact }))
     })
     headerText.push(
       new Paragraph({
@@ -449,11 +463,29 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
     )
   }
 
+  // The header floats at the Preview's top padding from the paper's top edge:
+  // the page's top margin (`pageTop`) is what every later page keeps, and
+  // page 1 starts higher (`paddingTop`), as its printed Preview does. Page
+  // margins are per section, so a table placed on the page is what lets page 1
+  // start there, as `docx-swiss-it.ts` places its band; the body flows below
+  // it, its bottom distance the Preview's gap before the first section.
+  const headerFloat = {
+    horizontalAnchor: TableAnchorType.MARGIN,
+    verticalAnchor: TableAnchorType.PAGE,
+    absoluteHorizontalPosition: 0,
+    absoluteVerticalPosition: pxToTwips(GEOMETRY.paddingTop),
+    topFromText: 0,
+    leftFromText: 0,
+    rightFromText: 0,
+    bottomFromText: pxToTwips(GEOMETRY.headerGap),
+    overlap: OverlapType.NEVER,
+  }
   if (photo) {
     const photoCellWidth = pxToTwips(GEOMETRY.photo + GEOMETRY.photoGap)
     children.push(
       new Table({
         width: { size: contentWidth, type: WidthType.DXA },
+        float: headerFloat,
         columnWidths: [photoCellWidth, contentWidth - photoCellWidth],
         layout: TableLayoutType.FIXED,
         borders: NO_BORDERS,
@@ -485,8 +517,30 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
         ],
       }),
     )
-  } else {
-    children.push(...headerText)
+  } else if (headerText.length > 0) {
+    // The name block alone, in a one-cell table so it floats as the photo's row does.
+    children.push(
+      new Table({
+        width: { size: contentWidth, type: WidthType.DXA },
+        float: headerFloat,
+        columnWidths: [contentWidth],
+        layout: TableLayoutType.FIXED,
+        borders: NO_BORDERS,
+        rows: [
+          new TableRow({
+            cantSplit: true,
+            children: [
+              new TableCell({
+                width: { size: contentWidth, type: WidthType.DXA },
+                margins: NO_MARGINS,
+                borders: NO_CELL_BORDERS,
+                children: headerText,
+              }),
+            ],
+          }),
+        ],
+      }),
+    )
   }
   const hasHeader = children.length > 0
 
@@ -497,7 +551,8 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
     switch (sectionId) {
       case 'summary':
         if (!swissHasText(row.summary)) return []
-        return [pill(swissHeading(dict, 'summary')), ...richParagraphs(row.summary)]
+        // Kept whole with its heading, as print keeps the section.
+        return [pill(swissHeading(dict, 'summary')), ...richParagraphs(row.summary, { keep: KEEP_LINES })]
 
       case 'education':
         if (education.length === 0) return []
@@ -588,11 +643,13 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
   for (const sectionId of sections) {
     const blocks = sectionBlocks(sectionId)
     if (blocks.length === 0) continue
-    // The space above a section: the header's gap above the first, when there
-    // is a header, and the section gap above every other. A spacer carries it,
-    // so it also separates two tables, which Word would otherwise merge.
-    const gap = drawnSections === 0 ? (hasHeader ? GEOMETRY.headerGap : 0) : GEOMETRY.sectionGap
-    if (gap > 0) children.push(spacer(pxToTwips(gap)))
+    // The space above a section: the section gap above every one but the
+    // first, whose gap under the header is the floating header's own bottom
+    // distance from the text (`headerFloat`). A spacer carries it, so it also
+    // separates two tables, which Word would otherwise merge: under the
+    // header too, as a line-less one, for a first section that opens with a table.
+    const gap = drawnSections === 0 ? 0 : GEOMETRY.sectionGap
+    if (gap > 0 || hasHeader) children.push(spacer(pxToTwips(gap)))
     children.push(...blocks)
     drawnSections += 1
   }
@@ -601,6 +658,8 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
   // ASSEMBLE
   // ----------------------------------------------------------
   const doc = new Document({
+    // Inter travels with the file, so Word draws it on any computer (`docx-fonts.ts`).
+    fonts: await interDocxFonts(),
     styles: {
       default: {
         document: {
@@ -614,11 +673,14 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
         properties: {
           page: {
             size: { width: pageWidthTwips, height: pageHeightTwips, orientation: PageOrientation.PORTRAIT },
-            // The Preview's padding, as the page's margins.
+            // The printed Preview's page margins (SWISS_HEALTH_GEOMETRY), so
+            // both break their pages at the same place: every page's foot and
+            // every page's top, page 1's header floating above the top margin
+            // at the Preview's top padding.
             margin: {
-              top: pxToTwips(GEOMETRY.paddingTop),
+              top: pxToTwips(GEOMETRY.pageTop),
               right: marginX,
-              bottom: pxToTwips(GEOMETRY.paddingBottom),
+              bottom: pxToTwips(GEOMETRY.pageBottom),
               left: marginX,
               header: 0,
               footer: 0,
@@ -637,8 +699,8 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
   // The photo is the document's only drawing. `docx` writes it as a rectangle
   // with no outline or fill and has no API for any of them, so its geometry is
   // set to an ellipse — Word's own "crop to shape" — with the Preview's
-  // light-teal fill and ring, and the object-fit: cover crop is written as
-  // `docx-modern.ts` does.
+  // light-teal fill and ring, and the object-fit: cover crop is written from
+  // `calculateCoverCropPercents` (`docx-photo.ts`).
   if (photo) {
     const zip = await JSZip.loadAsync(buffer)
     const file = zip.file('word/document.xml')
@@ -648,7 +710,7 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
     buffer = (await zip.generateAsync({ type: 'nodebuffer' })) as Buffer
   }
 
-  return buffer
+  return pairInterFaces(buffer)
 }
 
 /**
@@ -710,7 +772,7 @@ function photoRun(photoBase64: string): { image: ImageRun; crop: { l: number; t:
     const displayed = swapsAxes ? { width: dimensions.height, height: dimensions.width } : dimensions
     const displayedCrop = calculateCoverCropPercents(displayed.width, displayed.height, box, box)
     // srcRect is in the stored image's axes, which a 90° turn swaps; the cover
-    // crop is centred, so the mapping is the one `docx-modern.ts` documents.
+    // crop is centred, so the mapping is the one `EXIF_PHOTO_TRANSFORMS` (`docx-photo.ts`) documents.
     const stored = swapsAxes
       ? { l: displayedCrop.t, r: displayedCrop.b, t: displayedCrop.l, b: displayedCrop.r }
       : displayedCrop

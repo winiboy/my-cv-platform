@@ -286,9 +286,9 @@ The serverless Chromium has one system font: Open Sans, from the package's
 Inter is not a substitute: next/font serves the real Inter to the headless
 page, and it prints. But its latin subset, like the substitutes', is
 registered for U+2000–206F without a glyph for U+2010, U+2011 and U+2012,
-and Open Sans has none either. A resume printed in Inter (Classic's body
-text, and Minimal's and Creative's when no font is chosen) showed the
-missing-glyph box for them (owner decision to include it, 2026-11-03).
+and Open Sans has none either. A resume printed in Inter (the sans-serif
+text of every Swiss template) showed the missing-glyph box for them (owner
+decision to include it, 2026-11-03).
 
 - **What:** the same `hyphenSupplement`, built from `@fontsource/inter`
   (OFL-1.1, pinned at 5.3.0; the same Inter revision, 4.001, as the file
@@ -327,20 +327,19 @@ missing-glyph box for them (owner decision to include it, 2026-11-03).
   package's latin range and its gaps among the checked characters, but the
   served file cannot be read in a unit test: a later Inter revision from
   Google needs the check repeated on the serverless runtime.
-- **Limits, Inter chosen in the picker:** only Inter inherited from
-  `<body>` is covered (Classic's body text, Minimal's and Creative's
-  defaults). The font picker's "Inter" entry
-  (`src/components/ui/font-carousel-3d.tsx`) is `'Inter', sans-serif`,
-  which never reaches "Inter Fallback". There, `sans-serif` resolves to Open
-  Sans, which lacks the three hyphens, so a CV where the user picks Inter
-  still prints the missing-glyph box for U+2010–2012 on serverless. Covering
-  it would change the picker's stack, which is out of scope. The supplements
-  are not registered in the Inter family itself: a face there can displace
+- **Limits, a literal `'Inter'` stack:** only Inter reached through
+  next/font's family name is covered (the sans-serif the Swiss templates
+  draw in). A stack that names `'Inter', sans-serif` literally never reaches
+  "Inter Fallback"; there `sans-serif` resolves to Open Sans, which lacks the
+  three hyphens. No resume surface uses such a stack since the editor's font
+  picker was removed with the legacy templates. The supplements are not
+  registered in the Inter family itself: a face there can displace
   next/font's variable face.
-- **CI guard:** `e2e/resume-print-geometry.spec.ts` checks that the
-  Preview's body `font-family` is accepted by `nextFontInterFallbackFamily`,
-  so a layout change that would fail every serverless resume PDF at
-  `settle` fails the e2e suite first.
+- **CI guard:** none in the e2e suite. The spec that checked the Preview's
+  body `font-family` against `nextFontInterFallbackFamily` was removed with
+  the legacy templates; the unit test above, on next/font's own PostCSS
+  plugin, is the remaining check. A layout change that alters the body's
+  family is caught only by a serverless render failing at `settle`.
 - **Files:** `@fontsource/inter`'s nine stylesheets `100.css`…`900.css` and
   latin WOFF files `files/inter-latin-<weight>-normal.woff`, traced for both
   PDF routes by `next.config.js`. A unit test keeps that list equal to
@@ -365,22 +364,15 @@ column of every page, at the same heights.
 
 ### What the server prints, compared with a Windows user's own print
 
-| Resume font | Windows print | Server print | Result |
-| --- | --- | --- | --- |
-| No font chosen (body) | `next/font` Inter | same | same |
-| Source Sans, IBM Plex Sans, Roboto, Lato, Open Sans, PT Sans, Noto Sans | Google Fonts | same | same |
-| Arial | Arial | Arimo | same lines and pages |
-| Helvetica (`'Helvetica Neue', Helvetica, Arial`) | Arial, since Windows has no Helvetica | Arimo | same lines and pages |
-| Calibri | Calibri | Carlito | same lines and pages, except text in `font-light`: Calibri Light on Windows, Carlito Regular on the server |
-| Classic's default title and headings (`font-serif`) | Georgia | Gelasio | same lines and pages; a baseline can sit up to 1 pt higher or lower inside an unchanged line box |
-| Avenir (`'Avenir Next', Avenir, 'Nunito Sans'`) | Nunito Sans, since Windows has no Avenir | same | same |
-| Segoe UI (`'Segoe UI', 'Open Sans'`) | Segoe UI | Open Sans | **differs**: no free metric-compatible Segoe UI |
-| Verdana | Verdana | Open Sans | **differs**: no free metric-compatible Verdana |
-| Inter (picker entry, `'Inter', sans-serif`) | the system Inter if installed, else Arial (Windows' `sans-serif`) | Open Sans | **differs**: `'Inter'` is not the name `next/font` registers, and a page cannot redefine the generic `sans-serif` |
+The Swiss templates draw fixed faces; no resume font is chosen by the user,
+so these are the only two a resume prints in. Arial and Calibri, which the
+cover letter also prints in, print as Arimo and Carlito on the server with
+the same lines and pages.
 
-On macOS the picture differs where macOS has a font Windows lacks. Helvetica
-Neue and Avenir print in their real faces there and as their stand-ins on the
-server.
+| Resume text | Windows print | Server print | Result |
+| --- | --- | --- | --- |
+| Sans-serif text of every Swiss template (body) | `next/font` Inter | same | same |
+| `font-serif` text: swissFinance and swissAcademic throughout, swissExecutive's name and headings | Georgia | Gelasio | same lines and pages; a baseline can sit up to 1 pt higher or lower inside an unchanged line box |
 
 Gelasio's vertical metrics are close to Georgia's but not identical. Every
 template sets a fixed line height (Tailwind's 1.5 base, its text sizes' line
@@ -389,8 +381,7 @@ unchanged. Under `line-height: normal`, which no template uses, Gelasio's
 lines are slightly shorter and the difference accumulates.
 
 Chromium on Linux also hints and positions glyphs differently from Windows
-(`--font-render-hinting=none` is one of the package's flags). The parity
-suite already records a Linux-only difference for Professional.
+(`--font-render-hinting=none` is one of the package's flags).
 
 ## CI
 
@@ -411,7 +402,7 @@ on an `ubuntu-latest` runner, with the local runtime's sandboxed Chromium.
 - The product keeps the sandbox on and fails closed. A Linux server outside
   Vercel/Lambda needs the same host setting, or an AppArmor profile for its
   Chromium.
-- No other CI job calls the route. Parity renders from `e2e/parity` only.
+- No other CI job calls the route.
 - `e2e/pdf-font-substitutes.spec.ts` is skipped on the Linux runner (see
   "Evidence" above).
 
