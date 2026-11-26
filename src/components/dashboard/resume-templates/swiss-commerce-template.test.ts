@@ -7,6 +7,7 @@ import en from '@/locales/en/common.json'
 import fr from '@/locales/fr/common.json'
 import type { Resume } from '@/types/database'
 import { SWISS_COMMERCE_GEOMETRY } from '@/lib/swiss-commerce-template'
+import { readGlobalsCss, ruleDeclarations } from '@/test/print-css'
 import { SwissCommerceTemplate } from './swiss-commerce-template'
 
 /**
@@ -221,5 +222,24 @@ describe('swissCommerce draws no empty degree line', () => {
     )
     expect(html).toContain('Aldervane College')
     expect(html).not.toMatch(/<p class="font-bold text-slate-900"><\/p>/)
+  })
+})
+
+describe('swissCommerce prints a top margin after page 1 and a foot margin on every page (swiss-templates-only-page-fidelity US-002)', () => {
+  const css = readGlobalsCss()
+  const G = SWISS_COMMERCE_GEOMETRY
+
+  it('prints page 1 with no top margin, so the band meets the paper’s edge, and every page with SWISS_COMMERCE_GEOMETRY.pageTop and .pageBottom', () => {
+    expect(ruleDeclarations(css.print, 'html:has(.swiss-commerce-template), body:has(.swiss-commerce-template)')).toEqual(['page: swiss-commerce'])
+    // The top margin is the page's, but for the first page.
+    expect(ruleDeclarations(css.print, '@page swiss-commerce')).toEqual([`margin-top: ${G.pageTop}px`])
+    expect(ruleDeclarations(css.print, '@page swiss-commerce:first')).toEqual(['margin-top: 0'])
+    // The foot margin is the document's own foot padding, repeated on every printed page.
+    expect(ruleDeclarations(css.print, '.swiss-commerce-template')).toEqual(['-webkit-box-decoration-break: clone', 'box-decoration-break: clone'])
+    expect(SOURCE).toContain('paddingBottom: `${GEOMETRY.paddingBottom}px`')
+    expect(G.pageBottom).toBe(G.paddingBottom)
+    // Print only; the generic page keeps its zero margin for every other template.
+    expect(css.screen).not.toMatch(/swiss-commerce/)
+    expect(ruleDeclarations(css.print, '@page')).toContain('margin: 0')
   })
 })

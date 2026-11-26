@@ -481,10 +481,18 @@ describe('swissEngineering: Word layout (FR-10)', () => {
     expect((pxToTwips(G.columnWidth) - left - right) / 15).toBe(SWISS_ENGINEERING_COLUMN_TEXT_WIDTH)
   })
 
-  it('paints the light column and its one bar to the foot of every page: two page-high fills in a repeated header row', async () => {
+  /** The section's default header, where the page fills sit, and its relationships. */
+  const headerPart = async (zip: JSZip) => {
+    const name = Object.keys(zip.files).find((file) => /^word\/header\d*\.xml$/.test(file))!
+    return {
+      xml: await zip.file(name)!.async('string'),
+      rels: await zip.file(name.replace(/^word\/(.*)$/, 'word/_rels/$1.rels'))!.async('string'),
+    }
+  }
+
+  it('paints the light column and its one bar to the foot of every page: two page-high fills in the repeated header', async () => {
     const zip = await JSZip.loadAsync(await generateSwissEngineeringDocx(resumeRow(), settingsFor(resumeRow(), 'en')))
-    const xml = await zip.file('word/document.xml')!.async('string')
-    const rels = await zip.file('word/_rels/document.xml.rels')!.async('string')
+    const { xml, rels } = await headerPart(zip)
     /** The palette colour of the solid PNG a drawing shows. */
     const drawingColour = async (anchor: string) => {
       const id = /r:embed="([^"]+)"/.exec(anchor)?.[1]
@@ -493,7 +501,6 @@ describe('swissEngineering: Word layout (FR-10)', () => {
       const png = await zip.file(`word/${target}`)!.async('nodebuffer')
       return Object.values(PALETTE).find((hex) => png.equals(solidColourPng(hex))) ?? 'unknown'
     }
-    expect(xml).toMatch(/<w:tblHeader\/>/)
     const anchors = [...xml.matchAll(/<wp:anchor\b[\s\S]*?<\/wp:anchor>/g)].map(([a]) => a)
     expect(anchors).toHaveLength(2)
     // Exactly one blue drawing, then the grey fill.
@@ -515,10 +522,12 @@ describe('swissEngineering: Word layout (FR-10)', () => {
   })
 
   it('draws the bar and the fill from the page’s top edge to its foot: page-relative, offset 0, the A4 page’s height', async () => {
-    const xml = await documentXml(resumeRow(), 'de', { photoBase64: PHOTO })
+    const row = resumeRow()
+    const zip = await JSZip.loadAsync(await generateSwissEngineeringDocx(row, settingsFor(row, 'de', { photoBase64: PHOTO })))
+    const xml = await zip.file('word/document.xml')!.async('string')
     const pageHeightTwips = Number(/<w:pgSz [^>]*w:h="(\d+)"/.exec(xml)?.[1])
     expect(pageHeightTwips).toBe(16838)
-    const anchors = [...xml.matchAll(/<wp:anchor\b[\s\S]*?<\/wp:anchor>/g)].map(([a]) => a)
+    const anchors = [...(await headerPart(zip)).xml.matchAll(/<wp:anchor\b[\s\S]*?<\/wp:anchor>/g)].map(([a]) => a)
     expect(anchors).toHaveLength(2)
     for (const anchor of anchors) {
       expect(anchor).toContain('<wp:positionV relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionV>')
@@ -532,14 +541,15 @@ describe('swissEngineering: Word layout (FR-10)', () => {
     expect(bar).toBe(fill)
   })
 
-  it('anchors both fills in the header row’s first cell, whose origin is the page’s, as swissTrades anchors its column', async () => {
-    const xml = await documentXml(resumeRow(), 'en')
-    const header = /<w:tr>(?:(?!<\/w:tr>)[\s\S])*?<w:tblHeader\/>[\s\S]*?<\/w:tr>/.exec(xml)?.[0]
-    expect(header, 'the 1-twip header row').toBeDefined()
-    const cells = [...header!.matchAll(/<w:tc>[\s\S]*?<\/w:tc>/g)].map(([cell]) => cell)
-    expect(cells).toHaveLength(2)
-    expect([...cells[0].matchAll(/<wp:anchor\b/g)]).toHaveLength(2)
-    expect(cells[1]).not.toContain('<w:drawing>')
+  it('anchors both fills in the section’s default header, outside any table, so Word places them from the page whatever its top margin', async () => {
+    const zip = await JSZip.loadAsync(await generateSwissEngineeringDocx(resumeRow(), settingsFor(resumeRow(), 'en')))
+    const documentPart = await zip.file('word/document.xml')!.async('string')
+    const { xml } = await headerPart(zip)
+    expect(xml).not.toContain('<w:tbl>')
+    expect(documentPart).toMatch(/<w:headerReference w:type="default"/)
+    // The body repeats no header row and holds no page fill.
+    expect(documentPart).not.toContain('<w:tblHeader/>')
+    expect(documentPart).not.toMatch(/<wp:anchor\b[^>]*layoutInCell="0"/)
   })
 
   it('draws each project as a shaded one-cell table: thin border, thick blue left edge, its padding as margins', async () => {
@@ -608,9 +618,9 @@ describe('swissEngineering: Word layout (FR-10)', () => {
     expect(xml).toContain(`>${email}<`)
   })
 
-  it('sets no page margin: the light column meets the paper’s edges', async () => {
+  it('gives every page the PDF’s top and foot margins and no side margin, so the light column meets the paper’s right edge (swiss-templates-only-page-fidelity US-002)', async () => {
     const xml = await documentXml(resumeRow(), 'en')
-    expect(xml).toMatch(/<w:pgMar w:top="0" w:right="0" w:bottom="0" w:left="0"/)
+    expect(xml).toMatch(new RegExp(`<w:pgMar w:top="${pxToTwips(G.pageTop)}" w:right="0" w:bottom="${pxToTwips(G.pageBottom)}" w:left="0" w:header="0" w:footer="0"`))
   })
 
   it('ignores the stored font family and scale (FR-4)', async () => {

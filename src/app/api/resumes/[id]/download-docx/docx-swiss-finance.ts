@@ -605,11 +605,12 @@ export async function generateSwissFinanceDocx(resume: unknown, settings: DocxGe
         properties: {
           page: {
             size: { width: pageWidthTwips, height: pageHeightTwips, orientation: PageOrientation.PORTRAIT },
-            // The Preview's padding, as the page's margins.
+            // The printed Preview's page margins (SWISS_FINANCE_GEOMETRY), so
+            // both break their pages at the same place: every page's top and foot.
             margin: {
-              top: pxToTwips(GEOMETRY.paddingTop),
+              top: pxToTwips(GEOMETRY.pageTop),
               right: marginX,
-              bottom: pxToTwips(GEOMETRY.paddingBottom),
+              bottom: pxToTwips(GEOMETRY.pageBottom),
               left: marginX,
               header: 0,
               footer: 0,

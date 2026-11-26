@@ -420,13 +420,46 @@ describe('swissCommerce: Word layout (FR-10)', () => {
     return out
   }
 
-  it('draws the band as the first table, navy from paper edge to paper edge, holding the name', async () => {
+  /** A table's floating position, `w:tblpPr`, as its attributes. */
+  const floatOf = (table: string) =>
+    Object.fromEntries([...(/<w:tblpPr\b([^>]*?)\/?>/.exec(table)?.[1] ?? '').matchAll(/w:(\w+)="([^"]*)"/g)].map(([, key, value]) => [key, value]))
+
+  it('draws the band as the first table, floating at the page’s origin, navy from paper edge to paper edge, holding the name', async () => {
     const xml = await documentXml(resumeRow(), 'en')
     const band = tables(xml)[0]
     expect(band).toContain('Morgan Aldervane')
-    expect(band).toMatch(new RegExp(`<w:tblInd w:type="dxa" w:w="-${pxToTwips(SWISS_COMMERCE_GEOMETRY.paddingX)}"/>`))
+    expect(band).toContain(`<w:tblW w:type="dxa" w:w="${/<w:pgSz w:w="(\d+)"/.exec(xml)?.[1]}"/>`)
     expect(band).toMatch(new RegExp(`<w:shd [^>]*w:fill="${PALETTE.navy}"`))
-    expect(xml).toMatch(/<w:pgMar [^>]*w:top="0"/)
+    expect(band).not.toContain('<w:tblInd')
+    // At the paper's top-left corner whatever the top margin, with the Preview's gap under it.
+    expect(floatOf(band)).toEqual({
+      horzAnchor: 'page',
+      vertAnchor: 'page',
+      tblpX: '0',
+      tblpY: '0',
+      topFromText: '0',
+      leftFromText: '0',
+      rightFromText: '0',
+      bottomFromText: String(pxToTwips(SWISS_COMMERCE_GEOMETRY.bandGap)),
+    })
+    expect(band).toContain('<w:tblOverlap w:val="never"/>')
+    // The band is the only floating table, and the first section's heading adds no gap of its own under it.
+    expect(xml.split('<w:tblpPr').length - 1).toBe(1)
+    const afterBand = xml.slice(xml.indexOf(band) + band.length)
+    const firstHeading = new RegExp(`<w:p\\b(?:(?!</w:p>)[\\s\\S])*?>${en.resumes.template.summary}</w:t>`).exec(afterBand)?.[0] ?? ''
+    expect(firstHeading).toMatch(/<w:spacing [^>]*w:before="0"/)
+  })
+
+  it('gives every page the PDF’s top and foot margins, so page 2 does not start at the paper’s edge and both break pages alike (swiss-templates-only-page-fidelity US-002)', async () => {
+    const xml = await documentXml(resumeRow(), 'en')
+    const G = SWISS_COMMERCE_GEOMETRY
+    const marginX = pxToTwips(G.paddingX)
+    expect(xml).toMatch(
+      new RegExp(`<w:pgMar w:top="${pxToTwips(G.pageTop)}" w:right="${marginX}" w:bottom="${pxToTwips(G.pageBottom)}" w:left="${marginX}" w:header="0" w:footer="0"`),
+    )
+    // One section, so one set of margins for every page; no page has a top margin of 0.
+    expect(xml.split('<w:pgMar').length - 1).toBe(1)
+    expect(xml).not.toMatch(/<w:pgMar w:top="0"/)
   })
 
   it('puts the dates in a left column beside each dated entry', async () => {

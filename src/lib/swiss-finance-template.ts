@@ -42,6 +42,16 @@ export const SWISS_FINANCE_GEOMETRY = {
   paddingX: 60,
   paddingTop: 50,
   paddingBottom: 50,
+  /**
+   * The printed page's margins, top and foot, in the PDF and in Word (the
+   * section's margins), so both break their pages at the same place: every
+   * page keeps `pageTop` at its top and `pageBottom` at its foot. They equal
+   * the page's padding, so page 1 prints as the screen draws it: in the PDF
+   * they are that padding, repeated on every page (`box-decoration-break:
+   * clone` in globals.css).
+   */
+  pageTop: 50,
+  pageBottom: 50,
   /** The rectangular photo at the right of the header, and its thin border. */
   photoWidth: 96,
   photoHeight: 120,

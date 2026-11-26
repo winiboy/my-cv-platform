@@ -7,6 +7,7 @@ import en from '@/locales/en/common.json'
 import fr from '@/locales/fr/common.json'
 import type { Resume } from '@/types/database'
 import { SWISS_HEALTH_GEOMETRY, SWISS_HEALTH_SIZES } from '@/lib/swiss-health-template'
+import { readGlobalsCss, ruleDeclarations } from '@/test/print-css'
 import { SwissHealthTemplate } from './swiss-health-template'
 
 /**
@@ -248,5 +249,23 @@ describe('swissHealth draws the photo only when there is one (FR-5)', () => {
     expect(html).not.toContain('Ward nurse</p>')
     expect(html).not.toContain('robin@halvorsen.test')
     expect(html).toContain('+41 00 000 00 07')
+  })
+})
+
+describe('swissHealth prints a top margin after page 1 and a foot margin on every page (swiss-templates-only-page-fidelity US-002)', () => {
+  const css = readGlobalsCss()
+  const G = SWISS_HEALTH_GEOMETRY
+
+  it('prints every page with SWISS_HEALTH_GEOMETRY.pageTop and .pageBottom, and page 1’s top at the screen’s padding', () => {
+    // The document's own padding, repeated on every printed page: the foot margin, and page 1's top.
+    expect(ruleDeclarations(css.print, '.swiss-health-template')).toEqual(['-webkit-box-decoration-break: clone', 'box-decoration-break: clone'])
+    expect(SOURCE).toContain('padding: `${GEOMETRY.paddingTop}px ${GEOMETRY.paddingX}px ${GEOMETRY.paddingBottom}px`')
+    expect(G.pageBottom).toBe(G.paddingBottom)
+    // Every page but the first adds the rest of the top margin above that padding.
+    expect(ruleDeclarations(css.print, 'html:has(.swiss-health-template), body:has(.swiss-health-template)')).toEqual(['page: swiss-health'])
+    expect(ruleDeclarations(css.print, '@page swiss-health')).toEqual([`margin-top: ${G.pageTop - G.paddingTop}px`])
+    expect(ruleDeclarations(css.print, '@page swiss-health:first')).toEqual(['margin-top: 0'])
+    expect(G.pageTop).toBeGreaterThan(G.paddingTop)
+    expect(css.screen).not.toMatch(/swiss-health/)
   })
 })

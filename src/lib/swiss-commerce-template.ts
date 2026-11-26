@@ -42,6 +42,17 @@ export const SWISS_COMMERCE_GEOMETRY = {
   bandGap: 28,
   /** The body's padding at the foot of the page. */
   paddingBottom: 48,
+  /**
+   * The printed page's margins, top and foot, in the PDF (globals.css) and in
+   * Word (the section's margins), so both break their pages at the same
+   * place: every page keeps `pageBottom` at its foot, and every page but the
+   * first keeps `pageTop` at its top. Page 1 has no top margin, so the band
+   * meets the paper's top edge. In the PDF the top margin is the page's
+   * (`@page swiss-commerce`) and the foot margin is the document's own foot
+   * padding (`paddingBottom`, which it equals) repeated on every page.
+   */
+  pageTop: 48,
+  pageBottom: 48,
   /** The round photo's diameter, and its ring's width. */
   photo: 104,
   photoRing: 2,

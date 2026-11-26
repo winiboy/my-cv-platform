@@ -76,12 +76,19 @@ describe('globals.css prints the same page', () => {
     expect(size).toBe('A4 portrait')
   })
 
-  it('every print column is drawn from the left edge of that page', () => {
-    // A gradient paints the column the template's own background cannot reach
-    // in print, starting where the centred document of PAGE_WIDTH_PX does.
-    const offsets = [...(printBlock ?? '').matchAll(/50% - ([\d.]+)px/g)]
-    expect(offsets.length).toBeGreaterThan(0)
-    for (const [, half] of offsets) expect(Number(half)).toBeCloseTo(PAGE_WIDTH_PX / 2, 0)
+  it('every print column is drawn from the left edge of that page, inside its width', () => {
+    // A solid layer paints the column the template's own background cannot
+    // reach in print: `max(<from>px, 50% ± <n>px) 0 / <width>px 100%`, `from`
+    // px into the centred document of PAGE_WIDTH_PX. A background position's
+    // 50% is half of the canvas less the layer's width, so the document's
+    // left edge, half the canvas less half PAGE_WIDTH_PX, is reached by adding
+    // half the layer's width back: n = from + width / 2 - PAGE_WIDTH_PX / 2.
+    const layers = [...(printBlock ?? '').matchAll(/max\((\d+)px, 50% ([+-]) (\d+)px\) 0 \/ (\d+)px 100% repeat-y/g)]
+    expect(layers.length).toBeGreaterThan(0)
+    for (const [, from, sign, n, width] of layers) {
+      expect((sign === '-' ? -1 : 1) * Number(n)).toBe(Number(from) + Number(width) / 2 - PAGE_WIDTH_PX / 2)
+      expect(Number(from) + Number(width)).toBeLessThanOrEqual(PAGE_WIDTH_PX)
+    }
   })
 })
 

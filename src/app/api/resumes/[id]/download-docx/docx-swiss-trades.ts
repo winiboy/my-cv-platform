@@ -3,7 +3,7 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
-  HeightRule,
+  Header,
   HorizontalPositionAlign,
   HorizontalPositionRelativeFrom,
   ImageRun,
@@ -149,10 +149,11 @@ interface Flow {
  * dates, level names and skill tags, read from `@/lib/swiss-trades-template`
  * and `@/lib/swiss-vocational-template`.
  *
- * Layout in Word: the page has no margin at the top or sides, as the printed
- * Preview has none; the body is one two-column table, its left cell shaded the
- * dark column's colour, and the column's fill is also a page-high raster
- * behind the text, repeated on every page through a 1-twip header row. The photo is a drawing centred at the
+ * Layout in Word: every page has the printed Preview's top and foot margins
+ * and no side margin; the body is one two-column table, its left cell shaded
+ * the dark column's colour, and the column's fill is also a page-high raster
+ * anchored to the page behind the text in the section's header, which Word
+ * repeats on every page, so it runs from the paper's top edge to its foot. The photo is a drawing centred at the
  * top of the dark column; skill tags are shaded runs; each main heading's rule
  * is an underlined tab to the column's edge; dates sit at a right tab stop.
  */
@@ -622,51 +623,29 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
   // ASSEMBLE
   // ----------------------------------------------------------
 
-  // The dark column's fill on every page, top to foot. A cell's fill ends where
-  // the row's part on a page ends, and after the row it stops altogether, so
-  // the fill is also a page-high drawing anchored to the page behind the text,
-  // held by a 1-twip header row that Word repeats on every page the table
-  // spans.
-  const fillRow = new TableRow({
-    tableHeader: true,
-    cantSplit: true,
-    height: { value: 1, rule: HeightRule.EXACT },
-    children: [
-      new TableCell({
-        width: { size: sidebarWidth, type: WidthType.DXA },
-        margins: NO_MARGINS,
-        borders: NO_CELL_BORDERS,
-        children: [
-          new Paragraph({
-            children: [
-              new ImageRun({
-                type: 'png',
-                data: solidColourPng(PALETTE.sidebar),
-                transformation: { width: GEOMETRY.sidebarWidth, height: pageHeightTwips / TWIPS_PER_PX },
-                // A distinct id keeps the two drawings' wp:docPr ids unique.
-                altText: { name: '', description: '', title: '', id: '2' },
-                floating: {
-                  horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: 0 },
-                  verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: 0 },
-                  wrap: { type: TextWrappingType.NONE },
-                  behindDocument: true,
-                  allowOverlap: true,
-                  // Positioned on the page, not clipped to this 1-twip cell.
-                  layoutInCell: false,
-                },
-              }),
-            ],
-            spacing: NO_TEXT_LINE,
-          }),
-        ],
-      }),
-      new TableCell({
-        width: { size: mainWidth, type: WidthType.DXA },
-        margins: NO_MARGINS,
-        borders: NO_CELL_BORDERS,
-        children: [emptyParagraph()],
-      }),
-    ],
+  /**
+   * The dark column's fill on every page, from the paper's top edge to its
+   * foot, its top and foot margins included: a page-high drawing anchored to
+   * the page's own origin behind the text. It sits in the section's header,
+   * which Word repeats on every page, as `docx-swiss-first-job.ts` draws its
+   * sidebar: a cell's fill ends where the row's part on a page ends, and a
+   * drawing anchored in a table cell is placed from that cell, which no longer
+   * starts at the paper's edge once the page has a top margin.
+   */
+  const sidebarFill = new ImageRun({
+    type: 'png',
+    data: solidColourPng(PALETTE.sidebar),
+    transformation: { width: GEOMETRY.sidebarWidth, height: pageHeightTwips / TWIPS_PER_PX },
+    // A distinct id keeps the two drawings' wp:docPr ids unique.
+    altText: { name: '', description: '', title: '', id: '2' },
+    floating: {
+      horizontalPosition: { relative: HorizontalPositionRelativeFrom.PAGE, offset: 0 },
+      verticalPosition: { relative: VerticalPositionRelativeFrom.PAGE, offset: 0 },
+      wrap: { type: TextWrappingType.NONE },
+      behindDocument: true,
+      allowOverlap: true,
+      layoutInCell: false,
+    },
   })
 
   const body = new Table({
@@ -676,18 +655,14 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
     borders: NO_BORDERS,
     margins: NO_MARGINS,
     rows: [
-      fillRow,
       new TableRow({
         cantSplit: false,
         children: [
           new TableCell({
             width: { size: sidebarWidth, type: WidthType.DXA },
-            margins: {
-              top: pxToTwips(GEOMETRY.sidebarPaddingTop),
-              bottom: pxToTwips(GEOMETRY.sidebarPaddingBottom),
-              left: sidebarPaddingX,
-              right: sidebarPaddingX,
-            },
+            // Its top and foot are the page's margins, as in the printed
+            // Preview, where the columns' own padding gives way to them.
+            margins: { top: 0, bottom: 0, left: sidebarPaddingX, right: sidebarPaddingX },
             borders: NO_CELL_BORDERS,
             shading: { type: ShadingType.CLEAR, fill: PALETTE.sidebar, color: 'auto' },
             verticalAlign: VerticalAlign.TOP,
@@ -695,12 +670,7 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
           }),
           new TableCell({
             width: { size: mainWidth, type: WidthType.DXA },
-            margins: {
-              top: pxToTwips(GEOMETRY.mainPaddingTop),
-              bottom: pxToTwips(GEOMETRY.mainPaddingBottom),
-              left: mainPaddingX,
-              right: mainPaddingX,
-            },
+            margins: { top: 0, bottom: 0, left: mainPaddingX, right: mainPaddingX },
             borders: NO_CELL_BORDERS,
             verticalAlign: VerticalAlign.TOP,
             children: main,
@@ -724,11 +694,14 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
         properties: {
           page: {
             size: { width: pageWidthTwips, height: pageHeightTwips, orientation: PageOrientation.PORTRAIT },
-            // No margin: the dark column meets the paper's edges, and the
-            // printed Preview's pages start at the edge too (`@page` margin 0).
-            margin: { top: 0, right: 0, bottom: 0, left: 0, header: 0, footer: 0 },
+            // The printed Preview's top and foot margins (its document's
+            // padding, repeated on every printed page), so both break their
+            // pages at the same place; no side margin, so the dark column
+            // meets the paper's left edge.
+            margin: { top: pxToTwips(GEOMETRY.pageTop), right: 0, bottom: pxToTwips(GEOMETRY.pageBottom), left: 0, header: 0, footer: 0 },
           },
         },
+        headers: { default: new Header({ children: [new Paragraph({ children: [sidebarFill], spacing: NO_TEXT_LINE })] }) },
         // OOXML ends a body with a paragraph; after a table it carries no line.
         children: [body, emptyParagraph()],
       },

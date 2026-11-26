@@ -12,6 +12,7 @@ import {
 import { readPdf } from './fixtures/pdf'
 import { LOCAL_SUPABASE_URL, LOCAL_SERVICE_KEY, assertLocalSupabase } from '../src/test/local-stack'
 import enCommon from '../src/locales/en/common.json'
+import { SWISS_TRADES_GEOMETRY } from '../src/lib/swiss-trades-template'
 
 /**
  * swiss-templates-only-page-fidelity US-001: the stored row is the only source
@@ -145,15 +146,23 @@ test('en: a legacy template in a draft does not override the swissTrades row on 
     .poll(() => page.evaluate((key) => window.localStorage.getItem(key), `resume_draft_${resume.id}`))
     .toBeNull()
 
-  // Word: the saved row, through the swissTrades generator. Its dark column
-  // repeats through a header row; the swissCommerce fallback's Word file has none.
+  // Word: the saved row, through the swissTrades generator. Its dark column is
+  // a page-high drawing the column's width at the paper's left edge, in the
+  // section's header, repeated on every page; the swissCommerce fallback's Word
+  // file has no header, and no other Swiss generator draws that fill.
   const docxResponse = await page.request.post(`/api/resumes/${resume.id}/download-docx?locale=en`, {
     data: {},
     headers: { 'Content-Type': 'application/json' },
   })
   expect(docxResponse.status()).toBe(200)
-  const xml = await (await JSZip.loadAsync(await docxResponse.body())).file('word/document.xml')!.async('string')
-  expect(xml).toContain('<w:tblHeader/>')
+  const zip = await JSZip.loadAsync(await docxResponse.body())
+  const xml = await zip.file('word/document.xml')!.async('string')
+  const headerName = Object.keys(zip.files).find((name) => /^word\/header\d*\.xml$/.test(name))
+  expect(headerName, 'the swissTrades Word file has a header part').toBeDefined()
+  const header = await zip.file(headerName!)!.async('string')
+  const fill = /<wp:anchor\b[^>]*behindDoc="1"[\s\S]*?<\/wp:anchor>/.exec(header)?.[0] ?? ''
+  expect(fill).toContain('<wp:positionH relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionH>')
+  expect(fill).toContain(`<wp:extent cx="${SWISS_TRADES_GEOMETRY.sidebarWidth * 9525}"`)
   expect(xml).toContain(FIXTURE_CONTACT.name)
   expect(xml).toContain(DRAFT_SUMMARY)
 })

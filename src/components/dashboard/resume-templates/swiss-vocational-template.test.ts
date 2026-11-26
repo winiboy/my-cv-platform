@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { readGlobalsCss, ruleDeclarations } from '@/test/print-css'
+import { SWISS_VOCATIONAL_GEOMETRY as G } from '@/lib/swiss-vocational-template'
 
 /**
  * The print and alignment rules `swiss-vocational-template.tsx` was fixed to
@@ -65,5 +67,28 @@ describe('swissVocational aligns its text as the mockup and the Word export do',
   it('justifies nothing else: every other rich-text call opts out', () => {
     const calls = [...SOURCE.matchAll(/renderFormattedText\(([^)]*)\)/g)].map(([, args]) => args)
     expect(calls.filter((args) => !args.includes('justify: false'))).toEqual(['resume.summary'])
+  })
+})
+
+describe('swissVocational prints a top and a foot margin on every page (swiss-templates-only-page-fidelity US-002)', () => {
+  const css = readGlobalsCss()
+
+  it('repeats SWISS_VOCATIONAL_GEOMETRY.pageTop and .pageBottom as the document’s padding on every printed page, as Word’s page margins', () => {
+    expect(ruleDeclarations(css.print, '.swiss-vocational-template')).toEqual([
+      `padding-top: ${G.pageTop}px !important`,
+      `padding-bottom: ${G.pageBottom}px !important`,
+      '-webkit-box-decoration-break: clone',
+      'box-decoration-break: clone',
+    ])
+    // No `@page` margin: Chromium paints nothing into it, and the red strip,
+    // fixed to every printed page, reaches the paper's top and foot.
+    expect(css.print).not.toMatch(/page:\s*swiss-vocational|@page swiss-vocational/)
+    expect(SOURCE).toMatch(/className="absolute inset-y-0 left-0 bg-red-700 print:fixed /)
+    // Page 1 starts where the screen draws it: the margins are the screen's padding.
+    expect(G.pageTop).toBe(G.paddingY)
+    expect(G.pageBottom).toBe(G.paddingY)
+    expect(SOURCE).toContain('padding: `${GEOMETRY.paddingY}px ${GEOMETRY.paddingX}px`')
+    // Print only.
+    expect(css.screen).not.toMatch(/swiss-vocational/)
   })
 })

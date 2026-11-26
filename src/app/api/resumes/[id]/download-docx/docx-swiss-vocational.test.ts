@@ -17,7 +17,7 @@ import { SWISS_VOCATIONAL_GEOMETRY, SWISS_VOCATIONAL_SIZES } from '@/lib/swiss-v
 import { PREVIEW_TRACKING } from '@/lib/resume-letter-spacing'
 import { SWISS_VOCATIONAL_LINE_HEIGHT } from '@/lib/resume-line-height'
 import { solidColourPng } from './docx-disc'
-import { pxToHalfPoints, trackingSpacing, type DocxGeneratorSettings } from './docx-helpers'
+import { pxToHalfPoints, pxToTwips, trackingSpacing, type DocxGeneratorSettings } from './docx-helpers'
 import { DOCX_PALETTE } from './docx-palette'
 import { generateSwissVocationalDocx } from './docx-swiss-vocational'
 
@@ -334,6 +334,15 @@ describe('swissVocational: Word layout', () => {
     const borders = /<w:pgBorders\b[^>]*>([\s\S]*?)<\/w:pgBorders>/.exec(xml)
     expect(borders?.[0]).toMatch(/w:offsetFrom="page"/)
     expect(borders?.[1]).toMatch(new RegExp(`<w:left\\b[^>]*w:val="single"[^>]*w:color="${DOCX_PALETTE.swissVocational['red-700']}"`, 'i'))
+  })
+
+  it('gives every page the PDF’s top and foot margins, so both break pages alike (swiss-templates-only-page-fidelity US-002)', async () => {
+    const xml = await documentXml(resumeRow(), 'en')
+    const g = SWISS_VOCATIONAL_GEOMETRY
+    expect(xml).toMatch(
+      new RegExp(`<w:pgMar w:top="${pxToTwips(g.pageTop)}" w:right="${pxToTwips(g.paddingX)}" w:bottom="${pxToTwips(g.pageBottom)}" w:left="${pxToTwips(g.paddingX)}"`),
+    )
+    expect(xml.split('<w:pgMar').length - 1).toBe(1)
   })
 
   it('ignores the stored font scale: every size is its own design (FR-4)', async () => {

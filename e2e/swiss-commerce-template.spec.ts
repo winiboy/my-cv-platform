@@ -321,6 +321,8 @@ test('en: the PDF and the Word downloads are valid files holding the CV and not 
   const docxText = [...xml.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g)].map(([, text]) => text).join('|')
   for (const text of [...visible, ...headings(enCommon)]) expect(docxText, text).toContain(text)
   expect(docxText).not.toContain(HIDDEN_EXPERIENCE.company)
-  // Its own generator: the navy band is a table pulled out across the left margin.
-  expect(xml).toMatch(/<w:tblInd w:type="dxa" w:w="-\d+"\/>/)
+  // Its own generator: the navy band is a table floating at the page's origin,
+  // over the top margin every page keeps (swiss-templates-only-page-fidelity US-002).
+  expect(xml).toMatch(/<w:tblpPr\b(?=[^>]*w:horzAnchor="page")(?=[^>]*w:vertAnchor="page")(?=[^>]*w:tblpX="0")(?=[^>]*w:tblpY="0")/)
+  expect(xml).not.toMatch(/<w:pgMar w:top="0"/)
 })

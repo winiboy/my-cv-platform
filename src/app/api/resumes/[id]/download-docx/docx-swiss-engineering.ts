@@ -3,7 +3,7 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
-  HeightRule,
+  Header,
   HorizontalPositionRelativeFrom,
   ImageRun,
   LineRuleType,
@@ -136,12 +136,11 @@ interface Flow {
  * headings, dates, level names, project cards and skill lines, read from
  * `@/lib/swiss-engineering-template` and the shared Swiss helpers.
  *
- * Layout in Word: the page has no margin at the top or sides, as the printed
- * Preview has none; the body is one two-column table — the main column, then
- * the light column, its cell shaded the column's colour with the blue bar as
- * its left border. The column and its bar are also page-high rasters behind
- * the text, repeated on every page through a 1-twip header row, as
- * `docx-swiss-trades.ts` draws its dark column. The photo is a round inline
+ * Layout in Word: every page has the printed Preview's top and foot margins
+ * and no side margin; the body is one two-column table — the main column,
+ * then the light column. The column and its blue bar are page-high rasters
+ * anchored to the page behind the text in the section's header, which Word
+ * repeats on every page, as `docx-swiss-trades.ts` draws its dark column. The photo is a round inline
  * drawing centred at the top of the light column; each project is a shaded
  * one-cell table with a thick blue left border; dates sit at a right tab stop.
  */
@@ -559,12 +558,16 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
   // ----------------------------------------------------------
 
   /**
-   * A page-high solid fill anchored to the page behind the text, `fromPx` from
-   * the page's left edge and `widthPx` wide, at stacking order `zIndex` (a
-   * higher one is drawn in front; both stay behind the text). A cell's fill
-   * ends where the row's part on a page ends, so the light column and its bar
-   * are drawn this way only, held by a 1-twip header row that Word repeats on
-   * every page the table spans — `docx-swiss-trades.ts`'s dark column.
+   * A page-high solid fill anchored to the page's own origin behind the text,
+   * `fromPx` from the page's left edge and `widthPx` wide, at stacking order
+   * `zIndex` (a higher one is drawn in front; both stay behind the text). The
+   * fills sit in the section's header, which Word repeats on every page, so
+   * the light column and its bar run from the paper's top edge to its foot,
+   * its top and foot margins included, as `docx-swiss-first-job.ts` draws its
+   * sidebar. Not in a table cell: a cell's fill ends where the row's part on a
+   * page ends, and Word places a drawing anchored in a table cell from that
+   * cell whatever `layoutInCell` says (Word → PDF, 2026-11-23), and no cell
+   * starts at the paper's edge once the page has a top margin.
    */
   const pageFill = (colourHex: string, fromPx: number, widthPx: number, id: string, zIndex: number) =>
     new ImageRun({
@@ -579,7 +582,6 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
         wrap: { type: TextWrappingType.NONE },
         behindDocument: true,
         allowOverlap: true,
-        // Positioned on the page, not clipped to this 1-twip cell.
         layoutInCell: false,
         // `relativeHeight`: without it docx writes each drawing's height there,
         // the same for both, and Word drew the fill over the bar.
@@ -590,44 +592,13 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
   /** The column's left edge on the page, where the Preview's bar starts: 544px. */
   const columnLeftPx = PAGE_WIDTH_PX - GEOMETRY.columnWidth
 
-  // Both fills are anchored in the row's FIRST cell, whose origin is the
-  // page's own (0, 0), as `docx-swiss-trades.ts` anchors its dark column.
-  // Anchored in the column's cell, as first written, Word did not draw the
-  // fills where their page offsets put them (Word → PDF, 2026-11-23): the
-  // column and its bar ended with the row's content, short of the page's foot,
-  // which is where the cell's own shading and left border end. The likely
-  // reading is that Word 2013+ layout (compatibility mode 15, this document's)
-  // places a drawing anchored in a table cell from that cell whatever
-  // `layoutInCell` says. From a cell at the page's origin the page offsets and
-  // the cell offsets are the same numbers, so the fills land in the same place
-  // in either reading — the arrangement Word draws correctly for swissTrades.
-  const fillRow = new TableRow({
-    tableHeader: true,
-    cantSplit: true,
-    height: { value: 1, rule: HeightRule.EXACT },
+  const columnFill = new Paragraph({
     children: [
-      new TableCell({
-        width: { size: mainWidth, type: WidthType.DXA },
-        margins: NO_MARGINS,
-        borders: NO_CELL_BORDERS,
-        children: [
-          new Paragraph({
-            children: [
-              // The bar in front of the fill, side by side as the Preview draws them.
-              pageFill(PALETTE.bar, columnLeftPx, GEOMETRY.columnBar, '2', 2),
-              pageFill(PALETTE.column, columnLeftPx + GEOMETRY.columnBar, GEOMETRY.columnWidth - GEOMETRY.columnBar, '3', 1),
-            ],
-            spacing: NO_TEXT_LINE,
-          }),
-        ],
-      }),
-      new TableCell({
-        width: { size: columnWidth, type: WidthType.DXA },
-        margins: NO_MARGINS,
-        borders: NO_CELL_BORDERS,
-        children: [emptyParagraph()],
-      }),
+      // The bar in front of the fill, side by side as the Preview draws them.
+      pageFill(PALETTE.bar, columnLeftPx, GEOMETRY.columnBar, '2', 2),
+      pageFill(PALETTE.column, columnLeftPx + GEOMETRY.columnBar, GEOMETRY.columnWidth - GEOMETRY.columnBar, '3', 1),
     ],
+    spacing: NO_TEXT_LINE,
   })
 
   const body = new Table({
@@ -637,18 +608,14 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
     borders: NO_BORDERS,
     margins: NO_MARGINS,
     rows: [
-      fillRow,
       new TableRow({
         cantSplit: false,
         children: [
           new TableCell({
             width: { size: mainWidth, type: WidthType.DXA },
-            margins: {
-              top: pxToTwips(GEOMETRY.mainPaddingTop),
-              bottom: pxToTwips(GEOMETRY.mainPaddingBottom),
-              left: mainPaddingLeft,
-              right: mainPaddingRight,
-            },
+            // Its top and foot are the page's margins, as in the printed
+            // Preview, where the columns' own padding gives way to them.
+            margins: { top: 0, bottom: 0, left: mainPaddingLeft, right: mainPaddingRight },
             borders: NO_CELL_BORDERS,
             verticalAlign: VerticalAlign.TOP,
             children: main,
@@ -658,8 +625,8 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
             // The text starts after the bar and the column's padding, and ends
             // the padding from the page's edge: SWISS_ENGINEERING_COLUMN_TEXT_WIDTH.
             margins: {
-              top: pxToTwips(GEOMETRY.columnPaddingTop),
-              bottom: pxToTwips(GEOMETRY.columnPaddingBottom),
+              top: 0,
+              bottom: 0,
               left: pxToTwips(GEOMETRY.columnBar + GEOMETRY.columnPaddingX),
               right: pxToTwips(GEOMETRY.columnPaddingX),
             },
@@ -690,11 +657,14 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
         properties: {
           page: {
             size: { width: pageWidthTwips, height: pageHeightTwips, orientation: PageOrientation.PORTRAIT },
-            // No margin: the light column meets the paper's edges, and the
-            // printed Preview's pages start at the edge too (`@page` margin 0).
-            margin: { top: 0, right: 0, bottom: 0, left: 0, header: 0, footer: 0 },
+            // The printed Preview's top and foot margins (its document's
+            // padding, repeated on every printed page), so both break their
+            // pages at the same place; no side margin, so the light column
+            // meets the paper's right edge.
+            margin: { top: pxToTwips(GEOMETRY.pageTop), right: 0, bottom: pxToTwips(GEOMETRY.pageBottom), left: 0, header: 0, footer: 0 },
           },
         },
+        headers: { default: new Header({ children: [columnFill] }) },
         // OOXML ends a body with a paragraph; after a table it carries no line.
         children: [body, emptyParagraph()],
       },

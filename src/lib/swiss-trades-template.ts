@@ -73,6 +73,20 @@ export const SWISS_TRADES_GEOMETRY = {
   mainPaddingX: 36,
   mainPaddingTop: 48,
   mainPaddingBottom: 48,
+  /**
+   * The printed page's margins, top and foot, in the PDF and in Word (the
+   * section's margins), so both break their pages at the same place: every
+   * page keeps `pageTop` above its text and `pageBottom` below it. In print
+   * they are the document's own padding repeated on every page
+   * (`box-decoration-break: clone` in globals.css), not `@page` margins,
+   * which Chromium paints no background into and so would cut the dark
+   * column short of the paper's edges; the columns' own top and foot padding
+   * gives way to them. They equal the main column's padding, so page 1's
+   * main column prints as the screen draws it; the dark column keeps its
+   * higher start (`sidebarPaddingTop`) on page 1 by a negative top margin.
+   */
+  pageTop: 48,
+  pageBottom: 48,
   /** Space under the name, and between the CV title and the first section. */
   nameGap: 6,
   titleGap: 28,

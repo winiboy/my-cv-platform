@@ -91,12 +91,22 @@ suite does not capture.
 
 ### What else differentiates the two captures
 
-Not layout. No template carries a print-only padding any more: each one had a
-`print:p-*` smaller than its screen padding, which made the PDF wrap and align
-differently from the Preview, and all were removed because the Preview is the
-PDF's contract (`.claude/rules/exports.md`). `e2e/resume-print-geometry.spec.ts`
-guards that: it compares the box of every heading, paragraph and list item under
-both media, for all five templates.
+Mostly not layout. The legacy templates' `print:p-*` paddings, which made the
+PDF wrap differently from the Preview, were removed long ago, and the legacy
+templates themselves in 2026-11 (the spec that guarded them,
+`e2e/resume-print-geometry.spec.ts`, went with them).
+
+What the Swiss templates do carry in print is their **page margins**
+(`swiss-templates-only-page-fidelity` US-002, FR-3): a top margin on every page
+after the first and a foot margin on every page, from each template's
+`SWISS_*_GEOMETRY.pageTop/.pageBottom`. Most templates keep page 1's text where
+the screen puts it, so their print capture equals the screen one. Two do not
+keep the capture's height: swissTrades and swissEngineering move their vertical
+padding from the columns to the document root in print and drop the on-screen
+one-page `min-height` (`min-height: 0`, or a short CV would print an empty
+page 2), so their print capture ends at the content's height, not the page's.
+Text positions are unchanged; the column below the content is painted by the
+root background on the real page, which an element capture does not include.
 
 What still differs is paint: `globals.css` sets `border-radius: 0` on everything
 in print (so pills, dots and rounded cards print square), `print:bg-transparent`
@@ -355,6 +365,27 @@ A baseline change is an **approval decision**, not a test fix. The rules:
   is not project state (CLAUDE.md §3). See below.
 - `ui-expert` may run `pnpm test:visual`. It may **not** run
   `test:visual:update` — blessing a baseline is not a validation act.
+
+### Moved: `swissTrades-print.png` and `swissEngineering-print.png`, 2026-11-26 — page margins
+
+**Cause.** `swiss-templates-only-page-fidelity` US-002, "Every printed page has
+margins, in the PDF and in Word". In print, both templates now take their top
+and foot spacing from the document root (`box-decoration-break: clone`, repeated
+on every page) and set `min-height: 0`, so the printed document ends at its
+content.
+
+| Baseline | Before | After |
+|---|---|---|
+| `swissTrades-print.png` | 794×1123 | 794×721 |
+| `swissEngineering-print.png` | 794×1123 | 794×977 |
+
+**Evidence that only the foot moved.** In the rows the old and new captures
+share, 0 pixels differ for both templates. The rows cut from the old images
+contain only the column colours (`#334155` for swissTrades; `#f1f5f9` and the
+`#2563eb` bar for swissEngineering) and white, no text. The AC allows exactly
+this: "the existing visual baselines for the six templates still pass, or the
+diff is limited to the foot margin". The eight other Swiss print baselines and
+all ten screen baselines did not move.
 
 ### Removed: the five legacy baselines, 2026-11-25
 

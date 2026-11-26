@@ -5,12 +5,14 @@ import {
   LineRuleType,
   Document,
   ImageRun,
+  OverlapType,
   Packer,
   PageOrientation,
   Paragraph,
   ShadingType,
   TabStopType,
   Table,
+  TableAnchorType,
   TableCell,
   TableLayoutType,
   TableRow,
@@ -136,9 +138,10 @@ const emptyParagraph = () => new Paragraph({ children: [], spacing: { before: 0,
  * level names, read from `@/lib/swiss-commerce-template` and
  * `@/lib/swiss-vocational-template`.
  *
- * Layout in Word: the page has no top margin, as the printed Preview has none;
- * the navy band is a table pulled out to both paper edges by a negative indent,
- * its cells shaded navy, with the round photo in its first cell. Dated rows are
+ * Layout in Word: every page has the printed Preview's top and foot margins;
+ * the navy band is a floating table placed at the page's origin, so it meets
+ * the paper's top and side edges on page 1 while later pages keep their
+ * margin, its cells shaded navy, with the round photo in its first cell. Dated rows are
  * borderless two-column tables with the dates on the left; skills are a
  * borderless two-column table; languages are shaded, bordered runs.
  */
@@ -230,7 +233,9 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
         }),
       ],
       spacing: {
-        before: pxToTwips(first ? GEOMETRY.bandGap : GEOMETRY.sectionGap),
+        // The first section's gap under the band is the floating band's own
+        // bottom distance from the text.
+        before: first ? 0 : pxToTwips(GEOMETRY.sectionGap),
         after: pxToTwips(GEOMETRY.headingGap),
         ...exactLineSpacing([LINE_HEIGHT.compact, line.heading]),
       },
@@ -384,10 +389,25 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
   )
   children.push(
     new Table({
-      // The band runs from paper edge to paper edge: the table is the page's
-      // width and is pulled left across the side margin.
+      // The band runs from paper edge to paper edge and meets the paper's top:
+      // a floating table, the page's width, placed at the page's own origin,
+      // as `docx-swiss-it.ts` places its band. Page margins are per section,
+      // so this is what lets every page keep its top margin while page 1's
+      // band still starts at the paper's edge: the body flows below the band
+      // (its bottom distance is the Preview's gap), and a page the band is not
+      // on starts at the margin.
       width: { size: pageWidthTwips, type: WidthType.DXA },
-      indent: { size: -marginX, type: WidthType.DXA },
+      float: {
+        horizontalAnchor: TableAnchorType.PAGE,
+        verticalAnchor: TableAnchorType.PAGE,
+        absoluteHorizontalPosition: 0,
+        absoluteVerticalPosition: 0,
+        topFromText: 0,
+        leftFromText: 0,
+        rightFromText: 0,
+        bottomFromText: pxToTwips(GEOMETRY.bandGap),
+        overlap: OverlapType.NEVER,
+      },
       columnWidths: photo ? [photoCellWidth, textCellWidth] : [textCellWidth],
       layout: TableLayoutType.FIXED,
       borders: NO_BORDERS,
@@ -622,10 +642,18 @@ export async function generateSwissCommerceDocx(resume: unknown, settings: DocxG
         properties: {
           page: {
             size: { width: pageWidthTwips, height: pageHeightTwips, orientation: PageOrientation.PORTRAIT },
-            // No top margin: the band meets the paper's top edge, and the
-            // printed Preview's later pages start at the edge too (`@page`
-            // margin 0). The bottom keeps the Preview's foot padding.
-            margin: { top: 0, right: marginX, bottom: pxToTwips(GEOMETRY.paddingBottom), left: marginX, header: 0, footer: 0 },
+            // The printed Preview's page margins (SWISS_COMMERCE_GEOMETRY), so
+            // both break their pages at the same place: every page's foot and
+            // every page's top, page 1's band floating over the top margin to
+            // the paper's edge.
+            margin: {
+              top: pxToTwips(GEOMETRY.pageTop),
+              right: marginX,
+              bottom: pxToTwips(GEOMETRY.pageBottom),
+              left: marginX,
+              header: 0,
+              footer: 0,
+            },
           },
         },
         // OOXML ends a body with a paragraph; after a table it carries no line.

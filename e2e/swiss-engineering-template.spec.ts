@@ -362,6 +362,11 @@ test('en: the PDF and the Word downloads are valid files holding the CV and not 
   const docxText = [...xml.matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g)].map(([, text]) => text).join('|')
   for (const text of [...visible, ...headings(enCommon)]) expect(docxText, text).toContain(text)
   for (const text of hidden) expect(docxText).not.toContain(text)
-  // Its own generator: the light column and its bar fill every page, drawn behind the text.
-  expect([...xml.matchAll(/<wp:anchor\b[^>]*behindDoc="1"/g)]).toHaveLength(2)
+  // Its own generator: the light column and its bar fill every page, drawn
+  // behind the text in the section's header (swiss-templates-only-page-fidelity US-002).
+  const headerName = Object.keys(zip.files).find((name) => /^word\/header\d*\.xml$/.test(name))
+  expect(headerName, 'the .docx holds a header part').toBeDefined()
+  const header = await zip.file(headerName!)!.async('string')
+  expect([...header.matchAll(/<wp:anchor\b[^>]*behindDoc="1"/g)]).toHaveLength(2)
+  expect(xml).toMatch(/<w:headerReference w:type="default"/)
 })

@@ -7,7 +7,9 @@ import en from '@/locales/en/common.json'
 import fr from '@/locales/fr/common.json'
 import type { Resume } from '@/types/database'
 import { PREVIEW_PALETTE } from '@/lib/resume-palette'
+import { PAGE_WIDTH_PX } from '@/lib/resume-page-size'
 import { SWISS_TRADES_GEOMETRY } from '@/lib/swiss-trades-template'
+import { readGlobalsCss, ruleDeclarations } from '@/test/print-css'
 import { SwissTradesTemplate } from './swiss-trades-template'
 
 /**
@@ -172,8 +174,14 @@ describe('swissTrades keeps its rounded tags and its dark column in print', () =
 
   it('paints the dark column on every printed page, in its own colour and width', () => {
     const band = /html:has\(\.swiss-trades-template\)\s*\{([\s\S]*?)\}/.exec(printBlock)?.[1] ?? ''
-    expect(band).toContain(`${PREVIEW_PALETTE.swissTrades.sidebar.css} max(0px, 50% - 397px)`)
-    expect(band).toContain(`calc(max(0px, 50% - 397px) + ${SWISS_TRADES_GEOMETRY.sidebarWidth}px)`)
+    // One solid layer the column's width, repeated down every page, from where
+    // the centred document of PAGE_WIDTH_PX starts: max(0px, 50% - 397px) of the canvas,
+    // a position's 50% being half of the canvas less the layer's width.
+    const colour = PREVIEW_PALETTE.swissTrades.sidebar.css
+    const width = SWISS_TRADES_GEOMETRY.sidebarWidth
+    expect(band.trim()).toBe(
+      `background: linear-gradient(${colour}, ${colour}) max(0px, 50% - ${PAGE_WIDTH_PX / 2 - width / 2}px) 0 / ${width}px 100% repeat-y, white !important;`,
+    )
     expect(SOURCE).toContain(`backgroundColor: '${PREVIEW_PALETTE.swissTrades.sidebar.css}'`)
   })
 
@@ -197,5 +205,36 @@ describe('swissTrades draws the photo only when there is one (FR-5)', () => {
   it('draws no frame without a photo or with the photo unticked', () => {
     expect(render(resume())).not.toContain('swiss-trades-photo')
     expect(render(resume(), en, { photoUrl: PHOTO, hiddenContactFields: ['photo'] })).toBe(render(resume()))
+  })
+})
+
+describe('swissTrades prints a top and a foot margin on every page (swiss-templates-only-page-fidelity US-002)', () => {
+  const css = readGlobalsCss()
+  const G = SWISS_TRADES_GEOMETRY
+
+  it('repeats SWISS_TRADES_GEOMETRY.pageTop and .pageBottom as the document’s padding on every printed page, as Word’s page margins', () => {
+    expect(ruleDeclarations(css.print, '.swiss-trades-template')).toEqual([
+      'min-height: 0 !important',
+      `padding-top: ${G.pageTop}px !important`,
+      `padding-bottom: ${G.pageBottom}px !important`,
+      '-webkit-box-decoration-break: clone',
+      'box-decoration-break: clone',
+    ])
+    expect(ruleDeclarations(css.print, '.swiss-trades-template > aside, .swiss-trades-template > main')).toEqual([
+      'padding-top: 0 !important',
+      'padding-bottom: 0 !important',
+    ])
+    // No `@page` margin: Chromium paints nothing into it, and the dark column,
+    // the root's background, reaches the paper's top and foot.
+    expect(css.print).not.toMatch(/page:\s*swiss-trades|@page swiss-trades/)
+    expect(css.screen).not.toMatch(/swiss-trades/)
+  })
+
+  it('prints page 1 as the screen draws it: the main column at its padding, the dark column’s text higher by its own', () => {
+    expect(G.pageTop).toBe(G.mainPaddingTop)
+    expect(G.pageBottom).toBe(G.mainPaddingBottom)
+    expect(ruleDeclarations(css.print, '.swiss-trades-template > aside')).toEqual([`margin-top: ${G.sidebarPaddingTop - G.pageTop}px !important`])
+    // The dark column and the main column are the document's two children, in that order.
+    expect(SOURCE).toMatch(/className="swiss-trades-template [^"]*"[\s\S]*?>\s*<aside\b[\s\S]*<\/aside>\s*<main\b/)
   })
 })

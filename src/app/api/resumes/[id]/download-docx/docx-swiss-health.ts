@@ -4,12 +4,14 @@ import {
   Document,
   ImageRun,
   LineRuleType,
+  OverlapType,
   Packer,
   PageOrientation,
   Paragraph,
   ShadingType,
   TabStopType,
   Table,
+  TableAnchorType,
   TableCell,
   TableLayoutType,
   TableRow,
@@ -143,9 +145,9 @@ const spacer = (twips: number) => new Paragraph({ children: [], spacing: { befor
  * and skill text, read from `@/lib/swiss-health-template` and
  * `@/lib/swiss-vocational-template`.
  *
- * Layout in Word: the page margins are the Preview's padding. The header is a
- * borderless two-column table holding the round photo and the name block, or
- * the name block alone. Each heading pill is a run of spaced capitals shaded
+ * Layout in Word: the page margins are the printed Preview's. The header is a
+ * borderless table floating at the Preview's top padding from the paper's top
+ * edge, holding the round photo and the name block, or the name block alone. Each heading pill is a run of spaced capitals shaded
  * the pill colour, padded by widened no-break spaces, on a line as tall as the
  * pill. Each dated entry is a borderless one-row table: the dates in its left
  * cell, whose left border is the entry's light-teal bar, so the bar runs the
@@ -449,11 +451,29 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
     )
   }
 
+  // The header floats at the Preview's top padding from the paper's top edge:
+  // the page's top margin (`pageTop`) is what every later page keeps, and
+  // page 1 starts higher (`paddingTop`), as its printed Preview does. Page
+  // margins are per section, so a table placed on the page is what lets page 1
+  // start there, as `docx-swiss-it.ts` places its band; the body flows below
+  // it, its bottom distance the Preview's gap before the first section.
+  const headerFloat = {
+    horizontalAnchor: TableAnchorType.MARGIN,
+    verticalAnchor: TableAnchorType.PAGE,
+    absoluteHorizontalPosition: 0,
+    absoluteVerticalPosition: pxToTwips(GEOMETRY.paddingTop),
+    topFromText: 0,
+    leftFromText: 0,
+    rightFromText: 0,
+    bottomFromText: pxToTwips(GEOMETRY.headerGap),
+    overlap: OverlapType.NEVER,
+  }
   if (photo) {
     const photoCellWidth = pxToTwips(GEOMETRY.photo + GEOMETRY.photoGap)
     children.push(
       new Table({
         width: { size: contentWidth, type: WidthType.DXA },
+        float: headerFloat,
         columnWidths: [photoCellWidth, contentWidth - photoCellWidth],
         layout: TableLayoutType.FIXED,
         borders: NO_BORDERS,
@@ -485,8 +505,30 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
         ],
       }),
     )
-  } else {
-    children.push(...headerText)
+  } else if (headerText.length > 0) {
+    // The name block alone, in a one-cell table so it floats as the photo's row does.
+    children.push(
+      new Table({
+        width: { size: contentWidth, type: WidthType.DXA },
+        float: headerFloat,
+        columnWidths: [contentWidth],
+        layout: TableLayoutType.FIXED,
+        borders: NO_BORDERS,
+        rows: [
+          new TableRow({
+            cantSplit: true,
+            children: [
+              new TableCell({
+                width: { size: contentWidth, type: WidthType.DXA },
+                margins: NO_MARGINS,
+                borders: NO_CELL_BORDERS,
+                children: headerText,
+              }),
+            ],
+          }),
+        ],
+      }),
+    )
   }
   const hasHeader = children.length > 0
 
@@ -588,11 +630,13 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
   for (const sectionId of sections) {
     const blocks = sectionBlocks(sectionId)
     if (blocks.length === 0) continue
-    // The space above a section: the header's gap above the first, when there
-    // is a header, and the section gap above every other. A spacer carries it,
-    // so it also separates two tables, which Word would otherwise merge.
-    const gap = drawnSections === 0 ? (hasHeader ? GEOMETRY.headerGap : 0) : GEOMETRY.sectionGap
-    if (gap > 0) children.push(spacer(pxToTwips(gap)))
+    // The space above a section: the section gap above every one but the
+    // first, whose gap under the header is the floating header's own bottom
+    // distance from the text (`headerFloat`). A spacer carries it, so it also
+    // separates two tables, which Word would otherwise merge: under the
+    // header too, as a line-less one, for a first section that opens with a table.
+    const gap = drawnSections === 0 ? 0 : GEOMETRY.sectionGap
+    if (gap > 0 || hasHeader) children.push(spacer(pxToTwips(gap)))
     children.push(...blocks)
     drawnSections += 1
   }
@@ -614,11 +658,14 @@ export async function generateSwissHealthDocx(resume: unknown, settings: DocxGen
         properties: {
           page: {
             size: { width: pageWidthTwips, height: pageHeightTwips, orientation: PageOrientation.PORTRAIT },
-            // The Preview's padding, as the page's margins.
+            // The printed Preview's page margins (SWISS_HEALTH_GEOMETRY), so
+            // both break their pages at the same place: every page's foot and
+            // every page's top, page 1's header floating above the top margin
+            // at the Preview's top padding.
             margin: {
-              top: pxToTwips(GEOMETRY.paddingTop),
+              top: pxToTwips(GEOMETRY.pageTop),
               right: marginX,
-              bottom: pxToTwips(GEOMETRY.paddingBottom),
+              bottom: pxToTwips(GEOMETRY.pageBottom),
               left: marginX,
               header: 0,
               footer: 0,

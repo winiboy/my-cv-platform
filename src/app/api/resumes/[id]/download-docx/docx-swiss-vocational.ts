@@ -188,7 +188,6 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
   const pageWidthTwips = convertInchesToTwip(PAGE_WIDTH_INCHES)
   const pageHeightTwips = convertInchesToTwip(PAGE_HEIGHT_INCHES)
   const marginX = pxToTwips(GEOMETRY.paddingX)
-  const marginY = pxToTwips(GEOMETRY.paddingY)
   const contentWidth = pageWidthTwips - 2 * marginX
 
   const run = (text: string, color: string, options: { bold?: boolean; size?: number } = {}) =>
@@ -612,7 +611,10 @@ export async function generateSwissVocationalDocx(resume: unknown, settings: Doc
         properties: {
           page: {
             size: { width: pageWidthTwips, height: pageHeightTwips, orientation: PageOrientation.PORTRAIT },
-            margin: { top: marginY, right: marginX, bottom: marginY, left: marginX },
+            // The printed Preview's page margins (SWISS_VOCATIONAL_GEOMETRY
+            // .pageTop and .pageBottom, its document padding repeated on every
+            // printed page), so both break their pages at the same place.
+            margin: { top: pxToTwips(GEOMETRY.pageTop), right: marginX, bottom: pxToTwips(GEOMETRY.pageBottom), left: marginX },
             // The red strip down the left edge of every page.
             borders: {
               pageBorders: { display: PageBorderDisplay.ALL_PAGES, offsetFrom: PageBorderOffsetFrom.PAGE },

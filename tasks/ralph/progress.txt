@@ -61,3 +61,55 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 Only the ten Swiss templates exist
 FINAL: PASS
+
+## US-002: Every printed page has margins, in the PDF and in Word
+Status: PASS
+Priority: 2
+Branch: ralph/swiss-templates-only-page-fidelity
+Baseline HEAD: ff28cdf (US-001)
+Scope:
+- Scope check: PASS — print CSS, geometry, Word generators and tests of the six templates named by the story, the two re-approved print baselines and their record in docs/engineering/visual-regression.md, one e2e discriminator update (resume-draft-template-source). Full list: this commit's `git show --stat`.
+- New: src/test/print-css.ts, e2e/swiss-page-margins.spec.ts.
+- Negatives: no swissIt / swissExecutive / swissAcademic / swissFirstJob source, generator, CSS rule or baseline in the diff; no screen CSS changed (each template test asserts css.screen has no reference); 18 of 20 visual baselines unchanged; no version change; no push or merge.
+Checks (run of record checks-us2-r2; code diff hash ff0837e8cfdc72e2 before and after; afterwards only docs/engineering/visual-regression.md changed, which no check reads — final hash bd3b14037870e193):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 4935 passed, 17 skipped
+- pnpm test:integration: PASS — 80/80
+- pnpm build: PASS — 105/105 static pages
+- pnpm lint: PASS — 135 problems (93 errors, 42 warnings), under the PRD ceiling of 281
+- pnpm test:e2e: PASS — 675 passed, 0 failed (includes swiss-page-margins 6/6)
+- pnpm test:visual: PASS — 20/20
+Specialized validation:
+- Export: PASS — audit fixture (6 templates x fr/de) through the real routes: PDF 2 pages each; Word opened by Microsoft Word (COM, exported to PDF, no repair prompt, no hang) 2 pages each; Word pgMar top/bottom 720 twips (finance 750 = its 50/50 geometry). Captures: scratchpad audit2/ (SHEET-*.png, *-pdf-pN.png, *-word-pN.png).
+- Visual: PASS — 20/20; swissTrades-print.png 794x1123 -> 794x721 and swissEngineering-print.png 794x1123 -> 794x977 re-approved: 0 differing pixels in shared rows, cut rows only column fill and white (min-height: 0 in print). Recorded in docs/engineering/visual-regression.md.
+- Browser: PASS — via ui-expert measurements on rendered PDF/Word pages (print-only story).
+- Database: NOT_APPLICABLE — no schema or data change.
+- Security: NOT_APPLICABLE — print CSS and Word layout only; no route, input or policy change.
+Agents:
+- senior-coder: implementation + 1 fix round.
+- Chain checks-us2-r1: FAIL — visual: swissTrades/swissEngineering print capture changed beyond the foot (html-background column layers anchored at x=0 instead of the centred document); e2e: resume-draft-template-source used <w:tblHeader/>, removed by this story; cv-from-job-application (g) login timeout, environmental (10/10 alone, green in r2). Fixed.
+- code-reviewer round 1: PASS (code), conditions: chain, Word render, ui-expert.
+- code-reviewer round 2: FAIL — baseline re-approval not recorded; visual-regression.md paragraph "no template carries a print-only padding" now false. Fixed (docs).
+- code-reviewer round 3: PASS.
+- ui-expert: PASS — measured on 48 PNGs: PDF page-2 text starts at 52 px (before: 3–9 px), Word at 55–67 px; smallest foot gap 62 px; every row of every page: trades column, vocational red rule, engineering column + bar reach both edges; commerce band row 0 full width; PDF page 1 vs audit1: only the entry that ran into the foot margin moved to page 2.
+Acceptance criteria:
+- AC-01 pages after the first start ≥48 px below the top (6 templates): PASS — swiss-page-margins.spec (49–51 px), ui-expert 52 px
+- AC-02 last line ≥48 px above the foot on every page: PASS — swiss-page-margins.spec, ui-expert minimum 62 px
+- AC-03 full-bleed backgrounds reach the edges every page: PASS — swiss-page-margins.spec pixel rows, ui-expert row scan
+- AC-04 page 1 otherwise unchanged; baselines pass or diff limited to the foot: PASS — visual 20/20 after the foot-only re-approval above; ui-expert page-1 comparison
+- AC-05 Word uses the same top margin on later pages and the same foot margin: PASS — pgMar from SWISS_*_GEOMETRY.pageTop/.pageBottom, unit tests per generator, Word render
+- AC-06 the four templates that already had margins unchanged: PASS — none of their files or baselines in the diff
+- FR-3 (one geometry per template, read by print CSS and Word, held equal by unit tests): PASS for PDF and Word; the Preview side is US-003.
+Decision (AC-03): templates with an edge-to-edge background (vocational, trades, engineering, finance) take their margins from document padding repeated on every page (box-decoration-break: clone), because Chromium paints no background into an @page margin (probed); swissCommerce uses a named @page with :first margin-top 0 so its band meets the top edge; swissHealth adds a 4 px @page top margin to its 44 px padding on later pages. Rejected: @page margins everywhere, which cut the columns and the red rule.
+Decision (AC-03): trades/engineering column layers are solid sized layers positioned with max(<offset>px, 50% + <...>px), not colour-stop gradients: pdf.js blurred the gradient edges over tens of px, and anchoring at x=0 broke the layout at screen widths.
+Known limitations:
+- Word page 1: swissTrades' sidebar starts 8 px and swissEngineering's light column 4 px lower than in the PDF (Word has no negative cell padding); present before this story too (ui-expert).
+- Word starts page 2 about 15 px lower than the PDF on swissCommerce and swissVocational (paragraph space-before kept at a page top) — for US-005.
+- Word splits an entry across pages on swissEngineering de (orphaned bullet) — US-005 (keep together).
+Open owner decisions recorded by this story: none new.
+Follow-ups (optional, from code-review): resume-draft-template-source could seed `modern` (remaps to swissEngineering) so "row wins over draft" is observable in Word; resume-page-size.test.ts formula guard could also count the expected layers per template.
+Environment notes: one login timeout in r1 (cv-from-job-application g), not reproduced alone or in r2.
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 Every printed page has margins, in the PDF and in Word
+FINAL: PASS
