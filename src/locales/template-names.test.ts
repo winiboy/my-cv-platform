@@ -27,10 +27,10 @@ describe('resumes.templates locale parity', () => {
     }
   }
 
-  it('does not show the English name for Professional in another locale', () => {
-    expect(fr.resumes.templates.professional).not.toBe(en.resumes.templates.professional)
-    expect(de.resumes.templates.professional).not.toBe(en.resumes.templates.professional)
-    expect(it_.resumes.templates.professional).not.toBe(en.resumes.templates.professional)
+  it('does not show the English name for the default template in another locale', () => {
+    expect(fr.resumes.templates.swissCommerce).not.toBe(en.resumes.templates.swissCommerce)
+    expect(de.resumes.templates.swissCommerce).not.toBe(en.resumes.templates.swissCommerce)
+    expect(it_.resumes.templates.swissCommerce).not.toBe(en.resumes.templates.swissCommerce)
   })
 
   it('names the vocational template after the Swiss qualification of each language', () => {

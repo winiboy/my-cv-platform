@@ -1,16 +1,17 @@
 import { test, expect, type TestUser } from '../fixtures/auth'
 import { seedFixtureResume } from '../fixtures/resume'
 import type { Page, Locator } from '@playwright/test'
-import type { BuiltResumeTemplate, ResumeTemplate } from '../../src/types/database'
+import { RESUME_TEMPLATES } from '../../src/lib/resume-templates'
+import type { ResumeTemplate } from '../../src/types/database'
 
 /**
- * Visual baselines for the five resume templates, on screen and in print.
+ * Visual baselines for the ten resume templates, on screen and in print.
  *
  * WHY THIS EXISTS
  *
  * Milestone C unifies resume rendering across the Editor, Live Preview,
- * Preview, PDF and DOCX. That work edits shared layout code underneath five
- * templates at once, and the failure mode is not a crash - it is a template
+ * Preview, PDF and DOCX. That work edits shared layout code underneath every
+ * template at once, and the failure mode is not a crash - it is a template
  * that still renders, still passes typecheck, and is subtly wrong. Nothing in
  * the unit, integration or E2E suites can see that. These baselines can.
  *
@@ -42,8 +43,8 @@ import type { BuiltResumeTemplate, ResumeTemplate } from '../../src/types/databa
  * ("layout moved everywhere" vs "only the print stylesheet moved"). The extra
  * cost is a whole extra fixture per template: another created user, another
  * real form login (`fixtures/auth.ts` signs in through the page rather than
- * injecting a cookie) and another seeded resume, so a full run does ten of each
- * rather than five. What it is not is an extra build, and the production build
+ * injecting a cookie) and another seeded resume, so a full run does two of each
+ * per template rather than one. What it is not is an extra build, and the production build
  * is what dominates this suite's runtime.
  *
  * DETERMINISM
@@ -73,23 +74,7 @@ import type { BuiltResumeTemplate, ResumeTemplate } from '../../src/types/databa
  * `docs/engineering/visual-regression.md` before adding CI to the list.
  */
 
-const TEMPLATES: BuiltResumeTemplate[] = [
-  'professional',
-  'modern',
-  'classic',
-  'minimal',
-  'creative',
-  'swissVocational',
-  'swissCommerce',
-  'swissTrades',
-  'swissHealth',
-  'swissFinance',
-  'swissEngineering',
-  'swissIt',
-  'swissExecutive',
-  'swissAcademic',
-  'swissFirstJob',
-]
+const TEMPLATES = RESUME_TEMPLATES
 
 /**
  * Seed a resume, open its preview, and return the document element ready to

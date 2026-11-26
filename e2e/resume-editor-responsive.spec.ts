@@ -84,7 +84,7 @@ const drawer = (page: Page) => page.getByRole('dialog', { name: 'Dashboard menu'
 
 for (const width of [390, 768, 1024]) {
   test(`at ${width}px the editor stacks above the preview and both fit the viewport`, async ({ page, authedUser }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'professional')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
     await openEditor(page, resume.id, width)
 
     await expectNoHorizontalScroll(page)
@@ -115,7 +115,7 @@ for (const width of [390, 768, 1024]) {
 }
 
 test('below md the dashboard navigation is a drawer operable by keyboard', async ({ page, authedUser }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'professional')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
   await openEditor(page, resume.id, 390)
 
   await expect(page.getByTestId('dashboard-sidebar')).toBeHidden()
@@ -175,7 +175,7 @@ test('a drawer link to the current page still closes the drawer', async ({ page,
 })
 
 test('at md the dashboard navigation stays a sidebar', async ({ page, authedUser }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'professional')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
   await openEditor(page, resume.id, 768)
 
   await expect(page.getByTestId('dashboard-sidebar')).toBeVisible()
@@ -183,18 +183,30 @@ test('at md the dashboard navigation stays a sidebar', async ({ page, authedUser
 })
 
 test('at 1280px the desktop layout is unchanged', async ({ page, authedUser }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'professional')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
   await openEditor(page, resume.id, 1280)
 
   await expect(drawerToggle(page)).toBeHidden()
 
-  // Measured at 1280x900 on the pre-change editor with this fixture.
+  // Measured at 1280x900 on the pre-change editor with this fixture, except
+  // the document's y and height. Those were measured under the legacy
+  // Professional template, which swiss-templates-only-page-fidelity US-001
+  // removed, so the fixture is now swissCommerce:
+  //   - y: the editor drew Professional's sidebar-colour and font controls
+  //     above the page, 326px tall with their 15px margin. No Swiss template
+  //     offers them and they are gone, so the page starts at the preview pane's
+  //     own top padding: preview.y 164 + xl:p-8 32 = 196.
+  //   - height: Professional set a one-page min-height (1123px, 416 scaled);
+  //     swissCommerce is as tall as its content, 1036px for this fixture,
+  //     384 at the same 294/794 scale.
+  // The four layout boxes and the document's x and width, which carry the
+  // regression this test guards, are unchanged.
   const expected: Record<string, Box> = {
     nav: { x: 0, y: 69, width: 256, height: 341 },
     sectionNav: { x: 280, y: 164, width: 256, height: 765 },
     editor: { x: 536, y: 164, width: 358, height: 765 },
     preview: { x: 898, y: 164, width: 358, height: 765 },
-    document: { x: 930, y: 522, width: 294, height: 416 },
+    document: { x: 930, y: 196, width: 294, height: 384 },
   }
   const actual: Record<string, Box> = {
     nav: await box(page.getByTestId('dashboard-sidebar').locator('aside')),
@@ -213,7 +225,7 @@ test('at 1280px the desktop layout is unchanged', async ({ page, authedUser }) =
 })
 
 test('the preview frame follows the scaled document height as content grows', async ({ page, authedUser }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'professional')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
   await openEditor(page, resume.id, 1280)
 
   const frame = page.getByTestId('resume-editor-preview-frame')
@@ -249,8 +261,8 @@ test.describe('with real scrollbars', () => {
    *
    * Measured from a viewport tall enough that nothing overflows, because
    * scrollHeight cannot be used: the content's height depends on the width the
-   * scrollbar leaves (the scale, and the colour/font controls that wrap), so
-   * an overflow measured with a scrollbar does not locate the edge without one.
+   * scrollbar leaves (through the scale), so an overflow measured with a
+   * scrollbar does not locate the edge without one.
    */
   async function scrollbarEdgeHeight(page: Page, width: number, selector: string): Promise<number> {
     const tall = 4000
@@ -300,7 +312,7 @@ test.describe('with real scrollbars', () => {
       try {
         const page = await (await browser.newContext({ baseURL })).newPage()
         await loginAs(page, authedUser)
-        const resume = await seedFixtureResume(authedUser.id, 'professional')
+        const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
         await openEditor(page, resume.id, width)
 
         // Real scrollbars take layout width; with hidden ones this test proves nothing.

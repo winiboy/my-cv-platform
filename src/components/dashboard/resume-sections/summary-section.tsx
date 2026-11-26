@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { Sparkles, X, Check, Languages } from 'lucide-react'
 import type { Resume } from '@/types/database'
 import { RichTextEditor } from '../rich-text-editor'
 import { htmlToPlainText, migrateTextToHtml } from '@/lib/html-utils'
 import { useBrowserRender } from '@/lib/hooks/use-browser-render'
-import { KeyAchievementsToolbar, KeyAchievementsFormatCommand } from '../key-achievements-toolbar'
 
 interface SummarySectionProps {
   resume: Resume
@@ -148,161 +147,6 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
     setTargetLanguage(null)
   }
 
-  // Handle formatting commands from toolbar
-  const handleFormat = useCallback((command: KeyAchievementsFormatCommand) => {
-    const editorId = 'summary-editor'
-    const editor = document.getElementById(editorId) as HTMLDivElement | null
-    if (!editor) return
-
-    editor.focus()
-
-    // Restore selection if needed
-    const selection = window.getSelection()
-    if (!selection || selection.rangeCount === 0) {
-      const range = document.createRange()
-      range.selectNodeContents(editor)
-      range.collapse(false)
-      selection?.removeAllRanges()
-      selection?.addRange(range)
-    }
-
-    switch (command) {
-      case 'bold':
-        document.execCommand('bold')
-        break
-      case 'italic':
-        document.execCommand('italic')
-        break
-      case 'alignLeft':
-        document.execCommand('justifyLeft')
-        break
-      case 'alignCenter':
-        document.execCommand('justifyCenter')
-        break
-      case 'alignJustify':
-        document.execCommand('justifyFull')
-        break
-      case 'bulletList':
-        document.execCommand('insertUnorderedList')
-        break
-      case 'numberedList':
-        document.execCommand('insertOrderedList')
-        break
-      case 'dashList': {
-        // Save selection state using range for more reliable traversal
-        const sel = window.getSelection()
-        if (!sel || sel.rangeCount === 0) break
-
-        const range = sel.getRangeAt(0)
-        let node: Node | null = range.startContainer
-        let currentList: HTMLUListElement | null = null
-
-        // Traverse up to find the parent UL element
-        while (node && node !== editor) {
-          if (node.nodeName === 'UL') {
-            currentList = node as HTMLUListElement
-            break
-          }
-          node = node.parentNode
-        }
-
-        // Detect dash list by checking ONLY for presence of dash spans (more reliable than inline styles)
-        const hasDashSpans = currentList &&
-          Array.from(currentList.querySelectorAll('li')).some(li =>
-            li.querySelector('span[data-dash="true"]') !== null
-          )
-
-        if (currentList && hasDashSpans) {
-          // TOGGLE OFF: Replace entire list with paragraphs
-          // Manual DOM manipulation is required because execCommand('insertUnorderedList')
-          // only toggles the first line when multiple lines are selected in a dash list.
-
-          // 1. Collect all list item contents (removing dash spans, filtering empty)
-          const items = currentList.querySelectorAll('li')
-          const contents: string[] = []
-
-          items.forEach(item => {
-            // Remove dash span if present
-            const dashSpan = item.querySelector('span[data-dash="true"]')
-            if (dashSpan) {
-              dashSpan.remove()
-            }
-            // Store non-empty content only
-            const trimmedContent = item.innerHTML.trim()
-            if (trimmedContent) {
-              contents.push(trimmedContent)
-            }
-          })
-
-          // 2. Create document fragment with paragraphs, tracking the last one
-          const fragment = document.createDocumentFragment()
-          let lastParagraph: HTMLParagraphElement | null = null
-
-          contents.forEach(content => {
-            const p = document.createElement('p')
-            p.innerHTML = content
-            fragment.appendChild(p)
-            lastParagraph = p
-          })
-
-          // 3. Replace the UL with the paragraphs
-          if (currentList.parentNode) {
-            currentList.parentNode.replaceChild(fragment, currentList)
-          }
-
-          // 4. Place cursor at the end of the last created paragraph
-          if (lastParagraph) {
-            const newRange = document.createRange()
-            newRange.selectNodeContents(lastParagraph)
-            newRange.collapse(false)
-            sel.removeAllRanges()
-            sel.addRange(newRange)
-          }
-        } else if (currentList) {
-          // IN BULLET LIST: Convert to dash list
-          currentList.style.listStyleType = 'none'
-          const items = currentList.querySelectorAll('li')
-          items.forEach(item => {
-            if (!item.querySelector('span[data-dash="true"]')) {
-              const content = item.innerHTML
-              item.innerHTML = `<span data-dash="true" style="margin-right: 0.5em;">-</span>${content}`
-            }
-          })
-        } else {
-          // NOT IN LIST: Create new dash list
-          document.execCommand('insertUnorderedList')
-
-          // Find the newly created list
-          const newSel = window.getSelection()
-          let newNode: Node | null = newSel?.anchorNode || null
-          let newList: HTMLUListElement | null = null
-
-          while (newNode && newNode !== editor) {
-            if (newNode.nodeName === 'UL') {
-              newList = newNode as HTMLUListElement
-              break
-            }
-            newNode = newNode.parentNode
-          }
-
-          if (newList) {
-            newList.style.listStyleType = 'none'
-            const items = newList.querySelectorAll('li')
-            items.forEach(item => {
-              if (!item.querySelector('span[data-dash="true"]')) {
-                const content = item.innerHTML
-                item.innerHTML = `<span data-dash="true" style="margin-right: 0.5em;">-</span>${content}`
-              }
-            })
-          }
-        }
-        break
-      }
-    }
-
-    editor.dispatchEvent(new Event('input', { bubbles: true }))
-  }, [])
-
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
@@ -443,19 +287,6 @@ export function SummarySection({ resume, updateResume, dict, locale }: SummarySe
       )}
 
       <div>
-        {/* Label with conditional toolbar for professional template */}
-        {resume.template === 'professional' && (
-          <div className="flex items-center justify-between mb-1">
-            <label className="block text-sm font-medium text-slate-700">
-              {dict.resumes?.editor?.yourSummary || 'Your Summary'}
-            </label>
-            <KeyAchievementsToolbar
-              editorId="summary-editor"
-              onFormat={handleFormat}
-              dict={dict}
-            />
-          </div>
-        )}
         <RichTextEditor
           id="summary-editor"
           value={resume.summary || ''}

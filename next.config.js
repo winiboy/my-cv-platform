@@ -67,10 +67,6 @@ function getSupabaseOrigin() {
 // the host is repeated here. Change both together if the DSN ever changes.
 const SENTRY_INGEST_ORIGIN = "https://o4510522193412096.ingest.de.sentry.io";
 
-// @imgly/background-removal downloads its ONNX model chunks from this CDN at
-// runtime (src/lib/image/remove-background.ts, dynamic import).
-const IMGLY_ASSET_ORIGIN = "https://staticimgly.com";
-
 /**
  * Build the Content-Security-Policy value.
  *
@@ -89,15 +85,11 @@ const IMGLY_ASSET_ORIGIN = "https://staticimgly.com";
  *   2. The resume print path. Templates render inline style="..." attributes
  *      server-side and the profile photo is a base64 data: URL, so style-src
  *      needs 'unsafe-inline' and img-src needs data:. Exercise window.print()
- *      on every one of the five templates.
+ *      on every one of the ten templates.
  *   3. The cover-letter PDF export: printed server-side since
  *      cover-letter-export-translate, so the page only saves a blob: download;
  *      nothing of it renders under this policy any more.
- *   4. Profile-photo background removal. onnxruntime-web compiles WASM and
- *      spawns a worker from a blob: URL, and pulls model chunks from
- *      staticimgly.com. Confirm 'wasm-unsafe-eval' is sufficient and that no
- *      violation asks for 'unsafe-eval' in a production build.
- *   5. Google OAuth sign-in, then the dashboard user menu: profiles.avatar_url
+ *   4. Google OAuth sign-in, then the dashboard user menu: profiles.avatar_url
  *      is populated from the provider's raw_user_meta_data and renders as a
  *      lh3.googleusercontent.com <img>.
  *
@@ -125,44 +117,41 @@ function buildContentSecurityPolicy(isDev) {
     "form-action 'self'",
 
     // 'unsafe-inline': Next's inline RSC bootstrap - see note 1 above.
-    // 'wasm-unsafe-eval' + blob:: onnxruntime-web behind
-    //   @imgly/background-removal compiles WASM and starts a blob: worker.
     // 'unsafe-eval' in development only: React Refresh / HMR.
     [
-      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:",
+      "script-src 'self' 'unsafe-inline'",
       isDev ? " 'unsafe-eval'" : "",
     ].join(""),
 
     // 'unsafe-inline': the resume templates render style="..." attributes
     //   server-side; removing it would break every template.
-    // fonts.googleapis.com: the font-picker stylesheet in src/app/layout.tsx.
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "style-src 'self' 'unsafe-inline'",
 
-    // next/font self-hosts Inter; fonts.gstatic.com serves the picker families;
-    // data: covers fonts inlined into the PDF/print path.
-    "font-src 'self' data: https://fonts.gstatic.com",
+    // next/font self-hosts Inter; data: covers fonts inlined into the PDF/print
+    // path. No third-party font origin: every resume and cover-letter surface
+    // uses Inter or a system stack.
+    "font-src 'self' data:",
 
     // data:: the profile photo is persisted as a base64 data URL in the resume
-    //   layout settings. blob:: background-removal output and html2canvas.
+    //   layout settings. blob:: html2canvas during the cover-letter PDF export.
     // lh3.googleusercontent.com: Google OAuth avatar (profiles.avatar_url).
     "img-src 'self' data: blob: https://lh3.googleusercontent.com",
 
-    // Browser fetches: the app's own routes, Supabase, Sentry, and the
-    // background-removal model CDN. ws:/localhost added for the dev overlay.
+    // Browser fetches: the app's own routes, Supabase and Sentry.
+    // ws:/localhost added for the dev overlay.
     [
       "connect-src 'self'",
       getSupabaseOrigin(),
       SENTRY_INGEST_ORIGIN,
-      IMGLY_ASSET_ORIGIN,
       isDev ? "ws://localhost:* http://localhost:*" : "",
     ]
       .filter(Boolean)
       .join(" "),
 
-    // onnxruntime-web starts its worker from a blob: URL. child-src repeats it
-    // for agents that do not implement worker-src.
-    "worker-src 'self' blob:",
-    "child-src 'self' blob:",
+    // The app starts no worker. child-src repeats worker-src for agents that
+    // do not implement it.
+    "worker-src 'self'",
+    "child-src 'self'",
 
     // html2canvas clones the page into an iframe during PDF export.
     "frame-src 'self' blob:",
@@ -302,36 +291,6 @@ const nextConfig = {
     "/api/cover-letters/*/download-pdf": pdfRendererTracedFiles(),
   },
 
-  // NOTE: `swcMinify: false` used to sit here. Next 15 removed the option
-  // entirely - it is now an unrecognized key that Next warns about and ignores,
-  // so keeping it would have been dead config that merely looked load-bearing.
-  //
-  // It existed because onnxruntime-web (via @imgly/background-removal) uses
-  // `new URL("file.mjs", import.meta.url)`, which makes webpack emit .mjs files
-  // as separate assets, and the Next 14 SWC minifier mangled them: it did not
-  // set `module: true` for a .mjs asset, so top-level ESM syntax and
-  // `import.meta` did not survive minification. Terser detected the extension
-  // and did.
-  //
-  // Verified on Next 15.5.26 that the defect no longer reproduces. The two
-  // emitted assets (ort.bundle.min.*.mjs and ort.webgpu.bundle.min.*.mjs) are
-  // still reprocessed by the minifier - 399,902 bytes in, 390,680 out - and
-  // both pass `node --check` as ES modules with their four `import.meta`
-  // references intact. If a future Next regresses this, the replacement is an
-  // `optimization.minimizer` override in the webpack hook below, not this key.
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        'onnxruntime-node': false,
-      };
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        module: false,
-      };
-    }
-    return config;
-  },
   env: {
     NEXT_PUBLIC_GIT_BRANCH: getGitBranch(),
     NEXT_PUBLIC_APP_VERSION: getPackageVersion(),

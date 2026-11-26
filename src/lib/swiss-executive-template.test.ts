@@ -38,9 +38,6 @@ const DICTS = { fr, en, de, it: it_ } as const
 describe('swissExecutive in the template x control registries (FR-3)', () => {
   it('offers only the sections panel: no user colour, no size input, no stored font (FR-4, FR-12)', () => {
     expect(TEMPLATE_LAYOUT_CONTROLS.swissExecutive).toEqual(['sidebarSections'])
-    expect(templateOffersLayoutControl('swissExecutive', 'font')).toBe(false)
-    expect(templateOffersLayoutControl('swissExecutive', 'sidebarColour')).toBe(false)
-    expect(templateOffersLayoutControl('swissExecutive', 'perPropertySize')).toBe(false)
     expect(templateOffersLayoutControl('swissExecutive', 'sidebarSections')).toBe(true)
     expect(TEMPLATE_APPLIED_SIZE_KEYS.swissExecutive).toEqual([])
   })

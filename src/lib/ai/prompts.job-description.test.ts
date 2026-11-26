@@ -12,7 +12,7 @@ import { buildJobDescriptionToResumePrompt } from './prompts'
  * Job Search's prompt changed on purpose in US-003: it now asks for a complete
  * resume (`completeResume: true` - achievements, a one-paragraph description, a
  * summary naming the job), so its CV is filled through the shared builder with
- * the AI's text visible in all five templates. Its new output is pinned to the
+ * the AI's text visible in every template. Its new output is pinned to the
  * SHA-256 measured on 2026-10-23, so any further change to what Job Search
  * sends is deliberate.
  */

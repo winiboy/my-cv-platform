@@ -6,9 +6,8 @@ import en from '@/locales/en/common.json'
 import de from '@/locales/de/common.json'
 import it_ from '@/locales/it/common.json'
 import type { Locale } from '@/lib/i18n'
-import { TEMPLATE_SAMPLE_RESUME } from '@/lib/template-sample-resume'
 import { swissItHeading } from '@/lib/swiss-it-template'
-import { ProfessionalTemplate } from '@/components/dashboard/resume-templates/professional-template'
+import { RESUME_TEMPLATES } from '@/lib/resume-templates'
 import type { ResumeTemplate } from '@/types/database'
 import {
   TEMPLATE_OPTIONS,
@@ -27,15 +26,14 @@ import {
 
 const DICTS: Record<Locale, Record<string, unknown>> = { fr, en, de, it: it_ }
 const LOCALES = Object.keys(DICTS) as Locale[]
-/** The five original templates in their original order, then the Swiss templates built so far. */
-const EXPECTED_ORDER: ResumeTemplate[] = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
-
+/** The ten Swiss templates, in the order they were built and are offered. */
+const EXPECTED_ORDER: ResumeTemplate[] = ['swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
 
 const EXPECTED_NAMES: Record<Locale, string[]> = {
-  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique', 'Informatique & IT', 'Cadre & direction', 'Académique & recherche', 'Premier emploi'],
-  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering', 'IT & software', 'Executive & management', 'Academic & research', 'First job'],
-  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung', 'Technische & handwerkliche Berufe', 'Gesundheit & Soziales', 'Bank, Finanzen & Versicherung', 'Ingenieurwesen & Technik', 'Informatik & IT', 'Kader & Geschäftsleitung', 'Akademisch & Forschung', 'Erste Stelle'],
-  it: ['Moderno', 'Classico', 'Minimale', 'Creativo', 'Professionale', 'Formazione professionale (AFC)', 'Commercio e amministrazione', 'Mestieri tecnici e manuali', 'Sanità e sociale', 'Banca, finanza e assicurazioni', 'Ingegneria e tecnica', 'Informatica e IT', 'Quadri e direzione', 'Accademico e ricerca', 'Primo impiego'],
+  fr: ['Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique', 'Informatique & IT', 'Cadre & direction', 'Académique & recherche', 'Premier emploi'],
+  en: ['Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering', 'IT & software', 'Executive & management', 'Academic & research', 'First job'],
+  de: ['Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung', 'Technische & handwerkliche Berufe', 'Gesundheit & Soziales', 'Bank, Finanzen & Versicherung', 'Ingenieurwesen & Technik', 'Informatik & IT', 'Kader & Geschäftsleitung', 'Akademisch & Forschung', 'Erste Stelle'],
+  it: ['Formazione professionale (AFC)', 'Commercio e amministrazione', 'Mestieri tecnici e manuali', 'Sanità e sociale', 'Banca, finanza e assicurazioni', 'Ingegneria e tecnica', 'Informatica e IT', 'Quadri e direzione', 'Accademico e ricerca', 'Primo impiego'],
 }
 
 interface RenderedRadio {
@@ -94,8 +92,8 @@ function thumbnailTags(html: string): string[] {
  * The editing affordances a template draws only when given a setter or
  * callback: resize handles, sliders, the photo upload, editable areas.
  *
- * Content links are not in this list. Professional, for one, draws its email
- * as a `mailto:` link whatever props it receives; inside the picker they are
+ * Content links are not in this list: a template may draw its email as a
+ * `mailto:` link whatever props it receives; inside the picker they are
  * neutralised by the `inert` window, which the e2e proves in a browser.
  */
 const EDIT_AFFORDANCES = [
@@ -112,7 +110,7 @@ const EDIT_AFFORDANCES = [
 describe('TemplatePicker', () => {
   for (const locale of LOCALES) {
     it(`renders the offered templates in order with their ${locale} names`, () => {
-      const html = renderPicker(locale, 'modern')
+      const html = renderPicker(locale, 'swissCommerce')
       const rendered = radios(html)
 
       expect(rendered.map((radio) => radio.template)).toEqual(EXPECTED_ORDER)
@@ -121,18 +119,18 @@ describe('TemplatePicker', () => {
   }
 
   it('is a radio group labelled by the element the caller names', () => {
-    const html = renderPicker('en', 'modern')
+    const html = renderPicker('en', 'swissCommerce')
 
     expect(html).toMatch(/^<div role="radiogroup" aria-labelledby="picker-label"/)
   })
 
-  it('declares the offered template ids in order, the five original ones first', () => {
+  it('declares the offered template ids in order', () => {
     expect(TEMPLATE_OPTIONS.map((option) => option.id)).toEqual(EXPECTED_ORDER)
   })
 
-  it('offers every template the schema accepts (migration 011): no Swiss template is left unbuilt', () => {
-    expect(new Set(TEMPLATE_OPTIONS.map((option) => option.id)).size).toBe(15)
-    expect(radios(renderPicker('fr', 'modern')).map((radio) => radio.template)).toEqual(EXPECTED_ORDER)
+  it('offers exactly the ten templates the schema accepts (migration 012), in their list order', () => {
+    expect(TEMPLATE_OPTIONS.map((option) => option.id)).toEqual([...RESUME_TEMPLATES])
+    expect(radios(renderPicker('fr', 'swissCommerce')).map((radio) => radio.template)).toEqual(EXPECTED_ORDER)
   })
 
   for (const value of EXPECTED_ORDER) {
@@ -146,7 +144,7 @@ describe('TemplatePicker', () => {
   }
 
   it('takes every option out of the tab order and marks it disabled while disabled', () => {
-    const html = renderPicker('en', 'classic', true)
+    const html = renderPicker('en', 'swissFinance', true)
     const tags = [...html.matchAll(/<div[^>]*\srole="radio"[^>]*>/g)].map(([tag]) => tag)
 
     expect(tags).toHaveLength(EXPECTED_ORDER.length)
@@ -157,7 +155,7 @@ describe('TemplatePicker', () => {
   })
 
   it('wraps every thumbnail in a window hidden from assistive technology and inert', () => {
-    const tags = thumbnailTags(renderPicker('en', 'modern'))
+    const tags = thumbnailTags(renderPicker('en', 'swissCommerce'))
 
     expect(tags.map((tag) => attribute(tag, 'data-template'))).toEqual(EXPECTED_ORDER)
     for (const tag of tags) {
@@ -170,39 +168,34 @@ describe('TemplatePicker', () => {
   it('throws instead of showing another language when a template name is missing', () => {
     const resumes = en.resumes as Record<string, unknown>
     const templates = { ...(resumes.templates as Record<string, string>) }
-    delete templates.professional
+    delete templates.swissTrades
     const dict = { ...en, resumes: { ...resumes, templates } }
 
     expect(() =>
       renderToStaticMarkup(
         createElement(TemplatePicker, {
-          value: 'modern',
+          value: 'swissCommerce',
           onChange: () => {},
           labelledBy: 'picker-label',
           locale: 'en',
           dict,
         })
       )
-    ).toThrow(/professional/)
+    ).toThrow(/swissTrades/)
   })
 })
 
 describe('TemplateThumbnailPage', () => {
-  // Control: the patterns do detect an affordance when a setter is passed, so
-  // their absence below is not a pattern that can never match. Passed to the
-  // template directly: `ResumePreview`, which the thumbnails use, accepts no
-  // setter at all (swiss-cv-templates FR-13).
-  it('would detect the resize handle a setter makes a template draw', () => {
-    const html = renderToStaticMarkup(
-      createElement(ProfessionalTemplate, {
-        resume: { ...TEMPLATE_SAMPLE_RESUME, template: 'professional' },
-        locale: 'en',
-        dict: en,
-        setSidebarWidth: () => {},
-      })
-    )
+  // Control: the patterns do detect an affordance as React renders it, so their
+  // absence below is not a pattern that can never match. No template draws one:
+  // `ResumePreview`, which the thumbnails use, accepts no setter at all
+  // (swiss-cv-templates FR-13).
+  it('would detect a slider or a resize handle in the rendered markup', () => {
+    const slider = renderToStaticMarkup(createElement('input', { type: 'range' }))
+    const handle = renderToStaticMarkup(createElement('div', { className: 'cursor-ew-resize' }))
 
-    expect(EDIT_AFFORDANCES.some((pattern) => pattern.test(html))).toBe(true)
+    expect(EDIT_AFFORDANCES.some((pattern) => pattern.test(slider))).toBe(true)
+    expect(EDIT_AFFORDANCES.some((pattern) => pattern.test(handle))).toBe(true)
   })
 
   for (const locale of LOCALES) {
@@ -213,8 +206,7 @@ describe('TemplateThumbnailPage', () => {
         )
 
         expect(html).toContain('data-testid="resume-document"')
-        // The sample's first employer: drawn by every template, unlike the
-        // contact name, which classic, minimal and creative do not draw.
+        // The sample's first employer: drawn by every template.
         expect(html).toContain('Northwind Systems')
         for (const pattern of EDIT_AFFORDANCES) {
           expect(html).not.toMatch(pattern)
@@ -231,9 +223,7 @@ describe('TemplateThumbnailPage', () => {
 
 describe('templateIdForKey', () => {
   it('moves forward with ArrowRight and ArrowDown, wrapping from the last option', () => {
-    expect(templateIdForKey('modern', 'ArrowRight')).toBe('classic')
-    expect(templateIdForKey('creative', 'ArrowDown')).toBe('professional')
-    expect(templateIdForKey('professional', 'ArrowRight')).toBe('swissVocational')
+    expect(templateIdForKey('swissVocational', 'ArrowDown')).toBe('swissCommerce')
     expect(templateIdForKey('swissVocational', 'ArrowRight')).toBe('swissCommerce')
     expect(templateIdForKey('swissCommerce', 'ArrowRight')).toBe('swissTrades')
     expect(templateIdForKey('swissTrades', 'ArrowRight')).toBe('swissHealth')
@@ -243,12 +233,11 @@ describe('templateIdForKey', () => {
     expect(templateIdForKey('swissIt', 'ArrowRight')).toBe('swissExecutive')
     expect(templateIdForKey('swissExecutive', 'ArrowRight')).toBe('swissAcademic')
     expect(templateIdForKey('swissAcademic', 'ArrowRight')).toBe('swissFirstJob')
-    expect(templateIdForKey('swissFirstJob', 'ArrowRight')).toBe('modern')
+    expect(templateIdForKey('swissFirstJob', 'ArrowRight')).toBe('swissVocational')
   })
 
   it('moves back with ArrowLeft and ArrowUp, wrapping from the first option', () => {
-    expect(templateIdForKey('classic', 'ArrowLeft')).toBe('modern')
-    expect(templateIdForKey('modern', 'ArrowUp')).toBe('swissFirstJob')
+    expect(templateIdForKey('swissVocational', 'ArrowUp')).toBe('swissFirstJob')
     expect(templateIdForKey('swissFirstJob', 'ArrowLeft')).toBe('swissAcademic')
     expect(templateIdForKey('swissAcademic', 'ArrowLeft')).toBe('swissExecutive')
     expect(templateIdForKey('swissExecutive', 'ArrowLeft')).toBe('swissIt')
@@ -258,16 +247,16 @@ describe('templateIdForKey', () => {
     expect(templateIdForKey('swissHealth', 'ArrowLeft')).toBe('swissTrades')
     expect(templateIdForKey('swissTrades', 'ArrowLeft')).toBe('swissCommerce')
     expect(templateIdForKey('swissCommerce', 'ArrowLeft')).toBe('swissVocational')
-    expect(templateIdForKey('swissVocational', 'ArrowLeft')).toBe('professional')
+    expect(templateIdForKey('swissVocational', 'ArrowLeft')).toBe('swissFirstJob')
   })
 
   it('jumps to the ends with Home and End', () => {
-    expect(templateIdForKey('minimal', 'Home')).toBe('modern')
-    expect(templateIdForKey('minimal', 'End')).toBe('swissFirstJob')
+    expect(templateIdForKey('swissHealth', 'Home')).toBe('swissVocational')
+    expect(templateIdForKey('swissHealth', 'End')).toBe('swissFirstJob')
   })
 
   it('ignores keys that do not move the selection', () => {
-    expect(templateIdForKey('minimal', 'Tab')).toBeNull()
-    expect(templateIdForKey('minimal', 'a')).toBeNull()
+    expect(templateIdForKey('swissHealth', 'Tab')).toBeNull()
+    expect(templateIdForKey('swissHealth', 'a')).toBeNull()
   })
 })

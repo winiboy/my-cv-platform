@@ -1,66 +1,18 @@
 /**
- * Part 2 US-008: colour conversion done without the browser, to check the browser.
+ * An independent CSS colour converter, for tests only.
  *
- * The Preview's colours are read with `getComputedStyle` and converted to
- * 8-bit sRGB by drawing them on a canvas. A canvas that silently failed to
- * parse a colour, or read back in greyscale, would turn every comparison into
- * a comparison of the wrong numbers. So every CSS colour the check compares is
- * converted a second time here, from the same computed string, with the
- * published OKLab matrices, and the collect test fails if the two disagree.
+ * `docx-palette.ts` converts the Preview's CSS colours to the hex Word is given.
+ * This is a separate implementation, written from the published OKLab matrices
+ * and the CSS Color 4 formulas, so a palette test that agrees with it is
+ * evidence, not a tautology. The generators never import it.
+ *
+ * Kept from the parity suite's converter (`e2e/parity/colour.ts`), which
+ * swiss-templates-only-page-fidelity US-001 removed with the legacy templates.
  */
 
 export interface ConvertedColour {
   hex: string
   alpha: number
-}
-
-/**
- * Two colours match when no 8-bit channel differs by more than one level.
- *
- * Fixed before the first run, not fitted to it. Each side is converted to
- * 8-bit sRGB independently and each conversion rounds once, so one level is
- * quantisation; two or more is a different colour.
- */
-export const COLOUR_CHANNEL_TOLERANCE = 1
-
-const channels = (hex: string) => [1, 3, 5].map((at) => parseInt(hex.slice(at, at + 2), 16))
-
-export function coloursAgree(a: ConvertedColour, b: ConvertedColour): boolean {
-  if (a.alpha !== b.alpha) return false
-  const [x, y] = [channels(a.hex), channels(b.hex)]
-  return x.every((channel, i) => Math.abs(channel - y[i]) <= COLOUR_CHANNEL_TOLERANCE)
-}
-
-/**
- * Whether `colour` is `a` and `b` mixed at a single coverage strictly between
- * them — the anti-aliased pixel a rasteriser draws where an edge between the
- * two crosses it — with every channel within the tolerance, and distinct from
- * both ends.
- */
-export function isBlendOf(colour: ConvertedColour, a: ConvertedColour, b: ConvertedColour): boolean {
-  if (coloursAgree(colour, a) || coloursAgree(colour, b)) return false
-  const [c, x, y] = [channels(colour.hex), channels(a.hex), channels(b.hex)]
-  const span = x.map((value, i) => y[i] - value)
-  const length = span.reduce((sum, d) => sum + d * d, 0)
-  if (length === 0) return false
-  const coverage = c.reduce((sum, value, i) => sum + (value - x[i]) * span[i], 0) / length
-  if (coverage <= 0 || coverage >= 1) return false
-  return c.every((value, i) => Math.abs(value - (x[i] + coverage * span[i])) <= COLOUR_CHANNEL_TOLERANCE)
-}
-
-/**
- * A translucent colour as it is actually seen: composited over the opaque
- * backdrop it is drawn on (source-over, 8-bit). DOCX runs carry no alpha, so
- * this is the colour a DOCX run would have to use to look the same.
- */
-export function compositeOver(foreground: ConvertedColour, backdrop: ConvertedColour): ConvertedColour {
-  if (backdrop.alpha !== 255) throw new Error(`Cannot composite over a translucent backdrop ${backdrop.hex}`)
-  if (foreground.alpha === 255) return { hex: foreground.hex, alpha: 255 }
-  const a = foreground.alpha / 255
-  const [fr, fg, fb] = channels(foreground.hex)
-  const [br, bg, bb] = channels(backdrop.hex)
-  const mix = (f: number, b: number) => Math.round(f * a + b * (1 - a))
-  return { hex: hexOf(mix(fr, br), mix(fg, bg), mix(fb, bb)), alpha: 255 }
 }
 
 const toByte = (unit: number) => Math.round(Math.min(1, Math.max(0, unit)) * 255)

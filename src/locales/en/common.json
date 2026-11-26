@@ -188,16 +188,6 @@
       "description": "Create your first professional resume to start applying for jobs."
     },
     "templates": {
-      "modern": "Modern",
-      "modernDesc": "Clean and professional with a contemporary design",
-      "classic": "Classic",
-      "classicDesc": "Traditional format preferred by conservative industries",
-      "minimal": "Minimal",
-      "minimalDesc": "Simple and elegant with focus on content",
-      "professional": "Professional",
-      "professionalDesc": "Executive template with sidebar and key achievements section",
-      "creative": "Creative",
-      "creativeDesc": "Bold design for creative professionals",
       "swissVocational": "Vocational training (VET)",
       "swissVocationalDesc": "Sober Swiss format, ideal after an apprenticeship",
       "swissCommerce": "Business & administration",
@@ -400,29 +390,6 @@
       "present": "Present",
       "gpa": "GPA",
       "in": "in"
-    },
-    "sliders": {
-      "title": "Title",
-      "contactDetails": "Contact details",
-      "sectionTitle": "Section title",
-      "description": "Description",
-      "gap": "Gap"
-    },
-    "colorWheel": {
-      "sidebarColor": "Sidebar Color",
-      "presetColors": "Preset Colors",
-      "presets": {
-        "petrolBlue": "Petrol Blue",
-        "charcoal": "Charcoal",
-        "forestGreen": "Forest Green",
-        "burgundy": "Burgundy",
-        "teal": "Teal",
-        "slate": "Slate",
-        "deepPurple": "Deep Purple",
-        "darkBrown": "Dark Brown",
-        "wineRed": "Wine Red",
-        "olive": "Olive"
-      }
     },
     "association": {
       "linkedCoverLetters": "Linked Cover Letters",

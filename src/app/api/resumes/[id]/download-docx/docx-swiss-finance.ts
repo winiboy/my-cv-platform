@@ -77,7 +77,7 @@ import {
   extractBase64Data,
   parseImageDimensions,
   readJpegOrientation,
-} from './docx-modern'
+} from './docx-photo'
 
 /** The stored columns this generator reads, typed as the application writes them. */
 interface StoredResume {
@@ -98,8 +98,7 @@ interface StoredResume {
  * stack is `ui-serif, Georgia, Cambria, "Times New Roman", Times, serif`.
  * `ui-serif` is a generic the platform resolves, and Georgia is the first
  * family a reader can actually be given — the face Chromium draws the Preview
- * and the PDF in, and one Word has on Windows and macOS. It is the face
- * `docx-classic.ts` writes for the same stack.
+ * and the PDF in, and one Word has on Windows and macOS.
  */
 export const SWISS_FINANCE_WORD_FONT = 'Georgia'
 
@@ -700,7 +699,7 @@ function photoRun(photoBase64: string): { image: ImageRun; crop: { l: number; t:
     const displayed = swapsAxes ? { width: dimensions.height, height: dimensions.width } : dimensions
     const displayedCrop = calculateCoverCropPercents(displayed.width, displayed.height, boxWidth, boxHeight)
     // srcRect is in the stored image's axes, which a 90° turn swaps; the cover
-    // crop is centred, so the mapping is the one `docx-modern.ts` documents.
+    // crop is centred, so the mapping is the one `EXIF_PHOTO_TRANSFORMS` (`docx-photo.ts`) documents.
     const stored = swapsAxes
       ? { l: displayedCrop.t, r: displayedCrop.b, t: displayedCrop.l, b: displayedCrop.r }
       : displayedCrop

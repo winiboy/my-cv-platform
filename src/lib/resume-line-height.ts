@@ -10,8 +10,8 @@
  * font's own single-line height rather than its size.
  *
  * Where each value lives, and why it is here:
- * - Professional's and modern's line heights are inline styles their templates
- *   own. The templates import them from here, so there is one copy.
+ * - A line height a template writes as an inline style is imported by the
+ *   template from here, so there is one copy.
  * - Everything else comes from CSS a TypeScript module cannot import: Tailwind's
  *   preflight (`html { line-height: 1.5 }`, inherited by every element that
  *   sets nothing), its `text-*` and `leading-*` utilities, and `globals.css`'s
@@ -54,40 +54,6 @@ export type TailwindLeadingUtility = keyof typeof TAILWIND_LEADING
  * element around it declares.
  */
 export const FORMATTED_CONTENT_LINE_HEIGHT = 1.4
-
-/**
- * Tailwind v4's spacing unit, `--spacing: 0.25rem` in `tailwindcss/theme.css`,
- * in CSS px at the 16px root. A spacing utility `h-N` is N of these.
- */
-export const TAILWIND_SPACING_PX = 0.25 * 16
-
-/** The height of a Tailwind `h-N` utility, in CSS px. */
-export function tailwindHeightPx(step: number): number {
-  return step * TAILWIND_SPACING_PX
-}
-
-/**
- * `creative-template.tsx`: each section heading is a flex row of a gradient bar
- * and the title, so the row is as tall as the taller of the two. The bar is
- * `h-6` in the left column and `h-8` in the right.
- */
-export const CREATIVE_HEADING_BAR_STEP = {
-  sidebar: 6,
-  main: 8,
-} as const
-
-/** `professional-template.tsx`: headings, the name and entry titles; everything else. */
-export const PROFESSIONAL_LINE_HEIGHT = {
-  heading: 1.2,
-  body: 1.35,
-} as const
-
-/** `modern-template.tsx`: the name; headings, labels and entry lines; running text and secondary lines. */
-export const MODERN_LINE_HEIGHT = {
-  title: 1.2,
-  compact: 1.4,
-  text: 1.5,
-} as const
 
 /**
  * `swiss-vocational-template.tsx`: the name; the CV title, contact grid and
@@ -195,13 +161,6 @@ export const SWISS_FIRST_JOB_LINE_HEIGHT = {
   compact: 1.4,
   text: 1.5,
 } as const
-
-/**
- * `modern-template.tsx`: the vertical padding, in CSS px, of the accent bar the
- * job title is drawn on (`padding: 4px 12px`). The bar's box is its text line
- * plus this padding above and below.
- */
-export const MODERN_TITLE_BAR_PADDING_Y_PX = 4
 
 /**
  * Whether `renderFormattedText` renders `text` as formatted HTML inside

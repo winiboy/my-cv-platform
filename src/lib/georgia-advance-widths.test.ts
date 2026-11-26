@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { PREVIEW_FONT_METRICS } from '@/app/api/resumes/[id]/download-docx/docx-preview-metrics'
 import { georgiaTextWidthPx } from './georgia-advance-widths'
 
 /**
@@ -10,8 +9,8 @@ import { georgiaTextWidthPx } from './georgia-advance-widths'
 const units = (text: string, face: 'regular' | 'bold' | 'italic') => georgiaTextWidthPx(text, face, 2048)
 
 describe('georgiaTextWidthPx', () => {
-  it('reads the regular face, its space as PREVIEW_FONT_METRICS has it', () => {
-    expect(units(' ', 'regular')).toBe(PREVIEW_FONT_METRICS.georgia.space * 2048)
+  it('reads the regular face', () => {
+    expect(units(' ', 'regular')).toBe(494)
     expect(units('A', 'regular')).toBe(1374)
     expect(units('M', 'regular')).toBe(1899)
     expect(units('a', 'regular')).toBe(1032)

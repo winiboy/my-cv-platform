@@ -1,19 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { convertCssColour } from '../../../../../../e2e/parity/colour'
+import { convertCssColour } from '@/test/css-colour'
 import { PREVIEW_PALETTE } from '@/lib/resume-palette'
 import { cssColourToDocxHex, DOCX_PALETTE } from './docx-palette'
 
 /**
- * Part 3 US-003: the generators' converter checked against the parity check's.
+ * Part 3 US-003: the generators' converter checked against an independent one.
  *
- * `e2e/parity/colour.ts` is the converter `pnpm test:parity` uses to check the
- * browser's own conversion. It is a separate implementation, so agreeing with
- * it is evidence, not a tautology; the generators never import it.
+ * `src/test/css-colour.ts` is a separate implementation, so agreeing with it is
+ * evidence, not a tautology; the generators never import it.
  */
 
 /**
- * The parity check's converter reads functional forms only, so a hex palette
- * entry is handed to it as the same colour in `rgb()`, as `verdicts.ts` does.
+ * The independent converter reads functional forms only, so a hex palette
+ * entry is handed to it as the same colour in `rgb()`.
  */
 function independent(css: string): string {
   const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(css)

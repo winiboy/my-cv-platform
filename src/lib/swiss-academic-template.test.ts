@@ -42,9 +42,7 @@ const DICTS = { fr, en, de, it: it_ } as const
 describe('swissAcademic in the template x control registries (FR-3)', () => {
   it('offers only the sections panel: no user colour, no size input, no stored font (FR-4, FR-12)', () => {
     expect(TEMPLATE_LAYOUT_CONTROLS.swissAcademic).toEqual(['sidebarSections'])
-    expect(templateOffersLayoutControl('swissAcademic', 'font')).toBe(false)
-    expect(templateOffersLayoutControl('swissAcademic', 'sidebarColour')).toBe(false)
-    expect(templateOffersLayoutControl('swissAcademic', 'perPropertySize')).toBe(false)
+    expect(templateOffersLayoutControl('swissAcademic', 'sidebarSections')).toBe(true)
     expect(TEMPLATE_APPLIED_SIZE_KEYS.swissAcademic).toEqual([])
   })
 

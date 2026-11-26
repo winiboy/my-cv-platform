@@ -100,7 +100,7 @@ export const TEMPLATE_SAMPLE_RESUME: Readonly<Resume> = {
   id: 'template-sample-resume',
   user_id: 'template-sample-user',
   title: 'Product Manager',
-  template: 'modern',
+  template: 'swissCommerce',
   contact,
   summary:
     'Product manager with eight years in B2B software. Turns customer research into clear roadmaps and ships with cross-functional teams.',

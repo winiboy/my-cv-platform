@@ -8,7 +8,6 @@ import {
   applyLayoutChange,
   layoutCacheKey,
   readLayoutCache,
-  sidebarColorFrom,
   writeLayoutCache,
   type LayoutCacheStorage,
 } from './resume-layout-store'
@@ -223,24 +222,5 @@ describe('applyLayoutChange', () => {
       )
       expect(next[key], `${key} was not changed`).toEqual(value)
     }
-  })
-})
-
-describe('sidebarColorFrom', () => {
-  it('composes the three HSL components the model stores', () => {
-    // The editor and the preview wrapper each held their own copy of this
-    // expression. One expression means a change to how colour is composed
-    // cannot reach one surface and not the other.
-    expect(sidebarColorFrom(DEFAULT_RESUME_LAYOUT)).toBe('hsl(240, 85%, 35%)')
-  })
-
-  it('follows the model rather than a cached string', () => {
-    const model = applyLayoutChange(
-      applyLayoutChange(DEFAULT_RESUME_LAYOUT, 'sidebarHue', 12),
-      'sidebarBrightness',
-      22,
-    )
-
-    expect(sidebarColorFrom(model)).toBe('hsl(12, 85%, 22%)')
   })
 })

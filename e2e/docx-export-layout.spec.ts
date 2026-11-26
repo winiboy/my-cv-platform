@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures/auth'
 import {
+  FIXTURE_CONTACT,
   FIXTURE_EDUCATION,
   FIXTURE_EXPERIENCE,
   seedFixtureResume,
@@ -12,7 +13,6 @@ import {
   LOCAL_SERVICE_KEY,
   assertLocalSupabase,
 } from '../src/test/local-stack'
-import { solidColourPng } from '../src/app/api/resumes/[id]/download-docx/docx-disc'
 
 /**
  * The DOCX is generated from the ACCOUNT'S layout, not from the browser's.
@@ -39,9 +39,12 @@ import { solidColourPng } from '../src/app/api/resumes/[id]/download-docx/docx-d
  * asserted properties. Before US-001 the route read layout from query
  * parameters, and a request that carried none — which is exactly the request
  * the button now makes — resolved everything from those defaults. So on the
- * previous implementation the font is Arial and the education section is
- * present, and both assertions fail. Verified by reverting the route and
- * running this file.
+ * previous implementation the email and the education section are present,
+ * and both assertions fail.
+ *
+ * The template is swissCommerce, the default. A Swiss template draws its own
+ * typeface, so the two properties asserted are ones every Swiss template
+ * honours: a hidden section and a hidden contact detail.
  *
  * That verification does not cover every test here, and the two kinds are
  * worth telling apart. `an unsupported image type is dropped` and `a photo
@@ -65,23 +68,16 @@ function admin(): SupabaseClient {
 
 /**
  * A layout that no default would produce, in two independently observable
- * properties: one typographic, one structural.
+ * properties: one contact detail, one whole section.
  *
- * `fontFamily` lands in the XML as a run property, and `hiddenMainSections`
- * decides whether a whole section is built at all. Asserting both means a route
- * that honoured only the cheap half — reading the model but ignoring visibility,
- * say — cannot pass.
+ * `hiddenContactFields` decides whether a single contact line is written, and
+ * `hiddenMainSections` whether a whole section is built at all. Asserting both
+ * means a route that honoured only one of the two lists cannot pass.
  */
 const ACCOUNT_LAYOUT = {
-  fontFamily: 'Georgia, serif',
+  hiddenContactFields: ['email'],
   hiddenMainSections: ['education'],
 }
-
-/** What `extractPrimaryFont` reduces the stack above to. */
-const ACCOUNT_PRIMARY_FONT = 'Georgia'
-
-/** The default the previous implementation would have used instead. */
-const DEFAULT_PRIMARY_FONT = 'Arial'
 
 /**
  * A conflicting cache, in the shape the browser really stores.
@@ -91,12 +87,9 @@ const DEFAULT_PRIMARY_FONT = 'Arial'
  * would not evidence that the browser's copy no longer reaches the export.
  */
 const STALE_BROWSER_CACHE = {
-  fontFamily: 'Courier New, monospace',
+  hiddenContactFields: [] as string[],
   hiddenMainSections: [] as string[],
 }
-
-/** What the cache above would put in the document if it still reached the export. */
-const STALE_PRIMARY_FONT = 'Courier New'
 
 function layoutCacheKey(resumeId: string): string {
   return `resume_slider_settings_${resumeId}`
@@ -113,9 +106,8 @@ async function seedPersistedLayout(resumeId: string, value: unknown): Promise<vo
 /**
  * The generated document, opened.
  *
- * Returns both the raw part and its text, because the two assertions need
- * different things: a font is an attribute on a run property, while a section's
- * presence is a matter of what words are in the document. Text is joined with
+ * Returns both the raw part and its text: the text is what a section's or a
+ * contact line's presence is read from. Text is joined with
  * newlines rather than concatenated so that two adjacent runs cannot
  * accidentally spell a word neither of them contains.
  */
@@ -228,7 +220,13 @@ test('a DOCX is generated from layout settings saved on another device', async (
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'professional')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
+
+  // Control: before the account holds a layout, the email and education are
+  // drawn, so their absence below is read from a document that could hold them.
+  const before = await openDocx(await fetchDocx(page.request, resume.id))
+  expect(before.text).toContain(FIXTURE_CONTACT.email)
+  expect(before.text).toContain(FIXTURE_EDUCATION[0].school)
 
   // Another device saved these. This browser has never seen them: the context
   // is fresh, it has never opened this resume, and nothing has written
@@ -238,20 +236,15 @@ test('a DOCX is generated from layout settings saved on another device', async (
   // The request the button now makes, from that context's session. It carries
   // no layout, so there is nothing for a browser-held copy to travel in even
   // if one existed — which is the property under test.
-  const { xml, text } = await openDocx(await fetchDocx(page.request, resume.id))
+  const { text } = await openDocx(await fetchDocx(page.request, resume.id))
 
   // The document really rendered: an experience the fixture defines is in it.
   // Asserted first, so the absence below is read from a document that has
   // content rather than from one that failed to build.
   expect(text).toContain(FIXTURE_EXPERIENCE[0].company)
 
-  // The account's font, not the default. Nothing is asserted here about the
-  // browser's copy: this context holds none, so a negative on it would be
-  // vacuous. The test below, which does seed one, is where that belongs.
-  expect(xml).toContain(`w:ascii="${ACCOUNT_PRIMARY_FONT}"`)
-  expect(xml).not.toContain(`w:ascii="${DEFAULT_PRIMARY_FONT}"`)
-
-  // The account hid education, so no education reaches the document.
+  // The account hid the email and education, so neither reaches the document.
+  expect(text).not.toContain(FIXTURE_CONTACT.email)
   for (const entry of FIXTURE_EDUCATION) {
     expect(text).not.toContain(entry.school)
   }
@@ -286,7 +279,7 @@ test('the download button sends no layout in the URL, and its document matches t
    * therefore cannot change — but the document below is this request's, not
    * a copy of the click's.
    */
-  const resume = await seedFixtureResume(authedUser.id, 'professional')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
   await seedPersistedLayout(resume.id, ACCOUNT_LAYOUT)
 
   // This browser holds a DIFFERENT answer for both asserted properties, seeded
@@ -319,14 +312,12 @@ test('the download button sends no layout in the URL, and its document matches t
   const response = await page.request.get(requested.pathname + requested.search)
   expect(response.ok()).toBe(true)
 
-  const { xml, text } = await openDocx(await response.body())
+  const { text } = await openDocx(await response.body())
   expect(text).toContain(FIXTURE_EXPERIENCE[0].company)
-  expect(xml).toContain(`w:ascii="${ACCOUNT_PRIMARY_FONT}"`)
 
   // The browser's conflicting copy, seeded above and still in this context's
-  // localStorage, reached nothing. Asserted here rather than in the test
-  // above because here there is a cache to lose.
-  expect(xml).not.toContain(`w:ascii="${STALE_PRIMARY_FONT}"`)
+  // localStorage, shows both; it reached nothing.
+  expect(text).not.toContain(FIXTURE_CONTACT.email)
 
   for (const entry of FIXTURE_EDUCATION) {
     expect(text).not.toContain(entry.school)
@@ -365,7 +356,8 @@ test('an unauthenticated export is refused before anything it sent is examined',
  * The photo — the one thing still travelling in the request body, and therefore
  * the one piece of client input that still reaches document generation.
  *
- * `modern` because it is the only template that embeds a photo.
+ * `swissCommerce`, the default, draws the photo in its header band and stores
+ * no other image, so every image in the document is the photo.
  *
  * The accepted case is here as well as the rejected ones on purpose: a bound
  * that rejects everything would pass the two negative tests on its own, and
@@ -374,37 +366,6 @@ test('an unauthenticated export is refused before anything it sent is examined',
  */
 const ONE_PIXEL_PNG =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
-
-/**
- * The modern sidebar and accent, as the account's layout resolves them.
- *
- * The fixture resume carries no `layout_settings` and an empty
- * `custom_sections`, so `resolveResumeLayout` hands the route
- * `DEFAULT_RESUME_LAYOUT`'s colour triple — hue 240, saturation 85%,
- * brightness 35%. The generator converts the sidebar with `hslToHex` on those
- * three, and the accent with `deriveAccentColorHex`, which shifts saturation
- * by +20 (capped at 100) and lightness by +25 (capped at 65) before the same
- * conversion. Hence 240/85/35 and 240/100/60.
- *
- * Written as literals rather than imported: `deriveAccentColorHex` is
- * module-private to `docx-modern.ts`, and although `hslToHex` is exported from
- * `docx-helpers.ts`, a literal cannot agree with a broken conversion the way a
- * shared import would.
- */
-const MODERN_SIDEBAR_FILL = '0D0DA5'
-const MODERN_ACCENT_FILL = '3333FF'
-
-/**
- * The flat sidebar and gold accent the Modern DOCX used to emit when a request
- * carried no colour parameters.
- *
- * US-001 made colour always come from the resolved model, and US-007 deleted
- * the generator branch and the `hasCustomColors` flag that could still select
- * this pair. Their ABSENCE is the assertion that fails if a colour-less path
- * is ever reintroduced.
- */
-const MODERN_UNCUSTOMIZED_SIDEBAR_FILL = '333333'
-const MODERN_UNCUSTOMIZED_ACCENT = 'D4A843'
 
 const PHOTO_CASES: Array<{ name: string; photoBase64: unknown; embedded: boolean }> = [
   {
@@ -432,7 +393,7 @@ const PHOTO_CASES: Array<{ name: string; photoBase64: unknown; embedded: boolean
 
 for (const photoCase of PHOTO_CASES) {
   test(`photo bounds: ${photoCase.name}`, async ({ page, authedUser }) => {
-    const resume = await seedFixtureResume(authedUser.id, 'modern')
+    const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
 
     const response = await page.request.post(exportUrl(resume.id), {
       data: { photoBase64: photoCase.photoBase64 },
@@ -443,86 +404,24 @@ for (const photoCase of PHOTO_CASES) {
     // into a failed export would be a regression in its own right.
     expect(response.ok()).toBe(true)
 
-    const { xml, text, media, bodyImages, bodyDrawings, headerImages } = await openDocx(await response.body())
+    const { text, media, bodyImages, bodyDrawings, headerImages } = await openDocx(await response.body())
     expect(text).toContain(FIXTURE_EXPERIENCE[0].company)
 
-    /**
-     * Which image is the photo, decided by how it is drawn rather than by
-     * whether `word/media/` is empty.
-     *
-     * Modern also stores one image that is not a photo: its sidebar fill,
-     * drawn by the body in the table's first row, a 1-twip header row Word
-     * repeats on every page, so it reaches the foot of every page. (It was a
-     * page-header drawing until Word was seen to dim it on screen.) So "no
-     * photo" cannot mean "no media" for this template — but it must not be
-     * loosened to "any media is fine" either. Every stored image has to be
-     * accounted for by the drawing that draws it:
-     * - the photo: laid out in its cell (`layoutInCell="1"`);
-     * - the sidebar fill: in the repeated first row, placed on the page
-     *   (`layoutInCell="0"`) behind the text, AND byte-for-byte the solid
-     *   sidebar-colour PNG. Exactly one, with or without a photo.
-     * Any other drawing, any stored image no drawing accounts for, and any
-     * header image fail. So a dropped photo leaves exactly one stored image,
-     * the fill, never an empty `word/media/`.
-     */
-    expect([...media].sort()).toEqual(
-      [...new Set([...bodyImages, ...headerImages.map((image) => image.part)])].sort(),
-    )
+    // Every stored image is the body's, and every body image is drawn.
+    expect([...media].sort()).toEqual([...bodyImages].sort())
     expect(headerImages, 'no page header draws an image').toEqual([])
-
-    const firstRow = /<w:tr>[\s\S]*?<\/w:tr>/.exec(xml)
-    expect(firstRow?.[0], 'the first table row repeats on every page').toContain('<w:tblHeader/>')
-    const firstRowEnd = (firstRow?.index ?? 0) + (firstRow?.[0].length ?? 0)
-    const sidebarFillPng = solidColourPng(MODERN_SIDEBAR_FILL)
-    const isSidebarFill = ({ at, drawing, bytes }: (typeof bodyDrawings)[number]) =>
-      at > (firstRow?.index ?? -1) &&
-      at < firstRowEnd &&
-      drawing.includes('layoutInCell="0"') &&
-      drawing.includes('behindDoc="1"') &&
-      drawing.includes('<wp:positionH relativeFrom="page">') &&
-      drawing.includes('<wp:positionV relativeFrom="page">') &&
-      bytes.equals(sidebarFillPng)
-    const isPhoto = ({ drawing }: (typeof bodyDrawings)[number]) => drawing.includes('layoutInCell="1"')
-
-    const fills = bodyDrawings.filter(isSidebarFill)
-    const photos = bodyDrawings.filter(isPhoto)
-    expect(fills, 'exactly one sidebar fill drawing').toHaveLength(1)
-    expect(
-      bodyDrawings.filter((drawing) => !isSidebarFill(drawing) && !isPhoto(drawing)).map((d) => d.drawing.slice(0, 200)),
-      'every body drawing is the sidebar fill or the photo',
-    ).toEqual([])
     expect([...new Set(bodyDrawings.map((drawing) => drawing.part))].sort(), 'every body image is drawn').toEqual(
       [...bodyImages].sort(),
     )
 
     if (photoCase.embedded) {
-      expect(photos).toHaveLength(1)
-      expect(photos[0]?.part).not.toBe(fills[0]?.part)
-      expect(bodyImages).toHaveLength(2)
-
-      /**
-       * The one OUTPUT this story changed, read off the artifact.
-       *
-       * `docx-modern.ts` writes the colour pair derived from the resolved
-       * model into `w:shd`. That is a claim about the document, so it is
-       * asserted on the document — once, here, rather than repeated in all
-       * four photo cases, because colour resolution has nothing to do with the
-       * photo.
-       *
-       * Both directions are needed. The presence assertions say the derived
-       * pair was used; the absence assertions say the template's flat pair was
-       * not, and those are what turn red the moment anything makes colour
-       * conditional on the request again.
-       */
-      expect(xml).toContain(`w:fill="${MODERN_SIDEBAR_FILL}"`)
-      expect(xml).toContain(`w:fill="${MODERN_ACCENT_FILL}"`)
-      expect(xml).not.toContain(`w:fill="${MODERN_UNCUSTOMIZED_SIDEBAR_FILL}"`)
-      expect(xml).not.toContain(MODERN_UNCUSTOMIZED_ACCENT)
-    } else {
-      // No photo: the body draws only the sidebar fill, and stores only its image.
-      expect(photos).toEqual([])
+      // The photo, and nothing else.
       expect(bodyDrawings).toHaveLength(1)
-      expect(bodyImages).toEqual([fills[0]?.part])
+      expect(bodyImages).toHaveLength(1)
+    } else {
+      // Dropped: no drawing and no stored image at all.
+      expect(bodyDrawings).toEqual([])
+      expect(media).toEqual([])
     }
   })
 }

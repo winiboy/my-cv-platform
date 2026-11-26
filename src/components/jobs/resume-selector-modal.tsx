@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Resume } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
 import { fillTemplate, formatResumeUpdatedDate } from '@/lib/job-search-format'
+import { resolveResumeTemplate } from '@/lib/resume-templates'
 
 interface ResumeSelectorModalProps {
   isOpen: boolean
@@ -14,7 +15,11 @@ interface ResumeSelectorModalProps {
   onCreateNewCV?: () => void
   userId: string
   locale: Locale
-  /** Localized template names keyed by template id; an id without one is shown as stored. */
+  /**
+   * Localized template names keyed by template id. A stored id outside the ten
+   * is named as the template it renders as (`resolveResumeTemplate`), as the
+   * resume card does; an id without a name is shown as that resolved id.
+   */
   templateNames: Readonly<Record<string, string>>
   showCreateNewOption?: boolean
   dict?: {
@@ -203,7 +208,9 @@ export function ResumeSelectorModal({
                       <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
                         <span className="capitalize">
                           {fillTemplate(dict.templateLabel || '{template} template', {
-                            template: templateNames[resume.template] ?? resume.template,
+                            template:
+                              templateNames[resolveResumeTemplate(resume.template)] ??
+                              resolveResumeTemplate(resume.template),
                           })}
                         </span>
                         <span>•</span>

@@ -5,6 +5,7 @@ import type { Resume } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
 import { useResumeLayout } from '@/lib/hooks/use-resume-layout'
 import { PAGE_WIDTH_PX } from '@/lib/resume-page-size'
+import { resumeWithDraft } from '@/lib/resume-draft'
 import { ResumePageBreakIndicators } from './resume-page-break-indicators'
 import { ResumePreview } from './resume-preview'
 
@@ -38,7 +39,7 @@ export function ResumePreviewWrapper({
   const documentFrameRef = useRef<HTMLDivElement>(null)
   const [documentHeight, setDocumentHeight] = useState<number | null>(null)
 
-  const { layout, sidebarColor, modern } = useResumeLayout(
+  const { layout } = useResumeLayout(
     initialResume.id,
     initialResume,
   )
@@ -58,8 +59,9 @@ export function ResumePreviewWrapper({
     const draft = localStorage.getItem(`resume_draft_${initialResume.id}`)
     if (draft) {
       try {
-        const draftResume = JSON.parse(draft)
-        setResume(draftResume)
+        // The stored row keeps its template, so this page — and the PDF, which
+        // prints it with the draft seeded — draws what Word draws.
+        setResume(resumeWithDraft(initialResume, JSON.parse(draft)))
         setHasUnsavedChanges(true)
       } catch (error) {
         console.error('Failed to load draft for preview:', error)
@@ -118,27 +120,8 @@ export function ResumePreviewWrapper({
             resume={resume}
             locale={locale}
             dict={dict}
-            titleFontSize={layout.titleFontSize}
-            titleGap={layout.titleGap}
-            contactFontSize={layout.contactFontSize}
-            sectionTitleFontSize={layout.sectionTitleFontSize}
-            sectionDescFontSize={layout.sectionDescFontSize}
-            sectionGap={layout.sectionGap}
-            headerGap={layout.headerGap}
-            sidebarColor={sidebarColor}
-            fontScale={layout.fontScale}
-            fontFamily={layout.fontFamily}
-            sidebarOrder={layout.sidebarOrder}
-            mainContentOrder={layout.mainContentOrder}
-            sidebarTopMargin={layout.sidebarTopMargin}
-            mainContentTopMargin={layout.mainContentTopMargin}
-            sidebarWidth={layout.sidebarWidth}
             hiddenSidebarSections={layout.hiddenSidebarSections}
             hiddenMainSections={layout.hiddenMainSections}
-            modernSidebarOrder={modern.modernSidebarOrder}
-            modernMainContentOrder={modern.modernMainOrder}
-            hiddenModernSidebarSections={modern.hiddenModernSidebar}
-            hiddenModernMainSections={modern.hiddenModernMain}
             hiddenContactFields={layout.hiddenContactFields}
             photoUrl={photoUrl}
           />

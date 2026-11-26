@@ -188,16 +188,6 @@
       "description": "Erstellen Sie Ihren ersten professionellen Lebenslauf, um sich zu bewerben."
     },
     "templates": {
-      "modern": "Modern",
-      "modernDesc": "Sauberes und professionelles Design mit zeitgemäßem Look",
-      "classic": "Klassisch",
-      "classicDesc": "Traditionelles Format bevorzugt von konservativen Branchen",
-      "minimal": "Minimal",
-      "minimalDesc": "Einfach und elegant mit Fokus auf Inhalt",
-      "professional": "Professionell",
-      "professionalDesc": "Vorlage für Führungskräfte mit Seitenleiste und Abschnitt für wichtige Erfolge",
-      "creative": "Kreativ",
-      "creativeDesc": "Mutiges Design für kreative Profis",
       "swissVocational": "Berufslehre (EFZ)",
       "swissVocationalDesc": "Schlichtes Schweizer Format, ideal nach einer EFZ-Lehre",
       "swissCommerce": "Kaufmännisch & Verwaltung",
@@ -400,29 +390,6 @@
       "present": "Heute",
       "gpa": "Notendurchschnitt",
       "in": "in"
-    },
-    "sliders": {
-      "title": "Titel",
-      "contactDetails": "Kontaktdaten",
-      "sectionTitle": "Abschnittstitel",
-      "description": "Beschreibung",
-      "gap": "Abstand"
-    },
-    "colorWheel": {
-      "sidebarColor": "Seitenleistenfarbe",
-      "presetColors": "Vordefinierte Farben",
-      "presets": {
-        "petrolBlue": "Petrolblau",
-        "charcoal": "Anthrazit",
-        "forestGreen": "Waldgrün",
-        "burgundy": "Burgunderrot",
-        "teal": "Blaugrün",
-        "slate": "Schiefer",
-        "deepPurple": "Tiefviolett",
-        "darkBrown": "Dunkelbraun",
-        "wineRed": "Weinrot",
-        "olive": "Olivgrün"
-      }
     },
     "association": {
       "linkedCoverLetters": "Verknüpfte Anschreiben",

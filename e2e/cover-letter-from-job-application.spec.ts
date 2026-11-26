@@ -146,7 +146,7 @@ async function seedResume(userId: string, title: string, contactName: string): P
     .insert({
       user_id: userId,
       title,
-      template: 'modern',
+      template: 'swissCommerce',
       contact: { name: contactName, email: 'test@example.test' },
       summary: 'Datenexpertin mit acht Jahren Erfahrung.',
       experience: [{ position: 'Data Engineer', company: 'Acme', startDate: '2020-01', current: true }],

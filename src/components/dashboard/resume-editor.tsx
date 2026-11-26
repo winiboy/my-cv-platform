@@ -19,14 +19,12 @@ import {
   LayoutList,
   GripVertical,
   Mail,
-  Pipette,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Locale } from '@/lib/i18n'
 import type { Resume, ResumeSkillCategory } from '@/types/database'
 import type { EditorMainId, EditorSidebarId } from '@/lib/layout-settings'
 import {
-  chosenFontFamily,
   templateEditorSections,
   listedEditorSections,
   templateDrawsPhoto,
@@ -34,6 +32,8 @@ import {
 } from '@/lib/layout-settings'
 import { withContactFieldVisible, type ContactFieldId } from '@/lib/contact-visibility'
 import { useResumeLayout } from '@/lib/hooks/use-resume-layout'
+import { resolveResumeTemplate } from '@/lib/resume-templates'
+import { resumeSaveUpdates, resumeWithDraft } from '@/lib/resume-draft'
 import { PAGE_WIDTH_PX } from '@/lib/resume-page-size'
 import { EditorSectionTabs } from './editor-section-tabs'
 import { ContactSection } from './resume-sections/contact-section'
@@ -46,7 +46,6 @@ import { CertificationsSection } from './resume-sections/certifications-section'
 import { ProjectsSection } from './resume-sections/projects-section'
 import { CoverLetterAssociationSection } from './resume-sections/cover-letter-association-section'
 import { JobAssociationSection } from './cover-letter-sections/job-association-section'
-import { ProfessionalTemplate } from './resume-templates/professional-template'
 import { SwissVocationalTemplate } from './resume-templates/swiss-vocational-template'
 import { SwissCommerceTemplate } from './resume-templates/swiss-commerce-template'
 import { SwissTradesTemplate } from './resume-templates/swiss-trades-template'
@@ -57,10 +56,6 @@ import { SwissItTemplate } from './resume-templates/swiss-it-template'
 import { SwissExecutiveTemplate } from './resume-templates/swiss-executive-template'
 import { SwissAcademicTemplate } from './resume-templates/swiss-academic-template'
 import { SwissFirstJobTemplate } from './resume-templates/swiss-first-job-template'
-import { ModernTemplate } from './resume-templates/modern-template'
-import { ClassicTemplate } from './resume-templates/classic-template'
-import { MinimalTemplate } from './resume-templates/minimal-template'
-import { CreativeTemplate } from './resume-templates/creative-template'
 import { ResumePageBreakIndicators } from './resume-page-break-indicators'
 import { CVAdaptationModal } from './cv-adaptation-modal'
 import type { CVAdaptationStrings } from '@/lib/cv-adaptation-strings'
@@ -71,7 +66,6 @@ import { GenerationProgress } from './generation-progress'
 import { BelowThresholdWarning } from './below-threshold-warning'
 import { QUALITY_THRESHOLD } from '@/lib/constants'
 import type { QualityAnalysis } from '@/types/quality-analysis'
-import { FontCarousel3D } from '@/components/ui/font-carousel-3d'
 import type { CVAdaptationPatch } from '@/types/cv-adaptation'
 
 interface JobApplicationItem {
@@ -140,18 +134,6 @@ const SECTION_MAPPING: Record<string, SectionId> = {
   projects: 'projects',
 }
 
-/** Base styles shared across all color swatches (predefined and dynamic) */
-const SWATCH_BASE_STYLE: React.CSSProperties = {
-  flex: 1,
-  maxWidth: '32px',
-  minWidth: '20px',
-  aspectRatio: '1',
-  height: 'auto',
-  borderRadius: '50%',
-  cursor: 'pointer',
-  transition: 'transform 0.2s, box-shadow 0.2s',
-}
-
 export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation, linkedCoverLetters, unlinkedCoverLetters: initialUnlinkedCoverLetters, currentJobApplicationId: initialJobAppId, currentJobApplication: initialJobApp, jobApplications: initialJobApps, qualityAnalysis: initialQualityAnalysis }: ResumeEditorProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -168,11 +150,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
   // never written back — a control that is not offered leaves the model's value
   // exactly where it is, so selecting a template that reads it again shows it
   // unchanged. Nothing below may clear or rewrite a value because it is hidden.
-  const offersSidebarColour = templateOffersLayoutControl(resume.template, 'sidebarColour')
   const offersSidebarSections = templateOffersLayoutControl(resume.template, 'sidebarSections')
-  // swiss-cv-templates FR-12: the font carousel and slider, only where the
-  // template draws the stored font and scale. The stored values stay put.
-  const offersFont = templateOffersLayoutControl(resume.template, 'font')
   // FR-14: the Contact tab's photo row, only where the template draws a photo.
   const drawsPhoto = templateDrawsPhoto(resume.template)
   /**
@@ -185,7 +163,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
   const editorSections = templateEditorSections(resume.template)
 
   // The nav entries this template can act on. `editSidebar` reorders and hides
-  // sidebar sections, which classic and minimal draw on no surface.
+  // sidebar sections; it is listed only for a template that offers that panel.
   const visibleSections = SECTIONS.filter(
     (section) => section.id !== 'editSidebar' || offersSidebarSections,
   )
@@ -241,34 +219,17 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
    *
    * The values and setters are unpacked into locals of the names the render
    * below already used, so the templates and their controls are reached exactly
-   * as before. `titleGap`, `sectionGap` and `headerGap` are not unpacked
-   * because the editor never rendered them; they are still part of the model
-   * the hook holds, caches and persists.
+   * as before. Properties no Swiss template draws and no editor control writes
+   * (the font family and scale, the sidebar colour, the gaps, the per-property
+   * sizes and the sidebar geometry) are not unpacked; they are still part of
+   * the model the hook holds, caches and persists.
    *
    * `initialResume` rather than the `resume` state: every store handed to the
    * loader must describe the row the server sent, and `resume` is state that a
    * `resume_draft_${id}` blob replaces on mount.
    */
+  const { layout, setters: layoutSetters } = useResumeLayout(initialResume.id, initialResume)
   const {
-    layout,
-    setters: layoutSetters,
-    sidebarColor,
-    modern,
-    creative,
-  } = useResumeLayout(initialResume.id, initialResume)
-  const {
-    titleFontSize,
-    contactFontSize,
-    sectionTitleFontSize,
-    sectionDescFontSize,
-    sidebarHue,
-    sidebarSaturation,
-    sidebarBrightness,
-    fontScale,
-    fontFamily,
-    sidebarTopMargin,
-    mainContentTopMargin,
-    sidebarWidth,
     sidebarOrder,
     mainContentOrder,
     hiddenSidebarSections,
@@ -276,131 +237,23 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
     hiddenContactFields,
   } = layout
   const {
-    setTitleFontSize,
-    setContactFontSize,
-    setSectionTitleFontSize,
-    setSectionDescFontSize,
-    setSidebarHue,
-    setSidebarSaturation,
-    setSidebarBrightness,
-    setFontScale,
-    setFontFamily,
-    setSidebarTopMargin,
-    setMainContentTopMargin,
-    setSidebarWidth,
     setSidebarOrder,
     setMainContentOrder,
     setHiddenSidebarSections,
     setHiddenMainSections,
     setHiddenContactFields,
   } = layoutSetters
-  const { modernSidebarOrder, modernMainOrder, hiddenModernSidebar, hiddenModernMain } = modern
-  const {
-    creativeSidebarOrder,
-    creativeMainOrder,
-    hiddenCreativeSidebar,
-    hiddenCreativeMain,
-    summaryHidden,
-  } = creative
   const listedSidebarSections = listedEditorSections(sidebarOrder, editorSections.sidebar, editorSections.fixed)
   const listedMainSections = listedEditorSections(mainContentOrder, editorSections.main, editorSections.fixed)
 
   const [draggedSection, setDraggedSection] = useState<EditorSidebarId | null>(null)
   const [draggedMainSection, setDraggedMainSection] = useState<EditorMainId | null>(null)
-  const [isEyeDropperSupported, setIsEyeDropperSupported] = useState(false)
   const [photoUrl, setPhotoUrl] = useState<string>('')
-  const [isRemovingBackground, setIsRemovingBackground] = useState(false)
-  const foregroundBlobRef = useRef<Blob | null>(null)
-  // Guard to prevent ensureForegroundBlob from firing on mount.
-  // When localStorage restores hasForegroundBlob/photoBgMode, the dependent useEffects
-  // would otherwise trigger the 40MB ML model download. This ref stays true until
-  // the mount useEffect completes, causing those effects to skip their first run.
-  const isRestoringFromStorage = useRef(true)
-  const [photoBgMode, setPhotoBgMode] = useState<'sidebar-color' | 'content-color'>('sidebar-color')
-  const [hasForegroundBlob, setHasForegroundBlob] = useState(false)
 
   // Keep resumeRef in sync with resume state
   useEffect(() => {
     resumeRef.current = resume
   }, [resume])
-
-  // Detect EyeDropper API support on mount
-  useEffect(() => {
-    setIsEyeDropperSupported(typeof window !== 'undefined' && 'EyeDropper' in window)
-  }, [])
-
-  /**
-   * Converts a hex color string to HSL values.
-   * @param hex - Color in hex format (e.g., "#ff0000" or "ff0000")
-   * @returns Object with hue (0-360), saturation (0-100), and lightness (clamped to 20-50 for slider range)
-   */
-  const hexToHsl = useCallback((hex: string): { hue: number; saturation: number; lightness: number } => {
-    // Remove # if present
-    const cleanHex = hex.replace('#', '')
-
-    // Parse RGB values
-    const r = parseInt(cleanHex.substring(0, 2), 16) / 255
-    const g = parseInt(cleanHex.substring(2, 4), 16) / 255
-    const b = parseInt(cleanHex.substring(4, 6), 16) / 255
-
-    const max = Math.max(r, g, b)
-    const min = Math.min(r, g, b)
-    const l = (max + min) / 2
-
-    let h = 0
-    let s = 0
-
-    if (max !== min) {
-      const d = max - min
-      s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-      switch (max) {
-        case r:
-          h = ((g - b) / d + (g < b ? 6 : 0)) / 6
-          break
-        case g:
-          h = ((b - r) / d + 2) / 6
-          break
-        case b:
-          h = ((r - g) / d + 4) / 6
-          break
-      }
-    }
-
-    // Convert to degrees and percentage
-    const hue = Math.round(h * 360)
-    const saturation = Math.round(s * 100)
-    // Clamp lightness to slider range (20-50)
-    const lightness = Math.round(Math.min(50, Math.max(20, l * 100)))
-
-    return { hue, saturation, lightness }
-  }, [])
-
-  /**
-   * Opens the browser's native EyeDropper to pick a color from the screen.
-   * The picked color is converted to HSL and applied to the sidebar.
-   */
-  const handleEyedropperClick = useCallback(async () => {
-    if (!window.EyeDropper) return
-
-    try {
-      const eyeDropper = new window.EyeDropper()
-      const result = await eyeDropper.open()
-      const { hue, saturation, lightness } = hexToHsl(result.sRGBHex)
-      setSidebarHue(hue)
-      setSidebarSaturation(saturation)
-      setSidebarBrightness(lightness)
-    } catch (error) {
-      // User cancelled the eyedropper or an error occurred - silently ignore
-      // AbortError is thrown when user presses Escape
-      if (error instanceof Error && error.name !== 'AbortError') {
-        console.error('EyeDropper error:', error)
-      }
-    }
-    // The three setters come from the one layout owner rather than from
-    // useState, so eslint can no longer prove they are stable and asks for
-    // them. They ARE stable — `useResumeLayout` builds the setter object once
-    // — so naming them costs nothing and keeps this callback's identity fixed.
-  }, [hexToHsl, setSidebarHue, setSidebarSaturation, setSidebarBrightness])
 
   const handlePhotoChange = useCallback((dataUrl: string) => {
     setPhotoUrl(dataUrl)
@@ -421,119 +274,11 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
     [setHiddenContactFields],
   )
 
-  // Wrapper for user-initiated photo uploads that resets foreground state.
   // Uploading a photo ticks it on (FR-14): whoever uploads one wants to see it.
   const handleNewPhotoUpload = useCallback((dataUrl: string) => {
-    foregroundBlobRef.current = null
-    setHasForegroundBlob(false)
     handlePhotoChange(dataUrl)
     handleContactFieldVisibleChange('photo', true)
   }, [handlePhotoChange, handleContactFieldVisibleChange])
-
-  const handleRemoveBackground = useCallback(async () => {
-    if (!photoUrl || isRemovingBackground) return
-
-    setIsRemovingBackground(true)
-    try {
-      // Preserve the original photo before any processing
-      localStorage.setItem(`resume_photo_original_${resume.id}`, photoUrl)
-
-      const { removeImageBackground, compositeWithBackground } = await import('@/lib/image/remove-background')
-
-      const blob = await removeImageBackground(photoUrl)
-      foregroundBlobRef.current = blob
-      setHasForegroundBlob(true)
-
-      const resultDataUrl = photoBgMode === 'content-color'
-        ? await compositeWithBackground(blob, '#FFFFFF')
-        : await compositeWithBackground(blob, sidebarColor)
-      handlePhotoChange(resultDataUrl)
-    } catch (error) {
-      console.error('Background removal failed:', error)
-      alert('Failed to remove background. Please try again.')
-    } finally {
-      setIsRemovingBackground(false)
-    }
-  }, [photoUrl, isRemovingBackground, sidebarColor, resume.id, handlePhotoChange, photoBgMode])
-
-  // Lazy helper: returns the foreground blob, reconstructing it from localStorage if needed.
-  // This avoids running the ~40MB ML model on every mount — reconstruction only happens
-  // when the user actually interacts with color or mode controls.
-  const ensureForegroundBlob = useCallback(async (): Promise<Blob | null> => {
-    if (foregroundBlobRef.current) return foregroundBlobRef.current
-
-    try {
-      const originalPhoto = localStorage.getItem(`resume_photo_original_${resume.id}`)
-      if (!originalPhoto) return null
-
-      const { removeImageBackground } = await import('@/lib/image/remove-background')
-      const blob = await removeImageBackground(originalPhoto)
-      foregroundBlobRef.current = blob
-      return blob
-    } catch (error) {
-      console.error('Lazy foreground blob reconstruction failed:', error)
-      return null
-    }
-  }, [resume.id])
-
-  // Re-composite photo background when sidebar color changes (debounced).
-  // Uses ensureForegroundBlob for lazy reconstruction — the ML model only runs
-  // on the first color change after a page load, not on mount.
-  useEffect(() => {
-    // Skip during mount — localStorage restore of hasForegroundBlob/sidebarColor
-    // would otherwise trigger the 40MB ML model download on every editor open.
-    if (isRestoringFromStorage.current) return
-    if (photoBgMode !== 'sidebar-color') return
-    if (!foregroundBlobRef.current && !hasForegroundBlob) return
-
-    const timeoutId = setTimeout(async () => {
-      try {
-        const foreground = await ensureForegroundBlob()
-        if (!foreground) return
-
-        const { compositeWithBackground } = await import('@/lib/image/remove-background')
-        const newDataUrl = await compositeWithBackground(foreground, sidebarColor)
-        handlePhotoChange(newDataUrl)
-      } catch (error) {
-        console.error('Photo re-compositing failed:', error)
-      }
-    }, 500)
-
-    return () => clearTimeout(timeoutId)
-  }, [sidebarColor, handlePhotoChange, photoBgMode, hasForegroundBlob, ensureForegroundBlob])
-
-  // Re-composite or convert to transparent when photoBgMode changes.
-  // Uses ensureForegroundBlob for lazy reconstruction — the ML model only runs
-  // when the user actually toggles the mode, not on mount.
-  useEffect(() => {
-    // Skip during mount — localStorage restore of photoBgMode would otherwise
-    // trigger the 40MB ML model download on every editor open.
-    if (isRestoringFromStorage.current) return
-    if (!foregroundBlobRef.current && !hasForegroundBlob) return
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const foreground = await ensureForegroundBlob()
-        if (!foreground || cancelled) return
-
-        const { compositeWithBackground } = await import('@/lib/image/remove-background')
-        const resultDataUrl = photoBgMode === 'content-color'
-          ? await compositeWithBackground(foreground, '#FFFFFF')
-          : await compositeWithBackground(foreground, sidebarColor)
-        if (!cancelled) {
-          handlePhotoChange(resultDataUrl)
-        }
-      } catch (error) {
-        console.error('Photo background mode switch failed:', error)
-      }
-    })()
-
-    return () => { cancelled = true }
-    // Only react to photoBgMode changes - sidebarColor changes are handled by the debounced effect above
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photoBgMode])
 
   // Resizable split pane state
   const [splitPosition, setSplitPosition] = useState(50) // Percentage
@@ -554,26 +299,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
     try {
       const supabase = createClient()
 
-      const updates: any = {
-        title: resume.title,
-        template: resume.template,
-        contact: resume.contact,
-        summary: resume.summary,
-        experience: resume.experience,
-        education: resume.education,
-        skills: resume.skills,
-        languages: resume.languages,
-        certifications: resume.certifications,
-        projects: resume.projects,
-        // Layout state is no longer folded in here. It has its own column and
-        // its own writer, reached through the layout owner this component
-        // calls; Save carries the user's authored content only, which is why
-        // it is unaffected by where that state now lives. The value
-        // round-trips whatever shape the row
-        // already had, so a row still holding the legacy
-        // `{ items, layoutSettings }` wrapper keeps it and stays readable.
-        custom_sections: resume.custom_sections,
-      }
+      const updates = resumeSaveUpdates(resume)
 
       const result = await (supabase.from('resumes') as any).update(updates).eq('id', resume.id)
       const { error } = result
@@ -1002,8 +728,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
     const draft = localStorage.getItem(`resume_draft_${resume.id}`)
     if (draft) {
       try {
-        const draftResume = JSON.parse(draft)
-        setResume(draftResume)
+        // The stored row keeps its template; see `resumeWithDraft`. On mount
+        // the ref still holds the row the server sent.
+        setResume(resumeWithDraft(resumeRef.current, JSON.parse(draft)))
         setHasUnsavedChanges(true)
       } catch (error) {
         console.error('Failed to load draft:', error)
@@ -1032,53 +759,8 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
       if (savedPhoto) setPhotoUrl(savedPhoto)
     } catch {}
 
-    // Restore hasForegroundBlob flag if the original photo exists in localStorage.
-    // The actual foreground blob is NOT reconstructed here — that happens lazily
-    // in ensureForegroundBlob() when the user interacts with color/mode controls.
-    // This avoids loading the ~40MB ML model on every editor mount.
-    try {
-      const originalPhoto = localStorage.getItem(`resume_photo_original_${resume.id}`)
-      if (originalPhoto) {
-        setHasForegroundBlob(true)
-      }
-    } catch {}
-
-    // Load photo background mode preference (with legacy 'transparent' migration)
-    try {
-      const savedBgMode = localStorage.getItem(`resume_photo_bg_mode_${resume.id}`)
-      if (savedBgMode === 'sidebar-color' || savedBgMode === 'content-color') {
-        setPhotoBgMode(savedBgMode)
-      } else if (savedBgMode === 'transparent') {
-        // Migrate legacy 'transparent' value to 'content-color'
-        setPhotoBgMode('content-color')
-      }
-    } catch {}
-
-    // Clear the mount guard after React has flushed all state updates from this
-    // mount — this effect's own, and the layout model that `useResumeLayout`
-    // loads in the effect immediately before it — and their dependent useEffects
-    // have already executed (and been skipped by the isRestoringFromStorage
-    // guard). Using requestAnimationFrame ensures the guard persists through the
-    // entire mount cycle before allowing user-initiated changes to trigger
-    // ensureForegroundBlob.
-    //
-    // The layout load moving into the hook does not move this boundary: hook
-    // effects run in call order within the same commit, `useResumeLayout` is
-    // called at the top of this component, so its setState is already queued
-    // when the frame below is requested — exactly as it was when the two loads
-    // shared one effect.
-    requestAnimationFrame(() => {
-      isRestoringFromStorage.current = false
-    })
     // Mount-only, keyed on the resume rather than on prop changes.
   }, [resume.id])
-
-  // Persist photoBgMode preference to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(`resume_photo_bg_mode_${resume.id}`, photoBgMode)
-    } catch {}
-  }, [photoBgMode, resume.id])
 
   // Clear localStorage after successful save
   useEffect(() => {
@@ -1407,8 +1089,7 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
                       }
                       const isHidden = hiddenMainSections.includes(sectionId)
                       // Part 3 US-015: a row the template draws in a fixed place keeps its
-                      // visibility toggle and loses its drag handle. Creative draws the
-                      // summary in its gradient header, which is the one such row today.
+                      // visibility toggle and loses its drag handle.
                       const isFixed = editorSections.fixed.includes(sectionId)
                       const isDraggable = !isHidden && !isFixed
                       return (
@@ -1486,200 +1167,6 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
             // the scrollbar on and off indefinitely at the overflow edge.
             className="w-full overflow-x-hidden bg-slate-100 p-4 sm:p-6 xl:w-[var(--preview-pane-width)] xl:overflow-x-auto xl:overflow-y-scroll xl:p-8"
           >
-            {/* Sliders Container - NOT scaled, fixed 15px gaps. Drawn only when it
-                holds a control the template offers: a Swiss template offers none. */}
-            {(offersSidebarColour || offersFont) && (
-              <div className="flex justify-center" style={{ marginBottom: '15px' }}>
-                <div style={{ width: `${PAGE_WIDTH_PX * previewScale}px` }} className="flex flex-wrap gap-y-3">
-                  {/*
-                    Left column: Sidebar sliders - independent stacking.
-                    Part 3 US-014: offered only for the templates that paint a sidebar
-                    fill. Hiding it does not touch the three stored colour components;
-                    they are still written, still read, and apply again unchanged on a
-                    template that offers the control.
-                  */}
-                  {offersSidebarColour && (
-                    <div style={{ flex: '1 1 200px', minWidth: '200px', paddingRight: '8px' }} className="flex flex-col justify-end">
-                      {/* Brightness Slider - fixed 15px above Color slider */}
-                      <div style={{ marginBottom: '15px' }}>
-                        <div className="flex items-center gap-2">
-                          {/* Small sun icon (dim) */}
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2">
-                            <circle cx="12" cy="12" r="4"/>
-                            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-                          </svg>
-                          <input
-                            type="range"
-                            min="20"
-                            max="50"
-                            value={sidebarBrightness}
-                            onChange={(e) => setSidebarBrightness(parseInt(e.target.value))}
-                            className="brightness-slider"
-                            style={{
-                              flex: 1,
-                              height: '20px',
-                              appearance: 'none',
-                              background: `linear-gradient(to right, hsl(${sidebarHue}, 85%, 20%), hsl(${sidebarHue}, 85%, 50%))`,
-                              borderRadius: '10px',
-                              cursor: `url('/hand-cursor.png') 16 0, pointer`,
-                            }}
-                          />
-                          {/* Large sun icon (bright) */}
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2">
-                            <circle cx="12" cy="12" r="4"/>
-                            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-                          </svg>
-                        </div>
-                      </div>
-                      {/* Color Slider - Above sidebar */}
-                      <div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="360"
-                          value={sidebarHue}
-                          onChange={(e) => setSidebarHue(parseInt(e.target.value))}
-                          className="color-slider"
-                          style={{
-                            width: '100%',
-                            height: '24px',
-                            appearance: 'none',
-                            background: `linear-gradient(to right, hsl(0, 85%, ${sidebarBrightness}%), hsl(60, 85%, ${sidebarBrightness}%), hsl(120, 85%, ${sidebarBrightness}%), hsl(180, 85%, ${sidebarBrightness}%), hsl(240, 85%, ${sidebarBrightness}%), hsl(300, 85%, ${sidebarBrightness}%), hsl(360, 85%, ${sidebarBrightness}%))`,
-                            borderRadius: '12px',
-                            cursor: `url('/hand-cursor.png') 16 0, pointer`,
-                          }}
-                        />
-                      </div>
-                      {/* Predefined Color Swatches */}
-                      <div style={{
-                        display: 'flex',
-                        gap: '6px',
-                        marginTop: '8px',
-                        justifyContent: 'space-between',
-                        width: '100%'
-                      }}>
-                        {[
-                          { hex: '#2C3E50', hue: 210, saturation: 29, lightness: 24 },
-                          { hex: '#243A5E', hue: 217, saturation: 45, lightness: 25 },
-                          { hex: '#333333', hue: 0, saturation: 0, lightness: 20 },
-                          { hex: '#5C6F91', hue: 218, saturation: 22, lightness: 46 },
-                          { hex: '#2A7F7F', hue: 180, saturation: 50, lightness: 33 },
-                          { hex: '#1F3A5F', hue: 215, saturation: 51, lightness: 25 },
-                        ].map((color, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => {
-                              setSidebarHue(color.hue)
-                              setSidebarSaturation(color.saturation)
-                              setSidebarBrightness(color.lightness)
-                            }}
-                            title={color.hex}
-                            className="swatch-button"
-                            style={{
-                              ...SWATCH_BASE_STYLE,
-                              border: '2px solid #e2e8f0',
-                              backgroundColor: color.hex,
-                              boxShadow: sidebarHue === color.hue && sidebarSaturation === color.saturation && sidebarBrightness === color.lightness
-                                ? '0 0 0 2px #3b82f6'
-                                : 'none',
-                            }}
-                          />
-                        ))}
-                        {/*
-                          7th swatch: Dynamic current color indicator - always shows currently selected color.
-                          No-op click handler: maintains consistent UX with other swatches while indicating current selection.
-                          Click handler exists for consistent tactile feedback with other swatches.
-                        */}
-                        <button
-                          type="button"
-                          title="Current color"
-                          className="swatch-button"
-                          onClick={() => {
-                            // Intentionally no-op: this swatch represents the current color selection
-                          }}
-                          style={{
-                            ...SWATCH_BASE_STYLE,
-                            border: '2px dashed #94a3b8',
-                            backgroundColor: sidebarColor,
-                            boxShadow: '0 0 0 2px #3b82f6',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          {/* White checkmark icon */}
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="white"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        </button>
-                        {/* Eyedropper button - only shown if EyeDropper API is supported */}
-                        {isEyeDropperSupported && (
-                          <button
-                            type="button"
-                            onClick={handleEyedropperClick}
-                            title="Pick color from screen"
-                            className="swatch-button"
-                            style={{
-                              ...SWATCH_BASE_STYLE,
-                              border: '2px solid #e2e8f0',
-                              backgroundColor: '#64748b',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            <Pipette className="h-4 w-4 text-white" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {/* Right column: font carousel and font size, where the template applies them (FR-12). */}
-                  {offersFont && (
-                    <div style={{ flex: '2 1 220px', minWidth: '220px', paddingLeft: '8px' }} className="flex flex-col justify-end">
-                      {/* 3D Font Carousel - Above Font Size slider */}
-                      <div style={{ marginBottom: '15px' }}>
-                        <FontCarousel3D
-                          selectedFont={fontFamily}
-                          onFontChange={setFontFamily}
-                        />
-                      </div>
-                      {/* Font Size Slider - Above main content */}
-                      <div>
-                        <input
-                          type="range"
-                          min="0.7"
-                          max="1.3"
-                          step="0.01"
-                          value={fontScale}
-                          onChange={(e) => setFontScale(parseFloat(e.target.value))}
-                          className="font-slider"
-                          style={{
-                            width: '100%',
-                            height: '24px',
-                            appearance: 'none',
-                            background: 'linear-gradient(to right, #e2e8f0, #64748b)',
-                            borderRadius: '12px',
-                            cursor: `url('/hand-cursor.png') 16 0, pointer`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
             <div
               data-testid="resume-editor-preview-frame"
               className="flex items-start justify-center"
@@ -1700,131 +1187,9 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
                 }}
               >
                 {(() => {
-                  switch (resume.template) {
-                    case 'modern':
-                      return (
-                        // Part 3 US-014: modern offers no per-property size control, so it
-                        // receives the stored sizes it draws with and none of the setters that
-                        // would render an input. The stored sizes themselves are untouched.
-                        <ModernTemplate
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          sidebarColor={sidebarColor}
-                          titleFontSize={titleFontSize}
-                          contactFontSize={contactFontSize}
-                          sectionTitleFontSize={sectionTitleFontSize}
-                          sectionDescFontSize={sectionDescFontSize}
-                          fontScale={fontScale}
-                          fontFamily={fontFamily}
-                          sidebarTopMargin={sidebarTopMargin}
-                          setSidebarTopMargin={setSidebarTopMargin}
-                          mainContentTopMargin={mainContentTopMargin}
-                          setMainContentTopMargin={setMainContentTopMargin}
-                          sidebarWidth={sidebarWidth}
-                          setSidebarWidth={setSidebarWidth}
-                          sidebarOrder={modernSidebarOrder}
-                          mainContentOrder={modernMainOrder}
-                          hiddenSidebarSections={hiddenModernSidebar}
-                          hiddenMainSections={hiddenModernMain}
-                          hiddenContactFields={hiddenContactFields}
-                          photoUrl={photoUrl}
-                          onPhotoChange={handleNewPhotoUpload}
-                          onRemoveBackground={handleRemoveBackground}
-                          isRemovingBackground={isRemovingBackground}
-                          photoBgMode={photoBgMode}
-                          onPhotoBgModeChange={setPhotoBgMode}
-                          hasForegroundBlob={hasForegroundBlob}
-                        />
-                      )
-                    case 'classic':
-                      return (
-                        <ClassicTemplate
-                          fontScale={fontScale}
-                          fontFamily={chosenFontFamily(fontFamily) ?? undefined}
-                          mainContentOrder={mainContentOrder}
-                          hiddenMainSections={hiddenMainSections}
-                          hiddenContactFields={hiddenContactFields}
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          titleFontSize={titleFontSize}
-                          setTitleFontSize={setTitleFontSize}
-                          contactFontSize={contactFontSize}
-                          setContactFontSize={setContactFontSize}
-                          sectionTitleFontSize={sectionTitleFontSize}
-                          setSectionTitleFontSize={setSectionTitleFontSize}
-                          sectionDescFontSize={sectionDescFontSize}
-                          setSectionDescFontSize={setSectionDescFontSize}
-                        />
-                      )
-                    case 'minimal':
-                      return (
-                        <MinimalTemplate
-                          fontScale={fontScale}
-                          fontFamily={chosenFontFamily(fontFamily) ?? undefined}
-                          mainContentOrder={mainContentOrder}
-                          hiddenMainSections={hiddenMainSections}
-                          hiddenContactFields={hiddenContactFields}
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          titleFontSize={titleFontSize}
-                          setTitleFontSize={setTitleFontSize}
-                          contactFontSize={contactFontSize}
-                          setContactFontSize={setContactFontSize}
-                          sectionTitleFontSize={sectionTitleFontSize}
-                          setSectionTitleFontSize={setSectionTitleFontSize}
-                          sectionDescFontSize={sectionDescFontSize}
-                          setSectionDescFontSize={setSectionDescFontSize}
-                        />
-                      )
-                    case 'creative':
-                      return (
-                        <CreativeTemplate
-                          fontScale={fontScale}
-                          fontFamily={chosenFontFamily(fontFamily) ?? undefined}
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          titleFontSize={titleFontSize}
-                          setTitleFontSize={setTitleFontSize}
-                          contactFontSize={contactFontSize}
-                          setContactFontSize={setContactFontSize}
-                          sectionTitleFontSize={sectionTitleFontSize}
-                          setSectionTitleFontSize={setSectionTitleFontSize}
-                          sectionDescFontSize={sectionDescFontSize}
-                          setSectionDescFontSize={setSectionDescFontSize}
-                          sidebarOrder={creativeSidebarOrder}
-                          mainContentOrder={creativeMainOrder}
-                          hiddenSidebarSections={hiddenCreativeSidebar}
-                          hiddenMainSections={hiddenCreativeMain}
-                          summaryHidden={summaryHidden}
-                          hiddenContactFields={hiddenContactFields}
-                        />
-                      )
-                    case 'professional':
-                      return (
-                        <ProfessionalTemplate
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          sidebarColor={sidebarColor}
-                          fontScale={fontScale}
-                          fontFamily={fontFamily}
-                          sidebarOrder={sidebarOrder}
-                          mainContentOrder={mainContentOrder}
-                          sidebarTopMargin={sidebarTopMargin}
-                          setSidebarTopMargin={setSidebarTopMargin}
-                          mainContentTopMargin={mainContentTopMargin}
-                          setMainContentTopMargin={setMainContentTopMargin}
-                          sidebarWidth={sidebarWidth}
-                          setSidebarWidth={setSidebarWidth}
-                          hiddenSidebarSections={hiddenSidebarSections}
-                          hiddenMainSections={hiddenMainSections}
-                          hiddenContactFields={hiddenContactFields}
-                        />
-                      )
+                  // An id outside the ten is drawn as the default template, as in
+                  // the Preview and the Word export (FR-1).
+                  switch (resolveResumeTemplate(resume.template)) {
                     case 'swissVocational':
                       return (
                         // The photo is uploaded from the Contact tab's photo row, not from
@@ -1954,42 +1319,6 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
                           hiddenSidebarSections={hiddenSidebarSections}
                           hiddenContactFields={hiddenContactFields}
                           photoUrl={photoUrl}
-                        />
-                      )
-                    default:
-                      return (
-                        // Part 3 US-014: modern offers no per-property size control, so it
-                        // receives the stored sizes it draws with and none of the setters that
-                        // would render an input. The stored sizes themselves are untouched.
-                        <ModernTemplate
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          sidebarColor={sidebarColor}
-                          titleFontSize={titleFontSize}
-                          contactFontSize={contactFontSize}
-                          sectionTitleFontSize={sectionTitleFontSize}
-                          sectionDescFontSize={sectionDescFontSize}
-                          fontScale={fontScale}
-                          fontFamily={fontFamily}
-                          sidebarTopMargin={sidebarTopMargin}
-                          setSidebarTopMargin={setSidebarTopMargin}
-                          mainContentTopMargin={mainContentTopMargin}
-                          setMainContentTopMargin={setMainContentTopMargin}
-                          sidebarWidth={sidebarWidth}
-                          setSidebarWidth={setSidebarWidth}
-                          sidebarOrder={modernSidebarOrder}
-                          mainContentOrder={modernMainOrder}
-                          hiddenSidebarSections={hiddenModernSidebar}
-                          hiddenMainSections={hiddenModernMain}
-                          hiddenContactFields={hiddenContactFields}
-                          photoUrl={photoUrl}
-                          onPhotoChange={handleNewPhotoUpload}
-                          onRemoveBackground={handleRemoveBackground}
-                          isRemovingBackground={isRemovingBackground}
-                          photoBgMode={photoBgMode}
-                          onPhotoBgModeChange={setPhotoBgMode}
-                          hasForegroundBlob={hasForegroundBlob}
                         />
                       )
                   }

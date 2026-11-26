@@ -5,7 +5,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { extractJobRequirements } from '@/lib/ai/job-requirements-extractor'
 import { calculateRelevanceScore, type ResumeContent } from '@/lib/ai/relevance-scorer'
 import { QUALITY_THRESHOLD } from '@/lib/constants'
-import type { BuiltResumeTemplate, ResumeInsert } from '@/types/database'
+import type { ResumeInsert } from '@/types/database'
+import { isResumeTemplate, RESUME_TEMPLATES } from '@/lib/resume-templates'
 import { buildResumeFromJobOffer, toResumeColumns } from '@/lib/resume-from-job/build-resume-from-job'
 import { detectOfferLanguage } from '@/lib/resume-from-job/detect-offer-language'
 import { isResumeContentLanguage, type ResumeContentLanguage } from '@/lib/resume-from-job/sample-values'
@@ -133,10 +134,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const validTemplates: readonly string[] = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob'] satisfies readonly BuiltResumeTemplate[]
-    if (!template || !validTemplates.includes(template)) {
+    if (!isResumeTemplate(template)) {
       return NextResponse.json(
-        { error: `Invalid template. Must be one of: ${validTemplates.join(', ')}` },
+        { error: `Invalid template. Must be one of: ${RESUME_TEMPLATES.join(', ')}` },
         { status: 400 }
       )
     }

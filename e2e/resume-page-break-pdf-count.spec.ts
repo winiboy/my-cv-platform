@@ -9,16 +9,15 @@ import {
 } from './fixtures/page-breaks'
 import { PAGE_HEIGHT_PX } from '../src/lib/resume-page-size'
 import type { Page } from '@playwright/test'
-import type { ResumeTemplate } from '../src/types/database'
+import { RESUME_TEMPLATES } from '../src/lib/resume-templates'
 
 /**
  * US-003: the printed PDF is the authority on the page-break indicator.
  *
  * For every template, one CV that fits one page and one that runs past it are
  * opened on the Preview page and printed from there, as a user downloading the
- * PDF does: print media, the page's own `@page` size, the controls toggle in
- * its shipped state (on; it is `print:hidden`, and resume-print-geometry.spec
- * proves print with controls on lays the document out as the screen does).
+ * PDF does: print media and the page's own `@page` size. The Preview draws no
+ * editing control (swiss-cv-templates FR-13).
  * The number of indicators the Preview draws, plus one, must equal the PDF's
  * page count, and the editor's live preview of the same resume must draw as
  * many indicators as the Preview.
@@ -26,13 +25,13 @@ import type { ResumeTemplate } from '../src/types/database'
  * A match only proves something when the document is not sitting on a sheet
  * edge, where a rounding difference could flip the count either way: every
  * multi-page case first asserts its height is clear of an edge, and that the
- * rule gives at least two pages. The one-page case keeps the edge on purpose
- * for professional and modern, whose minimum height is exactly one page.
+ * rule gives at least two pages. The one-page case may sit exactly on the
+ * edge: a template whose minimum height is one page is exactly one page tall.
  *
  * The measurements are attached to each test as annotations.
  */
 
-const TEMPLATES: ResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative']
+const TEMPLATES = RESUME_TEMPLATES
 
 const FIXTURES: { name: string; overrides: FixtureContentOverrides; multiPage: boolean }[] = [
   { name: 'one page', overrides: ONE_PAGE, multiPage: false },
@@ -114,10 +113,6 @@ for (const template of TEMPLATES) {
       } else {
         expect(preview.height).toBeLessThanOrEqual(PAGE_HEIGHT_PX)
         expect(preview.count).toBe(0)
-        if (template === 'professional' || template === 'modern') {
-          // Their minimum height: exactly one page, the edge case of the rule.
-          expect(preview.height).toBe(PAGE_HEIGHT_PX)
-        }
       }
 
       const pdf = await printPdf(page)

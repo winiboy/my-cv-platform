@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { templateComponentFile, templateDocxFile } from '@/test/resume-template-files'
-import { DEFAULT_RESUME_LAYOUT } from './layout-settings'
+import { RESUME_TEMPLATES } from './resume-templates'
 import {
   PAGE_HEIGHT_CSS,
   PAGE_HEIGHT_INCHES,
@@ -22,8 +22,8 @@ import {
  * - The rounded units. Inches and CSS px are each a rounding of the
  *   millimetre definition, so each is bounded against it here rather than
  *   trusted as a second declaration of the page.
- * - The CSS. `globals.css` declares the print page size and draws
- *   professional's print sidebar in px measured from the page edge, and a
+ * - The CSS. `globals.css` declares the print page size and draws the Swiss
+ *   templates' print columns in px measured from the page edge, and a
  *   stylesheet cannot import a TypeScript module. The same arrangement guards
  *   the line heights that live only in CSS (`resume-line-height.test.ts`).
  */
@@ -62,7 +62,7 @@ describe('the units are one page written four ways', () => {
     expect([PAGE_WIDTH_CSS, PAGE_HEIGHT_CSS]).toEqual([`${PAGE_WIDTH_PX}px`, `${PAGE_HEIGHT_PX}px`])
   })
 
-  it('the width rounds to the 8.27in the parity check reads off all three surfaces', () => {
+  it('the width rounds to the 8.27in a DOCX section declares', () => {
     expect((PAGE_WIDTH_PX / CSS_PX_PER_INCH).toFixed(2)).toBe(PAGE_WIDTH_INCHES.toFixed(2))
   })
 })
@@ -76,23 +76,17 @@ describe('globals.css prints the same page', () => {
     expect(size).toBe('A4 portrait')
   })
 
-  it('the professional print sidebar is drawn from the edges of that page', () => {
-    // The gradient paints the sidebar band the template's own background cannot
-    // reach in print: from the page's left edge, across the default sidebar
-    // share of the page width.
-    const offsets = [...(printBlock ?? '').matchAll(/calc\(50% - ([\d.]+)px(?: \+ ([\d.]+)px)?\)/g)]
+  it('every print column is drawn from the left edge of that page', () => {
+    // A gradient paints the column the template's own background cannot reach
+    // in print, starting where the centred document of PAGE_WIDTH_PX does.
+    const offsets = [...(printBlock ?? '').matchAll(/50% - ([\d.]+)px/g)]
     expect(offsets.length).toBeGreaterThan(0)
-    const bandStart = PAGE_WIDTH_PX / 2
-    const bandWidth = PAGE_WIDTH_PX * (DEFAULT_RESUME_LAYOUT.sidebarWidth / 100)
-    for (const [, half, width] of offsets) {
-      expect(Number(half)).toBeCloseTo(bandStart, 0)
-      if (width !== undefined) expect(Number(width)).toBeCloseTo(bandWidth, 0)
-    }
+    for (const [, half] of offsets) expect(Number(half)).toBeCloseTo(PAGE_WIDTH_PX / 2, 0)
   })
 })
 
 describe('no surface keeps a page of its own', () => {
-  const TEMPLATES = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob'] as const
+  const TEMPLATES = RESUME_TEMPLATES
 
   it('swissVocational prints its accent strip from the edge of a document PAGE_WIDTH_PX wide', () => {
     // Tailwind reads class names statically, so the half width is written out

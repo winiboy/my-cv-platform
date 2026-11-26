@@ -72,10 +72,44 @@ const REQUIRED_CSP_DIRECTIVES: readonly string[] = [
   "frame-ancestors 'none'",
   "form-action 'self'",
   "img-src 'self' data: blob: https://lh3.googleusercontent.com",
-  "font-src 'self' data: https://fonts.gstatic.com",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "worker-src 'self' blob:",
 ]
+
+/**
+ * CSP directives whose source list must be exactly this, as served by the
+ * production server the suite runs against.
+ *
+ * Exact rather than substring for the directives that once carried allowances
+ * for `@imgly/background-removal` ('wasm-unsafe-eval' and blob: in script-src,
+ * blob: workers, the staticimgly.com model CDN). The library is gone, so a
+ * substring check would let any of those allowances creep back unnoticed.
+ * The same holds for style-src and font-src, which named the Google Fonts
+ * origins until the legacy font picker's stylesheet was removed.
+ */
+const EXACT_CSP_DIRECTIVES: ReadonlyArray<readonly [string, string]> = [
+  ['script-src', "'self' 'unsafe-inline'"],
+  ['worker-src', "'self'"],
+  ['child-src', "'self'"],
+  ['style-src', "'self' 'unsafe-inline'"],
+  ['font-src', "'self' data:"],
+]
+
+/** Sources no CSP directive may name any more. */
+const FORBIDDEN_CSP_SOURCES: readonly string[] = [
+  'https://staticimgly.com',
+  "'wasm-unsafe-eval'",
+  'https://fonts.googleapis.com',
+  'https://fonts.gstatic.com',
+]
+
+/** Splits a CSP header into its directives, keyed by name, valued by source list. */
+function parseCsp(csp: string): Map<string, string> {
+  const directives = new Map<string, string>()
+  for (const part of csp.split(';')) {
+    const [name, ...sources] = part.trim().split(/\s+/)
+    if (name) directives.set(name, sources.join(' '))
+  }
+  return directives
+}
 
 /**
  * A CSP violation as the browser reports it, reduced to the fields that
@@ -151,6 +185,13 @@ test.describe('security response headers', () => {
     for (const directive of REQUIRED_CSP_DIRECTIVES) {
       expect(csp, `CSP must contain: ${directive}`).toContain(directive)
     }
+    const directives = parseCsp(csp)
+    for (const [name, sources] of EXACT_CSP_DIRECTIVES) {
+      expect(directives.get(name), `CSP ${name}`).toBe(sources)
+    }
+    for (const source of FORBIDDEN_CSP_SOURCES) {
+      expect(csp, `CSP must not name: ${source}`).not.toContain(source)
+    }
 
     // The policy is not yet enforcing; renaming the header is a deliberate,
     // separate change gated on the violation sweep below.
@@ -177,7 +218,7 @@ test.describe('the report-only CSP does not fire on the resume path', () => {
 
   test.beforeEach(async ({ authedUser }) => {
     user = authedUser
-    const seeded = await seedFixtureResume(user.id, 'modern')
+    const seeded = await seedFixtureResume(user.id, 'swissCommerce')
     resumeId = seeded.id
   })
 

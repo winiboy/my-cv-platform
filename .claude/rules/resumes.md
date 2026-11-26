@@ -14,7 +14,7 @@ paths:
 
 - Do not introduce new competing sources of truth for resume content, layout, section order, section visibility, template choice, typography, colors, or photo state.
 - Existing resume state may be transformed for rendering, but derived or transport state must not silently become an independent authoritative copy.
-- Supported template identifiers remain `modern`, `classic`, `minimal`, `creative`, and `professional` unless an approved requirement intentionally changes the template set.
+- Supported template identifiers remain `swissVocational`, `swissCommerce`, `swissTrades`, `swissHealth`, `swissFinance`, `swissEngineering`, `swissIt`, `swissExecutive`, `swissAcademic`, and `swissFirstJob` (default `swissCommerce`) unless an approved requirement intentionally changes the template set.
 - Template-specific presentation must remain isolated; a change intended for one template must not alter unrelated templates through shared fallbacks or defaults unless explicitly required.
 - Resume section order, visibility, placement, and layout settings must remain semantically consistent between Editor, Live Preview, and Preview.
 - Preserve intended rich-text semantics and formatting through resume editing and rendering; do not flatten meaningful formatting as a shortcut.

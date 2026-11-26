@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { FileText, Star, MoreVertical, Pencil, Trash2, Copy, Download } from 'lucide-react'
 import type { Resume } from '@/types/database'
+import { resolveResumeTemplate } from '@/lib/resume-templates'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { JobLinkBadge } from '@/components/dashboard/entity-link-badge'
@@ -135,7 +136,9 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
     const { error } = await supabase.from('resumes').insert({
       user_id: resume.user_id,
       title: `${resume.title} (Copy)`,
-      template: resume.template,
+      // The copy holds the template the original renders as: a stored id
+      // outside the ten would fail the resumes.template CHECK constraint.
+      template: resolveResumeTemplate(resume.template),
       contact: resume.contact,
       summary: resume.summary,
       experience: resume.experience,
@@ -192,12 +195,9 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
     }).format(date)
   }
 
-  const templateLabels = {
-    modern: templatesDict.modern || 'Modern',
-    classic: templatesDict.classic || 'Classic',
-    minimal: templatesDict.minimal || 'Minimal',
-    creative: templatesDict.creative || 'Creative',
-  }
+  // The name the template picker shows, from `resumes.templates`. A stored id
+  // outside the ten is named as the template every surface draws it as.
+  const templateLabel = templatesDict[resolveResumeTemplate(resume.template)]
 
   return (
     <div className="relative bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-6 hover:shadow-lg transition-shadow">
@@ -290,7 +290,7 @@ export function ResumeCard({ resume, locale, dict, linkedCoverLetterIds, linkedJ
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-lg mb-1 truncate">{resume.title}</h3>
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              {templateLabels[resume.template as keyof typeof templateLabels] || resume.template}
+              {templateLabel}
             </p>
           </div>
         </div>

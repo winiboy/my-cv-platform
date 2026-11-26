@@ -51,37 +51,38 @@ base-uri 'none'
 object-src 'none'
 frame-ancestors 'none'
 form-action 'self'
-script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:      (+ 'unsafe-eval' in dev)
-style-src 'self' 'unsafe-inline' https://fonts.googleapis.com
-font-src 'self' data: https://fonts.gstatic.com
+script-src 'self' 'unsafe-inline'      (+ 'unsafe-eval' in dev)
+style-src 'self' 'unsafe-inline'
+font-src 'self' data:
 img-src 'self' data: blob: https://lh3.googleusercontent.com
-connect-src 'self' <supabase origin> https://o4510522193412096.ingest.de.sentry.io https://staticimgly.com
-worker-src 'self' blob:
-child-src 'self' blob:
+connect-src 'self' <supabase origin> https://o4510522193412096.ingest.de.sentry.io
+worker-src 'self'
+child-src 'self'
 frame-src 'self' blob:
 ```
 
 Every allowance is traceable to code:
 
-- **`style-src 'unsafe-inline'`** — the five resume templates render
+- **`style-src 'unsafe-inline'`** — the ten resume templates render
   `style="..."` attributes during SSR. Removing it breaks all of them. Note that
   this means the policy does **not** stop the M1 CSS injection itself.
-- **`https://fonts.googleapis.com` / `https://fonts.gstatic.com`** — the font
-  picker's stylesheet `<link>` in `src/app/layout.tsx` and the font files it
-  pulls. `next/font` self-hosts Inter and needs neither.
+- **`font-src 'self' data:`** — `next/font` self-hosts Inter, and the PDF/print
+  path inlines fonts as `data:` URLs. No third-party font origin is allowed:
+  the Google Fonts stylesheet existed only for the legacy font picker, which
+  was removed with the legacy templates; `e2e/security-headers.spec.ts` asserts
+  `https://fonts.googleapis.com` and `https://fonts.gstatic.com` stay gone.
 - **`img-src data:`** — the profile photo is persisted as a base64 data URL in
   the resume layout settings, not in Supabase Storage (the app uses no storage
   bucket).
-- **`img-src blob:`** — background-removal output, and html2canvas during the
-  cover-letter PDF export.
+- **`img-src blob:`** — html2canvas during the cover-letter PDF export.
 - **`img-src https://lh3.googleusercontent.com`** — `profiles.avatar_url` is
   populated from Google's `raw_user_meta_data` by the signup trigger in
   `supabase/migrations/006_rls_schema_hardening.sql` and rendered by
   `src/components/dashboard/user-menu.tsx`.
-- **`'wasm-unsafe-eval'`, `worker-src blob:`** — onnxruntime-web behind
-  `@imgly/background-removal` (`src/lib/image/remove-background.ts`).
-- **`connect-src https://staticimgly.com`** — the same library fetches its ONNX
-  model chunks from that CDN at runtime.
+- **`worker-src 'self'`, `child-src 'self'`** — the app starts no worker. The
+  `'wasm-unsafe-eval'`, `blob:` worker and `https://staticimgly.com` allowances
+  existed only for `@imgly/background-removal`, which was removed with the
+  legacy templates; `e2e/security-headers.spec.ts` asserts they stay gone.
 - **`connect-src` Sentry ingest host** — the browser SDK. The DSN itself lives
   in `src/instrumentation-client.ts`; a `next.config.js` cannot import that
   module, so the host is repeated in the config. **Change both together.**
@@ -116,17 +117,15 @@ evidence below was gathered.
    `src/middleware.ts` and threaded through — a separate change. Enforcing
    without it is still a net win, because the directives that block the beacon
    do not depend on it.
-2. **The print path.** `window.print()` on all five templates.
+2. **The print path.** `window.print()` on all ten templates.
 3. **The cover-letter PDF export** — no longer a browser path: the PDF is
    printed server-side (`/api/cover-letters/[id]/download-pdf`), so the page
    only receives a file.
-4. **Profile-photo background removal** — confirm no violation asks for
-   `'unsafe-eval'` in a production build, only `'wasm-unsafe-eval'`.
-5. **Google OAuth sign-in**, then the dashboard user menu, for the
+4. **Google OAuth sign-in**, then the dashboard user menu, for the
    `lh3.googleusercontent.com` avatar.
-6. Add `upgrade-insecure-requests`, which is ignored in report-only mode.
+5. Add `upgrade-insecure-requests`, which is ignored in report-only mode.
 
-Items 2 and 5 are not yet covered by an automated test; items 3 and 4 are not
+Items 2 and 4 are not yet covered by an automated test; item 3 is not
 either. `e2e/security-headers.spec.ts` covers items 2's rendering surface via
 `emulateMedia({ media: 'print' })` but does not drive the real print dialog.
 

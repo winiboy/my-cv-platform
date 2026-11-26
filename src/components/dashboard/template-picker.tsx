@@ -1,16 +1,15 @@
 'use client'
 
 import { memo, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { BookOpen, Briefcase, Building2, Crown, DraftingCompass, FileText, GraduationCap, HeartPulse, Landmark, Layout, PenTool, Rocket, Sparkles, Terminal, Wrench, type LucideIcon } from 'lucide-react'
+import { BookOpen, Building2, Crown, DraftingCompass, GraduationCap, HeartPulse, Landmark, Rocket, Terminal, Wrench, type LucideIcon } from 'lucide-react'
 import { ResumePreview } from '@/components/dashboard/resume-preview'
 import type { Locale } from '@/lib/i18n'
 import { PAGE_HEIGHT_MM, PAGE_WIDTH_MM, PAGE_WIDTH_PX } from '@/lib/resume-page-size'
 import { TEMPLATE_SAMPLE_RESUME } from '@/lib/template-sample-resume'
-import type { BuiltResumeTemplate, Resume, ResumeTemplate } from '@/types/database'
+import type { Resume, ResumeTemplate } from '@/types/database'
 
 interface TemplateOption {
-  /** Only a template drawn on every surface can be offered: an unbuilt id does not compile here. */
-  id: BuiltResumeTemplate
+  id: ResumeTemplate
   icon: LucideIcon
 }
 
@@ -19,11 +18,6 @@ interface TemplateOption {
  * creation surface shows them. A surface chooses only the default selection.
  */
 export const TEMPLATE_OPTIONS: readonly TemplateOption[] = [
-  { id: 'modern', icon: Sparkles },
-  { id: 'classic', icon: FileText },
-  { id: 'minimal', icon: Layout },
-  { id: 'creative', icon: PenTool },
-  { id: 'professional', icon: Briefcase },
   { id: 'swissVocational', icon: GraduationCap },
   { id: 'swissCommerce', icon: Building2 },
   { id: 'swissTrades', icon: Wrench },

@@ -375,8 +375,7 @@ describe('swissVocational: Word layout', () => {
 // ---------------------------------------------------------------------------
 // Per element: colour, letter spacing and line height, against the registries
 // the Preview draws from (resume-palette.ts, resume-letter-spacing.ts,
-// resume-line-height.ts), as the per-element suites check the five original
-// templates.
+// resume-line-height.ts).
 // ---------------------------------------------------------------------------
 
 const PALETTE = DOCX_PALETTE.swissVocational

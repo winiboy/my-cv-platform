@@ -108,7 +108,7 @@ async function insertLetter(userId: string, fields: Record<string, unknown>): Pr
 async function insertResume(userId: string, contact: Record<string, string>): Promise<string> {
   const { data, error } = await admin()
     .from('resumes')
-    .insert({ user_id: userId, title: 'CV suisse', template: 'modern', contact })
+    .insert({ user_id: userId, title: 'CV suisse', template: 'swissCommerce', contact })
     .select('id')
     .single()
   expect(error, error?.message).toBeNull()

@@ -79,7 +79,7 @@ async function downloadWord(page: Page, resumeId: string, photoBase64?: string):
 const drawings = (xml: string) => (xml.match(/<w:drawing>/g) ?? []).length
 
 test('en: an unticked e-mail and photo leave every output, survive a reload, and come back when ticked', async ({ page, authedUser }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'modern')
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
 
   // The photo lives in this browser, under the key the upload handler writes.
   await openEditor(page, resume.id)
@@ -151,31 +151,31 @@ test('en: an unticked e-mail and photo leave every output, survive a reload, and
   expect(drawings(xml)).toBe(wordWithoutPhoto + 1)
 })
 
-test('en: an unticked CV title leaves no title and no placeholder, and the name heads the CV instead', async ({ page, authedUser }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic')
-  const title = `Visual baseline - classic`
+test('en: an unticked CV title leaves no title and no placeholder, and the name still heads the CV', async ({ page, authedUser }) => {
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce')
+  const title = `Visual baseline - swissCommerce`
+  // Word may write a run in capitals as text or as a caps property: compare without case.
+  const inWord = (xml: string, text: string) => xml.toLowerCase().includes(text.toLowerCase())
 
   const live = await openEditor(page, resume.id)
-  // Classic draws no photo, so it has no photo row.
-  await expect(page.getByTestId('contact-photo-row')).toHaveCount(0)
   await expect(live).toContainText(title)
+  await expect(live).toContainText(FIXTURE_CONTACT.name)
 
-  // Classic draws the full name nowhere but this heading; it cannot be hidden.
-  await expect(live).not.toContainText(FIXTURE_CONTACT.name)
+  // The full name cannot be hidden; the title can.
   await tick(page, LABELS.title).uncheck()
   await expect(live).not.toContainText(title)
   await expect(live).not.toContainText('CV TITLE')
-  await expect(live.locator('h1')).toHaveText(FIXTURE_CONTACT.name)
+  await expect(live).toContainText(FIXTURE_CONTACT.name)
   await expect(page.locator('#cvName')).toHaveValue(title)
   await expect.poll(() => storedHiddenContactFields(resume.id), { timeout: 15_000 }).toEqual(['title'])
 
   const document = await openPreview(page, resume.id)
   await expect(document).not.toContainText(title)
   await expect(document).not.toContainText('CV TITLE')
-  await expect(document.locator('h1')).toHaveText(FIXTURE_CONTACT.name)
+  await expect(document.locator('h1')).toContainText(FIXTURE_CONTACT.name)
 
   const xml = await downloadWord(page, resume.id)
-  expect(xml).not.toContain(title.toUpperCase())
-  expect(xml).not.toContain('CV TITLE')
-  expect(xml).toContain(FIXTURE_CONTACT.name.toUpperCase())
+  expect(inWord(xml, title)).toBe(false)
+  expect(inWord(xml, 'CV TITLE')).toBe(false)
+  expect(inWord(xml, FIXTURE_CONTACT.name)).toBe(true)
 })

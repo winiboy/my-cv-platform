@@ -188,16 +188,6 @@
       "description": "Crea il tuo primo CV professionale per iniziare a candidarti."
     },
     "templates": {
-      "modern": "Moderno",
-      "modernDesc": "Design pulito e professionale con un tocco contemporaneo",
-      "classic": "Classico",
-      "classicDesc": "Formato tradizionale preferito dai settori conservatori",
-      "minimal": "Minimale",
-      "minimalDesc": "Semplice ed elegante con focus sul contenuto",
-      "professional": "Professionale",
-      "professionalDesc": "Modello per dirigenti con barra laterale e sezione dei risultati chiave",
-      "creative": "Creativo",
-      "creativeDesc": "Design audace per professionisti creativi",
       "swissVocational": "Formazione professionale (AFC)",
       "swissVocationalDesc": "Formato svizzero, ideale dopo un AFC",
       "swissCommerce": "Commercio e amministrazione",
@@ -400,29 +390,6 @@
       "present": "Presente",
       "gpa": "Media",
       "in": "in"
-    },
-    "sliders": {
-      "title": "Titolo",
-      "contactDetails": "Dati di contatto",
-      "sectionTitle": "Titolo sezione",
-      "description": "Descrizione",
-      "gap": "Spaziatura"
-    },
-    "colorWheel": {
-      "sidebarColor": "Colore barra laterale",
-      "presetColors": "Colori predefiniti",
-      "presets": {
-        "petrolBlue": "Blu petrolio",
-        "charcoal": "Antracite",
-        "forestGreen": "Verde foresta",
-        "burgundy": "Borgogna",
-        "teal": "Verde acqua",
-        "slate": "Ardesia",
-        "deepPurple": "Viola profondo",
-        "darkBrown": "Marrone scuro",
-        "wineRed": "Rosso vino",
-        "olive": "Oliva"
-      }
     },
     "association": {
       "linkedCoverLetters": "Lettere di presentazione collegate",

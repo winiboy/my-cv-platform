@@ -9,7 +9,7 @@ import type { Page } from '@playwright/test'
  * same resume — the one the PDF route returns and the one the Preview prints.
  */
 
-/** pdf.js bundled with pdf-parse; the build `e2e/parity/surfaces.ts` reads PDFs with. */
+/** pdf.js bundled with pdf-parse. */
 const PDFJS_VERSION = '2.0.550'
 
 export interface PdfPage {

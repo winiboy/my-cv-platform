@@ -31,12 +31,12 @@ function admin(): SupabaseClient {
   })
 }
 
-const ORDER = ['modern', 'classic', 'minimal', 'creative', 'professional', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
+const ORDER = ['swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
 
 const NAMES = {
-  fr: ['Moderne', 'Classique', 'Minimaliste', 'Créatif', 'Professionnel', 'Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique', 'Informatique & IT', 'Cadre & direction', 'Académique & recherche', 'Premier emploi'],
-  en: ['Modern', 'Classic', 'Minimal', 'Creative', 'Professional', 'Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering', 'IT & software', 'Executive & management', 'Academic & research', 'First job'],
-  de: ['Modern', 'Klassisch', 'Minimal', 'Kreativ', 'Professionell', 'Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung', 'Technische & handwerkliche Berufe', 'Gesundheit & Soziales', 'Bank, Finanzen & Versicherung', 'Ingenieurwesen & Technik', 'Informatik & IT', 'Kader & Geschäftsleitung', 'Akademisch & Forschung', 'Erste Stelle'],
+  fr: ['Formation professionnelle (CFC)', 'Commerce & administration', 'Métiers techniques & manuels', 'Santé & social', 'Banque, finance & assurance', 'Ingénierie & technique', 'Informatique & IT', 'Cadre & direction', 'Académique & recherche', 'Premier emploi'],
+  en: ['Vocational training (VET)', 'Business & administration', 'Technical & skilled trades', 'Health & social care', 'Banking, finance & insurance', 'Engineering', 'IT & software', 'Executive & management', 'Academic & research', 'First job'],
+  de: ['Berufslehre (EFZ)', 'Kaufmännisch & Verwaltung', 'Technische & handwerkliche Berufe', 'Gesundheit & Soziales', 'Bank, Finanzen & Versicherung', 'Ingenieurwesen & Technik', 'Informatik & IT', 'Kader & Geschäftsleitung', 'Akademisch & Forschung', 'Erste Stelle'],
 } as const
 
 /** The fr `resumes.editor.sections.education` heading every template draws (swissIt as "// formation"). */
@@ -101,13 +101,13 @@ test('fr: every option has a live thumbnail, keyboard and pointer selection, and
   const problems = watchConsole(page)
   await openPicker(page, 'fr')
 
-  // Every option, in order, named in French; Modern is the default.
+  // Every option, in order, named in French; swissCommerce, the second, is the default.
   await expect(radios(page)).toHaveCount(ORDER.length)
   expect(await radios(page).evaluateAll((elements) => elements.map((element) => element.getAttribute('data-template')))).toEqual(ORDER)
   for (const [index, name] of NAMES.fr.entries()) {
     await expect(radios(page).nth(index)).toHaveAccessibleName(name)
   }
-  await expectOnlyChecked(page, 'modern')
+  await expectOnlyChecked(page, 'swissCommerce')
 
   // One thumbnail per option, each drawing its own option's template with fr headings.
   await expectThumbnailsDrawn(page)
@@ -133,22 +133,22 @@ test('fr: every option has a live thumbnail, keyboard and pointer selection, and
   // Tab from the title lands on the selected option, then leaves the group.
   await page.locator('#title').focus()
   await page.keyboard.press('Tab')
-  await expect(radios(page).nth(0)).toBeFocused()
+  await expect(radios(page).nth(1)).toBeFocused()
   await page.keyboard.press('Tab')
   await expect(page.locator('button[type="submit"]')).toBeFocused()
 
   // Arrow keys move the selection, and focus with it.
-  await radios(page).nth(0).focus()
+  await radios(page).nth(1).focus()
   await page.keyboard.press('ArrowRight')
   await page.keyboard.press('ArrowRight')
-  await expect(radios(page).nth(2)).toBeFocused()
-  await expectOnlyChecked(page, 'minimal')
+  await expect(radios(page).nth(3)).toBeFocused()
+  await expectOnlyChecked(page, 'swissHealth')
   await page.keyboard.press('ArrowLeft')
-  await expectOnlyChecked(page, 'classic')
+  await expectOnlyChecked(page, 'swissTrades')
 
   // A click on the card selects it; the thumbnail does not swallow it.
-  await radios(page).nth(3).click()
-  await expectOnlyChecked(page, 'creative')
+  await radios(page).nth(5).click()
+  await expectOnlyChecked(page, 'swissEngineering')
 
   // Create the CV and land in its editor.
   await page.fill('#title', 'Template picker e2e')
@@ -163,12 +163,12 @@ test('fr: every option has a live thumbnail, keyboard and pointer selection, and
     .eq('id', resumeId as string)
     .single()
   expect(error).toBeNull()
-  expect(data).toEqual({ template: 'creative', title: 'Template picker e2e', user_id: authedUser.id })
+  expect(data).toEqual({ template: 'swissEngineering', title: 'Template picker e2e', user_id: authedUser.id })
 
   expect(problems).toEqual([])
 })
 
-test('fr: without touching the picker the CV is created as modern', async ({ page, authedUser }) => {
+test('fr: without touching the picker the CV is created as swissCommerce', async ({ page, authedUser }) => {
   const problems = watchConsole(page)
   await openPicker(page, 'fr')
   await expectThumbnailsDrawn(page)
@@ -184,13 +184,13 @@ test('fr: without touching the picker the CV is created as modern', async ({ pag
     .eq('id', resumeId as string)
     .single()
   expect(error).toBeNull()
-  expect(data).toEqual({ template: 'modern', user_id: authedUser.id })
+  expect(data).toEqual({ template: 'swissCommerce', user_id: authedUser.id })
 
   expect(problems).toEqual([])
 })
 
 for (const locale of ['en', 'de'] as const) {
-  test(`${locale}: every option carries its ${locale} names, Professional included`, async ({ page, authedUser }) => {
+  test(`${locale}: every option carries its ${locale} names`, async ({ page, authedUser }) => {
     expect(authedUser.id).toBeTruthy()
     const problems = watchConsole(page)
     await openPicker(page, locale)

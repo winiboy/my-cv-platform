@@ -73,7 +73,7 @@ describe('persisted layout settings', () => {
       .insert({
         user_id: ownerA.id,
         title: 'Owner A layout fixture',
-        template: 'professional',
+        template: 'swissCommerce',
         layout_settings: OWNER_A_LAYOUT,
       })
       .select('id')
@@ -256,7 +256,7 @@ describe('persisted layout settings', () => {
           .insert({
             user_id: ownerA.id,
             title: `Legacy shape: ${shape.name}`,
-            template: 'modern',
+            template: 'swissCommerce',
             // Deliberately a shape the current writer never produces.
             custom_sections: shape.customSections,
           })
@@ -282,7 +282,7 @@ describe('persisted layout settings', () => {
         .insert({
           user_id: ownerA.id,
           title: 'Legacy wrapped shape with settings',
-          template: 'modern',
+          template: 'swissCommerce',
           custom_sections: {
             items: [],
             layoutSettings: { hiddenMainSections: ['education'] },

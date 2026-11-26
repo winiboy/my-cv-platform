@@ -76,7 +76,7 @@ import {
   extractBase64Data,
   parseImageDimensions,
   readJpegOrientation,
-} from './docx-modern'
+} from './docx-photo'
 
 /** The stored columns this generator reads, typed as the application writes them. */
 interface StoredResume {
@@ -706,7 +706,7 @@ export async function generateSwissEngineeringDocx(resume: unknown, settings: Do
   // `docx` writes the photo as a rectangle with no outline or fill and has no
   // API for either, so its geometry is set to an ellipse — Word's own "crop to
   // shape" — with the Preview's ring and fill, and the object-fit: cover crop
-  // is written as `docx-modern.ts` does.
+  // is written from `calculateCoverCropPercents` (`docx-photo.ts`).
   if (photo) {
     const zip = await JSZip.loadAsync(buffer)
     const file = zip.file('word/document.xml')
@@ -783,7 +783,7 @@ function photoRun(photoBase64: string): { image: ImageRun; crop: { l: number; t:
     const displayed = swapsAxes ? { width: dimensions.height, height: dimensions.width } : dimensions
     const displayedCrop = calculateCoverCropPercents(displayed.width, displayed.height, box, box)
     // srcRect is in the stored image's axes, which a 90° turn swaps; the cover
-    // crop is centred, so the mapping is the one `docx-modern.ts` documents.
+    // crop is centred, so the mapping is the one `EXIF_PHOTO_TRANSFORMS` (`docx-photo.ts`) documents.
     const stored = swapsAxes
       ? { l: displayedCrop.t, r: displayedCrop.b, t: displayedCrop.l, b: displayedCrop.r }
       : displayedCrop

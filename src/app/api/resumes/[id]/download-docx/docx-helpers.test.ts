@@ -3,19 +3,13 @@ import JSZip from 'jszip'
 import { isValidElement, type ReactElement, type ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
 import { formatText } from '@/lib/format-text'
-import { DEFAULT_RESUME_LAYOUT } from '@/lib/layout-settings'
 import {
-  APP_BODY_FONT,
   exactLineSpacing,
   NO_TEXT_LINE,
   extractAlignment,
-  extractPrimaryFont,
-  resolveDocxFont,
   formatDateRange,
-  hslToHex,
   isHtmlList,
   isPlainTextList,
-  oklchToHex,
   parseHtmlToDocxRuns,
   parsePlainTextBlocks,
   parsePlainTextListToParagraphs,
@@ -28,12 +22,10 @@ import {
 } from './docx-helpers'
 
 /**
- * These helpers are shared by all five DOCX generators, so a regression here
+ * These helpers are shared by every DOCX generator, so a regression here
  * changes every export at once. They are pure, which makes them the highest
  * value unit-test target in the export path.
  */
-
-const HEX_6 = /^[0-9A-F]{6}$/
 
 describe('pxToHalfPoints', () => {
   it('converts px to half-points at 96 DPI (1px = 1.5 half-points)', () => {
@@ -65,111 +57,6 @@ describe('pxToTwips', () => {
 
   it('always returns an integer', () => {
     expect(Number.isInteger(pxToTwips(3.7))).toBe(true)
-  })
-})
-
-describe('hslToHex', () => {
-  it('converts the primary hues', () => {
-    expect(hslToHex(0, 100, 50)).toBe('FF0000')
-    expect(hslToHex(120, 100, 50)).toBe('00FF00')
-    expect(hslToHex(240, 100, 50)).toBe('0000FF')
-  })
-
-  it('converts the secondary hues', () => {
-    expect(hslToHex(60, 100, 50)).toBe('FFFF00')
-    expect(hslToHex(180, 100, 50)).toBe('00FFFF')
-    expect(hslToHex(300, 100, 50)).toBe('FF00FF')
-  })
-
-  it('renders zero saturation as grey regardless of hue', () => {
-    for (const hue of [0, 90, 180, 270]) {
-      const hex = hslToHex(hue, 0, 50)
-      expect(hex.slice(0, 2)).toBe(hex.slice(2, 4))
-      expect(hex.slice(2, 4)).toBe(hex.slice(4, 6))
-    }
-  })
-
-  it('renders lightness extremes as black and white', () => {
-    expect(hslToHex(200, 85, 0)).toBe('000000')
-    expect(hslToHex(200, 85, 100)).toBe('FFFFFF')
-  })
-
-  it('returns bare uppercase 6-digit hex with no leading hash', () => {
-    for (const [h, s, l] of [[240, 85, 35], [17, 42, 61], [300, 10, 5]]) {
-      const hex = hslToHex(h, s, l)
-      expect(hex).toMatch(HEX_6)
-      expect(hex.startsWith('#')).toBe(false)
-    }
-  })
-
-  it('pads single-digit channels to two characters', () => {
-    expect(hslToHex(240, 85, 35)).toBe('0D0DA5')
-  })
-
-  // The sidebar hue slider is min="0" max="360", so 360 is a value the user can
-  // actually select, and Preview renders it as red. Before hue normalization the
-  // branch chain stopped at `h < 360`, leaving r/g/b at 0 and exporting a
-  // near-black sidebar instead.
-  it('treats hue 360 as red rather than black', () => {
-    expect(hslToHex(360, 100, 50)).toBe('FF0000')
-  })
-
-  it('produces the same colour for hue 360 as for hue 0', () => {
-    expect(hslToHex(360, 85, 35)).toBe(hslToHex(0, 85, 35))
-  })
-
-  it('wraps hues above 360 back into the circle', () => {
-    expect(hslToHex(420, 100, 50)).toBe(hslToHex(60, 100, 50))
-    expect(hslToHex(720, 100, 50)).toBe(hslToHex(0, 100, 50))
-  })
-
-  it('wraps negative hues back into the circle', () => {
-    expect(hslToHex(-60, 100, 50)).toBe(hslToHex(300, 100, 50))
-    expect(hslToHex(-360, 100, 50)).toBe(hslToHex(0, 100, 50))
-  })
-})
-
-describe('oklchToHex', () => {
-  it('returns a grey, with all three channels equal', () => {
-    for (const l of [0.2, 0.3, 0.5, 0.8]) {
-      const hex = oklchToHex(l)
-      expect(hex.slice(0, 2)).toBe(hex.slice(2, 4))
-      expect(hex.slice(2, 4)).toBe(hex.slice(4, 6))
-    }
-  })
-
-  it('increases monotonically with lightness', () => {
-    const values = [0.1, 0.3, 0.5, 0.7, 0.9].map((l) => parseInt(oklchToHex(l).slice(0, 2), 16))
-    const sorted = [...values].sort((a, b) => a - b)
-    expect(values).toEqual(sorted)
-  })
-
-  it('returns bare uppercase 6-digit hex', () => {
-    expect(oklchToHex(0.2)).toMatch(HEX_6)
-    expect(oklchToHex(0)).toMatch(HEX_6)
-  })
-})
-
-describe('extractPrimaryFont', () => {
-  it('takes the first font from a stack', () => {
-    expect(extractPrimaryFont("'Arial', Helvetica, sans-serif")).toBe('Arial')
-  })
-
-  it('strips single and double quotes', () => {
-    expect(extractPrimaryFont('"Times New Roman", serif')).toBe('Times New Roman')
-    expect(extractPrimaryFont("'Courier New', monospace")).toBe('Courier New')
-  })
-
-  it('handles a bare single font', () => {
-    expect(extractPrimaryFont('Georgia')).toBe('Georgia')
-  })
-
-  it('trims surrounding whitespace', () => {
-    expect(extractPrimaryFont('  Verdana  , sans-serif')).toBe('Verdana')
-  })
-
-  it('preserves internal spaces in multi-word names', () => {
-    expect(extractPrimaryFont('Noto Sans, sans-serif')).toBe('Noto Sans')
   })
 })
 
@@ -634,31 +521,3 @@ describe('formatDateRange', () => {
   })
 })
 
-/**
- * Part 3 US-012: which family a generator writes.
- *
- * The chosen/not-chosen rule itself is pinned in `layout-settings.test.ts`;
- * what matters here is that a generator asks it rather than applying the
- * stored stack unconditionally, and that an unchosen font yields the family
- * the template's Preview draws.
- */
-describe('resolveDocxFont', () => {
-  it("writes the template's own font when no font was chosen", () => {
-    expect(resolveDocxFont(DEFAULT_RESUME_LAYOUT.fontFamily, APP_BODY_FONT)).toBe('Inter')
-    expect(resolveDocxFont(DEFAULT_RESUME_LAYOUT.fontFamily, 'Georgia')).toBe('Georgia')
-  })
-
-  it('writes the primary family of a chosen stack, on every template', () => {
-    for (const designed of [APP_BODY_FONT, 'Georgia']) {
-      expect(resolveDocxFont('Verdana, Geneva, sans-serif', designed)).toBe('Verdana')
-      expect(resolveDocxFont("'Times New Roman', serif", designed)).toBe('Times New Roman')
-    }
-  })
-
-  it("falls back to the template's font when a chosen stack names none", () => {
-    // Not reachable through `parseLayoutModel`, which rejects a blank stack;
-    // the fallback exists so an unusable value degrades to what the Preview
-    // draws rather than to a family no surface uses.
-    expect(resolveDocxFont('   ', 'Georgia')).toBe('Georgia')
-  })
-})

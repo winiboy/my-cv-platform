@@ -9,7 +9,6 @@ import {
   type UniversalMeasure,
 } from 'docx'
 import type { Locale } from '@/lib/i18n'
-import { chosenFontFamily } from '@/lib/layout-settings'
 import type { ContactFieldId } from '@/lib/contact-visibility'
 
 // ============================================================
@@ -107,7 +106,7 @@ export type LineSpacing = Required<Pick<ISpacingProperties, 'line' | 'lineRule'>
  * Where one paragraph carries text the Preview draws as several elements side
  * by side — a title and its date in one flex row — the row is as tall as its
  * tallest line box, so the largest is written. An element whose own box is
- * filled and padded (modern's job-title bar) adds its vertical padding, top
+ * filled and padded (a title bar) adds its vertical padding, top
  * plus bottom, so the DOCX shading covers what the Preview fills; height a
  * SIBLING box contributes to the row is space before and after, not leading,
  * or a paragraph that wraps would be spaced at the sibling's height.
@@ -150,68 +149,9 @@ export function trackingSpacing(em: number, halfPoints: number): number {
   return Math.round(em * halfPoints * 10)
 }
 
-/**
- * Convert HSL color string to hex (without #)
- * Input: "hsl(240, 85%, 35%)" or computed from hue/brightness
- */
-export function hslToHex(h: number, s: number, l: number): string {
-  // Hue is cyclic. The sidebar hue slider is min="0" max="360", so 360 is
-  // user-selectable and must resolve to red like 0, not fall through every
-  // branch below and leave r/g/b at their initial 0 (black).
-  h = ((h % 360) + 360) % 360
-  s /= 100
-  l /= 100
-
-  const c = (1 - Math.abs(2 * l - 1)) * s
-  const x = c * (1 - Math.abs((h / 60) % 2 - 1))
-  const m = l - c / 2
-
-  let r = 0, g = 0, b = 0
-
-  if (0 <= h && h < 60) { r = c; g = x; b = 0 }
-  else if (60 <= h && h < 120) { r = x; g = c; b = 0 }
-  else if (120 <= h && h < 180) { r = 0; g = c; b = x }
-  else if (180 <= h && h < 240) { r = 0; g = x; b = c }
-  else if (240 <= h && h < 300) { r = x; g = 0; b = c }
-  else if (300 <= h && h < 360) { r = c; g = 0; b = x }
-
-  const toHex = (n: number) => {
-    const hex = Math.round((n + m) * 255).toString(16)
-    return hex.length === 1 ? '0' + hex : hex
-  }
-
-  return `${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase()
-}
-
-/**
- * Convert oklch to hex - simplified for grayscale (chroma = 0)
- * oklch(L C H) where L is lightness 0-1
- * For our use case, we only use grayscale: oklch(0.2 0 0), oklch(0.3 0 0), etc.
- */
-export function oklchToHex(lightness: number): string {
-  // For grayscale oklch (chroma = 0), lightness maps roughly to:
-  // oklch lightness is perceptual, roughly: hex = lightness^3 * 255 for dark values
-  // Simplified approximation for our specific values:
-  const gray = Math.round(Math.pow(lightness, 0.5) * 255 * 0.85)
-  const hex = gray.toString(16).padStart(2, '0')
-  return `${hex}${hex}${hex}`.toUpperCase()
-}
-
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
-
-/**
- * Extract primary font name from CSS font-family stack
- * e.g., "'Arial', Helvetica, sans-serif" -> "Arial"
- */
-export function extractPrimaryFont(fontFamily: string): string {
-  const fonts = fontFamily.split(',')
-  if (fonts.length > 0) {
-    return fonts[0].trim().replace(/['"]/g, '')
-  }
-  return 'Arial'
-}
 
 /**
  * The app's body font: `next/font`'s Inter, set on `<body>` by the root
@@ -219,26 +159,6 @@ export function extractPrimaryFont(fontFamily: string): string {
  * the Preview, and therefore what its DOCX must write when no font is chosen.
  */
 export const APP_BODY_FONT = 'Inter'
-
-/**
- * The family a generator writes for a run: the owner's chosen font, or the
- * font the template's Preview draws when they chose none (Part 3 US-012).
- *
- * The choice is `chosenFontFamily`'s to make — one rule, shared with
- * `resume-preview.tsx`, so an export cannot disagree with the Preview about
- * whether a font was chosen. `designedFont` is what that template's Preview
- * shows for the run in question, which is why classic passes two different
- * ones: its headings are serif and its body is Inter.
- *
- * A chosen stack that yields no usable name falls back to the designed font
- * rather than to a generator's private default, so an unusable choice degrades
- * to what the Preview draws instead of to a third font nothing else uses.
- */
-export function resolveDocxFont(fontFamily: string, designedFont: string): string {
-  const chosen = chosenFontFamily(fontFamily)
-  if (chosen === null) return designedFont
-  return extractPrimaryFont(chosen) || designedFont
-}
 
 /**
  * Strip HTML tags from text
@@ -329,7 +249,7 @@ export function parseHtmlListToParagraphs(
   alignment?: typeof AlignmentType[keyof typeof AlignmentType],
   /**
    * Paragraph borders every item takes, so a rule the Preview draws beside a
-   * whole block runs behind its list items too (US-007, creative's timeline).
+   * whole block runs behind its list items too (US-007).
    */
   border?: IBordersOptions
 ): Paragraph[] {
@@ -449,7 +369,7 @@ export interface PlainTextParagraphLayout {
   shading?: IShadingAttributesProperties
   /**
    * Paragraph borders every paragraph takes, so a rule the Preview draws beside
-   * a whole block runs behind its list items too (US-007, creative's timeline).
+   * a whole block runs behind its list items too (US-007).
    */
   border?: IBordersOptions
 }

@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { Plus, Trash2, GripVertical, Sparkles, Languages, X, Check, Eye, EyeOff } from 'lucide-react'
 import type { Resume, ResumeEducation } from '@/types/database'
-import { KeyAchievementsToolbar, KeyAchievementsFormatCommand } from '../key-achievements-toolbar'
 import { RichTextEditor } from '../rich-text-editor'
 import { htmlToPlainText, migrateTextToHtml } from '@/lib/html-utils'
 
@@ -55,84 +54,6 @@ export function EducationSection({ resume, updateResume, dict, locale }: Educati
     const updated = education.filter((_, i) => i !== index)
     updateResume({ education: updated as any })
   }
-
-  // Handle formatting commands from toolbar
-  const handleFormat = useCallback((index: number, command: KeyAchievementsFormatCommand) => {
-    const editorId = `education-description-${index}`
-    const editor = document.getElementById(editorId) as HTMLDivElement | null
-    if (!editor) return
-
-    editor.focus()
-
-    // Restore selection if needed
-    const selection = window.getSelection()
-    if (!selection || selection.rangeCount === 0) {
-      const range = document.createRange()
-      range.selectNodeContents(editor)
-      range.collapse(false)
-      selection?.removeAllRanges()
-      selection?.addRange(range)
-    }
-
-    switch (command) {
-      case 'bold':
-        document.execCommand('bold')
-        break
-      case 'italic':
-        document.execCommand('italic')
-        break
-      case 'alignLeft':
-        document.execCommand('justifyLeft')
-        break
-      case 'alignCenter':
-        document.execCommand('justifyCenter')
-        break
-      case 'alignJustify':
-        document.execCommand('justifyFull')
-        break
-      case 'bulletList':
-        document.execCommand('insertUnorderedList')
-        break
-      case 'numberedList':
-        document.execCommand('insertOrderedList')
-        break
-      case 'dashList':
-        // Check if we're already in a dash list (to toggle it off)
-        const existingDashList = editor.querySelector('ul[style*="list-style-type: none"]')
-        if (existingDashList) {
-          // Remove dash spans from each li before removing the list
-          const dashItems = existingDashList.querySelectorAll('li')
-          dashItems.forEach(item => {
-            // Remove the dash span at the beginning
-            const dashSpan = item.querySelector('span[style*="margin-right"]')
-            if (dashSpan && dashSpan.textContent === '-') {
-              dashSpan.remove()
-            }
-          })
-          // Remove the list-style-type style so insertUnorderedList works correctly
-          ;(existingDashList as HTMLElement).style.listStyleType = ''
-          // Now toggle off the list
-          document.execCommand('insertUnorderedList')
-        } else {
-          // Create a new dash list
-          document.execCommand('insertUnorderedList')
-          const listElement = editor.querySelector('ul:not([style*="list-style-type"])')
-          if (listElement) {
-            (listElement as HTMLElement).style.listStyleType = 'none'
-            const items = listElement.querySelectorAll('li')
-            items.forEach(item => {
-              if (!item.textContent?.startsWith('- ')) {
-                const textContent = item.innerHTML
-                item.innerHTML = `<span style="margin-right: 0.5em;">-</span>${textContent}`
-              }
-            })
-          }
-        }
-        break
-    }
-
-    editor.dispatchEvent(new Event('input', { bubbles: true }))
-  }, [])
 
   // Handle description change from RichTextEditor
   const handleDescriptionChange = (index: number, html: string, plainText: string) => {
@@ -450,14 +371,6 @@ export function EducationSection({ resume, updateResume, dict, locale }: Educati
                   <label className="block text-sm font-medium text-slate-900">
                     {dict.resumes?.editor?.description || 'Description'}
                   </label>
-                  {/* Rich Text Toolbar for Description field - only for professional template */}
-                  {resume.template === 'professional' && (
-                    <KeyAchievementsToolbar
-                      editorId={`education-description-${index}`}
-                      onFormat={(command) => handleFormat(index, command)}
-                      dict={dict}
-                    />
-                  )}
                 </div>
                 <div className="mt-1">
                   <RichTextEditor

@@ -82,7 +82,7 @@ import {
   extractBase64Data,
   parseImageDimensions,
   readJpegOrientation,
-} from './docx-modern'
+} from './docx-photo'
 
 /** The stored columns this generator reads, typed as the application writes them. */
 interface StoredResume {
@@ -152,8 +152,7 @@ interface Flow {
  * Layout in Word: the page has no margin at the top or sides, as the printed
  * Preview has none; the body is one two-column table, its left cell shaded the
  * dark column's colour, and the column's fill is also a page-high raster
- * behind the text, repeated on every page through a 1-twip header row, as
- * `docx-modern.ts` draws its sidebar. The photo is a drawing centred at the
+ * behind the text, repeated on every page through a 1-twip header row. The photo is a drawing centred at the
  * top of the dark column; skill tags are shaded runs; each main heading's rule
  * is an underlined tab to the column's edge; dates sit at a right tab stop.
  */
@@ -627,7 +626,7 @@ export async function generateSwissTradesDocx(resume: unknown, settings: DocxGen
   // the row's part on a page ends, and after the row it stops altogether, so
   // the fill is also a page-high drawing anchored to the page behind the text,
   // held by a 1-twip header row that Word repeats on every page the table
-  // spans — `docx-modern.ts`'s sidebar, measured there.
+  // spans.
   const fillRow = new TableRow({
     tableHeader: true,
     cantSplit: true,
@@ -809,7 +808,7 @@ function photoRun(photoBase64: string): { image: ImageRun; crop: { l: number; t:
     const displayed = swapsAxes ? { width: dimensions.height, height: dimensions.width } : dimensions
     const displayedCrop = calculateCoverCropPercents(displayed.width, displayed.height, boxWidth, boxHeight)
     // srcRect is in the stored image's axes, which a 90° turn swaps; the cover
-    // crop is centred, so the mapping is the one `docx-modern.ts` documents.
+    // crop is centred, so the mapping is the one `EXIF_PHOTO_TRANSFORMS` (`docx-photo.ts`) documents.
     const stored = swapsAxes
       ? { l: displayedCrop.t, r: displayedCrop.b, t: displayedCrop.l, b: displayedCrop.r }
       : displayedCrop

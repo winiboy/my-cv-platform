@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import type { BuiltResumeTemplate } from '@/types/database'
+import type { ResumeTemplate } from '@/types/database'
 import { templateComponentFile } from '@/test/resume-template-files'
+import { RESUME_TEMPLATES } from './resume-templates'
 import { PREVIEW_TRACKING, TAILWIND_TRACKING, type TailwindTrackingUtility } from './resume-letter-spacing'
 
 /**
@@ -15,20 +16,18 @@ import { PREVIEW_TRACKING, TAILWIND_TRACKING, type TailwindTrackingUtility } fro
  *   back: Tailwind's `--text-*` sizes carry no tracking, its preflight sets
  *   `letter-spacing` only on form controls, and `globals.css` declares none.
  *   So an element absent from `PREVIEW_TRACKING` draws `normal`, which is 0.
- * - Modern's letter spacing is imported by its template; this test fails if
- *   the template gives `letterSpacing` any value other than one of those
- *   constants, which would be a second copy.
+ * - A letter spacing a template writes inline is imported by the template;
+ *   this test fails if the template gives `letterSpacing` any value other than
+ *   one of those constants, which would be a second copy.
  * - Every `tracking-*` utility any template uses, arbitrary values
  *   (`tracking-[0.2em]`) included, must be one this module declares FOR THAT
  *   TEMPLATE, so a template cannot start drawing at a letter spacing the
  *   generators do not know.
  *
- * Not covered: WHICH element uses which value. Moving minimal's
- * `tracking-widest` from its headings to its title passes here, because the
- * value is still one the module declares for minimal. The title, headings and
- * every other spaced run are pinned per element by
- * `docx-letter-spacing.test.ts`, and the sampled elements are compared with the
- * browser's computed style by `pnpm test:parity`; any other element is guarded
+ * Not covered: WHICH element uses which value. Moving swissFinance's
+ * `tracking-widest` from its name to another element passes here, because the
+ * value is still one the module declares for swissFinance. Each Swiss
+ * generator's own test pins the runs it writes; any other element is guarded
  * only by review, as US-003 recorded for which element a colour sits on.
  */
 
@@ -39,8 +38,8 @@ const tailwindTheme = read('node_modules/tailwindcss/theme.css')
 const tailwindPreflight = read('node_modules/tailwindcss/preflight.css')
 const globals = read('src/app/globals.css')
 
-const TEMPLATES: readonly BuiltResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissFinance', 'swissEngineering', 'swissIt', 'swissExecutive', 'swissAcademic', 'swissFirstJob']
-const template = (name: BuiltResumeTemplate) => read(templateComponentFile(name))
+const TEMPLATES: readonly ResumeTemplate[] = RESUME_TEMPLATES
+const template = (name: ResumeTemplate) => read(templateComponentFile(name))
 
 /** A theme letter spacing, in em: `--tracking-wide: 0.025em`. */
 function themeTracking(utility: TailwindTrackingUtility): number {
@@ -70,25 +69,7 @@ describe('letter spacing read from CSS', () => {
 })
 
 describe('the templates draw with these letter spacings and no others', () => {
-  it('modern gives letterSpacing only the constants it imports', () => {
-    const source = template('modern')
-    expect(source).toMatch(/const TRACKING = PREVIEW_TRACKING\.modern/)
-    // To the end of the line, less a trailing comma: a template literal holds braces of its own.
-    const values = [...source.matchAll(/letterSpacing\s*[:=]\s*([^\n]+)/g)].map((m) => m[1].trim().replace(/,$/, ''))
-    expect(values.length).toBeGreaterThan(0)
-    for (const value of values) {
-      expect(value, 'an inline letter spacing that is not one of the module constants').toMatch(
-        /^`\$\{TRACKING\.(name|jobTitleBar|sectionHeading|contactLabel|skillCategory)\}em`$/,
-      )
-    }
-    for (const key of Object.keys(PREVIEW_TRACKING.modern)) {
-      // jobTitleBar is a utility class, not an inline style; the others are inline.
-      if (key === 'jobTitleBar') continue
-      expect(source, `modern uses TRACKING.${key}`).toContain(`TRACKING.${key}`)
-    }
-  })
-
-  it.each(['professional', 'classic', 'minimal', 'creative', 'swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissIt'] as const)('%s writes no letter spacing inline', (name) => {
+  it.each(['swissVocational', 'swissCommerce', 'swissTrades', 'swissHealth', 'swissIt'] as const)('%s writes no letter spacing inline', (name) => {
     expect(template(name)).not.toMatch(/letterSpacing/)
   })
 
@@ -125,11 +106,6 @@ describe('the templates draw with these letter spacings and no others', () => {
 describe('the values themselves', () => {
   it('are the ems each template draws', () => {
     expect(PREVIEW_TRACKING).toEqual({
-      professional: { title: -0.025, heading: 0.025 },
-      modern: { name: 0.15, jobTitleBar: 0.025, sectionHeading: 0.08, contactLabel: 0.05, skillCategory: 0.03 },
-      classic: { title: 0.025 },
-      minimal: { title: -0.025, heading: 0.1 },
-      creative: { title: -0.025 },
       swissVocational: { caps: 0.1 },
       swissCommerce: { caps: 0.1 },
       swissTrades: { caps: 0.1 },

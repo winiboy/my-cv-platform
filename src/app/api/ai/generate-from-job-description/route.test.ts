@@ -61,7 +61,7 @@ function createRequest(body: unknown): NextRequest {
 }
 
 /** The request body the modal sends, unchanged by this story. */
-const MODAL_BODY = { jobDescription: GERMAN_DESCRIPTION, title: 'CV - Beispiel AG', template: 'professional', locale: 'fr' }
+const MODAL_BODY = { jobDescription: GERMAN_DESCRIPTION, title: 'CV - Beispiel AG', template: 'swissTrades', locale: 'fr' }
 
 function aiReply() {
   return {
@@ -132,7 +132,7 @@ describe('POST /api/ai/generate-from-job-description', () => {
     expect(resume).toMatchObject({
       user_id: USER_ID,
       title: 'CV - Beispiel AG',
-      template: 'professional',
+      template: 'swissTrades',
       summary: '<p>KI-Profil als Data Engineer</p>',
       custom_sections: [],
       is_default: false,
@@ -241,6 +241,17 @@ describe('POST /api/ai/generate-from-job-description', () => {
     expect(response.status).toBe(200)
     expect(inserted().template).toBe('swissFirstJob')
   })
+
+  it.each(['professional', 'modern', 'classic', 'minimal', 'creative'])(
+    'refuses the removed template %s, before calling the AI',
+    async (template) => {
+      const response = await POST(createRequest({ ...MODAL_BODY, template }))
+
+      expect(response.status).toBe(400)
+      expect(generateResumeFromJobDescription).not.toHaveBeenCalled()
+      expect(state.db.table('resumes')).toEqual([])
+    },
+  )
 
   it('refuses a template id outside the ones the schema accepts, before calling the AI', async () => {
     const response = await POST(createRequest({ ...MODAL_BODY, template: 'swissUnknown' }))

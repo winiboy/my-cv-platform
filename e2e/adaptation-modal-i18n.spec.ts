@@ -354,7 +354,7 @@ function watchConsole(page: Page): string[] {
 async function createResume(userId: string, title: string): Promise<string> {
   const { data, error } = await admin()
     .from('resumes')
-    .insert({ user_id: userId, title, template: 'professional' })
+    .insert({ user_id: userId, title, template: 'swissCommerce' })
     .select('id')
     .single()
   if (error || !data) throw new Error(`Could not create a resume for the test user: ${error?.message ?? 'no row'}`)

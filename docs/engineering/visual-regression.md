@@ -1,8 +1,14 @@
 # Visual regression
 
-`pnpm test:visual` renders each of the five resume templates through the real
-preview route and compares the result against a committed PNG — twice per
+`pnpm test:visual` renders each of the ten Swiss resume templates through the
+real preview route and compares the result against a committed PNG — twice per
 template, once under screen media and once under emulated print media.
+
+The committed baselines are `e2e/visual/__screenshots__/win32/<template>.png`
+and `<template>-print.png` for the ten templates `RESUME_TEMPLATES`
+(`src/lib/resume-templates.ts`) lists. The five legacy templates' baselines,
+and the history sections below that name them, are records of a template set
+that no longer exists (see "Removed: the five legacy baselines").
 
 ```bash
 pnpm supabase start
@@ -12,7 +18,7 @@ pnpm test:visual
 ## What it is for
 
 Milestone C unifies resume rendering across the Editor, Live Preview, Preview,
-PDF and DOCX. That work edits layout code shared by five templates at once, and
+PDF and DOCX. That work edits layout code shared by every template at once, and
 its characteristic failure is not a crash — it is a template that still renders,
 still typechecks, still passes every functional test, and is subtly wrong.
 
@@ -24,7 +30,7 @@ cookies, none of which move when a column shifts by 40 pixels.
 
 | Covered | Not covered |
 |---|---|
-| The five templates via `/[locale]/dashboard/resumes/[id]/preview` | The DOCX export |
+| The ten templates via `/[locale]/dashboard/resumes/[id]/preview` | The DOCX export |
 | Both media: screen, and print via `emulateMedia` | Page breaking, `@page` margins, headers/footers |
 | Section order, spacing, typography, colour as rendered | The editor surface |
 | The full document height, top to bottom, in each medium | Cover letter templates |
@@ -349,6 +355,17 @@ A baseline change is an **approval decision**, not a test fix. The rules:
   is not project state (CLAUDE.md §3). See below.
 - `ui-expert` may run `pnpm test:visual`. It may **not** run
   `test:visual:update` — blessing a baseline is not a validation act.
+
+### Removed: the five legacy baselines, 2026-11-25
+
+**Cause.** `swiss-templates-only-page-fidelity` US-001 removed the
+`professional`, `modern`, `classic`, `minimal` and `creative` templates from
+the product. Their ten PNGs (`<template>.png` and `<template>-print.png`) were
+deleted with them, and `e2e/visual/resume-templates.spec.ts` iterates
+`RESUME_TEMPLATES`, so it captures exactly the ten Swiss templates.
+
+**What did not move.** No Swiss baseline was re-blessed: none of the twenty
+Swiss PNGs changed in that commit.
 
 ### Moved: all ten baselines, 2026-09-25 — the page became A4
 

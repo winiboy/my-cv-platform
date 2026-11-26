@@ -27,9 +27,6 @@ import {
 describe('swissTrades in the template x control registries (FR-3)', () => {
   it('offers only the sections panel: no user colour, no size input, no stored font (FR-4, FR-12)', () => {
     expect(TEMPLATE_LAYOUT_CONTROLS.swissTrades).toEqual(['sidebarSections'])
-    expect(templateOffersLayoutControl('swissTrades', 'font')).toBe(false)
-    expect(templateOffersLayoutControl('swissTrades', 'sidebarColour')).toBe(false)
-    expect(templateOffersLayoutControl('swissTrades', 'perPropertySize')).toBe(false)
     expect(templateOffersLayoutControl('swissTrades', 'sidebarSections')).toBe(true)
     expect(TEMPLATE_APPLIED_SIZE_KEYS.swissTrades).toEqual([])
   })

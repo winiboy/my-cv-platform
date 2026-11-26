@@ -9,6 +9,7 @@ import {
 import { PAGE_HEIGHT_PX, PAGE_WIDTH_PX } from '../src/lib/resume-page-size'
 import type { Page } from '@playwright/test'
 import type { ResumeTemplate } from '../src/types/database'
+import { RESUME_TEMPLATES } from '../src/lib/resume-templates'
 
 /**
  * US-001: the editor's live preview marks every edge between two printed A4
@@ -124,8 +125,8 @@ async function expectIndicatorsAligned(page: Page, labelFor: (page: number) => s
     expect(indicator.labelLeft).toBeGreaterThanOrEqual(reading.documentRight)
     expect(indicator.labelRight).toBeLessThanOrEqual(reading.paneRight + 0.5)
   }
-  // Some templates overflow the pane on their own (classic's in-template
-  // controls); the overlay must add nothing to that.
+  // A template may overflow the pane on its own; the overlay must add nothing
+  // to that.
   expect(reading.paneOverflowX).toBe(reading.paneOverflowXWithoutOverlay)
   return reading
 }
@@ -150,7 +151,7 @@ async function expectPreviewSettled(page: Page): Promise<void> {
 
 const indicators = (page: Page) => page.getByTestId('page-break-indicator')
 
-const ALL_TEMPLATES: ResumeTemplate[] = ['professional', 'modern', 'classic', 'minimal', 'creative']
+const ALL_TEMPLATES: readonly ResumeTemplate[] = RESUME_TEMPLATES
 
 for (const template of ALL_TEMPLATES) {
   test(`${template}: a one-page CV shows no indicator`, async ({ page, authedUser }) => {
@@ -160,16 +161,12 @@ for (const template of ALL_TEMPLATES) {
     const { unscaledHeight } = await readPreview(page)
     expect(unscaledHeight).toBeGreaterThan(0)
     expect(unscaledHeight).toBeLessThanOrEqual(PAGE_HEIGHT_PX)
-    if (template === 'professional' || template === 'modern') {
-      // Their minimum height: exactly one page, the boundary case of the rule.
-      expect(unscaledHeight).toBe(PAGE_HEIGHT_PX)
-    }
     await expect(indicators(page)).toHaveCount(0)
     await expect(page.getByTestId('page-break-indicators')).toHaveCount(0)
   })
 }
 
-for (const template of ['professional', 'classic'] as const) {
+for (const template of ['swissCommerce', 'swissTrades'] as const) {
   test(`${template}: a multi-page CV marks every sheet edge`, async ({ page, authedUser }) => {
     const resume = await seedFixtureResume(authedUser.id, template, { experience: LONG_EXPERIENCE })
     await openEditor(page, resume.id, 1280)
@@ -203,7 +200,7 @@ for (const template of ['professional', 'classic'] as const) {
 }
 
 test('the label follows the editor locale', async ({ page, authedUser }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic', { experience: LONG_EXPERIENCE })
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', { experience: LONG_EXPERIENCE })
   const words: Record<string, string> = { fr: 'Page', de: 'Seite', it: 'Pagina' }
 
   for (const [locale, word] of Object.entries(words)) {
@@ -216,7 +213,7 @@ test('indicators appear and disappear as content is added and removed, without a
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic', ONE_PAGE)
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', ONE_PAGE)
   await openEditor(page, resume.id, 1280)
 
   const before = await readPreview(page)
@@ -249,40 +246,8 @@ test('indicators appear and disappear as content is added and removed, without a
   expect(await page.evaluate(() => (window as unknown as { __noReload?: boolean }).__noReload)).toBe(true)
 })
 
-test('a font scale change that moves the document across a page edge updates the indicators', async ({
-  page,
-  authedUser,
-}) => {
-  // Measured: one page at the smallest scale, two at the largest.
-  const resume = await seedFixtureResume(authedUser.id, 'classic', { projects: [] })
-  await openEditor(page, resume.id, 1280)
-
-  const slider = page.locator('input.font-slider')
-  const pagesAt = async (scale: string) => {
-    await slider.fill(scale)
-    await expectPreviewSettled(page)
-    await expect
-      .poll(async () => {
-        const reading = await readPreview(page)
-        return reading.indicators.length === expectedPages(reading.unscaledHeight) - 1
-      })
-      .toBe(true)
-    return expectedPages((await readPreview(page)).unscaledHeight)
-  }
-
-  // The setting must actually move the document across an edge for this to prove anything.
-  expect(await pagesAt('0.7')).toBe(1)
-  await expect(indicators(page)).toHaveCount(0)
-
-  expect(await pagesAt('1.3')).toBeGreaterThan(1)
-  await expectIndicatorsAligned(page, (n) => `Page ${n}`)
-
-  expect(await pagesAt('0.7')).toBe(1)
-  await expect(indicators(page)).toHaveCount(0)
-})
-
 test('indicators stay aligned on a narrow screen', async ({ page, authedUser }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'professional', { experience: LONG_EXPERIENCE })
+  const resume = await seedFixtureResume(authedUser.id, 'swissTrades', { experience: LONG_EXPERIENCE })
   await openEditor(page, resume.id, 390)
 
   await expectIndicatorsAligned(page, (n) => `Page ${n}`)
@@ -299,7 +264,7 @@ test('indicators stay aligned on a narrow screen', async ({ page, authedUser }) 
 })
 
 test('indicators stay aligned after the split divider is dragged', async ({ page, authedUser }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'professional', { experience: LONG_EXPERIENCE })
+  const resume = await seedFixtureResume(authedUser.id, 'swissTrades', { experience: LONG_EXPERIENCE })
   await openEditor(page, resume.id, 1440)
 
   const before = await expectIndicatorsAligned(page, (n) => `Page ${n}`)

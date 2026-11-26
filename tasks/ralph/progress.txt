@@ -5,3 +5,59 @@ PRD: tasks/prds/swiss-templates-only-page-fidelity.md (Status: APPROVED 2026-11-
 Format: docs/engineering/progress-log-format.md
 Audit baseline: origin/main 630742b; audit captures in the session scratchpad audit1/ (Preview | PDF | Word, 10 templates x fr/de).
 
+
+## US-001: Only the ten Swiss templates exist
+Status: PASS
+Priority: 1
+Branch: ralph/swiss-templates-only-page-fidelity
+Baseline HEAD: 0c069527c2e8b031bd1674e5f187a4e9f81cfa21 (PRD + contract commit; two commits ahead of origin/main 630742b, both docs/ralph metadata)
+Scope:
+- Scope check: PASS — every changed path is a legacy-template removal, its Swiss re-pointing, migration 012, or a dependency/CSP/docs change that existed only for a legacy template. The full list is this commit's `git show --stat`.
+- Added: src/lib/resume-templates.ts (+test), src/lib/resume-draft.ts (+test), src/app/api/resumes/[id]/download-docx/docx-photo.ts (+test), download-docx/route.test.ts, src/test/css-colour.ts, supabase/migrations/012_swiss_templates_only.sql, supabase/tests/012-swiss-templates-only.sql, e2e/resume-draft-template-source.spec.ts.
+- Removed: the 5 legacy templates and Word generators, docx-templates/-graphics/-text-opacity, resume-text-opacity, image/remove-background, font-carousel-3d, ColorWheel, SidebarColorPicker, eyedropper.d.ts, public/hand-cursor.png, legacy-only unit and e2e specs, e2e/parity/ and playwright.parity.config.ts, the 10 legacy visual baselines, dependencies @imgly/background-removal and @types/ndarray.
+- Negatives: no cover-letter source file changed (`git show --stat` lists none under src/components/dashboard/cover-letter* or src/app/api/cover-letters); the 10 Swiss visual baselines unchanged; package.json version unchanged; no push, no merge; .claude/settings.local.json and next-env.d.ts not committed.
+Checks (run of record checks-us1-r4, diff hash 18087b5b870487a3 before and after):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 4923 passed, 17 skipped
+- pnpm test:integration: PASS — 80/80
+- pnpm build: PASS — 105/105 static pages
+- pnpm lint: PASS — 135 problems (93 errors, 42 warnings), under the PRD ceiling of 281
+- pnpm test:e2e: PASS — 669 passed, 0 failed
+- pnpm test:visual: PASS — 20 passed (screen + print, 10 Swiss templates)
+- pnpm test:parity: NOT_APPLICABLE — removed by this story
+Specialized validation:
+- Browser: PASS — ui-expert, production build on :3130, fr/de, 1440/375 px, 19 captures (scratchpad uiexp/)
+- Visual: PASS — test:visual 20/20, Swiss baselines untouched
+- Export: PASS — download-docx/route.test.ts (legacy/unknown ids -> swissCommerce generator, each of the 10 ids -> its own generator); e2e resume-draft-template-source: PDF text and Word document.xml (w:tblHeader) of a legacy-id draft equal swissTrades
+- Database: PASS — migration 012 applied to local Supabase (011 -> 012; constraint = 10 Swiss ids; default 'swissCommerce'::text); supabase/tests/012-swiss-templates-only.sql over one row per legacy id: remap PASS, updated_at preserved PASS, trigger re-enabled PASS, constraint/default PASS, rolled back PASS. Production NOT applied.
+- Security: PASS — CSP narrowed (script-src 'self' 'unsafe-inline'; worker-src/child-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; no staticimgly, wasm-unsafe-eval or Google origins), asserted exactly by e2e/security-headers.spec.ts (green); routes refuse legacy ids server-side (z.enum / isResumeTemplate).
+Agents:
+- senior-coder: implementation + 3 fix rounds
+- code-reviewer round 1: FAIL — dead legacy editor colour/font UI and font carousel; unused @imgly dependency and CSP allowances; minors. Fixed.
+- code-reviewer round 2: FAIL — a localStorage draft holding a legacy template overrode the row, Save failed on the constraint, PDF and Word disagreed; no Word-route fallback test. Fixed (resume-draft.ts, tests, e2e).
+- code-reviewer round 3: FAIL — Google Fonts stylesheet existed only for the deleted font picker. Fixed (layout.tsx, CSP, spec).
+- code-reviewer round 4: PASS — 4 minor comment inaccuracies left unfixed to keep the verified diff: render-policy.ts comment tense, img-src blob: justification, stale legacy wording in photo-upload.ts / resume-page-breaks.ts / resume-page-size.ts, a legacy fontFamily in the resume-pdf-route.spec fixture.
+- ui-expert: BLOCKED (visual not evaluated), then PASS after reading checks-us1-r4/visual.log and confirming the Swiss baselines unchanged.
+Acceptance criteria:
+- AC-01 picker offers exactly the 10 in order on every surface: PASS — ui-expert captures 01-05, 17-19; e2e template-picker + job-cv-template-picker green
+- AC-02 default swissCommerce, DB default swissCommerce: PASS — ui-expert (default checked); information_schema column_default 'swissCommerce'::text
+- AC-03 forward migration remap, constraint, no other column changed, types: PASS — 012 test script output above; src/types/supabase.ts resumes unions list the 10 ids
+- AC-04 routes reject legacy ids (400): PASS — from-job-application and generate-from-job-description route tests
+- AC-05 non-Swiss stored/drafted id renders swissCommerce in Editor, Preview, PDF, Word, never throws: PASS — resume-templates.test.ts, download-docx/route.test.ts, resume-draft.test.ts, e2e resume-draft-template-source
+- AC-06 no production source exists only for a legacy template; cover-letter modern untouched: PASS — code-reviewer round 4; cover_letters types still 'modern'
+- AC-07 legacy-only tests/baselines/parity removed; shared tests re-pointed and green: PASS — e2e 669/669, unit 4923
+- AC-08 test:parity script and CI parity job removed; resumes.md names the 10: PASS — package.json, .github/workflows/ci.yml, .claude/rules/resumes.md
+- PRD-wide criteria applicable to this story: PASS — the checks above; FR-3..FR-5 belong to US-002..US-005.
+Decision (AC-06): the editor's font, colour and size panels were removed with their components and locale keys (resumes.sliders, resumes.colorWheel) because no Swiss template offers them; the stored layout fields and their validation ranges stay, as the PRD's out-of-scope list requires.
+Decision (AC-05): a CV's template now comes only from the stored row; a browser draft can no longer set it, and Save no longer writes it (src/lib/resume-draft.ts). Rejected: resolving the draft's template, which would still let a draft disagree with Word.
+Decision (CLAUDE.md §14): the `pnpm test:parity` bullet was removed because the command no longer exists.
+Open owner decisions recorded by this story:
+- Branch protection on main still requires the check "Parity (required)", whose job this story deletes. US-003 adds the Preview/PDF page-agreement e2e on Linux CI and runs it as the job of that name, so no setting has to change. To be settled before the PR.
+- The deleted e2e/resume-print-geometry.spec.ts was the only e2e guard that the Preview body font-family keeps nextFontInterFallbackFamily; a unit test remains (docs/engineering/pdf-export-runtime.md says so).
+- html2pdf.js has no importer in src/ (already unused before this story; separate change).
+- Pre-existing UI issues found by ui-expert: Preview at 375 px overflows sideways (US-003 area); summary header row overflows the editor column at 1440 px; hardcoded English tab labels in resume-editor.tsx; header shows sign-in buttons while signed in; canton filter in French under de; picker card title placement inconsistent.
+Environment notes: checks-us1-r1 hashed next-env.d.ts, which the e2e build rewrites, so its hash moved; the hash now excludes next-env.d.ts. Runs r1-r3 were superseded by later fixes (r2: 668/668 e2e, r3: 669/669); r4 is the run of record. senior-coder saw one unexplained "Something went wrong" page in resume-editor-responsive (1024 px) in a single-spec run; it did not recur in r2-r4.
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 Only the ten Swiss templates exist
+FINAL: PASS

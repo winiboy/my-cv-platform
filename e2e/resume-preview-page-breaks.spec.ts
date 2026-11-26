@@ -215,7 +215,7 @@ async function printPdf(page: Page): Promise<{ pages: number; texts: string[] }>
 
 const indicators = (page: Page) => page.getByTestId('page-break-indicator')
 
-for (const template of ['professional', 'classic'] as const) {
+for (const template of ['swissCommerce', 'swissTrades'] as const) {
   test(`${template}: a one-page CV shows no indicator`, async ({ page, authedUser }) => {
     const resume = await seedFixtureResume(authedUser.id, template, ONE_PAGE)
     await openPreview(page, resume.id)
@@ -223,7 +223,7 @@ for (const template of ['professional', 'classic'] as const) {
     const { measuredHeight } = await readPreview(page)
     expect(measuredHeight).toBeGreaterThan(0)
     expect(measuredHeight).toBeLessThanOrEqual(PAGE_HEIGHT_PX)
-    if (template === 'professional') {
+    if (template === 'swissTrades') {
       // Its minimum height: exactly one page, the boundary case of the rule.
       expect(measuredHeight).toBe(PAGE_HEIGHT_PX)
       expect(measuredHeight).toBe((await readPreview(page)).documentHeight)
@@ -237,7 +237,7 @@ test('a multi-page CV marks every sheet edge, and its PDF carries no trace of th
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic', { experience: LONG_EXPERIENCE })
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', { experience: LONG_EXPERIENCE })
   await openPreview(page, resume.id)
 
   const reading = await expectIndicatorsAligned(page, (n) => `Page ${n}`)
@@ -281,7 +281,7 @@ test('the overlay adds no horizontal scroll at any window width', async ({ page,
   // Professional draws no editing control outside the sheet on this page, so
   // the sheet alone decides whether <main> overflows. Classic's sliders sit
   // past the sheet's edge and would mask the overlay's overflow with their own.
-  const resume = await seedFixtureResume(authedUser.id, 'professional', {
+  const resume = await seedFixtureResume(authedUser.id, 'swissTrades', {
     experience: LONG_EXPERIENCE,
   })
   await openPreview(page, resume.id)
@@ -334,7 +334,7 @@ test('the overlay adds no horizontal scroll at any window width', async ({ page,
 })
 
 test('the label follows the Preview locale', async ({ page, authedUser }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic', { experience: LONG_EXPERIENCE })
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', { experience: LONG_EXPERIENCE })
   const words: Record<string, string> = { fr: 'Page', de: 'Seite', it: 'Pagina' }
 
   for (const [locale, word] of Object.entries(words)) {
@@ -345,7 +345,7 @@ test('the label follows the Preview locale', async ({ page, authedUser }) => {
 
 test('a longer draft restored from localStorage drives the indicators', async ({ page, authedUser }) => {
   // Stored: one page. Draft: several. Only the draft can produce an indicator.
-  const resume = await seedFixtureResume(authedUser.id, 'classic', ONE_PAGE)
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', ONE_PAGE)
   await storeDraft(page, resume, { experience: LONG_EXPERIENCE })
   await openPreview(page, resume.id)
 
@@ -360,7 +360,7 @@ test('a shorter draft restored from localStorage removes the indicators', async 
   authedUser,
 }) => {
   // Stored: several pages. Draft: one. The stored content's indicators must not survive.
-  const resume = await seedFixtureResume(authedUser.id, 'classic', { experience: LONG_EXPERIENCE })
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', { experience: LONG_EXPERIENCE })
   await storeDraft(page, resume, ONE_PAGE)
   await openPreview(page, resume.id)
 
@@ -375,7 +375,7 @@ test('an image that finishes loading after the page follows into the indicators 
   page,
   authedUser,
 }) => {
-  const resume = await seedFixtureResume(authedUser.id, 'classic', ONE_PAGE)
+  const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', ONE_PAGE)
 
   // The image is held until the test releases it, so "after load" is not a race.
   let release: () => void = () => {

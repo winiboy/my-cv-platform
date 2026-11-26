@@ -264,114 +264,6 @@
   margin-left: 1.25rem !important;
 }
 
-/* Custom Slider Styles for CV Editor */
-.color-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 28px;
-  height: 28px;
-  background: url('/hand-cursor.png') no-repeat center;
-  background-size: contain;
-  cursor: grab;
-  border: none;
-  border-radius: 0;
-}
-
-.color-slider::-moz-range-thumb {
-  width: 28px;
-  height: 28px;
-  background: url('/hand-cursor.png') no-repeat center;
-  background-size: contain;
-  cursor: grab;
-  border: none;
-  border-radius: 0;
-}
-
-.color-slider:active::-webkit-slider-thumb {
-  cursor: grabbing;
-}
-
-.color-slider:active::-moz-range-thumb {
-  cursor: grabbing;
-}
-
-.font-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 28px;
-  height: 28px;
-  background: url('/hand-cursor.png') no-repeat center;
-  background-size: contain;
-  cursor: grab;
-  border: none;
-  border-radius: 0;
-}
-
-.font-slider::-moz-range-thumb {
-  width: 28px;
-  height: 28px;
-  background: url('/hand-cursor.png') no-repeat center;
-  background-size: contain;
-  cursor: grab;
-  border: none;
-  border-radius: 0;
-}
-
-.font-slider:active::-webkit-slider-thumb {
-  cursor: grabbing;
-}
-
-.font-slider:active::-moz-range-thumb {
-  cursor: grabbing;
-}
-
-.brightness-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 24px;
-  height: 24px;
-  background: url('/hand-cursor.png') no-repeat center;
-  background-size: contain;
-  cursor: grab;
-  border: none;
-  border-radius: 0;
-}
-
-.brightness-slider::-moz-range-thumb {
-  width: 24px;
-  height: 24px;
-  background: url('/hand-cursor.png') no-repeat center;
-  background-size: contain;
-  cursor: grab;
-  border: none;
-  border-radius: 0;
-}
-
-.brightness-slider:active::-webkit-slider-thumb {
-  cursor: grabbing;
-}
-
-.brightness-slider:active::-moz-range-thumb {
-  cursor: grabbing;
-}
-
-/* Color Swatch Buttons - Hover effect for color picker swatches */
-.swatch-button:hover {
-  transform: scale(1.15);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15) !important;
-}
-
-.swatch-button:focus-visible {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
-}
-
-/* Professional Template Font Inheritance - Ensure CV uses selected font */
-.professional-template,
-.professional-template * {
-  font-family: inherit;
-}
-
 /* Tool Animations - Badge stagger animation for skill badges */
 @keyframes badge-appear {
   from {
@@ -411,55 +303,6 @@
     height: auto !important;
     overflow: visible !important;
     background: white !important;
-  }
-
-  /* Professional template sidebar band - only applies when professional-template class exists.
-     The colour comes from --professional-print-sidebar-color, which
-     professional-template.tsx declares on this same element from the user's
-     stored sidebar colour (Part 3 US-013); this file cannot read the layout
-     model, so the fixed oklch stays as the fallback for when nothing declares
-     it. The band's geometry is still fixed and does not follow sidebarWidth. */
-  body:has(.professional-template) {
-    background: linear-gradient(
-      to right,
-      white calc(50% - 397px),
-      var(--professional-print-sidebar-color, oklch(0.25 0.05 240)) calc(50% - 397px),
-      var(--professional-print-sidebar-color, oklch(0.25 0.05 240)) calc(50% - 397px + 238.2px),
-      white calc(50% - 397px + 238.2px)
-    ) !important;
-  }
-
-  /* Modern template sidebar band - only applies when modern-template class exists.
-     Modern's sidebar is an in-flow column of the document, so its background
-     ends where the document ends; on a last page the document only partly
-     fills, the rest of the band would be paper. The root's background paints
-     the canvas, which covers every printed page in full, so the band is drawn
-     there and the document's own sidebar lies over it in the same colour.
-     Colour and width come from --modern-print-sidebar-color and
-     --modern-print-sidebar-width, which modern-template.tsx declares on this
-     same element from the user's stored sidebar colour and sidebarWidth. With
-     neither declared the band has no width and the page stays white. The band
-     starts where the centred 794px document does: max() because an A4 page is
-     793.7px wide, so mx-auto resolves to 0 and the document starts at the
-     page edge, and the band must end exactly where the sidebar does.
-     body and every other ancestor of the document are left transparent, so
-     the band, not white, lies directly under it: the page shells paint white
-     in print to the document's height, and the document's anti-aliased bottom
-     edge would blend with that white and print a light seam across the band
-     where the content ends. */
-  html:has(.modern-template) {
-    background: linear-gradient(
-      to right,
-      white max(0px, 50% - 397px),
-      var(--modern-print-sidebar-color, white) max(0px, 50% - 397px),
-      var(--modern-print-sidebar-color, white) calc(max(0px, 50% - 397px) + var(--modern-print-sidebar-width, 0px)),
-      white calc(max(0px, 50% - 397px) + var(--modern-print-sidebar-width, 0px))
-    ) !important;
-  }
-
-  body:has(.modern-template),
-  body :has(.modern-template) {
-    background: transparent !important;
   }
 
   /* Remove all border radius in print */
@@ -502,12 +345,19 @@
     border-radius: 9999px !important;
   }
 
-  /* swissTrades' dark column on every printed page, top to foot. As modern's
-     band above: the column is in-flow, so its own background ends where the
-     document ends; the root's background paints every page in full. The
-     colour and width are the template's fixed ones (PREVIEW_PALETTE.swissTrades
-     .sidebar, SWISS_TRADES_GEOMETRY.sidebarWidth); swiss-trades-template.test.ts
-     holds them equal. */
+  /* swissTrades' dark column on every printed page, top to foot. The column is
+     an in-flow column of the document, so its own background ends where the
+     document ends; on a last page the document only partly fills, the rest of
+     the column would be paper. The root's background paints the canvas, which
+     covers every printed page in full, so the column is drawn there and the
+     document's own column lies over it in the same colour. It starts where the
+     centred 794px document does: max() because an A4 page is 793.7px wide, so
+     mx-auto resolves to 0 and the document starts at the page edge. body and
+     every other ancestor of the document are left transparent (below), so the
+     column, not white, lies directly under it and no light seam prints where
+     the content ends. The colour and width are the template's fixed ones
+     (PREVIEW_PALETTE.swissTrades.sidebar, SWISS_TRADES_GEOMETRY.sidebarWidth);
+     swiss-trades-template.test.ts holds them equal. */
   html:has(.swiss-trades-template) {
     background: linear-gradient(
       to right,
