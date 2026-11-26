@@ -196,9 +196,9 @@ test('at 1280px the desktop layout is unchanged', async ({ page, authedUser }) =
   //     above the page, 326px tall with their 15px margin. No Swiss template
   //     offers them and they are gone, so the page starts at the preview pane's
   //     own top padding: preview.y 164 + xl:p-8 32 = 196.
-  //   - height: Professional set a one-page min-height (1123px, 416 scaled);
-  //     swissCommerce is as tall as its content, 1036px for this fixture,
-  //     384 at the same 294/794 scale.
+  //   - height: the live preview draws the document on whole A4 sheets
+  //     (swiss-templates-only-page-fidelity US-003), so this one-page fixture
+  //     fills its sheet: 1123px, 416 at the 294/794 scale.
   // The four layout boxes and the document's x and width, which carry the
   // regression this test guards, are unchanged.
   const expected: Record<string, Box> = {
@@ -206,7 +206,7 @@ test('at 1280px the desktop layout is unchanged', async ({ page, authedUser }) =
     sectionNav: { x: 280, y: 164, width: 256, height: 765 },
     editor: { x: 536, y: 164, width: 358, height: 765 },
     preview: { x: 898, y: 164, width: 358, height: 765 },
-    document: { x: 930, y: 196, width: 294, height: 384 },
+    document: { x: 930, y: 196, width: 294, height: 416 },
   }
   const actual: Record<string, Box> = {
     nav: await box(page.getByTestId('dashboard-sidebar').locator('aside')),

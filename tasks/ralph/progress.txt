@@ -113,3 +113,59 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-002 Every printed page has margins, in the PDF and in Word
 FINAL: PASS
+
+## US-003: The Preview shows the real pages
+Status: PASS
+Priority: 3
+Branch: ralph/swiss-templates-only-page-fidelity
+Baseline HEAD: 0bbca76 (US-002)
+Scope:
+- Scope check: PASS — Preview/Editor sheet frame and its pagination (screen-only), the page-break specs re-pointed to it, the new Preview/PDF page-agreement spec and its fixture, the CI job "Parity (required)", the 7 re-approved screen baselines and their record, ralph-pass-criteria.md. Full list: this commit's `git show --stat`.
+- New: src/lib/resume-sheets.ts (+test), src/lib/resume-sheet-pagination.ts (+test), src/lib/resume-page-margins.ts (+test), src/components/dashboard/resume-sheets.tsx, e2e/resume-preview-pdf-pages.spec.ts, e2e/fixtures/audit-resume.ts.
+- Removed: src/lib/resume-page-breaks.ts, src/components/dashboard/resume-page-break-indicators.tsx and their tests (replaced; no remaining importer).
+- Negatives: no print CSS, template source, Word generator or -print.png baseline in the diff (10/10 print baselines unchanged); resume-editor.tsx changes only by re-indentation plus the sheet wrapper (9 lines ignoring whitespace); no stored field or migration; no new i18n key (reuses resumes.pageBreakLabel); no version change; no push or merge.
+Checks (run of record checks-us3-r3; code diff hash 341e71b112e6fc1d before and after, and before and after the e2e rerun):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 4971 passed, 17 skipped
+- pnpm test:integration: PASS — 80/80
+- pnpm build: PASS — 105/105 static pages
+- pnpm lint: PASS — 135 problems (93 errors, 42 warnings), under the PRD ceiling of 281
+- pnpm test:e2e: PASS — 697 passed, 0 failed (checks-us3-r3/e2e-rerun.log, same hash). The chain's own e2e step had 696 passed, 1 failed: resume-editor-page-breaks.spec.ts:174 swissAcademic, TimeoutError waiting for #email in loginAs; that spec then passed 48/48 with --repeat-each=3 alone, and the whole suite passed in the rerun.
+- pnpm test:visual: PASS — 20/20
+Specialized validation:
+- Visual: PASS — 20/20 after re-approving 7 screen baselines (swissAcademic, swissCommerce, swissExecutive, swissFinance, swissHealth, swissVocational 794x(927..1102) -> 794x1123: 0 differing shared rows except the old last edge row on commerce/executive/finance, added rows white plus the vocational red strip; swissIt 794x1168 -> 794x2270: "languages & training / courses" moved from rows 1034-1116 (past the foot margin) to y=1195 = 1123+24+48, rows above unchanged). Recorded in docs/engineering/visual-regression.md. ui-expert re-checked the 7 against HEAD and agrees.
+- Browser: PASS — ui-expert on a production build (:3130), 10 templates fr + swissFinance/swissEngineering/swissTrades de, audit fixture: sheet count = PDF pages, sheet 2 first item = PDF page 2 first item, best vertical overlay offset 0 px, sheet-2 backgrounds at y=3 and y=1119 equal PDF page 2, no word split in de; long-summary case 4 sheets = 4 pages, split at the same line; live edit 2 -> 4 sheets without reload. Captures: scratchpad uiexp-us003/.
+- Export: NOT_APPLICABLE — PDF and Word output not changed (print rules untouched; print baselines unchanged; the parity spec prints through the real PDF route and asserts print media sees no push or band).
+- Database: NOT_APPLICABLE — nothing stored.
+- Security: NOT_APPLICABLE — client rendering only; the generated stylesheet holds only a sanitised useId scope and integer indexes and numeric px (code-reviewer), inside the existing CSP (style-src 'unsafe-inline').
+Agents:
+- senior-coder: implementation + 3 fix rounds.
+- Chain checks-us3-r1 (first implementation): visual FAIL 7 screen baselines (expected, not yet re-approved); e2e 695/695.
+- code-reviewer round 1: FAIL — stale screen baselines; a 4+ line paragraph that print splits was moved whole on screen (breaks FR-4 for real content); minors (stylesheet rewrites, self-referential page-break specs, weak print assertion, one-sided top-margin bound, no CI timeout). Fixed.
+- Targeted run after fix 1: 75/76 — late-image test expected 2 sheets; measured with page.pdf on the same DOM: 1300 px image -> 3 PDF pages, 900 px -> 2; test now asserts the PDF page count too. 76/76 after.
+- code-reviewer round 2: FAIL — a pagination exception would unmount the Preview and so time out the PDF route. Fixed (paginateOrFallBack: reset, one continuous sheet, Sentry warning without resume content).
+- Chain checks-us3-r2: superseded by that fix (e2e 696/1 login timeout in cover-letter-translate).
+- code-reviewer round 3: PASS.
+- ui-expert: PASS.
+Acceptance criteria:
+- AC-01 separate A4 sheets 794x1123 with a gap, last sheet full height, Preview and Editor: PASS — resume-preview-page-breaks / resume-editor-page-breaks specs; ui-expert 794.0x1123.0, gap 24, Editor at scale 0.471 and 0.8275
+- AC-02 kept items move whole; later sheets start at the print top margin; no line cut: PASS — resume-preview-pdf-pages.spec (first line within ±0.1 px of pageTop, continued line ±0.6 px, no glyph in a margin); resume-sheets unit tests (breakLines orphans/widows 2)
+- AC-03 full-bleed backgrounds on every sheet: PASS — ui-expert sampled sheet-2 top and foot rows against PDF page 2 (vocational, trades, engineering, first-job)
+- AC-04 10 templates x audit fixture x fr/de: sheet count = PDF pages, first text per sheet = PDF page; e2e local and Linux CI: PASS locally (20 @parity tests + 2 long-summary cases in the 697); Linux CI: the job "Parity (required)" exists and runs on the PR — its result is PR-stage evidence, not yet available
+- AC-05 screen-only derived state; print unchanged; nothing stored: PASS — every rule inside @media screen; print-media assertions in resume-preview-page-breaks.spec; 10/10 print baselines unchanged
+- AC-06 follows Editor edits without reload; labels agree: PASS — "sheets appear and disappear without a reload" spec; ui-expert live edit
+- FR-3 (one geometry, now also read by the Preview): PASS — RESUME_PAGE_MARGINS from SWISS_*_GEOMETRY, held equal by resume-page-margins.test.ts
+Decision (AC-02): a block that print may split is split on screen at the same line with a screen-only `::before` float whose shape-outside polygon opens a band from the first moved line to the next sheet's top margin; no DOM node is added or split, so React reconciliation is untouched. Rejected: moving such paragraphs whole (code-review round 1), inserting spacer nodes into React-owned text.
+Decision (AC-02): a break-inside:avoid block taller than a page that has content before it on the sheet moves to the next sheet first and breaks there, as Chromium's print does (measured); one already at a sheet top breaks in place.
+Decision (robustness): if pagination throws, the Preview falls back to one continuous document and reports once to Sentry; the PDF route never depends on the sheets.
+Known limitations:
+- A wrapping flex row is moved whole on screen though print may break between its lines; every such row in the ten templates is inside a break-inside-avoid ancestor or the page-1 header.
+- Pagination measures line boxes with a new canvas per call (shared cover-letter helper); cost, not correctness.
+Open owner decisions recorded by this story:
+- With a very long summary, print moves the whole break-inside-avoid summary section to page 2, leaving page 1 with only the header (ui-expert); the Preview mirrors it. Whether print should allow the summary to start on page 1 is a template decision outside US-003.
+- Pre-existing, unchanged by this story: at 375 px the sheet overflows inside the main scroller (page itself no longer scrolls sideways); Editor at 1024 stacks the preview below the form; hardcoded English labels in the fr/de Editor ("Edit Sidebar", "Edit Main Content", title hint); header shows sign-in buttons while signed in.
+Environment notes: the intermittent login timeout (TimeoutError waiting for #email in e2e/fixtures/auth.ts loginAs) hit a different spec in each of us2-r1, us3-r2 and us3-r3 and never reproduced alone; not caused by this story.
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 The Preview shows the real pages
+FINAL: PASS

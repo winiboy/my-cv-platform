@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Resume } from '@/types/database'
 import type { Locale } from '@/lib/i18n'
 import { useResumeLayout } from '@/lib/hooks/use-resume-layout'
 import { PAGE_WIDTH_PX } from '@/lib/resume-page-size'
 import { resumeWithDraft } from '@/lib/resume-draft'
-import { ResumePageBreakIndicators } from './resume-page-break-indicators'
 import { ResumePreview } from './resume-preview'
+import { ResumeSheets } from './resume-sheets'
 
 interface ResumePreviewWrapperProps {
   initialResume: Resume
@@ -36,8 +36,6 @@ export function ResumePreviewWrapper({
   const [resume, setResume] = useState<Resume>(initialResume)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [photoUrl, setPhotoUrl] = useState<string>('')
-  const documentFrameRef = useRef<HTMLDivElement>(null)
-  const [documentHeight, setDocumentHeight] = useState<number | null>(null)
 
   const { layout } = useResumeLayout(
     initialResume.id,
@@ -72,22 +70,6 @@ export function ResumePreviewWrapper({
     }
   }, [initialResume])
 
-  // Track the height of the document actually on the page: the draft, the
-  // template it names, and fonts or a photo that finish loading after mount
-  // all change it. The frame is observed rather than `resume-document`
-  // because a template switch replaces that element; the frame stays.
-  useEffect(() => {
-    const element = documentFrameRef.current
-    if (!element) return
-
-    const measure = () => setDocumentHeight(element.offsetHeight)
-    measure()
-
-    const resizeObserver = new ResizeObserver(measure)
-    resizeObserver.observe(element)
-    return () => resizeObserver.disconnect()
-  }, [])
-
   return (
     <>
       {hasUnsavedChanges && (
@@ -107,13 +89,20 @@ export function ResumePreviewWrapper({
       {/* The query container for the labels' gutter below. Block-level, with no
           box of its own, so it changes neither the layout nor the print. */}
       <div className="@container">
-        {/* Exactly as wide as the page and holding nothing else, so its height is
-            the document's and it is the overlay's containing block, top-aligned
-            with the page. No padding, margin or background of its own: the
-            document lays out, prints and is captured as it was without it. */}
-        <div
-          ref={documentFrameRef}
-          className="relative mx-auto"
+        {/* Exactly as wide as the page, centred. The sheets follow the draft,
+            the template it names, and fonts or a photo that finish loading
+            after mount; they are screen-only, so the document prints and is
+            captured by the PDF route as it was without them. */}
+        <ResumeSheets
+          template={resume.template}
+          scale={1}
+          labelTemplate={dict.resumes.pageBreakLabel}
+          // A label is drawn 3 px + 10 px past the sheet's edge. Below
+          // 820 px = 794 + 2 × 13 there is no such gutter beside the centred
+          // sheet, and a label there would widen the page's horizontal scroll,
+          // or create one; the gap alone still parts the sheets.
+          labelClassName="@max-[820px]:hidden"
+          className="mx-auto"
           style={{ width: `${PAGE_WIDTH_PX}px` }}
         >
           <ResumePreview
@@ -125,17 +114,7 @@ export function ResumePreviewWrapper({
             hiddenContactFields={layout.hiddenContactFields}
             photoUrl={photoUrl}
           />
-          <ResumePageBreakIndicators
-            documentHeight={documentHeight}
-            scale={1}
-            labelTemplate={dict.resumes.pageBreakLabel}
-            // A label is drawn 3 px + 10 px past the sheet's edge. Below
-            // 820 px = 794 + 2 × 13 there is no such gutter beside the centred
-            // sheet, and a label there would widen the page's horizontal scroll,
-            // or create one; the line alone still marks the edge.
-            labelClassName="@max-[820px]:hidden"
-          />
-        </div>
+        </ResumeSheets>
       </div>
     </>
   )

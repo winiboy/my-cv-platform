@@ -1,28 +1,30 @@
 import { test, expect } from './fixtures/auth'
 import { seedFixtureResume } from './fixtures/resume'
-import {
-  LONG_EXPERIENCE,
-  ONE_PAGE,
-  expectClearOfPageEdge,
-  expectedPages,
-} from './fixtures/page-breaks'
+import { LONG_EXPERIENCE, ONE_PAGE, sheetTopFor, sheetsForHeight } from './fixtures/page-breaks'
 import { PAGE_HEIGHT_PX, PAGE_WIDTH_PX } from '../src/lib/resume-page-size'
+import { SHEET_GAP_PX } from '../src/lib/resume-sheets'
 import type { Page } from '@playwright/test'
 import type { ResumeTemplate } from '../src/types/database'
 import { RESUME_TEMPLATES } from '../src/lib/resume-templates'
 
 /**
- * US-001: the editor's live preview marks every edge between two printed A4
- * sheets.
+ * The editor's live preview draws the CV as separate A4 sheets, a gap apart,
+ * scaled to the pane (swiss-templates-only-page-fidelity US-003, replacing
+ * the dashed edge indicators of the page-break US-001), and labels every
+ * sheet after the first in the gutter.
  *
- * The preview draws the CV as one continuous page, scaled to the pane. The
- * indicators are expected at unscaled y = k × PAGE_HEIGHT_PX, so on screen at
- * k × PAGE_HEIGHT_PX × scale below the document's top, within 1 px.
+ * Sheet n is expected at unscaled y = (n − 1) × (PAGE_HEIGHT_PX + gap), so on
+ * screen at that × scale below the document's top, within 1 px, with its gap
+ * just above. The expected count is computed here from the measured height,
+ * which is a whole number of sheets once settled, rather than taken from the
+ * app.
  *
- * The expected page count is computed here from the measured height rather
- * than taken from the app, and every multi-page case first asserts that the
- * height is not within a px of a page edge, so the count cannot pass on a
- * rounding coincidence.
+ * What this checks is internal consistency: the sheets, gaps and labels agree
+ * with the frame's own height and with each other at the pane's scale. It does
+ * not check that the sheets break where print breaks; that rests on
+ * e2e/resume-page-break-pdf-count.spec.ts (the sheet count against the printed
+ * page count) and e2e/resume-preview-pdf-pages.spec.ts (each sheet's text
+ * against its PDF page's, in the Editor too).
  */
 
 const HEIGHT = 900
@@ -31,7 +33,7 @@ interface IndicatorReading {
   page: number
   /** The indicator's on-screen offset below the document's top edge. */
   offset: number
-  /** The centre of its drawn line, on the same reference. */
+  /** The centre of the gap drawn above its sheet, on the same reference. */
   lineOffset: number
   label: string
   labelLeft: number
@@ -41,8 +43,10 @@ interface IndicatorReading {
 }
 
 interface PreviewReading {
-  /** The unscaled height the editor measures, `offsetHeight` of the scaled wrapper. */
+  /** The unscaled height of the sheets' frame, `offsetHeight` inside the scaled wrapper. */
   unscaledHeight: number
+  /** Sheets drawn behind the document. */
+  sheets: number
   scale: number
   documentRight: number
   paneRight: number
@@ -92,6 +96,7 @@ async function readPreview(page: Page): Promise<PreviewReading> {
 
     return {
       unscaledHeight: wrapper.offsetHeight,
+      sheets: wrapper.querySelectorAll('[data-testid="resume-sheet"]').length,
       scale: documentRect.width / pageWidth,
       documentRight: documentRect.right,
       // The pane's padding box: the gutter the labels are drawn in.
@@ -103,20 +108,32 @@ async function readPreview(page: Page): Promise<PreviewReading> {
   }, PAGE_WIDTH_PX)
 }
 
-/** Every indicator sits on its sheet edge, outside the CV, and labels the page below it. */
+/** The sheets, the frame's height and the indicators agree: the pagination has settled. */
+async function expectSheetsSettled(page: Page): Promise<void> {
+  await expect
+    .poll(async () => {
+      const reading = await readPreview(page)
+      const sheets = sheetsForHeight(reading.unscaledHeight)
+      return sheets !== null && reading.sheets === sheets && reading.indicators.length === sheets - 1
+    })
+    .toBe(true)
+}
+
+/** Every indicator sits on the top of its sheet, outside the CV, and labels it. */
 async function expectIndicatorsAligned(page: Page, labelFor: (page: number) => string): Promise<PreviewReading> {
+  await expectSheetsSettled(page)
   const reading = await readPreview(page)
-  expectClearOfPageEdge(reading.unscaledHeight)
-  const pages = expectedPages(reading.unscaledHeight)
+  const pages = sheetsForHeight(reading.unscaledHeight) ?? 0
   expect(pages).toBeGreaterThan(1)
   expect(reading.indicators.map((indicator) => indicator.page)).toEqual(
     Array.from({ length: pages - 1 }, (_, index) => index + 2)
   )
 
   for (const indicator of reading.indicators) {
-    const expected = (indicator.page - 1) * PAGE_HEIGHT_PX * reading.scale
+    const expected = sheetTopFor(indicator.page) * reading.scale
+    const gap = (sheetTopFor(indicator.page) - SHEET_GAP_PX / 2) * reading.scale
     expect(Math.abs(indicator.offset - expected), `page ${indicator.page} offset`).toBeLessThanOrEqual(1)
-    expect(Math.abs(indicator.lineOffset - expected), `page ${indicator.page} line`).toBeLessThanOrEqual(1)
+    expect(Math.abs(indicator.lineOffset - gap), `page ${indicator.page} gap`).toBeLessThanOrEqual(1)
     expect(indicator.label).toBe(labelFor(indicator.page))
     expect(indicator.pointerEvents).toBe('none')
     expect(indicator.insideDocument).toBe(false)
@@ -154,20 +171,21 @@ const indicators = (page: Page) => page.getByTestId('page-break-indicator')
 const ALL_TEMPLATES: readonly ResumeTemplate[] = RESUME_TEMPLATES
 
 for (const template of ALL_TEMPLATES) {
-  test(`${template}: a one-page CV shows no indicator`, async ({ page, authedUser }) => {
+  test(`${template}: a one-page CV shows one full sheet and no indicator`, async ({ page, authedUser }) => {
     const resume = await seedFixtureResume(authedUser.id, template, ONE_PAGE)
     await openEditor(page, resume.id, 1280)
+    await expectSheetsSettled(page)
 
-    const { unscaledHeight } = await readPreview(page)
-    expect(unscaledHeight).toBeGreaterThan(0)
-    expect(unscaledHeight).toBeLessThanOrEqual(PAGE_HEIGHT_PX)
+    const { unscaledHeight, sheets } = await readPreview(page)
+    expect(unscaledHeight).toBe(PAGE_HEIGHT_PX)
+    expect(sheets).toBe(1)
     await expect(indicators(page)).toHaveCount(0)
     await expect(page.getByTestId('page-break-indicators')).toHaveCount(0)
   })
 }
 
 for (const template of ['swissCommerce', 'swissTrades'] as const) {
-  test(`${template}: a multi-page CV marks every sheet edge`, async ({ page, authedUser }) => {
+  test(`${template}: a multi-page CV is drawn on separate sheets`, async ({ page, authedUser }) => {
     const resume = await seedFixtureResume(authedUser.id, template, { experience: LONG_EXPERIENCE })
     await openEditor(page, resume.id, 1280)
 
@@ -177,7 +195,7 @@ for (const template of ['swissCommerce', 'swissTrades'] as const) {
     // Decorative: hidden from assistive technology as a whole.
     await expect(page.getByTestId('page-break-indicators')).toHaveAttribute('aria-hidden', 'true')
 
-    // A click on the line reaches the CV underneath, not the overlay.
+    // A click on a gap reaches the CV underneath, not the overlay.
     const hit = await page.evaluate(() => {
       const line = document.querySelector<HTMLElement>('[data-testid="page-break-indicator"]')
         ?.firstElementChild as HTMLElement | null
@@ -209,15 +227,16 @@ test('the label follows the editor locale', async ({ page, authedUser }) => {
   }
 })
 
-test('indicators appear and disappear as content is added and removed, without a reload', async ({
+test('sheets appear and disappear as content is added and removed, without a reload', async ({
   page,
   authedUser,
 }) => {
   const resume = await seedFixtureResume(authedUser.id, 'swissCommerce', ONE_PAGE)
   await openEditor(page, resume.id, 1280)
 
+  await expectSheetsSettled(page)
   const before = await readPreview(page)
-  expect(before.unscaledHeight).toBeLessThan(PAGE_HEIGHT_PX)
+  expect(before.unscaledHeight).toBe(PAGE_HEIGHT_PX)
   await expect(indicators(page)).toHaveCount(0)
 
   // Any full navigation would reset this marker; it survives only without a reload.
@@ -236,12 +255,13 @@ test('indicators appear and disappear as content is added and removed, without a
   await expectPreviewSettled(page)
   await expectIndicatorsAligned(page, (n) => `Page ${n}`)
 
-  // Remove all of it again: back under one page, no indicator.
+  // Remove all of it again: back to one sheet, no indicator.
   await summary.click()
   await page.keyboard.press('Control+A')
   await page.keyboard.press('Backspace')
   await expect(indicators(page)).toHaveCount(0)
-  expect((await readPreview(page)).unscaledHeight).toBeLessThan(PAGE_HEIGHT_PX)
+  await expectSheetsSettled(page)
+  expect((await readPreview(page)).unscaledHeight).toBe(PAGE_HEIGHT_PX)
 
   expect(await page.evaluate(() => (window as unknown as { __noReload?: boolean }).__noReload)).toBe(true)
 })

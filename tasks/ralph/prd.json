@@ -134,7 +134,7 @@
         "Out of scope: Deleting historical PRDs, progress logs or archived Ralph contracts."
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

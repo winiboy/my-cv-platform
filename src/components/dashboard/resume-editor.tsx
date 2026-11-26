@@ -56,7 +56,7 @@ import { SwissItTemplate } from './resume-templates/swiss-it-template'
 import { SwissExecutiveTemplate } from './resume-templates/swiss-executive-template'
 import { SwissAcademicTemplate } from './resume-templates/swiss-academic-template'
 import { SwissFirstJobTemplate } from './resume-templates/swiss-first-job-template'
-import { ResumePageBreakIndicators } from './resume-page-break-indicators'
+import { ResumeSheets } from './resume-sheets'
 import { CVAdaptationModal } from './cv-adaptation-modal'
 import type { CVAdaptationStrings } from '@/lib/cv-adaptation-strings'
 import { QualityWarningBanner } from './quality-warning-banner'
@@ -1186,150 +1186,151 @@ export function ResumeEditor({ resume: initialResume, locale, dict, cvAdaptation
                   transition: isDragging ? 'none' : 'transform 0.1s ease-out',
                 }}
               >
-                {(() => {
-                  // An id outside the ten is drawn as the default template, as in
-                  // the Preview and the Word export (FR-1).
-                  switch (resolveResumeTemplate(resume.template)) {
-                    case 'swissVocational':
-                      return (
-                        // The photo is uploaded from the Contact tab's photo row, not from
-                        // the CV (FR-5). Its own typeface and sizes: no font, no scale (FR-4).
-                        <SwissVocationalTemplate
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          hiddenMainSections={hiddenMainSections}
-                          hiddenSidebarSections={hiddenSidebarSections}
-                          hiddenContactFields={hiddenContactFields}
-                          photoUrl={photoUrl}
-                        />
-                      )
-                    case 'swissCommerce':
-                      return (
-                        // As swissVocational: photo from the Contact tab, own typeface and sizes.
-                        <SwissCommerceTemplate
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          hiddenMainSections={hiddenMainSections}
-                          hiddenSidebarSections={hiddenSidebarSections}
-                          hiddenContactFields={hiddenContactFields}
-                          photoUrl={photoUrl}
-                        />
-                      )
-                    case 'swissTrades':
-                      return (
-                        // As swissVocational: photo from the Contact tab, own typeface and sizes.
-                        <SwissTradesTemplate
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          hiddenMainSections={hiddenMainSections}
-                          hiddenSidebarSections={hiddenSidebarSections}
-                          hiddenContactFields={hiddenContactFields}
-                          photoUrl={photoUrl}
-                        />
-                      )
-                    case 'swissHealth':
-                      return (
-                        // As swissVocational: photo from the Contact tab, own typeface and sizes.
-                        <SwissHealthTemplate
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          hiddenMainSections={hiddenMainSections}
-                          hiddenSidebarSections={hiddenSidebarSections}
-                          hiddenContactFields={hiddenContactFields}
-                          photoUrl={photoUrl}
-                        />
-                      )
-                    case 'swissFinance':
-                      return (
-                        // As swissVocational: photo from the Contact tab, own typeface and sizes.
-                        <SwissFinanceTemplate
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          hiddenMainSections={hiddenMainSections}
-                          hiddenSidebarSections={hiddenSidebarSections}
-                          hiddenContactFields={hiddenContactFields}
-                          photoUrl={photoUrl}
-                        />
-                      )
-                    case 'swissEngineering':
-                      return (
-                        // As swissVocational: photo from the Contact tab, own typeface and sizes.
-                        <SwissEngineeringTemplate
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          hiddenMainSections={hiddenMainSections}
-                          hiddenSidebarSections={hiddenSidebarSections}
-                          hiddenContactFields={hiddenContactFields}
-                          photoUrl={photoUrl}
-                        />
-                      )
-                    case 'swissIt':
-                      return (
-                        // As swissVocational: photo from the Contact tab, own typeface and sizes.
-                        <SwissItTemplate
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          hiddenMainSections={hiddenMainSections}
-                          hiddenSidebarSections={hiddenSidebarSections}
-                          hiddenContactFields={hiddenContactFields}
-                          photoUrl={photoUrl}
-                        />
-                      )
-                    case 'swissExecutive':
-                      return (
-                        // As swissVocational: photo from the Contact tab, own typeface and sizes.
-                        <SwissExecutiveTemplate
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          hiddenMainSections={hiddenMainSections}
-                          hiddenSidebarSections={hiddenSidebarSections}
-                          hiddenContactFields={hiddenContactFields}
-                          photoUrl={photoUrl}
-                        />
-                      )
-                    case 'swissAcademic':
-                      return (
-                        // As swissVocational, own typeface and sizes; it draws no photo,
-                        // so it is handed none (PRD FR-5 exception).
-                        <SwissAcademicTemplate
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          hiddenMainSections={hiddenMainSections}
-                          hiddenSidebarSections={hiddenSidebarSections}
-                          hiddenContactFields={hiddenContactFields}
-                        />
-                      )
-                    case 'swissFirstJob':
-                      return (
-                        // As swissVocational: photo from the Contact tab, own typeface and sizes.
-                        <SwissFirstJobTemplate
-                          resume={resume}
-                          locale={locale}
-                          dict={dict}
-                          hiddenMainSections={hiddenMainSections}
-                          hiddenSidebarSections={hiddenSidebarSections}
-                          hiddenContactFields={hiddenContactFields}
-                          photoUrl={photoUrl}
-                        />
-                      )
-                  }
-                })()}
-                {/* The wrapper's transform makes it the containing block, so the
-                    overlay shares the page's unscaled coordinates. */}
-                <ResumePageBreakIndicators
-                  documentHeight={previewDocHeight}
+                {/* The wrapper's transform makes the sheets' frame scale with the
+                    page; the frame works in the page's unscaled coordinates. */}
+                <ResumeSheets
+                  template={resume.template}
                   scale={previewScale}
                   labelTemplate={dict.resumes.pageBreakLabel}
-                />
+                >
+                  {(() => {
+                    // An id outside the ten is drawn as the default template, as in
+                    // the Preview and the Word export (FR-1).
+                    switch (resolveResumeTemplate(resume.template)) {
+                      case 'swissVocational':
+                        return (
+                          // The photo is uploaded from the Contact tab's photo row, not from
+                          // the CV (FR-5). Its own typeface and sizes: no font, no scale (FR-4).
+                          <SwissVocationalTemplate
+                            resume={resume}
+                            locale={locale}
+                            dict={dict}
+                            hiddenMainSections={hiddenMainSections}
+                            hiddenSidebarSections={hiddenSidebarSections}
+                            hiddenContactFields={hiddenContactFields}
+                            photoUrl={photoUrl}
+                          />
+                        )
+                      case 'swissCommerce':
+                        return (
+                          // As swissVocational: photo from the Contact tab, own typeface and sizes.
+                          <SwissCommerceTemplate
+                            resume={resume}
+                            locale={locale}
+                            dict={dict}
+                            hiddenMainSections={hiddenMainSections}
+                            hiddenSidebarSections={hiddenSidebarSections}
+                            hiddenContactFields={hiddenContactFields}
+                            photoUrl={photoUrl}
+                          />
+                        )
+                      case 'swissTrades':
+                        return (
+                          // As swissVocational: photo from the Contact tab, own typeface and sizes.
+                          <SwissTradesTemplate
+                            resume={resume}
+                            locale={locale}
+                            dict={dict}
+                            hiddenMainSections={hiddenMainSections}
+                            hiddenSidebarSections={hiddenSidebarSections}
+                            hiddenContactFields={hiddenContactFields}
+                            photoUrl={photoUrl}
+                          />
+                        )
+                      case 'swissHealth':
+                        return (
+                          // As swissVocational: photo from the Contact tab, own typeface and sizes.
+                          <SwissHealthTemplate
+                            resume={resume}
+                            locale={locale}
+                            dict={dict}
+                            hiddenMainSections={hiddenMainSections}
+                            hiddenSidebarSections={hiddenSidebarSections}
+                            hiddenContactFields={hiddenContactFields}
+                            photoUrl={photoUrl}
+                          />
+                        )
+                      case 'swissFinance':
+                        return (
+                          // As swissVocational: photo from the Contact tab, own typeface and sizes.
+                          <SwissFinanceTemplate
+                            resume={resume}
+                            locale={locale}
+                            dict={dict}
+                            hiddenMainSections={hiddenMainSections}
+                            hiddenSidebarSections={hiddenSidebarSections}
+                            hiddenContactFields={hiddenContactFields}
+                            photoUrl={photoUrl}
+                          />
+                        )
+                      case 'swissEngineering':
+                        return (
+                          // As swissVocational: photo from the Contact tab, own typeface and sizes.
+                          <SwissEngineeringTemplate
+                            resume={resume}
+                            locale={locale}
+                            dict={dict}
+                            hiddenMainSections={hiddenMainSections}
+                            hiddenSidebarSections={hiddenSidebarSections}
+                            hiddenContactFields={hiddenContactFields}
+                            photoUrl={photoUrl}
+                          />
+                        )
+                      case 'swissIt':
+                        return (
+                          // As swissVocational: photo from the Contact tab, own typeface and sizes.
+                          <SwissItTemplate
+                            resume={resume}
+                            locale={locale}
+                            dict={dict}
+                            hiddenMainSections={hiddenMainSections}
+                            hiddenSidebarSections={hiddenSidebarSections}
+                            hiddenContactFields={hiddenContactFields}
+                            photoUrl={photoUrl}
+                          />
+                        )
+                      case 'swissExecutive':
+                        return (
+                          // As swissVocational: photo from the Contact tab, own typeface and sizes.
+                          <SwissExecutiveTemplate
+                            resume={resume}
+                            locale={locale}
+                            dict={dict}
+                            hiddenMainSections={hiddenMainSections}
+                            hiddenSidebarSections={hiddenSidebarSections}
+                            hiddenContactFields={hiddenContactFields}
+                            photoUrl={photoUrl}
+                          />
+                        )
+                      case 'swissAcademic':
+                        return (
+                          // As swissVocational, own typeface and sizes; it draws no photo,
+                          // so it is handed none (PRD FR-5 exception).
+                          <SwissAcademicTemplate
+                            resume={resume}
+                            locale={locale}
+                            dict={dict}
+                            hiddenMainSections={hiddenMainSections}
+                            hiddenSidebarSections={hiddenSidebarSections}
+                            hiddenContactFields={hiddenContactFields}
+                          />
+                        )
+                      case 'swissFirstJob':
+                        return (
+                          // As swissVocational: photo from the Contact tab, own typeface and sizes.
+                          <SwissFirstJobTemplate
+                            resume={resume}
+                            locale={locale}
+                            dict={dict}
+                            hiddenMainSections={hiddenMainSections}
+                            hiddenSidebarSections={hiddenSidebarSections}
+                            hiddenContactFields={hiddenContactFields}
+                            photoUrl={photoUrl}
+                          />
+                        )
+                    }
+                  })()}
+                </ResumeSheets>
               </div>
             </div>
           </div>

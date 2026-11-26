@@ -195,13 +195,77 @@ jobs:
 
       # playwright.config.ts builds the app and starts it itself, pinned to the
       # local stack. It refuses to run against a non-local Supabase host.
+      # The @parity tests run in their own required job below, not twice.
       - name: Run E2E tests
-        run: pnpm test:e2e
+        run: pnpm test:e2e --grep-invert @parity
 
       - name: Upload report on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # The Preview's sheets against the PDF's pages, for every template in fr and
+  # de (e2e/resume-preview-pdf-pages.spec.ts, the tests tagged @parity;
+  # swiss-templates-only-page-fidelity US-003). Branch protection on `main`
+  # requires a check named exactly "Parity (required)". Set up as the E2E job
+  # above, for the same reasons: the spec prints through the real PDF route.
+  #
+  # The E2E job sets no timeout-minutes, so it inherits GitHub's 360. This one
+  # sets 30. It does what the E2E job does - install, build, start Supabase,
+  # run Playwright - for a subset of the tests, and the E2E job's whole suite
+  # measured 3.98-5.36 min (above), so 30 is several times a normal run while
+  # a hung server or browser stops a required check within half an hour, not
+  # six. Each test's own 180 s timeout still stops a single hung test first.
+  # Raise it with evidence if the parity tests grow past it.
+  parity:
+    name: Parity (required)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      # As in the E2E job: the PDF route's Chromium needs its sandbox.
+      - name: Allow Chromium's sandbox (unprivileged user namespaces)
+        run: |
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+
+      - name: Check a sandboxed Chromium launches
+        run: |
+          node -e "require('playwright-core').chromium.launch({ chromiumSandbox: true }).then((browser) => browser.close())"
+
+      # Auth and the resumes table only: no mail is read here.
+      - name: Start Supabase
+        run: pnpm supabase start -x studio,imgproxy,mailpit,realtime,vector,edge-runtime,logflare,supavisor,postgres-meta
+
+      - name: Run parity tests
+        run: pnpm test:e2e --grep @parity
+
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-report
           path: playwright-report/
           retention-days: 7

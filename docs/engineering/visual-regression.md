@@ -366,6 +366,38 @@ A baseline change is an **approval decision**, not a test fix. The rules:
 - `ui-expert` may run `pnpm test:visual`. It may **not** run
   `test:visual:update` — blessing a baseline is not a validation act.
 
+### Moved: seven screen baselines, 2026-11-26 — the Preview draws real sheets
+
+**Cause.** `swiss-templates-only-page-fidelity` US-003, "The Preview shows the
+real pages". On screen the document now fills a whole number of A4 sheets
+(1123 px each, a 24 px gap between them), and a block that print would move to
+the next page is pushed to that sheet's top margin. All of it is inside
+`@media screen`; none of the ten `-print.png` baselines moved.
+
+| Baseline | Before | After |
+|---|---|---|
+| `swissAcademic.png` | 794×1062 | 794×1123 |
+| `swissCommerce.png` | 794×1037 | 794×1123 |
+| `swissExecutive.png` | 794×1102 | 794×1123 |
+| `swissFinance.png` | 794×927 | 794×1123 |
+| `swissHealth.png` | 794×987 | 794×1123 |
+| `swissVocational.png` | 794×1045 | 794×1123 |
+| `swissIt.png` | 794×1168 | 794×2270 |
+
+**Evidence.** Compared row by row with the previous images:
+
+- **Six one-page templates:** 0 pixels differ in the rows they share, apart
+  from the old image's last row (its bottom edge) on swissCommerce,
+  swissExecutive and swissFinance. The added rows are white, plus the red
+  strip on swissVocational, which now runs to the foot of the sheet.
+- **swissIt:** this fixture ran past the foot margin. Its last section,
+  "languages & training / courses", now starts sheet 2 at the 48 px top
+  margin (y = 1195 = 1123 + 24 + 48), where print puts it. Every row above it
+  is unchanged, and the rest of sheet 2 is white.
+
+swissEngineering, swissFirstJob and swissTrades were already 1123 px and did
+not move.
+
 ### Moved: `swissTrades-print.png` and `swissEngineering-print.png`, 2026-11-26 — page margins
 
 **Cause.** `swiss-templates-only-page-fidelity` US-002, "Every printed page has
