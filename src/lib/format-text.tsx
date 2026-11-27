@@ -6,6 +6,7 @@
 
 import React from 'react'
 import { SanitizedHtml } from '@/components/sanitized-html'
+import { decodeHtmlEntities } from '@/lib/html-entities'
 import { rendersAsFormattedContent } from '@/lib/resume-line-height'
 
 export interface FormatTextOptions {
@@ -117,10 +118,14 @@ export function renderFormattedText(
   if (!text) return null
 
   // Check if content is HTML (contains tags). The DOCX generators decide which
-  // line height the text draws at with the same test (US-004).
+  // line height the text draws at with the same test (US-004). The test runs on
+  // the stored value, so a decoded `&lt;p&gt;` never turns text into HTML.
   if (!rendersAsFormattedContent(text)) {
-    // Legacy plain text - use existing formatText logic
-    return formatText(text, options)
+    // Plain text, legacy or one line the editor stored without a tag. The
+    // editor encodes `&` and `<` even then, so the entities are decoded, as
+    // Word does, and the result reaches the page only as React text. A typed
+    // trailing space is stored as `&nbsp;` and stays a no-break space.
+    return formatText(decodeHtmlEntities(text, { nbsp: true }), options)
   }
 
   // HTML content - sanitized in the browser, see SanitizedHtml

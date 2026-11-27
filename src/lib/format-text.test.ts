@@ -80,6 +80,31 @@ describe('renderFormattedText', () => {
     expect(render(renderFormattedText(BULLETS, { justify: false }))).not.toContain('text-justify')
   })
 
+  // rich-text-single-line-entities US-001: what the editor stores for one line
+  // typed without Enter is tagless but entity-encoded.
+  it('shows the characters a tagless value encodes, not their codes', () => {
+    expect(render(renderFormattedText('R&amp;D &lt; 5%'))).toBe(render(formatText('R&D < 5%')))
+    expect(render(renderFormattedText('R&amp;D &lt; 5%'))).toBe('<div class="text-justify">R&amp;D &lt; 5%</div>')
+  })
+
+  it('decodes a tagless value once: an escaped ampersand stays text', () => {
+    expect(render(renderFormattedText('&amp;lt;'))).toBe(render(formatText('&lt;')))
+    expect(render(renderFormattedText('&amp;lt;'))).toBe('<div class="text-justify">&amp;lt;</div>')
+  })
+
+  it('shows a typed no-break space as whitespace, not as &nbsp;', () => {
+    expect(render(renderFormattedText('a&nbsp;b'))).toBe('<div class="text-justify">a b</div>')
+  })
+
+  it('renders a decoded tag as visible text and creates no element', () => {
+    const markup = render(renderFormattedText('&lt;img src=x onerror=alert(1)&gt;'))
+    expect(markup).toBe('<div class="text-justify">&lt;img src=x onerror=alert(1)&gt;</div>')
+    expect(markup).not.toContain('<img')
+    expect(render(renderFormattedText('&lt;img src=x onerror=alert(1)&gt;', { justify: false }))).toBe(
+      render(formatText('<img src=x onerror=alert(1)>', { justify: false }))
+    )
+  })
+
   it('renders HTML into .formatted-content unaffected by the option, keeping inline text-align', () => {
     const html = '<p style="text-align: justify;">Led the team</p>'
     const expected = `<div class="formatted-content">${html}</div>`

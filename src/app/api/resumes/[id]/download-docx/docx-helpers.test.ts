@@ -361,6 +361,17 @@ describe('parseHtmlToDocxRuns inline formatting', () => {
     expect(await visibleText('<ol><li>&nbsp;</li><li>&lt;x&gt;</li></ol>')).toBe('1. <x>')
   })
 
+  // rich-text-single-line-entities: the decoder Word shares with the Preview
+  // must not decode an `&nbsp;` that only forms once a tag inside it is gone.
+  it('keeps an &nbsp; split by a tag as text, as before the decoder was shared', async () => {
+    expect(await visibleText('<p>&nb<a>sp;</a>x</p>')).toBe('&nbsp;x')
+  })
+
+  it('keeps a list item whose &nbsp; is split by a tag, as before the decoder was shared', async () => {
+    // `• &nb`, `sp;` (bold) and `• y`, as `<w:t>` holds them: XML-escaped.
+    expect((await renderRuns('<ul><li>&nb<b>sp;</b></li><li>y</li></ul>')).map(run => run.text)).toEqual(['• &amp;nb', 'sp;', '• y'])
+  })
+
   it('still removes the real tags of rich text (US-004)', async () => {
     expect(await visibleText('<p>a<span style="color: red">b</span><img src="x">c</p>')).toBe('abc')
   })

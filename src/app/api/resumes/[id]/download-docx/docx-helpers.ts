@@ -12,6 +12,7 @@ import {
 import type { Locale } from '@/lib/i18n'
 import type { ContactFieldId } from '@/lib/contact-visibility'
 import { interLinkWidthPx } from '@/lib/inter-link-widths'
+import { decodeHtmlEntities } from '@/lib/html-entities'
 
 // ============================================================
 // SHARED TYPES FOR ALL DOCX GENERATORS
@@ -518,25 +519,6 @@ export function parsePlainTextListToParagraphs(
   )
 }
 
-/** The entities `parseHtmlToDocxRuns` decodes (`&nbsp;` is decoded up front). */
-const DOCX_TEXT_ENTITIES: Readonly<Record<string, string>> = {
-  '&amp;': '&',
-  '&lt;': '<',
-  '&gt;': '>',
-  '&quot;': '"',
-  '&#39;': "'",
-  '&#x27;': "'",
-}
-
-/**
- * Decode text whose tags are already gone, in one pass, so a decoded `&` never
- * starts a second entity: `&amp;lt;` is the text `&lt;`, as the browser shows
- * it. The result is text for a `TextRun`, which escapes it when it is written.
- */
-function decodeHtmlEntities(text: string): string {
-  return text.replace(/&(?:amp|lt|gt|quot|#39|#x27);/g, (entity) => DOCX_TEXT_ENTITIES[entity] ?? entity)
-}
-
 export function parseHtmlToDocxRuns(
   html: string | null | undefined,
   options: DocxTextRunOptions
@@ -549,7 +531,9 @@ export function parseHtmlToDocxRuns(
   // it always was; it cannot form a tag, so it is safe to decode up front.
   // Every other entity is decoded only once the real tags are gone
   // (`decodeHtmlEntities`): decoded first, `&lt;mot&gt;` became a tag and its
-  // text vanished, although the Preview shows it.
+  // text vanished, although the Preview shows it. Those later passes leave
+  // `&nbsp;` out (`nbsp: false`): one that only forms once a tag inside it is
+  // removed (`&nb<b>sp;</b>`) is text, as the Preview shows it.
   const decoded = html.replace(/&nbsp;/g, ' ')
 
   // Check if content is HTML
@@ -559,7 +543,7 @@ export function parseHtmlToDocxRuns(
     // Plain text - return single TextRun
     return [
       new TextRun({
-        text: decodeHtmlEntities(decoded).replace(/\n/g, ' ').trim(),
+        text: decodeHtmlEntities(decoded, { nbsp: false }).replace(/\n/g, ' ').trim(),
         size,
         color,
         font,
@@ -598,7 +582,7 @@ export function parseHtmlToDocxRuns(
     while ((liMatch = liRegex.exec(listContent)) !== null) {
       // Clean the content: remove HTML tags for trimming check, trim whitespace
       const rawContent = liMatch[1]
-      const cleanedContent = decodeHtmlEntities(rawContent.replace(/<[^>]+>/g, '')).trim()
+      const cleanedContent = decodeHtmlEntities(rawContent.replace(/<[^>]+>/g, ''), { nbsp: false }).trim()
       // Skip empty list items
       if (cleanedContent) {
         itemNumber++
@@ -619,7 +603,7 @@ export function parseHtmlToDocxRuns(
     while ((liMatch = liRegex.exec(listContent)) !== null) {
       // Clean the content: remove HTML tags for trimming check, trim whitespace
       const rawContent = liMatch[1]
-      const cleanedContent = decodeHtmlEntities(rawContent.replace(/<[^>]+>/g, '')).trim()
+      const cleanedContent = decodeHtmlEntities(rawContent.replace(/<[^>]+>/g, ''), { nbsp: false }).trim()
       // Skip empty list items
       if (cleanedContent) {
         // Keep original content but trim leading/trailing whitespace
@@ -633,7 +617,7 @@ export function parseHtmlToDocxRuns(
   // Handle any remaining standalone list items (edge case)
   processedHtml = processedHtml
     .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (match, content) => {
-      const cleaned = decodeHtmlEntities(content.replace(/<[^>]+>/g, '')).trim()
+      const cleaned = decodeHtmlEntities(content.replace(/<[^>]+>/g, ''), { nbsp: false }).trim()
       return cleaned ? `• ${content.trim()}` : ''
     })
 
@@ -744,7 +728,7 @@ export function parseHtmlToDocxRuns(
     // left: only now can a decoded `<` no longer be taken for a tag
     segment.text.replace(/<[^>]+>/g, '').split('\n').forEach((raw, index) => {
       if (index > 0) lines.push([])
-      const text = decodeHtmlEntities(raw)
+      const text = decodeHtmlEntities(raw, { nbsp: false })
       if (text) lines[lines.length - 1].push({ text, segment })
     })
   }
