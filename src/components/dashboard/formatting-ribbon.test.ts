@@ -75,6 +75,100 @@ describe('FormattingRibbon alignment buttons', () => {
   })
 })
 
+/**
+ * The cover letter's one toolbar under the header (cover-letter-top-toolbar,
+ * US-001): the same controls, in a `toolbar` named from the dictionary, and
+ * disabled while no field is its target. Which field it formats needs a
+ * browser and is covered by `e2e/cover-letter-top-toolbar.spec.ts`.
+ */
+describe('FormattingRibbon shared placement', () => {
+  const renderShared = (editorId: string | null, dict: Record<string, unknown> = en) =>
+    renderToStaticMarkup(
+      createElement(FormattingRibbon, {
+        placement: 'shared',
+        label: 'Text formatting',
+        editorId,
+        onFormat: () => {},
+        showAlignment: true,
+        dict,
+      }),
+    )
+
+  /**
+   * Each button's and select's accessible name and aria-disabled, in document
+   * order, and whether it has the native `disabled`, which would take it out
+   * of the Tab order.
+   */
+  const controls = (html: string) =>
+    [...html.matchAll(/<(button|select)([^>]*)>/g)].map(([, , attributes]) => ({
+      label: /aria-label="([^"]*)"/.exec(attributes)?.[1] ?? '',
+      ariaDisabled: /aria-disabled="([^"]*)"/.exec(attributes)?.[1],
+      nativeDisabled: /\sdisabled=""/.test(attributes),
+    }))
+
+  /** Bold's, Italic's and Underline's aria-pressed, in that order. */
+  const textFormatPressed = (html: string) =>
+    [t.bold, t.italic, t.underline].map(
+      (label) => new RegExp(`<button[^>]*aria-label="${label.replace(/[()+]/g, '\\$&')}"[^>]*>`).exec(html)?.[0].match(/aria-pressed="([^"]*)"/)?.[1],
+    )
+
+  const t = toolbar(en)
+  const ALL_CONTROLS = [
+    t.bold,
+    t.italic,
+    t.underline,
+    t.bulletList,
+    t.numberedList,
+    t.alignLeft,
+    t.alignCenter,
+    t.alignRight,
+    t.alignJustify,
+    t.font,
+    t.fontSize,
+  ]
+
+  it('is a toolbar with the accessible name it is given', () => {
+    expect(renderShared('opening-paragraph')).toMatch(/^<div role="toolbar" aria-label="Text formatting"/)
+  })
+
+  it('sits flat in its band: no border, background or rounded frame of its own', () => {
+    const container = /^<div[^>]*class="([^"]*)"/.exec(renderShared('opening-paragraph'))?.[1] ?? ''
+    expect(container.split(' ')).toEqual(['flex', 'flex-wrap', 'items-center', 'gap-1', 'print:hidden'])
+  })
+
+  it('marks every control aria-disabled, still focusable, and none pressed, while there is no target', () => {
+    const html = renderShared(null)
+    expect(controls(html)).toEqual(ALL_CONTROLS.map((label) => ({ label, ariaDisabled: 'true', nativeDisabled: false })))
+    expect(alignmentButtons(html).map((button) => button.pressed)).toEqual(['false', 'false', 'false', 'false'])
+    expect(textFormatPressed(html)).toEqual(['false', 'false', 'false'])
+    expect(html).toContain('aria-disabled:opacity-50')
+  })
+
+  it('enables every control once a field is the target', () => {
+    const html = renderShared('body-paragraph-1')
+    expect(controls(html)).toEqual(ALL_CONTROLS.map((label) => ({ label, ariaDisabled: 'false', nativeDisabled: false })))
+    expect(alignmentButtons(html).map((button) => button.pressed)).toEqual(['true', 'false', 'false', 'false'])
+    expect(textFormatPressed(html)).toEqual(['false', 'false', 'false'])
+  })
+
+  for (const locale of ['en', 'fr', 'de', 'it'] as const) {
+    it(`${locale}: has a toolbar name in the dictionary`, () => {
+      const editor = (DICTS[locale].coverLetters as Record<string, unknown>).editor as Record<string, unknown>
+      expect(typeof editor.formattingToolbar).toBe('string')
+      expect((editor.formattingToolbar as string).trim()).not.toBe('')
+    })
+  }
+
+  it('leaves the attached ribbon (the default) without toolbar role, disabled state, pressed text formats or disabled styling', () => {
+    for (const html of [render({ dict: en }), render({ dict: en, showAlignment: true })]) {
+      expect(html).toMatch(/^<div class="flex flex-wrap items-center gap-1 p-2 bg-slate-50 border border-slate-200 rounded-t-lg print:hidden">/)
+      expect(html).not.toContain('role=')
+      expect(html).not.toContain('disabled')
+      expect(textFormatPressed(html)).toEqual([undefined, undefined, undefined])
+    }
+  })
+})
+
 describe('alignment commands', () => {
   it("map each button to the browser's justify command for its alignment", () => {
     expect(Object.fromEntries(Object.entries(ALIGN_FORMAT_COMMANDS).map(([command, alignment]) => [command, ALIGNMENT_COMMANDS[alignment]]))).toEqual({

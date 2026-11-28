@@ -50,6 +50,7 @@ import { ClosingSection } from './cover-letter-sections/closing-section'
 import { SignatureSection } from './cover-letter-sections/signature-section'
 import { CoverLetterGenerationModal } from './cover-letter-generation-modal'
 import { CoverLetterCheckerModal } from './cover-letter-checker-modal'
+import { SharedFormattingProvider, SharedFormattingToolbar } from './shared-formatting-toolbar'
 
 interface JobApplicationData {
   id: string
@@ -99,7 +100,19 @@ const SECTIONS = [
   { id: 'signature' as const, label: 'Signature', icon: PenTool },
 ]
 
-export function CoverLetterEditor({
+/**
+ * The editor, inside the provider that lets one toolbar under the header
+ * format whichever of the opening, body and closing holds the cursor.
+ */
+export function CoverLetterEditor(props: CoverLetterEditorProps) {
+  return (
+    <SharedFormattingProvider>
+      <CoverLetterEditorContent {...props} />
+    </SharedFormattingProvider>
+  )
+}
+
+function CoverLetterEditorContent({
   coverLetter: initialCoverLetter,
   resumes,
   jobApplications,
@@ -971,52 +984,6 @@ export function CoverLetterEditor({
         </div>
       )}
 
-      {/* Translation: a translated copy of the saved letter, opened once created */}
-      {/* Below xl the four targets are in the "•••" menu instead. */}
-      <div className="hidden items-center justify-end gap-2 px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 xl:flex">
-        {/*
-          Before the flags, so busy text grows to the left and the flags never
-          move. Always in the DOM, so it is announced when it fills. Below sm
-          it is visually hidden: beside 44 px flags it would not fit, and the
-          spinner in the tapped flag shows the busy state there.
-        */}
-        <span role="status" className="sr-only sm:not-sr-only text-sm text-slate-600 dark:text-slate-300">
-          {translateStatus}
-        </span>
-        {/* Label and flags stay together; on a screen too narrow for one line, the label sits above the flags. */}
-        <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
-          <span id="cover-letter-translate-label" className="text-sm text-slate-600 dark:text-slate-300">
-            {(translateDict.label as string) || 'Translate'}
-          </span>
-          <div role="group" aria-labelledby="cover-letter-translate-label" className="flex items-center gap-2 sm:gap-1">
-            {LANGUAGE_FLAG_OPTIONS.map(({ code, Flag }) => {
-              const isBusy = translatingTo === code
-              return (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => handleTranslate(code)}
-                  aria-disabled={translatingTo !== null}
-                  aria-busy={isBusy}
-                  aria-label={translateLabel(code)}
-                  aria-describedby={translateNotice ? TRANSLATE_NOTICE_ID : undefined}
-                  className={cn(
-                    // 44 px touch targets on phones: a mis-tap creates a letter and leaves the page.
-                    'flex items-center justify-center gap-1 px-2 py-1.5 rounded-full transition-colors min-h-11 min-w-11 sm:min-h-0 sm:min-w-0',
-                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1',
-                    'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600',
-                    'aria-disabled:cursor-wait aria-disabled:opacity-80'
-                  )}
-                >
-                  <Flag />
-                  {isBusy && <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
       {/* Translation notice: red for a failure, amber for what the user can fix, as the download notice */}
       {translateNotice && (
         <div
@@ -1024,8 +991,8 @@ export function CoverLetterEditor({
           ref={revealNotice}
           className={
             isTranslateFailure
-              ? 'px-4 py-2 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800'
-              : 'px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800'
+              ? 'xl:order-1 px-4 py-2 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800'
+              : 'xl:order-1 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800'
           }
         >
           <p
@@ -1045,8 +1012,8 @@ export function CoverLetterEditor({
           ref={revealNotice}
           className={
             downloadNotice.reason === 'failed'
-              ? 'px-4 py-2 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800'
-              : 'px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800'
+              ? 'xl:order-1 px-4 py-2 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800'
+              : 'xl:order-1 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800'
           }
         >
           <p
@@ -1108,6 +1075,75 @@ export function CoverLetterEditor({
         </div>
       </div>
 
+      {/*
+        The band with the one text toolbar for the opening, body and closing,
+        and at xl the Translate row on its right.
+        At xl it is the first row under the header (and the save error): the
+        notices and the main content come after it with xl:order-1. They hold
+        nothing focusable, so the Tab order still follows what is seen.
+        Below xl it comes in document order, under the Édition / Aperçu
+        switch, and only in Édition (Aperçu has no field to format): above
+        the switch, hiding it in Aperçu moved the switch under the finger.
+      */}
+      <div
+        className={cn(
+          'flex items-center gap-2 px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800',
+          view === 'preview' && 'max-xl:hidden'
+        )}
+      >
+        <SharedFormattingToolbar
+          label={(editorDict.formattingToolbar as string) || 'Text formatting'}
+          testId="cover-letter-formatting-toolbar"
+          showAlignment
+          dict={dict}
+        />
+        {/* Translation: a translated copy of the saved letter, opened once created */}
+        {/* Below xl the four targets are in the "•••" menu instead. */}
+        <div className="ml-auto hidden items-center justify-end gap-2 xl:flex">
+          {/*
+            Before the flags, so busy text grows to the left and the flags never
+            move. Always in the DOM, so it is announced when it fills. Below sm
+            it is visually hidden: beside 44 px flags it would not fit, and the
+            spinner in the tapped flag shows the busy state there.
+          */}
+          <span role="status" className="sr-only sm:not-sr-only text-sm text-slate-600 dark:text-slate-300">
+            {translateStatus}
+          </span>
+          {/* Label and flags stay together; on a screen too narrow for one line, the label sits above the flags. */}
+          <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
+            <span id="cover-letter-translate-label" className="text-sm text-slate-600 dark:text-slate-300">
+              {(translateDict.label as string) || 'Translate'}
+            </span>
+            <div role="group" aria-labelledby="cover-letter-translate-label" className="flex items-center gap-2 sm:gap-1">
+              {LANGUAGE_FLAG_OPTIONS.map(({ code, Flag }) => {
+                const isBusy = translatingTo === code
+                return (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => handleTranslate(code)}
+                    aria-disabled={translatingTo !== null}
+                    aria-busy={isBusy}
+                    aria-label={translateLabel(code)}
+                    aria-describedby={translateNotice ? TRANSLATE_NOTICE_ID : undefined}
+                    className={cn(
+                      // 44 px touch targets on phones: a mis-tap creates a letter and leaves the page.
+                      'flex items-center justify-center gap-1 px-2 py-1.5 rounded-full transition-colors min-h-11 min-w-11 sm:min-h-0 sm:min-w-0',
+                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1',
+                      'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600',
+                      'aria-disabled:cursor-wait aria-disabled:opacity-80'
+                    )}
+                  >
+                    <Flag />
+                    {isBusy && <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Main content */}
       {/*
         Three columns at xl. Below it, one view at a time, at full width: the
@@ -1117,7 +1153,7 @@ export function CoverLetterEditor({
         scrolls in <main>, and Aperçu, which adds no height, leaves <main> at
         the top, where Édition then starts again.
       */}
-      <div className="flex-1 flex flex-col xl:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col xl:flex-row overflow-hidden xl:order-1">
         {/*
           Left sidebar - Section navigation: the resume editor's tab strip
           below xl, above the form, and the 192px column from xl up. The xl

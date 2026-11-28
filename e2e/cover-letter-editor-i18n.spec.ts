@@ -205,13 +205,16 @@ function sectionNav(page: Page, dict: Dict): Locator {
   })
 }
 
+/** The editor's one formatting toolbar, under the header (cover-letter-top-toolbar, US-001). */
+const formattingToolbar = (page: Page) => page.getByTestId('cover-letter-formatting-toolbar')
+
 /**
- * Every rich text toolbar in the section offers the system font under `label`,
- * and none under the English name hard-coded in `AVAILABLE_FONTS`.
+ * The formatting toolbar offers the system font under `label`, and none
+ * under the English name hard-coded in `AVAILABLE_FONTS`.
  */
-async function expectSystemFontLabel(pane: Locator, dict: Dict, label: string): Promise<void> {
-  const toolbar = dict.resumes.editor.richTextToolbar
-  const fontSelects = pane.getByRole('combobox', { name: toolbar.font, exact: true })
+async function expectSystemFontLabel(toolbar: Locator, dict: Dict, label: string): Promise<void> {
+  const labels = dict.resumes.editor.richTextToolbar
+  const fontSelects = toolbar.getByRole('combobox', { name: labels.font, exact: true })
   const count = await fontSelects.count()
   expect(count).toBeGreaterThan(0)
 
@@ -298,7 +301,7 @@ for (const [locale, dict] of Object.entries(LOCALES) as Array<[keyof typeof LOCA
       opening.paragraphPlaceholder,
     ])
     const systemFont = dict.resumes.editor.richTextToolbar.systemDefault
-    await expectSystemFontLabel(pane, dict, systemFont)
+    await expectSystemFontLabel(formattingToolbar(page), dict, systemFont)
 
     await showSection(page, pane, dict, 'body')
     const { body } = editor
@@ -320,7 +323,7 @@ for (const [locale, dict] of Object.entries(LOCALES) as Array<[keyof typeof LOCA
       body.removeParagraph,
       body.moveUp,
     ])
-    await expectSystemFontLabel(pane, dict, systemFont)
+    await expectSystemFontLabel(formattingToolbar(page), dict, systemFont)
 
     await showSection(page, pane, dict, 'closing')
     const { closing } = editor
@@ -330,7 +333,7 @@ for (const [locale, dict] of Object.entries(LOCALES) as Array<[keyof typeof LOCA
       closing.paragraphHint,
       closing.paragraphPlaceholder,
     ])
-    await expectSystemFontLabel(pane, dict, systemFont)
+    await expectSystemFontLabel(formattingToolbar(page), dict, systemFont)
 
     await showSection(page, pane, dict, 'signature')
     const { signature } = editor
@@ -369,7 +372,7 @@ test('the cover letter editor keeps the English nav labels, font label and sign-
   await expect(sectionNav(page, en).getByRole('button')).toHaveText([...ENGLISH_NAV_LABELS])
 
   await showSection(page, pane, en, 'opening')
-  await expectSystemFontLabel(pane, en, 'System Default')
+  await expectSystemFontLabel(formattingToolbar(page), en, 'System Default')
 
   await showSection(page, pane, en, 'signature')
 

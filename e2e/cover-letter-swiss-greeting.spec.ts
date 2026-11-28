@@ -107,7 +107,8 @@ for (const { locale, dict, defaultGreeting, defaultSignOff, typedGreeting, picke
     await expect(greeting).toHaveValue('')
 
     await page.getByRole('button', { name: editorDict.sections.signature, exact: true }).click()
-    const signOff = page.locator('select')
+    // In the form column: the formatting toolbar under the header has selects too.
+    const signOff = page.locator('div.overflow-y-auto.p-6').locator('select')
     await expect(signOff).toHaveValue('')
     await expect(signOff.locator('option:checked')).toHaveText(defaultSignOff)
     // Offered once: the localized option with the default's closing

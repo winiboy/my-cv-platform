@@ -5,6 +5,17 @@ import { ALIGN_FORMAT_COMMANDS, FormattingRibbon, FormatCommand } from './format
 import { sanitizeHtml, htmlToPlainText, migrateTextToHtml } from '@/lib/html-utils'
 import { DEFAULT_FONT, DEFAULT_FONT_SIZE } from '@/lib/constants/fonts'
 import { ALIGNMENT_COMMANDS } from '@/lib/rich-text-alignment'
+import { useSharedFormattingRegistration } from './shared-formatting-toolbar'
+
+/** Whether both ends of `range` are in `editor`'s current content. */
+function isRangeInside(editor: HTMLElement, range: Range): boolean {
+  return (
+    range.startContainer.isConnected &&
+    range.endContainer.isConnected &&
+    editor.contains(range.startContainer) &&
+    editor.contains(range.endContainer)
+  )
+}
 
 interface RichTextEditorProps {
   id: string
@@ -16,6 +27,11 @@ interface RichTextEditorProps {
   showRibbon?: boolean
   /** Adds the paragraph alignment buttons to the ribbon (cover letter fields only). */
   showAlignment?: boolean
+  /**
+   * Formatted from the page's `SharedFormattingToolbar` instead of a ribbon of
+   * its own (cover letter fields only). Requires a `SharedFormattingProvider`.
+   */
+  sharedToolbar?: boolean
   availableFonts?: string[]
   dict?: any
 }
@@ -29,9 +45,18 @@ export function RichTextEditor({
   minHeight = '192px',
   showRibbon = true,
   showAlignment = false,
+  sharedToolbar = false,
   dict,
 }: RichTextEditorProps) {
+  const registerSharedTarget = useSharedFormattingRegistration()
+  if (sharedToolbar && !registerSharedTarget) {
+    throw new Error(`RichTextEditor "${id}" uses sharedToolbar outside a SharedFormattingProvider`)
+  }
+  const hasOwnRibbon = showRibbon && !sharedToolbar
   const editorRef = useRef<HTMLDivElement>(null)
+  // The selection last made in this editor. A shared toolbar's select takes
+  // focus, and the selection with it, so a command restores this first.
+  const savedRangeRef = useRef<Range | null>(null)
   const [currentFont, setCurrentFont] = useState(DEFAULT_FONT)
   const [currentFontSize, setCurrentFontSize] = useState(DEFAULT_FONT_SIZE)
   const lastValueRef = useRef<string>('')
@@ -60,6 +85,8 @@ export function RichTextEditor({
       } else {
         editor.innerHTML = ''
       }
+      // The nodes the last selection was in are gone
+      savedRangeRef.current = null
 
       lastValueRef.current = value
     }
@@ -121,7 +148,37 @@ export function RichTextEditor({
     (command: FormatCommand, value?: string) => {
       if (!editorRef.current) return
 
-      editorRef.current.focus()
+      const editor = editorRef.current
+
+      if (sharedToolbar) {
+        // The command applies to the live selection when it is in this
+        // editor, otherwise to the last one made here while its nodes are
+        // still in it. With neither, nothing is formatted, rather than
+        // wherever focusing the editor would put the caret.
+        const selection = window.getSelection()
+        if (!selection) return
+        const live = selection.rangeCount > 0 ? selection.getRangeAt(0) : null
+        let range: Range
+        if (live && isRangeInside(editor, live)) {
+          range = live.cloneRange()
+        } else {
+          const saved = savedRangeRef.current
+          if (!saved || !isRangeInside(editor, saved)) {
+            savedRangeRef.current = null
+            return
+          }
+          range = saved
+        }
+        // Font and size edit the range itself, with no editing command, so
+        // focus stays in the select: a keyboard user can keep arrowing in it.
+        // The others need the editor focused, and focusing it can move the
+        // caret to its start, so the range is set after.
+        if (command !== 'font' && command !== 'fontSize') editor.focus()
+        selection.removeAllRanges()
+        selection.addRange(range)
+      } else {
+        editor.focus()
+      }
 
       switch (command) {
         case 'bold':
@@ -263,8 +320,45 @@ export function RichTextEditor({
 
       handleInput()
     },
-    [handleInput]
+    [handleInput, sharedToolbar]
   )
+
+  // The shared toolbar holds one handle per editor for as long as it is
+  // mounted; the handle calls the latest handleFormat, which changes with
+  // every new onChange.
+  const handleFormatRef = useRef(handleFormat)
+  useEffect(() => {
+    handleFormatRef.current = handleFormat
+  }, [handleFormat])
+
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!sharedToolbar || !registerSharedTarget || !editor) return
+
+    const rememberSelection = () => {
+      const selection = window.getSelection()
+      if (!selection || selection.rangeCount === 0) return
+      const range = selection.getRangeAt(0)
+      if (isRangeInside(editor, range)) savedRangeRef.current = range.cloneRange()
+    }
+
+    document.addEventListener('selectionchange', rememberSelection)
+    // selectionchange is delivered later and coalesced: a click followed at
+    // once by Shift+Tab reports only the selection in the next field. Focus
+    // leaving the editor is reported before the selection moves, so the last
+    // selection made here is read then too.
+    editor.addEventListener('focusout', rememberSelection)
+    const unregister = registerSharedTarget({
+      id,
+      element: editor,
+      format: (command, value) => handleFormatRef.current(command, value),
+    })
+    return () => {
+      document.removeEventListener('selectionchange', rememberSelection)
+      editor.removeEventListener('focusout', rememberSelection)
+      unregister()
+    }
+  }, [sharedToolbar, registerSharedTarget, id])
 
   // Auto-resize to fit content
   useEffect(() => {
@@ -282,7 +376,7 @@ export function RichTextEditor({
 
   return (
     <div className={`w-full ${className}`}>
-      {showRibbon && (
+      {hasOwnRibbon && (
         <FormattingRibbon
           editorId={id}
           onFormat={handleFormat}
@@ -303,7 +397,7 @@ export function RichTextEditor({
         className={`
           w-full px-4 py-3 text-sm
           border border-slate-300
-          ${showRibbon ? 'rounded-b-lg border-t-0' : 'rounded-lg'}
+          ${hasOwnRibbon ? 'rounded-b-lg border-t-0' : 'rounded-lg'}
           focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent
           bg-white text-slate-900
           overflow-y-auto

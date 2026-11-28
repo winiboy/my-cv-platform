@@ -23,18 +23,20 @@ import it from '../src/locales/it/common.json'
  *
  * WHAT IS ASSERTED
  *
- *   - The four buttons, in order, on the opening, a body paragraph, a body
- *     paragraph added with "Add paragraph", and the closing.
+ *   - The four buttons, in order, in the editor's one toolbar under the header
+ *     (cover-letter-top-toolbar, US-001), which formats the opening, a body
+ *     paragraph, a body paragraph added with "Add paragraph", and the closing.
  *   - A click aligns only the paragraph holding the cursor; a selection across
  *     two paragraphs aligns both and leaves the third alone; the active button
  *     follows the cursor, left for a paragraph with no alignment.
- *   - A button is reachable and operable with the keyboard, with visible focus.
+ *   - A button is reachable from the toolbar's other controls and operable
+ *     with the keyboard, with visible focus.
  *   - After save and reload: the editor's HTML, both previews' computed
  *     alignment, the PDF's line positions (centered lines centered in the text
  *     column, right lines flush right, justified lines full width but the
  *     last) and the Word file's `w:jc` for every paragraph.
  *   - Labels and tooltips from the dictionary in fr, en, de and it; the
- *     toolbar inside the form at every width the editor supports.
+ *     toolbar inside the viewport at every width the editor supports.
  *   - A CV field gets no new button: the key-achievements toolbar above it
  *     keeps its three alignment buttons, and no ribbon alignment group exists.
  */
@@ -122,13 +124,13 @@ async function openEditor(page: Page, letterId: string, locale: LocaleCode = 'en
   await expect(page.locator('#opening-paragraph p').first()).toHaveText('Opening centered line.')
 }
 
-/** The editor wrapper: its ribbon and its contentEditable. */
-const fieldOf = (page: Page, editorId: string) => page.locator(`#${editorId}`).locator('xpath=..')
-const alignButton = (field: Locator, label: string) => field.getByRole('button', { name: label, exact: true })
+/** The editor's one formatting toolbar, under the header: it formats the field that holds the cursor. */
+const toolbarOf = (page: Page) => page.getByTestId('cover-letter-formatting-toolbar')
+const alignButton = (toolbar: Locator, label: string) => toolbar.getByRole('button', { name: label, exact: true })
 
 /** The alignment buttons' accessible names, in document order. */
-async function alignmentLabels(field: Locator) {
-  const group = field.getByTestId('formatting-ribbon-alignment')
+async function alignmentLabels(toolbar: Locator) {
+  const group = toolbar.getByTestId('formatting-ribbon-alignment')
   await expect(group).toBeVisible()
   return group
     .getByRole('button')
@@ -137,9 +139,9 @@ async function alignmentLabels(field: Locator) {
     )
 }
 
-async function expectActive(field: Locator, active: string) {
+async function expectActive(toolbar: Locator, active: string) {
   for (const label of [LEFT, CENTER, RIGHT, JUSTIFY]) {
-    await expect(alignButton(field, label), `${label} pressed`).toHaveAttribute('aria-pressed', String(label === active))
+    await expect(alignButton(toolbar, label), `${label} pressed`).toHaveAttribute('aria-pressed', String(label === active))
   }
 }
 
@@ -209,20 +211,19 @@ test('paragraphs are aligned one by one and keep their alignment in the editor, 
   const letterId = await insertLetter(authedUser.id)
   await openEditor(page, letterId)
 
-  const opening = fieldOf(page, 'opening-paragraph')
+  // One toolbar formats every field: the one holding the cursor.
+  const toolbar = toolbarOf(page)
   const openingEditor = page.locator('#opening-paragraph')
-  const body = fieldOf(page, 'body-paragraph-0')
-  const closing = fieldOf(page, 'closing-paragraph')
   const closingEditor = page.locator('#closing-paragraph')
 
   const ALL_FOUR = [LEFT, CENTER, RIGHT, JUSTIFY].map((label) => ({ label, title: label }))
-  expect(await alignmentLabels(opening), 'opening: buttons').toEqual(ALL_FOUR)
+  expect(await alignmentLabels(toolbar), 'toolbar: buttons').toEqual(ALL_FOUR)
 
   // One paragraph at a time: only the one holding the cursor.
   await clickInto(openingEditor, 0)
-  await expectActive(opening, LEFT)
-  await alignButton(opening, CENTER).click()
-  await expectActive(opening, CENTER)
+  await expectActive(toolbar, LEFT)
+  await alignButton(toolbar, CENTER).click()
+  await expectActive(toolbar, CENTER)
   expect(await blockAlignments(openingEditor)).toEqual([
     { text: 'Opening centered line.', align: 'center' },
     { text: 'Opening right line.', align: '' },
@@ -234,26 +235,31 @@ test('paragraphs are aligned one by one and keep their alignment in the editor, 
     { text: 'Opening centered line.', align: '' },
     { text: 'Opening right line.', align: '' },
   ])
-  await expectActive(opening, LEFT)
+  await expectActive(toolbar, LEFT)
   // Ctrl+Shift+Z redoes in Chromium on every platform; Ctrl+Y only on Windows
   await page.keyboard.press('Control+Shift+z')
   expect(await blockAlignments(openingEditor)).toEqual([
     { text: 'Opening centered line.', align: 'center' },
     { text: 'Opening right line.', align: '' },
   ])
-  await expectActive(opening, CENTER)
+  await expectActive(toolbar, CENTER)
 
   // The active button follows the cursor: left for a paragraph with no alignment.
   await clickInto(openingEditor, 1)
-  await expectActive(opening, LEFT)
+  await expectActive(toolbar, LEFT)
   await clickInto(openingEditor, 0)
-  await expectActive(opening, CENTER)
+  await expectActive(toolbar, CENTER)
 
-  // Keyboard: from the second paragraph, back through the size and font
-  // selects and the justify button to the right one, then Enter.
+  // Keyboard: from the second paragraph, Shift+Tab back through the greeting
+  // input, the section nav and the toolbar's selects to the right button,
+  // then Enter. Moving focus keeps the paragraph the toolbar's target.
   await clickInto(openingEditor, 1)
-  for (let step = 0; step < 4; step++) await page.keyboard.press('Shift+Tab')
-  const right = alignButton(opening, RIGHT)
+  const right = alignButton(toolbar, RIGHT)
+  let steps = 0
+  while (!(await right.evaluate((element) => element === document.activeElement))) {
+    expect(++steps, 'the right button is reached by Shift+Tab').toBeLessThanOrEqual(40)
+    await page.keyboard.press('Shift+Tab')
+  }
   await expect(right).toBeFocused()
   const focusLook = await right.evaluate((element) => ({
     focusVisible: element.matches(':focus-visible'),
@@ -266,31 +272,28 @@ test('paragraphs are aligned one by one and keep their alignment in the editor, 
     { text: 'Opening centered line.', align: 'center' },
     { text: 'Opening right line.', align: 'right' },
   ])
-  await expectActive(opening, RIGHT)
+  await expectActive(toolbar, RIGHT)
 
   // A body paragraph.
   await showSection(page, 'body')
-  expect(await alignmentLabels(body), 'body: buttons').toEqual(ALL_FOUR)
   await clickInto(page.locator('#body-paragraph-0'), 0)
-  await alignButton(body, JUSTIFY).click()
-  await expectActive(body, JUSTIFY)
+  await alignButton(toolbar, JUSTIFY).click()
+  await expectActive(toolbar, JUSTIFY)
 
-  // A body paragraph added now has the buttons too.
+  // A body paragraph added now is formatted from the toolbar too.
   await page.getByRole('button', { name: en.coverLetters.editor.body.addParagraph, exact: true }).click()
-  const added = fieldOf(page, 'body-paragraph-1')
   const addedEditor = page.locator('#body-paragraph-1')
-  expect(await alignmentLabels(added), 'added body paragraph: buttons').toEqual(ALL_FOUR)
   await addedEditor.click()
   await page.keyboard.type(NEW_PARAGRAPH)
-  await alignButton(added, CENTER).click()
-  await expectActive(added, CENTER)
-  await alignButton(added, LEFT).click()
-  await expectActive(added, LEFT)
+  await alignButton(toolbar, CENTER).click()
+  await expectActive(toolbar, CENTER)
+  await alignButton(toolbar, LEFT).click()
+  await expectActive(toolbar, LEFT)
   expect(await blockAlignments(addedEditor)).toEqual([{ text: NEW_PARAGRAPH, align: 'left' }])
 
   // A selection across two of the closing's three paragraphs aligns both.
   await showSection(page, 'closing')
-  expect(await alignmentLabels(closing), 'closing: buttons').toEqual(ALL_FOUR)
+  await closingEditor.click()
   await closingEditor.evaluate((element) => {
     const [first, second] = Array.from(element.querySelectorAll('p'))
     const range = document.createRange()
@@ -300,14 +303,14 @@ test('paragraphs are aligned one by one and keep their alignment in the editor, 
     selection.removeAllRanges()
     selection.addRange(range)
   })
-  await alignButton(closing, CENTER).click()
+  await alignButton(toolbar, CENTER).click()
   expect(await blockAlignments(closingEditor)).toEqual([
     { text: 'Closing first selected.', align: 'center' },
     { text: 'Closing second selected.', align: 'center' },
     { text: 'Closing untouched line.', align: '' },
   ])
   await clickInto(closingEditor, 2)
-  await expectActive(closing, LEFT)
+  await expectActive(toolbar, LEFT)
 
   // The other fields kept theirs.
   await showSection(page, 'body')
@@ -439,9 +442,10 @@ for (const locale of ['fr', 'en', 'de', 'it'] as const) {
       ['closing', 'closing-paragraph'],
     ] as const) {
       await showSection(page, section, locale)
-      const field = fieldOf(page, editorId)
-      expect(await alignmentLabels(field), editorId).toEqual(labels.map((label) => ({ label, title: label })))
-      await test.info().attach(`${locale}-${section}-toolbar.png`, { body: await field.screenshot(), contentType: 'image/png' })
+      await page.locator(`#${editorId}`).click()
+      const toolbar = toolbarOf(page)
+      expect(await alignmentLabels(toolbar), editorId).toEqual(labels.map((label) => ({ label, title: label })))
+      await test.info().attach(`${locale}-${section}-toolbar.png`, { body: await toolbar.screenshot(), contentType: 'image/png' })
     }
   })
 }
@@ -454,24 +458,26 @@ for (const viewport of [
   { width: 1280, height: 800 },
   { width: 1440, height: 900 },
 ] as const) {
-  test(`${viewport.width}px: the toolbar with its alignment buttons stays inside its field`, async ({ page, authedUser }) => {
+  test(`${viewport.width}px: the toolbar with its alignment buttons stays inside the viewport`, async ({ page, authedUser }) => {
     await page.setViewportSize(viewport)
     const letterId = await insertLetter(authedUser.id)
     await openEditor(page, letterId, 'fr')
-    const field = fieldOf(page, 'opening-paragraph')
-    await field.scrollIntoViewIfNeeded()
-    const fieldBox = await rect(field)
+    const toolbar = toolbarOf(page)
+    await expect(toolbar).toBeVisible()
+    const toolbarBox = await rect(toolbar)
+    expect(toolbarBox.left, 'toolbar inside the viewport').toBeGreaterThanOrEqual(-0.5)
+    expect(toolbarBox.right, 'toolbar inside the viewport').toBeLessThanOrEqual(viewport.width + 0.5)
     for (const label of labelsOf('fr')) {
-      const button = alignButton(field, label)
+      const button = alignButton(toolbar, label)
       await expect(button).toBeVisible()
       const box = await rect(button)
-      expect(box.left, `${label} inside the field`).toBeGreaterThanOrEqual(fieldBox.left - 0.5)
-      expect(box.right, `${label} inside the field`).toBeLessThanOrEqual(fieldBox.right + 0.5)
+      expect(box.left, `${label} inside the toolbar`).toBeGreaterThanOrEqual(toolbarBox.left - 0.5)
+      expect(box.right, `${label} inside the toolbar`).toBeLessThanOrEqual(toolbarBox.right + 0.5)
     }
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     expect(overflow, 'no horizontal page scroll').toBe(0)
     await test.info().attach(`fr-${viewport.width}-opening-toolbar.png`, {
-      body: await field.screenshot(),
+      body: await toolbar.screenshot(),
       contentType: 'image/png',
     })
   })

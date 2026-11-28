@@ -114,7 +114,7 @@ export function BodySection({
                 onChange={(html) => updateParagraph(index, html)}
                 placeholder={(bodyDict.paragraphPlaceholder as string) || 'Write your paragraph...'}
                 minHeight="100px"
-                showAlignment
+                sharedToolbar
                 dict={dict}
               />
             </div>

@@ -357,11 +357,14 @@ for (const locale of Object.keys(LOCALES) as LocaleCode[]) {
           }
 
           // The ones the PRD names: the Body section's add-paragraph button and
-          // hint, the rich-text toolbar, and the sign-off select.
+          // hint, the rich-text toolbar (one, under the header, since
+          // cover-letter-top-toolbar US-001), and the sign-off select.
           await ui.nav.getByRole('button', { name: editorDict.sections.body, exact: true }).click()
           await expectInside(page, ui.form.getByRole('button', { name: editorDict.body.addParagraph, exact: true }), `${label}: add paragraph`)
           await expectInside(page, ui.form.getByText(editorDict.body.hint, { exact: true }), `${label}: body hint`)
-          const fontSelect = ui.form.getByRole('combobox', { name: dict.resumes.editor.richTextToolbar.font, exact: true }).first()
+          const fontSelect = page
+            .getByTestId('cover-letter-formatting-toolbar')
+            .getByRole('combobox', { name: dict.resumes.editor.richTextToolbar.font, exact: true })
           await expectInside(page, fontSelect, `${label}: toolbar font select`)
           await ui.nav.getByRole('button', { name: editorDict.sections.signature, exact: true }).click()
           await expectInside(page, ui.form.locator('select').first(), `${label}: sign-off select`)
