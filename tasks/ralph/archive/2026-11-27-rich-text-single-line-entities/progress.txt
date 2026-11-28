@@ -1,0 +1,72 @@
+# Ralph progress — rich-text-single-line-entities
+
+Contract: tasks/ralph/prd.json (branch ralph/rich-text-single-line-entities)
+PRD: tasks/prds/rich-text-single-line-entities.md (Status: APPROVED 2026-11-26, written by the owner)
+Format: docs/engineering/progress-log-format.md
+Baseline: origin/main eafbd14 (PR #131 merged 2026-11-26)
+
+## US-001: A single typed line reads the same in the Preview, the PDF and Word
+Status: PASS
+Priority: 1
+Branch: ralph/rich-text-single-line-entities
+Baseline HEAD: 849880e (origin/main eafbd14 + archive, PRD and contract commits)
+Worktree: .claude/worktrees/rich-text-entities — the main checkout belongs to another session.
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/lib/html-entities.ts (new), src/lib/html-entities.test.ts (new), src/lib/format-text.tsx, src/lib/format-text.test.ts, src/app/api/resumes/[id]/download-docx/docx-helpers.ts, src/app/api/resumes/[id]/download-docx/docx-helpers.test.ts, e2e/rich-text-single-line-entities.spec.ts (new), tasks/ralph/prd.json, tasks/ralph/progress.txt
+- Not touched: the editor, formatText, SanitizedHtml/sanitizeHtml/migrateTextToHtml/htmlToPlainText, templates, stored rows, migrations, visual baselines, package.json version. No push, no merge.
+- Not committed: next-env.d.ts, swiss-commerce-template.tsx and swiss-vocational-template.tsx show as modified only because of autocrlf (empty content diff).
+
+Decision:
+- FR-1 + FR-2 + "Word output unchanged" could not all hold if the shared decoder always decoded &nbsp;: Word strips tags and then decodes, so a tag-split `&nb<a>sp;</a>` would form &nbsp; and change Word (e.g. `<ul><li>&nb<b>sp;</b></li>...` dropped an item). The shared decodeHtmlEntities(text, { nbsp }) takes a required option. Word passes false, which gives exactly the old six-entity pattern; the Preview passes true and gets &nbsp; -> U+00A0. There is still one function. Pinned by docx-helpers.test.ts (two tag-split literal cases) and html-entities.test.ts (a spy shows both callers use the same function).
+- Decoding runs after the tag check, on the stored value, so formattedTextLineHeight and branch choice are unchanged.
+
+Checks (final diff; logs in session scratchpad checks/):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS — 162/162 files, 5141 passed, 17 skipped, 0 failed
+- pnpm test:integration: PASS — 5/5 files, 80 passed
+- pnpm build:verify: PASS — exit 0, 105/105 static pages
+- pnpm lint: PASS — 135 problems (93 errors, 42 warnings), equal to the baseline recorded by swiss-templates-only-page-fidelity. Per-file eslint against origin/main: docx-helpers.ts 5->5, format-text.tsx 0->0, both test files 0->0, new files 0.
+- pnpm test:e2e: PASS — 698 passed (E2E_PORT=3137), including rich-text-single-line-entities.spec.ts
+- pnpm test:visual: PASS — 20 passed, no baseline change
+
+Specialized validation:
+- Browser: PASS — the e2e drives the real editor. The stored column is exactly `R&amp;D &lt; 5%`, so the defect shape reproduces. After the reload, the live preview and the Preview page (HTTP 200) show `R&D < 5%`. Red before the fix: the live preview read `...LausanneR&amp;D &lt; 5%01.2017...`.
+- Visual: PASS — test:visual 20/20, no baseline moved.
+- Export: PASS — the e2e checks the generated artifacts. download-pdf text (whitespace removed) contains `R&D<5%` and no `&amp;`/`&lt;` (red before the fix). download-docx word/document.xml contains `>R&amp;D &lt; 5%<`, with no `&amp;amp;` or `&amp;lt;` (green before and after).
+- Database: NOT_APPLICABLE — no schema or stored-value change; the e2e only reads the column it saved, on the local stack.
+- Security: PASS — decoded text reaches only React text nodes. A unit test shows `&lt;img src=x onerror=alert(1)&gt;` renders as escaped text with no `<img`. The decoder is DOM-free (vitest node environment asserts `document` is undefined).
+
+Agents:
+- senior-coder: implemented. First round raised a BLOCKER on &nbsp; (see Decision), resolved inside the PRD by the { nbsp } option; no PRD change.
+- ui-expert: PASS — 0 issues. Evidence: full Preview page after type/save/reload (swissCommerce, en), uiexp-results/.../test-finished-1.png, and the description close-up.
+- code-reviewer: PASS — 0 critical, 0 major, 3 minor, none required.
+
+Acceptance criteria:
+- AC-01..AC-04 (R&D, &amp;lt;, a&nbsp;b, img payload): PASS — format-text.test.ts new cases
+- AC-05 (existing formatText cases unchanged): PASS — existing assertions not edited; pnpm test green
+- AC-06 (one shared DOM-free function): PASS — html-entities.test.ts spy and node-environment cases
+- AC-07..AC-10 (e2e Preview, PDF, DOCX, no extra escaping): PASS — rich-text-single-line-entities.spec.ts in the 698
+- FR-1..FR-4: PASS — format-text.tsx tagless branch only; HTML branch untouched
+- Regression constraints (HTML values, untagged values without entities, Word for every value, rich-text-migrate/untrusted-value specs, line height, visual baselines): PASS — unit, e2e and visual suites green; Word byte-identical by construction (same regex and table) and by the two tag-split tests
+- Verification items: PASS — see Checks and Agents
+- FAIL conditions: none observed. BLOCKER conditions: neither applies (#131's decoder on main matches the PRD; the e2e reproduces the stored shape).
+- Out of scope: respected
+
+Environment notes:
+- In this checkout (core.autocrlf=true) swiss-commerce- and swiss-vocational-template.test.ts fail on their CRLF working copies. They read the template source and match `\n`. With the working copies set to the index bytes (LF): 25/25 pass. Not caused by this story.
+- The e2e build rewrites next-env.d.ts; restored to HEAD content.
+
+Follow-ups for the owner (code-reviewer minors, not applied so the checks stay valid for this diff):
+- html-entities.ts:7 and two test lines hold a raw U+00A0; writing ' ' would make it visible.
+- The Preview writes &nbsp; as U+00A0 while Word writes U+0020 (unchanged); a comment next to TEXT_ENTITIES would say so.
+- A tagless `-&nbsp;item` now renders as a bullet item, because list detection sees decoded text. The PRD allows this.
+
+Open owner decisions recorded by this story:
+- The PRD's open question still stands: a read-only production count of tagless description/summary/achievements values that start with `&lt;` needs the owner's OK. No production data was read.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-001 A single typed line reads the same in the Preview, the PDF and Word
+FINAL: PASS

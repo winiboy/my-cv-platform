@@ -36,7 +36,7 @@ export function ClosingSection({
           onChange={(html) => onChange(html || null)}
           placeholder={(closingDict.paragraphPlaceholder as string) || 'Write your closing paragraph...'}
           minHeight="100px"
-          showAlignment
+          sharedToolbar
           dict={dict}
         />
       </div>

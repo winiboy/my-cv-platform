@@ -1,72 +1,202 @@
-# Ralph progress — rich-text-single-line-entities
+# Ralph progress — cover-letter-top-toolbar
 
-Contract: tasks/ralph/prd.json (branch ralph/rich-text-single-line-entities)
-PRD: tasks/prds/rich-text-single-line-entities.md (Status: APPROVED 2026-11-26, written by the owner)
+Contract: tasks/ralph/prd.json (branch ralph/cover-letter-top-toolbar)
+PRD: tasks/prds/cover-letter-top-toolbar.md (Status: APPROVED 2026-11-28, written by the owner)
 Format: docs/engineering/progress-log-format.md
-Baseline: origin/main eafbd14 (PR #131 merged 2026-11-26)
+Baseline: origin/main cea31e9 (PR #132 merged 2026-11-27)
+Previous contract: archived to tasks/ralph/archive/2026-11-27-rich-text-single-line-entities/ in 81e9cb2
 
-## US-001: A single typed line reads the same in the Preview, the PDF and Word
+## US-001: One toolbar at the top formats the field the cursor is in
 Status: PASS
 Priority: 1
-Branch: ralph/rich-text-single-line-entities
-Baseline HEAD: 849880e (origin/main eafbd14 + archive, PRD and contract commits)
-Worktree: .claude/worktrees/rich-text-entities — the main checkout belongs to another session.
+Branch: ralph/cover-letter-top-toolbar
+Baseline HEAD: 81e9cb2 (origin/main cea31e9 + archive, PRD and contract commit)
+Worktree: .claude/worktrees/cover-letter-top-toolbar — the main checkout belongs to another session.
 
 Scope:
 - Scope check: PASS
-- Changed paths: src/lib/html-entities.ts (new), src/lib/html-entities.test.ts (new), src/lib/format-text.tsx, src/lib/format-text.test.ts, src/app/api/resumes/[id]/download-docx/docx-helpers.ts, src/app/api/resumes/[id]/download-docx/docx-helpers.test.ts, e2e/rich-text-single-line-entities.spec.ts (new), tasks/ralph/prd.json, tasks/ralph/progress.txt
-- Not touched: the editor, formatText, SanitizedHtml/sanitizeHtml/migrateTextToHtml/htmlToPlainText, templates, stored rows, migrations, visual baselines, package.json version. No push, no merge.
-- Not committed: next-env.d.ts, swiss-commerce-template.tsx and swiss-vocational-template.tsx show as modified only because of autocrlf (empty content diff).
+- Changed paths: src/components/dashboard/shared-formatting-toolbar.tsx (new), src/components/dashboard/formatting-ribbon.tsx, src/components/dashboard/formatting-ribbon.test.ts, src/components/dashboard/rich-text-editor.tsx, src/components/dashboard/cover-letter-editor.tsx, src/components/dashboard/cover-letter-sections/{opening,body,closing}-section.tsx, src/locales/{fr,en,de,it}/common.json (key coverLetters.editor.formattingToolbar), e2e/cover-letter-top-toolbar.spec.ts (new), e2e/cover-letter-paragraph-alignment.spec.ts, e2e/cover-letter-editor-i18n.spec.ts, e2e/cover-letter-editor-mobile.spec.ts, e2e/cover-letter-swiss-greeting.spec.ts, e2e/cover-letter-translate.spec.ts, tasks/prds/cover-letter-top-toolbar.md (owner-approved wording fixes, below), tasks/ralph/prd.json, tasks/ralph/progress.txt
+- Not touched: `git diff HEAD -- src/app src/lib` empty (PDF and Word export, sanitizer, routes); resume-sections/* untouched (every CV field keeps showRibbon={false}); no migration; no visual baseline; package.json version unchanged. No push, no merge.
+- Default FormattingRibbon markup (no `placement`) byte-identical to origin/main: implementer's render comparison over 4 prop sets, and formatting-ribbon.test.ts pins it (no role, no disabled, no aria-pressed).
 
-Decision:
-- FR-1 + FR-2 + "Word output unchanged" could not all hold if the shared decoder always decoded &nbsp;: Word strips tags and then decodes, so a tag-split `&nb<a>sp;</a>` would form &nbsp; and change Word (e.g. `<ul><li>&nb<b>sp;</b></li>...` dropped an item). The shared decodeHtmlEntities(text, { nbsp }) takes a required option. Word passes false, which gives exactly the old six-entity pattern; the Preview passes true and gets &nbsp; -> U+00A0. There is still one function. Pinned by docx-helpers.test.ts (two tag-split literal cases) and html-entities.test.ts (a spy shows both callers use the same function).
-- Decoding runs after the tag check, on the stored value, so formattedTextLineHeight and branch choice are unchanged.
-
-Checks (final diff; logs in session scratchpad checks/):
+Checks (all on the final diff; the last code change was e2e/cover-letter-translate.spec.ts, after which every check below was re-run):
 - pnpm typecheck: PASS — exit 0
-- pnpm test: PASS — 162/162 files, 5141 passed, 17 skipped, 0 failed
+- pnpm test: PASS with a named environment limit — 162 files, 5148 passed, 17 skipped, 2 failed. The 2 failures are swiss-commerce-template.test.ts and swiss-vocational-template.test.ts: they read untouched template sources and match `\n`, and this checkout has core.autocrlf=true. With those two working copies set to the index bytes (LF): 2/2 files, 25/25 passed; working copies restored afterwards (`git status` clean for both). Same limit as recorded in the archived rich-text-single-line-entities log.
 - pnpm test:integration: PASS — 5/5 files, 80 passed
-- pnpm build:verify: PASS — exit 0, 105/105 static pages
-- pnpm lint: PASS — 135 problems (93 errors, 42 warnings), equal to the baseline recorded by swiss-templates-only-page-fidelity. Per-file eslint against origin/main: docx-helpers.ts 5->5, format-text.tsx 0->0, both test files 0->0, new files 0.
-- pnpm test:e2e: PASS — 698 passed (E2E_PORT=3137), including rich-text-single-line-entities.spec.ts
-- pnpm test:visual: PASS — 20 passed, no baseline change
+- pnpm build: PASS — 105/105 static pages (no dev server running in this worktree, so build rather than build:verify)
+- pnpm lint: PASS — 134 problems (93 errors, 41 warnings), under the 135 baseline recorded by swiss-templates-only-page-fidelity and rich-text-single-line-entities (one fewer: an `any` removed from a touched file)
+- pnpm test:e2e: PASS with one flaky test — 709 passed, 1 failed (E2E_PORT=3157). Failure: cover-letter-docx-export.spec.ts:253 (fr, list ⋮ menu) — the letter card heading on the cover-letter LIST page was not found within 15s; that page is not touched by this diff, and the same test passed in the previous full run on identical app code. Re-run of the whole spec with --repeat-each=2: 18/18 passed.
+- pnpm test:visual: NOT_APPLICABLE — no resume template, preview or export rendering file in the diff; the PRD does not require it.
 
 Specialized validation:
-- Browser: PASS — the e2e drives the real editor. The stored column is exactly `R&amp;D &lt; 5%`, so the defect shape reproduces. After the reload, the live preview and the Preview page (HTTP 200) show `R&D < 5%`. Red before the fix: the live preview read `...LausanneR&amp;D &lt; 5%01.2017...`.
-- Visual: PASS — test:visual 20/20, no baseline moved.
-- Export: PASS — the e2e checks the generated artifacts. download-pdf text (whitespace removed) contains `R&D<5%` and no `&amp;`/`&lt;` (red before the fix). download-docx word/document.xml contains `>R&amp;D &lt; 5%<`, with no `&amp;amp;` or `&amp;lt;` (green before and after).
-- Database: NOT_APPLICABLE — no schema or stored-value change; the e2e only reads the column it saved, on the local stack.
-- Security: PASS — decoded text reaches only React text nodes. A unit test shows `&lt;img src=x onerror=alert(1)&gt;` renders as escaped text with no `<img`. The decoder is DOM-free (vitest node environment asserts `document` is undefined).
+- Browser: PASS — e2e/cover-letter-top-toolbar.spec.ts plus ui-expert rendered review (below)
+- Visual: NOT_APPLICABLE — no rendering/template change; ui-expert screenshots cover the new UI
+- Export: NOT_APPLICABLE — export code unchanged (`git diff HEAD -- src/app` empty); the alignment spec's editor → previews → PDF → Word chain still passes with the toolbar
+- Database: NOT_APPLICABLE — no schema or stored-format change
+- Security: NOT_APPLICABLE — HTML still goes through the existing sanitizer; no new input path
 
 Agents:
-- senior-coder: implemented. First round raised a BLOCKER on &nbsp; (see Decision), resolved inside the PRD by the { nbsp } option; no PRD change.
-- ui-expert: PASS — 0 issues. Evidence: full Preview page after type/save/reload (swissCommerce, en), uiexp-results/.../test-finished-1.png, and the description close-up.
-- code-reviewer: PASS — 0 critical, 0 major, 3 minor, none required.
+- ui-expert round 1: FAIL — below xl the toolbar row sat above the Édition/Aperçu switch and was hidden in Aperçu, so the switch jumped 134px when tapped (390px: top 349 → 215); minor: no aria-pressed on B/I/U; double-framed toolbar. Fixed by placing the row after the switch below xl, aria-pressed, flat toolbar.
+- ui-expert round 2: PASS — AC 1–9 at 1440 fr+de; switch top 203 through Édition → Aperçu → Édition at 390 fr and 320 fr/de; 11 controls aria-disabled and focusable with no target; 17 screenshots in the session scratchpad (ui-us001-r2). Not evaluated: a real Tab-key trace (no key-press tool) — covered by the e2e Shift+Tab tests.
+- code-reviewer round 1: FAIL — (1) keyboard focus never cleared the target, so a command could change a field the cursor was not in (FR-3 / PRD FAIL condition); (2) pointerdown cleared the target on scrollbars, blank space and touch pans; (3) native disabled removed the controls from the Tab order; plus stale-range, active-alignment, select-focus and test-quality minors. All fixed: target clears only when the user acts in another control (interactive click, input/change, non-navigation key, capture phase); aria-disabled with guarded handlers; live selection first, saved range only while connected, also saved on focusout (found by the new keyboard test: selectionchange arrived coalesced).
+- code-reviewer round 2: PASS — 6 minor findings, none blocking (see Open owner decisions).
+- full e2e then found 2 regressions caused by the story, both test locators, fixed in tests only: cover-letter-swiss-greeting.spec.ts (unscoped `locator('select')` now also matched the toolbar's selects → scoped to the form column) and cover-letter-translate.spec.ts (keyboard walk now passes the toolbar's 11 controls before the flags → asserted in DOM order). code-reviewer round 3 on the translate spec change: PASS.
 
 Acceptance criteria:
-- AC-01..AC-04 (R&D, &amp;lt;, a&nbsp;b, img payload): PASS — format-text.test.ts new cases
-- AC-05 (existing formatText cases unchanged): PASS — existing assertions not edited; pnpm test green
-- AC-06 (one shared DOM-free function): PASS — html-entities.test.ts spy and node-environment cases
-- AC-07..AC-10 (e2e Preview, PDF, DOCX, no extra escaping): PASS — rich-text-single-line-entities.spec.ts in the 698
-- FR-1..FR-4: PASS — format-text.tsx tagless branch only; HTML branch untouched
-- Regression constraints (HTML values, untagged values without entities, Word for every value, rich-text-migrate/untrusted-value specs, line height, visual baselines): PASS — unit, e2e and visual suites green; Word byte-identical by construction (same regex and table) and by the two tag-split tests
-- Verification items: PASS — see Checks and Agents
-- FAIL conditions: none observed. BLOCKER conditions: neither applies (#131's decoder on main matches the PRD; the e2e reproduces the stored shape).
-- Out of scope: respected
+- AC-01 (placement at 1440×900): PASS — e2e asserts the toolbar inside the band, top below the save-status line, right edge left of the Translate label; ui-expert: top 170 > status bottom 149, right 893 < « Traduire » 1166
+- AC-02 (no per-field toolbar): PASS — e2e: 0 controls inside #opening-paragraph, each #body-paragraph-<n> and #closing-paragraph fields; ui-expert: one Bold button on the page
+- AC-03 (Bold on the target field only): PASS — e2e applies Bold in the opening, body paragraph 2 and the closing; the other fields' preview HTML is byte-identical before and after
+- AC-04 (italic, underline, lists, font, size the same way): PASS — same e2e loop over all seven commands
+- AC-05 (select applies to the earlier selection): PASS — e2e removes the page selection after the select has focus, then chooses font and size; the earlier word is wrapped
+- AC-06 (no target → visible, controls disabled): PASS — e2e: Recipient section and greeting input, all controls aria-disabled="true"; ui-expert: 11 controls aria-disabled, tabIndex 0
+- AC-07 (target kept through toolbar, cleared by greeting click / other section): PASS — e2e click cases; plus typing in the greeting after Shift+Tab clears it, Enter on Move up clears it, blank/scrollbar clicks keep it
+- AC-08 (active B/I/U state): PASS — e2e asserts active class and aria-pressed="true" after bolding
+- AC-09 (CV editor unchanged; wording corrected with the owner, below): PASS — e2e: CV summary section has no formatting controls and no role=toolbar; ui-expert screenshot 40
 
-Environment notes:
-- In this checkout (core.autocrlf=true) swiss-commerce- and swiss-vocational-template.test.ts fail on their CRLF working copies. They read the template source and match `\n`. With the working copies set to the index bytes (LF): 25/25 pass. Not caused by this story.
-- The e2e build rewrites next-env.d.ts; restored to HEAD content.
+Decision (AC-07 / FR-3): Tab and Shift+Tab through other controls keep the target; acting in them (typing, clicking, changing) clears it. Rejected: clearing on any focusin — the toolbar would be unreachable by keyboard. Owner chose this on 2026-11-28 and FR-3 was clarified in the PRD. Source: comment at the top of src/components/dashboard/shared-formatting-toolbar.tsx.
+Decision (layout below xl): the toolbar row follows the Édition/Aperçu switch and is hidden in Aperçu, so the switch never moves (ui-expert round 1). At xl it is the left side of the Translate band, as in the owner's screenshot.
 
-Follow-ups for the owner (code-reviewer minors, not applied so the checks stay valid for this diff):
-- html-entities.ts:7 and two test lines hold a raw U+00A0; writing ' ' would make it visible.
-- The Preview writes &nbsp; as U+00A0 while Word writes U+0020 (unchanged); a comment next to TEXT_ENTITIES would say so.
-- A tagless `-&nbsp;item` now renders as a bullet item, because list detection sees decoded text. The PRD allows this.
+PRD corrections approved by the owner on 2026-11-28, made in this story's diff:
+- AC-09 and three PRD-wide sentences (Out of Scope, a Regression constraint, Required Verification) said the CV fields keep their own ribbon; no CV field has had one (all use showRibbon={false}). Reworded: the CV editor stays unchanged, with no toolbar on its fields.
+- FR-3 clarified as in the Decision above.
 
 Open owner decisions recorded by this story:
-- The PRD's open question still stands: a read-only production count of tagless description/summary/achievements values that start with `&lt;` needs the owner's OK. No production data was read.
+- Before US-003: should the toolbar be one Tab stop with arrow keys inside (ARIA toolbar pattern) instead of 11 Tab stops? US-003 AC "every toolbar control is reachable with Tab" reads either way.
+- Before US-003: each arrow-key change on the font/size select wraps another <span> (existing logic, now easier to reach by keyboard); the stored HTML grows. Not a US-001 requirement.
+- Not in this PRD: making a field a bullet list stores <p><ul>…</ul></p> and the editor pane preview shows no bullet (ui-expert round 2, pre-existing on origin/main). Candidate for its own fix.
+- Not in this PRD: the Signature section's sign-off <select> has no accessible name (its <label> has no htmlFor), pre-existing.
+
+Environment notes:
+- core.autocrlf=true: the two Swiss template unit tests fail on CRLF working copies only (above).
+- One full e2e run had a login timeout in e2e/fixtures/auth.ts (implementer run of 5 specs); the test passed alone on re-run.
+- The e2e build rewrites next-env.d.ts; it was reverted after each run and is not committed.
 
 Commit:
 - Story commit: THIS_COMMIT
-- Commit message: ralph: US-001 A single typed line reads the same in the Preview, the PDF and Word
+- Commit message: ralph: US-001 One toolbar at the top formats the field the cursor is in
+FINAL: PASS
+
+## US-002: An alignment button aligns the whole letter
+Status: PASS
+Priority: 2
+Branch: ralph/cover-letter-top-toolbar
+Baseline HEAD: 58a1d19 (US-001)
+Worktree: .claude/worktrees/cover-letter-top-toolbar — the main checkout belongs to another session.
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/lib/rich-text-letter-alignment.ts (new), src/lib/rich-text-letter-alignment.test.ts (new), src/components/dashboard/cover-letter-editor.tsx, src/components/dashboard/shared-formatting-toolbar.tsx, src/components/dashboard/formatting-ribbon.tsx, src/components/dashboard/formatting-ribbon.test.ts, src/components/dashboard/rich-text-editor.tsx, src/components/dashboard/cover-letter-sections/body-section.tsx, e2e/cover-letter-paragraph-alignment.spec.ts (rewritten to whole-letter semantics), e2e/cover-letter-top-toolbar.spec.ts, tasks/ralph/prd.json, tasks/ralph/progress.txt
+- Not touched: `git diff HEAD -- src/app` empty (PDF and Word export code), html-utils.ts and rich-html-sanitizer.ts unchanged, resume-sections/* unchanged, no migration, no visual baseline, package.json version unchanged. No push, no merge.
+
+Checks (all on the final diff):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS with the named environment limit — 163 files, 5174 passed, 17 skipped, 2 failed (swiss-commerce/-vocational template tests on CRLF working copies, untouched files; with LF working copies 2/2 files, 25/25 passed; copies restored). Same limit as US-001.
+- pnpm test:integration: PASS — 5/5 files, 80 passed
+- pnpm build: PASS — 105/105 static pages (no dev server in this worktree)
+- pnpm lint: PASS — 134 problems (93 errors, 41 warnings), under the 135 baseline (unchanged from US-001)
+- pnpm test:e2e: PASS — 714 passed, 0 failed (E2E_PORT=3157, 24.2 min)
+- pnpm test:visual: NOT_APPLICABLE — no resume template or export rendering change
+
+Specialized validation:
+- Browser: PASS — e2e/cover-letter-paragraph-alignment.spec.ts and cover-letter-top-toolbar.spec.ts, plus ui-expert rendered review
+- Visual: NOT_APPLICABLE — no template/rendering change
+- Export: PASS — export code unchanged; the alignment spec saves, reloads and checks both previews, PDF line positions and Word w:jc "both" for every paragraph; ui-expert also downloaded letter.pdf and letter.docx and found w:jc w:val="both" on all 9 opening/body/closing paragraphs and none on the others
+- Database: NOT_APPLICABLE — same columns, alignment stays in the field HTML (FR-5)
+- Security: NOT_APPLICABLE as a separate skill — the alignment value comes from the fixed set of four (ALIGN_FORMAT_COMMANDS); the transform writes only style="text-align: X;" and copies other bytes; mounted fields still pass through sanitizeHtml (code-reviewer verified)
+
+Agents:
+- ui-expert round 1: PASS — AC 1-9 in fr/de at 1440 and fr at 390; minor: paste into an empty new paragraph left it unaligned (fixed in round 2).
+- code-reviewer round 1: FAIL — (1) a stale isUserEditingRef let a no-op command block the next outside value change, so a focused field kept unaligned HTML and the next keystroke overwrote the aligned state; (2) AC 8 held only for beforeinput insertText (not paste, IME, Android composition); (3) splitting a block's style on every ';' broke &quot;-quoted font names. Fixed: value-comparison re-sync (flag removed); an aligned empty <p><br></p> seeded when an empty field takes focus (removed on blur if nothing was entered); only the text-align declaration is rewritten.
+- code-reviewer round 2: FAIL — a trailing entity's ';' was taken for a CSS separator (font-family: &quot;A B&quot; text-align: left;). Fixed with entity-aware separator detection; unit tests with that exact input and the &#34; variant.
+- ui-expert round 2: FAIL — an alignment click moved the caret to offset 0 of the focused field (77 -> 0), so typing landed at the start. Fixed: live and saved selections are kept as text offsets across the re-sync (live selection restored only when the field has focus). A regression this introduced (keyboard Move up re-focused the moved field) was caught by the US-001 e2e and fixed.
+- code-reviewer round 3: PASS — 4 minor findings (Open owner decisions).
+- ui-expert round 3: PASS — caret offsets unchanged after Centrer/Justifier in the opening and body p1/p2 (18->18, 53->53, 9->9), a word-spanning selection survives (8-30), the seeded paragraph follows a later alignment change, CV summary/experience typing never jumps.
+
+Acceptance criteria:
+- AC-01 (Justify -> every block of the four fields, wherever the cursor is): PASS — e2e aligns with no target and with the cursor in the opening and closing, then checks every block section by section; ui-expert: 7/7 blocks justify in pane and preview window
+- AC-02 (left, center, right the same): PASS — e2e applies all four; Left written explicitly
+- AC-03 (bare text wrapped, nothing lost or reordered): PASS — unit tests; e2e checks the stored HTML byte for byte after save (bare line wrapped, text unchanged)
+- AC-04 (both previews): PASS — e2e checks the editor pane preview and the preview window after reload
+- AC-05 (PDF and Word after Save): PASS — e2e PDF line positions and Word w:jc both; ui-expert downloaded artifacts as above
+- AC-06 (active button only when all blocks share an alignment): PASS — e2e starts from a seeded mixed-alignment letter (none pressed), then each click presses exactly one; unit tests for sharedAlignment
+- AC-07 (alignment enabled whenever there is text, with or without a target): PASS — e2e: enabled with no target while Bold is aria-disabled; a letter with no text has them disabled until text is typed
+- AC-08 (a body paragraph added later starts with that alignment): PASS — e2e: typed, real Ctrl+V paste and keyboard.insertText (IME-like) each give one justified <p>; an untouched added paragraph stays '' with its placeholder; an alignment change made while it is focused is followed
+- AC-09 (inline formatting unchanged): PASS — e2e stored-HTML check (bold, italic, underline, font and size spans, list untouched); unit tests keep inline bytes; ui-expert Word file: w:b, w:i, w:u, Georgia, w:sz, w:numPr kept
+
+Decision (AC-01, transform): a pure string transform in src/lib/rich-text-letter-alignment.ts rather than DOMParser — unit tests run in Node without a DOM library and adding one would be a new dependency; the transform never touches the DOM, so it is SSR-safe. It sets text-align on p/div/li start tags at any depth, wraps balanced bare top-level runs in <p>, and leaves malformed runs unwrapped (comment in the file). Rejected: looping over registered editors — only the current section's editors are mounted.
+Decision (AC-08): seed an aligned empty paragraph on focus instead of wrapping text after input — wrapping during input would break IME composition and add unrecorded undo steps. Cost: the placeholder is hidden while that empty field has focus.
+Decision (FR-4): the three fields are aligned in one updateCoverLetter call, which marks the letter unsaved; mounted editors re-sync from their value. Whole-letter alignment is not undoable with Ctrl+Z (state change; PRD Risks); the re-sync also clears the focused field's browser undo history.
+
+Open owner decisions recorded by this story:
+- Minor, not required by any AC: a caret on an empty line (<p><br></p>) is restored to the start of the next paragraph after an alignment click; a backward selection comes back forward; after AI generation or translation re-syncs, the caret lands at a clamped offset (no worse than before).
+- Only body paragraphs get the seeded alignment (AC 8 names body paragraphs); an empty opening or closing typed into after a whole-letter alignment stays left until the next alignment click.
+- Carried from US-001: list bullets are not drawn in the editor previews (pre-existing; PDF and Word show them).
+
+Environment notes:
+- core.autocrlf=true affects the two Swiss template unit tests only (above).
+- The e2e build rewrites next-env.d.ts; reverted after each run, not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 An alignment button aligns the whole letter
+FINAL: PASS
+
+## US-003: The toolbar stays reachable while scrolling and on a phone
+Status: PASS
+Priority: 3
+Branch: ralph/cover-letter-top-toolbar
+Baseline HEAD: 215fb4a (US-002)
+Worktree: .claude/worktrees/cover-letter-top-toolbar — the main checkout belongs to another session.
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/components/dashboard/formatting-ribbon.tsx, src/components/dashboard/formatting-ribbon.test.ts, src/components/dashboard/cover-letter-editor.tsx, src/app/[locale]/(dashboard)/layout.tsx (one class on <main>, scoped with has-[[data-sticky-formatting-band]] so only the cover letter editor matches), e2e/cover-letter-top-toolbar.spec.ts, e2e/cover-letter-paragraph-alignment.spec.ts (width test scrolls each alignment button into the row), tasks/ralph/prd.json, tasks/ralph/progress.txt
+- Not touched: PDF/Word export code, sanitizer, resume-sections/*, templates, migrations, visual baselines, package.json version. Default (CV) FormattingRibbon markup byte-identical to origin/main (unit test). No push, no merge.
+
+Checks (all on the final diff):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS with the named environment limit — 163 files, 5175 passed, 17 skipped, 2 failed (swiss-commerce/-vocational template tests on CRLF working copies, untouched files; with LF working copies 2/2 files, 25/25 passed; copies restored). Same limit as US-001 and US-002.
+- pnpm test:integration: PASS — 5/5 files, 80 passed
+- pnpm build: PASS — 105/105 static pages (no dev server in this worktree)
+- pnpm lint: PASS — 134 problems (93 errors, 41 warnings), under the 135 baseline (unchanged from US-002)
+- pnpm test:e2e: PASS — 726 passed, 0 failed (E2E_PORT=3157, 24.5 min)
+- pnpm test:visual: NOT_APPLICABLE — no resume template or export rendering change
+
+Specialized validation:
+- Browser: PASS — e2e/cover-letter-top-toolbar.spec.ts (AC 1-5, incl. real Tab presses, emulated forced colors and hasTouch/isMobile taps) plus ui-expert rendered review
+- Visual: NOT_APPLICABLE — no template/rendering change
+- Export: NOT_APPLICABLE — export code unchanged
+- Database: NOT_APPLICABLE — no data change
+- Security: NOT_APPLICABLE — layout/CSS and focus behaviour only
+
+Agents:
+- ui-expert round 1: BLOCKED — every rendered check passed (1440 position unchanged after scrolling the form 1121/1121; 390 band pinned at top 126; one row at 390/320, 713px of controls in 296/226px, page 375<=390 and 305<=320; menu and dialogs above the band), but its browser tools have no key-press or touch emulation, so AC 4 and AC 5 were not evaluated. Minors: 44px controls also on desktop widths caused a needless scrollbar and overflow at 1024; disabled controls dimmed their focus ring.
+- code-reviewer round 1: FAIL — (1) Tailwind v4 outline-none has no forced-colors fallback and the teal ring is a box-shadow, so in Windows High Contrast the toolbar buttons showed no focus at all; (2) below xl a focused control or the caret could scroll under the sticky band (WCAG 2.4.11). Fixed: outline-hidden in the shared placement; scroll-padding-top 4.5rem on <main> below xl, scoped to the editor page; touch test now asserts the live selection survives each tap; plus ui-expert minors (44px only on pointer:coarse, scrollbar hidden only on coarse pointers, disabled dims only icon/text).
+- code-reviewer round 2: PASS — 3 minor findings (Open owner decisions).
+- ui-expert round 2: PASS — 1024 fine pointer: 32px controls, band 49px, row 605/605px, no scrollbar; 390/320 one row, sideways scroll, page not scrolling; disabled Kursiv focus ring at full opacity; resumes list and CV editor at 390: scroll-padding-top auto (layout change has no effect there). AC 4/5 judged on the e2e tests below after reading their bodies.
+
+Acceptance criteria:
+- AC-01 (1440: toolbar keeps its place after scrolling the form to the bottom): PASS — e2e: toolbar bounding box identical before and after; ui-expert: 296,170 -> 901,210 both times
+- AC-02 (390: one row under the header, visible after scrolling to the bottom): PASS — e2e: band under the header and switch, sticky at the top of <main> with an opaque background after scrolling to the bottom; ui-expert screenshot 11 (round 1)
+- AC-03 (390 and 320: no wrap, sideways scroll in the row only, no page scroll): PASS — e2e at both widths: controls on one row (vertical centres equal), row overflow-x auto and wider than shown, document and <main> not scrolling sideways, Tab to the last control scrolls it into the row; touch test: 44px, scrollbar hidden, still scrolls
+- AC-04 (Tab reach, visible focus ring, accessible names in fr/en/de/it): PASS — e2e "en/fr/de/it: every toolbar control is a Tab stop with an accessible name and a visible teal focus ring" (real Tab presses, 11 controls in order, names from each dictionary, 2px teal ring, opacity 1); "in forced-colors mode every toolbar control still shows its focus, as an outline"; "390px: a control Shift+Tab reaches while <main> is scrolled is not hidden under the sticky band"
+- AC-05 (a phone tap keeps the selection): PASS — e2e "on a phone, with touch › a tap on Bold, Italic or the font select formats the selection made before it" (hasTouch, isMobile, 390x844, pointer:coarse asserted, real tap(), live selection asserted still in the field after each tap)
+
+Decision (AC-02): sticky band at the top of <main> below xl, pulled through main's padding like the existing bottom Save bar; z-10 keeps it under the actions menu and dialogs (z-50). At xl the band is already outside the scrolling form column, so nothing changes there.
+Decision (AC-03/AC-04): 11 separate Tab stops kept (no roving tab index) — AC 4 asks for each control to be reachable with Tab, and US-001's translate spec pins the order. 44px tap targets only on coarse pointers so a narrow desktop window keeps one row without a scrollbar.
+Decision (WCAG 2.4.11): scroll-padding-top on <main> rather than per-control scroll margins, so caret scrolling is covered too; scoped with a has-[] selector so the shared dashboard layout changes nothing on other pages.
+
+Open owner decisions recorded by this story:
+- Minor: the band is hidden but still in the DOM in Aperçu below xl, so the 72px scroll padding still applies there (scroll targets land slightly lower; harmless).
+- Minor: caret scrolling under the band (arrow keys in a long paragraph) has no e2e; covered by scroll-padding in Chromium.
+- Not in this PRD (pre-existing, ui-expert): at 320px the German « Absatz hinzufügen » button overflows the form column by 6px; at 390px the CV summary's « Optimiser avec IA » and language buttons overflow. Candidates for a separate long-label fix.
+
+Environment notes:
+- core.autocrlf=true affects the two Swiss template unit tests only (above).
+- The e2e build rewrites next-env.d.ts; reverted after each run, not committed.
+- ui-expert's browser tools cannot press keys or emulate touch; keyboard and touch evidence comes from the Playwright tests named above.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 The toolbar stays reachable while scrolling and on a phone
 FINAL: PASS

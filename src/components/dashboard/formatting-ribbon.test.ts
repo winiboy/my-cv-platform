@@ -75,6 +75,184 @@ describe('FormattingRibbon alignment buttons', () => {
   })
 })
 
+/**
+ * The cover letter's one toolbar under the header (cover-letter-top-toolbar,
+ * US-001): the same controls, in a `toolbar` named from the dictionary, and
+ * disabled while no field is its target. Which field it formats needs a
+ * browser and is covered by `e2e/cover-letter-top-toolbar.spec.ts`.
+ */
+describe('FormattingRibbon shared placement', () => {
+  const renderShared = (editorId: string | null, dict: Record<string, unknown> = en) =>
+    renderToStaticMarkup(
+      createElement(FormattingRibbon, {
+        placement: 'shared',
+        label: 'Text formatting',
+        editorId,
+        onFormat: () => {},
+        showAlignment: true,
+        dict,
+      }),
+    )
+
+  /**
+   * Each button's and select's accessible name and aria-disabled, in document
+   * order, and whether it has the native `disabled`, which would take it out
+   * of the Tab order.
+   */
+  const controls = (html: string) =>
+    [...html.matchAll(/<(button|select)([^>]*)>/g)].map(([, , attributes]) => ({
+      label: /aria-label="([^"]*)"/.exec(attributes)?.[1] ?? '',
+      ariaDisabled: /aria-disabled="([^"]*)"/.exec(attributes)?.[1],
+      nativeDisabled: /\sdisabled=""/.test(attributes),
+    }))
+
+  /** Bold's, Italic's and Underline's aria-pressed, in that order. */
+  const textFormatPressed = (html: string) =>
+    [t.bold, t.italic, t.underline].map(
+      (label) => new RegExp(`<button[^>]*aria-label="${label.replace(/[()+]/g, '\\$&')}"[^>]*>`).exec(html)?.[0].match(/aria-pressed="([^"]*)"/)?.[1],
+    )
+
+  const t = toolbar(en)
+  const ALL_CONTROLS = [
+    t.bold,
+    t.italic,
+    t.underline,
+    t.bulletList,
+    t.numberedList,
+    t.alignLeft,
+    t.alignCenter,
+    t.alignRight,
+    t.alignJustify,
+    t.font,
+    t.fontSize,
+  ]
+
+  it('is a toolbar with the accessible name it is given', () => {
+    expect(renderShared('opening-paragraph')).toMatch(/^<div role="toolbar" aria-label="Text formatting"/)
+  })
+
+  it('sits flat in its band, in one row that scrolls sideways: no border, background, frame or wrap', () => {
+    const container = /^<div[^>]*class="([^"]*)"/.exec(renderShared('opening-paragraph'))?.[1] ?? ''
+    expect(container.split(' ')).toEqual([
+      'flex',
+      'flex-nowrap',
+      'items-center',
+      'gap-1',
+      'overflow-x-auto',
+      'p-1',
+      '[@media(pointer:coarse)]:[scrollbar-width:none]',
+      '[@media(pointer:coarse)]:[&amp;::-webkit-scrollbar]:hidden',
+      'print:hidden',
+    ])
+  })
+
+  it('gives every button the teal focus ring, and every control a 44px tap target on a touch screen below xl', () => {
+    const html = renderShared('opening-paragraph')
+    const buttons = [...html.matchAll(/<button[^>]*class="([^"]*)"/g)].map(([, classes]) => classes.split(' '))
+    expect(buttons).toHaveLength(9)
+    // outline-hidden, not outline-none: the transparent outline is what
+    // forced-colors mode paints once it has removed the ring
+    for (const classes of buttons) {
+      expect(classes).toEqual(
+        expect.arrayContaining([
+          'focus-visible:outline-hidden',
+          'focus-visible:ring-2',
+          'focus-visible:ring-teal-500',
+          'max-xl:[@media(pointer:coarse)]:min-h-11',
+          'max-xl:[@media(pointer:coarse)]:min-w-11',
+        ]),
+      )
+      expect(classes).not.toContain('focus-visible:outline-none')
+    }
+    const selects = [...html.matchAll(/<select[^>]*class="([^"]*)"/g)].map(([, classes]) => classes.split(' '))
+    expect(selects).toHaveLength(2)
+    for (const classes of selects) {
+      expect(classes).toEqual(expect.arrayContaining(['focus:outline-hidden', 'focus:ring-2', 'focus:ring-teal-500', 'max-xl:[@media(pointer:coarse)]:min-h-11']))
+      expect(classes).not.toContain('focus:outline-none')
+    }
+  })
+
+  it('marks every control aria-disabled, still focusable, and none pressed, while there is no target', () => {
+    const html = renderShared(null)
+    expect(controls(html)).toEqual(ALL_CONTROLS.map((label) => ({ label, ariaDisabled: 'true', nativeDisabled: false })))
+    expect(alignmentButtons(html).map((button) => button.pressed)).toEqual(['false', 'false', 'false', 'false'])
+    expect(textFormatPressed(html)).toEqual(['false', 'false', 'false'])
+    // The icon is dimmed, not the control, so its focus ring keeps full strength
+    expect(html).toContain('aria-disabled:[&amp;&gt;svg]:opacity-50')
+    expect(html).not.toContain('aria-disabled:opacity-50')
+  })
+
+  it('enables every control once a field is the target', () => {
+    const html = renderShared('body-paragraph-1')
+    expect(controls(html)).toEqual(ALL_CONTROLS.map((label) => ({ label, ariaDisabled: 'false', nativeDisabled: false })))
+    expect(alignmentButtons(html).map((button) => button.pressed)).toEqual(['true', 'false', 'false', 'false'])
+    expect(textFormatPressed(html)).toEqual(['false', 'false', 'false'])
+  })
+
+  /**
+   * US-002: with a whole-letter alignment control the alignment buttons no
+   * longer depend on a target. They are enabled while the letter holds text,
+   * and the pressed one is the alignment every paragraph shares.
+   */
+  const renderWithControl = (editorId: string | null, control: { active: 'left' | 'center' | 'right' | 'justify' | null; enabled: boolean }) =>
+    renderToStaticMarkup(
+      createElement(FormattingRibbon, {
+        placement: 'shared',
+        label: 'Text formatting',
+        editorId,
+        onFormat: () => {},
+        showAlignment: true,
+        alignment: { ...control, onAlign: () => {} },
+        dict: en,
+      }),
+    )
+  const alignmentDisabled = (html: string) =>
+    controls(html)
+      .filter((control) => [t.alignLeft, t.alignCenter, t.alignRight, t.alignJustify].includes(control.label))
+      .map((control) => control.ariaDisabled)
+
+  it('with a letter alignment control, enables alignment without a target while there is text', () => {
+    const html = renderWithControl(null, { active: 'justify', enabled: true })
+    expect(alignmentDisabled(html)).toEqual(['false', 'false', 'false', 'false'])
+    expect(alignmentButtons(html).map((button) => button.pressed)).toEqual(['false', 'false', 'false', 'true'])
+    // The selection-based controls still need a target.
+    expect(
+      controls(html)
+        .filter((control) => ![t.alignLeft, t.alignCenter, t.alignRight, t.alignJustify].includes(control.label))
+        .every((control) => control.ariaDisabled === 'true'),
+    ).toBe(true)
+  })
+
+  it('with a letter alignment control, disables alignment when there is no text, and presses none when paragraphs differ', () => {
+    expect(alignmentDisabled(renderWithControl('opening-paragraph', { active: null, enabled: false }))).toEqual([
+      'true',
+      'true',
+      'true',
+      'true',
+    ])
+    expect(
+      alignmentButtons(renderWithControl('opening-paragraph', { active: null, enabled: true })).map((button) => button.pressed),
+    ).toEqual(['false', 'false', 'false', 'false'])
+  })
+
+  for (const locale of ['en', 'fr', 'de', 'it'] as const) {
+    it(`${locale}: has a toolbar name in the dictionary`, () => {
+      const editor = (DICTS[locale].coverLetters as Record<string, unknown>).editor as Record<string, unknown>
+      expect(typeof editor.formattingToolbar).toBe('string')
+      expect((editor.formattingToolbar as string).trim()).not.toBe('')
+    })
+  }
+
+  it('leaves the attached ribbon (the default) without toolbar role, disabled state, pressed text formats or disabled styling', () => {
+    for (const html of [render({ dict: en }), render({ dict: en, showAlignment: true })]) {
+      expect(html).toMatch(/^<div class="flex flex-wrap items-center gap-1 p-2 bg-slate-50 border border-slate-200 rounded-t-lg print:hidden">/)
+      expect(html).not.toContain('role=')
+      expect(html).not.toContain('disabled')
+      expect(textFormatPressed(html)).toEqual([undefined, undefined, undefined])
+    }
+  })
+})
+
 describe('alignment commands', () => {
   it("map each button to the browser's justify command for its alignment", () => {
     expect(Object.fromEntries(Object.entries(ALIGN_FORMAT_COMMANDS).map(([command, alignment]) => [command, ALIGNMENT_COMMANDS[alignment]]))).toEqual({

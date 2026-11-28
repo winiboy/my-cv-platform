@@ -50,7 +50,13 @@ export default async function DashboardLayout(
               scrollbar, so width-derived layout (the stacked resume preview's
               scale) cannot toggle it. From xl up that preview scrolls in its own
               pane, and the gutter is left as it was. */}
-          <main className="flex-1 overflow-y-auto p-4 [scrollbar-gutter:stable] sm:p-6 xl:[scrollbar-gutter:auto] print:overflow-visible print:p-0">
+          {/*
+            Below xl the cover letter editor's formatting band is sticky at the
+            top of <main> (61px). The scroll padding keeps what focus or the
+            caret scrolls to out from under it; it applies only to a page that
+            has that band.
+          */}
+          <main className="flex-1 overflow-y-auto p-4 [scrollbar-gutter:stable] sm:p-6 xl:[scrollbar-gutter:auto] max-xl:has-[[data-sticky-formatting-band]]:scroll-pt-[4.5rem] print:overflow-visible print:p-0">
             {children}
           </main>
         </div>

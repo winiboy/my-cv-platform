@@ -583,6 +583,7 @@
       "zoomFit": "Alles anzeigen",
       "zoomLevel": "Zoomstufe: {percent} %",
       "pageBreakLabel": "Seite {page}",
+      "formattingToolbar": "Textformatierung",
       "view": {
         "label": "Editoransicht",
         "edit": "Bearbeiten",

@@ -249,10 +249,35 @@ for (const locale of Object.keys(LOCALES) as TestLocale[]) {
       const original = await letter(seeded.letterId)
       await openEditor(page, locale, seeded.letterId)
 
-      // The Word button is the last header control before the flags (Save is
-      // disabled with nothing to save).
+      // The Word button is the last header control (Save is disabled with
+      // nothing to save). Between it and the flags, in the same band, comes the
+      // letter's formatting toolbar (cover-letter-top-toolbar, US-001): with no
+      // field holding the cursor its controls are aria-disabled but stay in
+      // the Tab order, so Tab passes each of them, in order, first.
       await page.getByRole('button', { name: LOCALES[locale].coverLetters.downloadWord, exact: true }).focus()
-      for (const language of ['en', 'fr', 'de'] as const) {
+      const toolbarLabels = LOCALES[locale].resumes.editor.richTextToolbar
+      const passed: Array<string | null> = []
+      const firstFlag = flag(page, locale, 'en')
+      while (!(await firstFlag.evaluate((element) => element === document.activeElement))) {
+        expect(passed.length, 'the first flag is reached by Tab').toBeLessThanOrEqual(20)
+        await page.keyboard.press('Tab')
+        passed.push(await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? null))
+      }
+      expect(passed.slice(0, -1), 'the formatting toolbar, between the header and the flags').toEqual([
+        toolbarLabels.bold,
+        toolbarLabels.italic,
+        toolbarLabels.underline,
+        toolbarLabels.bulletList,
+        toolbarLabels.numberedList,
+        toolbarLabels.alignLeft,
+        toolbarLabels.alignCenter,
+        toolbarLabels.alignRight,
+        toolbarLabels.alignJustify,
+        toolbarLabels.font,
+        toolbarLabels.fontSize,
+      ])
+      await expect(firstFlag).toBeFocused()
+      for (const language of ['fr', 'de'] as const) {
         await page.keyboard.press('Tab')
         await expect(flag(page, locale, language)).toBeFocused()
       }
