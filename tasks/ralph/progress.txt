@@ -140,3 +140,63 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-002 An alignment button aligns the whole letter
 FINAL: PASS
+
+## US-003: The toolbar stays reachable while scrolling and on a phone
+Status: PASS
+Priority: 3
+Branch: ralph/cover-letter-top-toolbar
+Baseline HEAD: 215fb4a (US-002)
+Worktree: .claude/worktrees/cover-letter-top-toolbar — the main checkout belongs to another session.
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/components/dashboard/formatting-ribbon.tsx, src/components/dashboard/formatting-ribbon.test.ts, src/components/dashboard/cover-letter-editor.tsx, src/app/[locale]/(dashboard)/layout.tsx (one class on <main>, scoped with has-[[data-sticky-formatting-band]] so only the cover letter editor matches), e2e/cover-letter-top-toolbar.spec.ts, e2e/cover-letter-paragraph-alignment.spec.ts (width test scrolls each alignment button into the row), tasks/ralph/prd.json, tasks/ralph/progress.txt
+- Not touched: PDF/Word export code, sanitizer, resume-sections/*, templates, migrations, visual baselines, package.json version. Default (CV) FormattingRibbon markup byte-identical to origin/main (unit test). No push, no merge.
+
+Checks (all on the final diff):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS with the named environment limit — 163 files, 5175 passed, 17 skipped, 2 failed (swiss-commerce/-vocational template tests on CRLF working copies, untouched files; with LF working copies 2/2 files, 25/25 passed; copies restored). Same limit as US-001 and US-002.
+- pnpm test:integration: PASS — 5/5 files, 80 passed
+- pnpm build: PASS — 105/105 static pages (no dev server in this worktree)
+- pnpm lint: PASS — 134 problems (93 errors, 41 warnings), under the 135 baseline (unchanged from US-002)
+- pnpm test:e2e: PASS — 726 passed, 0 failed (E2E_PORT=3157, 24.5 min)
+- pnpm test:visual: NOT_APPLICABLE — no resume template or export rendering change
+
+Specialized validation:
+- Browser: PASS — e2e/cover-letter-top-toolbar.spec.ts (AC 1-5, incl. real Tab presses, emulated forced colors and hasTouch/isMobile taps) plus ui-expert rendered review
+- Visual: NOT_APPLICABLE — no template/rendering change
+- Export: NOT_APPLICABLE — export code unchanged
+- Database: NOT_APPLICABLE — no data change
+- Security: NOT_APPLICABLE — layout/CSS and focus behaviour only
+
+Agents:
+- ui-expert round 1: BLOCKED — every rendered check passed (1440 position unchanged after scrolling the form 1121/1121; 390 band pinned at top 126; one row at 390/320, 713px of controls in 296/226px, page 375<=390 and 305<=320; menu and dialogs above the band), but its browser tools have no key-press or touch emulation, so AC 4 and AC 5 were not evaluated. Minors: 44px controls also on desktop widths caused a needless scrollbar and overflow at 1024; disabled controls dimmed their focus ring.
+- code-reviewer round 1: FAIL — (1) Tailwind v4 outline-none has no forced-colors fallback and the teal ring is a box-shadow, so in Windows High Contrast the toolbar buttons showed no focus at all; (2) below xl a focused control or the caret could scroll under the sticky band (WCAG 2.4.11). Fixed: outline-hidden in the shared placement; scroll-padding-top 4.5rem on <main> below xl, scoped to the editor page; touch test now asserts the live selection survives each tap; plus ui-expert minors (44px only on pointer:coarse, scrollbar hidden only on coarse pointers, disabled dims only icon/text).
+- code-reviewer round 2: PASS — 3 minor findings (Open owner decisions).
+- ui-expert round 2: PASS — 1024 fine pointer: 32px controls, band 49px, row 605/605px, no scrollbar; 390/320 one row, sideways scroll, page not scrolling; disabled Kursiv focus ring at full opacity; resumes list and CV editor at 390: scroll-padding-top auto (layout change has no effect there). AC 4/5 judged on the e2e tests below after reading their bodies.
+
+Acceptance criteria:
+- AC-01 (1440: toolbar keeps its place after scrolling the form to the bottom): PASS — e2e: toolbar bounding box identical before and after; ui-expert: 296,170 -> 901,210 both times
+- AC-02 (390: one row under the header, visible after scrolling to the bottom): PASS — e2e: band under the header and switch, sticky at the top of <main> with an opaque background after scrolling to the bottom; ui-expert screenshot 11 (round 1)
+- AC-03 (390 and 320: no wrap, sideways scroll in the row only, no page scroll): PASS — e2e at both widths: controls on one row (vertical centres equal), row overflow-x auto and wider than shown, document and <main> not scrolling sideways, Tab to the last control scrolls it into the row; touch test: 44px, scrollbar hidden, still scrolls
+- AC-04 (Tab reach, visible focus ring, accessible names in fr/en/de/it): PASS — e2e "en/fr/de/it: every toolbar control is a Tab stop with an accessible name and a visible teal focus ring" (real Tab presses, 11 controls in order, names from each dictionary, 2px teal ring, opacity 1); "in forced-colors mode every toolbar control still shows its focus, as an outline"; "390px: a control Shift+Tab reaches while <main> is scrolled is not hidden under the sticky band"
+- AC-05 (a phone tap keeps the selection): PASS — e2e "on a phone, with touch › a tap on Bold, Italic or the font select formats the selection made before it" (hasTouch, isMobile, 390x844, pointer:coarse asserted, real tap(), live selection asserted still in the field after each tap)
+
+Decision (AC-02): sticky band at the top of <main> below xl, pulled through main's padding like the existing bottom Save bar; z-10 keeps it under the actions menu and dialogs (z-50). At xl the band is already outside the scrolling form column, so nothing changes there.
+Decision (AC-03/AC-04): 11 separate Tab stops kept (no roving tab index) — AC 4 asks for each control to be reachable with Tab, and US-001's translate spec pins the order. 44px tap targets only on coarse pointers so a narrow desktop window keeps one row without a scrollbar.
+Decision (WCAG 2.4.11): scroll-padding-top on <main> rather than per-control scroll margins, so caret scrolling is covered too; scoped with a has-[] selector so the shared dashboard layout changes nothing on other pages.
+
+Open owner decisions recorded by this story:
+- Minor: the band is hidden but still in the DOM in Aperçu below xl, so the 72px scroll padding still applies there (scroll targets land slightly lower; harmless).
+- Minor: caret scrolling under the band (arrow keys in a long paragraph) has no e2e; covered by scroll-padding in Chromium.
+- Not in this PRD (pre-existing, ui-expert): at 320px the German « Absatz hinzufügen » button overflows the form column by 6px; at 390px the CV summary's « Optimiser avec IA » and language buttons overflow. Candidates for a separate long-label fix.
+
+Environment notes:
+- core.autocrlf=true affects the two Swiss template unit tests only (above).
+- The e2e build rewrites next-env.d.ts; reverted after each run, not committed.
+- ui-expert's browser tools cannot press keys or emulate touch; keyboard and touch evidence comes from the Playwright tests named above.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-003 The toolbar stays reachable while scrolling and on a phone
+FINAL: PASS

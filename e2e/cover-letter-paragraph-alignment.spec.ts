@@ -641,12 +641,18 @@ for (const viewport of [
     const toolbarBox = await rect(toolbar)
     expect(toolbarBox.left, 'toolbar inside the viewport').toBeGreaterThanOrEqual(-0.5)
     expect(toolbarBox.right, 'toolbar inside the viewport').toBeLessThanOrEqual(viewport.width + 0.5)
+    // The toolbar is one row that scrolls sideways on a narrow screen
+    // (cover-letter-top-toolbar, US-003): a button beyond its width is
+    // reached by scrolling the row, and then lies inside it.
+    const row = toolbar.getByRole('toolbar')
     for (const label of labelsOf('fr')) {
       const button = alignButton(toolbar, label)
+      await button.scrollIntoViewIfNeeded()
       await expect(button).toBeVisible()
+      const rowBox = await rect(row)
       const box = await rect(button)
-      expect(box.left, `${label} inside the toolbar`).toBeGreaterThanOrEqual(toolbarBox.left - 0.5)
-      expect(box.right, `${label} inside the toolbar`).toBeLessThanOrEqual(toolbarBox.right + 0.5)
+      expect(box.left, `${label} inside the toolbar`).toBeGreaterThanOrEqual(rowBox.left - 0.5)
+      expect(box.right, `${label} inside the toolbar`).toBeLessThanOrEqual(rowBox.right + 0.5)
     }
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     expect(overflow, 'no horizontal page scroll').toBe(0)

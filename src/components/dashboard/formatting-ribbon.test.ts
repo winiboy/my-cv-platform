@@ -131,9 +131,45 @@ describe('FormattingRibbon shared placement', () => {
     expect(renderShared('opening-paragraph')).toMatch(/^<div role="toolbar" aria-label="Text formatting"/)
   })
 
-  it('sits flat in its band: no border, background or rounded frame of its own', () => {
+  it('sits flat in its band, in one row that scrolls sideways: no border, background, frame or wrap', () => {
     const container = /^<div[^>]*class="([^"]*)"/.exec(renderShared('opening-paragraph'))?.[1] ?? ''
-    expect(container.split(' ')).toEqual(['flex', 'flex-wrap', 'items-center', 'gap-1', 'print:hidden'])
+    expect(container.split(' ')).toEqual([
+      'flex',
+      'flex-nowrap',
+      'items-center',
+      'gap-1',
+      'overflow-x-auto',
+      'p-1',
+      '[@media(pointer:coarse)]:[scrollbar-width:none]',
+      '[@media(pointer:coarse)]:[&amp;::-webkit-scrollbar]:hidden',
+      'print:hidden',
+    ])
+  })
+
+  it('gives every button the teal focus ring, and every control a 44px tap target on a touch screen below xl', () => {
+    const html = renderShared('opening-paragraph')
+    const buttons = [...html.matchAll(/<button[^>]*class="([^"]*)"/g)].map(([, classes]) => classes.split(' '))
+    expect(buttons).toHaveLength(9)
+    // outline-hidden, not outline-none: the transparent outline is what
+    // forced-colors mode paints once it has removed the ring
+    for (const classes of buttons) {
+      expect(classes).toEqual(
+        expect.arrayContaining([
+          'focus-visible:outline-hidden',
+          'focus-visible:ring-2',
+          'focus-visible:ring-teal-500',
+          'max-xl:[@media(pointer:coarse)]:min-h-11',
+          'max-xl:[@media(pointer:coarse)]:min-w-11',
+        ]),
+      )
+      expect(classes).not.toContain('focus-visible:outline-none')
+    }
+    const selects = [...html.matchAll(/<select[^>]*class="([^"]*)"/g)].map(([, classes]) => classes.split(' '))
+    expect(selects).toHaveLength(2)
+    for (const classes of selects) {
+      expect(classes).toEqual(expect.arrayContaining(['focus:outline-hidden', 'focus:ring-2', 'focus:ring-teal-500', 'max-xl:[@media(pointer:coarse)]:min-h-11']))
+      expect(classes).not.toContain('focus:outline-none')
+    }
   })
 
   it('marks every control aria-disabled, still focusable, and none pressed, while there is no target', () => {
@@ -141,7 +177,9 @@ describe('FormattingRibbon shared placement', () => {
     expect(controls(html)).toEqual(ALL_CONTROLS.map((label) => ({ label, ariaDisabled: 'true', nativeDisabled: false })))
     expect(alignmentButtons(html).map((button) => button.pressed)).toEqual(['false', 'false', 'false', 'false'])
     expect(textFormatPressed(html)).toEqual(['false', 'false', 'false'])
-    expect(html).toContain('aria-disabled:opacity-50')
+    // The icon is dimmed, not the control, so its focus ring keeps full strength
+    expect(html).toContain('aria-disabled:[&amp;&gt;svg]:opacity-50')
+    expect(html).not.toContain('aria-disabled:opacity-50')
   })
 
   it('enables every control once a field is the target', () => {

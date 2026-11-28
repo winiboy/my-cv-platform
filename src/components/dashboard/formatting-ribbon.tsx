@@ -247,7 +247,28 @@ export function FormattingRibbon(props: FormattingRibbonProps) {
   // added to a shared toolbar only: an attached ribbon's markup is the same
   // as before the shared toolbar existed.
   const ariaDisabled = isShared ? disabled : undefined
-  const disabledClass = isShared ? ' aria-disabled:cursor-not-allowed aria-disabled:opacity-50' : ''
+  // A disabled control's icon or text is dimmed, not the control: its focus
+  // ring stays at full strength, since a disabled control is still a Tab stop.
+  const disabledClass = isShared ? ' aria-disabled:cursor-not-allowed aria-disabled:[&>svg]:opacity-50' : ''
+  const disabledSelectClass = isShared ? ' aria-disabled:cursor-not-allowed aria-disabled:text-slate-400' : ''
+  // Below xl a shared toolbar is one row that scrolls sideways rather than
+  // wrapping. On a touch screen its controls are 44px tap targets; with a
+  // mouse they keep their 32px, so a narrow desktop window does not overflow.
+  const sharedSizeClass = isShared
+    ? ' max-xl:shrink-0 max-xl:[@media(pointer:coarse)]:min-h-11 max-xl:[@media(pointer:coarse)]:min-w-11'
+    : ''
+  // The alignment buttons have always had this teal ring; a shared toolbar
+  // gives it to its other buttons too, so every control shows focus alike.
+  const sharedButtonClass = isShared
+    ? ` inline-flex items-center justify-center focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-teal-500${sharedSizeClass}`
+    : ''
+  const sharedSelectClass = isShared ? ' max-xl:shrink-0 max-xl:[@media(pointer:coarse)]:min-h-11' : ''
+  // `outline-none` leaves nothing to show focus in forced-colors mode, where
+  // the teal ring (a box-shadow) is removed; `outline-hidden` is transparent
+  // until that mode paints it. A shared toolbar uses it; an attached ribbon
+  // keeps the class it always had.
+  const alignmentOutline = isShared ? 'focus-visible:outline-hidden' : 'focus-visible:outline-none'
+  const selectOutline = isShared ? 'focus:outline-hidden' : 'focus:outline-none'
   const pressed = (command: string) => (isShared ? shownFormats.has(command) : undefined)
 
   const shownFormats = disabled ? NO_FORMATS : activeFormats
@@ -255,16 +276,20 @@ export function FormattingRibbon(props: FormattingRibbonProps) {
   const buttonClass = (command: string) =>
     `p-2 rounded hover:bg-slate-100 transition-colors ${
       shownFormats.has(command) ? 'bg-teal-100 text-teal-700' : 'text-slate-600'
-    }${disabledClass}`
+    }${disabledClass}${sharedButtonClass}`
 
   return (
     <div
       role={shared ? 'toolbar' : undefined}
       aria-label={shared?.label}
-      // A shared toolbar sits flat in its page's band, with no frame of its own
+      // A shared toolbar sits flat in its page's band, with no frame of its
+      // own, in one row that scrolls sideways when it is wider than the band.
+      // Its padding keeps the controls' focus rings inside the scrolled area.
+      // On a touch screen, where a swipe scrolls it, its scrollbar is hidden;
+      // a mouse keeps it.
       className={
         isShared
-          ? 'flex flex-wrap items-center gap-1 print:hidden'
+          ? 'flex flex-nowrap items-center gap-1 overflow-x-auto p-1 [@media(pointer:coarse)]:[scrollbar-width:none] [@media(pointer:coarse)]:[&::-webkit-scrollbar]:hidden print:hidden'
           : 'flex flex-wrap items-center gap-1 p-2 bg-slate-50 border border-slate-200 rounded-t-lg print:hidden'
       }
     >
@@ -317,7 +342,7 @@ export function FormattingRibbon(props: FormattingRibbonProps) {
           onMouseDown={holdSelection}
           onClick={() => handleButtonClick('bulletList')}
           aria-disabled={ariaDisabled}
-          className={`p-2 rounded hover:bg-slate-100 transition-colors text-slate-600${disabledClass}`}
+          className={`p-2 rounded hover:bg-slate-100 transition-colors text-slate-600${disabledClass}${sharedButtonClass}`}
           title={t?.bulletList || 'Bullet list'}
           aria-label={t?.bulletList || 'Bullet list'}
         >
@@ -329,7 +354,7 @@ export function FormattingRibbon(props: FormattingRibbonProps) {
           onMouseDown={holdSelection}
           onClick={() => handleButtonClick('numberedList')}
           aria-disabled={ariaDisabled}
-          className={`p-2 rounded hover:bg-slate-100 transition-colors text-slate-600${disabledClass}`}
+          className={`p-2 rounded hover:bg-slate-100 transition-colors text-slate-600${disabledClass}${sharedButtonClass}`}
           title={t?.numberedList || 'Numbered list'}
           aria-label={t?.numberedList || 'Numbered list'}
         >
@@ -354,9 +379,9 @@ export function FormattingRibbon(props: FormattingRibbonProps) {
                 onMouseDown={keepEditorSelection}
                 onClick={() => handleAlignmentClick(command)}
                 aria-disabled={alignmentControl ? !alignmentControl.enabled : ariaDisabled}
-                className={`p-2 rounded hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 ${
+                className={`p-2 rounded hover:bg-slate-100 transition-colors ${alignmentOutline} focus-visible:ring-2 focus-visible:ring-teal-500 ${
                   isActive ? 'bg-teal-100 text-teal-700' : 'text-slate-600'
-                }${disabledClass}`}
+                }${disabledClass}${sharedSizeClass}`}
                 title={label}
                 aria-label={label}
                 aria-pressed={isActive}
@@ -375,7 +400,7 @@ export function FormattingRibbon(props: FormattingRibbonProps) {
           value={currentFont}
           onChange={(e) => handleButtonClick('font', e.target.value)}
           aria-disabled={ariaDisabled}
-          className={`text-xs border border-slate-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500${disabledClass}`}
+          className={`text-xs border border-slate-300 rounded px-2 py-1 bg-white ${selectOutline} focus:ring-2 focus:ring-teal-500${disabledSelectClass}${sharedSelectClass}`}
           aria-label={t?.font || 'Font'}
         >
           {AVAILABLE_FONTS.map((font) => (
@@ -392,7 +417,7 @@ export function FormattingRibbon(props: FormattingRibbonProps) {
           value={currentFontSize}
           onChange={(e) => handleButtonClick('fontSize', e.target.value)}
           aria-disabled={ariaDisabled}
-          className={`text-xs border border-slate-300 rounded px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500${disabledClass}`}
+          className={`text-xs border border-slate-300 rounded px-2 py-1 bg-white ${selectOutline} focus:ring-2 focus:ring-teal-500${disabledSelectClass}${sharedSelectClass}`}
           aria-label={t?.fontSize || 'Font size'}
         >
           {FONT_SIZES.map((size) => (

@@ -1,8 +1,11 @@
 import { test, expect } from './fixtures/auth'
 import type { Locator, Page } from '@playwright/test'
-import { admin, rect } from './fixtures/cover-letter-preview'
+import { admin, insertLetter as insertLongLetter, rect } from './fixtures/cover-letter-preview'
 import { seedFixtureResume } from './fixtures/resume'
 import en from '../src/locales/en/common.json'
+import fr from '../src/locales/fr/common.json'
+import de from '../src/locales/de/common.json'
+import it from '../src/locales/it/common.json'
 
 /**
  * One text toolbar at the top of the cover letter editor formats the field
@@ -616,4 +619,377 @@ test("the CV editor's summary field is unchanged: no shared toolbar, and no ribb
   await expect(page.getByTestId('cover-letter-formatting-toolbar')).toHaveCount(0)
   await expect(page.getByRole('toolbar', { name: editorDict.formattingToolbar, exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: t.bold, exact: true })).toHaveCount(0)
+})
+
+// ---------------------------------------------------------------------------
+// US-003: the toolbar stays reachable while scrolling and on a phone.
+//
+//   - AC 1: at 1440×900 the form column scrolls on its own; the band is
+//     outside it and keeps its place.
+//   - AC 2: below xl <main> scrolls the whole editor; the band is sticky in
+//     it, one row under the header, still in view at the form's bottom.
+//   - AC 3: at 390 and 320 the row does not wrap: it scrolls sideways on its
+//     own, Tab brings a control beyond the width into view, and the page
+//     has no horizontal scroll.
+//   - AC 4: each of the 11 controls is a Tab stop, shows a teal focus ring
+//     and is named in fr, en, de and it.
+//   - AC 5: with touch emulation, a tap on Bold, Italic or the font select
+//     formats the selection made before it.
+// ---------------------------------------------------------------------------
+
+const LOCALES = { en, fr, de, it } as const
+
+/** Opens the editor at the viewport already set (openEditor sets 1440×900). */
+async function openAtViewport(page: Page, letterId: string) {
+  const response = await page.goto(`/en/dashboard/cover-letters/${letterId}/edit`)
+  expect(response?.status()).toBe(200)
+  await expect(page.getByTestId('cover-letter-editor-header')).toBeVisible()
+}
+
+/** The toolbar's role="toolbar" row and its controls' boxes. */
+async function rowGeometry(page: Page) {
+  return toolbarOf(page).evaluate((row) => {
+    const controls = Array.from(row.querySelectorAll('button, select')).map((control) => {
+      const { top, bottom, height } = control.getBoundingClientRect()
+      return { tag: control.tagName.toLowerCase(), top, bottom, height, center: (top + bottom) / 2 }
+    })
+    const groups = Array.from(row.children) as HTMLElement[]
+    return {
+      overflowX: getComputedStyle(row).overflowX,
+      scrollWidth: row.scrollWidth,
+      clientWidth: row.clientWidth,
+      controls,
+      lastGroupBorder: getComputedStyle(groups[groups.length - 1]).borderRightWidth,
+    }
+  })
+}
+
+const pageOverflow = (page: Page) =>
+  page.evaluate(() => {
+    const main = document.querySelector('main')!
+    return {
+      page: document.documentElement.scrollWidth - window.innerWidth,
+      main: main.scrollWidth - main.clientWidth,
+    }
+  })
+
+test('1440px: the toolbar keeps its place while the form column scrolls to its bottom', async ({ page, authedUser }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  const letterId = await insertLongLetter(authedUser.id)
+  await openAtViewport(page, letterId)
+  await showSection(page, 'body')
+  const toolbar = page.getByTestId('cover-letter-formatting-toolbar')
+  const form = page.locator('div.overflow-y-auto.p-6')
+
+  const before = await rect(toolbar)
+  const scrolled = await form.evaluate((column) => {
+    column.scrollTop = column.scrollHeight
+    return { top: column.scrollTop, max: column.scrollHeight - column.clientHeight }
+  })
+  expect(scrolled.max, 'the form column has something to scroll').toBeGreaterThan(200)
+  expect(scrolled.top, 'scrolled to its bottom').toBeGreaterThanOrEqual(scrolled.max - 1)
+  const after = await rect(toolbar)
+  expect(after, 'the same position').toEqual(before)
+  expect(after.top).toBeGreaterThanOrEqual(0)
+  expect(after.bottom).toBeLessThanOrEqual(900)
+})
+
+for (const viewport of [
+  { width: 390, height: 844 },
+  { width: 320, height: 568 },
+] as const) {
+  test(`${viewport.width}px: one row under the header, in view at the form's bottom, scrolling sideways on its own`, async ({
+    page,
+    authedUser,
+  }) => {
+    await page.setViewportSize(viewport)
+    const letterId = await insertLongLetter(authedUser.id)
+    await openAtViewport(page, letterId)
+    await showSection(page, 'body')
+    const band = page.getByTestId('cover-letter-formatting-toolbar')
+    const header = page.getByTestId('cover-letter-editor-header')
+    const toggle = page.getByRole('radiogroup', { name: editorDict.view.label, exact: true })
+
+    // One row, under the header and the Édition / Aperçu switch.
+    const geometry = await rowGeometry(page)
+    expect(geometry.controls).toHaveLength(11)
+    const centers = geometry.controls.map((control) => control.center)
+    expect(Math.max(...centers) - Math.min(...centers), 'one row').toBeLessThanOrEqual(1)
+    // A mouse keeps 32px buttons; touch screens get 44px (the touch test below)
+    for (const control of geometry.controls.filter((control) => control.tag === 'button')) {
+      expect(control.height, 'buttons').toBeGreaterThanOrEqual(32)
+    }
+    expect(geometry.lastGroupBorder, 'no divider after the last group').toBe('0px')
+    const bandBox = await rect(band)
+    expect(bandBox.top).toBeGreaterThanOrEqual((await rect(header)).bottom - 0.5)
+    expect(bandBox.top).toBeGreaterThanOrEqual((await rect(toggle)).bottom - 0.5)
+
+    // Wider than the screen: the row scrolls, the page does not.
+    expect(geometry.overflowX).toBe('auto')
+    expect(geometry.scrollWidth, 'more controls than fit').toBeGreaterThan(geometry.clientWidth)
+    expect(await pageOverflow(page), 'no horizontal page scroll').toEqual({ page: 0, main: 0 })
+
+    // Tab reaches the last control and brings it into the row's view.
+    await selectionControls(toolbarOf(page)).bold.focus()
+    for (let step = 0; step < 10; step++) await page.keyboard.press('Tab')
+    const size = selectionControls(toolbarOf(page)).fontSize
+    await expect(size).toBeFocused()
+    const rowBox = await rect(toolbarOf(page))
+    const sizeBox = await rect(size)
+    expect(sizeBox.left, 'the focused control is in view').toBeGreaterThanOrEqual(rowBox.left - 0.5)
+    expect(sizeBox.right, 'the focused control is in view').toBeLessThanOrEqual(rowBox.right + 0.5)
+    expect(await toolbarOf(page).evaluate((row) => row.scrollLeft), 'the row scrolled').toBeGreaterThan(0)
+    expect(await pageOverflow(page), 'still no horizontal page scroll').toEqual({ page: 0, main: 0 })
+
+    // Scrolled to the form's bottom, the band is still in view, at the top.
+    const scrolled = await page.evaluate(() => {
+      const main = document.querySelector('main')!
+      main.scrollTop = main.scrollHeight
+      return { top: main.scrollTop, max: main.scrollHeight - main.clientHeight }
+    })
+    expect(scrolled.max, '<main> has something to scroll').toBeGreaterThan(200)
+    expect(scrolled.top).toBeGreaterThanOrEqual(scrolled.max - 1)
+    await expect(band).toBeInViewport()
+    const stuck = await rect(band.locator('xpath=..'))
+    const main = await rect(page.locator('main'))
+    expect(Math.abs(stuck.top - main.top), 'stuck to the top of the scrolling area').toBeLessThanOrEqual(1)
+    expect(stuck.bottom).toBeLessThanOrEqual(viewport.height)
+    // Opaque: what is under it does not show through.
+    expect(
+      await band.evaluate((element) => getComputedStyle(element.parentElement!).backgroundColor),
+      'an opaque background',
+    ).toMatch(/^rgb\(/)
+    await test.info().attach(`${viewport.width}-scrolled.png`, { body: await page.screenshot(), contentType: 'image/png' })
+  })
+}
+
+for (const [locale, dict] of Object.entries(LOCALES) as Array<[keyof typeof LOCALES, (typeof LOCALES)[keyof typeof LOCALES]]>) {
+  test(`${locale}: every toolbar control is a Tab stop with an accessible name and a visible teal focus ring`, async ({
+    page,
+    authedUser,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const letterId = await insertLetter(authedUser.id)
+    const response = await page.goto(`/${locale}/dashboard/cover-letters/${letterId}/edit`)
+    expect(response?.status()).toBe(200)
+    const labels = dict.resumes.editor.richTextToolbar
+    const toolbar = page.getByRole('toolbar', { name: dict.coverLetters.editor.formattingToolbar, exact: true })
+    await expect(toolbar).toBeVisible()
+    const names = [
+      labels.bold,
+      labels.italic,
+      labels.underline,
+      labels.bulletList,
+      labels.numberedList,
+      labels.alignLeft,
+      labels.alignCenter,
+      labels.alignRight,
+      labels.alignJustify,
+      labels.font,
+      labels.fontSize,
+    ]
+    expect(new Set(names).size, 'eleven distinct names').toBe(11)
+
+    // From the letter's title, Tab forward to the toolbar, then through it.
+    await page.getByTestId('cover-letter-editor-header').locator('input[type="text"]').click()
+    let steps = 0
+    while ((await activeLabel(page)) !== labels.bold) {
+      expect(++steps, 'Bold is reached by Tab').toBeLessThanOrEqual(30)
+      await page.keyboard.press('Tab')
+    }
+    for (const [index, name] of names.entries()) {
+      const focused = await page.evaluate(() => {
+        const element = document.activeElement as HTMLElement
+        const style = getComputedStyle(element)
+        // The theme's teal-500, as the browser resolves it
+        const probe = document.createElement('span')
+        probe.style.color = 'var(--color-teal-500)'
+        document.body.appendChild(probe)
+        const teal = getComputedStyle(probe).color
+        probe.remove()
+        return {
+          teal,
+          name: element.getAttribute('aria-label'),
+          inToolbar: !!element.closest('[role="toolbar"]'),
+          focusVisible: element.matches(':focus-visible'),
+          opacity: style.opacity,
+          ring: style.boxShadow,
+          outlineStyle: style.outlineStyle,
+        }
+      })
+      expect(focused.name, `control ${index + 1}`).toBe(name)
+      expect(focused.inToolbar).toBe(true)
+      expect(focused.focusVisible, `${name}: focus-visible`).toBe(true)
+      // aria-disabled here (no field has the cursor): only the icon or text is dimmed, not the ring
+      expect(focused.opacity, `${name}: the control, and its ring, at full opacity`).toBe('1')
+      expect(focused.ring, `${name}: a 2px teal ring`).toContain(`${focused.teal} 0px 0px 0px 2px`)
+      // outline-hidden: no outline beside the ring here; forced-colors mode,
+      // which removes the ring, gets a real one (see the forced-colors test)
+      expect(focused.outlineStyle, `${name}: no outline beside the ring`).toBe('none')
+      await expect(
+        toolbar.getByRole(index >= 9 ? 'combobox' : 'button', { name, exact: true }),
+        `${name}: found by its accessible name`,
+      ).toHaveCount(1)
+      if (index < names.length - 1) await page.keyboard.press('Tab')
+    }
+    await test.info().attach(`${locale}-focus.png`, { body: await toolbar.screenshot(), contentType: 'image/png' })
+  })
+}
+
+test('in forced-colors mode every toolbar control still shows its focus, as an outline', async ({ page, authedUser }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ forcedColors: 'active' })
+  const letterId = await insertLetter(authedUser.id)
+  await openAtViewport(page, letterId)
+  const labels = en.resumes.editor.richTextToolbar
+
+  // The teal ring is a box-shadow, which forced-colors mode removes: the
+  // outline, transparent otherwise, is what shows focus there.
+  await page.getByTestId('cover-letter-editor-header').locator('input[type="text"]').click()
+  let steps = 0
+  while ((await activeLabel(page)) !== labels.bold) {
+    expect(++steps, 'Bold is reached by Tab').toBeLessThanOrEqual(30)
+    await page.keyboard.press('Tab')
+  }
+  for (let index = 0; index < ALL_CONTROL_LABELS.length; index++) {
+    const focused = await page.evaluate(() => {
+      const element = document.activeElement as HTMLElement
+      const style = getComputedStyle(element)
+      return {
+        name: element.getAttribute('aria-label'),
+        forced: window.matchMedia('(forced-colors: active)').matches,
+        outlineStyle: style.outlineStyle,
+        outlineWidth: style.outlineWidth,
+      }
+    })
+    expect(focused.forced, 'forced colors are emulated').toBe(true)
+    expect(focused.name).toBe(ALL_CONTROL_LABELS[index])
+    expect(focused.outlineStyle, `${focused.name}: an outline`).not.toBe('none')
+    expect(focused.outlineWidth, `${focused.name}: an outline`).not.toBe('0px')
+    if (index < ALL_CONTROL_LABELS.length - 1) await page.keyboard.press('Tab')
+  }
+  await test.info().attach('forced-colors-focus.png', { body: await toolbarOf(page).screenshot(), contentType: 'image/png' })
+})
+
+test('390px: a control Shift+Tab reaches while <main> is scrolled is not hidden under the sticky band', async ({
+  page,
+  authedUser,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const letterId = await insertLongLetter(authedUser.id)
+  await openAtViewport(page, letterId)
+  await showSection(page, 'body')
+  const band = page.locator('[data-sticky-formatting-band]')
+
+  // From the last body paragraph, at the bottom of the form, back upwards:
+  // each control focused is scrolled to, and must stay clear of the band.
+  await page.evaluate(() => {
+    const main = document.querySelector('main')!
+    main.scrollTop = main.scrollHeight
+  })
+  const last = page.locator('div[contenteditable][id^="body-paragraph-"]').last()
+  await last.click()
+  for (let step = 1; step <= 8; step++) {
+    await page.keyboard.press('Shift+Tab')
+    const focused = await page.evaluate(() => {
+      const element = document.activeElement as HTMLElement
+      const { top, bottom } = element.getBoundingClientRect()
+      return { id: element.id || element.getAttribute('title') || element.tagName, top, bottom }
+    })
+    const bandBox = await rect(band)
+    expect(focused.top, `step ${step} (${focused.id}): below the band`).toBeGreaterThanOrEqual(bandBox.bottom - 0.5)
+  }
+  expect(
+    await page.evaluate(() => document.querySelector('main')!.scrollTop),
+    '<main> was scrolled up to reach them',
+  ).toBeGreaterThan(0)
+})
+
+test('1024px with a mouse: the row fits, with 32px controls and no sideways scroll', async ({ page, authedUser }) => {
+  await page.setViewportSize({ width: 1024, height: 768 })
+  const letterId = await insertLetter(authedUser.id)
+  await openAtViewport(page, letterId)
+  expect(await page.evaluate(() => window.matchMedia('(pointer: fine)').matches), 'a fine pointer').toBe(true)
+  const geometry = await rowGeometry(page)
+  test.info().annotations.push({ type: 'row at 1024', description: `${geometry.scrollWidth}/${geometry.clientWidth}px` })
+  expect(geometry.scrollWidth, 'the row fits: nothing to scroll').toBeLessThanOrEqual(geometry.clientWidth)
+  for (const control of geometry.controls) {
+    if (control.tag === 'button') expect(control.height, '32px buttons').toBeGreaterThanOrEqual(32)
+    expect(control.height, 'not the touch size').toBeLessThan(44)
+  }
+  expect(await pageOverflow(page)).toEqual({ page: 0, main: 0 })
+})
+
+test.describe('on a phone, with touch', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
+
+  test('the row has 44px tap targets and no visible scrollbar, and still scrolls sideways', async ({ page, authedUser }) => {
+    const letterId = await insertLetter(authedUser.id)
+    await openAtViewport(page, letterId)
+    expect(await page.evaluate(() => window.matchMedia('(pointer: coarse)').matches), 'a coarse pointer').toBe(true)
+    const geometry = await rowGeometry(page)
+    const centers = geometry.controls.map((control) => control.center)
+    expect(Math.max(...centers) - Math.min(...centers), 'one row').toBeLessThanOrEqual(1)
+    for (const control of geometry.controls) expect(control.height, '44px tap targets').toBeGreaterThanOrEqual(44)
+    expect(geometry.scrollWidth, 'more controls than fit').toBeGreaterThan(geometry.clientWidth)
+    expect(await toolbarOf(page).evaluate((row) => getComputedStyle(row).scrollbarWidth), 'no scrollbar').toBe('none')
+    expect(await pageOverflow(page)).toEqual({ page: 0, main: 0 })
+    await test.info().attach('390-touch-row.png', { body: await toolbarOf(page).screenshot(), contentType: 'image/png' })
+  })
+
+  test('a tap on Bold, Italic or the font select formats the selection made before it', async ({ page, authedUser }) => {
+    const letterId = await insertLetter(authedUser.id)
+    await openAtViewport(page, letterId)
+    const toolbar = toolbarOf(page)
+    const controls = selectionControls(toolbar)
+    await sectionButton(page, 'opening').tap()
+    const opening = page.locator('#opening-paragraph')
+    await expect(opening).toContainText('obold')
+
+    /** Taps into the field, as a finger does, then selects `word` in it. */
+    const selectByTouch = async (word: string) => {
+      await opening.tap()
+      await opening.evaluate((element, target) => {
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const index = node.textContent!.indexOf(target)
+          if (index < 0) continue
+          const range = document.createRange()
+          range.setStart(node, index)
+          range.setEnd(node, index + target.length)
+          window.getSelection()!.removeAllRanges()
+          window.getSelection()!.addRange(range)
+          return
+        }
+        throw new Error(`No "${target}"`)
+      }, word)
+    }
+
+    /** The page's selection, when it is in the opening: the tap did not dismiss it. */
+    const selectionInField = () =>
+      opening.evaluate((element) => {
+        const selection = window.getSelection()!
+        return selection.rangeCount > 0 && element.contains(selection.getRangeAt(0).startContainer)
+          ? selection.toString()
+          : null
+      })
+
+    await selectByTouch('obold')
+    await controls.bold.tap()
+    expect(await selectionInField(), 'the selection is still in the field after the tap').toBe('obold')
+    await expect.poll(() => isWrapped(opening, 'obold', 'b, strong'), 'Bold tapped').toBe(true)
+
+    await selectByTouch('oitalic')
+    await controls.italic.tap()
+    expect(await selectionInField(), 'the selection is still in the field after the tap').toBe('oitalic')
+    await expect.poll(() => isWrapped(opening, 'oitalic', 'i, em'), 'Italic tapped').toBe(true)
+
+    await selectByTouch('ofont')
+    await controls.font.tap()
+    await controls.font.selectOption({ label: 'Georgia' })
+    await expect.poll(() => isWrapped(opening, 'ofont', 'span[style*="font-family: Georgia"]'), 'font chosen').toBe(true)
+
+    // Nothing else in the field changed.
+    expect(await isWrapped(opening, 'ounderline', 'b, strong, i, em, u, span')).toBe(false)
+  })
 })

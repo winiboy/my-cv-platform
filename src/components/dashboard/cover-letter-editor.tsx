@@ -1139,10 +1139,20 @@ function CoverLetterEditorContent({
         Below xl it comes in document order, under the Édition / Aperçu
         switch, and only in Édition (Aperçu has no field to format): above
         the switch, hiding it in Aperçu moved the switch under the finger.
+        Below xl the form scrolls in <main>, so the band is sticky there, to
+        stay reachable while a long letter scrolls. Sticking starts at
+        <main>'s padding, so it is pulled through that padding (p-4, sm:p-6)
+        to sit on the edge, as the bottom bar is; its background is opaque and
+        it stays under the "•••" menu and the dialogs (z-50). At xl the form
+        column scrolls on its own and the band never moves.
+        `data-sticky-formatting-band` gives <main> the scroll padding (in the
+        dashboard layout) that keeps a focused control or the caret clear of it.
       */}
       <div
+        data-sticky-formatting-band
         className={cn(
           'flex items-center gap-2 px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800',
+          'max-xl:sticky max-xl:-top-4 max-xl:z-10 max-xl:py-1 sm:max-xl:-top-6',
           view === 'preview' && 'max-xl:hidden'
         )}
       >
