@@ -75,3 +75,68 @@ Commit:
 - Story commit: THIS_COMMIT
 - Commit message: ralph: US-001 One toolbar at the top formats the field the cursor is in
 FINAL: PASS
+
+## US-002: An alignment button aligns the whole letter
+Status: PASS
+Priority: 2
+Branch: ralph/cover-letter-top-toolbar
+Baseline HEAD: 58a1d19 (US-001)
+Worktree: .claude/worktrees/cover-letter-top-toolbar — the main checkout belongs to another session.
+
+Scope:
+- Scope check: PASS
+- Changed paths: src/lib/rich-text-letter-alignment.ts (new), src/lib/rich-text-letter-alignment.test.ts (new), src/components/dashboard/cover-letter-editor.tsx, src/components/dashboard/shared-formatting-toolbar.tsx, src/components/dashboard/formatting-ribbon.tsx, src/components/dashboard/formatting-ribbon.test.ts, src/components/dashboard/rich-text-editor.tsx, src/components/dashboard/cover-letter-sections/body-section.tsx, e2e/cover-letter-paragraph-alignment.spec.ts (rewritten to whole-letter semantics), e2e/cover-letter-top-toolbar.spec.ts, tasks/ralph/prd.json, tasks/ralph/progress.txt
+- Not touched: `git diff HEAD -- src/app` empty (PDF and Word export code), html-utils.ts and rich-html-sanitizer.ts unchanged, resume-sections/* unchanged, no migration, no visual baseline, package.json version unchanged. No push, no merge.
+
+Checks (all on the final diff):
+- pnpm typecheck: PASS — exit 0
+- pnpm test: PASS with the named environment limit — 163 files, 5174 passed, 17 skipped, 2 failed (swiss-commerce/-vocational template tests on CRLF working copies, untouched files; with LF working copies 2/2 files, 25/25 passed; copies restored). Same limit as US-001.
+- pnpm test:integration: PASS — 5/5 files, 80 passed
+- pnpm build: PASS — 105/105 static pages (no dev server in this worktree)
+- pnpm lint: PASS — 134 problems (93 errors, 41 warnings), under the 135 baseline (unchanged from US-001)
+- pnpm test:e2e: PASS — 714 passed, 0 failed (E2E_PORT=3157, 24.2 min)
+- pnpm test:visual: NOT_APPLICABLE — no resume template or export rendering change
+
+Specialized validation:
+- Browser: PASS — e2e/cover-letter-paragraph-alignment.spec.ts and cover-letter-top-toolbar.spec.ts, plus ui-expert rendered review
+- Visual: NOT_APPLICABLE — no template/rendering change
+- Export: PASS — export code unchanged; the alignment spec saves, reloads and checks both previews, PDF line positions and Word w:jc "both" for every paragraph; ui-expert also downloaded letter.pdf and letter.docx and found w:jc w:val="both" on all 9 opening/body/closing paragraphs and none on the others
+- Database: NOT_APPLICABLE — same columns, alignment stays in the field HTML (FR-5)
+- Security: NOT_APPLICABLE as a separate skill — the alignment value comes from the fixed set of four (ALIGN_FORMAT_COMMANDS); the transform writes only style="text-align: X;" and copies other bytes; mounted fields still pass through sanitizeHtml (code-reviewer verified)
+
+Agents:
+- ui-expert round 1: PASS — AC 1-9 in fr/de at 1440 and fr at 390; minor: paste into an empty new paragraph left it unaligned (fixed in round 2).
+- code-reviewer round 1: FAIL — (1) a stale isUserEditingRef let a no-op command block the next outside value change, so a focused field kept unaligned HTML and the next keystroke overwrote the aligned state; (2) AC 8 held only for beforeinput insertText (not paste, IME, Android composition); (3) splitting a block's style on every ';' broke &quot;-quoted font names. Fixed: value-comparison re-sync (flag removed); an aligned empty <p><br></p> seeded when an empty field takes focus (removed on blur if nothing was entered); only the text-align declaration is rewritten.
+- code-reviewer round 2: FAIL — a trailing entity's ';' was taken for a CSS separator (font-family: &quot;A B&quot; text-align: left;). Fixed with entity-aware separator detection; unit tests with that exact input and the &#34; variant.
+- ui-expert round 2: FAIL — an alignment click moved the caret to offset 0 of the focused field (77 -> 0), so typing landed at the start. Fixed: live and saved selections are kept as text offsets across the re-sync (live selection restored only when the field has focus). A regression this introduced (keyboard Move up re-focused the moved field) was caught by the US-001 e2e and fixed.
+- code-reviewer round 3: PASS — 4 minor findings (Open owner decisions).
+- ui-expert round 3: PASS — caret offsets unchanged after Centrer/Justifier in the opening and body p1/p2 (18->18, 53->53, 9->9), a word-spanning selection survives (8-30), the seeded paragraph follows a later alignment change, CV summary/experience typing never jumps.
+
+Acceptance criteria:
+- AC-01 (Justify -> every block of the four fields, wherever the cursor is): PASS — e2e aligns with no target and with the cursor in the opening and closing, then checks every block section by section; ui-expert: 7/7 blocks justify in pane and preview window
+- AC-02 (left, center, right the same): PASS — e2e applies all four; Left written explicitly
+- AC-03 (bare text wrapped, nothing lost or reordered): PASS — unit tests; e2e checks the stored HTML byte for byte after save (bare line wrapped, text unchanged)
+- AC-04 (both previews): PASS — e2e checks the editor pane preview and the preview window after reload
+- AC-05 (PDF and Word after Save): PASS — e2e PDF line positions and Word w:jc both; ui-expert downloaded artifacts as above
+- AC-06 (active button only when all blocks share an alignment): PASS — e2e starts from a seeded mixed-alignment letter (none pressed), then each click presses exactly one; unit tests for sharedAlignment
+- AC-07 (alignment enabled whenever there is text, with or without a target): PASS — e2e: enabled with no target while Bold is aria-disabled; a letter with no text has them disabled until text is typed
+- AC-08 (a body paragraph added later starts with that alignment): PASS — e2e: typed, real Ctrl+V paste and keyboard.insertText (IME-like) each give one justified <p>; an untouched added paragraph stays '' with its placeholder; an alignment change made while it is focused is followed
+- AC-09 (inline formatting unchanged): PASS — e2e stored-HTML check (bold, italic, underline, font and size spans, list untouched); unit tests keep inline bytes; ui-expert Word file: w:b, w:i, w:u, Georgia, w:sz, w:numPr kept
+
+Decision (AC-01, transform): a pure string transform in src/lib/rich-text-letter-alignment.ts rather than DOMParser — unit tests run in Node without a DOM library and adding one would be a new dependency; the transform never touches the DOM, so it is SSR-safe. It sets text-align on p/div/li start tags at any depth, wraps balanced bare top-level runs in <p>, and leaves malformed runs unwrapped (comment in the file). Rejected: looping over registered editors — only the current section's editors are mounted.
+Decision (AC-08): seed an aligned empty paragraph on focus instead of wrapping text after input — wrapping during input would break IME composition and add unrecorded undo steps. Cost: the placeholder is hidden while that empty field has focus.
+Decision (FR-4): the three fields are aligned in one updateCoverLetter call, which marks the letter unsaved; mounted editors re-sync from their value. Whole-letter alignment is not undoable with Ctrl+Z (state change; PRD Risks); the re-sync also clears the focused field's browser undo history.
+
+Open owner decisions recorded by this story:
+- Minor, not required by any AC: a caret on an empty line (<p><br></p>) is restored to the start of the next paragraph after an alignment click; a backward selection comes back forward; after AI generation or translation re-syncs, the caret lands at a clamped offset (no worse than before).
+- Only body paragraphs get the seeded alignment (AC 8 names body paragraphs); an empty opening or closing typed into after a whole-letter alignment stays left until the next alignment click.
+- Carried from US-001: list bullets are not drawn in the editor previews (pre-existing; PDF and Word show them).
+
+Environment notes:
+- core.autocrlf=true affects the two Swiss template unit tests only (above).
+- The e2e build rewrites next-env.d.ts; reverted after each run, not committed.
+
+Commit:
+- Story commit: THIS_COMMIT
+- Commit message: ralph: US-002 An alignment button aligns the whole letter
+FINAL: PASS

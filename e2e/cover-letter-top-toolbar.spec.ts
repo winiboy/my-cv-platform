@@ -27,8 +27,10 @@ import en from '../src/locales/en/common.json'
  *     preview, which renders every field at once: the other fields' rendered
  *     HTML is byte-identical before and after. Font and size are chosen after
  *     the select has taken focus and the page's selection has been removed.
- *   - AC 6, 7: the toolbar is visible and aria-disabled (never `disabled`, so
- *     every control stays in the Tab order) until a field has the cursor; a
+ *   - AC 6, 7: the toolbar is visible and its selection-based controls are
+ *     aria-disabled (never `disabled`, so every control stays in the Tab
+ *     order) until a field has the cursor; the alignment buttons, which align
+ *     the whole letter since US-002, are enabled while the letter has text; a
  *     toolbar control keeps the target; acting in another control clears it:
  *     a click on the greeting input, the section nav or another section,
  *     typing in the greeting, Enter on a paragraph's "Move up". Moving focus
@@ -353,10 +355,12 @@ test('the toolbar is disabled until a field has the cursor, keeps it through its
   // The Recipient section opens first: no rich-text field yet.
   await expect(form.getByRole('heading', { level: 3, name: editorDict.recipient.title })).toBeVisible()
   await expectControls(toolbar, 'disabled', 'recipient section')
+  // The alignment buttons align the whole letter (US-002): they need no
+  // target, only text in the letter, which this one has.
   for (const label of [t.alignLeft, t.alignCenter, t.alignRight, t.alignJustify]) {
     await expect(toolbar.getByRole('button', { name: label, exact: true }), `recipient section: ${label}`).toHaveAttribute(
       'aria-disabled',
-      'true',
+      'false',
     )
   }
   await test.info().attach('disabled-1440.png', { body: await page.screenshot(), contentType: 'image/png' })
@@ -504,7 +508,10 @@ test('moving a paragraph with the keyboard clears the target', async ({ page, au
   await expectControls(toolbar, 'disabled', 'after moving paragraph 2 up')
 })
 
-test('with no target, every toolbar control is reached by Tab and is aria-disabled', async ({ page, authedUser }) => {
+test('with no target, every toolbar control is reached by Tab; the selection-based ones are aria-disabled', async ({
+  page,
+  authedUser,
+}) => {
   const letterId = await insertLetter(authedUser.id)
   await openEditor(page, letterId)
   const toolbar = toolbarOf(page)
@@ -522,10 +529,12 @@ test('with no target, every toolbar control is reached by Tab and is aria-disabl
   for (let index = 0; index < ALL_CONTROL_LABELS.length; index++) {
     const label = await activeLabel(page)
     reached.push(label ?? '')
+    // The alignment buttons align the whole letter (US-002): enabled with no target
+    const isAlignment = [t.alignLeft, t.alignCenter, t.alignRight, t.alignJustify].includes(label ?? '')
     expect(
       await page.evaluate(() => document.activeElement?.getAttribute('aria-disabled')),
       `${label}: aria-disabled`,
-    ).toBe('true')
+    ).toBe(String(!isAlignment))
     if (label === t.fontSize) {
       // A value change on a disabled select applies nothing and is not kept.
       const size = selectionControls(toolbar).fontSize

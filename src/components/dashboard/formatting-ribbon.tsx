@@ -77,7 +77,21 @@ interface FormattingRibbonBaseProps {
  */
 type FormattingRibbonPlacementProps =
   | { placement?: 'attached'; editorId: string }
-  | { placement: 'shared'; editorId: string | null; label: string }
+  | { placement: 'shared'; editorId: string | null; label: string; alignment?: SharedAlignmentControl }
+
+/**
+ * A shared toolbar's alignment buttons when they act on a whole document (the
+ * cover letter: every paragraph of the opening, body and closing) rather than
+ * on the target editor's paragraphs. They then need no target: they are
+ * enabled while there is text, and the active one is the document's.
+ */
+export interface SharedAlignmentControl {
+  /** The alignment every paragraph shares, or `null` when they differ or there is none. */
+  active: TextAlignment | null
+  /** Whether there is text to align. */
+  enabled: boolean
+  onAlign: (alignment: TextAlignment) => void
+}
 
 type FormattingRibbonProps = FormattingRibbonBaseProps & FormattingRibbonPlacementProps
 
@@ -127,6 +141,8 @@ export function FormattingRibbon(props: FormattingRibbonProps) {
     dict,
   } = props
   const shared = props.placement === 'shared' ? props : null
+  const alignmentControl = shared?.alignment ?? null
+  const hasAlignmentControl = alignmentControl !== null
   const isShared = shared !== null
   const disabled = isShared && editorId === null
   const t = dict?.resumes?.editor?.richTextToolbar
@@ -155,7 +171,8 @@ export function FormattingRibbon(props: FormattingRibbonProps) {
   }, [editorId, isShared])
 
   useEffect(() => {
-    if (!showAlignment) return
+    // A document-wide alignment's state comes from its control, not the selection
+    if (!showAlignment || hasAlignmentControl) return
     // Undo and redo change a paragraph's alignment without moving the
     // selection, so the editor's own input events are read too
     const editor = editorId ? document.getElementById(editorId) : null
@@ -165,7 +182,7 @@ export function FormattingRibbon(props: FormattingRibbonProps) {
       document.removeEventListener('selectionchange', updateActiveAlignment)
       editor?.removeEventListener('input', updateActiveAlignment)
     }
-  }, [showAlignment, editorId, updateActiveAlignment])
+  }, [showAlignment, hasAlignmentControl, editorId, updateActiveAlignment])
 
   // Update active formats based on current selection
   useEffect(() => {
@@ -206,6 +223,10 @@ export function FormattingRibbon(props: FormattingRibbonProps) {
   }
 
   const handleAlignmentClick = (command: AlignFormatCommand) => {
+    if (alignmentControl) {
+      if (alignmentControl.enabled) alignmentControl.onAlign(ALIGN_FORMAT_COMMANDS[command])
+      return
+    }
     if (disabled) return
     onFormat(command)
     // Aligning changes no selection, so no selectionchange reports it
@@ -323,14 +344,16 @@ export function FormattingRibbon(props: FormattingRibbonProps) {
         >
           {ALIGNMENT_BUTTONS.map(({ command, labelKey, fallbackLabel, Icon }) => {
             const label = t?.[labelKey] || fallbackLabel
-            const isActive = !disabled && activeAlignment === ALIGN_FORMAT_COMMANDS[command]
+            const isActive = alignmentControl
+              ? alignmentControl.active === ALIGN_FORMAT_COMMANDS[command]
+              : !disabled && activeAlignment === ALIGN_FORMAT_COMMANDS[command]
             return (
               <button
                 key={command}
                 type="button"
                 onMouseDown={keepEditorSelection}
                 onClick={() => handleAlignmentClick(command)}
-                aria-disabled={ariaDisabled}
+                aria-disabled={alignmentControl ? !alignmentControl.enabled : ariaDisabled}
                 className={`p-2 rounded hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 ${
                   isActive ? 'bg-teal-100 text-teal-700' : 'text-slate-600'
                 }${disabledClass}`}

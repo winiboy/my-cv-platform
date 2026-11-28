@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { FormattingRibbon, type FormatCommand } from './formatting-ribbon'
+import { FormattingRibbon, type FormatCommand, type SharedAlignmentControl } from './formatting-ribbon'
 import { DEFAULT_FONT, DEFAULT_FONT_SIZE } from '@/lib/constants/fonts'
 
 /**
@@ -177,10 +177,21 @@ interface SharedFormattingToolbarProps {
   label: string
   testId?: string
   showAlignment?: boolean
+  /**
+   * Makes the alignment buttons act on the whole document instead of the
+   * target editor's paragraphs. Without it they align the target's paragraphs.
+   */
+  alignment?: SharedAlignmentControl
   dict?: Record<string, unknown>
 }
 
-export function SharedFormattingToolbar({ label, testId, showAlignment = false, dict }: SharedFormattingToolbarProps) {
+export function SharedFormattingToolbar({
+  label,
+  testId,
+  showAlignment = false,
+  alignment,
+  dict,
+}: SharedFormattingToolbarProps) {
   const state = useContext(StateContext)
   if (!state) throw new Error('SharedFormattingToolbar must be rendered inside a SharedFormattingProvider')
   const { target, toolbarRef } = state
@@ -218,6 +229,7 @@ export function SharedFormattingToolbar({ label, testId, showAlignment = false, 
         currentFont={choice.font}
         currentFontSize={choice.fontSize}
         showAlignment={showAlignment}
+        alignment={alignment}
         dict={dict}
       />
     </div>

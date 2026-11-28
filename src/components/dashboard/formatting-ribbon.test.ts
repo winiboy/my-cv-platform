@@ -151,6 +151,52 @@ describe('FormattingRibbon shared placement', () => {
     expect(textFormatPressed(html)).toEqual(['false', 'false', 'false'])
   })
 
+  /**
+   * US-002: with a whole-letter alignment control the alignment buttons no
+   * longer depend on a target. They are enabled while the letter holds text,
+   * and the pressed one is the alignment every paragraph shares.
+   */
+  const renderWithControl = (editorId: string | null, control: { active: 'left' | 'center' | 'right' | 'justify' | null; enabled: boolean }) =>
+    renderToStaticMarkup(
+      createElement(FormattingRibbon, {
+        placement: 'shared',
+        label: 'Text formatting',
+        editorId,
+        onFormat: () => {},
+        showAlignment: true,
+        alignment: { ...control, onAlign: () => {} },
+        dict: en,
+      }),
+    )
+  const alignmentDisabled = (html: string) =>
+    controls(html)
+      .filter((control) => [t.alignLeft, t.alignCenter, t.alignRight, t.alignJustify].includes(control.label))
+      .map((control) => control.ariaDisabled)
+
+  it('with a letter alignment control, enables alignment without a target while there is text', () => {
+    const html = renderWithControl(null, { active: 'justify', enabled: true })
+    expect(alignmentDisabled(html)).toEqual(['false', 'false', 'false', 'false'])
+    expect(alignmentButtons(html).map((button) => button.pressed)).toEqual(['false', 'false', 'false', 'true'])
+    // The selection-based controls still need a target.
+    expect(
+      controls(html)
+        .filter((control) => ![t.alignLeft, t.alignCenter, t.alignRight, t.alignJustify].includes(control.label))
+        .every((control) => control.ariaDisabled === 'true'),
+    ).toBe(true)
+  })
+
+  it('with a letter alignment control, disables alignment when there is no text, and presses none when paragraphs differ', () => {
+    expect(alignmentDisabled(renderWithControl('opening-paragraph', { active: null, enabled: false }))).toEqual([
+      'true',
+      'true',
+      'true',
+      'true',
+    ])
+    expect(
+      alignmentButtons(renderWithControl('opening-paragraph', { active: null, enabled: true })).map((button) => button.pressed),
+    ).toEqual(['false', 'false', 'false', 'false'])
+  })
+
   for (const locale of ['en', 'fr', 'de', 'it'] as const) {
     it(`${locale}: has a toolbar name in the dictionary`, () => {
       const editor = (DICTS[locale].coverLetters as Record<string, unknown>).editor as Record<string, unknown>

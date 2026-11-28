@@ -2,16 +2,20 @@
 
 import { Plus, Trash2, GripVertical } from 'lucide-react'
 import { RichTextEditor } from '../rich-text-editor'
+import type { TextAlignment } from '@/lib/rich-text-alignment'
 
 interface BodySectionProps {
   bodyParagraphs: string[]
   onChange: (paragraphs: string[]) => void
+  /** The alignment the letter's paragraphs share: a new paragraph starts with it. */
+  letterAlignment?: TextAlignment
   dict: Record<string, unknown>
 }
 
 export function BodySection({
   bodyParagraphs,
   onChange,
+  letterAlignment,
   dict,
 }: BodySectionProps) {
   const editorDict = ((dict.coverLetters || {}) as Record<string, unknown>).editor as Record<string, unknown> || {}
@@ -115,6 +119,7 @@ export function BodySection({
                 placeholder={(bodyDict.paragraphPlaceholder as string) || 'Write your paragraph...'}
                 minHeight="100px"
                 sharedToolbar
+                emptyAlignment={letterAlignment}
                 dict={dict}
               />
             </div>

@@ -51,6 +51,9 @@ import { SignatureSection } from './cover-letter-sections/signature-section'
 import { CoverLetterGenerationModal } from './cover-letter-generation-modal'
 import { CoverLetterCheckerModal } from './cover-letter-checker-modal'
 import { SharedFormattingProvider, SharedFormattingToolbar } from './shared-formatting-toolbar'
+import { migrateTextToHtml } from '@/lib/html-utils'
+import type { TextAlignment } from '@/lib/rich-text-alignment'
+import { alignRichText, hasAlignableText, sharedAlignment } from '@/lib/rich-text-letter-alignment'
 
 interface JobApplicationData {
   id: string
@@ -719,6 +722,57 @@ function CoverLetterEditorContent({
     ? (coverLetter.body_paragraphs as string[])
     : []
 
+  // The toolbar's alignment buttons align the whole letter: every paragraph
+  // of the opening, of every body paragraph and of the closing
+  // (cover-letter-top-toolbar, US-002).
+  const openingParagraph = coverLetter.opening_paragraph
+  const closingParagraph = coverLetter.closing_paragraph
+  const storedBodyParagraphs = coverLetter.body_paragraphs
+  const letterAlignmentState = useMemo(() => {
+    const body = Array.isArray(storedBodyParagraphs) ? (storedBodyParagraphs as string[]) : []
+    const fields = [openingParagraph, ...body, closingParagraph]
+    return { active: sharedAlignment(fields), hasText: hasAlignableText(fields) }
+  }, [openingParagraph, storedBodyParagraphs, closingParagraph])
+
+  // A state change, as any edit is, so the letter becomes unsaved and the
+  // section's editors re-sync from their values. It is no editing command
+  // inside a field, so Ctrl+Z there does not undo it.
+  const handleAlignLetter = useCallback(
+    (alignment: TextAlignment) => {
+      // A legacy plain-text field is read as the editor displays it
+      const align = (value: string | null): string | null =>
+        value ? alignRichText(/<[^>]+>/.test(value) ? value : migrateTextToHtml(value), alignment) : value
+      const body = Array.isArray(storedBodyParagraphs) ? (storedBodyParagraphs as string[]) : []
+      const opening = align(openingParagraph)
+      const alignedBody = body.map((paragraph) => align(paragraph) ?? '')
+      const closing = align(closingParagraph)
+      const changed =
+        opening !== openingParagraph ||
+        closing !== closingParagraph ||
+        alignedBody.some((paragraph, index) => paragraph !== body[index])
+      if (!changed) return
+      updateCoverLetter({
+        opening_paragraph: opening,
+        body_paragraphs: alignedBody as unknown as CoverLetter['body_paragraphs'],
+        closing_paragraph: closing,
+      })
+    },
+    [openingParagraph, storedBodyParagraphs, closingParagraph, updateCoverLetter]
+  )
+
+  const letterAlignmentControl = useMemo(
+    () => ({
+      active: letterAlignmentState.active,
+      enabled: letterAlignmentState.hasText,
+      onAlign: handleAlignLetter,
+    }),
+    [letterAlignmentState, handleAlignLetter]
+  )
+
+  // Left is what a paragraph with no alignment shows already
+  const newParagraphAlignment =
+    letterAlignmentState.active && letterAlignmentState.active !== 'left' ? letterAlignmentState.active : undefined
+
   const renderSection = () => {
     switch (activeSection) {
       case 'resume':
@@ -769,6 +823,7 @@ function CoverLetterEditorContent({
           <BodySection
             bodyParagraphs={bodyParagraphs}
             onChange={handleBodyParagraphsChange}
+            letterAlignment={newParagraphAlignment}
             dict={dict}
           />
         )
@@ -1095,6 +1150,7 @@ function CoverLetterEditorContent({
           label={(editorDict.formattingToolbar as string) || 'Text formatting'}
           testId="cover-letter-formatting-toolbar"
           showAlignment
+          alignment={letterAlignmentControl}
           dict={dict}
         />
         {/* Translation: a translated copy of the saved letter, opened once created */}
